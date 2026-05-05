@@ -38,8 +38,8 @@ public class SessionMemoryExtractor {
 
     private static final Logger logger = LoggerFactory.getLogger(SessionMemoryExtractor.class);
     private static final int INITIAL_TOKEN_THRESHOLD = 10000;
-    private static final int TOKEN_GROWTH_THRESHOLD = 5000;
-    private static final int TOOL_CALL_THRESHOLD = 3;
+    private static final int TOKEN_GROWTH_THRESHOLD = 8000;
+    private static final int TOOL_CALL_THRESHOLD = 5;
 
     private final String sessionId;
     private final SessionMemoryManager memoryManager;

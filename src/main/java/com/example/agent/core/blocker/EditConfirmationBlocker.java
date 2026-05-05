@@ -25,6 +25,10 @@ public class EditConfirmationBlocker implements Blocker {
             return HookResult.allow();
         }
 
+        if (RequestContext.isWeb()) {
+            return HookResult.allow();
+        }
+
         try {
             String filePath = arguments.get("path").asText();
             String oldText = arguments.get("old_text").asText();

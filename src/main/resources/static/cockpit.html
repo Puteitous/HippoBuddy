@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hippo Cockpit</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>
+        const renderer = new marked.Renderer();
+        renderer.code = function(obj) {
+            const code = (typeof obj === 'object' && obj !== null) ? obj.text : obj;
+            const language = (typeof obj === 'object' && obj !== null) ? (obj.lang || '') : '';
+            const lang = language || 'plaintext';
+            let highlighted;
+            try {
+                if (hljs.getLanguage(lang)) {
+                    highlighted = hljs.highlight(code, { language: lang }).value;
+                } else {
+                    highlighted = hljs.highlightAuto(code).value;
+                }
+            } catch (e) {
+                highlighted = escapeHtml(code);
+            }
+            const codeId = 'code-' + Math.random().toString(36).substr(2, 9);
+            return '<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang">' + lang + '</span><button class="copy-btn" onclick="copyCode(\'' + codeId + '\')">📋 复制</button></div><pre><code id="' + codeId + '" class="hljs language-' + lang + '">' + highlighted + '</code></pre></div>';
+        };
+
+        function copyCode(codeId) {
+            const codeEl = document.getElementById(codeId);
+            if (codeEl) {
+                navigator.clipboard.writeText(codeEl.textContent).then(() => {
+                    const btn = codeEl.closest('.code-block-wrapper').querySelector('.copy-btn');
+                    btn.textContent = '✅ 已复制!';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = '📋 复制';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        marked.setOptions({
+            renderer: renderer,
+            breaks: true,
+            gfm: true
+        });
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #6fa0c8;
+            color: white;
+            padding: 12px 20px;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header .sse-status {
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
+        .header .sse-status.connected {
+            background: #2e7d32;
+        }
+
+        .header .sse-status.disconnected {
+            background: #c62828;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .session-panel {
+            width: 220px;
+            display: flex;
+            flex-direction: column;
+            background: #f0f0f0;
+            border-right: 1px solid #e0e0e0;
+            min-width: 180px;
+        }
+
+        .session-header {
+            padding: 12px 14px;
+            background: #e8e8e8;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 600;
+            font-size: 14px;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .session-header button:hover {
+            color: #333;
+        }
+
+        .session-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .session-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .session-item:hover {
+            background: #e0e0e0;
+        }
+
+        .session-item.active {
+            background: #6ea8d7;
+            color: white;
+        }
+
+        .session-item .session-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+
+        .session-item .session-actions {
+            display: none;
+            flex-shrink: 0;
+            gap: 2px;
+        }
+
+        .session-item:hover .session-actions {
+            display: flex;
+        }
+
+        .session-item .session-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+            font-size: 13px;
+            padding: 0 4px;
+            line-height: 1;
+        }
+
+        .session-item.active .session-actions button {
+            color: #ccc;
+        }
+
+        .session-item .session-actions button:hover {
+            color: #333;
+        }
+
+        .session-item.active .session-actions button:hover {
+            color: #fff;
+        }
+
+        .session-rename-input {
+            flex: 1;
+            border: 1px solid #6ea8d7;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 13px;
+            outline: none;
+            background: white;
+            color: #333;
+            min-width: 0;
+        }
+
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e0e0e0;
+            min-width: 0;
+        }
+
+        .memory-panel {
+            width: 360px;
+            display: flex;
+            flex-direction: column;
+            background: #fafafa;
+            min-width: 280px;
+        }
+
+        .memory-header {
+            padding: 12px 16px;
+            background: #f0f0f0;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 600;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .memory-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .memory-card {
+            border: 1px solid #e0e0e0;
+            margin-bottom: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .memory-card strong {
+            color: #4CAF50;
+            font-size: 13px;
+        }
+
+        .memory-card small {
+            color: #999;
+            font-size: 11px;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+        }
+
+        .new-msg-hint {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #6ea8d7;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10;
+            display: none;
+            transition: opacity 0.2s;
+        }
+
+        .new-msg-hint:hover {
+            background: #5a94c2;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.6;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: #6ea8d7;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .message-content {
+            word-break: break-word;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: rgba(0,0,0,0.35);
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .message.user .message-time {
+            color: rgba(255,255,255,0.6);
+        }
+
+        .message.assistant pre {
+            background: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 12px 0;
+            border: 1px solid #e1e4e8;
+        }
+
+        .message.assistant pre code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            background: transparent !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+
+        .message.assistant code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            background: #f6f8fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .message.assistant p {
+            margin: 10px 0;
+            line-height: 1.7;
+        }
+
+        .message.assistant h1, .message.assistant h2, .message.assistant h3 {
+            margin: 16px 0 10px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .message.assistant h1 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        .message.assistant h2 { font-size: 1.3em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        .message.assistant h3 { font-size: 1.1em; }
+
+        .message.assistant table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        .message.assistant table th, .message.assistant table td {
+            border: 1px solid #dfe2e5;
+            padding: 10px 14px;
+            text-align: left;
+        }
+
+        .message.assistant table th {
+            background: #f6f8fa;
+            font-weight: 600;
+        }
+
+        .message.assistant table tr:nth-child(even) {
+            background: #f6f8fa;
+        }
+
+        .message.assistant blockquote {
+            border-left: 4px solid #4CAF50;
+            margin: 12px 0;
+            padding: 8px 16px;
+            background: #f6f8fa;
+            color: #666;
+        }
+
+        .message.assistant blockquote p {
+            margin: 0;
+        }
+
+        .message.assistant ul, .message.assistant ol {
+            margin: 10px 0;
+            padding-left: 24px;
+        }
+
+        .message.assistant li {
+            margin: 6px 0;
+            line-height: 1.6;
+        }
+
+        .message.assistant li > ul, .message.assistant li > ol {
+            margin: 4px 0 0;
+        }
+
+        .message.assistant hr {
+            border: none;
+            border-top: 1px solid #eaecef;
+            margin: 16px 0;
+        }
+
+        .message.assistant img {
+            max-width: 100%;
+            border-radius: 6px;
+            margin: 8px 0;
+        }
+
+        .message.assistant a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        .message.assistant a:hover {
+            text-decoration: underline;
+        }
+
+        .input-container {
+            background: white;
+            padding: 16px 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-container textarea {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+            resize: none;
+            font-family: inherit;
+            line-height: 1.5;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .input-container textarea:focus {
+            border-color: #6ea8d7;
+        }
+
+        .input-container button {
+            padding: 12px 24px;
+            background: #6ea8d7;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .input-container button:hover {
+            background: #5a94c2;
+        }
+
+        #stopBtn {
+            background: #c62828;
+            padding: 12px 20px;
+        }
+
+        #stopBtn:hover {
+            background: #b71c1c;
+        }
+
+        .input-container button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: inline-block;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            margin: auto;
+            font-size: 16px;
+        }
+
+        .memory-empty {
+            text-align: center;
+            color: #bbb;
+            margin-top: 40px;
+            font-size: 14px;
+        }
+
+        .tool-call-card {
+            margin: 8px 0;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+            overflow: hidden;
+        }
+
+        .tool-call-header {
+            padding: 10px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .tool-call-header:hover {
+            background: #f0f0f0;
+        }
+
+        .tool-call-header .tool-icon {
+            font-size: 16px;
+        }
+
+        .tool-call-header .tool-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .tool-call-header .tool-status {
+            margin-left: auto;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .tool-call-header .tool-status.running {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .tool-call-header .tool-status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .tool-call-header .tool-status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .tool-call-header .arrow {
+            transition: transform 0.2s;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .tool-call-header.expanded .arrow {
+            transform: rotate(90deg);
+        }
+
+        .tool-call-details {
+            display: none;
+            padding: 0 12px 12px;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .tool-call-details.show {
+            display: block;
+        }
+
+        .tool-call-details .detail-row {
+            margin: 6px 0;
+        }
+
+        .tool-call-details .detail-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .tool-call-details .detail-value {
+            color: #333;
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: block;
+            margin-top: 4px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .tool-result-content {
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .code-block-wrapper {
+            position: relative;
+            margin: 12px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e1e4e8;
+            background: #f6f8fa;
+        }
+
+        .code-block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f0f0f0;
+            border-bottom: 1px solid #e1e4e8;
+            padding: 8px 12px;
+        }
+
+        .code-lang {
+            font-size: 12px;
+            color: #666;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-weight: 500;
+        }
+
+        .copy-btn {
+            font-size: 11px;
+            padding: 4px 12px;
+            border: none;
+            border-radius: 4px;
+            background: #fff;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .copy-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        .copy-btn.copied {
+            background: #4caf50;
+            color: white;
+            box-shadow: 0 1px 3px rgba(76, 175, 80, 0.3);
+        }
+
+        .code-block-wrapper pre {
+            margin: 0;
+            padding: 12px;
+            background: #f6f8fa;
+        }
+
+        .code-block-wrapper pre code {
+            background: none !important;
+            padding: 0 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span>Hippo Cockpit</span>
+        <span id="sseStatus" class="sse-status disconnected">SSE 连接中...</span>
+    </div>
+    
+    <div class="main-container">
+        <div class="session-panel">
+            <div class="session-header">
+                <span>会话</span>
+                <button onclick="createNewSession()" title="新建会话" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 6px;color:#666;">+</button>
+            </div>
+            <div class="session-list" id="sessionList">
+            </div>
+        </div>
+
+        <div class="chat-panel">
+            <div class="chat-container" id="chatContainer">
+                <div class="empty-state">发送消息开始对话</div>
+                <div class="new-msg-hint" id="newMsgHint" onclick="scrollToBottom()">↓ 新消息</div>
+            </div>
+
+            <div class="input-container">
+                <textarea id="messageInput" placeholder="输入消息... (Enter 发送, Shift+Enter 换行)" rows="1" autocomplete="off"></textarea>
+                <button id="stopBtn" onclick="stopGeneration()" style="display:none;">停止</button>
+                <button id="sendBtn" onclick="sendMessage()">发送</button>
+            </div>
+        </div>
+
+        <div class="memory-panel">
+            <div class="memory-header">Memory Panel</div>
+            <div class="memory-list" id="memoryList">
+                <div class="memory-empty">等待记忆保存...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const memoryList = document.getElementById('memoryList');
+        const sseStatus = document.getElementById('sseStatus');
+        const sessionList = document.getElementById('sessionList');
+        const newMsgHint = document.getElementById('newMsgHint');
+
+        let currentSessionId = 'web-' + Date.now();
+        let currentAbortController = null;
+        let sessionNames = {};
+        let userScrolledUp = false;
+        let sessionDomCache = {};
+
+        function isNearBottom() {
+            return chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 80;
+        }
+
+        function smartScroll() {
+            if (isNearBottom()) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                newMsgHint.style.display = 'none';
+                userScrolledUp = false;
+            } else {
+                newMsgHint.style.display = 'block';
+                userScrolledUp = true;
+            }
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            newMsgHint.style.display = 'none';
+            userScrolledUp = false;
+        }
+
+        chatContainer.addEventListener('scroll', () => {
+            if (isNearBottom()) {
+                userScrolledUp = false;
+                newMsgHint.style.display = 'none';
+            } else {
+                userScrolledUp = true;
+            }
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
+        });
+
+        function saveCurrentSessionDom() {
+            if (currentSessionId) {
+                const hint = chatContainer.querySelector('.new-msg-hint');
+                if (hint) hint.style.display = 'none';
+                sessionDomCache[currentSessionId] = chatContainer.innerHTML;
+            }
+        }
+
+        function createNewSession() {
+            saveCurrentSessionDom();
+            currentSessionId = 'web-' + Date.now();
+            chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
+            loadSessionList();
+            messageInput.focus();
+        }
+
+        function switchSession(sessionId) {
+            if (sessionId === currentSessionId) return;
+            saveCurrentSessionDom();
+            currentSessionId = sessionId;
+            loadSessionList();
+
+            if (sessionDomCache[sessionId]) {
+                chatContainer.innerHTML = sessionDomCache[sessionId];
+                smartScroll();
+            } else {
+                chatContainer.innerHTML = '<div class="empty-state">加载中...</div>';
+                fetch('/api/sessions/' + sessionId + '/messages')
+                    .then(r => {
+                        if (r.status === 404) return [];
+                        return r.json();
+                    })
+                    .then(messages => {
+                        chatContainer.innerHTML = '';
+                        if (messages.length === 0) {
+                            chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
+                            return;
+                        }
+                        loadHistoryMessages(messages);
+                        sessionDomCache[sessionId] = chatContainer.innerHTML;
+                    })
+                    .catch(e => {
+                        chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
+                    });
+            }
+
+            messageInput.focus();
+        }
+
+        function deleteSession(sessionId, event) {
+            event.stopPropagation();
+            
+            // 获取会话名称用于显示
+            const sessionName = sessionNames[sessionId] || ('会话 ' + sessionId.replace('web-', '').slice(-6));
+            
+            // 显示确认弹窗
+            const confirmed = confirm(`确定要删除会话 "${sessionName}" 吗？\n\n此操作无法撤销！`);
+            if (!confirmed) {
+                return;
+            }
+            
+            delete sessionDomCache[sessionId];
+            if (sessionId === currentSessionId) {
+                currentSessionId = 'web-' + Date.now();
+                chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
+            }
+            fetch('/api/sessions/' + sessionId, { method: 'DELETE' })
+                .then(() => {
+                    delete sessionNames[sessionId];
+                    loadSessionList();
+                })
+                .catch(e => console.error('删除会话失败:', e));
+        }
+
+        function renameSession(sessionId, event) {
+            event.stopPropagation();
+            const item = event.target.closest('.session-item');
+            const nameSpan = item.querySelector('.session-name');
+            const oldName = nameSpan.textContent;
+
+            const input = document.createElement('input');
+            input.className = 'session-rename-input';
+            input.value = oldName;
+            nameSpan.replaceWith(input);
+            input.focus();
+            input.select();
+
+            const finish = () => {
+                const newName = input.value.trim() || oldName;
+                
+                // 保存到后端
+                fetch('/api/sessions/' + sessionId + '/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                })
+                .then(() => {
+                    sessionNames[sessionId] = newName;
+                    const span = document.createElement('span');
+                    span.className = 'session-name';
+                    span.textContent = newName;
+                    input.replaceWith(span);
+                    loadSessionList();
+                })
+                .catch(e => {
+                    console.error('重命名失败:', e);
+                    const span = document.createElement('span');
+                    span.className = 'session-name';
+                    span.textContent = oldName;
+                    input.replaceWith(span);
+                });
+            };
+
+            input.addEventListener('blur', finish);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+                if (e.key === 'Escape') { input.value = oldName; input.blur(); }
+            });
+        }
+
+        function loadSessionList() {
+            fetch('/api/sessions')
+                .then(r => r.json())
+                .then(sessions => {
+                    sessionList.innerHTML = '';
+                    sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+                    for (const s of sessions) {
+                        const name = s.title || sessionNames[s.id] || ('会话 ' + s.id.replace('web-', '').slice(-6));
+                        if (s.title) sessionNames[s.id] = s.title;
+                        const isActive = s.id === currentSessionId;
+                        const item = document.createElement('div');
+                        item.className = 'session-item' + (isActive ? ' active' : '');
+                        item.innerHTML = `<span class="session-name">${escapeHtml(name)}</span><span class="session-actions"><button onclick="renameSession('${s.id}', event)" title="重命名">✏</button><button onclick="deleteSession('${s.id}', event)" title="删除">×</button></span>`;
+                        item.onclick = () => switchSession(s.id);
+                        sessionList.appendChild(item);
+                    }
+                    const currentInList = sessions.some(s => s.id === currentSessionId);
+                    if (!currentInList) {
+                        const name = sessionNames[currentSessionId] || ('会话 ' + currentSessionId.replace('web-', '').slice(-6));
+                        const item = document.createElement('div');
+                        item.className = 'session-item active';
+                        item.innerHTML = `<span class="session-name">${escapeHtml(name)}</span><span class="session-actions"><button onclick="renameSession('${currentSessionId}', event)" title="重命名">✏</button><button onclick="deleteSession('${currentSessionId}', event)" title="删除">×</button></span>`;
+                        item.onclick = () => switchSession(currentSessionId);
+                        sessionList.insertBefore(item, sessionList.firstChild);
+                    }
+                })
+                .catch(e => console.error('加载会话列表失败:', e));
+        }
+
+        loadSessionList();
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function loadHistoryMessages(messages) {
+            const toolResults = {};
+            for (const msg of messages) {
+                if ((msg.role === 'tool' || msg.role === 'tool-result') && msg.toolCallId) {
+                    toolResults[msg.toolCallId] = msg;
+                }
+            }
+
+            let i = 0;
+            while (i < messages.length) {
+                const msg = messages[i];
+                if (msg.role === 'tool' || msg.role === 'tool-result') { i++; continue; }
+
+                if (msg.role === 'user') {
+                    if (msg.content && msg.content.trim()) {
+                        appendMessage('user', msg.content);
+                    }
+                    i++;
+                    continue;
+                }
+
+                if (msg.role === 'assistant') {
+                    const emptyState = chatContainer.querySelector('.empty-state');
+                    if (emptyState) emptyState.remove();
+
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'message assistant';
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'message-content';
+
+                    let segments = [];
+                    let text = '';
+                    let firstMsgTime = null;
+
+                    // 合并同一轮次的 assistant 消息（跳过中间的 tool-result）
+                    while (i < messages.length) {
+                        const am = messages[i];
+                        
+                        // 跳过 tool-result 消息
+                        if (am.role === 'tool' || am.role === 'tool-result') {
+                            i++;
+                            continue;
+                        }
+                        
+                        // 只合并 assistant 消息
+                        if (am.role !== 'assistant') {
+                            break;
+                        }
+                        
+                        const amText = am.content || '';
+                        const hasToolCalls = am.tool_calls && am.tool_calls.length > 0;
+
+                        // 记录第一个消息的时间
+                        if (!firstMsgTime && am.timestamp) {
+                            firstMsgTime = am.timestamp;
+                        }
+
+                        // 如果当前消息有文本且没有工具调用，结束合并
+                        if (amText.trim() && !hasToolCalls) {
+                            if (text.trim()) segments.push({ type: 'text', content: text });
+                            text = amText;
+                            i++;
+                            break;
+                        }
+
+                        // 按顺序处理：先文本，后工具
+                        // 1. 保存之前的文本（如果有）
+                        if (text.trim()) {
+                            segments.push({ type: 'text', content: text });
+                            text = '';
+                        }
+
+                        // 2. 处理当前消息的文本
+                        if (amText.trim()) {
+                            text = amText;
+                        }
+
+                        // 3. 处理当前消息的工具调用（紧跟在文本后面）
+                        if (hasToolCalls) {
+                            // 如果有累积的文本，先保存
+                            if (text.trim()) {
+                                segments.push({ type: 'text', content: text });
+                                text = '';
+                            }
+                            
+                            for (const tc of am.tool_calls) {
+                                let result = null;
+                                let resultContent = null;
+                                let error = null;
+                                const tr = toolResults[tc.id];
+                                if (tr) {
+                                    result = tr.success ? 'success' : 'error';
+                                    resultContent = tr.content || null;
+                                    if (!tr.success) error = resultContent;
+                                }
+                                segments.push({
+                                    type: 'tool',
+                                    name: tc.name,
+                                    args: tc.arguments,
+                                    result: result,
+                                    resultContent: resultContent,
+                                    error: error
+                                });
+                            }
+                        }
+                        i++;
+                    }
+
+                    // 保存最后剩余的文本
+                    if (text.trim()) {
+                        segments.push({ type: 'text', content: text });
+                    }
+
+                    // 如果没有任何内容（既没有文本也没有工具卡片），显示友好提示
+                    if (segments.length === 0 && !text.trim()) {
+                        contentDiv.innerHTML = '<div style="color: #999; font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
+                    } else {
+                        let html = '';
+                        for (const seg of segments) {
+                            if (seg.type === 'tool') {
+                                html += renderToolCard(seg);
+                            } else if (seg.type === 'text' && seg.content) {
+                                html += marked.parse(seg.content);
+                            }
+                        }
+                        contentDiv.innerHTML = html;
+                    }
+                    msgDiv.appendChild(contentDiv);
+
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'message-time';
+                    timeDiv.textContent = firstMsgTime ? formatTime(new Date(firstMsgTime)) : formatTime(new Date());
+                    msgDiv.appendChild(timeDiv);
+
+                    chatContainer.appendChild(msgDiv);
+                } else {
+                    i++;
+                }
+            }
+            smartScroll();
+        }
+
+        function appendMessage(role, content, time) {
+            const emptyState = chatContainer.querySelector('.empty-state');
+            if (emptyState) emptyState.remove();
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            if (role === 'assistant') {
+                contentDiv.innerHTML = marked.parse(content);
+            } else {
+                contentDiv.textContent = content;
+            }
+            msgDiv.appendChild(contentDiv);
+
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = time || formatTime(new Date());
+            msgDiv.appendChild(timeDiv);
+            
+            chatContainer.appendChild(msgDiv);
+            smartScroll();
+            return msgDiv;
+        }
+
+        async function sendMessage() {
+            const content = messageInput.value.trim();
+            if (!content) return;
+
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            appendMessage('user', content);
+
+            // 用第一条消息作为会话名
+            if (!sessionNames[currentSessionId]) {
+                sessionNames[currentSessionId] = content.length > 20 ? content.substring(0, 20) + '...' : content;
+                loadSessionList();
+            }
+
+            sendBtn.disabled = true;
+            sendBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            messageInput.disabled = true;
+
+            currentAbortController = new AbortController();
+            const assistantMsg = appendMessage('assistant', '<span class="typing-indicator">...</span>');
+            let segments = [];
+            let currentText = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: currentAbortController.signal,
+                    body: JSON.stringify({
+                        session: currentSessionId,
+                        message: content
+                    })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.substring(6);
+                            if (data === '[DONE]') continue;
+                            
+                            try {
+                                const parsed = JSON.parse(data);
+                                
+                                if (parsed.content) {
+                                    currentText += parsed.content;
+                                    renderSegments(assistantMsg, segments, currentText);
+                                    smartScroll();
+                                }
+                                
+                                if (parsed.name && parsed.success === undefined) {
+                                    // 收到 tool_start，把当前文本保存为 segment
+                                    if (currentText.trim()) {
+                                        segments.push({ type: 'text', content: currentText });
+                                        currentText = '';
+                                    }
+                                    segments.push({ type: 'tool', name: parsed.name, args: parsed.args, result: null, error: null });
+                                    renderSegments(assistantMsg, segments, currentText);
+                                }
+                                
+                                if (parsed.name && parsed.success !== undefined) {
+                                    const existingTool = segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+                                    if (existingTool) {
+                                        existingTool.result = parsed.success ? 'success' : 'error';
+                                        existingTool.error = parsed.error || null;
+                                        existingTool.resultContent = parsed.result || null;
+                                        renderSegments(assistantMsg, segments, currentText);
+                                    }
+                                }
+                                
+                                if (parsed.done) {
+                                    // 把剩余的文本也保存
+                                    if (currentText.trim()) {
+                                        segments.push({ type: 'text', content: currentText });
+                                    }
+                                    
+                                    // 如果没有任何内容，显示友好提示
+                                    if (segments.length === 0 && !currentText.trim()) {
+                                        assistantMsg.innerHTML = '<div style="color: #999; font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
+                                    }
+                                    
+                                    break;
+                                }
+                            } catch (e) {
+                                // 忽略解析错误
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    if (currentText.trim()) {
+                        segments.push({ type: 'text', content: currentText });
+                    }
+                    renderSegments(assistantMsg, segments, '');
+                    assistantMsg.innerHTML += '<div style="color:#999;font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
+                } else {
+                    assistantMsg.innerHTML = `<span style="color: red;">错误: ${error.message}</span>`;
+                }
+            } finally {
+                currentAbortController = null;
+                sendBtn.disabled = false;
+                sendBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+                messageInput.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        function stopGeneration() {
+            if (currentAbortController) {
+                currentAbortController.abort();
+            }
+        }
+
+        function renderSegments(container, segments, currentText) {
+            let html = '';
+            for (const segment of segments) {
+                if (segment.type === 'tool') {
+                    html += renderToolCard(segment);
+                } else if (segment.type === 'text' && segment.content) {
+                    html += marked.parse(segment.content);
+                }
+            }
+            // 始终显示当前累积的文本（即使还没保存到 segments）
+            if (currentText) {
+                html += marked.parse(currentText);
+            }
+            container.innerHTML = html;
+        }
+
+        function renderToolCard(tool) {
+            let argsDisplay = '';
+            if (tool.args) {
+                try {
+                    const parsed = typeof tool.args === 'string' ? JSON.parse(tool.args) : tool.args;
+                    argsDisplay = `<div class="detail-row"><span class="detail-label">参数:</span><span class="detail-value">${escapeHtml(JSON.stringify(parsed, null, 2))}</span></div>`;
+                } catch (e) {
+                    argsDisplay = `<div class="detail-row"><span class="detail-label">参数:</span><span class="detail-value">${escapeHtml(String(tool.args))}</span></div>`;
+                }
+            }
+
+            let resultDisplay = '';
+            if (tool.resultContent) {
+                resultDisplay = `<div class="detail-row"><span class="detail-label">结果:</span><span class="detail-value tool-result-content">${escapeHtml(tool.resultContent)}</span></div>`;
+            }
+            
+            return `
+                <div class="tool-call-card">
+                    <div class="tool-call-header" onclick="toggleToolCall(this)">
+                        <span class="tool-icon">🔧</span>
+                        <span class="tool-name">${escapeHtml(tool.name)}</span>
+                        <span class="tool-status ${tool.result || 'running'}">${tool.result === 'success' ? '✓ 成功' : tool.result === 'error' ? '✗ 失败' : '⋯ 运行中'}</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="tool-call-details">
+                        ${argsDisplay}
+                        ${resultDisplay}
+                        ${tool.error ? `<div class="detail-row"><span class="detail-label">错误:</span><span class="detail-value" style="color: #c62828;">${escapeHtml(tool.error)}</span></div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleToolCall(header) {
+            header.classList.toggle('expanded');
+            const details = header.nextElementSibling;
+            details.classList.toggle('show');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        let es = null;
+        let reconnectAttempts = 0;
+
+        function connectSSE() {
+            es = new EventSource('/sse/memory-events');
+
+            es.onopen = () => {
+                sseStatus.className = 'sse-status connected';
+                sseStatus.textContent = 'SSE 已连接';
+                reconnectAttempts = 0;
+            };
+
+            es.addEventListener('memory_saved', (e) => {
+                const emptyState = memoryList.querySelector('.memory-empty');
+                if (emptyState) emptyState.remove();
+
+                try {
+                    const data = JSON.parse(e.data);
+                    const card = document.createElement('div');
+                    card.className = 'memory-card';
+                    card.innerHTML = `
+                        <strong>Memory Saved</strong><br>
+                        ID: ${data.id}<br>
+                        Type: ${data.type}<br>
+                        Tags: ${data.tags?.join(', ') || '无'}<br>
+                        <small>${new Date().toLocaleTimeString()}</small>
+                    `;
+                    memoryList.insertBefore(card, memoryList.firstChild);
+                } catch (err) {
+                    console.error('解析记忆事件失败:', err);
+                }
+            });
+
+            es.onerror = () => {
+                sseStatus.className = 'sse-status disconnected';
+                sseStatus.textContent = 'SSE 断开';
+                es.close();
+                reconnectAttempts++;
+                
+                if (reconnectAttempts < 10) {
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+                    setTimeout(connectSSE, delay);
+                } else {
+                    sseStatus.textContent = '连接失败过多';
+                }
+            };
+        }
+
+        connectSSE();
+    </script>
+</body>
+</html>

@@ -34,6 +34,10 @@ public class MemoryDashboardServer {
             server = HttpServer.create(new InetSocketAddress(port), 0);
 
             server.createContext("/sse/memory-events", new SseHandler());
+            server.createContext("/api/chat", new ChatApiHandler());
+            server.createContext("/api/sessions", new SessionApiHandler());
+            server.createContext("/chat", new StaticFileHandler());
+            server.createContext("/cockpit", new StaticFileHandler());
             server.createContext("/", new StaticFileHandler());
 
             executor = Executors.newCachedThreadPool();
@@ -41,8 +45,11 @@ public class MemoryDashboardServer {
             server.start();
 
             logger.info("MemoryDashboardServer 已启动，端口：{}", port);
+            logger.info("Hippo Cockpit: http://localhost:{}/cockpit", port);
+            logger.info("Web Chat: http://localhost:{}/chat", port);
+            logger.info("Memory Dashboard: http://localhost:{}/", port);
         } catch (IOException e) {
-            logger.error("启动 SSE 服务器失败：{}", e.getMessage());
+            logger.error("启动服务器失败：{}", e.getMessage());
         }
     }
 
@@ -126,8 +133,13 @@ public class MemoryDashboardServer {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             String path = exchange.getRequestURI().getPath();
+            
             if ("/".equals(path)) {
                 path = "/index.html";
+            } else if ("/chat".equals(path)) {
+                path = "/chat.html";
+            } else if ("/cockpit".equals(path)) {
+                path = "/cockpit.html";
             }
 
             String resourcePath = "/static" + path;
