@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
  * 记忆回忆工具
  * 
  * 根据记忆 ID 获取完整内容
- * 用于在 search_memory 找到相关记忆后获取详细信息
  */
 public class RecallMemoryTool implements ToolExecutor {
 
@@ -32,7 +31,6 @@ public class RecallMemoryTool implements ToolExecutor {
     public String getDescription() {
         return """
             recall_memory: 根据记忆 ID 获取完整记忆内容。
-            在 search_memory 找到相关记忆后使用，获取详细信息后再整合到你的回复中。
             返回完整记忆内容（如超过 2000 字符会自动截断）。""";
     }
 
@@ -44,7 +42,7 @@ public class RecallMemoryTool implements ToolExecutor {
                 "properties": {
                     "id": {
                         "type": "string",
-                        "description": "The ID of the memory to retrieve (obtained from search_memory results)"
+                        "description": "The ID of the memory to retrieve "
                     }
                 },
                 "required": ["id"]

@@ -15,13 +15,19 @@ public class SubAgentPermission {
 
     public static final SubAgentPermission MEMORY_EXTRACTOR = new SubAgentPermission(
         "MEMORY_EXTRACTOR",
-        Set.of("read_file", "edit_file"),
+        Set.of("read_file", "write_file", "edit_file"),
         true
     );
 
     public static final SubAgentPermission MEMORY_CONSOLIDATOR = new SubAgentPermission(
         "MEMORY_CONSOLIDATOR",
-        Set.of("read_file", "edit_file"),
+        Set.of("read_file", "write_file", "edit_file"),
+        true
+    );
+
+    public static final SubAgentPermission SESSION_MEMORY_UPDATER = new SubAgentPermission(
+        "SESSION_MEMORY_UPDATER",
+        Set.of("edit_file"),
         true
     );
 

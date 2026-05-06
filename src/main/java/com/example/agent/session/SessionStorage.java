@@ -514,9 +514,15 @@ public class SessionStorage {
     
     private String extractDateFromSessionId(String sessionId) {
         try {
-            if (sessionId != null && sessionId.length() >= 13) {
-                long timestamp = Long.parseLong(sessionId.substring(0, 13));
-                return LocalDate.ofEpochDay(timestamp / 86400000).format(DATE_DIR_FORMAT);
+            if (sessionId != null) {
+                String numericPart = sessionId.startsWith("web-") ? sessionId.substring(4) : sessionId;
+                if (numericPart.length() >= 13) {
+                    long timestamp = Long.parseLong(numericPart.substring(0, 13));
+                    return LocalDate.ofInstant(
+                        java.time.Instant.ofEpochMilli(timestamp),
+                        java.time.ZoneId.systemDefault()
+                    ).format(DATE_DIR_FORMAT);
+                }
             }
         } catch (NumberFormatException e) {
             logger.warn("解析时间戳失败", e);

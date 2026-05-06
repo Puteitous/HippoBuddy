@@ -57,10 +57,15 @@ public class SubAgentLogger {
 
     private String extractDateFromSessionId(String sessionId) {
         try {
-            if (sessionId != null && sessionId.length() >= 13) {
-                long timestamp = Long.parseLong(sessionId.substring(0, 13));
-                return java.time.LocalDate.ofEpochDay(timestamp / 86400000)
-                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            if (sessionId != null) {
+                String numericPart = sessionId.startsWith("web-") ? sessionId.substring(4) : sessionId;
+                if (numericPart.length() >= 13) {
+                    long timestamp = Long.parseLong(numericPart.substring(0, 13));
+                    return java.time.LocalDate.ofInstant(
+                        java.time.Instant.ofEpochMilli(timestamp),
+                        java.time.ZoneId.systemDefault()
+                    ).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                }
             }
         } catch (Exception e) {
             // fallback

@@ -1,7 +1,7 @@
 package com.example.agent.tools;
 
 
-import com.example.agent.memory.MemoryDashboardServer;
+import com.example.agent.web.server.DashboardServer;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,7 +114,7 @@ public class WriteFileTool implements ToolExecutor {
             if (normalizedPath.contains(".hippo/memory/") && !normalizedPath.endsWith("MEMORY.md")) {
                 String memoryType = extractMemoryType(normalizedPath);
                 String broadcastData = "{\"id\":\"" + UUID.randomUUID() + "\",\"type\":\"" + memoryType + "\",\"path\":\"" + normalizedPath + "\"}";
-                MemoryDashboardServer.broadcast("memory_saved", broadcastData);
+                DashboardServer.broadcast("memory_saved", broadcastData);
                 logger.info("SSE 广播：记忆文件已写入 {}", normalizedPath);
             }
 

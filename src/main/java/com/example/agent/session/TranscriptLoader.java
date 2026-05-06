@@ -107,6 +107,10 @@ public class TranscriptLoader {
         String safeSessionId = SessionStorage.sanitizeSessionId(sessionId);
         String projectKey = WorkspaceManager.getCurrentProjectKey();
         Path transcriptFile = WorkspaceManager.getSessionMessagesFile(projectKey, safeSessionId);
+        
+        logger.info("TranscriptLoader.load: sessionId={}, safeSessionId={}, projectKey={}, filePath={}", 
+            sessionId, safeSessionId, projectKey, transcriptFile);
+        
         return load(transcriptFile);
     }
 
@@ -114,21 +118,22 @@ public class TranscriptLoader {
         LoadResult result = new LoadResult();
 
         if (!Files.exists(transcriptFile)) {
-            logger.debug("Transcript 文件不存在: {}", transcriptFile);
+            logger.warn("Transcript 文件不存在：{}", transcriptFile);
             return result;
         }
 
         try {
             long fileSize = Files.size(transcriptFile);
-            logger.debug("加载 Transcript: {} ({}KB)", transcriptFile, fileSize / 1024);
+            logger.info("加载 Transcript: {} ({} bytes, {} KB)", transcriptFile, fileSize, fileSize / 1024);
 
             if (fileSize > FAST_LOAD_THRESHOLD_BYTES) {
+                logger.info("文件超过阈值 {} MB，使用大文件加载", FAST_LOAD_THRESHOLD_BYTES / 1024 / 1024);
                 return loadLargeFile(transcriptFile, result);
             }
 
             return loadFull(transcriptFile, result);
         } catch (IOException e) {
-            logger.error("加载 Transcript 失败: {}", transcriptFile, e);
+            logger.error("加载 Transcript 失败：{}", transcriptFile, e);
             return result;
         }
     }
@@ -137,11 +142,20 @@ public class TranscriptLoader {
         try (BufferedReader reader = Files.newBufferedReader(transcriptFile, StandardCharsets.UTF_8)) {
             String line;
             long lineNumber = 0;
+            int successCount = 0;
+            int failCount = 0;
 
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
-                processLine(line, lineNumber, result);
+                boolean success = processLine(line, lineNumber, result);
+                if (success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
             }
+            
+            logger.info("Transcript 解析完成：总行数={}, 成功={}, 失败={}", lineNumber, successCount, failCount);
         }
 
         if (result.truncatedLines > 0) {
@@ -152,7 +166,7 @@ public class TranscriptLoader {
     }
 
     private static LoadResult loadLargeFile(Path transcriptFile, LoadResult result) throws IOException {
-        logger.info("大文件优化加载: {}", transcriptFile);
+        logger.info("大文件优化加载：{}", transcriptFile);
 
         List<String> allLines = Files.readAllLines(transcriptFile, StandardCharsets.UTF_8);
         String lastBoundary = findLastCompactBoundary(allLines);
@@ -180,7 +194,7 @@ public class TranscriptLoader {
                     return entry.getBoundaryUuid();
                 }
             } catch (Exception e) {
-                logger.warn("解析边界UUID失败", e);
+                logger.warn("解析边界 UUID 失败", e);
             }
         }
         return null;
@@ -215,22 +229,25 @@ public class TranscriptLoader {
         }
     }
 
-    private static void processLine(String line, long lineNumber, LoadResult result) {
+    private static boolean processLine(String line, long lineNumber, LoadResult result) {
         if (line == null || line.trim().isEmpty()) {
-            return;
+            return false;
         }
 
         try {
             TranscriptEntry entry = objectMapper.readValue(line, TranscriptEntry.class);
             result.allEntries.add(entry);
             processEntry(entry, result);
+            return true;
         } catch (Exception e) {
             if (isProbablyTruncatedJson(line)) {
                 result.truncatedLines++;
                 result.recoveredFromCrash = true;
+                logger.warn("第 {} 行可能是截断的 JSON", lineNumber);
             } else {
-                logger.debug("跳过损坏的第 {} 行: {}", lineNumber, e.getMessage());
+                logger.warn("跳过损坏的第 {} 行：{}", lineNumber, e.getMessage());
             }
+            return false;
         }
     }
 
@@ -241,8 +258,6 @@ public class TranscriptLoader {
     }
 
     private static void processEntry(TranscriptEntry entry, LoadResult result) {
-        TranscriptType type = entry.getTypeEnum();
-
         if (entry.getTimestamp() != null) {
             try {
                 result.lastActivityTime = LocalDateTime.ofInstant(
@@ -250,10 +265,26 @@ public class TranscriptLoader {
                     ZoneId.systemDefault()
                 );
             } catch (Exception e) {
-                logger.warn("解析时间戳失败: {}", e.getMessage());
+                logger.warn("解析时间戳失败：{}", e.getMessage());
             }
         }
 
+        if (entry.getMessage() != null) {
+            String role = entry.getMessage().getRole();
+            if ("user".equals(role) || "assistant".equals(role) || "system".equals(role) || "tool".equals(role)) {
+                result.messages.add(entry.getMessage());
+                logger.debug("添加消息 [{}]: role={}, contentLength={}", 
+                    result.messages.size(), role, entry.getMessage().getContent() != null ? entry.getMessage().getContent().length() : 0);
+                return;
+            } else {
+                logger.debug("消息 role 不匹配：{}", role);
+            }
+        } else {
+            logger.debug("entry.getMessage() 为 null");
+        }
+
+        TranscriptType type = entry.getTypeEnum();
+        logger.debug("使用 TranscriptType 判断：type={}, typeEnum={}", entry.getType(), type);
         switch (type) {
             case USER:
             case ASSISTANT:
@@ -261,6 +292,7 @@ public class TranscriptLoader {
             case SYSTEM:
                 if (entry.getMessage() != null) {
                     result.messages.add(entry.getMessage());
+                    logger.debug("通过 TranscriptType 添加消息 [{}]", result.messages.size());
                 }
                 break;
             case COMPACT_BOUNDARY:
@@ -273,6 +305,7 @@ public class TranscriptLoader {
                 result.tags.add(entry.getTag());
                 break;
             default:
+                logger.debug("未知 TranscriptType：{}", type);
                 break;
         }
     }
@@ -332,11 +365,12 @@ public class TranscriptLoader {
                 writer.write(mapper.writeValueAsString(entry));
                 writer.newLine();
             }
-        }
 
-        Files.move(tempFile, transcriptFile, StandardCopyOption.REPLACE_EXISTING);
-        logger.info("已修复并压缩 Transcript: {} 行已移除", result.getTruncatedLines());
-        
-        return result.getTruncatedLines();
+            Files.move(tempFile, transcriptFile, StandardCopyOption.REPLACE_EXISTING);
+            logger.info("Transcript 修复完成，截断了 {} 行", result.truncatedLines);
+            return result.truncatedLines;
+        } finally {
+            Files.deleteIfExists(tempFile);
+        }
     }
 }

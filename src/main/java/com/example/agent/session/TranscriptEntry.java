@@ -2,12 +2,14 @@ package com.example.agent.session;
 
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Usage;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.Instant;
 import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TranscriptEntry {
 
     private String type;

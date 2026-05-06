@@ -35,6 +35,7 @@ public class SubAgentRunner implements Runnable {
     private static final int MAX_CONSECUTIVE_FAILED_TOOL_CALLS = 3;
     private static final int MAX_EDIT_FILE_MISMATCH_COUNT = 2;
     private static final int MAX_MEMORY_EXTRACTOR_TURNS = 50;
+    private static final int MAX_CONSECUTIVE_NO_TOOL_CALLS = 2;
 
     private final SubAgentTask task;
     private final SubAgentLogger subAgentLogger;
@@ -81,6 +82,7 @@ public class SubAgentRunner implements Runnable {
         int turnCount = 0;
         int emptyResponseRetries = 0;
         int consecutiveFailedToolCalls = 0;
+        int consecutiveNoToolCalls = 0;
         editFileMismatchCount = 0;
         int totalPromptTokens = 0;
         int totalCompletionTokens = 0;
@@ -116,7 +118,10 @@ public class SubAgentRunner implements Runnable {
                 String subAgentRules = buildSubAgentExecutionRules(task.getDescription());
                 finalContext.add(Message.user(subAgentRules));
                 
-                String systemPromptInfo = "复用主 Agent System Prompt, Cache 命中 ~99%";
+                // 确保第一条消息是 system role（LLM API 强制要求）
+                finalContext = ensureSystemMessageFirst(finalContext);
+                
+                String systemPromptInfo = "复用主 Agent System Prompt";
                 subAgentLogger.log("上下文消息数: " + finalContext.size() + " (原生上下文 + 执行规则)");
                 
                 boolean isFinalRound = permission != SubAgentPermission.MEMORY_EXTRACTOR 
@@ -212,6 +217,7 @@ public class SubAgentRunner implements Runnable {
                 }
 
                 if (response.hasToolCalls()) {
+                    consecutiveNoToolCalls = 0;
                     List<ToolCall> toolCalls = assistantMessage.getToolCalls();
                     task.addLog("工具调用数量: " + toolCalls.size());
                     subAgentLogger.log("准备执行工具调用: " + toolCalls.size() + " 个");
@@ -391,8 +397,8 @@ public class SubAgentRunner implements Runnable {
                         filePath = args.get("file_path").asText();
                     }
                     
-                    if (filePath == null || !filePath.endsWith("session-memory.md")) {
-                        String errorMsg = String.format("权限拒绝: %s 只能操作 session-memory.md 文件，不允许: %s", 
+                    if (filePath == null || !filePath.startsWith(".hippo/memory/")) {
+                        String errorMsg = String.format("权限拒绝: %s 只能操作 .hippo/memory/ 下的文件，不允许: %s", 
                             permission.getName(), filePath);
                         task.addLog(errorMsg);
                         subAgentLogger.log(errorMsg);
@@ -494,5 +500,38 @@ public class SubAgentRunner implements Runnable {
     private String truncate(String s, int maxLength) {
         if (s == null) return "null";
         return s.length() > maxLength ? s.substring(0, maxLength) + "..." : s;
+    }
+
+    /**
+     * 确保消息列表第一个是 system message，并去重
+     * 修复 LLM API 错误：System message must be at the beginning
+     */
+    private List<Message> ensureSystemMessageFirst(List<Message> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return messages;
+        }
+        
+        // 移除所有 system message
+        List<Message> nonSystemMessages = new ArrayList<>();
+        Message firstSystem = null;
+        for (Message msg : messages) {
+            if ("system".equals(msg.getRole())) {
+                if (firstSystem == null) {
+                    firstSystem = msg;
+                }
+            } else {
+                nonSystemMessages.add(msg);
+            }
+        }
+        
+        // 重新组装：system 在前，其他在后
+        if (firstSystem != null) {
+            List<Message> result = new ArrayList<>();
+            result.add(firstSystem);
+            result.addAll(nonSystemMessages);
+            return result;
+        }
+        
+        return nonSystemMessages;
     }
 }
