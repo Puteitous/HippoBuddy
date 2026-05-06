@@ -1,5 +1,6 @@
 package com.example.agent.memory;
 
+import com.example.agent.web.server.DashboardServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,13 +21,13 @@ class MemoryDashboardServerTest {
 
     @BeforeEach
     void setUp() throws InterruptedException {
-        MemoryDashboardServer.start(TEST_PORT);
+        DashboardServer.start(TEST_PORT);
         Thread.sleep(500);
     }
 
     @AfterEach
     void tearDown() {
-        MemoryDashboardServer.stop();
+        DashboardServer.stop();
     }
 
     @Test
@@ -84,7 +85,7 @@ class MemoryDashboardServerTest {
         clientThread.start();
         Thread.sleep(500);
 
-        MemoryDashboardServer.broadcast("memory_saved", "{\"id\":\"test-123\",\"type\":\"USER_PREFERENCE\",\"tags\":[\"test\"]}");
+        DashboardServer.broadcast("memory_saved", "{\"id\":\"test-123\",\"type\":\"USER_PREFERENCE\",\"tags\":[\"test\"]}");
 
         assertTrue(latch.await(3, TimeUnit.SECONDS), "Should receive broadcast message within 3 seconds");
         assertNotNull(receivedData.get());
@@ -118,7 +119,7 @@ class MemoryDashboardServerTest {
 
     @Test
     void testClientCountTracking() throws Exception {
-        assertEquals(0, MemoryDashboardServer.getClientCount());
+        assertEquals(0, DashboardServer.getClientCount());
 
         Thread clientThread = new Thread(() -> {
             try {
@@ -135,18 +136,18 @@ class MemoryDashboardServerTest {
         clientThread.start();
         Thread.sleep(500);
 
-        assertTrue(MemoryDashboardServer.getClientCount() >= 1);
+        assertTrue(DashboardServer.getClientCount() >= 1);
 
         clientThread.join(1000);
         
         // 等待异步清理完成
         for (int i = 0; i < 5; i++) {
-            if (MemoryDashboardServer.getClientCount() == 0) {
+            if (DashboardServer.getClientCount() == 0) {
                 break;
             }
             Thread.sleep(200);
         }
 
-        assertEquals(0, MemoryDashboardServer.getClientCount());
+        assertEquals(0, DashboardServer.getClientCount());
     }
 }

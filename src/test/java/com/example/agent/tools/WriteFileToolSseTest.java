@@ -1,6 +1,6 @@
 package com.example.agent.tools;
 
-import com.example.agent.memory.MemoryDashboardServer;
+import com.example.agent.web.server.DashboardServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.AfterEach;
@@ -30,14 +30,14 @@ class WriteFileToolSseTest {
     void setUp() throws InterruptedException {
         writeFileTool = new WriteFileTool();
         objectMapper = new ObjectMapper();
-        MemoryDashboardServer.start(TEST_PORT);
+        DashboardServer.start(TEST_PORT);
         // 等待服务器启动
         Thread.sleep(500);
     }
 
     @AfterEach
     void tearDown() {
-        MemoryDashboardServer.stop();
+        DashboardServer.stop();
     }
 
     @Test
@@ -89,8 +89,8 @@ class WriteFileToolSseTest {
         // 等待客户端连接成功
         assertTrue(clientConnected.await(5, TimeUnit.SECONDS), "客户端应该在 5 秒内连接");
         Thread.sleep(500);
-        System.out.println("当前客户端数: " + MemoryDashboardServer.getClientCount());
-        assertTrue(MemoryDashboardServer.getClientCount() > 0, "应该有至少一个客户端");
+        System.out.println("当前客户端数: " + DashboardServer.getClientCount());
+        assertTrue(DashboardServer.getClientCount() > 0, "应该有至少一个客户端");
 
         // 写入记忆文件（使用正确的命名格式：type_topic.md）
         String memoryFilePath = ".hippo/memory/user_preference_test_" + System.currentTimeMillis() + ".md";

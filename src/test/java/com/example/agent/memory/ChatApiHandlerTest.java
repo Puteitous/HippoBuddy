@@ -7,6 +7,7 @@ import com.example.agent.service.TokenEstimator;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.testutil.MockLlmClient;
 import com.example.agent.testutil.LlmResponseBuilder;
+import com.example.agent.web.server.DashboardServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.AfterEach;
@@ -43,13 +44,13 @@ class ChatApiHandlerTest {
         ServiceLocator.registerSingleton(LlmClient.class, mockLlmClient);
         ServiceLocator.registerSingleton(ConversationService.class, conversationService);
 
-        MemoryDashboardServer.start(TEST_PORT);
+        DashboardServer.start(TEST_PORT);
         Thread.sleep(500);
     }
 
     @AfterEach
     void tearDown() {
-        MemoryDashboardServer.stop();
+        DashboardServer.stop();
         ServiceLocator.clear();
     }
 
