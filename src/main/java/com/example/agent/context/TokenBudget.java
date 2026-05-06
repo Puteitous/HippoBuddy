@@ -2,6 +2,8 @@ package com.example.agent.context;
 
 import com.example.agent.context.budget.BudgetListener;
 import com.example.agent.context.budget.BudgetThreshold;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -12,6 +14,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class TokenBudget {
 
+    private static final Logger logger = LoggerFactory.getLogger(TokenBudget.class);
+    
     private final int maxTokens;
     private final AtomicInteger currentTokens;
     private final Set<BudgetThreshold> triggeredThresholds;
@@ -25,6 +29,7 @@ public class TokenBudget {
         this.currentTokens = new AtomicInteger(0);
         this.triggeredThresholds = EnumSet.noneOf(BudgetThreshold.class);
         this.listeners = new CopyOnWriteArrayList<>();
+        logger.info("TokenBudget 初始化完成：maxTokens={}, 默认阈值配置加载完毕", maxTokens);
     }
 
     public void update(int newTokenCount) {
@@ -57,6 +62,8 @@ public class TokenBudget {
             synchronized (triggeredThresholds) {
                 if (!triggeredThresholds.contains(currentThreshold)) {
                     triggeredThresholds.add(currentThreshold);
+                    logger.info("🔔 达到新阈值：{} (ratio={:.2f}%, currentTokens={}, maxTokens={})", 
+                        currentThreshold, ratio * 100, currentTokens.get(), maxTokens);
                     notifyThreshold(currentThreshold);
                 }
             }
@@ -64,6 +71,7 @@ public class TokenBudget {
     }
 
     private void notifyThreshold(BudgetThreshold threshold) {
+        logger.debug("通知 {} 个监听器：阈值={}", listeners.size(), threshold);
         listeners.forEach(listener -> 
             listener.onThresholdReached(threshold, currentTokens.get(), maxTokens)
         );

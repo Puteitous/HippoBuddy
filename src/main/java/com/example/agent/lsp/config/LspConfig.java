@@ -12,7 +12,7 @@ import java.util.Map;
 public class LspConfig {
 
     private boolean enabled = true;
-    private long timeout = 120;
+    private long timeout = 180;
     private Map<String, LspServerConfig> servers = new HashMap<>();
 
     public LspConfig() {

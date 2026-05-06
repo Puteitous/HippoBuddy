@@ -94,9 +94,21 @@ public class ConversationService {
         this.defaultConfig = config != null ? config : new ContextConfig();
         this.toolResultCompressor = new TruncateCompressor(tokenEstimator, this.defaultConfig.getToolResult());
         
-        // 创建沙箱并初始化 MemoryStore
-        MemoryToolSandbox sandbox = new MemoryToolSandbox(Paths.get(System.getProperty("user.dir"), ".hippo/memory"));
-        this.globalMemoryStore = new MemoryStore(sandbox);
+        // 优先使用 DI 容器中的 MemoryStore（由 MemoryModule 初始化）
+        // 避免创建多个 MemoryStore 实例导致索引不一致
+        MemoryStore store = null;
+        try {
+            store = com.example.agent.core.di.ServiceLocator.get(MemoryStore.class);
+            logger.info("✅ 使用 DI 容器中的 MemoryStore 实例");
+        } catch (Exception e) {
+            logger.info("DI 容器中未找到 MemoryStore，创建新实例");
+        }
+        
+        if (store == null) {
+            MemoryToolSandbox sandbox = new MemoryToolSandbox(Paths.get(System.getProperty("user.dir"), ".hippo/memory"));
+            store = new MemoryStore(sandbox);
+        }
+        this.globalMemoryStore = store;
     }
 
     public Conversation create(String systemPrompt) {
@@ -336,6 +348,41 @@ public class ConversationService {
         addMessage(conversation, Message.user(content));
     }
 
+    public int truncateMessagesAfter(Conversation conversation, String messageId) {
+        if (conversation == null || messageId == null) {
+            return 0;
+        }
+        List<Message> messages = conversation.getMessages();
+        int targetIndex = -1;
+        for (int i = 0; i < messages.size(); i++) {
+            if (messageId.equals(messages.get(i).getId())) {
+                targetIndex = i;
+                break;
+            }
+        }
+        if (targetIndex < 0) {
+            logger.warn("未找到消息 ID: {}", messageId);
+            return 0;
+        }
+        List<Message> remaining = new ArrayList<>(messages.subList(0, targetIndex));
+        int removed = messages.size() - targetIndex;
+        conversation.getContextWindow().replaceMessages(remaining);
+        logger.info("截断消息: 保留前 {} 条, 移除 {} 条", targetIndex, removed);
+        return removed;
+    }
+
+    public String editUserMessage(Conversation conversation, String messageId, String newContent) {
+        if (conversation == null || messageId == null || newContent == null) {
+            return null;
+        }
+        int removed = truncateMessagesAfter(conversation, messageId);
+        if (removed == 0) {
+            return null;
+        }
+        addUserMessage(conversation, newContent);
+        return newContent;
+    }
+
     public void addAssistantMessage(Conversation conversation, String content) {
         addMessage(conversation, Message.assistant(content));
     }
@@ -448,6 +495,201 @@ public class ConversationService {
 
     public List<Message> getContextForInference(Conversation conversation) {
         return prepareForInference(conversation);
+    }
+
+    public ResumeResult resumeConversation(Conversation conversation, String sessionId) {
+        logger.info("========== 开始恢复会话：{} ==========", sessionId);
+        
+        ResumeResult result = new ResumeResult(sessionId);
+
+        com.example.agent.memory.session.SessionMemoryManager memoryManager =
+            new com.example.agent.memory.session.SessionMemoryManager(sessionId);
+        boolean hasMemory = memoryManager.exists() && memoryManager.hasActualContent();
+        logger.info("Session Memory 检查：exists={}, hasActualContent={}", 
+            memoryManager.exists(), memoryManager.hasActualContent());
+
+        com.example.agent.session.TranscriptLoader.LoadResult loadResult =
+            com.example.agent.session.TranscriptLoader.load(sessionId);
+        
+        logger.info("Transcript 加载结果：isEmpty={}, messageCount={}, recoveredFromCrash={}", 
+            loadResult.isEmpty(), loadResult.getMessageCount(), loadResult.isRecoveredFromCrash());
+        
+        if (loadResult.isEmpty()) {
+            logger.warn("会话 {} 无 Transcript 数据", sessionId);
+            result.status = ResumeResult.Status.NO_TRANSCRIPT;
+            return result;
+        }
+
+        List<Message> allMessages = loadResult.getMessages();
+        logger.info("加载到 {} 条消息", allMessages.size());
+        if (!allMessages.isEmpty()) {
+            for (int i = 0; i < Math.min(allMessages.size(), 10); i++) {
+                Message msg = allMessages.get(i);
+                logger.info("  [{}] role={}, contentPreview={}", 
+                    i, msg.getRole(), 
+                    msg.getContent() != null && msg.getContent().length() > 50 
+                        ? msg.getContent().substring(0, 50) + "..." 
+                        : msg.getContent());
+            }
+        }
+        
+        if (allMessages.isEmpty()) {
+            logger.warn("会话 {} Transcript 中无消息", sessionId);
+            result.status = ResumeResult.Status.NO_TRANSCRIPT;
+            return result;
+        }
+
+        int totalTokens = tokenEstimator.estimate(allMessages);
+        int maxTokens = conversation.getContextWindow().getBudget().getMaxTokens();
+        int tokenThreshold = (int) (maxTokens * 0.7);
+        logger.info("Token 统计：totalTokens={}, maxTokens={}, threshold={}", totalTokens, maxTokens, tokenThreshold);
+
+        if (hasMemory && totalTokens > tokenThreshold) {
+            logger.info("使用智能恢复模式（记忆 + 最近对话）");
+            String memoryContent = memoryManager.read();
+            int memoryTokens = tokenEstimator.estimateTextTokens(memoryContent);
+
+            List<Message> recentMessages = extractRecentMessages(allMessages, maxTokens - memoryTokens - 500);
+            int recentTokens = tokenEstimator.estimate(recentMessages);
+
+            conversation.clear();
+            conversation.addMessage(Message.system(conversation.getSystemPrompt()));
+            conversation.addMessage(Message.user(
+                "## [会话恢复] 早期对话摘要\n\n" +
+                "> 来源：✅ session-memory.md | 已合并早期对话\n\n" +
+                memoryContent + "\n\n---\n\n" +
+                "> 以上为早期会话摘要，最近对话完整保留"
+            ));
+            conversation.addMessages(recentMessages);
+
+            result.status = ResumeResult.Status.RESUMED_WITH_MEMORY;
+            result.totalMessages = allMessages.size();
+            result.loadedMessages = recentMessages.size() + 2;
+            result.usedMemory = true;
+            result.savedTokens = totalTokens - tokenEstimator.estimate(conversation.getMessages());
+
+            logger.info("智能恢复完成：sessionId={}, 全部{}条/{}tokens → 记忆+最近{}条/{}tokens, 节省{}tokens",
+                sessionId, allMessages.size(), totalTokens,
+                recentMessages.size(), tokenEstimator.estimate(conversation.getMessages()),
+                result.savedTokens);
+        } else {
+            logger.info("使用完整恢复模式");
+            conversation.clear();
+            conversation.addMessage(Message.system(conversation.getSystemPrompt()));
+            conversation.addMessages(allMessages);
+
+            result.status = ResumeResult.Status.RESUMED_FULL;
+            result.totalMessages = allMessages.size();
+            result.loadedMessages = allMessages.size() + 1;
+            result.usedMemory = false;
+
+            logger.info("完整恢复完成：sessionId={}, {}条消息/{}tokens (含 system message)",
+                sessionId, allMessages.size() + 1, totalTokens);
+        }
+
+        detectAndFixInterruption(conversation);
+
+        if (loadResult.isRecoveredFromCrash()) {
+            logger.info("会话 {} 从崩溃中恢复，截断了 {} 行损坏数据",
+                sessionId, loadResult.getTruncatedLines());
+        }
+        
+        logger.info("恢复后 conversation 消息数：{}", conversation.getMessages().size());
+        logger.info("========== 会话恢复完成：{} ==========", sessionId);
+
+        return result;
+    }
+
+    private List<Message> extractRecentMessages(List<Message> allMessages, int tokenBudget) {
+        if (tokenBudget <= 0 || allMessages.isEmpty()) {
+            return allMessages;
+        }
+
+        List<Message> recent = new ArrayList<>();
+        int usedTokens = 0;
+
+        for (int i = allMessages.size() - 1; i >= 0; i--) {
+            Message msg = allMessages.get(i);
+            if (msg.isSystem()) continue;
+
+            int msgTokens = tokenEstimator.estimateMessageTokens(msg);
+            if (usedTokens + msgTokens > tokenBudget && !recent.isEmpty()) {
+                break;
+            }
+            recent.add(0, msg);
+            usedTokens += msgTokens;
+        }
+
+        while (!recent.isEmpty() && recent.get(0).isTool()) {
+            recent.remove(0);
+        }
+
+        return recent;
+    }
+
+    private void detectAndFixInterruption(Conversation conversation) {
+        List<Message> messages = conversation.getMessages();
+        if (messages.isEmpty()) {
+            return;
+        }
+
+        Message lastMsg = messages.get(messages.size() - 1);
+
+        if (lastMsg.isAssistant() && lastMsg.getToolCalls() != null && !lastMsg.getToolCalls().isEmpty()) {
+            boolean hasToolResult = false;
+            for (int i = messages.size() - 2; i >= Math.max(0, messages.size() - 5); i--) {
+                if (messages.get(i).isTool()) {
+                    hasToolResult = true;
+                    break;
+                }
+            }
+            if (!hasToolResult) {
+                StringBuilder fixContent = new StringBuilder();
+                String existing = lastMsg.getContent() != null ? lastMsg.getContent() : "";
+                if (!existing.isEmpty()) {
+                    fixContent.append(existing).append("\n\n");
+                }
+                fixContent.append("[会话中断] 检测到未完成的工具调用：");
+                for (com.example.agent.llm.model.ToolCall call : lastMsg.getToolCalls()) {
+                    fixContent.append("\n  - 待执行的操作: ").append(call.getFunction().getName());
+                }
+                lastMsg.setContent(fixContent.toString());
+                lastMsg.setToolCalls(null);
+                logger.info("检测到 interrupted_turn，已修复未完成的工具调用");
+            }
+        } else if (lastMsg.isUser()) {
+            conversation.addMessage(Message.assistant(
+                "[会话恢复提示] 之前的回复被中断，请继续。"
+            ));
+            logger.info("检测到 interrupted_prompt，已添加恢复提示");
+        }
+    }
+
+    public static class ResumeResult {
+        public enum Status {
+            NO_TRANSCRIPT, RESUMED_FULL, RESUMED_WITH_MEMORY
+        }
+
+        private final String sessionId;
+        public Status status;
+        public int totalMessages;
+        public int loadedMessages;
+        public boolean usedMemory;
+        public int savedTokens;
+
+        public ResumeResult(String sessionId) {
+            this.sessionId = sessionId;
+        }
+
+        public boolean isResumed() {
+            return status == Status.RESUMED_FULL || status == Status.RESUMED_WITH_MEMORY;
+        }
+
+        public Status getStatus() { return status; }
+        public int getTotalMessages() { return totalMessages; }
+        public int getLoadedMessages() { return loadedMessages; }
+        public boolean isUsedMemory() { return usedMemory; }
+        public int getSavedTokens() { return savedTokens; }
     }
 
     public void cleanupInterruptedToolCalls(Conversation conversation) {

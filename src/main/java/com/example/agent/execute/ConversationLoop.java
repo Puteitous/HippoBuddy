@@ -16,7 +16,6 @@ import com.example.agent.llm.model.Message;
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.session.SessionData;
 import com.example.agent.session.SessionStorage;
-import com.example.agent.session.TranscriptLoader;
 import org.jline.reader.UserInterruptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -371,15 +370,11 @@ public class ConversationLoop {
         
         String sessionId = session.getSessionId();
         
-        boolean loadedFromTranscript = TranscriptLoader.loadToConversation(
-            sessionId, conversation, conversationService
-        );
+        ConversationService.ResumeResult resumeResult = conversationService.resumeConversation(conversation, sessionId);
         
-        if (!loadedFromTranscript) {
+        if (!resumeResult.isResumed()) {
             conversationService.importSession(conversation, session);
         }
-        
-        conversationService.fixUnfinishedToolCall(conversation);
         
         currentSessionId = sessionId;
         context.setSessionId(sessionId);
@@ -391,7 +386,7 @@ public class ConversationLoop {
         );
         conversationLogger = new ConversationLogger(sessionId, logFile);
         
-        logger.info("恢复会话: {}, {} 轮对话", sessionId, conversationRound);
+        logger.info("恢复会话: {}, {} 轮对话, mode={}", sessionId, conversationRound, resumeResult.getStatus());
     }
 
     private StopHook.StopHookResult evaluateStopHooks(AgentTurnResult result) {

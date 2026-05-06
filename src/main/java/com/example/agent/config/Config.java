@@ -39,7 +39,7 @@ public class Config {
 
     private transient ConfigLoader configLoader;
 
-    Config() {
+    public Config() {
     }
 
     public static synchronized Config getInstance() {

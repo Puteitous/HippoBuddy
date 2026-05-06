@@ -11,11 +11,15 @@ import com.example.agent.llm.model.Message;
 import com.example.agent.memory.SessionMemoryManager;
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.session.SessionTranscript;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.function.Consumer;
 
 public class AutoCompactTrigger implements BudgetListener {
+
+    private static final Logger logger = LoggerFactory.getLogger(AutoCompactTrigger.class);
 
     private final ContextWindow contextWindow;
     private final ContextClipper clipper;
@@ -87,7 +91,11 @@ public class AutoCompactTrigger implements BudgetListener {
 
     @Override
     public void onThresholdReached(BudgetThreshold threshold, int currentTokens, int maxTokens) {
+        logger.info("📊 收到阈值通知：threshold={}, currentTokens={}, maxTokens={}, ratio={:.2f}%", 
+            threshold, currentTokens, maxTokens, (double) currentTokens / maxTokens * 100);
+        
         if (isCompactionForkContext()) {
+            logger.warn("🚫 检测到压缩 Fork 上下文，递归保护已触发，跳过压缩");
             metrics.recordEvent(
                 CompactionMetricsCollector.CompactionEvent.TENGU_SM_COMPACT_RECURSION_PROTECTED,
                 "检测到压缩 Fork 上下文，递归保护已触发"
@@ -96,8 +104,13 @@ public class AutoCompactTrigger implements BudgetListener {
         }
         
         if (threshold == BudgetThreshold.AUTO_COMPACT && !compactionPerformed && state.shouldTryCompaction()) {
+            logger.info("🚀 触发 AUTO_COMPACT 压缩：currentTokens={}, maxTokens={}, ratio={:.2f}%", 
+                currentTokens, maxTokens, (double) currentTokens / maxTokens * 100);
             performSmartCompaction(currentTokens, maxTokens);
             compactionPerformed = true;
+        } else {
+            logger.debug("不满足压缩条件：threshold={}, isAutoCompact={}, compactionPerformed={}, shouldTryCompaction={}", 
+                threshold, threshold == BudgetThreshold.AUTO_COMPACT, compactionPerformed, state.shouldTryCompaction());
         }
     }
     
@@ -122,7 +135,11 @@ public class AutoCompactTrigger implements BudgetListener {
     }
 
     private void performSmartCompaction(int currentTokens, int maxTokens) {
+        logger.info("🔧 开始执行智能压缩：currentTokens={}, maxTokens={}, targetTokens={}", 
+            currentTokens, maxTokens, (int) (BudgetThreshold.WARNING_75.getThresholdTokens(maxTokens) * 0.9));
+        
         if (!state.shouldTryCompaction()) {
+            logger.warn("🚫 断路器已熔断，跳过压缩：连续失败 {} 次", state.getConsecutiveFailures());
             metrics.recordEvent(
                 CompactionMetricsCollector.CompactionEvent.TENGU_SM_COMPACT_CIRCUIT_BREAKER,
                 String.format("断路器已熔断: 连续失败 %d 次, 本会话不再尝试", state.getConsecutiveFailures())
@@ -131,29 +148,39 @@ public class AutoCompactTrigger implements BudgetListener {
         }
 
         int targetTokens = (int) (BudgetThreshold.WARNING_75.getThresholdTokens(maxTokens) * 0.9);
+        logger.info("🎯 压缩目标：targetTokens={} (75% 阈值的 90%)", targetTokens);
 
         List<Message> currentMessages = contextWindow.getRawMessages();
+        logger.info("📋 当前消息数：{} 条", currentMessages.size());
 
         waitForSessionMemoryExtraction();
 
         if (state.canIncrementalCompact()) {
+            logger.debug("尝试增量压缩...");
             ContextClipper.CompactionResult incremental = tryIncrementalCompact(
                 currentMessages, targetTokens, maxTokens
             );
             if (incremental != null) {
+                logger.info("✅ 增量压缩成功：移除 {} 轮，节省 {} tokens", 
+                    incremental.getRemovedTurns(), incremental.getSavedTokens());
                 applyResult(incremental, true);
                 return;
             }
+            logger.debug("增量压缩无效，尝试其他方法");
         }
 
+        logger.debug("尝试滑动窗口截断...");
         ContextClipper.CompactionResult windowResult = tryClippingFirst(
             currentMessages, targetTokens, maxTokens
         );
 
         if (windowResult != null) {
+            logger.info("✅ 滑动窗口截断成功：移除 {} 轮，节省 {} tokens", 
+                windowResult.getRemovedTurns(), windowResult.getSavedTokens());
             applyResult(windowResult, false);
             return;
         }
+        logger.debug("滑动窗口截断无效，准备使用 LLM 摘要");
 
         try {
             List<Message> compacted = summarizer.compact(currentMessages, targetTokens);

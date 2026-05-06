@@ -50,7 +50,14 @@ public class LspServiceManager {
         }
     }
 
+    private static final int MAX_RETRIES = 2;
+    private static final long RETRY_DELAY_MS = 5000;
+
     private void initializeLanguageServer(String languageId) {
+        initializeLanguageServerWithRetry(languageId, 0);
+    }
+
+    private void initializeLanguageServerWithRetry(String languageId, int attempt) {
         try {
             LspClient client = LspClientFactory.create(languageId, config.getLsp());
             if (client == null) {
@@ -58,7 +65,8 @@ public class LspServiceManager {
             }
 
             activeClients.add(client);
-            printConsole("  🔄 正在启动 " + languageId + " LSP 服务器...");
+            String attemptInfo = attempt > 0 ? " (重试 " + attempt + "/" + MAX_RETRIES + ")" : "";
+            printConsole("  🔄 正在启动 " + languageId + " LSP 服务器" + attemptInfo + "...");
 
             client.start()
                     .thenCompose(v -> {
@@ -71,10 +79,21 @@ public class LspServiceManager {
                         registerTools(client, languageId);
                     })
                     .exceptionally(e -> {
-                        logger.error("❌ {} LSP 服务器初始化失败: {}", languageId, e.getMessage());
-                        logger.error("  请检查: 1) jdtls.bat 路径是否正确 2) -data/-configuration 参数 3) Java 版本 >= 17", e);
-                        printConsole("  ❌ " + languageId + " LSP 启动失败: " + e.getMessage());
-                        printConsole("     💡 提示: 可在 config.yaml 设置 lsp.enabled=false 禁用");
+                        activeClients.remove(client);
+                        try { client.shutdown(); } catch (Exception ignored) {}
+
+                        if (attempt < MAX_RETRIES) {
+                            logger.warn("⚠️ {} LSP 初始化失败，{} 秒后重试 ({}/{})",
+                                languageId, RETRY_DELAY_MS / 1000, attempt + 1, MAX_RETRIES);
+                            printConsole("  ⚠️ " + languageId + " LSP 启动失败，即将重试...");
+                            CompletableFuture.delayedExecutor(RETRY_DELAY_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+                                .execute(() -> initializeLanguageServerWithRetry(languageId, attempt + 1));
+                        } else {
+                            logger.error("❌ {} LSP 服务器初始化失败（已重试 {} 次）: {}", languageId, MAX_RETRIES, e.getMessage());
+                            logger.error("  请检查: 1) jdtls.bat 路径是否正确 2) -data/-configuration 参数 3) Java 版本 >= 17");
+                            printConsole("  ❌ " + languageId + " LSP 启动失败: " + e.getMessage());
+                            printConsole("     💡 提示: 可在 config.yaml 设置 lsp.enabled=false 禁用");
+                        }
                         return null;
                     });
 

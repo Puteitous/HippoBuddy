@@ -16,7 +16,7 @@ public enum AgentMode {
                "write_file", "edit_file", "bash", "ask_user", "todo_write", "fork_agent", "fork_agents", "list_subagents", "cancel_subagent",
                "lsp_goto_definition", "lsp_find_references", "lsp_hover", 
                "lsp_document_symbol", "lsp_workspace_symbol",
-               "search_memory", "recall_memory")
+               "recall_memory")
     );
 
     private final String icon;

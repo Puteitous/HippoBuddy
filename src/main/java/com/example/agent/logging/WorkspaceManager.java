@@ -14,9 +14,12 @@ public class WorkspaceManager {
     private static final Logger logger = LoggerFactory.getLogger(WorkspaceManager.class);
     
     private static Path HIPPO_ROOT = Paths.get(".hippo");
+    private static String CURRENT_PROJECT_KEY = sanitizePath(getCurrentWorkingDir());
     
     public static void overrideBasePath(Path basePath) {
         HIPPO_ROOT = basePath.resolve(".hippo");
+        // 重新计算 project key，因为临时目录的 path 可能不同
+        CURRENT_PROJECT_KEY = sanitizePath(basePath.toString());
         ensureCoreDirectories();
     }
 
@@ -25,8 +28,6 @@ public class WorkspaceManager {
     }
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    
-    private static final String CURRENT_PROJECT_KEY = sanitizePath(getCurrentWorkingDir());
     
     static {
         ensureCoreDirectories();
@@ -134,7 +135,10 @@ public class WorkspaceManager {
                 String numericPart = sessionId.startsWith("web-") ? sessionId.substring(4) : sessionId;
                 if (numericPart.length() >= 13) {
                     long timestamp = Long.parseLong(numericPart.substring(0, 13));
-                    return LocalDate.ofEpochDay(timestamp / 86400000).format(DATE_FORMAT);
+                    return LocalDate.ofInstant(
+                        java.time.Instant.ofEpochMilli(timestamp),
+                        java.time.ZoneId.systemDefault()
+                    ).format(DATE_FORMAT);
                 }
             }
         } catch (NumberFormatException e) {
