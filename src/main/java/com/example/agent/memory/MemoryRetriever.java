@@ -18,7 +18,7 @@ import java.util.Set;
  * 1. 删除自动向量检索 + 全文注入逻辑
  * 2. 新增 injectPersistentContext()：仅注入持久上下文（偏好和项目约束）
  * 3. 提供 memoize 缓存，基于持久记忆的 lastUpdated 时间戳总和失效
- * 4. 不再自动注入可检索知识，改为提供 search_memory 和 recall_memory 工具
+ * 4. 不再自动注入可检索知识，改为提供 recall_memory 工具
  * 5. 移除 EmbeddingService 依赖，文件系统就是存储
  */
 public class MemoryRetriever {
@@ -103,15 +103,11 @@ public class MemoryRetriever {
 
         logger.debug("持久上下文缓存未命中，重新计算（cacheKey={}）", cacheKey);
         
-        // 筛选持久类型记忆
         List<MemoryEntry> persistentMemories = memoryStore.getAllMetas().stream()
             .filter(meta -> PERSISTENT_TYPES.contains(meta.getType()))
             .sorted(Comparator.comparing(MemoryStore.MemoryEntryMeta::getLastUpdated).reversed())
             .limit(MAX_PERSISTENT_CONTEXTS)
-            .map(meta -> {
-                MemoryEntry entry = memoryStore.findById(meta.getId());
-                return entry;
-            })
+            .map(meta -> memoryStore.findById(meta.getId()))
             .filter(entry -> entry != null)
             .collect(java.util.stream.Collectors.toList());
 

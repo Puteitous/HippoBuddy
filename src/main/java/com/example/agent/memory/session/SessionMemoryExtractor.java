@@ -195,73 +195,110 @@ public class SessionMemoryExtractor {
     }
 
     /**
-     * 消息添加回调
+     * 消息添加回调（异步检查，不阻塞主线程）
      */
     public void onMessageAdded(Message message, List<Message> fullConversation) {
         if (message.isTool() || message.getRole().equals("tool")) {
             toolCallCountSinceLastExtraction.incrementAndGet();
         }
 
-        checkAndExtract(fullConversation);
+        // 异步检查提取条件，避免阻塞主会话
+        EXECUTOR.submit(() -> {
+            checkAndExtract(fullConversation);
+        });
     }
 
     /**
      * 检查并执行提取
+     * 
+     * 锁管理策略：
+     * - 条件不满足：立即释放锁
+     * - 条件满足：交给 performExtraction 全权负责，本方法不再干预
      */
     public void checkAndExtract(List<Message> fullConversation) {
         if (fullConversation == null || fullConversation.isEmpty()) {
             return;
         }
 
+        // 尝试获取锁
         if (!extractionInProgress.compareAndSet(false, true)) {
+            logger.debug("检查提取条件跳过：提取正在进行中");
             return;
         }
 
-        if (!shouldExtract(fullConversation)) {
-            extractionInProgress.set(false);
-            return;
-        }
-
-        EXECUTOR.submit(() -> {
-            try {
-                performExtraction(fullConversation);
-            } finally {
-                extractionInProgress.set(false);
+        try {
+            // 获取锁后再次检查条件（双重检查锁模式）
+            if (!shouldExtract(fullConversation)) {
+                logger.debug("检查提取条件不满足，释放锁");
+                extractionInProgress.set(false);  // 条件不满足，立即释放
+                return;
             }
-        });
+
+            logger.info("✅ 触发会话记忆提取");
+            // 条件满足，交给 performExtraction 全权负责锁的释放
+            // 本方法不再干预，避免重复释放
+            performExtraction(fullConversation);
+        } catch (Exception e) {
+            logger.error("检查提取过程异常", e);
+            extractionInProgress.set(false);  // 异常时释放锁
+        }
+        // 正常执行 performExtraction 后，不释放锁，由 performExtraction 的回调或看门狗负责
     }
 
     /**
-     * 压缩后触发提取
+     * 压缩后触发提取（延迟执行，避免阻塞主会话）
      */
     public void requestExtractionAfterCompaction(List<Message> fullConversation) {
         if (fullConversation == null || fullConversation.isEmpty()) {
+            logger.debug("压缩后钩子跳过：会话为空");
             return;
         }
 
         if (!extractionInProgress.compareAndSet(false, true)) {
+            logger.debug("压缩后钩子跳过：提取正在进行中");
             return;
         }
 
-        int currentTokens = tokenEstimator.estimate(fullConversation);
-        int tailTokens = currentTokens - lastExtractedTokenCount;
-        
-        boolean hasEnoughNewContent = tailTokens >= 2000;
-        boolean atNaturalPause = !hasToolCallsInLastAssistantTurn(fullConversation);
-        boolean hasBeenExtractedBefore = lastExtractedTokenCount > 0;
-
-        if (!hasBeenExtractedBefore || !hasEnoughNewContent || !atNaturalPause) {
-            extractionInProgress.set(false);
-            logger.debug("压缩后钩子跳过：首次={}, 内容={}, 暂停={}",
-                !hasBeenExtractedBefore, hasEnoughNewContent, atNaturalPause);
-            return;
-        }
-
-        logger.info("✅ 压缩后触发低优先级记忆提取：尾巴 {} tokens", tailTokens);
+        // 延迟执行，让主会话先处理，避免资源竞争
         EXECUTOR.submit(() -> {
             try {
+                // 等待 2 秒，让主会话的 LLM 调用完成
+                Thread.sleep(2000);
+                
+                // 再次检查锁是否被抢占
+                if (!extractionInProgress.get()) {
+                    logger.debug("压缩后钩子跳过：提取锁已被抢占");
+                    return;
+                }
+                
+                logger.info("⏰ 延迟等待完成，开始检查提取条件（避免与主会话 LLM 调用冲突）");
+                
+                int currentTokens = tokenEstimator.estimate(fullConversation);
+                int tailTokens = currentTokens - lastExtractedTokenCount;
+                
+                boolean hasEnoughNewContent = tailTokens >= 2000;
+                boolean atNaturalPause = !hasToolCallsInLastAssistantTurn(fullConversation);
+                boolean hasBeenExtractedBefore = lastExtractedTokenCount > 0;
+
+                logger.info("📊 压缩后钩子检查：currentTokens={}, tailTokens={}, 首次={}, 内容={}, 暂停={}",
+                    currentTokens, tailTokens, !hasBeenExtractedBefore, hasEnoughNewContent, atNaturalPause);
+
+                // 压缩后触发条件更严格：必须已经提取过 + 有足够新内容 + 处于暂停状态
+                if (!hasBeenExtractedBefore || !hasEnoughNewContent || !atNaturalPause) {
+                    logger.debug("压缩后钩子跳过：首次={}, 内容={}, 暂停={}",
+                        !hasBeenExtractedBefore, hasEnoughNewContent, atNaturalPause);
+                    extractionInProgress.set(false);
+                    return;
+                }
+
+                logger.info("✅ 压缩后触发低优先级记忆提取：尾巴 {} tokens", tailTokens);
                 performExtraction(fullConversation);
-            } finally {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.warn("压缩后提取任务被中断");
+                extractionInProgress.set(false);
+            } catch (Exception e) {
+                logger.error("压缩后提取异常", e);
                 extractionInProgress.set(false);
             }
         });
@@ -271,9 +308,18 @@ public class SessionMemoryExtractor {
      * 检查是否应该提取
      */
     private boolean shouldExtract(List<Message> fullConversation) {
+        // 双重检查：如果提取正在进行中，直接返回 false
+        if (extractionInProgress.get()) {
+            logger.debug("跳过提取：提取正在进行中");
+            return false;
+        }
+
         int currentTokens = tokenEstimator.estimate(fullConversation);
 
         boolean hasReachedInitialThreshold = currentTokens >= INITIAL_TOKEN_THRESHOLD;
+        logger.debug("检查提取条件：currentTokens={}, 阈值={}, 达到={}", 
+            currentTokens, INITIAL_TOKEN_THRESHOLD, hasReachedInitialThreshold);
+        
         if (!hasReachedInitialThreshold) {
             return false;
         }
@@ -286,8 +332,23 @@ public class SessionMemoryExtractor {
         boolean hasMetToolCallThreshold = toolCallCountSinceLastExtraction.get() >= TOOL_CALL_THRESHOLD;
         boolean atNaturalPause = !hasToolCallsInLastAssistantTurn(fullConversation);
 
-        return hasMetTokenGrowth
+        logger.debug("提取条件详情：首次={}, 增长满足={}, 工具调用={}/{}, 暂停={}", 
+            isFirstExtraction, hasMetTokenGrowth, 
+            toolCallCountSinceLastExtraction.get(), TOOL_CALL_THRESHOLD, atNaturalPause);
+
+        // 首次提取需要更严格的条件：必须同时满足工具调用阈值或暂停
+        if (isFirstExtraction) {
+            boolean shouldExtract = hasMetToolCallThreshold || atNaturalPause;
+            logger.info("🎯 首次提取条件评估：{}", shouldExtract ? "满足，准备触发" : "不满足，跳过");
+            return shouldExtract;
+        }
+
+        // 非首次提取：需要满足 token 增长 + (工具调用阈值 或 暂停)
+        boolean shouldExtract = hasMetTokenGrowth
             && (hasMetToolCallThreshold || atNaturalPause);
+        
+        logger.info("🎯 提取条件评估：{}", shouldExtract ? "满足，准备触发" : "不满足，跳过");
+        return shouldExtract;
     }
 
     /**
@@ -300,8 +361,10 @@ public class SessionMemoryExtractor {
         }
 
         int currentTokens = tokenEstimator.estimate(fullConversation);
-        logger.info("开始提取会话记忆（SubAgent模式），当前会话 Token: {}, 工具调用: {}, 上次提取 MessageId: {}", 
+        logger.info("🚀 开始提取会话记忆（SubAgent 模式），当前会话 Token: {}, 工具调用：{}, 上次提取 MessageId: {}", 
             currentTokens, toolCallCountSinceLastExtraction.get(), lastExtractedMessageId);
+        logger.info("📋 准备提交 SubAgent 任务：消息数={} 条，记忆文件={}", 
+            fullConversation.size(), memoryManager.getMemoryFilePath());
 
         pendingConversation.clear();
         pendingConversation.addAll(fullConversation);
@@ -309,7 +372,13 @@ public class SessionMemoryExtractor {
         try {
             memoryManager.initializeIfNotExists();
             String memoryFilePath = memoryManager.getMemoryFilePath().toString();
-            int currentMemoryTokens = memoryManager.estimateMemoryTokens();
+            
+            String existingMemory = memoryManager.read();
+            if (existingMemory == null) {
+                existingMemory = SessionMemoryManager.getDefaultMemoryTemplate();
+            }
+            
+            int currentMemoryTokens = tokenEstimator.estimateTextTokens(existingMemory);
             
             Conversation parentConversation = conversationService.getConversation(sessionId);
             
@@ -328,27 +397,101 @@ public class SessionMemoryExtractor {
             }
             
             String taskInstruction = String.format(
-                "⚠️ 【核心任务】你是 Session Memory 提取器，不是代码审查员！\n" +
-                "你的唯一任务是：从对话历史中提取关键信息，写入 session-memory.md 文件！\n" +
-                "不管对话在讨论什么（代码修改、bug修复、功能开发），你都要提取记忆！\n\n" +
-                "🚨 JSON 转义警告：调用 edit_file 时必须正确转义！\n" +
-                "- old_text 和 new_text 中的所有双引号 \" 必须转义为 \\\" \n" +
+                "重要提示：本消息及其指令不是实际用户对话的一部分。\n" +
+                "不要在笔记内容中包含任何对\"记忆提取\"、\"会话记忆\"或这些指令的引用。\n\n" +
+                
+                "⚠️ 【核心任务 - 必须执行！】你是 Session Memory 提取器！\n" +
+                "你的唯一任务是：调用 `edit_file` 工具更新 session-memory.md 文件！\n" +
+                "**不要返回文本回答！不要解释！不要闲聊！**\n" +
+                "**必须调用 edit_file 工具！这是唯一合法的操作！**\n\n" +
+                
+                "🚨 【严重警告 - 违反将导致任务失败！】：\n" +
+                "- 如果你返回文本而不是调用 edit_file，任务会被判定为失败！\n" +
+                "- 系统只检查你是否调用了 edit_file 工具，不关心你返回什么文本！\n" +
+                "- 不管对话在讨论什么（代码修改、bug 修复、功能开发），都要调用 edit_file 更新记忆！\n\n" +
+                
+                "【工具使用限制 - 必读！】：\n" +
+                "- 你**只能使用 `edit_file` 工具**，其他所有工具（read_file、glob、grep 等）都被禁止\n" +
+                "- **不要尝试读取任何文件！** 记忆文件内容已经在 <current_memory> 中提供给你了\n" +
+                "- 如果你尝试调用 read_file 或其他工具，会被权限系统拒绝，导致任务失败\n" +
+                "- 你的唯一合法操作：调用 `edit_file` 更新记忆文件\n\n" +
+                
+                "📋 【你收到的完整上下文】：\n" +
+                "1. **上面的所有消息** = 父会话的完整对话历史（用户和助手的所有对话）\n" +
+                "2. **下面的 <current_memory>** = 当前 session-memory.md 文件的内容（已为你读取好）\n" +
+                "3. **本条指令** = 告诉你如何使用 edit_file 更新记忆文件\n\n" +
+                
+                "📖 当前记忆文件内容（已为你读取好，不需要再次读取）：\n" +
+                "<current_memory>\n%s\n</current_memory>\n\n" +
+                
+                "🎯 【增量更新规则 - 极其重要！】：\n" +
+                "- 分析**上面的完整对话历史**，对比 <current_memory> 中的已有内容\n" +
+                "- 只提取和更新**新消息**带来的信息（即 <current_memory> 中没有的内容）\n" +
+                "- 绝对不要重复提取已经在 <current_memory> 中记录过的内容\n" +
+                "- 如果某章节没有实质性新信息，保持原样不动，不要添加填充内容\n\n" +
+                
+                "🎯 【执行步骤】：\n" +
+                "1. 阅读 <current_memory> 了解已有哪些记忆\n" +
+                "2. 分析**上面的对话历史**，识别出**新增的**关键信息\n" +
+                "3. 将新信息合并到对应的章节中\n" +
+                "4. **立即调用 `edit_file` 工具**更新记忆文件（这是你唯一能用的工具）\n\n" +
+                
+                "✏️ 【内容编写要求】：\n" +
+                "- 写**详细的、信息密集的**内容 - 包含具体细节：文件路径、函数名、错误信息、具体命令、技术细节等\n" +
+                "- 对于 \"Key Results\"，包含用户要求的完整、精确的输出（例如完整表格、完整答案等）\n" +
+                "- 专注于可操作的、具体的信息，帮助他人理解或重现对话中讨论的工作\n" +
+                "- **始终更新 \"Current State\"** 以反映最新的工作 - 这对连续性至关重要\n" +
+                "- 每个章节保持在 ~2000 tokens 以内 - 如果接近限制，压缩不太重要的细节\n\n" +
+                
+                "🛡️ 【绝对保护规则 - 违反将导致任务失败！】：\n" +
+                "- 文件必须保持其精确结构，所有章节、标题和斜体说明必须完整\n" +
+                "- **绝对不要**修改、删除或添加章节标题（以 '#' 开头的行，如 # Task Specification）\n" +
+                "- **绝对不要**修改或删除斜体说明行（每个标题后紧跟的以 _开头和结尾的斜体文本）\n" +
+                "- 斜体说明行是模板指令，必须原样保留 - 它们指导每个章节应该包含什么内容\n" +
+                "- **只更新**每个章节中斜体说明行**下面**的实际内容\n" +
+                "- **不要**在现有结构之外添加任何新章节、摘要或信息\n" +
+                "- 不要在笔记内容中引用本记忆提取过程或指令\n\n" +
+                
+                "✏️ 【edit_file 使用指南 - 必须严格遵守！】：\n" +
+                "- **必须提供 3 个参数：path, old_text, new_text，缺一不可！**\n" +
+                "- **path 参数** = 记忆文件路径（见下方'记忆文件路径：'一行）\n" +
+                "- **old_text 参数** = 文件中已有的原文（从 <current_memory> 中复制），一个字都不能改\n" +
+                "- **new_text 参数** = 更新后的新内容（包含你要添加/修改的记忆）\n" +
+                "- old_text 越短越好，只包含要替换的那几行\n" +
+                "- 不要包含分隔线 `---`，只替换分隔线之间的内容\n" +
+                "- 每次只修改一个章节的内容区\n" +
+                "- 没有变化的章节跳过不处理\n\n" +
+                
+                "📝 【edit_file 调用示例 - 照此格式！】：\n" +
+                "```json\n" +
+                "{\n" +
+                "  \"path\": \"[记忆文件路径]\",\n" +
+                "  \"old_text\": \"# Current State\\n_当前正在做什么_\\n正在调试 Sub-Agent 机制\",\n" +
+                "  \"new_text\": \"# Current State\\n_当前正在做什么_\\n已完成 Sub-Agent 机制调试，更新了记忆提取流程\"\n" +
+                "}\n" +
+                "```\n\n" +
+                
+                "🚨 JSON 转义警告：\n" +
+                "- old_text 和 new_text 中的所有双引号 \" 必须转义为 \\\"\n" +
                 "- old_text 和 new_text 中的所有反斜杠 \\ 必须转义为 \\\\\n" +
-                "- old_text 必须精确匹配文件内容，包括换行和空格\n" +
-                "- 不允许包含注释、说明文字或任何解释性内容\n\n" +
-                "🎯 【任务终止指令】：\n" +
-                "- 成功执行 edit_file 工具后，立即输出 \"DONE\" 并结束任务！\n" +
-                "- 不需要确认、不需要总结、绝对不允许继续闲聊！\n" +
-                "- edit_file 成功 = 任务完成！\n\n" +
-                "请基于以上对话历史（共 %d 条消息），执行 Session Memory 增量更新任务。\n\n" +
+                "- old_text 必须精确匹配文件内容，包括换行和空格\n\n" +
+                
                 "📊 Token 预算限制：\n" +
                 "- 单章节最大: 2000 tokens\n" +
                 "- 记忆文件总上限: 12000 tokens\n" +
                 "- 超过限制必须强制压缩！%s\n\n" +
-                "记忆文件路径: %s",
-                fullConversation.size(),
+                
+                "🎯 【任务终止指令】：\n" +
+                "- 成功执行 edit_file 工具后，立即输出 \"DONE\" 并结束任务！\n" +
+                "- 不需要确认、不需要总结、绝对不允许继续闲聊！\n" +
+                "- edit_file 成功 = 任务完成！\n\n" +
+                
+                "记忆文件路径:%s\n\n" +
+                "🚨 最后警告：不要返回文本！必须调用 edit_file 工具！你上面有 %d 条对话消息，下面有当前记忆内容。立即调用 edit_file 工具执行 Session Memory 增量更新任务。",
+                existingMemory,
                 tokenBudgetWarning,
-                memoryFilePath
+                memoryFilePath,
+                fullConversation.size()
             );
             
             String taskDescription = String.format(
@@ -362,23 +505,34 @@ public class SessionMemoryExtractor {
                 taskInstruction,
                 120,
                 null,
-                SubAgentPermission.MEMORY_EXTRACTOR,
+                SubAgentPermission.SESSION_MEMORY_UPDATER,
                 () -> onMemoryExtractionCompleted(fullConversation),
                 builder -> {
                 }
             );
 
-            logger.info("✅ 会话记忆提取任务已提交给 SubAgent: taskId={}", task.getTaskId());
+            logger.info("✅ 会话记忆提取任务已提交给 SubAgent: taskId={}, timeout={}s", 
+                task.getTaskId(), task.getTimeoutSeconds());
 
+            // 异步等待 SubAgent 完成，超时时间 = SubAgent timeout + 10 秒缓冲
             EXECUTOR.submit(() -> {
                 try {
-                    task.awaitCompletion(150, java.util.concurrent.TimeUnit.SECONDS);
+                    logger.info("⏳ 开始等待 SubAgent 完成：taskId={}", task.getTaskId());
+                    // 超时时间设置为 130 秒（120 秒 SubAgent timeout + 10 秒缓冲）
+                    task.awaitCompletion(130, java.util.concurrent.TimeUnit.SECONDS);
+                    logger.info("⏰ SubAgent 等待完成：taskId={}, 最终状态={}", 
+                        task.getTaskId(), task.getStatus());
+                    
+                    // 如果 SubAgent 超时未完成，手动释放锁
+                    if (task.getStatus() == com.example.agent.subagent.SubAgentStatus.RUNNING) {
+                        logger.warn("⚠️ SubAgent 超时未完成，手动释放提取锁：taskId={}", task.getTaskId());
+                    }
                 } catch (Exception e) {
-                    logger.warn("⏱️ 记忆提取任务看门狗超时，强制释放锁: taskId={}", task.getTaskId());
+                    logger.warn("⏱️ 记忆提取任务看门狗超时，强制释放锁：taskId={}", task.getTaskId());
                 } finally {
-                    if (extractionInProgress.get()) {
-                        extractionInProgress.set(false);
-                        logger.warn("🔓 看门狗强制释放记忆提取锁");
+                    // 无论成功还是失败，都释放锁
+                    if (extractionInProgress.getAndSet(false)) {
+                        logger.debug("🔓 释放记忆提取锁：taskId={}", task.getTaskId());
                     }
                 }
             });
@@ -392,18 +546,35 @@ public class SessionMemoryExtractor {
 
     /**
      * 提取完成回调
+     * 注意：此方法由 SubAgentManager 在 SubAgent 完成后异步调用
+     * 
+     * 重要：无论锁是否被释放（可能已超时），都要更新状态计数器
+     * 锁只是控制并发，状态更新不应该被锁的状态影响
      */
     private void onMemoryExtractionCompleted(List<Message> fullConversation) {
         try {
+            // 检查锁状态，仅用于日志记录，不影响状态更新
+            boolean wasLockHeld = extractionInProgress.get();
+            if (!wasLockHeld) {
+                logger.debug("⚠️ 提取完成回调：锁已被释放（可能已超时），但仍更新状态");
+            }
+            
+            // 无论锁状态如何，都要更新状态计数器
+            // 这是为了防止 SubAgent 超时后，下次 shouldExtract 条件依然满足，导致重复触发
             toolCallCountSinceLastExtraction.set(0);
             lastExtractedTokenCount = tokenEstimator.estimate(fullConversation);
             updateLastSummarizedMessageIdIfSafe(fullConversation);
             pendingConversation.clear();
-            logger.info("✅ Session Memory 提取完成，状态已更新");
+            
+            logger.info("✅ Session Memory 提取完成，状态已更新 (锁状态：{})", 
+                wasLockHeld ? "持有中" : "已释放");
         } catch (Exception e) {
             logger.error("❌ 记忆提取完成回调异常", e);
         } finally {
-            extractionInProgress.set(false);
+            // 确保锁被释放（幂等操作，重复调用无妨）
+            if (extractionInProgress.getAndSet(false)) {
+                logger.debug("🔓 提取完成回调释放锁");
+            }
         }
     }
 

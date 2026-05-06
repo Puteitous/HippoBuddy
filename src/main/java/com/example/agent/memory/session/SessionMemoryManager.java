@@ -41,12 +41,14 @@ public class SessionMemoryManager {
         if (baseDir != null) {
             LocalDate today = LocalDate.now();
             String dateStr = today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            // 使用 baseDir 本身作为项目 key，而不是 getCurrentWorkingDir()
+            String projectKey = WorkspaceManager.sanitizePath(baseDir.toString());
             this.memoryFilePath = baseDir.resolve(
                 ".hippo"
             ).resolve(
                 "projects"
             ).resolve(
-                WorkspaceManager.sanitizePath(WorkspaceManager.getCurrentWorkingDir())
+                projectKey
             ).resolve(
                 "sessions"
             ).resolve(

@@ -85,10 +85,13 @@ public class MemoryExtractor {
         this.subAgentManager = ServiceLocator.getOrNull(SubAgentManager.class);
         this.conversationService = ServiceLocator.getOrNull(ConversationService.class);
         
-        // 初始化 MemoryStore
+        // 初始化 MemoryStore（优先使用 DI 容器中的共享实例）
         try {
-            MemoryToolSandbox sandbox = new MemoryToolSandbox(MEMORY_DIR);
-            this.memoryStore = new MemoryStore(sandbox);
+            this.memoryStore = ServiceLocator.getOrNull(MemoryStore.class);
+            if (this.memoryStore == null) {
+                MemoryToolSandbox sandbox = new MemoryToolSandbox(MEMORY_DIR);
+                this.memoryStore = new MemoryStore(sandbox);
+            }
         } catch (Exception e) {
             logger.warn("初始化 MemoryStore 失败，长期记忆提取功能将受限", e);
             this.memoryStore = null;

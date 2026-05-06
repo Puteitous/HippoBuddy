@@ -2,6 +2,7 @@ package com.example.agent.memory;
 
 import com.example.agent.config.Config;
 import com.example.agent.domain.rule.HippoRulesParser;
+import com.example.agent.web.server.DashboardServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,7 +73,7 @@ public class MemoryModule {
     private static void startDashboardServer() {
         try {
             int port = 9090;
-            MemoryDashboardServer.start(port);
+            DashboardServer.start(port);
             logger.info("✅ SSE 看板服务器已启动，端口：{}，访问：http://localhost:{}/sse/memory-events", port, port);
         } catch (Exception e) {
             logger.warn("SSE 看板服务器启动失败（不影响核心功能）：{}", e.getMessage(), e);

@@ -1,6 +1,7 @@
 package com.example.agent.memory;
 
 import com.example.agent.memory.consolidation.MemoryConsolidator;
+import com.example.agent.web.server.DashboardServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +67,7 @@ public class MemoryStore {
         public Set<String> tags;
         public Instant lastUpdated;
         public Instant lastAccessed;
+        public String fileName;
 
         public MemoryEntryMeta(MemoryEntry entry) {
             this.id = entry.getId();
@@ -74,6 +76,7 @@ public class MemoryStore {
             this.tags = new HashSet<>(entry.getTags());
             this.lastUpdated = entry.getLastUpdated();
             this.lastAccessed = entry.getLastAccessed();
+            this.fileName = null;
         }
 
         public MemoryEntryMeta(String id, String title, MemoryEntry.MemoryType type) {
@@ -83,6 +86,7 @@ public class MemoryStore {
             this.tags = new HashSet<>();
             this.lastUpdated = Instant.now();
             this.lastAccessed = Instant.now();
+            this.fileName = null;
         }
 
         private String extractTitle(String content) {
@@ -214,13 +218,21 @@ public class MemoryStore {
                 continue;
             }
             
-            // 跳过表头分隔符行（如 |----|-------|...）
-            if (line.matches("\\|[-\\s|]+\\|")) {
+            // 格式1：Markdown 链接 — - [标题](文件名.md) — 描述
+            if (line.startsWith("- [") && line.contains("](")) {
+                MemoryEntryMeta meta = parseMarkdownIndexLine(line);
+                if (meta != null) {
+                    index.put(meta.id, meta);
+                }
                 continue;
             }
             
-            // 解析索引行：| UUID | Title | Type | Tags | LastUpdated |
+            // 格式2：表格行 — | UUID | Title | Type | Tags | LastUpdated |
             if (line.startsWith("|") && line.endsWith("|")) {
+                // 跳过表头分隔符行（如 |----|-------|...）
+                if (line.matches("\\|[-\\s|]+\\|")) {
+                    continue;
+                }
                 MemoryEntryMeta meta = parseIndexLine(line);
                 if (meta != null) {
                     index.put(meta.id, meta);
@@ -229,6 +241,57 @@ public class MemoryStore {
         }
         
         logger.info("从索引文件加载了 {} 条记忆", index.size());
+    }
+    
+    /**
+     * 解析 Markdown 链接格式的索引行
+     * 格式：- [标题](文件名.md) — 描述
+     */
+    private MemoryEntryMeta parseMarkdownIndexLine(String line) {
+        // 提取标题和文件名
+        int titleStart = line.indexOf("[") + 1;
+        int titleEnd = line.indexOf("]");
+        int fileStart = line.indexOf("(") + 1;
+        int fileEnd = line.indexOf(")");
+        
+        if (titleStart <= 0 || titleEnd <= titleStart || fileStart <= 0 || fileEnd <= fileStart) {
+            return null;
+        }
+        
+        String title = line.substring(titleStart, titleEnd).trim();
+        String fileName = line.substring(fileStart, fileEnd).trim();
+        
+        // 从文件名推断类型
+        MemoryEntry.MemoryType type = MemoryEntry.MemoryType.USER_PREFERENCE;
+        if (fileName.startsWith("project_context_")) {
+            type = MemoryEntry.MemoryType.PROJECT_CONTEXT;
+        } else if (fileName.startsWith("feedback_")) {
+            type = MemoryEntry.MemoryType.FEEDBACK;
+        } else if (fileName.startsWith("reference_")) {
+            type = MemoryEntry.MemoryType.REFERENCE;
+        }
+        
+        // 尝试从文件中读取完整 frontmatter 获取 id
+        Path filePath = memoryDir.resolve(fileName);
+        if (Files.exists(filePath)) {
+            try {
+                Map<String, Object> frontmatter = FrontmatterParser.parse(filePath);
+                String id = (String) frontmatter.get("id");
+                if (id != null) {
+                    MemoryEntryMeta meta = new MemoryEntryMeta(id, title, type);
+                    meta.fileName = fileName;
+                    return meta;
+                }
+            } catch (IOException e) {
+                logger.debug("解析索引行引用的文件失败：{}", fileName);
+            }
+        }
+        
+        // 如果无法从文件获取 id，使用文件名（去掉 .md）作为 id
+        String id = fileName.endsWith(".md") ? fileName.substring(0, fileName.length() - 3) : fileName;
+        MemoryEntryMeta meta = new MemoryEntryMeta(id, title, type);
+        meta.fileName = fileName;
+        return meta;
     }
 
     /**
@@ -257,7 +320,9 @@ public class MemoryStore {
                         logger.trace("扫描到记忆文件：{}", id);
                         // 读取完整 entry 构建 meta
                         MemoryEntry entry = FrontmatterParser.parseEntry(file);
-                        index.put(id, new MemoryEntryMeta(entry));
+                        MemoryEntryMeta meta = new MemoryEntryMeta(entry);
+                        meta.fileName = fileName;
+                        index.put(id, meta);
                     } else {
                         logger.warn("文件 {} 没有 id 字段", fileName);
                     }
@@ -322,13 +387,15 @@ public class MemoryStore {
         writeMemoryFile(entry);
         
         // 3. 更新索引
-        index.put(entry.getId(), createMeta(entry));
+        MemoryEntryMeta meta = createMeta(entry);
+        meta.fileName = entry.getId() + ".md";
+        index.put(entry.getId(), meta);
         
         // 4. 异步更新索引文件
         scheduleIndexUpdate();
         
         // 5. 广播 SSE 事件
-        MemoryDashboardServer.broadcast("memory_saved",
+        DashboardServer.broadcast("memory_saved",
             "{\"id\":\"" + entry.getId() + "\",\"type\":\"" + entry.getType() + "\",\"tags\":" + tagsToJson(entry.getTags()) + "}");
         
         logger.debug("添加记忆：{}", entry.getId());
@@ -358,7 +425,14 @@ public class MemoryStore {
                 writeMemoryFile(entry);
                 
                 // 6. 更新索引
-                index.put(id, createMeta(entry));
+                MemoryEntryMeta updateMeta = createMeta(entry);
+                MemoryEntryMeta oldMeta = index.get(id);
+                if (oldMeta != null && oldMeta.fileName != null) {
+                    updateMeta.fileName = oldMeta.fileName;
+                } else {
+                    updateMeta.fileName = id + ".md";
+                }
+                index.put(id, updateMeta);
                 
                 // 7. 异步更新索引文件
                 scheduleIndexUpdate();
@@ -642,6 +716,10 @@ public class MemoryStore {
      * 获取文件路径
      */
     private Path getMemoryFilePath(String id) {
+        MemoryEntryMeta meta = index.get(id);
+        if (meta != null && meta.fileName != null) {
+            return memoryDir.resolve(meta.fileName);
+        }
         return memoryDir.resolve(id + ".md");
     }
 
@@ -732,7 +810,7 @@ public class MemoryStore {
             }
             
             // 格式：- [标题](文件名.md) — 一句话描述
-            String fileName = meta.id + ".md";
+            String fileName = meta.fileName != null ? meta.fileName : meta.id + ".md";
             String description = generateDescription(meta);
             
             // 截断描述到 150 字符以内
@@ -908,11 +986,16 @@ public class MemoryStore {
         }
     }
 
+    private static volatile boolean autoDreamEnabled = false;
+
     /**
      * 触发自动梦境（Phase 2 实现）
      * 调用 MemoryConsolidator 检查并执行整合（三重门会自动判断）
      */
     public void triggerAutoDream() {
+        if (!autoDreamEnabled) {
+            return;
+        }
         if (consolidator != null) {
             consolidator.checkAndConsolidate(null);
         }
@@ -923,6 +1006,14 @@ public class MemoryStore {
      */
     public void setConsolidator(MemoryConsolidator consolidator) {
         this.consolidator = consolidator;
+    }
+
+    public static void setAutoDreamEnabled(boolean enabled) {
+        autoDreamEnabled = enabled;
+    }
+
+    public static boolean isAutoDreamEnabled() {
+        return autoDreamEnabled;
     }
 
     /**
