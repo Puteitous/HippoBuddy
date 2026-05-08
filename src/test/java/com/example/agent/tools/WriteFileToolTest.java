@@ -35,6 +35,7 @@ class WriteFileToolTest {
     void setUp() {
         tool = new WriteFileTool();
         objectMapper = new ObjectMapper();
+        lenient().when(mockPath.toAbsolutePath()).thenReturn(mockPath);
     }
 
     @Test
@@ -314,6 +315,61 @@ class WriteFileToolTest {
             
             ToolExecutionException exception = assertThrows(ToolExecutionException.class, () -> tool.execute(args));
             assertTrue(exception.getMessage().contains("写入文件失败"));
+        }
+    }
+
+    @Test
+    void testWriteNewFileRecordsChange() throws Exception {
+        try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
+             MockedStatic<Files> filesMock = mockStatic(Files.class);
+             MockedStatic<FileChangeTracker> trackerMock = mockStatic(FileChangeTracker.class)) {
+
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.getRelativePath(any())).thenReturn("test.txt");
+
+            when(mockPath.getParent()).thenReturn(mockParentPath);
+            when(mockPath.toAbsolutePath()).thenReturn(mockPath);
+            filesMock.when(() -> Files.exists(mockParentPath)).thenReturn(true);
+            filesMock.when(() -> Files.exists(mockPath)).thenReturn(false);
+            filesMock.when(() -> Files.writeString(eq(mockPath), anyString(), eq(StandardCharsets.UTF_8),
+                any(StandardOpenOption.class), any(StandardOpenOption.class))).thenReturn(mockPath);
+
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("path", "test.txt");
+            args.put("content", "Hello World");
+
+            tool.execute(args);
+
+            trackerMock.verify(() -> FileChangeTracker.recordChange(
+                anyString(), eq(""), eq("Hello World"), eq("write_file")));
+        }
+    }
+
+    @Test
+    void testOverwriteExistingFileRecordsChange() throws Exception {
+        try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
+             MockedStatic<Files> filesMock = mockStatic(Files.class);
+             MockedStatic<FileChangeTracker> trackerMock = mockStatic(FileChangeTracker.class)) {
+
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.getRelativePath(any())).thenReturn("test.txt");
+
+            when(mockPath.getParent()).thenReturn(mockParentPath);
+            when(mockPath.toAbsolutePath()).thenReturn(mockPath);
+            filesMock.when(() -> Files.exists(mockParentPath)).thenReturn(true);
+            filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.readString(mockPath, StandardCharsets.UTF_8)).thenReturn("original content");
+            filesMock.when(() -> Files.writeString(eq(mockPath), anyString(), eq(StandardCharsets.UTF_8),
+                any(StandardOpenOption.class), any(StandardOpenOption.class))).thenReturn(mockPath);
+
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("path", "test.txt");
+            args.put("content", "New content");
+
+            tool.execute(args);
+
+            trackerMock.verify(() -> FileChangeTracker.recordChange(
+                anyString(), eq("original content"), eq("New content"), eq("write_file")));
         }
     }
 }

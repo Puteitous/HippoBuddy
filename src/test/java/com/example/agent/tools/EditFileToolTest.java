@@ -32,6 +32,7 @@ class EditFileToolTest {
     void setUp() {
         tool = new EditFileTool();
         objectMapper = new ObjectMapper();
+        lenient().when(mockPath.toAbsolutePath()).thenReturn(mockPath);
     }
 
     @Test
@@ -585,6 +586,72 @@ class EditFileToolTest {
             
             assertNotNull(result);
             assertTrue(result.contains("文件编辑成功"));
+        }
+    }
+
+    @Test
+    void testEditRecordsChange() throws Exception {
+        String fileContent = "Hello World\nThis is a test\nGoodbye World";
+
+        try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
+             MockedStatic<Files> filesMock = mockStatic(Files.class);
+             MockedStatic<FileChangeTracker> trackerMock = mockStatic(FileChangeTracker.class)) {
+
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.getRelativePath(any())).thenReturn("test.txt");
+
+            when(mockPath.toAbsolutePath()).thenReturn(mockPath);
+            filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.isReadable(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.isWritable(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.size(mockPath)).thenReturn((long) fileContent.length());
+            filesMock.when(() -> Files.readString(mockPath, StandardCharsets.UTF_8)).thenReturn(fileContent);
+            filesMock.when(() -> Files.writeString(eq(mockPath), anyString(), eq(StandardCharsets.UTF_8),
+                any(StandardOpenOption.class), any(StandardOpenOption.class))).thenReturn(mockPath);
+
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("path", "test.txt");
+            args.put("old_text", "This is a test");
+            args.put("new_text", "This is modified");
+
+            tool.execute(args);
+
+            trackerMock.verify(() -> FileChangeTracker.recordChange(
+                anyString(), eq(fileContent), contains("This is modified"), eq("edit_file")));
+        }
+    }
+
+    @Test
+    void testEditWithEmptyNewTextRecordsChange() throws Exception {
+        String fileContent = "Hello World";
+
+        try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
+             MockedStatic<Files> filesMock = mockStatic(Files.class);
+             MockedStatic<FileChangeTracker> trackerMock = mockStatic(FileChangeTracker.class)) {
+
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.getRelativePath(any())).thenReturn("test.txt");
+
+            when(mockPath.toAbsolutePath()).thenReturn(mockPath);
+            filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.isReadable(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.isWritable(mockPath)).thenReturn(true);
+            filesMock.when(() -> Files.size(mockPath)).thenReturn((long) fileContent.length());
+            filesMock.when(() -> Files.readString(mockPath, StandardCharsets.UTF_8)).thenReturn(fileContent);
+            filesMock.when(() -> Files.writeString(eq(mockPath), anyString(), eq(StandardCharsets.UTF_8),
+                any(StandardOpenOption.class), any(StandardOpenOption.class))).thenReturn(mockPath);
+
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("path", "test.txt");
+            args.put("old_text", "Hello");
+            args.put("new_text", "");
+
+            tool.execute(args);
+
+            trackerMock.verify(() -> FileChangeTracker.recordChange(
+                anyString(), eq(fileContent), eq(" World"), eq("edit_file")));
         }
     }
 }
