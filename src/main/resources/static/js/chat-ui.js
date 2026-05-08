@@ -116,17 +116,21 @@ export class ChatUI {
     copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     btnContainer.appendChild(copyBtn);
 
-    copyBtn.onclick = () => {
-      const textToCopy = contentDiv.innerText;
-      navigator.clipboard.writeText(textToCopy).then(() => {
-        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-        copyBtn.classList.add('copied');
-        setTimeout(() => {
-          copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-          copyBtn.classList.remove('copied');
-        }, 2000);
-      });
-    };
+    if (window.setupCopyButton) {
+      window.setupCopyButton(copyBtn, contentDiv);
+    } else {
+      copyBtn.onclick = () => {
+        const textToCopy = contentDiv.innerText;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            copyBtn.classList.remove('copied');
+          }, 2000);
+        });
+      };
+    }
     contentDiv.dataset.markdown = content;
     msgDiv.appendChild(btnContainer);
 
@@ -148,12 +152,37 @@ export class ChatUI {
     this.container.appendChild(card);
     this.scrollToBottom();
     
+    // 绑定工具卡片事件（折叠/展开、撤销等）
+    this.bindToolCardEvents(card);
+    
     // 绑定 AskUser 卡片事件
     if (tool.name === 'ask_user') {
       this.bindAskUserEvents(card);
     }
     
     return card;
+  }
+  
+  /**
+   * 绑定工具卡片事件
+   */
+  bindToolCardEvents(card) {
+    const header = card.querySelector('.tool-header, .tool-call-header');
+    if (header) {
+      header.addEventListener('click', () => {
+        header.classList.toggle('expanded');
+        const details = header.nextElementSibling;
+        if (details) details.classList.toggle('show');
+      });
+    }
+    
+    const undoBtn = card.querySelector('.undo-btn');
+    if (undoBtn) {
+      undoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.undoFileChange(undoBtn);
+      });
+    }
   }
   
   /**
@@ -234,7 +263,7 @@ export class ChatUI {
     
     return `
       <div class="tool-card todo-card">
-        <div class="tool-header expanded" onclick="window.toggleToolCall(this)">
+        <div class="tool-header expanded">
           <span class="tool-icon">📋</span>
           <span class="tool-title">任务清单</span>
           <span class="arrow">▶</span>
@@ -302,7 +331,7 @@ export class ChatUI {
 
     return `
       <div class="tool-card bash-card">
-        <div class="tool-header" onclick="window.toggleToolCall(this)">
+        <div class="tool-header">
           <span class="tool-icon">💻</span>
           <span class="tool-title">终端命令</span>
           <span class="tool-status-badge ${isSuccess ? 'success' : isError ? 'error' : 'running'}">${statusIcon} ${statusText}</span>
@@ -332,7 +361,7 @@ export class ChatUI {
 
     return `
       <div class="tool-card editfile-card" data-file-path="${escapeHtml(filePath)}">
-        <div class="tool-header" onclick="window.toggleToolCall(this)">
+        <div class="tool-header">
           <span class="tool-icon">✏️</span>
           <span class="tool-title">编辑文件</span>
           <span class="tool-status-badge ${isSuccess ? 'success' : 'error'}">${isSuccess ? '✅ 成功' : '❌ 失败'}</span>
@@ -354,7 +383,7 @@ export class ChatUI {
           </div>
           <div class="file-action-bar">
             <span class="file-action-status kept">✓ 已保留</span>
-            <button class="file-action-btn undo-btn" onclick="window.undoFileChange(this)">↩ 撤销</button>
+            <button class="file-action-btn undo-btn">↩ 撤销</button>
           </div>` : ''}
           ${isError && tool.error ? `<div class="editfile-error">${escapeHtml(tool.error)}</div>` : ''}
         </div>
@@ -373,7 +402,7 @@ export class ChatUI {
 
     return `
       <div class="tool-card writefile-card" data-file-path="${escapeHtml(filePath)}">
-        <div class="tool-header" onclick="window.toggleToolCall(this)">
+        <div class="tool-header">
           <span class="tool-icon">📝</span>
           <span class="tool-title">写入文件</span>
           <span class="tool-status-badge ${isSuccess ? 'success' : 'error'}">${isSuccess ? '✅ 成功' : '❌ 失败'}</span>
@@ -390,7 +419,7 @@ export class ChatUI {
           </div>
           <div class="file-action-bar">
             <span class="file-action-status kept">✓ 已保留</span>
-            <button class="file-action-btn undo-btn" onclick="window.undoFileChange(this)">↩ 撤销</button>
+            <button class="file-action-btn undo-btn">↩ 撤销</button>
           </div>` : ''}
           ${isError && tool.error ? `<div class="writefile-error">${escapeHtml(tool.error)}</div>` : ''}
         </div>
@@ -404,7 +433,7 @@ export class ChatUI {
     
     return `
       <div class="tool-card ask-user-card" data-question="${escapeHtml(question)}" data-allow-custom="${allow_custom_input !== false}">
-        <div class="tool-header expanded" onclick="window.toggleToolCall(this)">
+        <div class="tool-header expanded">
           <span class="tool-icon">❓</span>
           <span class="tool-title">需要你的确认</span>
           <span class="arrow">▶</span>
@@ -447,7 +476,7 @@ export class ChatUI {
     
     return `
       <div class="tool-call-card">
-        <div class="tool-call-header" onclick="window.toggleToolCall(this)">
+        <div class="tool-call-header">
           <span class="tool-icon">🔧</span>
           <span class="tool-name">${escapeHtml(tool.name)}</span>
           <span class="tool-status ${tool.result || 'running'}">${tool.result === 'success' ? '✓ 成功' : tool.result === 'error' ? '✗ 失败' : '⋯ 运行中'}</span>

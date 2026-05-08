@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hippo Cockpit</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/cockpit.css">
+    <link id="hljs-light-theme" rel="stylesheet" href="js/vendor/github.min.css">
+    <link id="hljs-dark-theme" rel="stylesheet" href="js/vendor/github-dark.min.css" disabled>
+    <script src="js/vendor/marked.min.js"></script>
+    <script src="js/vendor/highlight.min.js"></script>
+</head>
+<body>
+    <div class="header">
+        <span>Hippo Cockpit</span>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <span class="token-legend" title="✓ = 真实值（来自 LLM）| ~ = 估算值（首轮回退）">✓ 真实 / ~ 估算</span>
+            <div class="token-stats" id="tokenStats">
+                <div class="token-stat-item">
+                    <span class="token-stat-label">Token 使用</span>
+                    <span class="token-stat-value" id="tokenUsage">0 / 0</span>
+                </div>
+                <div class="token-stat-item">
+                    <span class="token-stat-label">使用率</span>
+                    <span class="token-stat-value" id="tokenPercent">0%</span>
+                </div>
+            </div>
+            <button class="header-icon-btn" id="tokenDetailsBtn" title="查看总 Token 消耗" style="background: rgba(255, 255, 255, 0.15);color: white;border: 1px solid rgba(255, 255, 255, 0.2);padding: 6px 10px;border-radius: var(--radius-md);cursor: pointer;transition: all var(--transition-fast);display: flex;align-items: center;justify-content: center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px;height: 18px;">
+                    <line x1="12" y1="20" x2="12" y2="10"/>
+                    <line x1="18" y1="20" x2="18" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="16"/>
+                </svg>
+            </button>
+            <button class="compact-btn" id="compactBtn" title="压缩上下文">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6"/>
+                </svg>
+                压缩
+            </button>
+            <button id="themeToggle" title="切换主题" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 6px;color:white;">🌙</button>
+            <span id="sseStatus" class="sse-status disconnected">SSE 连接中...</span>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="session-panel">
+            <div class="session-header">
+                <span>会话</span>
+                <button id="newSessionBtn" title="新建会话" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 6px;color:var(--text-secondary);">+</button>
+            </div>
+            <div class="session-list" id="sessionList">
+            </div>
+        </div>
+
+        <div class="chat-panel">
+            <div class="chat-container" id="chatContainer">
+                <div class="empty-state">发送消息开始对话</div>
+            </div>
+            <div class="new-msg-hint" id="newMsgHint" title="滚动到底部">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </div>
+
+            <div class="prompt-mode-bar" id="promptModeBar">
+                <div class="prompt-mode-label">角色:</div>
+                <div class="prompt-mode-options" id="promptModeOptions">
+                </div>
+                <button class="prompt-custom-btn" id="promptCustomBtn" title="自定义提示词">⚙️</button>
+            </div>
+            <div class="input-container">
+                <textarea id="messageInput" placeholder="输入消息... (Enter 发送, Shift+Enter 换行)" rows="1" autocomplete="off"></textarea>
+                <button id="stopBtn" style="display:none;" title="停止生成">⏹</button>
+                <button id="sendBtn" title="发送消息">➤</button>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="sidebar-section">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+                    <span>🧠 Memory Panel</span>
+                    <span class="arrow">▶</span>
+                </div>
+                <div class="sidebar-section-body">
+                    <div class="memory-list" id="memoryList"></div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+                    <span>📊 Token 统计</span>
+                    <span class="arrow">▶</span>
+                </div>
+                <div class="sidebar-section-body show">
+                    <div class="token-visual" id="tokenVisual">
+                        <div class="token-visual-item">
+                            <div class="token-visual-label">
+                                <span>上下文使用率</span>
+                                <span class="token-visual-value" id="tvPercent">0%</span>
+                            </div>
+                            <div class="token-visual-track">
+                                <div class="token-visual-fill" id="tvBar" style="width:0%"></div>
+                            </div>
+                            <div class="token-visual-sub">
+                                <span id="tvUsage">0</span> / <span id="tvMax">0</span> tokens
+                            </div>
+                        </div>
+                        <div class="token-visual-divider"></div>
+                        <div class="token-visual-grid">
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">Prompt</span>
+                                <span class="tvs-value" id="tvPrompt">0</span>
+                            </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">Completion</span>
+                                <span class="tvs-value" id="tvCompletion">0</span>
+                            </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">总输入</span>
+                                <span class="tvs-value" id="tvSessionInput">0</span>
+                            </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">总输出</span>
+                                <span class="tvs-value" id="tvSessionOutput">0</span>
+                            </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">LLM 调用</span>
+                                <span class="tvs-value" id="tvLlmCalls">0</span>
+                            </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">工具调用</span>
+                                <span class="tvs-value" id="tvToolCalls">0</span>
+                            </div>
+                        </div>
+                        <div class="token-visual-divider"></div>
+                        <div class="token-visual-total">
+                            <span>会话总消耗</span>
+                            <span class="tv-total-value" id="tvSessionTotal">0</span>
+                        </div>
+                        <div class="token-trend" id="tokenTrend">
+                            <div class="token-trend-header">
+                                <span class="token-trend-label">Token 消耗趋势</span>
+                                <span class="token-trend-value" id="trendCount">0 次记录</span>
+                            </div>
+                            <div class="token-trend-chart" id="trendChart">
+                                <div class="token-trend-empty">等待数据...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+                    <span>📡 实时监控</span>
+                    <span class="arrow">▶</span>
+                </div>
+                <div class="sidebar-section-body">
+                    <div class="metrics-panel" id="metricsPanel">
+                        <div class="metrics-group">
+                            <div class="metrics-group-title">🤖 LLM 调用</div>
+                            <div class="metrics-grid">
+                                <div class="metrics-item">
+                                    <span class="metrics-label">请求次数</span>
+                                    <span class="metrics-value" id="metLlmTotal">0</span>
+                                </div>
+                                <div class="metrics-item">
+                                    <span class="metrics-label">成功率</span>
+                                    <span class="metrics-value" id="metLlmSuccessRate">0%</span>
+                                </div>
+                                <div class="metrics-item">
+                                    <span class="metrics-label">平均耗时</span>
+                                    <span class="metrics-value" id="metLlmAvgLatency">0ms</span>
+                                </div>
+                                <div class="metrics-item">
+                                    <span class="metrics-label">最慢</span>
+                                    <span class="metrics-value" id="metLlmMaxLatency">0ms</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="metrics-divider"></div>
+                        <div class="metrics-group">
+                            <div class="metrics-group-title">🔧 工具调用</div>
+                            <div class="metrics-grid">
+                                <div class="metrics-item">
+                                    <span class="metrics-label">总调用</span>
+                                    <span class="metrics-value" id="metToolTotal">0</span>
+                                </div>
+                                <div class="metrics-item">
+                                    <span class="metrics-label">成功率</span>
+                                    <span class="metrics-value" id="metToolSuccessRate">0%</span>
+                                </div>
+                                <div class="metrics-item">
+                                    <span class="metrics-label">失败</span>
+                                    <span class="metrics-value" id="metToolFailed">0</span>
+                                </div>
+                            </div>
+                            <div class="metrics-tool-list" id="metToolList"></div>
+                        </div>
+                        <div class="metrics-divider"></div>
+                        <div class="metrics-group">
+                            <div class="metrics-group-title">🧠 记忆系统</div>
+                            <div class="metrics-grid">
+                                <div class="metrics-item">
+                                    <span class="metrics-label">检索次数</span>
+                                    <span class="metrics-value" id="metMemSearchCount">0</span>
+                                </div>
+                                <div class="metrics-item">
+                                    <span class="metrics-label">命中率</span>
+                                    <span class="metrics-value" id="metMemHitRate">0%</span>
+                                </div>
+                                <div class="metrics-item">
+                                    <span class="metrics-label">关键词回退</span>
+                                    <span class="metrics-value" id="metMemFallback">0</span>
+                                </div>
+                                <div class="metrics-item">
+                                    <span class="metrics-label">注入成功</span>
+                                    <span class="metrics-value" id="metMemInjection">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="metrics-update-time" id="metUpdateTime"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+                    <span>📂 文件变更</span>
+                    <span class="arrow">▶</span>
+                </div>
+                <div class="sidebar-section-body">
+                    <div class="file-changes-panel" id="fileChangesPanel">
+                        <div class="file-changes-empty" id="fileChangesEmpty">暂无文件变更</div>
+                        <div class="file-changes-list" id="fileChangesList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="diff-modal-overlay" id="diffModalOverlay" style="display:none;">
+        <div class="diff-modal">
+            <div class="diff-modal-header">
+                <div class="diff-modal-title">
+                    <span>📄 文件变更对比</span>
+                    <span class="diff-file-path" id="diffFilePath"></span>
+                </div>
+                <button class="diff-modal-close" id="diffModalClose">✕</button>
+            </div>
+            <div class="diff-modal-body" id="diffModalBody">
+                <div class="diff-empty" id="diffEmpty">加载中...</div>
+            </div>
+            <div class="diff-modal-footer">
+                <div class="diff-stats" id="diffStats"></div>
+                <button class="diff-rollback-btn" id="diffRollbackBtn">回滚此变更</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="prompt-modal" id="promptModal" style="display:none;">
+        <div class="prompt-modal-overlay"></div>
+        <div class="prompt-modal-content">
+            <div class="prompt-modal-header">
+                <span>自定义 System Prompt</span>
+                <button class="prompt-modal-close" id="promptModalClose">✕</button>
+            </div>
+            <div class="prompt-modal-body">
+                <textarea id="promptModalText" placeholder="输入自定义系统提示词..." rows="8"></textarea>
+                <div class="prompt-modal-hint">修改后将在新会话中生效，当前会话不受影响</div>
+            </div>
+            <div class="prompt-modal-footer">
+                <button class="prompt-modal-cancel" id="promptModalCancel">取消</button>
+                <button class="prompt-modal-save" id="promptModalSave">应用</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ========== Toast 通知系统 ==========
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️',
+                warning: '⚠️'
+            };
+            const titles = {
+                success: '成功',
+                error: '错误',
+                info: '提示',
+                warning: '警告'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+                <div class="toast-body">
+                    <div class="toast-title">${titles[type] || '提示'}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close">&times;</button>
+            `;
+
+            const closeBtn = toast.querySelector('.toast-close');
+            closeBtn.addEventListener('click', () => {
+                toast.classList.add('removing');
+                setTimeout(() => toast.remove(), 300);
+            });
+
+            container.appendChild(toast);
+
+            if (duration > 0) {
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.classList.add('removing');
+                        setTimeout(() => toast.remove(), 300);
+                    }
+                }, duration);
+            }
+        }
+
+        // ========== 复制菜单 ==========
+        function setupCopyButton(copyBtn, contentDiv) {
+            const menu = document.createElement('div');
+            menu.className = 'copy-menu';
+            menu.innerHTML = `
+                <div class="copy-menu-item" data-type="markdown">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    复制 Markdown
+                    <span class="copy-shortcut">MD</span>
+                </div>
+                <div class="copy-menu-item" data-type="text">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    复制纯文本
+                    <span class="copy-shortcut">TXT</span>
+                </div>
+            `;
+
+            const btnContainer = copyBtn.parentNode;
+            btnContainer.appendChild(menu);
+
+            copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+
+                document.querySelectorAll('.copy-menu').forEach(m => {
+                    if (m !== menu) m.style.display = 'none';
+                });
+
+                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+            });
+
+            menu.addEventListener('click', (e) => {
+                const item = e.target.closest('.copy-menu-item');
+                if (!item) return;
+
+                const type = item.dataset.type;
+                let textToCopy;
+
+                if (type === 'markdown') {
+                    textToCopy = contentDiv.dataset.markdown || contentDiv.innerHTML;
+                } else {
+                    textToCopy = contentDiv.innerText;
+                }
+
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    menu.style.display = 'none';
+                    const label = type === 'markdown' ? 'Markdown' : '纯文本';
+                    showToast(`已复制 ${label}`, 'success', 2000);
+                    copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                }).catch(() => {
+                    showToast('复制失败', 'error', 3000);
+                });
+            });
+
+            document.addEventListener('click', () => {
+                menu.style.display = 'none';
+            }, { passive: true });
+        }
+    </script>
+
+    <script type="module">
+        import { ChatService } from './js/chat-service.js';
+        import { ChatUI } from './js/chat-ui.js';
+        import { SessionManager } from './js/session-manager.js';
+        import { MemoryPanel } from './js/memory-panel.js';
+        import { generateSessionId, escapeHtml } from './js/utils.js';
+        import { renderMarkdown } from './js/markdown-renderer.js';
+
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const sessionList = document.getElementById('sessionList');
+        const newSessionBtn = document.getElementById('newSessionBtn');
+        const newMsgHint = document.getElementById('newMsgHint');
+        const sseStatus = document.getElementById('sseStatus');
+        const memoryList = document.getElementById('memoryList');
+        const themeToggle = document.getElementById('themeToggle');
+
+        const savedTheme = localStorage.getItem('hippo-theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        themeToggle.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+        applyHljsTheme(savedTheme);
+
+        function applyHljsTheme(theme) {
+            const lightSheet = document.getElementById('hljs-light-theme');
+            const darkSheet = document.getElementById('hljs-dark-theme');
+            if (theme === 'dark') {
+                lightSheet.disabled = true;
+                darkSheet.disabled = false;
+            } else {
+                lightSheet.disabled = false;
+                darkSheet.disabled = true;
+            }
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('hippo-theme', next);
+            themeToggle.textContent = next === 'dark' ? '☀️' : '🌙';
+            applyHljsTheme(next);
+        });
+
+        const chatService = new ChatService();
+        const chatUI = new ChatUI(chatContainer);
+        const sessionManager = new SessionManager(sessionList, switchSession);
+        const memoryPanel = new MemoryPanel(memoryList);
+
+        window.sessionManagerInstance = sessionManager;
+
+        let currentSessionId = generateSessionId();
+        let currentAbortController = null;
+        let userScrolledUp = false;
+        let lastUserMessage = '';
+        let currentSystemPrompt = null;
+        let promptPresets = [];
+        let selectedPresetId = localStorage.getItem('hippo-prompt-preset') || 'default';
+        let updateTokenTimer = null;
+        let tokenHistory = [];
+        const MAX_TREND_POINTS = 30;
+        const TREND_STORAGE_KEY = 'hippo-token-trend';
+
+        // 从 localStorage 恢复趋势数据
+        try {
+            const saved = localStorage.getItem(TREND_STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    tokenHistory = parsed.slice(-MAX_TREND_POINTS);
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        const promptModeBar = document.getElementById('promptModeBar');
+        const promptModeOptions = document.getElementById('promptModeOptions');
+        const promptCustomBtn = document.getElementById('promptCustomBtn');
+        const promptModal = document.getElementById('promptModal');
+        const promptModalText = document.getElementById('promptModalText');
+        const promptModalClose = document.getElementById('promptModalClose');
+        const promptModalCancel = document.getElementById('promptModalCancel');
+        const promptModalSave = document.getElementById('promptModalSave');
+        const compactBtn = document.getElementById('compactBtn');
+        const tokenUsageEl = document.getElementById('tokenUsage');
+        const tokenPercentEl = document.getElementById('tokenPercent');
+
+        async function loadPromptPresets() {
+            try {
+                const response = await fetch('/api/system-prompts/presets');
+                if (!response.ok) return;
+                const data = await response.json();
+                promptPresets = data.presets || [];
+                renderPromptModeBar();
+            } catch (e) {
+                console.error('加载预设失败:', e);
+            }
+        }
+
+
+
+
+
+        // ========== 更新 Token 统计 ==========✅
+        async function updateTokenStats() {
+            try {
+                const stats = await chatService.getTokenStats(currentSessionId);
+                
+                // 添加准确性标记
+                const accuracyMark = stats.hasKnownUsage ? '✓' : '~';
+                const accuracyTitle = stats.hasKnownUsage ? '真实值（来自 LLM 返回）' : '估算值（首轮回退模式）';
+                
+                tokenUsageEl.textContent = `${accuracyMark} ${stats.currentTokens.toLocaleString()} / ${stats.maxTokens.toLocaleString()}`;
+                tokenUsageEl.title = accuracyTitle;
+                tokenPercentEl.textContent = `${stats.usagePercent.toFixed(1)}%`;
+                tokenPercentEl.title = accuracyTitle;
+
+                tokenUsageEl.style.color = '';
+                tokenPercentEl.style.color = '';
+
+                // 显示详细 Token 信息（包括总计）
+                if (stats.hasKnownUsage) {
+                    const totalTitle = `✓ 真实值（来自 LLM 返回）\n\n` +
+                                     `├─ Prompt: ${stats.promptTokens.toLocaleString()}\n` +
+                                     `├─ Completion: ${stats.completionTokens.toLocaleString()}\n` +
+                                     `└─ Total: ${stats.totalTokens.toLocaleString()}`;
+                    tokenUsageEl.title = totalTitle;
+                    tokenPercentEl.title = totalTitle;
+                }
+            } catch (error) {
+                console.error('更新 Token 统计失败:', error);
+            }
+        }
+
+        function scheduleTokenUpdate() {
+            if (updateTokenTimer) clearTimeout(updateTokenTimer);
+            updateTokenTimer = setTimeout(() => {
+                updateTokenStats();
+            }, 1000);
+        }
+
+        // ========== 实时监控面板 ==========✅
+        async function updateMetrics() {
+            try {
+                const response = await fetch('/api/metrics');
+                if (!response.ok) return;
+                const data = await response.json();
+
+                // LLM 指标
+                if (data.llm) {
+                    const llm = data.llm;
+                    setText('metLlmTotal', llm.totalRequests);
+                    const successRate = llm.totalRequests > 0
+                        ? Math.round(llm.successfulRequests / llm.totalRequests * 100) + '%'
+                        : '0%';
+                    setText('metLlmSuccessRate', successRate);
+                    setText('metLlmAvgLatency', llm.avgLatencyMs + 'ms');
+                    setText('metLlmMaxLatency', llm.maxLatencyMs + 'ms');
+                }
+
+                // 工具调用指标
+                if (data.tools) {
+                    const tools = data.tools;
+                    setText('metToolTotal', tools.totalCalls);
+                    const toolSuccessRate = tools.totalCalls > 0
+                        ? Math.round(tools.successfulCalls / tools.totalCalls * 100) + '%'
+                        : '0%';
+                    setText('metToolSuccessRate', toolSuccessRate);
+                    setText('metToolFailed', tools.failedCalls);
+
+                    const toolList = document.getElementById('metToolList');
+                    if (toolList && tools.details) {
+                        toolList.innerHTML = tools.details.map(t =>
+                            `<span class="metrics-tool-tag"><span class="tool-count">${t.count}</span> ${escapeHtml(t.name)}</span>`
+                        ).join('');
+                    }
+                }
+
+                // 记忆系统指标
+                if (data.memory) {
+                    const mem = data.memory;
+                    setText('metMemSearchCount', mem.vectorSearchCount);
+                    setText('metMemHitRate', mem.searchHitRate + '%');
+                    setText('metMemFallback', mem.keywordFallbackCount);
+                    setText('metMemInjection', mem.injectionSuccessCount);
+                }
+
+                // 更新时间
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const el = document.getElementById('metUpdateTime');
+                if (el) el.textContent = '更新于 ' + timeStr;
+
+            } catch (e) {
+                console.error('更新监控指标失败:', e);
+            }
+        }
+
+        function setText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+
+
+
+
+
+
+        // ========== 文件变更看板 ==========✅
+        async function updateFileChanges() {
+            try {
+                const response = await fetch('/api/files/changes');
+                if (!response.ok) return;
+                const changes = await response.json();
+                const list = document.getElementById('fileChangesList');
+                const empty = document.getElementById('fileChangesEmpty');
+                if (!list || !empty) return;
+
+                if (!changes || changes.length === 0) {
+                    list.innerHTML = '';
+                    empty.style.display = 'block';
+                    return;
+                }
+
+                empty.style.display = 'none';
+                list.innerHTML = changes.map(c => {
+                    const fileName = c.filePath.split(/[/\\]/).pop();
+                    const dir = c.filePath.substring(0, c.filePath.length - fileName.length);
+                    const time = new Date(c.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                    const icon = c.toolName === 'delete_file' ? '🗑️' : '📝';
+                    return `
+                        <div class="file-change-item" onclick="showFileDiff('${escapeHtml(c.filePath)}')" style="cursor:pointer;">
+                            <span class="file-change-icon">${icon}</span>
+                            <div class="file-change-info">
+                                <div class="file-change-path" title="${escapeHtml(c.filePath)}">${escapeHtml(fileName)}</div>
+                                <div class="file-change-meta">
+                                    <span>${escapeHtml(time)}</span>
+                                    <span class="file-change-tool">${escapeHtml(c.toolName)}</span>
+                                </div>
+                            </div>
+                            <button class="file-change-rollback" onclick="event.stopPropagation(); rollbackFile('${escapeHtml(c.filePath)}', this)">回滚</button>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('获取文件变更失败:', e);
+            }
+        }
+
+        async function rollbackFile(filePath, btnEl) {
+            if (btnEl.classList.contains('rolling')) return;
+            btnEl.classList.add('rolling');
+            btnEl.textContent = '回滚中...';
+
+            try {
+                const response = await fetch('/api/files/rollback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filePath })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('文件已恢复: ' + filePath.split(/[/\\]/).pop(), 'success', 3000);
+                    updateFileChanges();
+                } else {
+                    showToast('回滚失败: ' + (result.error || '未知错误'), 'error', 3000);
+                    btnEl.classList.remove('rolling');
+                    btnEl.textContent = '回滚';
+                }
+            } catch (e) {
+                showToast('回滚失败: ' + e.message, 'error', 3000);
+                btnEl.classList.remove('rolling');
+                btnEl.textContent = '回滚';
+            }
+        }
+        window.rollbackFile = rollbackFile;
+
+
+
+
+
+        // ========== 文件 Diff 弹窗 ==========✅
+        let currentDiffFilePath = null;
+
+        async function showFileDiff(filePath) {
+            currentDiffFilePath = filePath;
+            const overlay = document.getElementById('diffModalOverlay');
+            const body = document.getElementById('diffModalBody');
+            const empty = document.getElementById('diffEmpty');
+            const pathEl = document.getElementById('diffFilePath');
+            const statsEl = document.getElementById('diffStats');
+            const rollbackBtn = document.getElementById('diffRollbackBtn');
+
+            if (!overlay) return;
+
+            overlay.style.display = 'flex';
+            pathEl.textContent = filePath.split(/[/\\]/).pop();
+            body.innerHTML = '<div class="diff-empty" id="diffEmpty">加载中...</div>';
+            statsEl.innerHTML = '';
+            rollbackBtn.classList.remove('rolling');
+            rollbackBtn.textContent = '回滚此变更';
+
+            try {
+                const response = await fetch(`/api/files/diff?path=${encodeURIComponent(filePath)}`);
+                if (!response.ok) {
+                    body.innerHTML = '<div class="diff-empty">加载失败</div>';
+                    return;
+                }
+                const data = await response.json();
+                renderDiff(data);
+            } catch (e) {
+                body.innerHTML = '<div class="diff-empty">加载失败: ' + escapeHtml(e.message) + '</div>';
+            }
+        }
+
+
+
+        // ========== 渲染文件 Diff ==========
+        function renderDiff(data) {
+            const body = document.getElementById('diffModalBody');
+            const statsEl = document.getElementById('diffStats');
+            const pathEl = document.getElementById('diffFilePath');
+
+            if (!data.changes || data.changes.length === 0) {
+                body.innerHTML = '<div class="diff-empty">无变更内容</div>';
+                statsEl.innerHTML = '';
+                return;
+            }
+
+            pathEl.textContent = data.filePath.split(/[/\\]/).pop();
+
+            let addedCount = 0;
+            let removedCount = 0;
+            let html = '';
+            let lineNum = 1;
+
+            for (const change of data.changes) {
+                const type = change.type;
+                const content = change.content || '';
+                const typeSymbol = type === 'added' ? '+' : type === 'removed' ? '-' : ' ';
+
+                if (type === 'added') addedCount++;
+                if (type === 'removed') removedCount++;
+
+                html += `<div class="diff-line ${type}">
+                    <span class="diff-line-num">${type === 'removed' ? '' : lineNum}</span>
+                    <span class="diff-line-type ${type}">${typeSymbol}</span>
+                    <span class="diff-line-content">${escapeHtml(content)}</span>
+                </div>`;
+
+                if (type !== 'removed') lineNum++;
+            }
+
+            body.innerHTML = html;
+            statsEl.innerHTML = `<span class="diff-added-count">+${addedCount}</span> <span class="diff-removed-count">-${removedCount}</span>`;
+        }
+
+        function closeDiffModal() {
+            const overlay = document.getElementById('diffModalOverlay');
+            if (overlay) overlay.style.display = 'none';
+            currentDiffFilePath = null;
+        }
+        window.showFileDiff = showFileDiff;
+        window.closeDiffModal = closeDiffModal;
+
+        async function rollbackDiffFile() {
+            if (!currentDiffFilePath) return;
+            const rollbackBtn = document.getElementById('diffRollbackBtn');
+            if (!rollbackBtn || rollbackBtn.classList.contains('rolling')) return;
+
+            rollbackBtn.classList.add('rolling');
+            rollbackBtn.textContent = '回滚中...';
+
+            try {
+                const response = await fetch('/api/files/rollback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filePath: currentDiffFilePath })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('文件已恢复: ' + currentDiffFilePath.split(/[/\\]/).pop(), 'success', 3000);
+                    closeDiffModal();
+                    updateFileChanges();
+                } else {
+                    showToast('回滚失败: ' + (result.error || '未知错误'), 'error', 3000);
+                    rollbackBtn.classList.remove('rolling');
+                    rollbackBtn.textContent = '回滚此变更';
+                }
+            } catch (e) {
+                showToast('回滚失败: ' + e.message, 'error', 3000);
+                rollbackBtn.classList.remove('rolling');
+                rollbackBtn.textContent = '回滚此变更';
+            }
+        }
+
+        // 绑定 Diff 弹窗事件
+        (function initDiffModal() {
+            const closeBtn = document.getElementById('diffModalClose');
+            const overlay = document.getElementById('diffModalOverlay');
+            const rollbackBtn = document.getElementById('diffRollbackBtn');
+
+            if (closeBtn) closeBtn.addEventListener('click', closeDiffModal);
+            if (overlay) overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closeDiffModal();
+            });
+            if (rollbackBtn) rollbackBtn.addEventListener('click', rollbackDiffFile);
+        })();
+
+        async function rollbackMessageChanges(msgDiv) {
+            const rollbackBtn = msgDiv.querySelector('.rollback-btn');
+            if (!rollbackBtn || rollbackBtn.classList.contains('rolling')) return;
+            rollbackBtn.classList.add('rolling');
+            rollbackBtn.innerHTML = '<span style="font-size:12px;">⋯</span>';
+
+            // 获取该消息的时间戳范围
+            const msgTimestamp = parseInt(msgDiv.dataset.timestamp);
+            if (!msgTimestamp) {
+                showToast('无法确定消息时间', 'error', 3000);
+                rollbackBtn.innerHTML = '↩';
+                rollbackBtn.classList.remove('rolling');
+                return;
+            }
+
+            // 找到前一条消息的时间戳作为起始点
+            let startTime = 0;
+            const prevMsg = msgDiv.previousElementSibling;
+            if (prevMsg && prevMsg.dataset.timestamp) {
+                startTime = parseInt(prevMsg.dataset.timestamp);
+            } else {
+                // 没有前一条消息，使用当前消息时间戳前 5 分钟
+                startTime = msgTimestamp - 5 * 60 * 1000;
+            }
+
+            try {
+                const response = await fetch('/api/files/rollback-range', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ startTime, endTime: msgTimestamp })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message || '已回滚文件变更', 'success', 3000);
+                    updateFileChanges();
+                } else {
+                    showToast('回滚失败: ' + (result.error || '未知错误'), 'error', 3000);
+                }
+            } catch (e) {
+                showToast('回滚失败: ' + e.message, 'error', 3000);
+            }
+
+            rollbackBtn.innerHTML = '↩';
+            rollbackBtn.classList.remove('rolling');
+        }
+        window.rollbackMessageChanges = rollbackMessageChanges;
+
+
+
+
+
+
+        // ========== 压缩会话 ==========✅
+        async function handleCompact() {
+            const instruction = prompt('输入压缩指令（可选）：\n\n例如："保留所有代码示例"、"只保留重要信息"\n\n留空则自动智能压缩');
+            
+            if (instruction === null) return;
+            
+            try {
+                compactBtn.disabled = true;
+                compactBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+                        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                    </svg>
+                    压缩中...
+                `;
+
+                const result = await chatService.compactSession(currentSessionId, instruction || null);
+                
+                if (result.success) {
+                    showToast(`压缩完成！\n压缩方法：${result.method}\n原始消息：${result.originalCount} 条\n压缩后：${result.compactedCount} 条\n减少：${result.reducedCount} 条\n节省 Token：${result.savedTokens.toLocaleString()} (${result.savedPercent}%)\n\n摘要：${result.summary}`, 'success', 8000);
+                    await updateTokenStats();
+                }
+            } catch (error) {
+                showToast(`压缩失败：${error.message}`, 'error');
+                console.error('压缩会话失败:', error);
+            } finally {
+                compactBtn.disabled = false;
+                compactBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6"/>
+                    </svg>
+                    压缩
+                `;
+            }
+        }
+
+        compactBtn.addEventListener('click', handleCompact);
+
+        function renderPromptModeBar() {
+            promptModeOptions.innerHTML = '';
+            for (const preset of promptPresets) {
+                const btn = document.createElement('button');
+                btn.className = 'prompt-mode-btn' + (preset.id === selectedPresetId ? ' active' : '');
+                btn.textContent = preset.name;
+                btn.title = preset.description;
+                btn.dataset.presetId = preset.id;
+                btn.addEventListener('click', () => selectPreset(preset.id));
+                promptModeOptions.appendChild(btn);
+            }
+            applySelectedPreset();
+        }
+
+        function selectPreset(presetId) {
+            selectedPresetId = presetId;
+            localStorage.setItem('hippo-prompt-preset', presetId);
+            document.querySelectorAll('.prompt-mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.presetId === presetId);
+            });
+            applySelectedPreset();
+        }
+
+        function applySelectedPreset() {
+            const preset = promptPresets.find(p => p.id === selectedPresetId);
+            if (preset) {
+                currentSystemPrompt = preset.id === 'default' ? null : preset.prompt;
+                promptModalText.value = preset.prompt;
+            }
+        }
+
+        promptCustomBtn.addEventListener('click', () => {
+            promptModal.style.display = 'flex';
+            const preset = promptPresets.find(p => p.id === selectedPresetId);
+            if (preset) {
+                promptModalText.value = currentSystemPrompt || preset.prompt;
+            }
+        });
+
+        function closePromptModal() {
+            promptModal.style.display = 'none';
+        }
+
+
+
+
+
+        // ========== 关闭提示弹窗 ==========
+        promptModalClose.addEventListener('click', closePromptModal);
+        promptModalCancel.addEventListener('click', closePromptModal);
+        promptModal.querySelector('.prompt-modal-overlay').addEventListener('click', closePromptModal);
+
+        promptModalSave.addEventListener('click', () => {
+            const customPrompt = promptModalText.value.trim();
+            if (customPrompt) {
+                currentSystemPrompt = customPrompt;
+                selectedPresetId = 'custom';
+                localStorage.setItem('hippo-prompt-preset', 'custom');
+                localStorage.setItem('hippo-custom-prompt', customPrompt);
+                document.querySelectorAll('.prompt-mode-btn').forEach(btn => btn.classList.remove('active'));
+            }
+            closePromptModal();
+        });
+
+        if (selectedPresetId === 'custom') {
+            const saved = localStorage.getItem('hippo-custom-prompt');
+            if (saved) {
+                currentSystemPrompt = saved;
+                promptModalText.value = saved;
+            }
+        }
+
+        loadPromptPresets();
+
+        sessionManager.setCurrentSession(currentSessionId);
+        sessionManager.loadSessions();
+
+        const sseClient = memoryPanel.init();
+        sseClient.onOpen(() => {
+            sseStatus.className = 'sse-status connected';
+            sseStatus.textContent = 'SSE 已连接';
+        });
+        sseClient.onError((attempts) => {
+            sseStatus.className = 'sse-status disconnected';
+            if (attempts >= sseClient.maxReconnectAttempts) {
+                sseStatus.textContent = '连接失败，请刷新页面';
+            } else {
+                sseStatus.textContent = `SSE 断开，重连中 (${attempts}/${sseClient.maxReconnectAttempts})`;
+            }
+        });
+
+        // 页面加载时初始化 Token 统计
+        updateTokenStats();
+        updateTrendChart();
+        updateMetrics();
+        updateFileChanges();
+        
+        // 定期更新 Token 统计（每 30 秒）
+        setInterval(updateTokenStats, 30000);
+        // 定期更新监控指标（每 10 秒）
+        setInterval(updateMetrics, 10000);
+        // 定期更新文件变更（每 15 秒）
+        setInterval(updateFileChanges, 15000);
+
+        function isNearBottom() {
+            return chatUI.isNearBottom();
+        }
+
+        function smartScroll() {
+            if (isNearBottom()) {
+                chatUI.scrollToBottom();
+                newMsgHint.style.display = 'none';
+                userScrolledUp = false;
+            } else {
+                newMsgHint.style.display = 'flex';
+                userScrolledUp = true;
+            }
+        }
+
+        function scrollToBottom() {
+            chatUI.scrollToBottom();
+            newMsgHint.style.display = 'none';
+            userScrolledUp = false;
+        }
+
+        window.scrollToBottom = scrollToBottom;
+        
+        newMsgHint.addEventListener('click', scrollToBottom);
+
+        chatContainer.addEventListener('scroll', () => {
+            if (isNearBottom()) {
+                userScrolledUp = false;
+                newMsgHint.style.display = 'none';
+            } else {
+                userScrolledUp = true;
+                newMsgHint.style.display = 'flex';
+            }
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
+        });
+
+        sendBtn.addEventListener('click', () => sendMessage());
+        stopBtn.addEventListener('click', stopGeneration);
+        newSessionBtn.addEventListener('click', createNewSession);
+
+        async function createNewSession() {
+            currentSessionId = await sessionManager.createNewSession();
+            chatUI.clear();
+            messageInput.focus();
+        }
+
+        async function switchSession(sessionId) {
+            if (sessionId === currentSessionId) return;
+            currentSessionId = sessionId;
+            sessionManager.setCurrentSession(sessionId);
+            await sessionManager.loadSessions();
+
+            chatContainer.innerHTML = '<div class="empty-state">加载中...</div>';
+            
+            try {
+                const messages = await chatService.getSessionMessages(sessionId);
+                chatContainer.innerHTML = '';
+                
+                if (messages.length === 0) {
+                    chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
+                } else {
+                    await loadHistoryMessages(messages);
+                }
+                
+                // 切换会话后更新 Token 统计和监控指标
+                scheduleTokenUpdate();
+                updateMetrics();
+                updateFileChanges();
+            } catch (e) {
+                chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
+            }
+
+            messageInput.focus();
+        }
+        
+
+
+
+
+
+        // ========== 加载历史消息 ==========✅
+        async function loadHistoryMessages(messages) {
+            const toolResults = {};
+            for (const msg of messages) {
+                if ((msg.role === 'tool' || msg.role === 'tool-result') && msg.toolCallId) {
+                    toolResults[msg.toolCallId] = msg;
+                }
+            }
+
+            let i = 0;
+            while (i < messages.length) {
+                const msg = messages[i];
+                if (msg.role === 'tool' || msg.role === 'tool-result') { i++; continue; }
+
+                if (msg.role === 'user') {
+                    if (msg.content && msg.content.trim()) {
+                        const { msgDiv, editBtn } = chatUI.appendUserMessage(msg.content, msg.id);
+                        if (editBtn) {
+                            editBtn.addEventListener('click', () => startEditMessage(msgDiv));
+                        }
+                    }
+                    i++;
+                    continue;
+                }
+
+                if (msg.role === 'assistant') {
+                    const segments = [];
+                    let text = '';
+                    let firstMsgTime = null;
+
+                    while (i < messages.length) {
+                        const am = messages[i];
+                        
+                        if (am.role === 'tool' || am.role === 'tool-result') {
+                            i++;
+                            continue;
+                        }
+                        
+                        if (am.role !== 'assistant') {
+                            break;
+                        }
+                        
+                        const amText = am.content || '';
+                        const hasToolCalls = am.tool_calls && am.tool_calls.length > 0;
+
+                        if (!firstMsgTime && am.timestamp) {
+                            firstMsgTime = am.timestamp;
+                        }
+
+                        if (amText.trim() && !hasToolCalls) {
+                            if (text.trim()) segments.push({ type: 'text', content: text });
+                            text = amText;
+                            i++;
+                            break;
+                        }
+
+                        if (text.trim()) {
+                            segments.push({ type: 'text', content: text });
+                            text = '';
+                        }
+
+                        if (amText.trim()) {
+                            text = amText;
+                        }
+
+                        if (hasToolCalls) {
+                            if (text.trim()) {
+                                segments.push({ type: 'text', content: text });
+                                text = '';
+                            }
+                            
+                            for (const tc of am.tool_calls) {
+                                let result = null;
+                                let resultContent = null;
+                                let error = null;
+                                const tr = toolResults[tc.id];
+                                if (tr) {
+                                    result = tr.success ? 'success' : 'error';
+                                    resultContent = tr.content || null;
+                                    if (!tr.success) error = resultContent;
+                                }
+                                segments.push({
+                                    type: 'tool',
+                                    name: tc.name,
+                                    args: tc.arguments,
+                                    result: result,
+                                    resultContent: resultContent,
+                                    error: error
+                                });
+                            }
+                        }
+                        i++;
+                    }
+
+                    if (text.trim()) {
+                        segments.push({ type: 'text', content: text });
+                    }
+
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'message assistant';
+                    if (firstMsgTime) msgDiv.dataset.timestamp = firstMsgTime;
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'message-content';
+
+                    if (segments.length === 0 && !text.trim()) {
+                        contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
+                    } else {
+                        let html = '';
+                        for (const seg of segments) {
+                            if (seg.type === 'tool') {
+                                html += chatUI.renderToolCard(seg);
+                            } else if (seg.type === 'text' && seg.content) {
+                                html += await renderMarkdown(seg.content);
+                            }
+                        }
+                        contentDiv.innerHTML = html;
+                    }
+                    msgDiv.appendChild(contentDiv);
+
+                    const btnContainer = document.createElement('div');
+                    btnContainer.className = 'message-actions';
+
+                    const retryBtn = document.createElement('button');
+                    retryBtn.className = 'message-action-btn';
+                    retryBtn.title = '重试';
+                    retryBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+                    btnContainer.appendChild(retryBtn);
+
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'message-action-btn';
+                    copyBtn.title = '复制';
+                    copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                    btnContainer.appendChild(copyBtn);
+
+                    const rollbackBtn = document.createElement('button');
+                    rollbackBtn.className = 'message-action-btn rollback-btn';
+                    rollbackBtn.title = '回退此消息的文件修改';
+                    rollbackBtn.innerHTML = '↩';
+                    rollbackBtn.addEventListener('click', () => rollbackMessageChanges(msgDiv));
+                    btnContainer.appendChild(rollbackBtn);
+
+                    const rawMarkdown = segments.filter(s => s.type === 'text').map(s => s.content).join('');
+                    contentDiv.dataset.markdown = rawMarkdown;
+                    setupCopyButton(copyBtn, contentDiv);
+
+                    msgDiv.appendChild(btnContainer);
+
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'message-time';
+                    timeDiv.textContent = firstMsgTime ? new Date(firstMsgTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                    msgDiv.appendChild(timeDiv);
+
+                    chatContainer.appendChild(msgDiv);
+                } else {
+                    i++;
+                }
+            }
+            smartScroll();
+        }
+
+
+
+        // ========== 开始编辑消息 ==========✅
+        function startEditMessage(msgDiv) {
+            const contentDiv = msgDiv.querySelector('.message-content');
+            if (!contentDiv) return;
+            
+            if (msgDiv.classList.contains('editing')) return;
+            msgDiv.classList.add('editing');
+
+            const originalText = contentDiv.textContent;
+            const isUser = msgDiv.classList.contains('user');
+
+            const editContainer = document.createElement('div');
+            editContainer.className = 'message-edit-container';
+
+            const textarea = document.createElement('textarea');
+            textarea.className = 'message-edit-textarea';
+            textarea.value = originalText;
+            textarea.rows = Math.min(Math.max(originalText.split('\n').length, 2), 8);
+
+            const editActions = document.createElement('div');
+            editActions.className = 'message-edit-actions';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'message-edit-cancel';
+            cancelBtn.textContent = '取消';
+            cancelBtn.onclick = () => {
+                msgDiv.classList.remove('editing');
+                if (editContainer && editContainer.parentNode) {
+                    editContainer.remove();
+                }
+                contentDiv.style.display = '';
+                const btnContainer = msgDiv.querySelector('.message-actions');
+                if (btnContainer) btnContainer.style.display = '';
+            };
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'message-edit-save';
+            saveBtn.textContent = '保存并重新生成';
+            saveBtn.onclick = () => {
+                const newContent = textarea.value.trim();
+                if (!newContent || newContent === originalText) {
+                    cancelBtn.click();
+                    return;
+                }
+                const messageId = msgDiv.dataset.messageId;
+                msgDiv.classList.remove('editing');
+                editContainer.remove();
+                sendMessage(newContent, messageId, msgDiv);
+            };
+
+            editActions.appendChild(cancelBtn);
+            editActions.appendChild(saveBtn);
+            editContainer.appendChild(textarea);
+            editContainer.appendChild(editActions);
+
+            contentDiv.style.display = 'none';
+            const btnContainer = msgDiv.querySelector('.message-actions');
+            if (btnContainer) btnContainer.style.display = 'none';
+
+            contentDiv.parentNode.insertBefore(editContainer, contentDiv.nextSibling);
+            textarea.focus();
+
+            textarea.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                    e.preventDefault();
+                    saveBtn.click();
+                }
+                if (e.key === 'Escape') {
+                    cancelBtn.click();
+                }
+            });
+        }
+        
+
+
+        // ========== 发送消息到智能体 ==========✅
+        async function sendMessage(overrideContent, editMessageId, editMsgDiv) {
+            console.log('📤 sendMessage 被调用', { overrideContent, editMessageId, inputValue: messageInput.value });
+            const content = (typeof overrideContent === 'string' && overrideContent)
+                ? overrideContent
+                : messageInput.value.trim();
+            if (!content) {
+                console.log('⏭️ sendMessage 跳过：内容为空');
+                return;
+            }
+
+            if (!overrideContent && !editMessageId) {
+                console.log('🧹 清空输入框，当前值:', messageInput.value);
+                messageInput.value = '';
+                messageInput.style.height = 'auto';
+                console.log('✅ 清空后输入框值:', `"${messageInput.value}"`);
+            } else {
+                console.log('⏭️ 跳过清空输入框：overrideContent=', overrideContent, 'editMessageId=', editMessageId);
+            }
+            lastUserMessage = content;
+
+            if (editMessageId && editMsgDiv) {
+                const contentDiv = editMsgDiv.querySelector('.message-content');
+                if (contentDiv) contentDiv.textContent = content;
+                const nextSibling = editMsgDiv.nextElementSibling;
+                while (nextSibling) {
+                    const toRemove = nextSibling;
+                    nextSibling = nextSibling.nextElementSibling;
+                    toRemove.remove();
+                }
+            } else {
+                const { msgDiv, editBtn } = chatUI.appendUserMessage(content);
+                if (editBtn) {
+                    editBtn.addEventListener('click', () => startEditMessage(msgDiv));
+                }
+            }
+
+            if (!sessionManager.sessionNames[currentSessionId]) {
+                sessionManager.setSessionName(currentSessionId, content);
+                sessionManager.loadSessions();
+            }
+
+            sendBtn.disabled = true;
+            sendBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+
+            let isCompleted = false;
+            let contentDiv, copyBtn, retryBtn, btnContainer;
+            let segments = [];
+            let currentText = '';
+
+            try {
+                currentAbortController = new AbortController();
+                const result = chatUI.appendAssistantMessage();
+                contentDiv = result.contentDiv;
+                copyBtn = result.copyBtn;
+                retryBtn = result.retryBtn;
+                btnContainer = result.btnContainer;
+
+                copyBtn.onclick = () => {
+                    const textToCopy = contentDiv.innerText;
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+                        copyBtn.classList.add('copied');
+                        setTimeout(() => {
+                            copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                            copyBtn.classList.remove('copied');
+                        }, 2000);
+                    });
+                };
+                setupCopyButton(copyBtn, contentDiv);
+
+                retryBtn.onclick = () => {
+                    if (!lastUserMessage) return;
+                    chatService.stopGeneration(currentAbortController);
+                    currentAbortController = new AbortController();
+                    contentDiv.innerHTML = '<span class="typing-indicator">...</span>';
+                    segments = [];
+                    currentText = '';
+                    btnContainer.style.display = 'none';
+                    sendMessage(lastUserMessage);
+                };
+
+                await chatService.sendMessage(
+                    currentSessionId,
+                    content,
+                    (parsed) => {
+                        if (isCompleted) return;
+
+                        // 处理 waiting_user 事件
+                        if (parsed._eventType === 'waiting_user') {
+                            console.log('📥 收到 waiting_user 事件:', parsed);
+                            showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
+                            return;
+                        }
+
+                        // 处理 message_id 事件（存储消息ID用于编辑功能）
+                        if (parsed._eventType === 'message_id' && parsed.id) {
+                            const userMsgDiv = document.querySelector('.message.user:last-child');
+                            if (userMsgDiv && !userMsgDiv.dataset.messageId) {
+                                userMsgDiv.dataset.messageId = parsed.id;
+                            }
+                            return;
+                        }
+
+                        // 处理 clear_content 事件（清空 LLM 多余文本）
+                        if (parsed._eventType === 'clear_content') {
+                            console.log('🧹 清空内容');
+                            currentText = '';
+                            segments = [];
+                            contentDiv.innerHTML = '';
+                            return;
+                        }
+
+                        if (parsed.type === 'retry') {
+                            contentDiv.innerHTML = `<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🔄 ${escapeHtml(parsed.message)}</div>`;
+                            currentText = '';
+                            segments = [];
+                            return;
+                        }
+
+                        // 处理非 JSON 的原始事件（如错误消息）
+                        if (parsed.type === 'raw' || parsed.type === 'error') {
+                            contentDiv.innerHTML = `<span style="color: var(--error-color);">❌ ${escapeHtml(parsed.content)}</span>`;
+                            return;
+                        }
+
+                        if (parsed.content) {
+                            currentText += parsed.content;
+                            renderSegments(contentDiv, segments, currentText);
+                            smartScroll();
+                        }
+                        
+                        if (parsed.name && parsed.success === undefined) {
+                            // ask_user 工具不在这里渲染，等待 waiting_user 事件处理
+                            if (parsed.name === 'ask_user') {
+                                // 清空已显示的文本
+                                currentText = '';
+                                segments = [];
+                                contentDiv.innerHTML = '';
+                                return;
+                            }
+                            if (currentText.trim()) {
+                                segments.push({ type: 'text', content: currentText });
+                                currentText = '';
+                            }
+                            segments.push({ 
+                                type: 'tool', 
+                                id: parsed.id || null,
+                                name: parsed.name, 
+                                args: parsed.args, 
+                                result: null, 
+                                error: null 
+                            });
+                            renderSegments(contentDiv, segments, currentText);
+                        }
+                        
+                        if (parsed.name && parsed.success !== undefined) {
+                            // 优先按 tool_call_id 匹配，没有则按工具名匹配最近的未完成工具
+                            let existingTool = null;
+                            if (parsed.id) {
+                                // 有 tool_call_id，精确匹配
+                                existingTool = segments.find(s => s.type === 'tool' && s.id === parsed.id);
+                            }
+                            if (!existingTool) {
+                                // 没有 tool_call_id，匹配最近的未完成的同名工具
+                                existingTool = segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+                            }
+                            if (existingTool) {
+                                existingTool.result = parsed.success ? 'success' : 'error';
+                                existingTool.error = parsed.error || null;
+                                existingTool.resultContent = parsed.result || null;
+                                renderSegments(contentDiv, segments, currentText);
+                            }
+                        }
+                        
+                        if (parsed.error) {
+                            contentDiv.innerHTML = `<span style="color: var(--error-color);">❌ ${escapeHtml(parsed.message || parsed.error)}</span>`;
+                        }
+                    },
+                    currentAbortController.signal,
+                    currentSystemPrompt,
+                    editMessageId || null
+                );
+
+                if (currentText.trim()) {
+                    segments.push({ type: 'text', content: currentText });
+                }
+                
+                if (segments.length === 0 && !currentText.trim()) {
+                    contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
+                } else {
+                    await renderSegmentsFinal(contentDiv, segments, '');
+                }
+
+                btnContainer.style.display = 'flex';
+            } catch (error) {
+                console.error('sendMessage 异常:', error.message);
+                if (error.name === 'AbortError') {
+                    if (currentText.trim()) {
+                        segments.push({ type: 'text', content: currentText });
+                    }
+                    await renderSegmentsFinal(contentDiv, segments, '');
+                    contentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
+                } else {
+                    contentDiv.innerHTML = `<span style="color: var(--error-color);">错误: ${error.message}</span>`;
+                }
+
+                btnContainer.style.display = 'flex';
+            } finally {
+                contentDiv.dataset.markdown = currentText;
+                isCompleted = true;
+                currentAbortController = null;
+                sendBtn.disabled = false;
+                sendBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+                console.log('🏁 sendMessage finally: 输入框值=', `"${messageInput.value}"`);
+                messageInput.focus();
+                
+                // 发送消息完成后更新 Token 统计和监控指标
+                scheduleTokenUpdate();
+                updateMetrics();
+                updateFileChanges();
+            }
+        }
+
+        function stopGeneration() {
+            chatService.stopGeneration(currentAbortController);
+        }
+
+        let renderTimer = null;
+        let lastRenderedText = '';
+
+
+
+
+        // ========== 渲染消息段落 ==========✅
+        async function renderSegments(container, segments, currentText) {
+            let html = '';
+            for (const segment of segments) {
+                if (segment.type === 'tool') {
+                    html += chatUI.renderToolCard(segment);
+                } else if (segment.type === 'text' && segment.content) {
+                    html += await renderMarkdown(segment.content);
+                }
+            }
+            if (currentText) {
+                html += await renderMarkdown(currentText);
+            }
+            container.innerHTML = html;
+            
+            // 为 ask_user 卡片绑定事件
+            container.querySelectorAll('.ask-user-card').forEach(card => {
+                chatUI.bindAskUserEvents(card);
+            });
+            
+            lastRenderedText = currentText;
+        }
+
+
+
+
+        // ========== 渲染最终消息段落 ==========✅
+        async function renderSegmentsFinal(container, segments, currentText) {
+            if (renderTimer) {
+                clearTimeout(renderTimer);
+                renderTimer = null;
+            }
+            await renderSegments(container, segments, currentText);
+        }
+        
+        // 侧边栏折叠切换
+        window.toggleSidebarSection = function(header) {
+            header.classList.toggle('expanded');
+            const body = header.nextElementSibling;
+            if (body) {
+                body.classList.toggle('show');
+            }
+        };
+
+        // Token 可视化更新
+        function getTokenColor(percent) {
+            const p = Math.min(percent, 100) / 100;
+            let r, g, b;
+            if (p <= 0.5) {
+                const t = p / 0.5;
+                r = Math.round(76 + (255 - 76) * t);
+                g = Math.round(175 + (193 - 175) * t);
+                b = Math.round(80 + (7 - 80) * t);
+            } else if (p <= 0.75) {
+                const t = (p - 0.5) / 0.25;
+                r = Math.round(255 + (240 - 255) * t);
+                g = Math.round(193 + (160 - 193) * t);
+                b = Math.round(7 + (48 - 7) * t);
+            } else {
+                const t = (p - 0.75) / 0.25;
+                r = Math.round(240 + (224 - 240) * t);
+                g = Math.round(160 + (80 - 160) * t);
+                b = Math.round(48 + (80 - 48) * t);
+            }
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+        
+        // ========== 更新 Token 可视化 ==========✅
+        function updateTokenVisual(stats) {
+            const percent = stats.usagePercent || 0;
+            const bar = document.getElementById('tvBar');
+            const percentEl = document.getElementById('tvPercent');
+            const usageEl = document.getElementById('tvUsage');
+            const maxEl = document.getElementById('tvMax');
+            const promptEl = document.getElementById('tvPrompt');
+            const completionEl = document.getElementById('tvCompletion');
+            const sessionInputEl = document.getElementById('tvSessionInput');
+            const sessionOutputEl = document.getElementById('tvSessionOutput');
+            const llmCallsEl = document.getElementById('tvLlmCalls');
+            const toolCallsEl = document.getElementById('tvToolCalls');
+            const sessionTotalEl = document.getElementById('tvSessionTotal');
+
+            if (bar) {
+                bar.style.width = Math.min(percent, 100) + '%';
+                const color = getTokenColor(percent);
+                bar.style.background = color;
+                bar.style.boxShadow = percent > 80 ? `0 0 8px ${color}` : 'none';
+            }
+            if (percentEl) {
+                percentEl.textContent = percent.toFixed(1) + '%';
+                const color = getTokenColor(percent);
+                percentEl.style.color = color;
+            }
+            if (usageEl) usageEl.textContent = (stats.currentTokens || 0).toLocaleString();
+            if (maxEl) maxEl.textContent = (stats.maxTokens || 0).toLocaleString();
+            if (promptEl) promptEl.textContent = stats.hasKnownUsage ? (stats.promptTokens || 0).toLocaleString() : '~' + (stats.currentTokens || 0).toLocaleString();
+            if (completionEl) completionEl.textContent = stats.hasKnownUsage ? (stats.completionTokens || 0).toLocaleString() : '~' + (stats.currentTokens || 0).toLocaleString();
+            if (sessionInputEl) sessionInputEl.textContent = (stats.sessionTotalInput || 0).toLocaleString();
+            if (sessionOutputEl) sessionOutputEl.textContent = (stats.sessionTotalOutput || 0).toLocaleString();
+            if (llmCallsEl) llmCallsEl.textContent = (stats.sessionLlmCalls || 0).toLocaleString();
+            if (toolCallsEl) toolCallsEl.textContent = (stats.sessionToolCalls || 0).toLocaleString();
+            if (sessionTotalEl) sessionTotalEl.textContent = (stats.sessionTotalTokens || 0).toLocaleString();
+
+            // 更新趋势图
+            const totalTokens = stats.currentTokens || 0;
+            if (totalTokens > 0) {
+                tokenHistory.push(totalTokens);
+                if (tokenHistory.length > MAX_TREND_POINTS) {
+                    tokenHistory.shift();
+                }
+                try {
+                    localStorage.setItem(TREND_STORAGE_KEY, JSON.stringify(tokenHistory));
+                } catch (e) {
+                    // ignore
+                }
+                updateTrendChart();
+            }
+        }
+
+        // ========== 更新 Token 可视化 ==========✅
+
+        function updateTrendChart() {
+            const chartEl = document.getElementById('trendChart');
+            const countEl = document.getElementById('trendCount');
+            if (!chartEl) return;
+
+            if (tokenHistory.length < 2) {
+                chartEl.innerHTML = '<div class="token-trend-empty">等待更多数据...</div>';
+                if (countEl) countEl.textContent = tokenHistory.length + ' 次记录';
+                return;
+            }
+
+            const width = 280;
+            const height = 48;
+            const padding = 2;
+            const chartWidth = width - padding * 2;
+            const chartHeight = height - padding * 2;
+
+            const values = tokenHistory;
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+
+            const points = values.map((v, i) => {
+                const x = padding + (i / (values.length - 1)) * chartWidth;
+                const y = padding + chartHeight - ((v - min) / range) * chartHeight;
+                return `${x},${y}`;
+            });
+
+            const areaPoints = points.slice().reverse().map(p => {
+                const [x] = p.split(',');
+                return `${x},${padding + chartHeight}`;
+            });
+            const allPoints = [...points, ...areaPoints, points[0]];
+
+            if (countEl) countEl.textContent = values.length + ' 次记录';
+
+            chartEl.innerHTML = `
+                <svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="var(--primary-color)" stop-opacity="0.4"/>
+                            <stop offset="100%" stop-color="var(--primary-color)" stop-opacity="0.05"/>
+                        </linearGradient>
+                    </defs>
+                    <polyline class="trend-area" points="${allPoints.join(' ')}"/>
+                    <polyline points="${points.join(' ')}"/>
+                    <circle cx="${points[points.length - 1].split(',')[0]}" cy="${points[points.length - 1].split(',')[1]}" r="2.5" fill="var(--primary-color)" stroke="var(--bg-white)" stroke-width="1.5"/>
+                </svg>
+            `;
+        }
+
+        // 增强 updateTokenStats
+        const origUpdateTokenStats = updateTokenStats;
+        updateTokenStats = async function() {
+            await origUpdateTokenStats.call(this);
+            try {
+                const stats = await chatService.getTokenStats(currentSessionId);
+                updateTokenVisual(stats);
+            } catch (e) {
+                // ignore
+            }
+        };
+        const tokenDetailsBtn = document.getElementById('tokenDetailsBtn');
+        const tokenDetailsModal = document.createElement('div');
+        tokenDetailsModal.id = 'tokenDetailsModal';
+        tokenDetailsModal.className = 'modal';
+        tokenDetailsModal.style.display = 'none';
+        tokenDetailsModal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📊 Token 消耗统计</h3>
+                    <button class="modal-close" id="closeTokenModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="token-details-section">
+                        <h4>📝 当前上下文</h4>
+                        <div class="token-detail-row">
+                            <span class="token-detail-label">Prompt:</span>
+                            <span class="token-detail-value" id="detailPrompt">0</span>
+                        </div>
+                        <div class="token-detail-row">
+                            <span class="token-detail-label">Completion:</span>
+                            <span class="token-detail-value" id="detailCompletion">0</span>
+                        </div>
+                        <div class="token-detail-row">
+                            <span class="token-detail-label">Total:</span>
+                            <span class="token-detail-value" id="detailTotal">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="token-details-section">
+                        <h4>📈 会话总计</h4>
+                        <div class="token-detail-row">
+                            <span class="token-detail-label">总输入:</span>
+                            <span class="token-detail-value" id="detailSessionInput">0</span>
+                        </div>
+                        <div class="token-detail-row">
+                            <span class="token-detail-label">总输出:</span>
+                            <span class="token-detail-value" id="detailSessionOutput">0</span>
+                        </div>
+                        <div class="token-detail-row">
+                            <span class="token-detail-label">总消耗:</span>
+                            <span class="token-detail-value highlight" id="detailSessionTotal">0</span>
+                        </div>
+                        <div class="token-detail-row">
+                            <span class="token-detail-label">LLM 调用:</span>
+                            <span class="token-detail-value" id="detailLlmCalls">0</span>
+                        </div>
+                        <div class="token-detail-row">
+                            <span class="token-detail-label">工具调用:</span>
+                            <span class="token-detail-value" id="detailToolCalls">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(tokenDetailsModal);
+        
+        tokenDetailsBtn.addEventListener('click', showTokenDetails);
+        
+        // 关闭弹窗事件
+        tokenDetailsModal.addEventListener('click', (e) => {
+            if (e.target === tokenDetailsModal) {
+                tokenDetailsModal.style.display = 'none';
+            }
+        });
+        
+        // 关闭按钮事件
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'closeTokenModal') {
+                e.stopPropagation();
+                tokenDetailsModal.style.display = 'none';
+            }
+        });
+
+
+
+        // ========== 显示 Token 详情 ==========✅
+        async function showTokenDetails() {
+            try {
+                const stats = await chatService.getTokenStats(currentSessionId);
+                
+                // 当前上下文
+                document.getElementById('detailPrompt').textContent = stats.hasKnownUsage ? stats.promptTokens.toLocaleString() : 'N/A';
+                document.getElementById('detailCompletion').textContent = stats.hasKnownUsage ? stats.completionTokens.toLocaleString() : 'N/A';
+                document.getElementById('detailTotal').textContent = stats.currentTokens.toLocaleString();
+                
+                // 会话总计
+                document.getElementById('detailSessionInput').textContent = stats.sessionTotalInput ? stats.sessionTotalInput.toLocaleString() : '0';
+                document.getElementById('detailSessionOutput').textContent = stats.sessionTotalOutput ? stats.sessionTotalOutput.toLocaleString() : '0';
+                document.getElementById('detailSessionTotal').textContent = stats.sessionTotalTokens ? stats.sessionTotalTokens.toLocaleString() : '0';
+                document.getElementById('detailLlmCalls').textContent = stats.sessionLlmCalls ? stats.sessionLlmCalls.toLocaleString() : '0';
+                document.getElementById('detailToolCalls').textContent = stats.sessionToolCalls ? stats.sessionToolCalls.toLocaleString() : '0';
+                
+                tokenDetailsModal.style.display = 'flex';
+            } catch (error) {
+                console.error('获取 Token 详情失败:', error);
+                showToast('获取 Token 详情失败：' + error.message, 'error');
+            }
+        }
+        
+        // ========== AskUser 工具交互处理 ==========✅
+        
+        /**
+         * 显示 AskUser 卡片（非阻断式交互）
+         */
+        window.showAskUserCard = function(question, options, allowCustomInput) {
+            console.log('🎯 showAskUserCard 被调用');
+            console.log('  question:', question);
+            console.log('  options:', options);
+            console.log('  allowCustomInput:', allowCustomInput);
+            
+            // 清理之前的回调，避免冲突
+            if (window.currentAskUserCallback) {
+                window.currentAskUserCallback = null;
+            }
+            
+            // 不锁定输入框，保持可用状态
+            // messageInput.disabled = false;
+            // sendBtn.disabled = false;
+            
+            // 创建新的助手消息容器
+            const { contentDiv } = chatUI.appendAssistantMessage('');
+            
+            // 先设置回调函数（在渲染前设置，确保事件绑定时已存在）
+            window.currentAskUserCallback = function(answer) {
+                console.log('✅ AskUser 回调被触发:', answer);
+                // 清除回调引用
+                window.currentAskUserCallback = null;
+                // 发送用户回答
+                window.sendMessageToAgent(answer);
+            };
+            
+            // 再渲染卡片（chat-ui.js 会在渲染时绑定事件到 window.currentAskUserCallback）
+            let segments = [];
+            segments.push({ type: 'tool', name: 'ask_user', args: JSON.stringify({
+                question: question,
+                options: options || [],
+                allow_custom_input: allowCustomInput !== false
+            }), result: null, error: null });
+            
+            renderSegments(contentDiv, segments, '');
+        };
+
+
+        // ========== 发送消息到智能体 ==========✅
+        window.sendMessageToAgent = function(message) {
+            console.log('🚀 sendMessageToAgent 被调用，消息:', message);
+            console.log('  currentSessionId:', currentSessionId);
+            console.log('  currentSessionId 类型:', typeof currentSessionId);
+            
+            // 防止重复发送
+            if (window.isSendingMessage) {
+                console.warn('⚠️ 消息正在发送中，请等待');
+                return;
+            }
+            window.isSendingMessage = true;
+            
+            // 确保 sessionId 有效
+            const sessionId = currentSessionId || `web-${Date.now()}`;
+            console.log('  实际使用的 sessionId:', sessionId);
+            
+            // 获取当前最后一个助手消息容器（AskUser 卡片所在的消息）
+            const assistantMessages = document.querySelectorAll('.assistant-message');
+            const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
+            const askUserContentDiv = lastAssistantMessage ? lastAssistantMessage.querySelector('.message-content') : null;
+            
+            // 显示加载状态
+            let loadingIndicator = null;
+            if (askUserContentDiv) {
+                loadingIndicator = document.createElement('div');
+                loadingIndicator.className = 'loading-indicator';
+                loadingIndicator.innerHTML = '<span class="loading-dot">⋯</span> 正在处理...';
+                askUserContentDiv.appendChild(loadingIndicator);
+                chatUI.scrollToBottom();
+            }
+            
+            // 创建新的助手消息容器用于显示响应
+            const { contentDiv: responseContentDiv } = chatUI.appendAssistantMessage('');
+            let currentText = '';
+            let segments = [];
+            
+            // 调用后端的 /api/chat 接口
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    sessionId: sessionId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('发送失败');
+                }
+                
+                // 处理 SSE 响应流
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let currentEvent = 'message';
+                
+                function readStream() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            console.log('✅ SSE 流结束');
+                            
+                            // 移除加载指示器
+                            if (askUserContentDiv && loadingIndicator && askUserContentDiv.contains(loadingIndicator)) {
+                                askUserContentDiv.removeChild(loadingIndicator);
+                            }
+                            
+                            // 渲染最终内容
+                            if (currentText.trim()) {
+                                segments.push({ type: 'text', content: currentText });
+                            }
+                            renderSegmentsFinal(responseContentDiv, segments, '');
+                            
+                            // 恢复输入框
+                            messageInput.disabled = false;
+                            sendBtn.disabled = false;
+                            messageInput.focus();
+                            // 更新 Token 统计
+                            updateTokenStats();
+                            // 清除发送状态
+                            window.isSendingMessage = false;
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n');
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('event: ')) {
+                                currentEvent = line.substring(7).trim();
+                            } else if (line.startsWith('data: ')) {
+                                const data = line.substring(6);
+                                if (data === '[DONE]') continue;
+                                
+                                const parsed = JSON.parse(data);
+                                console.log('📥 收到 SSE 事件:', currentEvent, parsed);
+                                
+                                // 处理 content 事件 - 流式显示
+                                if (currentEvent === 'content' && parsed.content) {
+                                    currentText += parsed.content;
+                                    renderSegments(responseContentDiv, segments, currentText);
+                                    chatUI.scrollToBottom();
+                                }
+                                
+                                // 处理 clear_content 事件（清空 LLM 多余文本）
+                                if (currentEvent === 'clear_content') {
+                                    console.log('🧹 清空内容');
+                                    currentText = '';
+                                    segments = [];
+                                    responseContentDiv.innerHTML = '';
+                                }
+                                
+                                // 处理 tool_start 事件
+                                if (currentEvent === 'tool_start' && parsed.name) {
+                                    console.log('🔧 工具开始:', parsed.name);
+                                    
+                                    // ask_user 工具不在这里渲染，等待 waiting_user 事件处理
+                                    if (parsed.name === 'ask_user') {
+                                        // 跳过渲染，但继续处理后续事件（不 return）
+                                    } else if (parsed.name === 'todo_write') {
+                                        console.log('🔧 收到 todo_write 事件:', parsed);
+                                        // todo_write 工具：更新或创建卡片
+                                        if (currentText.trim()) {
+                                            segments.push({ type: 'text', content: currentText });
+                                            currentText = '';
+                                        }
+                                        
+                                        // 查找是否已有 todo_write 工具卡片
+                                        const existingTodoIndex = segments.findIndex(s => 
+                                            s.type === 'tool' && s.name === 'todo_write' && !s.result
+                                        );
+                                        
+                                        // 解析当前的 todos
+                                        const incomingTodos = chatUI.parseTodos(parsed.args);
+                                        console.log('🔧 todo_write - 收到的 todos:', incomingTodos);
+                                        console.log('  收到数量:', incomingTodos.length);
+                                        
+                                        let finalTodos;
+                                        
+                                        // 如果是更新（已有卡片），合并到现有列表
+                                        if (existingTodoIndex >= 0) {
+                                            const oldSegment = segments[existingTodoIndex];
+                                            const oldTodos = chatUI.parseTodos(oldSegment.args);
+                                            console.log('🔧 todo_write - 旧的 todos:', oldTodos);
+                                            console.log('  旧的数量:', oldTodos.length);
+                                            
+                                            // 创建映射：id -> todo
+                                            const todoMap = new Map();
+                                            
+                                            // 先放入所有旧的
+                                            oldTodos.forEach(todo => {
+                                                todoMap.set(todo.id, { ...todo });
+                                            });
+                                            
+                                            // 用新的更新（只更新匹配的 id）
+                                            incomingTodos.forEach(newTodo => {
+                                                if (todoMap.has(newTodo.id)) {
+                                                    // 更新现有任务
+                                                    const existing = todoMap.get(newTodo.id);
+                                                    if (newTodo.content) existing.content = newTodo.content;
+                                                    if (newTodo.status) existing.status = newTodo.status;
+                                                    console.log('  更新任务 id=' + newTodo.id, existing);
+                                                } else {
+                                                    // 新任务
+                                                    todoMap.set(newTodo.id, {
+                                                        id: newTodo.id,
+                                                        content: newTodo.content || '未命名任务',
+                                                        status: newTodo.status || 'pending'
+                                                    });
+                                                    console.log('  新增任务 id=' + newTodo.id);
+                                                }
+                                            });
+                                            
+                                            finalTodos = Array.from(todoMap.values());
+                                            console.log('✅ 合并后数量:', finalTodos.length);
+                                        } else {
+                                            console.log('🆕 首次创建 todo 卡片');
+                                            // 首次创建，补充缺失的 content
+                                            finalTodos = incomingTodos.map(todo => ({
+                                                id: todo.id,
+                                                content: todo.content || '未命名任务',
+                                                status: todo.status || 'pending'
+                                            }));
+                                        }
+                                        
+                                        // 更新 args 为最终的完整列表
+                                        parsed.args = JSON.stringify({ todos: finalTodos });
+                                        
+                                        const todoSegment = { 
+                                            type: 'tool', 
+                                            id: parsed.id || null,
+                                            name: 'todo_write', 
+                                            args: parsed.args, 
+                                            result: null, 
+                                            error: null 
+                                        };
+                                        
+                                        if (existingTodoIndex >= 0) {
+                                            // 更新已有的 todo 卡片
+                                            segments[existingTodoIndex] = todoSegment;
+                                        } else {
+                                            // 创建新的 todo 卡片
+                                            segments.push(todoSegment);
+                                        }
+                                        renderSegments(responseContentDiv, segments, currentText);
+                                    } else {
+                                        // 其他工具：创建新卡片
+                                        if (currentText.trim()) {
+                                            segments.push({ type: 'text', content: currentText });
+                                            currentText = '';
+                                        }
+                                        segments.push({ 
+                                            type: 'tool', 
+                                            id: parsed.id || null,
+                                            name: parsed.name, 
+                                            args: parsed.args, 
+                                            result: null, 
+                                            error: null 
+                                        });
+                                        renderSegments(responseContentDiv, segments, currentText);
+                                    }
+                                }
+                                
+                                // 处理 tool_result 事件
+                                if (currentEvent === 'tool_result' && parsed.name) {
+                                    // 优先匹配 toolCallId，如果没有则匹配 name
+                                    let existingTool;
+                                    if (parsed.tool_call_id) {
+                                        existingTool = segments.find(s => s.type === 'tool' && s.id === parsed.tool_call_id && !s.result);
+                                    }
+                                    if (!existingTool) {
+                                        existingTool = segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+                                    }
+                                    
+                                    if (existingTool) {
+                                        existingTool.result = parsed.success ? 'success' : 'error';
+                                        existingTool.error = parsed.error || null;
+                                        existingTool.resultContent = parsed.result || null;
+                                        renderSegments(responseContentDiv, segments, currentText);
+                                    }
+                                }
+                                
+                                // 处理 waiting_user 事件（嵌套的 ask_user）
+                                if (currentEvent === 'waiting_user') {
+                                    showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
+                                }
+                            }
+                        }
+                        
+                        readStream(); // 继续读取
+                    });
+                }
+                
+                readStream();
+            })
+            .catch(error => {
+                console.error('发送消息失败:', error);
+                showToast('发送失败：' + error.message, 'error');
+                // 移除加载指示器
+                if (loadingIndicator && loadingIndicator.parentNode) {
+                    loadingIndicator.parentNode.removeChild(loadingIndicator);
+                }
+                // 发生错误时也恢复输入框
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                // 清除发送状态
+                window.isSendingMessage = false;
+            });
+        }
+    </script>
+</body>
+</html>

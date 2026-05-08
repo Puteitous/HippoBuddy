@@ -63,6 +63,58 @@ body {
     font-weight: 600;
 }
 
+/* 暗色模式下顶部栏 Token 统计 */
+[data-theme="dark"] .header .token-stats {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .header .token-stat-label {
+    color: #a0a0a0;
+}
+
+[data-theme="dark"] .header .token-stat-value {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .header .token-legend {
+    color: #a0a0a0;
+}
+
+/* 顶部栏图标按钮 */
+.header-icon-btn,
+.compact-btn,
+#themeToggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-size-md);
+    transition: all var(--transition-fast);
+}
+
+.header-icon-btn:hover,
+.compact-btn:hover,
+#themeToggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+
+.header-icon-btn:active,
+.compact-btn:active,
+#themeToggle:active {
+    transform: scale(0.95);
+}
+
+.header-icon-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
 /* Modal Styles */
 .modal {
     position: fixed;
@@ -2982,4 +3034,72 @@ body {
     padding: 40px 20px;
     color: var(--text-muted);
     font-size: var(--font-size-md);
+}
+
+/* ========== 新增会话按钮 ========== */
+.session-header button {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-md);
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+}
+
+.session-header button:hover {
+    background: var(--primary-hover);
+    transform: scale(1.05);
+}
+
+.session-header button:active {
+    transform: scale(0.95);
+}
+
+/* ========== 暗色模式下的 Token 统计 ========== */
+[data-theme="dark"] .token-visual-label {
+    color: #a0a0a0;
+}
+
+[data-theme="dark"] .token-visual-value {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .token-visual-sub {
+    color: #808080;
+}
+
+[data-theme="dark"] .token-visual-track {
+    background: #2a2a2a;
+}
+
+[data-theme="dark"] .token-visual-fill {
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+[data-theme="dark"] .token-visual-stat {
+    background: #2a2a2a;
+}
+
+[data-theme="dark"] .tvs-label {
+    color: #808080;
+}
+
+[data-theme="dark"] .tvs-value {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .token-trend-header {
+    color: #a0a0a0;
+}
+
+[data-theme="dark"] .token-trend-value {
+    color: #ffffff;
 }

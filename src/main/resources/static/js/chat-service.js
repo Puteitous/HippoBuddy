@@ -160,13 +160,10 @@ export class ChatService {
 
         buffer += decoder.decode(value, { stream: true });
 
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-        for (const part of parts) {
-          const lines = part.split('\n');
-          processSSELines(lines);
-        }
+        processSSELines(lines);
       }
 
       if (buffer.trim()) {

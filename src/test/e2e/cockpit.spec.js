@@ -209,10 +209,104 @@ test.describe('Hippo Cockpit 集成测试', () => {
     await page.waitForTimeout(300);
     await expect(tokenModal).toBeVisible();
 
+    await expect(page.locator('#detailPrompt')).toContainText('N/A');
+    await expect(page.locator('#detailCompletion')).toContainText('N/A');
+    await expect(page.locator('#detailTotal')).toContainText('0');
+    await expect(page.locator('#detailSessionTotal')).toContainText('0');
+    await expect(page.locator('#detailLlmCalls')).toContainText('0');
+    await expect(page.locator('#detailToolCalls')).toContainText('0');
+
     const closeBtn = page.locator('#closeTokenModal');
     await expect(closeBtn).toBeVisible();
     await closeBtn.click();
     await page.waitForTimeout(300);
     await expect(tokenModal).toBeHidden();
+  });
+
+  test('Diff 弹窗 — 打开和关闭', async ({ page }) => {
+    await page.goto('/cockpit');
+
+    const diffModal = page.locator('#diffModalOverlay');
+    await expect(diffModal).toBeHidden();
+
+    await page.evaluate(() => window.showFileDiff('test.js'));
+    await page.waitForTimeout(500);
+    await expect(diffModal).toBeVisible();
+
+    await expect(page.locator('#diffFilePath')).toContainText('test.js');
+    await expect(page.locator('#diffRollbackBtn')).toBeVisible();
+    await expect(page.locator('#diffRollbackBtn')).toContainText('回滚此变更');
+
+    await page.locator('#diffModalClose').click();
+    await page.waitForTimeout(300);
+    await expect(diffModal).toBeHidden();
+  });
+
+  test('Diff 弹窗 — 点击遮罩层关闭', async ({ page }) => {
+    await page.goto('/cockpit');
+
+    const diffModal = page.locator('#diffModalOverlay');
+
+    await page.evaluate(() => window.showFileDiff('test.js'));
+    await page.waitForTimeout(500);
+    await expect(diffModal).toBeVisible();
+
+    await diffModal.click({ position: { x: 10, y: 10 } });
+    await page.waitForTimeout(300);
+    await expect(diffModal).toBeHidden();
+  });
+
+  test('提示词弹窗 — 打开、编辑文本、取消', async ({ page }) => {
+    await page.goto('/cockpit');
+
+    const promptModal = page.locator('#promptModal');
+    await expect(promptModal).toBeHidden();
+
+    await page.locator('#promptCustomBtn').click();
+    await page.waitForTimeout(500);
+    await expect(promptModal).toBeVisible();
+
+    const textarea = page.locator('#promptModalText');
+    await expect(textarea).toBeVisible();
+    const initialText = await textarea.inputValue();
+    expect(initialText.length).toBeGreaterThan(0);
+
+    await textarea.fill('自定义测试提示词');
+    await expect(textarea).toHaveValue('自定义测试提示词');
+
+    await page.locator('#promptModalCancel').click();
+    await page.waitForTimeout(300);
+    await expect(promptModal).toBeHidden();
+  });
+
+  test('提示词弹窗 — 打开、编辑文本、保存', async ({ page }) => {
+    await page.goto('/cockpit');
+
+    const promptModal = page.locator('#promptModal');
+
+    await page.locator('#promptCustomBtn').click();
+    await page.waitForTimeout(500);
+    await expect(promptModal).toBeVisible();
+
+    const textarea = page.locator('#promptModalText');
+    await textarea.fill('自定义测试提示词');
+
+    await page.locator('#promptModalSave').click();
+    await page.waitForTimeout(300);
+    await expect(promptModal).toBeHidden();
+  });
+
+  test('提示词弹窗 — 点击 X 关闭', async ({ page }) => {
+    await page.goto('/cockpit');
+
+    const promptModal = page.locator('#promptModal');
+
+    await page.locator('#promptCustomBtn').click();
+    await page.waitForTimeout(500);
+    await expect(promptModal).toBeVisible();
+
+    await page.locator('#promptModalClose').click();
+    await page.waitForTimeout(300);
+    await expect(promptModal).toBeHidden();
   });
 });

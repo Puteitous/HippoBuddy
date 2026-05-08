@@ -1,4 +1,4 @@
-import { escapeHtml, truncateText } from './utils.js';
+import { truncateText } from './utils.js';
 import { ChatService } from './chat-service.js';
 
 export class SessionManager {
@@ -49,21 +49,52 @@ export class SessionManager {
         
         const item = document.createElement('div');
         item.className = 'session-item' + (isActive ? ' active' : '');
-        item.innerHTML = `
-          <div class="session-info">
-            <span class="session-name">${escapeHtml(name)}</span>
-            <span class="session-time">${timeStr}</span>
-          </div>
-          <span class="session-actions">
-            <button onclick="window.renameSession('${s.id}', event)" title="重命名">✏</button>
-            <button onclick="window.deleteSession('${s.id}', event)" title="删除">×</button>
-          </span>
-        `;
-        item.onclick = (e) => {
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'session-info';
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'session-name';
+        nameSpan.textContent = name;
+        
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'session-time';
+        timeSpan.textContent = timeStr;
+        
+        infoDiv.appendChild(nameSpan);
+        infoDiv.appendChild(timeSpan);
+        
+        const actionsDiv = document.createElement('span');
+        actionsDiv.className = 'session-actions';
+        
+        const renameBtn = document.createElement('button');
+        renameBtn.title = '重命名';
+        renameBtn.innerHTML = '✏';
+        renameBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.renameSession(s.id, e);
+        });
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.title = '删除';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.deleteSession(s.id, e);
+        });
+        
+        actionsDiv.appendChild(renameBtn);
+        actionsDiv.appendChild(deleteBtn);
+        
+        item.appendChild(infoDiv);
+        item.appendChild(actionsDiv);
+        
+        item.addEventListener('click', (e) => {
           if (!e.target.closest('.session-actions')) {
             this.onSessionSwitch(s.id);
           }
-        };
+        });
+        
         this.listContainer.appendChild(item);
       }
     }
@@ -73,14 +104,37 @@ export class SessionManager {
       const name = this.sessionNames[this.currentSessionId] || ('会话 ' + this.currentSessionId.replace('web-', '').slice(-6));
       const item = document.createElement('div');
       item.className = 'session-item active';
-      item.innerHTML = `
-        <span class="session-name">${escapeHtml(name)}</span>
-        <span class="session-actions">
-          <button onclick="window.renameSession('${this.currentSessionId}', event)" title="重命名">✏</button>
-          <button onclick="window.deleteSession('${this.currentSessionId}', event)" title="删除">×</button>
-        </span>
-      `;
-      item.onclick = () => this.onSessionSwitch(this.currentSessionId);
+      
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'session-name';
+      nameSpan.textContent = name;
+      
+      const actionsDiv = document.createElement('span');
+      actionsDiv.className = 'session-actions';
+      
+      const renameBtn = document.createElement('button');
+      renameBtn.title = '重命名';
+      renameBtn.innerHTML = '✏';
+      renameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.renameSession(this.currentSessionId, e);
+      });
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.title = '删除';
+      deleteBtn.innerHTML = '×';
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.deleteSession(this.currentSessionId, e);
+      });
+      
+      actionsDiv.appendChild(renameBtn);
+      actionsDiv.appendChild(deleteBtn);
+      
+      item.appendChild(nameSpan);
+      item.appendChild(actionsDiv);
+      
+      item.addEventListener('click', () => this.onSessionSwitch(this.currentSessionId));
       this.listContainer.insertBefore(item, this.listContainer.firstChild);
     }
   }
