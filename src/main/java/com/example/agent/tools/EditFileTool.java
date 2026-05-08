@@ -163,6 +163,13 @@ public class EditFileTool implements ToolExecutor {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING);
 
+            FileChangeTracker.recordChange(
+                path.toAbsolutePath().toString(),
+                content,
+                newContent,
+                "edit_file"
+            );
+
             String absolutePath = path.toAbsolutePath() != null ? path.toAbsolutePath().toString() : path.toString();
             String relativePath = PathSecurityUtils.getRelativePath(path);
 

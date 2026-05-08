@@ -2,6 +2,7 @@ package com.example.agent.tools;
 
 import com.example.agent.console.AgentUi;
 import com.example.agent.console.ConsoleStyle;
+import com.example.agent.core.blocker.RequestContext;
 import com.example.agent.core.di.ServiceLocator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -99,14 +100,54 @@ public class AskUserTool implements ToolExecutor {
             allowCustomInput = arguments.get("allow_custom_input").asBoolean();
         }
 
+        // 在 Web 环境中，返回交互式数据，等待用户响应
+        if (RequestContext.isWeb()) {
+            return formatWebResult(question, options, allowCustomInput);
+        }
+
+        // 在 CLI 环境中，使用终端交互
         try {
             String answer = promptUser(question, options, allowCustomInput);
             return formatResult(question, answer);
         } catch (UserInterruptException | EndOfFileException e) {
             throw new ToolExecutionException("用户取消了输入", e);
         } catch (Exception e) {
-            throw new ToolExecutionException("用户交互失败: " + e.getMessage(), e);
+            throw new ToolExecutionException("用户交互失败：" + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 格式化 Web 环境的返回结果
+     * 返回 JSON 格式，前端会渲染成交互式卡片
+     */
+    private String formatWebResult(String question, List<String> options, boolean allowCustomInput) {
+        StringBuilder json = new StringBuilder();
+        json.append("{");
+        json.append("\"question\":").append(escapeJson(question)).append(",");
+        
+        if (!options.isEmpty()) {
+            json.append("\"options\":[");
+            for (int i = 0; i < options.size(); i++) {
+                if (i > 0) json.append(",");
+                json.append(escapeJson(options.get(i)));
+            }
+            json.append("],");
+        }
+        
+        json.append("\"allow_custom_input\":").append(allowCustomInput);
+        json.append("}");
+        
+        return json.toString();
+    }
+
+    private String escapeJson(String text) {
+        if (text == null) return "null";
+        return "\"" + text
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t") + "\"";
     }
 
     private String promptUser(String question, List<String> options, boolean allowCustomInput) {

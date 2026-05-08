@@ -100,10 +100,21 @@ public class WriteFileTool implements ToolExecutor {
             }
 
             boolean fileExisted = Files.exists(path);
-            
+            String originalContent = "";
+            if (fileExisted) {
+                originalContent = Files.readString(path, StandardCharsets.UTF_8);
+            }
+
             Files.writeString(path, content, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
+
+            FileChangeTracker.recordChange(
+                path.toAbsolutePath().toString(),
+                originalContent,
+                content,
+                "write_file"
+            );
 
             String absolutePath = path.toAbsolutePath() != null ? path.toAbsolutePath().toString() : path.toString();
             String relativePath = PathSecurityUtils.getRelativePath(path);
