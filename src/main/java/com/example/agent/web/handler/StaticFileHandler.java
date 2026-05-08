@@ -17,11 +17,7 @@ public class StaticFileHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
         
-        if ("/".equals(path)) {
-            path = "/index.html";
-        } else if ("/chat".equals(path)) {
-            path = "/chat.html";
-        } else if ("/cockpit".equals(path)) {
+        if ("/".equals(path) || "/cockpit".equals(path)) {
             path = "/cockpit.html";
         }
 
@@ -41,6 +37,9 @@ public class StaticFileHandler implements HttpHandler {
         String mimeType = getMimeType(path);
         exchange.getResponseHeaders().set("Content-Type", mimeType);
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
+        exchange.getResponseHeaders().set("Pragma", "no-cache");
+        exchange.getResponseHeaders().set("Expires", "0");
         exchange.sendResponseHeaders(200, content.length);
         exchange.getResponseBody().write(content);
         exchange.close();

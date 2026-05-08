@@ -16,6 +16,7 @@ import com.example.agent.prompt.PromptLibrary;
 import com.example.agent.prompt.PromptService;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.tools.ToolRegistry;
+import com.example.agent.web.logging.SessionLogger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
@@ -23,9 +24,14 @@ import com.sun.net.httpserver.HttpHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.io.OutputStreamWriter;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,7 +56,115 @@ public class ChatApiHandler implements HttpHandler {
     private static final Map<String, Long> sessionFileLastModified = new ConcurrentHashMap<>();
     // 会话加载指标缓存：sessionId -> SessionLoadMetrics
     private static final Map<String, SessionLoadMetrics> sessionLoadMetrics = new ConcurrentHashMap<>();
+    // 会话 Token 累计统计：sessionId -> SessionTokenStats
+    private static final Map<String, SessionTokenStats> sessionTokenStats = new ConcurrentHashMap<>();
+    // 等待用户响应的工具调用：sessionId -> PendingToolCall
+    private static final Map<String, PendingToolCall> pendingToolCalls = new ConcurrentHashMap<>();
+    
+    /**
+     * 等待用户响应的工具调用
+     */
+    public static class PendingToolCall {
+        public String toolCallId;
+        public String toolName;
+        public String question;
+        public List<String> options;
+        public boolean allowCustomInput;
+        
+        public PendingToolCall(String toolCallId, String toolName, String question, List<String> options, boolean allowCustomInput) {
+            this.toolCallId = toolCallId;
+            this.toolName = toolName;
+            this.question = question;
+            this.options = options;
+            this.allowCustomInput = allowCustomInput;
+        }
+    }
+    
+    /**
+     * 会话 Token 累计统计
+     */
+    public static class SessionTokenStats {
+        public int totalInputTokens = 0;
+        public int totalOutputTokens = 0;
+        public int totalTokens = 0;
+        public int llmCalls = 0;
+        public int toolCalls = 0;
+        
+        public synchronized void addLlmCall(int prompt, int completion, int total) {
+            this.totalInputTokens += prompt;
+            this.totalOutputTokens += completion;
+            this.totalTokens += total;
+            this.llmCalls++;
+        }
+        
+        public synchronized void addToolCall() {
+            this.toolCalls++;
+        }
+    }
+    
     private static volatile boolean memoryInitialized = false;
+    
+    /**
+     * 初始化内存缓存（从日志文件恢复 Token 统计）
+     */
+    public static void initializeMemoryCache() {
+        if (memoryInitialized) {
+            return;
+        }
+        
+        try {
+            Path logsDir = Paths.get(System.getProperty("user.dir"), ".hippo", "logs", "conversations");
+            if (!Files.exists(logsDir)) {
+                memoryInitialized = true;
+                return;
+            }
+            
+            // 遍历最近的日志文件（最多 100 个）
+            try (var stream = Files.list(logsDir)) {
+                var recentFiles = stream
+                    .filter(p -> p.toString().endsWith(".log"))
+                    .sorted((a, b) -> {
+                        try {
+                            return Long.compare(
+                                Files.getLastModifiedTime(b).toMillis(),
+                                Files.getLastModifiedTime(a).toMillis()
+                            );
+                        } catch (Exception e) {
+                            return 0;
+                        }
+                    })
+                    .limit(100)
+                    .toList();
+                
+                for (Path logFile : recentFiles) {
+                    try {
+                        String fileName = logFile.getFileName().toString();
+                        String sessionId = fileName.replace(".log", "");
+                        
+                        // 从日志文件读取统计
+                        var stats = com.example.agent.web.logging.SessionLogger.getTokenStats(sessionId);
+                        if (stats != null && stats.totalTokens > 0) {
+                            SessionTokenStats cachedStats = new SessionTokenStats();
+                            cachedStats.totalInputTokens = stats.totalInputTokens;
+                            cachedStats.totalOutputTokens = stats.totalOutputTokens;
+                            cachedStats.totalTokens = stats.totalTokens;
+                            cachedStats.llmCalls = stats.llmCalls;
+                            cachedStats.toolCalls = stats.toolCalls;
+                            sessionTokenStats.put(sessionId, cachedStats);
+                        }
+                    } catch (Exception e) {
+                        // 忽略单个文件的错误
+                    }
+                }
+            }
+            
+            memoryInitialized = true;
+            logger.info("初始化会话 Token 缓存完成，共加载 {} 个会话", sessionTokenStats.size());
+        } catch (Exception e) {
+            logger.warn("初始化会话 Token 缓存失败", e);
+            memoryInitialized = true;
+        }
+    }
     
     /**
      * 会话加载指标
@@ -79,6 +193,13 @@ public class ChatApiHandler implements HttpHandler {
 
     public static Map<String, Conversation> getSessions() {
         return sessions;
+    }
+    
+    /**
+     * 获取会话的 Token 统计
+     */
+    public static SessionTokenStats getSessionTokenStats(String sessionId) {
+        return sessionTokenStats.get(sessionId);
     }
 
     /**
@@ -152,13 +273,14 @@ public class ChatApiHandler implements HttpHandler {
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.sendResponseHeaders(200, 0);
 
-        PrintWriter writer = new PrintWriter(exchange.getResponseBody(), true);
+        PrintWriter writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(exchange.getResponseBody(), StandardCharsets.UTF_8)), true);
 
         try {
             String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             JsonNode json = objectMapper.readTree(requestBody);
             
-            String sessionId = json.has("session") ? json.get("session").asText() : "default";
+            String sessionId = json.has("sessionId") ? json.get("sessionId").asText() : 
+                              (json.has("session") ? json.get("session").asText() : "default");
             String userMessage = json.has("message") ? json.get("message").asText() : "";
             String systemPromptOverride = json.has("systemPrompt") ? json.get("systemPrompt").asText() : null;
             String editMessageId = json.has("editMessageId") ? json.get("editMessageId").asText() : null;
@@ -168,17 +290,40 @@ public class ChatApiHandler implements HttpHandler {
                 return;
             }
 
-            logger.info("Web Chat 收到消息: session={}, message={}, edit={}", sessionId, userMessage, editMessageId != null);
+            logger.info("Web Chat 收到消息：session={}, message={}, edit={}, hasPendingTool={}", 
+                sessionId, userMessage, editMessageId != null, pendingToolCalls.containsKey(sessionId));
+
+            // 记录用户输入日志
+            int estimatedTokens = TokenEstimatorFactory.getDefault().estimateTextTokens(userMessage);
+            SessionLogger.logUserMessage(sessionId, Message.user(userMessage), estimatedTokens);
 
             ensureMemoryInitialized();
 
             Conversation conversation = getOrCreateConversation(sessionId, systemPromptOverride);
             ConversationService conversationService = ServiceLocator.get(ConversationService.class);
 
-            if (editMessageId != null && !editMessageId.isEmpty()) {
-                conversationService.editUserMessage(conversation, editMessageId, userMessage);
+            // 检查是否有待处理的 ask_user 工具调用
+            PendingToolCall pendingTool = pendingToolCalls.remove(sessionId);
+            if (pendingTool != null) {
+                // 用户回复待处理的工具调用，参照 CLI 实现：
+                // 1. 先将用户消息作为独立的用户消息记录到对话历史
+                Message userMsg = conversationService.addUserMessage(conversation, userMessage);
+                sendSseEvent(writer, "message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
+                
+                // 2. 再将用户回答作为工具结果记录
+                String toolResult = "用户回答：" + userMessage;
+                conversationService.addToolResult(conversation, pendingTool.toolCallId, pendingTool.toolName, toolResult, true);
+                SessionLogger.logToolCall(sessionId, pendingTool.toolName, pendingTool.question, toolResult, true);
+                SessionTokenStats stats = sessionTokenStats.computeIfAbsent(sessionId, k -> new SessionTokenStats());
+                stats.addToolCall();
+            } else if (editMessageId != null && !editMessageId.isEmpty()) {
+                Message userMsg = conversationService.editUserMessage(conversation, editMessageId, userMessage);
+                if (userMsg != null) {
+                    sendSseEvent(writer, "message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
+                }
             } else {
-                conversationService.addUserMessage(conversation, userMessage);
+                Message userMsg = conversationService.addUserMessage(conversation, userMessage);
+                sendSseEvent(writer, "message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
             }
 
             executeAgentLoop(sessionId, conversation, conversationService, writer);
@@ -217,11 +362,17 @@ public class ChatApiHandler implements HttpHandler {
             messages = ensureSystemMessageFirst(messages);
             
             StringBuilder contentBuilder = new StringBuilder();
-            List<Map<String, Object>> pendingToolCalls = new ArrayList<>();
+            List<Map<String, Object>> streamToolCalls = new ArrayList<>();
+            boolean[] hasAskUser = {false}; // 标记是否检测到 ask_user 工具
 
             sendSseEvent(writer, "thinking", "{\"turn\":" + (turn + 1) + "}");
 
             ChatResponse response = llmClient.chatStream(messages, tools, (StreamChunk chunk) -> {
+                // 如果检测到 ask_user 工具，停止发送 content 事件
+                if (hasAskUser[0]) {
+                    return;
+                }
+                
                 if (chunk.getContent() != null && !chunk.getContent().isEmpty()) {
                     contentBuilder.append(chunk.getContent());
                     sendSseEvent(writer, "content", "{\"content\":\"" + escapeJson(chunk.getContent()) + "\"}");
@@ -232,18 +383,28 @@ public class ChatApiHandler implements HttpHandler {
                     for (var delta : chunk.getToolCallDeltas()) {
                         String toolName = delta.getFunction().getName();
                         String arguments = delta.getFunction().getArguments();
+                        String toolCallId = delta.getId();
                         
                         // 检查是否已发送过这个 tool_start
-                        boolean alreadySent = pendingToolCalls.stream()
-                            .anyMatch(tc -> tc.get("name").equals(toolName));
+                        boolean alreadySent = streamToolCalls.stream()
+                            .anyMatch(tc -> tc.get("id").equals(toolCallId));
                         
                         if (!alreadySent) {
                             Map<String, Object> toolCall = new HashMap<>();
+                            toolCall.put("id", toolCallId);
                             toolCall.put("name", toolName);
                             toolCall.put("args", arguments);
-                            pendingToolCalls.add(toolCall);
+                            streamToolCalls.add(toolCall);
                             
-                            sendSseEvent(writer, "tool_start", "{\"name\":\"" + escapeJson(toolName) + "\",\"args\":" + escapeJsonForValue(arguments) + "}");
+                            String toolStartData = "{\"id\":\"" + escapeJson(toolCallId) + "\",\"name\":\"" + escapeJson(toolName) + "\",\"args\":" + escapeJsonForValue(arguments) + "}";
+                            sendSseEvent(writer, "tool_start", toolStartData);
+                            
+                            // 如果是 ask_user 工具，标记并清空已发送的内容
+                            if ("ask_user".equals(toolName)) {
+                                hasAskUser[0] = true;
+                                // 发送清空内容事件
+                                sendSseEvent(writer, "clear_content", "{}");
+                            }
                         }
                     }
                 }
@@ -286,6 +447,20 @@ public class ChatApiHandler implements HttpHandler {
                     sessionId, turn + 1, hasContent ? finalContent.length() : 0, hasToolCalls);
             }
             
+            // 记录 LLM 响应日志
+            SessionLogger.logLlmResponse(sessionId, turn + 1, response.getUsage(), 
+                hasContent ? finalContent : null);
+            
+            // 累加 Token 统计
+            if (response.getUsage() != null) {
+                SessionTokenStats stats = sessionTokenStats.computeIfAbsent(sessionId, k -> new SessionTokenStats());
+                stats.addLlmCall(
+                    response.getUsage().getPromptTokens(),
+                    response.getUsage().getCompletionTokens(),
+                    response.getUsage().getTotalTokens()
+                );
+            }
+            
             conversationService.addAssistantMessage(conversation, assistantMessage, response.getUsage());
 
             // 检查是否有工具调用
@@ -297,7 +472,18 @@ public class ChatApiHandler implements HttpHandler {
             }
 
             // 执行工具调用（tool_start 已在流式处理时发送）
-            executeToolCalls(toolCalls, toolRegistry, conversation, conversationService, writer);
+            executeToolCalls(toolCalls, toolRegistry, conversation, conversationService, writer, sessionId);
+            
+            // 如果 ask_user 工具被调用（pending 状态已设置），停止循环等待用户响应
+            if (pendingToolCalls.containsKey(sessionId)) {
+                return;
+            }
+            
+            // 工具调用完成后，继续下一轮循环前，发送继续信号
+            // 防止前端误判为空响应
+            if (turn < MAX_TURNS - 1) {
+                sendSseEvent(writer, "continue", "{\"reason\":\"tool_complete\",\"nextTurn\":" + (turn + 2) + "}");
+            }
         }
 
         sendSseEvent(writer, "done", "{}");
@@ -307,26 +493,64 @@ public class ChatApiHandler implements HttpHandler {
      * 执行工具调用并将结果添加到对话
      */
     private void executeToolCalls(List<ToolCall> toolCalls, ToolRegistry toolRegistry, 
-                                   Conversation conversation, ConversationService conversationService, PrintWriter writer) {
+                                   Conversation conversation, ConversationService conversationService, PrintWriter writer, String sessionId) {
         for (ToolCall toolCall : toolCalls) {
             String toolName = toolCall.getFunction().getName();
             String arguments = toolCall.getFunction().getArguments();
             
-            sendSseEvent(writer, "tool_start", "{\"name\":\"" + escapeJson(toolName) + "\",\"args\":" + escapeJsonForValue(arguments) + "}");
+            // ask_user 工具已经在流式处理时发送了 tool_start，这里跳过重复发送
+            if (!"ask_user".equals(toolName)) {
+                sendSseEvent(writer, "tool_start", "{\"name\":\"" + escapeJson(toolName) + "\",\"args\":" + escapeJsonForValue(arguments) + "}");
+            }
 
             try {
                 RequestContext.set(RequestContext.ContextType.WEB);
                 String rawResult = toolRegistry.execute(toolName, arguments);
                 
+                // 特殊处理 ask_user 工具：在 Web 环境中需要等待用户响应
+                if ("ask_user".equals(toolName)) {
+                    // 解析 JSON 结果
+                    JsonNode resultNode = objectMapper.readTree(rawResult);
+                    String question = resultNode.get("question").asText();
+                    List<String> options = new ArrayList<>();
+                    if (resultNode.has("options")) {
+                        for (JsonNode opt : resultNode.get("options")) {
+                            options.add(opt.asText());
+                        }
+                    }
+                    boolean allowCustomInput = resultNode.get("allow_custom_input").asBoolean();
+                    
+                    logger.info("📤 发送 waiting_user 事件: question={}, options={}", question, options);
+                    
+                    // 保存等待状态
+                    pendingToolCalls.put(sessionId, new PendingToolCall(
+                        toolCall.getId(), toolName, question, options, allowCustomInput
+                    ));
+                    
+                    // 发送等待用户输入的事件
+                    sendSseEvent(writer, "waiting_user", rawResult);
+                    logger.info("✅ waiting_user 事件已发送");
+                    // 暂停，等待用户响应（不继续执行后续工具）
+                    return;
+                }
+                
                 // 参照 CLI：使用 TruncationService 智能截断工具输出
                 String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
                 
-                conversationService.addToolResult(conversation, toolCall.getId(), toolName, truncatedResult);
-                sendSseEvent(writer, "tool_result", "{\"name\":\"" + escapeJson(toolName) + "\",\"success\":true,\"result\":\"" + escapeJson(truncatedResult) + "\"}");
+                conversationService.addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
+                sendSseEvent(writer, "tool_result", "{\"id\":\"" + escapeJson(toolCall.getId()) + "\",\"name\":\"" + escapeJson(toolName) + "\",\"success\":true,\"result\":\"" + escapeJson(truncatedResult) + "\"}");
+                
+                // 记录工具调用日志并累加统计
+                SessionLogger.logToolCall(sessionId, toolName, arguments, truncatedResult, true);
+                SessionTokenStats stats = sessionTokenStats.computeIfAbsent(sessionId, k -> new SessionTokenStats());
+                stats.addToolCall();
             } catch (Exception e) {
                 String errorMsg = e.getMessage();
-                conversationService.addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg);
-                sendSseEvent(writer, "tool_result", "{\"name\":\"" + escapeJson(toolName) + "\",\"success\":false,\"error\":\"" + escapeJson(errorMsg) + "\"}");
+                conversationService.addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                sendSseEvent(writer, "tool_result", "{\"id\":\"" + escapeJson(toolCall.getId()) + "\",\"name\":\"" + escapeJson(toolName) + "\",\"success\":false,\"error\":\"" + escapeJson(errorMsg) + "\"}");
+                
+                // 记录工具调用失败日志
+                SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
             } finally {
                 RequestContext.clear();
             }
@@ -352,6 +576,9 @@ public class ChatApiHandler implements HttpHandler {
                 ConversationService conversationService = ServiceLocator.get(ConversationService.class);
                 ConversationService.ResumeResult resumeResult = conversationService.resumeConversation(existing, sessionId);
                 
+                // 修复：确保会话组件已初始化（参照 CLI 实现）
+                conversationService.ensureSessionComponents(existing);
+                
                 long loadTime = System.currentTimeMillis() - startTime;
                 metrics.loadTimeMs = loadTime;
                 metrics.messageCount = resumeResult.getTotalMessages();
@@ -376,6 +603,10 @@ public class ChatApiHandler implements HttpHandler {
                 }
             } else {
                 logger.debug("会话文件无变化，使用缓存：sessionId={}", sessionId);
+                
+                // 修复：即使使用缓存，也要确保组件已初始化
+                ConversationService conversationService = ServiceLocator.get(ConversationService.class);
+                conversationService.ensureSessionComponents(existing);
                 
                 // 记录缓存命中指标
                 SessionLoadMetrics metrics = sessionLoadMetrics.get(sessionId);
@@ -406,6 +637,9 @@ public class ChatApiHandler implements HttpHandler {
             Conversation conversation = conversationService.create(systemPrompt, maxTokens, id);
 
             ConversationService.ResumeResult resumeResult = conversationService.resumeConversation(conversation, id);
+            
+            // 修复：确保会话组件已初始化（参照 CLI 实现）
+            conversationService.ensureSessionComponents(conversation);
             
             long loadTime = System.currentTimeMillis() - startTime;
             metrics.loadTimeMs = loadTime;
@@ -534,21 +768,46 @@ public class ChatApiHandler implements HttpHandler {
 
     private void sendSseEvent(PrintWriter writer, String event, String data) {
         writer.write("event: " + event + "\n");
+        // 直接发送完整数据，不分块
+        // 现代浏览器支持任意长度的 SSE 行，分块反而会破坏 JSON 结构
         writer.write("data: " + data + "\n\n");
         writer.flush();
     }
 
     private String escapeJson(String input) {
         if (input == null) return "";
-        return input.replace("\\", "\\\\")
-                    .replace("\"", "\\\"")
-                    .replace("\n", "\\n")
-                    .replace("\r", "\\r")
-                    .replace("\t", "\\t");
+        StringBuilder sb = new StringBuilder(input.length());
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            switch (c) {
+                case '\\': sb.append("\\\\"); break;
+                case '"': sb.append("\\\""); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                default:
+                    if (c < 0x20 || c == 0x7F) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        return sb.toString();
     }
 
     private String escapeJsonForValue(String input) {
         if (input == null) return "null";
-        return input;
+        // 如果已经是合法的 JSON 字符串，直接返回（不额外加引号）
+        // 否则作为普通字符串转义
+        if (input.startsWith("{") || input.startsWith("[")) {
+            // 已经是 JSON 对象/数组，直接返回（假设内容已转义）
+            // 注意：这里假设 LLM 返回的 arguments 已经是合法 JSON
+            return input;
+        }
+        // 普通字符串需要转义并加引号
+        return "\"" + escapeJson(input) + "\"";
     }
 }
