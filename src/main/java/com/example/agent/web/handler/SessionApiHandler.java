@@ -94,14 +94,28 @@ public class SessionApiHandler implements HttpHandler {
             sessionInfo.put("createdAt", extractTimestamp(entry.getKey()));
             sessionInfo.put("active", true);
 
-            String firstUserMsg = entry.getValue().getMessages().stream()
-                .filter(m -> "user".equals(m.getRole()))
-                .map(Message::getContent)
-                .filter(c -> c != null && !c.isBlank())
-                .findFirst()
-                .orElse(null);
-            if (firstUserMsg != null) {
-                sessionInfo.put("title", firstUserMsg.length() > 30 ? firstUserMsg.substring(0, 30) + "..." : firstUserMsg);
+            // 优先检查是否有自定义标题
+            Path jsonl = sessionIdToFileCache.get(entry.getKey());
+            String title = null;
+            if (jsonl != null && Files.exists(jsonl)) {
+                title = extractFirstUserMessage(jsonl);
+            }
+            
+            // 如果没有自定义标题，使用第一条用户消息
+            if (title == null || title.isBlank()) {
+                String firstUserMsg = entry.getValue().getMessages().stream()
+                    .filter(m -> "user".equals(m.getRole()))
+                    .map(Message::getContent)
+                    .filter(c -> c != null && !c.isBlank())
+                    .findFirst()
+                    .orElse(null);
+                if (firstUserMsg != null) {
+                    title = firstUserMsg;
+                }
+            }
+            
+            if (title != null && !title.isBlank()) {
+                sessionInfo.put("title", title.length() > 30 ? title.substring(0, 30) + "..." : title);
             }
 
             sessionList.add(sessionInfo);

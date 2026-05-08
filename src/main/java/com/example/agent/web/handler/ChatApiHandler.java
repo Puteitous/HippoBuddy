@@ -37,6 +37,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Web Chat API Handler
@@ -60,6 +62,10 @@ public class ChatApiHandler implements HttpHandler {
     private static final Map<String, SessionTokenStats> sessionTokenStats = new ConcurrentHashMap<>();
     // 等待用户响应的工具调用：sessionId -> PendingToolCall
     private static final Map<String, PendingToolCall> pendingToolCalls = new ConcurrentHashMap<>();
+    // 会话处理锁：sessionId -> ReentrantLock（防止同一会话并发请求）
+    private static final Map<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
+    // 客户端断开标志（每个请求线程独立）
+    private static final ThreadLocal<Boolean> clientDisconnected = ThreadLocal.withInitial(() -> false);
     
     /**
      * 等待用户响应的工具调用
@@ -275,12 +281,15 @@ public class ChatApiHandler implements HttpHandler {
 
         PrintWriter writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(exchange.getResponseBody(), StandardCharsets.UTF_8)), true);
 
+        String sessionId = null;
+        boolean lockAcquired = false;
+
         try {
             String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             JsonNode json = objectMapper.readTree(requestBody);
             
-            String sessionId = json.has("sessionId") ? json.get("sessionId").asText() : 
-                              (json.has("session") ? json.get("session").asText() : "default");
+            sessionId = json.has("sessionId") ? json.get("sessionId").asText() : 
+                       (json.has("session") ? json.get("session").asText() : "default");
             String userMessage = json.has("message") ? json.get("message").asText() : "";
             String systemPromptOverride = json.has("systemPrompt") ? json.get("systemPrompt").asText() : null;
             String editMessageId = json.has("editMessageId") ? json.get("editMessageId").asText() : null;
@@ -289,6 +298,26 @@ public class ChatApiHandler implements HttpHandler {
                 sendSseEvent(writer, "error", "{\"message\":\"消息不能为空\"}");
                 return;
             }
+
+            // 获取会话级锁，防止同一会话并发请求导致消息顺序错乱
+            ReentrantLock lock = sessionLocks.computeIfAbsent(sessionId, k -> new ReentrantLock());
+            try {
+                if (!lock.tryLock(30, TimeUnit.SECONDS)) {
+                    logger.warn("获取会话锁超时，可能发生死锁，强制清理：sessionId={}", sessionId);
+                    // 强制清理旧锁，创建新锁
+                    sessionLocks.remove(sessionId);
+                    lock = sessionLocks.computeIfAbsent(sessionId, k -> new ReentrantLock());
+                    lock.lock();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                sendSseEvent(writer, "error", "{\"message\":\"请求被中断\"}");
+                return;
+            }
+            lockAcquired = true;
+
+            // 重置客户端断开标志
+            clientDisconnected.set(false);
 
             logger.info("Web Chat 收到消息：session={}, message={}, edit={}, hasPendingTool={}", 
                 sessionId, userMessage, editMessageId != null, pendingToolCalls.containsKey(sessionId));
@@ -335,6 +364,18 @@ public class ChatApiHandler implements HttpHandler {
             logger.error("处理聊天请求失败", e);
             sendSseEvent(writer, "error", "{\"message\":\"" + escapeJson(e.getMessage()) + "\"}");
         } finally {
+            // 释放会话级锁
+            if (lockAcquired && sessionId != null) {
+                ReentrantLock lock = sessionLocks.get(sessionId);
+                if (lock != null) {
+                    lock.unlock();
+                    // 无等待线程时从 map 移除，防止内存泄漏
+                    if (!lock.hasQueuedThreads()) {
+                        sessionLocks.remove(sessionId);
+                    }
+                }
+            }
+            clientDisconnected.remove();
             // 发送结束标记，确保前端能正确识别流结束
             try {
                 writer.write("data: [DONE]\n\n");
@@ -356,6 +397,12 @@ public class ChatApiHandler implements HttpHandler {
         List<Tool> tools = toolRegistry.toTools();
 
         for (int turn = 0; turn < MAX_TURNS; turn++) {
+            // 检测点 1：每轮开始前检查客户端是否已断开
+            if (clientDisconnected.get()) {
+                logger.info("客户端已断开，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
+                return;
+            }
+
             List<Message> messages = new ArrayList<>(conversationService.getContextForInference(conversation));
             
             // 确保 system message 在开头（去重）
@@ -366,6 +413,12 @@ public class ChatApiHandler implements HttpHandler {
             boolean[] hasAskUser = {false}; // 标记是否检测到 ask_user 工具
 
             sendSseEvent(writer, "thinking", "{\"turn\":" + (turn + 1) + "}");
+
+            // 检测点 1.5：发送 thinking 事件后再次检查（sendSseEvent 可能检测到断开）
+            if (clientDisconnected.get()) {
+                logger.info("客户端已断开，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
+                return;
+            }
 
             ChatResponse response = llmClient.chatStream(messages, tools, (StreamChunk chunk) -> {
                 // 如果检测到 ask_user 工具，停止发送 content 事件
@@ -409,6 +462,12 @@ public class ChatApiHandler implements HttpHandler {
                     }
                 }
             });
+
+            // 检测点 2：LLM 流式调用结束后检查客户端是否已断开
+            if (clientDisconnected.get()) {
+                logger.info("客户端已断开，跳过工具执行 (sessionId={}, turn={})", sessionId, turn + 1);
+                return;
+            }
 
             Message assistantMessage = response.getFirstMessage();
             if (assistantMessage == null) {
@@ -473,6 +532,12 @@ public class ChatApiHandler implements HttpHandler {
 
             // 执行工具调用（tool_start 已在流式处理时发送）
             executeToolCalls(toolCalls, toolRegistry, conversation, conversationService, writer, sessionId);
+            
+            // 检测点 3：工具执行结束后检查客户端是否已断开
+            if (clientDisconnected.get()) {
+                logger.info("客户端已断开，停止下一轮 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
+                return;
+            }
             
             // 如果 ask_user 工具被调用（pending 状态已设置），停止循环等待用户响应
             if (pendingToolCalls.containsKey(sessionId)) {
@@ -767,11 +832,19 @@ public class ChatApiHandler implements HttpHandler {
     }
 
     private void sendSseEvent(PrintWriter writer, String event, String data) {
-        writer.write("event: " + event + "\n");
-        // 直接发送完整数据，不分块
-        // 现代浏览器支持任意长度的 SSE 行，分块反而会破坏 JSON 结构
-        writer.write("data: " + data + "\n\n");
-        writer.flush();
+        if (clientDisconnected.get()) {
+            return;
+        }
+        try {
+            writer.write("event: " + event + "\n");
+            // 直接发送完整数据，不分块
+            // 现代浏览器支持任意长度的 SSE 行，分块反而会破坏 JSON 结构
+            writer.write("data: " + data + "\n\n");
+            writer.flush();
+        } catch (Exception e) {
+            clientDisconnected.set(true);
+            logger.debug("客户端连接已断开，停止发送 SSE 事件 (event={})", event);
+        }
     }
 
     private String escapeJson(String input) {
