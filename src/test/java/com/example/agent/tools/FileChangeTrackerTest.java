@@ -178,4 +178,123 @@ class FileChangeTrackerTest {
         FileChangeTracker.FileChange last = FileChangeTracker.getLastChange(filePath);
         assertNotNull(last);
     }
+
+    // ==================== 序列化/反序列化 ====================
+
+    @Test
+    void testToJsonProducesValidJson() {
+        FileChangeTracker.FileChange change = new FileChangeTracker.FileChange(
+            "/path/to/file.txt", "line1\nline2", "modified\ncontent", "edit_file", 1234567890L);
+
+        String json = change.toJson();
+        assertTrue(json.startsWith("{"));
+        assertTrue(json.endsWith("}"));
+        assertTrue(json.contains("\"filePath\":\"/path/to/file.txt\""));
+        assertTrue(json.contains("\"toolName\":\"edit_file\""));
+        assertTrue(json.contains("\"timestamp\":1234567890"));
+        assertTrue(json.contains("line1\\nline2"));
+        assertTrue(json.contains("modified\\ncontent"));
+    }
+
+    @Test
+    void testFromJsonRecoversChange() {
+        String json = "{\"filePath\":\"/test/file.java\",\"originalContent\":\"old text\",\"newContent\":\"new text\",\"toolName\":\"write_file\",\"timestamp\":9876543210}";
+        FileChangeTracker.FileChange change = FileChangeTracker.FileChange.fromJson(json);
+
+        assertNotNull(change);
+        assertEquals("/test/file.java", change.filePath);
+        assertEquals("old text", change.originalContent);
+        assertEquals("new text", change.newContent);
+        assertEquals("write_file", change.toolName);
+        assertEquals(9876543210L, change.timestamp);
+    }
+
+    @Test
+    void testFromJsonHandlesEscapedCharacters() {
+        String json = "{\"filePath\":\"/a.txt\",\"originalContent\":\"line1\\nline2\",\"newContent\":\"quote:\\\"hello\\\"\",\"toolName\":\"edit_file\",\"timestamp\":100}";
+        FileChangeTracker.FileChange change = FileChangeTracker.FileChange.fromJson(json);
+
+        assertNotNull(change);
+        assertEquals("line1\nline2", change.originalContent);
+        assertEquals("quote:\"hello\"", change.newContent);
+    }
+
+    @Test
+    void testToFromJsonRoundTrip() {
+        FileChangeTracker.FileChange original = new FileChangeTracker.FileChange(
+            "/path/to/file.txt", "original\ncontent", "new\ncontent", "edit_file", 42L);
+
+        String json = original.toJson();
+        FileChangeTracker.FileChange recovered = FileChangeTracker.FileChange.fromJson(json);
+
+        assertEquals(original.filePath, recovered.filePath);
+        assertEquals(original.originalContent, recovered.originalContent);
+        assertEquals(original.newContent, recovered.newContent);
+        assertEquals(original.toolName, recovered.toolName);
+        assertEquals(original.timestamp, recovered.timestamp);
+    }
+
+    // ==================== 持久化 ====================
+
+    @Test
+    void testRecordChangePersistsToFile(@TempDir Path storageDir) throws Exception {
+        FileChangeTracker.resetForTest();
+        FileChangeTracker.setStorageDirForTest(storageDir);
+
+        String filePath = storageDir.resolve("test.txt").toString();
+        FileChangeTracker.recordChange(filePath, "original", "modified", "write_file");
+
+        Path storageFile = storageDir.resolve("changes.jsonl");
+        // 关闭记录器后文件应仍然存在
+        FileChangeTracker.resetForTest();
+
+        assertTrue(Files.exists(storageFile), "持久化文件应在记录变更后被创建");
+        String content = Files.readString(storageFile, StandardCharsets.UTF_8).trim();
+        // toJson 会转义 Windows 反斜杠，所以用工具名/原文等唯一定位断言
+        assertTrue(content.contains("write_file"), "持久化文件应包含工具名");
+        assertTrue(content.contains("original"), "持久化文件应包含原文");
+        assertTrue(content.contains("modified"), "持久化文件应包含修改内容");
+    }
+
+    @Test
+    void testInitRecoversFromFile(@TempDir Path storageDir) throws Exception {
+        FileChangeTracker.resetForTest();
+        FileChangeTracker.setStorageDirForTest(storageDir);
+
+        String filePath = storageDir.resolve("recover.txt").toString();
+        FileChangeTracker.recordChange(filePath, "original", "recovered", "write_file");
+
+        // 模拟重启：重置状态后重新设置存储目录（会从文件恢复）
+        FileChangeTracker.resetForTest();
+        FileChangeTracker.setStorageDirForTest(storageDir);
+
+        // 验证记录已恢复
+        FileChangeTracker.FileChange change = FileChangeTracker.getLastChange(filePath);
+        assertNotNull(change, "重启后应恢复变更记录");
+        assertEquals("recovered", change.newContent);
+
+        FileChangeTracker.resetForTest();
+    }
+
+    @Test
+    void testRollbackRemovesFromStorage(@TempDir Path storageDir) throws Exception {
+        FileChangeTracker.resetForTest();
+        FileChangeTracker.setStorageDirForTest(storageDir);
+
+        Path testFile = storageDir.resolve("rollback_persist.txt");
+        Files.writeString(testFile, "original content", StandardCharsets.UTF_8);
+        String filePath = testFile.toString();
+
+        FileChangeTracker.recordChange(filePath, "original content", "modified", "edit_file");
+
+        // 回滚
+        boolean success = FileChangeTracker.rollback(filePath);
+        assertTrue(success);
+
+        // 验证持久化文件中也移除了该记录
+        Path storageFile = storageDir.resolve("changes.jsonl");
+        FileChangeTracker.resetForTest();
+        String content = Files.readString(storageFile, StandardCharsets.UTF_8).trim();
+        assertFalse(content.contains("modified"), "回滚后持久化文件不应包含已回滚的记录");
+    }
 }

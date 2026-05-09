@@ -10,6 +10,16 @@ vi.mock('../../main/resources/static/js/utils/toast.js', () => ({
   showToast: vi.fn()
 }));
 
+// Mock EventBus.emit for ask_user:respond testing
+const mockEventBusEmit = vi.fn();
+vi.mock('../../main/resources/static/js/utils/event-bus.js', () => ({
+  EventBus: {
+    on: vi.fn(),
+    off: vi.fn(),
+    emit: mockEventBusEmit
+  }
+}));
+
 describe('ChatUI', () => {
   let ChatUI, chatUI, container;
 
@@ -441,7 +451,11 @@ describe('ChatUI', () => {
   });
 
   describe('bindAskUserEvents', () => {
-    it('选项按钮点击调用 currentAskUserCallback', () => {
+    beforeEach(() => {
+      mockEventBusEmit.mockClear();
+    });
+
+    it('选项按钮点击触发 ask_user:respond 事件', () => {
       const card = document.createElement('div');
       card.innerHTML = `
         <div class="options-list">
@@ -452,9 +466,9 @@ describe('ChatUI', () => {
       chatUI.bindAskUserEvents(card);
 
       card.querySelectorAll('.option-btn').forEach(btn => btn.click());
-      expect(window.currentAskUserCallback).toHaveBeenCalledTimes(2);
-      expect(window.currentAskUserCallback).toHaveBeenCalledWith('是');
-      expect(window.currentAskUserCallback).toHaveBeenCalledWith('否');
+      expect(mockEventBusEmit).toHaveBeenCalledTimes(2);
+      expect(mockEventBusEmit).toHaveBeenCalledWith('ask_user:respond', '是');
+      expect(mockEventBusEmit).toHaveBeenCalledWith('ask_user:respond', '否');
     });
 
     it('发送按钮点击发送输入框内容', () => {
@@ -468,7 +482,7 @@ describe('ChatUI', () => {
       chatUI.bindAskUserEvents(card);
 
       card.querySelector('.send-btn').click();
-      expect(window.currentAskUserCallback).toHaveBeenCalledWith('用户输入内容');
+      expect(mockEventBusEmit).toHaveBeenCalledWith('ask_user:respond', '用户输入内容');
     });
 
     it('空输入时发送按钮不触发回调', () => {
@@ -482,7 +496,7 @@ describe('ChatUI', () => {
       chatUI.bindAskUserEvents(card);
 
       card.querySelector('.send-btn').click();
-      expect(window.currentAskUserCallback).not.toHaveBeenCalled();
+      expect(mockEventBusEmit).not.toHaveBeenCalled();
     });
 
     it('没有选项按钮时不报错', () => {
