@@ -84,36 +84,40 @@ export class ChatService {
 
       let currentEvent = 'message';
 
+      const flushDataBuffer = () => {
+        const data = dataBuffer;
+        dataBuffer = '';
+        if (!data) return;
+
+        if (data === '[DONE]') {
+          hasContent = true;
+          return;
+        }
+
+        const parsed = safeParseJSON(data);
+        if (parsed) {
+          if (onChunk) {
+            if (parsed.content || parsed.name) {
+              hasContent = true;
+            }
+            parsed._eventType = currentEvent;
+            onChunk(parsed);
+          }
+        } else {
+          if (onChunk) {
+            onChunk({
+              type: currentEvent || 'raw',
+              content: data,
+              _eventType: currentEvent
+            });
+          }
+        }
+      };
+
       const processSSELines = (lines) => {
         for (const line of lines) {
           if (line.startsWith('event: ')) {
-            if (dataBuffer) {
-              const data = dataBuffer;
-              dataBuffer = '';
-              
-              if (data === '[DONE]') {
-                hasContent = true;
-              } else {
-                const parsed = safeParseJSON(data);
-                if (parsed) {
-                  if (onChunk) {
-                    if (parsed.content || parsed.name) {
-                      hasContent = true;
-                    }
-                    parsed._eventType = currentEvent;
-                    onChunk(parsed);
-                  }
-                } else {
-                  if (onChunk) {
-                    onChunk({
-                      type: currentEvent || 'raw',
-                      content: data,
-                      _eventType: currentEvent
-                    });
-                  }
-                }
-              }
-            }
+            flushDataBuffer();
             currentEvent = line.substring(7).trim();
           } else if (line.startsWith('data: ')) {
             if (dataBuffer) {
@@ -121,37 +125,12 @@ export class ChatService {
             } else {
               dataBuffer = line.substring(6);
             }
+          } else if (line === '') {
+            flushDataBuffer();
           }
         }
-        
-        if (dataBuffer) {
-          const data = dataBuffer;
-          dataBuffer = '';
-          
-          if (data === '[DONE]') {
-            hasContent = true;
-            return;
-          }
 
-          const parsed = safeParseJSON(data);
-          if (parsed) {
-            if (onChunk) {
-              if (parsed.content || parsed.name) {
-                hasContent = true;
-              }
-              parsed._eventType = currentEvent;
-              onChunk(parsed);
-            }
-          } else {
-            if (onChunk) {
-              onChunk({
-                type: currentEvent || 'raw',
-                content: data,
-                _eventType: currentEvent
-              });
-            }
-          }
-        }
+        flushDataBuffer();
       };
 
       while (true) {

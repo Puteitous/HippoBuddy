@@ -1,5 +1,6 @@
 import { escapeHtml, formatTime, safeParseJSON } from './utils.js';
 import { renderMarkdown } from './markdown-renderer.js';
+import { EventBus } from './utils/event-bus.js';
 
 export class ChatUI {
   constructor(container) {
@@ -79,9 +80,7 @@ export class ChatUI {
     rollbackBtn.title = '回退此消息的文件修改';
     rollbackBtn.innerHTML = '↩';
     rollbackBtn.addEventListener('click', () => {
-      if (window.rollbackMessageChanges) {
-        window.rollbackMessageChanges(msgDiv);
-      }
+      EventBus.emit('message:rollback', msgDiv);
     });
     btnContainer.appendChild(rollbackBtn);
 
@@ -116,10 +115,7 @@ export class ChatUI {
     copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     btnContainer.appendChild(copyBtn);
 
-    if (window.setupCopyButton) {
-      window.setupCopyButton(copyBtn, contentDiv);
-    } else {
-      copyBtn.onclick = () => {
+    copyBtn.onclick = () => {
         const textToCopy = contentDiv.innerText;
         navigator.clipboard.writeText(textToCopy).then(() => {
           copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -130,7 +126,6 @@ export class ChatUI {
           }, 2000);
         });
       };
-    }
     contentDiv.dataset.markdown = content;
     msgDiv.appendChild(btnContainer);
 
@@ -199,12 +194,7 @@ export class ChatUI {
       btn.addEventListener('click', () => {
         const option = btn.getAttribute('data-option');
         console.log('📤 选项按钮被点击:', option);
-        console.log('  currentAskUserCallback 存在:', typeof window.currentAskUserCallback === 'function');
-        if (window.currentAskUserCallback) {
-          window.currentAskUserCallback(option);
-        } else {
-          console.error('❌ currentAskUserCallback 未定义');
-        }
+        EventBus.emit('ask_user:respond', option);
       });
     });
     
@@ -222,12 +212,7 @@ export class ChatUI {
           showToast('请输入你的回答', 'warning');
           return;
         }
-        console.log('  currentAskUserCallback 存在:', typeof window.currentAskUserCallback === 'function');
-        if (window.currentAskUserCallback) {
-          window.currentAskUserCallback(userInput);
-        } else {
-          console.error('❌ currentAskUserCallback 未定义');
-        }
+        EventBus.emit('ask_user:respond', userInput);
       });
     }
   }

@@ -5,11 +5,16 @@ let hljsInstance = null;
 
 async function loadMarked() {
   if (!markedInstance) {
-    if (typeof window.marked !== 'undefined') {
+    const hasWindow = typeof window !== 'undefined';
+    if (hasWindow && typeof window.marked !== 'undefined') {
       markedInstance = window.marked;
     } else {
-      const module = await import('./vendor/marked.min.js');
-      markedInstance = module.marked || module.default || module;
+      try {
+        const module = await import('./vendor/marked.min.js');
+        markedInstance = module.marked || module.default || module;
+      } catch {
+        markedInstance = null;
+      }
     }
   }
   return markedInstance;
@@ -17,11 +22,16 @@ async function loadMarked() {
 
 async function loadHighlight() {
   if (!hljsInstance) {
-    if (typeof window.hljs !== 'undefined') {
+    const hasWindow = typeof window !== 'undefined';
+    if (hasWindow && typeof window.hljs !== 'undefined') {
       hljsInstance = window.hljs;
     } else {
-      const module = await import('./vendor/highlight.min.js');
-      hljsInstance = module.hljs || module.default || module;
+      try {
+        const module = await import('./vendor/highlight.min.js');
+        hljsInstance = module.hljs || module.default || module;
+      } catch {
+        hljsInstance = null;
+      }
     }
   }
   return hljsInstance;
@@ -49,6 +59,15 @@ export async function initMarkdownRenderer(options = {}) {
       } catch (e) {
         highlighted = escapeHtml(code);
       }
+      highlighted = highlighted.replace(/\n\s*$/, '');
+
+      const codeLines = code.replace(/\n+$/, '').split('\n');
+      const lineCount = codeLines.length;
+      let lineNumsText = '';
+      for (let i = 1; i <= lineCount; i++) {
+        lineNumsText += i + '\n';
+      }
+      lineNumsText = lineNumsText.replace(/\n$/, '');
 
       const codeId = 'code-' + Math.random().toString(36).substr(2, 9);
       return `<div class="code-block-wrapper">
@@ -56,7 +75,10 @@ export async function initMarkdownRenderer(options = {}) {
           <span class="code-lang">${lang}</span>
           <button class="copy-btn" onclick="window.copyCode('${codeId}')">📋 复制</button>
         </div>
-        <pre><code id="${codeId}" class="hljs language-${lang}">${highlighted}</code></pre>
+        <div class="code-block-body">
+          <div class="code-ln-nums"><pre>${lineNumsText}</pre></div>
+          <pre><code id="${codeId}" class="hljs language-${lang}" data-raw-code="${encodeURIComponent(code)}">${highlighted}</code></pre>
+        </div>
       </div>`;
     };
   }
@@ -78,7 +100,10 @@ export async function renderMarkdown(text) {
 export function copyCode(codeId) {
   const codeEl = document.getElementById(codeId);
   if (codeEl) {
-    navigator.clipboard.writeText(codeEl.textContent).then(() => {
+    const rawCode = codeEl.dataset.rawCode
+      ? decodeURIComponent(codeEl.dataset.rawCode)
+      : codeEl.textContent;
+    navigator.clipboard.writeText(rawCode).then(() => {
       const btn = codeEl.closest('.code-block-wrapper').querySelector('.copy-btn');
       btn.textContent = '✅ 已复制!';
       btn.classList.add('copied');

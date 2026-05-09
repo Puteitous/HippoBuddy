@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hippo Cockpit</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦛</text></svg>">
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/cockpit.css">
@@ -40,6 +41,14 @@
                     <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6"/>
                 </svg>
                 压缩
+            </button>
+            <button class="export-btn" id="exportBtn" title="导出对话">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                导出
             </button>
             <button id="themeToggle" title="切换主题">🌙</button>
             <span id="sseStatus" class="sse-status disconnected">SSE 连接中...</span>
@@ -84,7 +93,7 @@
         <div class="right-panel">
             <!-- 记忆面板 -->
             <div class="sidebar-section">
-                <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+                <div class="sidebar-section-header">
                     <span>🧠 Memory Panel</span>
                     <span class="arrow">▶</span>
                 </div>
@@ -95,7 +104,7 @@
 
             <!-- Token 统计 -->
             <div class="sidebar-section">
-                <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+                <div class="sidebar-section-header">
                     <span>📊 Token 统计</span>
                     <span class="arrow">▶</span>
                 </div>
@@ -160,7 +169,7 @@
 
             <!-- 实时监控 -->
             <div class="sidebar-section">
-                <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+                <div class="sidebar-section-header">
                     <span>📡 实时监控</span>
                     <span class="arrow">▶</span>
                 </div>
@@ -235,7 +244,7 @@
 
             <!-- 文件变更 -->
             <div class="sidebar-section">
-                <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+                <div class="sidebar-section-header">
                     <span>📂 文件变更</span>
                     <span class="arrow">▶</span>
                 </div>

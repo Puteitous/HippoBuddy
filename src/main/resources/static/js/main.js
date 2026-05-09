@@ -16,8 +16,10 @@ import { ChatPanel } from './components/ChatPanel.js';
 import { TokenMonitor } from './components/TokenMonitor.js';
 import { MetricsPanel } from './components/MetricsPanel.js';
 import { diffModalManager } from './utils/diff-modal.js';
+import { FileChangeManager } from './utils/file-change-manager.js';
+import { EventBus } from './utils/event-bus.js';
 import { showToast } from './utils/toast.js';
-import { generateSessionId, escapeHtml } from './utils.js';
+import { generateSessionId } from './utils.js';
 import { renderMarkdown } from './markdown-renderer.js';
 
 // ========== 全局状态 ==========
@@ -39,12 +41,14 @@ let memoryPanel;
 let chatPanel;
 let tokenMonitor;
 let metricsPanel;
+let fileChangeManager;
 
 // ========== DOM 元素 ==========
 const elements = {
   themeToggle: document.getElementById('themeToggle'),
   sseStatus: document.getElementById('sseStatus'),
   compactBtn: document.getElementById('compactBtn'),
+  exportBtn: document.getElementById('exportBtn'),
   newSessionBtn: document.getElementById('newSessionBtn'),
   messageInput: document.getElementById('messageInput'),
   sendBtn: document.getElementById('sendBtn'),
@@ -89,36 +93,44 @@ function init() {
   // 7. 初始化 SSE 连接
   initSSE();
   
-  // 8. 绑定全局事件
+  // 8. 初始化文件变更监控
+  fileChangeManager = new FileChangeManager();
+  fileChangeManager.init();
+  
+  // 9. 绑定全局事件
   bindGlobalEvents();
   
-  // 9. 加载预设提示词
+  // 10. 加载预设提示词
   loadPromptPresets();
   
-  // 10. 生成并设置当前会话 ID
+  // 11. 生成并设置当前会话 ID
   currentSessionId = generateSessionId();
   sessionManager.setCurrentSession(currentSessionId);
-  appState.currentSessionId = currentSessionId; // 同步到 appState
+  appState.currentSessionId = currentSessionId;
   sessionManager.loadSessions();
   
-  // 11. 启动自动更新
-  tokenMonitor.startAutoUpdate(30000); // 30 秒
-  metricsPanel.startAutoUpdate(10000); // 10 秒
+  // 12. 启动自动更新
+  tokenMonitor.startAutoUpdate(30000);
+  metricsPanel.startAutoUpdate(10000);
   
-  // 12. 初始化文件变更监控
-  if (window.updateFileChanges) {
-    window.updateFileChanges();
-  }
-  
-  // 12.5. 初始化趋势图
+  // 13. 初始化趋势图
   tokenMonitor.renderTrendChart();
   
-  // 13. 定期更新文件变更（每 15 秒）
-  setInterval(() => {
-    if (window.updateFileChanges) {
-      window.updateFileChanges();
+  // 14. 订阅事件
+  EventBus.on('message:sent', () => {
+    tokenMonitor.scheduleUpdate();
+    metricsPanel.updateMetrics();
+    fileChangeManager.updateFileChanges();
+  });
+  
+  EventBus.on('session:auto-name', ({ sessionId, content }) => {
+    if (sessionId && sessionManager) {
+      if (!sessionManager.sessionNames || !sessionManager.sessionNames[sessionId]) {
+        sessionManager.setSessionName(sessionId, content);
+        sessionManager.loadSessions();
+      }
     }
-  }, 15000);
+  });
   
   console.log('✅ Hippo Cockpit initialized');
 }
@@ -209,15 +221,6 @@ function bindGlobalEvents() {
     closePromptModal();
   });
   
-  // 侧边栏折叠
-  window.toggleSidebarSection = function(header) {
-    header.classList.toggle('expanded');
-    const body = header.nextElementSibling;
-    if (body) {
-      body.classList.toggle('show');
-    }
-  };
-  
   // 输入框事件
   elements.messageInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -246,198 +249,66 @@ function bindGlobalEvents() {
   elements.tokenDetailsBtn?.addEventListener('click', () => {
     tokenMonitor.showDetails();
   });
+
+  // 导出对话
+  elements.exportBtn?.addEventListener('click', exportConversation);
   
-  // 全局消息发送完成回调
-  window.onMessageSent = function() {
-    tokenMonitor.scheduleUpdate();
-    metricsPanel.updateMetrics();
-    if (window.updateFileChanges) {
-      window.updateFileChanges();
-    }
-  };
+  // 侧边栏折叠（通过事件代理处理）
+  document.querySelectorAll('.sidebar-section-header').forEach(header => {
+    header.addEventListener('click', () => {
+      header.classList.toggle('expanded');
+      const body = header.nextElementSibling;
+      if (body) body.classList.toggle('show');
+    });
+  });
   
-  // Diff 弹窗全局函数
-  window.showFileDiff = function(filePath) {
-    diffModalManager.show(filePath);
-  };
+  // 消息回滚事件
+  EventBus.on('message:rollback', (msgDiv) => handleMessageRollback(msgDiv));
+}
+
+// ========== 消息回滚处理 ==========
+async function handleMessageRollback(msgDiv) {
+  const rollbackBtn = msgDiv.querySelector('.rollback-btn');
+  if (!rollbackBtn || rollbackBtn.classList.contains('rolling')) return;
+  rollbackBtn.classList.add('rolling');
+  rollbackBtn.innerHTML = '<span style="font-size:12px;">⋯</span>';
   
-  window.rollbackFile = async function(filePath, btnEl) {
-    if (btnEl.classList.contains('rolling')) return;
-    btnEl.classList.add('rolling');
-    btnEl.textContent = '回滚中...';
-    
-    try {
-      const response = await fetch('/api/files/rollback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath })
-      });
-      const result = await response.json();
-      
-      if (result.success) {
-        showToast(`文件已恢复：${filePath.split(/[/\\]/).pop()}`, { type: 'success', duration: 3000 });
-        if (window.updateFileChanges) window.updateFileChanges();
-      } else {
-        showToast(`回滚失败：${result.error || '未知错误'}`, { type: 'error', duration: 3000 });
-        btnEl.classList.remove('rolling');
-        btnEl.textContent = '回滚';
-      }
-    } catch (e) {
-      showToast(`回滚失败：${e.message}`, { type: 'error', duration: 3000 });
-      btnEl.classList.remove('rolling');
-      btnEl.textContent = '回滚';
-    }
-  };
-  
-  // 消息回滚
-  window.rollbackMessageChanges = async function(msgDiv) {
-    const rollbackBtn = msgDiv.querySelector('.rollback-btn');
-    if (!rollbackBtn || rollbackBtn.classList.contains('rolling')) return;
-    rollbackBtn.classList.add('rolling');
-    rollbackBtn.innerHTML = '<span style="font-size:12px;">⋯</span>';
-    
-    const msgTimestamp = parseInt(msgDiv.dataset.timestamp);
-    if (!msgTimestamp) {
-      showToast('无法确定消息时间', { type: 'error', duration: 3000 });
-      rollbackBtn.innerHTML = '↩';
-      rollbackBtn.classList.remove('rolling');
-      return;
-    }
-    
-    let startTime = 0;
-    const prevMsg = msgDiv.previousElementSibling;
-    if (prevMsg && prevMsg.dataset.timestamp) {
-      startTime = parseInt(prevMsg.dataset.timestamp);
-    } else {
-      startTime = msgTimestamp - 5 * 60 * 1000;
-    }
-    
-    try {
-      const response = await fetch('/api/files/rollback-range', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startTime, endTime: msgTimestamp })
-      });
-      const result = await response.json();
-      
-      if (result.success) {
-        showToast(result.message || '已回滚文件变更', { type: 'success', duration: 3000 });
-        if (window.updateFileChanges) window.updateFileChanges();
-      } else {
-        showToast(`回滚失败：${result.error || '未知错误'}`, { type: 'error', duration: 3000 });
-      }
-    } catch (e) {
-      showToast(`回滚失败：${e.message}`, { type: 'error', duration: 3000 });
-    }
-    
+  const msgTimestamp = parseInt(msgDiv.dataset.timestamp);
+  if (!msgTimestamp) {
+    showToast('无法确定消息时间', { type: 'error', duration: 3000 });
     rollbackBtn.innerHTML = '↩';
     rollbackBtn.classList.remove('rolling');
-  };
+    return;
+  }
   
-  // 复制菜单功能
-  window.setupCopyButton = function(copyBtn, contentDiv) {
-    const menu = document.createElement('div');
-    menu.className = 'copy-menu';
-    menu.innerHTML = `
-      <div class="copy-menu-item" data-type="markdown">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        复制 Markdown
-        <span class="copy-shortcut">MD</span>
-      </div>
-      <div class="copy-menu-item" data-type="text">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        复制纯文本
-        <span class="copy-shortcut">TXT</span>
-      </div>
-    `;
-    
-    const btnContainer = copyBtn.parentNode;
-    btnContainer.appendChild(menu);
-    
-    copyBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      
-      document.querySelectorAll('.copy-menu').forEach(m => {
-        if (m !== menu) m.style.display = 'none';
-      });
-      
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    });
-    
-    menu.addEventListener('click', (e) => {
-      const item = e.target.closest('.copy-menu-item');
-      if (!item) return;
-      
-      const type = item.dataset.type;
-      let textToCopy;
-      
-      if (type === 'markdown') {
-        textToCopy = contentDiv.dataset.markdown || contentDiv.innerHTML;
-      } else {
-        textToCopy = contentDiv.innerText;
-      }
-      
-      navigator.clipboard.writeText(textToCopy).then(() => {
-        menu.style.display = 'none';
-        const label = type === 'markdown' ? 'Markdown' : '纯文本';
-        showToast(`已复制 ${label}`, { type: 'success', duration: 2000 });
-        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-        copyBtn.classList.add('copied');
-        setTimeout(() => {
-          copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-          copyBtn.classList.remove('copied');
-        }, 2000);
-      }).catch(() => {
-        showToast('复制失败', { type: 'error', duration: 3000 });
-      });
-    });
-    
-    document.addEventListener('click', () => {
-      menu.style.display = 'none';
-    }, { passive: true });
-  };
+  let startTime = 0;
+  const prevMsg = msgDiv.previousElementSibling;
+  if (prevMsg && prevMsg.dataset.timestamp) {
+    startTime = parseInt(prevMsg.dataset.timestamp);
+  } else {
+    startTime = msgTimestamp - 5 * 60 * 1000;
+  }
   
-  // 文件变更列表更新
-  window.updateFileChanges = async function() {
-    try {
-      const response = await fetch('/api/files/changes');
-      if (!response.ok) return;
-      const changes = await response.json();
-      const list = document.getElementById('fileChangesList');
-      const empty = document.getElementById('fileChangesEmpty');
-      if (!list || !empty) return;
-
-      if (!changes || changes.length === 0) {
-        list.innerHTML = '';
-        empty.style.display = 'block';
-        return;
-      }
-
-      empty.style.display = 'none';
-      list.innerHTML = changes.map(c => {
-        const fileName = c.filePath.split(/[/\\]/).pop();
-        const dir = c.filePath.substring(0, c.filePath.length - fileName.length);
-        const time = new Date(c.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        const icon = c.toolName === 'delete_file' ? '🗑️' : '📝';
-        return `
-          <div class="file-change-item" onclick="showFileDiff('${escapeHtml(c.filePath)}')" style="cursor:pointer;">
-            <span class="file-change-icon">${icon}</span>
-            <div class="file-change-info">
-              <div class="file-change-path" title="${escapeHtml(c.filePath)}">${escapeHtml(fileName)}</div>
-              <div class="file-change-meta">
-                <span>${escapeHtml(time)}</span>
-                <span class="file-change-tool">${escapeHtml(c.toolName)}</span>
-              </div>
-            </div>
-            <button class="file-change-rollback" onclick="event.stopPropagation(); rollbackFile('${escapeHtml(c.filePath)}', this)">回滚</button>
-          </div>
-        `;
-      }).join('');
-    } catch (e) {
-      console.error('获取文件变更失败:', e);
+  try {
+    const response = await fetch('/api/files/rollback-range', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startTime, endTime: msgTimestamp })
+    });
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(result.message || '已回滚文件变更', { type: 'success', duration: 3000 });
+      fileChangeManager.updateFileChanges();
+    } else {
+      showToast(`回滚失败：${result.error || '未知错误'}`, { type: 'error', duration: 3000 });
     }
-  };
+  } catch (e) {
+    showToast(`回滚失败：${e.message}`, { type: 'error', duration: 3000 });
+  }
+  
+  rollbackBtn.innerHTML = '↩';
+  rollbackBtn.classList.remove('rolling');
 }
 
 // ========== 会话管理 ==========
@@ -470,9 +341,7 @@ async function switchSession(sessionId) {
     
     tokenMonitor.scheduleUpdate();
     metricsPanel.updateMetrics();
-    if (window.updateFileChanges) {
-      window.updateFileChanges();
-    }
+    fileChangeManager?.updateFileChanges();
   } catch (e) {
     chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
   }
@@ -599,6 +468,9 @@ async function loadHistoryMessages(messages) {
           }
         }
         contentDiv.innerHTML = html;
+        contentDiv.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
+          chatUI.bindToolCardEvents(card);
+        });
       }
       msgDiv.appendChild(contentDiv);
       
@@ -621,7 +493,7 @@ async function loadHistoryMessages(messages) {
       rollbackBtn.className = 'message-action-btn rollback-btn';
       rollbackBtn.title = '回退此消息的文件修改';
       rollbackBtn.innerHTML = '↩';
-      rollbackBtn.addEventListener('click', () => window.rollbackMessageChanges(msgDiv));
+      rollbackBtn.addEventListener('click', () => EventBus.emit('message:rollback', msgDiv));
       btnContainer.appendChild(rollbackBtn);
       
       const rawMarkdown = segments.filter(s => s.type === 'text').map(s => s.content).join('');
@@ -747,185 +619,205 @@ async function handleCompact() {
   }
 }
 
-// ========== AskUser 全局函数 ==========
-window.showAskUserCard = function(question, options, allowCustomInput) {
-  console.log('🎯 showAskUserCard 被调用', { question, options, allowCustomInput });
-  
-  if (window.currentAskUserCallback) {
-    window.currentAskUserCallback = null;
-  }
-  
-  const { contentDiv } = chatUI.appendAssistantMessage('');
-  
-  window.currentAskUserCallback = function(answer) {
-    console.log('✅ AskUser 回调被触发:', answer);
-    window.currentAskUserCallback = null;
-    window.sendMessageToAgent(answer);
-  };
-  
-  const segments = [];
-  segments.push({ 
-    type: 'tool', 
-    name: 'ask_user', 
-    args: JSON.stringify({
-      question: question,
-      options: options || [],
-      allow_custom_input: allowCustomInput !== false
-    }), 
-    result: null, 
-    error: null 
-  });
-  
-  chatPanel.renderSegments(contentDiv, segments, '');
-};
-
-window.sendMessageToAgent = function(message) {
-  console.log('🚀 sendMessageToAgent 被调用，消息:', message);
-  console.log('  currentSessionId:', currentSessionId);
-  
-  if (window.isSendingMessage) {
-    console.warn('⚠️ 消息正在发送中，请等待');
+// ========== 导出对话 ==========
+async function exportConversation() {
+  if (!currentSessionId) {
+    showToast('没有可导出的对话', { type: 'warning', duration: 2000 });
     return;
   }
-  window.isSendingMessage = true;
-  
-  const sessionId = currentSessionId || `web-${Date.now()}`;
-  console.log('  实际使用的 sessionId:', sessionId);
-  
-  const assistantMessages = document.querySelectorAll('.assistant-message');
-  const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
-  const askUserContentDiv = lastAssistantMessage ? lastAssistantMessage.querySelector('.message-content') : null;
-  
-  let loadingIndicator = null;
-  if (askUserContentDiv) {
-    loadingIndicator = document.createElement('div');
-    loadingIndicator.className = 'loading-indicator';
-    loadingIndicator.innerHTML = '<span class="loading-dot">⋯</span> 正在处理...';
-    askUserContentDiv.appendChild(loadingIndicator);
-    chatUI.scrollToBottom();
+
+  const exportBtn = elements.exportBtn;
+  const originalText = exportBtn.innerHTML;
+  exportBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+      <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+    </svg>
+    加载中...
+  `;
+  exportBtn.disabled = true;
+
+  try {
+    const messages = await chatService.getSessionMessages(currentSessionId);
+
+    if (!messages || messages.length === 0) {
+      showToast('当前会话没有消息', { type: 'warning', duration: 2000 });
+      return;
+    }
+
+    const sessionName = sessionManager.sessionNames?.[currentSessionId] || '未命名会话';
+
+    if (!confirm(`确定导出当前对话吗？\n\n会话：${sessionName}\n消息数：${messages.length} 条\n格式：Markdown (.md)`)) {
+      return;
+    }
+    const now = new Date();
+    const timeStr = now.toLocaleString('zh-CN', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+
+    const markdownLines = [
+      `# ${sessionName}`,
+      ``,
+      `> 导出时间：${timeStr}`,
+      `> 共 ${messages.length} 条消息`,
+      ``,
+      `---`,
+      ``
+    ];
+
+    const toolResults = {};
+    for (const msg of messages) {
+      if ((msg.role === 'tool' || msg.role === 'tool-result') && msg.toolCallId) {
+        toolResults[msg.toolCallId] = msg;
+      }
+    }
+
+    let i = 0;
+    while (i < messages.length) {
+      const msg = messages[i];
+
+      if (msg.role === 'tool' || msg.role === 'tool-result') {
+        i++;
+        continue;
+      }
+
+      if (msg.role === 'user') {
+        if (msg.content && msg.content.trim()) {
+          markdownLines.push(`## 🙋 你`);
+          markdownLines.push(``);
+          markdownLines.push(msg.content);
+          markdownLines.push(``);
+        }
+        i++;
+        continue;
+      }
+
+      if (msg.role === 'assistant') {
+        let text = '';
+        let hasToolCalls = false;
+
+        while (i < messages.length) {
+          const am = messages[i];
+          if (am.role === 'tool' || am.role === 'tool-result') {
+            i++;
+            continue;
+          }
+          if (am.role !== 'assistant') break;
+
+          const amText = am.content || '';
+          const amToolCalls = am.tool_calls && am.tool_calls.length > 0;
+
+          if (amText.trim() && !amToolCalls) {
+            if (text.trim()) {
+              markdownLines.push(`## 🤖 AI`);
+              markdownLines.push(``);
+              markdownLines.push(text);
+              markdownLines.push(``);
+            }
+            text = amText;
+            i++;
+            break;
+          }
+
+          if (text.trim()) {
+            markdownLines.push(`## 🤖 AI`);
+            markdownLines.push(``);
+            markdownLines.push(text);
+            markdownLines.push(``);
+            text = '';
+          }
+
+          if (amText.trim()) {
+            text = amText;
+          }
+
+          if (amToolCalls) {
+            if (text.trim()) {
+              markdownLines.push(`## 🤖 AI`);
+              markdownLines.push(``);
+              markdownLines.push(text);
+              markdownLines.push(``);
+              text = '';
+            }
+
+            for (const tc of am.tool_calls) {
+              hasToolCalls = true;
+              const toolName = tc.name || tc.function?.name || 'unknown';
+              const args = tc.arguments || tc.function?.arguments || '{}';
+              const parsedArgs = (() => {
+                try {
+                  return typeof args === 'string' ? JSON.parse(args) : args;
+                } catch { return args; }
+              })();
+
+              const tr = toolResults[tc.id];
+              const isSuccess = tr?.success !== false;
+              const statusIcon = isSuccess ? '✅' : '❌';
+
+              let toolArgsText = '';
+              if (typeof parsedArgs === 'object' && parsedArgs !== null) {
+                const entries = Object.entries(parsedArgs);
+                toolArgsText = entries.map(([k, v]) => {
+                  const val = typeof v === 'string' && v.length > 200 ? v.substring(0, 200) + '...' : v;
+                  return `  - ${k}: ${val}`;
+                }).join('\n');
+              }
+
+              markdownLines.push(`### 🔧 ${toolName} ${statusIcon}`);
+              if (toolArgsText) {
+                markdownLines.push(``);
+                markdownLines.push(toolArgsText);
+              }
+              if (tr?.error) {
+                markdownLines.push(`  - 错误: ${tr.error}`);
+              }
+              markdownLines.push(``);
+            }
+          }
+          i++;
+        }
+
+        if (text.trim()) {
+          markdownLines.push(`## 🤖 AI`);
+          markdownLines.push(``);
+          markdownLines.push(text);
+          markdownLines.push(``);
+        }
+
+        if (!hasToolCalls && !text.trim()) {
+          markdownLines.push(`## 🤖 AI`);
+          markdownLines.push(``);
+          markdownLines.push(`*（空响应）*`);
+          markdownLines.push(``);
+        }
+
+        continue;
+      }
+
+      i++;
+    }
+
+    const content = markdownLines.join('\n');
+    const filename = `${sessionName.replace(/[\\/:*?"<>|]/g, '_')}_${now.toISOString().slice(0, 10)}.md`;
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast(`已导出：${filename}`, { type: 'success', duration: 3000 });
+  } catch (e) {
+    showToast(`导出失败：${e.message}`, { type: 'error', duration: 3000 });
+    console.error('导出对话失败:', e);
+  } finally {
+    exportBtn.innerHTML = originalText;
+    exportBtn.disabled = false;
   }
-  
-  const { contentDiv: responseContentDiv } = chatUI.appendAssistantMessage('');
-  let currentText = '';
-  let segments = [];
-  
-  fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: message,
-      sessionId: sessionId
-    })
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('发送失败');
-    }
-    
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let currentEvent = 'message';
-    
-    function readStream() {
-      reader.read().then(({ done, value }) => {
-        if (done) {
-          console.log('✅ SSE 流结束');
-          
-          if (askUserContentDiv && loadingIndicator && askUserContentDiv.contains(loadingIndicator)) {
-            askUserContentDiv.removeChild(loadingIndicator);
-          }
-          
-          if (currentText.trim()) {
-            segments.push({ type: 'text', content: currentText });
-          }
-          chatPanel.renderSegmentsFinal(responseContentDiv, segments, '');
-          
-          elements.messageInput.disabled = false;
-          elements.sendBtn.disabled = false;
-          elements.messageInput.focus();
-          
-          tokenMonitor.scheduleUpdate();
-          window.isSendingMessage = false;
-          return;
-        }
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            currentEvent = line.substring(7).trim();
-          } else if (line.startsWith('data: ')) {
-            const data = line.substring(6);
-            if (data === '[DONE]') continue;
-            
-            const parsed = JSON.parse(data);
-            console.log('📥 收到 SSE 事件:', currentEvent, parsed);
-            
-            if (currentEvent === 'content' && parsed.content) {
-              currentText += parsed.content;
-              chatPanel.renderSegments(responseContentDiv, segments, currentText);
-              chatUI.scrollToBottom();
-            }
-            
-            if (currentEvent === 'clear_content') {
-              currentText = '';
-              segments = [];
-              responseContentDiv.innerHTML = '';
-            }
-            
-            if (currentEvent === 'tool_start' && parsed.name) {
-              console.log('🔧 工具开始:', parsed.name);
-              if (currentText.trim()) {
-                segments.push({ type: 'text', content: currentText });
-                currentText = '';
-              }
-              segments.push({
-                type: 'tool',
-                name: parsed.name,
-                args: parsed.args || '{}',
-                result: null,
-                error: null
-              });
-              chatPanel.renderSegments(responseContentDiv, segments, currentText);
-            }
-            
-            if (currentEvent === 'tool_end' && parsed.name) {
-              console.log('🔧 工具结束:', parsed.name);
-              const existingTool = segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
-              if (existingTool) {
-                existingTool.result = parsed.success ? 'success' : 'error';
-                existingTool.error = parsed.error || null;
-                existingTool.resultContent = parsed.result || null;
-                chatPanel.renderSegments(responseContentDiv, segments, currentText);
-              }
-            }
-            
-            if (currentEvent === 'waiting_user') {
-              window.showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
-            }
-          }
-        }
-        
-        readStream();
-      });
-    }
-    
-    readStream();
-  })
-  .catch(error => {
-    console.error('发送消息失败:', error);
-    showToast('发送失败：' + error.message, 'error');
-    
-    if (loadingIndicator && loadingIndicator.parentNode) {
-      loadingIndicator.parentNode.removeChild(loadingIndicator);
-    }
-    
-    elements.messageInput.disabled = false;
-    elements.sendBtn.disabled = false;
-    window.isSendingMessage = false;
-  });
-};
+}
 
 // ========== 启动应用 ==========
 init();

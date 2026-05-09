@@ -1,6 +1,7 @@
 // Diff 弹窗管理模块
 import { escapeHtml } from '../utils.js';
 import { showToast } from './toast.js';
+import { EventBus } from './event-bus.js';
 
 export class DiffModalManager {
   constructor() {
@@ -165,9 +166,7 @@ export class DiffModalManager {
         });
         
         // 触发全局事件，通知文件列表更新
-        if (window.updateFileChanges) {
-          window.updateFileChanges();
-        }
+        EventBus.emit('file:changes-updated');
         
         this.close();
       } else {

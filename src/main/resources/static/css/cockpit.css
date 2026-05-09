@@ -258,6 +258,30 @@ body {
     height: 14px;
 }
 
+.header .export-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 8px;
+}
+
+.header .export-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.header .export-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
@@ -1852,15 +1876,46 @@ body {
     box-shadow: 0 1px 3px rgba(76, 175, 80, 0.3);
 }
 
-.code-block-wrapper pre {
-    margin: 0;
-    padding: 12px;
-    background: var(--bg-code);
+.code-block-body {
+    display: flex;
+    overflow: hidden;
 }
 
-.code-block-wrapper pre code {
+.code-ln-nums {
+    flex-shrink: 0;
+    display: flex;
+    border-right: 1px solid var(--border-color);
+}
+
+.message.assistant .code-block-wrapper .code-ln-nums pre {
+    margin: 0;
+    padding: 10px 8px;
+    background: var(--bg-code);
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-muted);
+    text-align: right;
+    user-select: none;
+    overflow: hidden;
+}
+
+.message.assistant .code-block-wrapper .code-block-body > pre {
+    flex: 1;
+    margin: 0;
+    padding: 10px 14px;
+    background: var(--bg-code);
+    overflow-x: auto;
+    border: none;
+}
+
+.message.assistant .code-block-wrapper .code-block-body > pre code {
     background: none !important;
     padding: 0 !important;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .memory-toolbar {
@@ -2791,6 +2846,15 @@ body {
     background: var(--bg-light);
     padding: 0 4px;
     border-radius: 3px;
+}
+
+.file-change-badge {
+    background: var(--primary-color);
+    color: white;
+    padding: 0 5px;
+    border-radius: 8px;
+    font-size: 9px;
+    margin-left: 4px;
 }
 
 .file-change-rollback {

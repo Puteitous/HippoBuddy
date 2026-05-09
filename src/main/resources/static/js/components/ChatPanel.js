@@ -3,6 +3,7 @@ import { appState } from '../state/app-state.js';
 import { escapeHtml } from '../utils.js';
 import { renderMarkdown } from '../markdown-renderer.js';
 import { showToast } from '../utils/toast.js';
+import { EventBus } from '../utils/event-bus.js';
 
 export class ChatPanel {
   constructor(container, chatService, chatUI) {
@@ -19,8 +20,11 @@ export class ChatPanel {
     this.lastUserMessage = '';
     this.renderTimer = null;
     
-    // DOM 元素
-    this.elements = {};
+    // 渲染性能优化
+    this._lastRenderTime = 0;
+    this._renderThrottleTimer = null;
+    this._pendingRender = null;
+    this._hasReceivedData = false;
     
     this.init();
   }
@@ -99,6 +103,7 @@ export class ChatPanel {
     
     // 重置状态
     this.isCompleted = false;
+    this._hasReceivedData = false;
     
     const content = (typeof overrideContent === 'string' && overrideContent)
       ? overrideContent
@@ -118,13 +123,7 @@ export class ChatPanel {
     this.lastUserMessage = content;
     
     // 自动重命名会话（首次发送消息时）
-    if (window.sessionManagerInstance && appState.currentSessionId) {
-      const sm = window.sessionManagerInstance;
-      if (!sm.sessionNames || !sm.sessionNames[appState.currentSessionId]) {
-        sm.setSessionName(appState.currentSessionId, content);
-        sm.loadSessions();
-      }
-    }
+    EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId, content });
     
     // 编辑模式：删除后续消息
     if (editMessageId && editMsgDiv) {
@@ -162,23 +161,8 @@ export class ChatPanel {
       retryBtn = result.retryBtn;
       btnContainer = result.btnContainer;
       
-      // 绑定复制按钮（使用复制菜单功能）
-      if (window.setupCopyButton) {
-        window.setupCopyButton(copyBtn, contentDiv);
-      } else {
-        // 降级方案：直接复制纯文本
-        copyBtn.onclick = () => {
-          const textToCopy = contentDiv.innerText;
-          navigator.clipboard.writeText(textToCopy).then(() => {
-            copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-            copyBtn.classList.add('copied');
-            setTimeout(() => {
-              copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-              copyBtn.classList.remove('copied');
-            }, 2000);
-          });
-        };
-      }
+      // 绑定复制按钮
+      this._setupCopyButton(copyBtn, contentDiv);
       
       // 绑定重试按钮
       retryBtn.onclick = () => {
@@ -245,10 +229,8 @@ export class ChatPanel {
         this.elements.messageInput.focus();
       }
       
-      // 触发全局事件：消息发送完成
-      if (window.onMessageSent) {
-        window.onMessageSent();
-      }
+      // 通知完成
+      EventBus.emit('message:sent');
     }
   }
   
@@ -263,9 +245,7 @@ export class ChatPanel {
     // 处理 waiting_user 事件（优先处理，避免被其他逻辑拦截）
     if (parsed._eventType === 'waiting_user') {
       console.log('📥 收到 waiting_user 事件:', parsed);
-      if (window.showAskUserCard) {
-        window.showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
-      }
+      this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
       return;
     }
     
@@ -301,10 +281,16 @@ export class ChatPanel {
       return;
     }
     
-    // 处理 content 事件 - 流式显示
+    // 处理 content 事件 - 流式显示（带渲染节流）
     if (parsed._eventType === 'content' && parsed.content) {
       this.currentText += parsed.content;
-      this.renderSegments(contentDiv, this.segments, this.currentText);
+      
+      if (!this._hasReceivedData) {
+        this._hasReceivedData = true;
+        contentDiv.querySelector('.typing-indicator')?.remove();
+      }
+      
+      this._scheduleRender(contentDiv, this.segments, this.currentText);
       this.smartScroll();
       return;
     }
@@ -312,6 +298,14 @@ export class ChatPanel {
     // 处理 tool_start 事件
     if (parsed._eventType === 'tool_start' && parsed.name) {
       console.log('🔧 工具开始:', parsed.name);
+      
+      if (!this._hasReceivedData) {
+        this._hasReceivedData = true;
+        contentDiv.querySelector('.typing-indicator')?.remove();
+      }
+      
+      // 立即刷新任何未完成的节流渲染，确保 segments 最新
+      this._flushRender();
       
       // ask_user 工具不在这里渲染，等待 waiting_user 事件处理
       if (parsed.name === 'ask_user') {
@@ -436,24 +430,71 @@ export class ChatPanel {
         existingTool.result = parsed.success ? 'success' : 'error';
         existingTool.error = parsed.error || null;
         existingTool.resultContent = parsed.result || null;
-        this.renderSegments(contentDiv, this.segments, this.currentText);
+        this._flushRender();
+        this._scheduleRender(contentDiv, this.segments, this.currentText);
       }
       return;
     }
     
     // 处理 waiting_user 事件（嵌套的 ask_user）
     if (parsed._eventType === 'waiting_user') {
-      if (window.showAskUserCard) {
-        window.showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
-      }
+      this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
       return;
     }
   }
   
   /**
-   * 渲染消息片段
+   * 渲染消息片段（带节流）
    */
   async renderSegments(container, segments, currentText) {
+    this._scheduleRender(container, segments, currentText);
+  }
+  
+  /**
+   * 调度节流渲染：内容快速到达时合并渲染，最多每 ~60ms 一次
+   */
+  _scheduleRender(container, segments, currentText) {
+    const THROTTLE_MS = 60;
+    const now = Date.now();
+    
+    this._pendingRender = { container, segments, currentText };
+    
+    if (now - this._lastRenderTime >= THROTTLE_MS) {
+      this._lastRenderTime = now;
+      this._doRender();
+    } else if (!this._renderThrottleTimer) {
+      this._renderThrottleTimer = setTimeout(() => {
+        this._renderThrottleTimer = null;
+        this._lastRenderTime = Date.now();
+        this._doRender();
+      }, THROTTLE_MS);
+    }
+  }
+  
+  /**
+   * 立即刷新挂起的渲染
+   */
+  _flushRender() {
+    if (this._renderThrottleTimer) {
+      clearTimeout(this._renderThrottleTimer);
+      this._renderThrottleTimer = null;
+    }
+    if (this._pendingRender) {
+      this._lastRenderTime = Date.now();
+      this._doRender();
+    }
+  }
+  
+  /**
+   * 执行实际的 DOM 渲染
+   */
+  async _doRender() {
+    const pending = this._pendingRender;
+    if (!pending) return;
+    this._pendingRender = null;
+    
+    const { container, segments, currentText } = pending;
+    
     let html = '';
     for (const segment of segments) {
       if (segment.type === 'tool') {
@@ -467,32 +508,238 @@ export class ChatPanel {
     }
     container.innerHTML = html;
     
-    // 为工具卡片绑定事件（折叠/展开、撤销等）
     container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
       if (this.chatUI.bindToolCardEvents) {
         this.chatUI.bindToolCardEvents(card);
       }
     });
     
-    // 为 ask_user 卡片绑定事件
     container.querySelectorAll('.ask-user-card').forEach(card => {
-      if (this.chatUI.bindAskUserEvents) {
-        this.chatUI.bindAskUserEvents(card);
-      }
+      this._bindAskUserCardEvents(card);
     });
     
     this.smartScroll();
   }
   
   /**
-   * 最终渲染（防抖）
+   * 最终渲染（立即执行）
    */
   async renderSegmentsFinal(container, segments, currentText) {
     if (this.renderTimer) {
       clearTimeout(this.renderTimer);
       this.renderTimer = null;
     }
-    await this.renderSegments(container, segments, currentText);
+    if (this._renderThrottleTimer) {
+      clearTimeout(this._renderThrottleTimer);
+      this._renderThrottleTimer = null;
+    }
+    this._pendingRender = { container, segments, currentText };
+    await this._doRender();
+  }
+  
+  _setupCopyButton(copyBtn, contentDiv) {
+    const btnContainer = copyBtn.parentNode;
+    if (!btnContainer) {
+      copyBtn.onclick = () => {
+        const textToCopy = contentDiv.innerText;
+        navigator.clipboard.writeText(textToCopy).catch(() => {});
+      };
+      return;
+    }
+    
+    const menu = document.createElement('div');
+    menu.className = 'copy-menu';
+    menu.innerHTML = `
+      <div class="copy-menu-item" data-type="markdown">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        复制 Markdown
+        <span class="copy-shortcut">MD</span>
+      </div>
+      <div class="copy-menu-item" data-type="text">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        复制纯文本
+        <span class="copy-shortcut">TXT</span>
+      </div>
+    `;
+    
+    btnContainer.appendChild(menu);
+    
+    copyBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      document.querySelectorAll('.copy-menu').forEach(m => {
+        if (m !== menu) m.style.display = 'none';
+      });
+      
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    });
+    
+    menu.addEventListener('click', (e) => {
+      const item = e.target.closest('.copy-menu-item');
+      if (!item) return;
+      
+      const type = item.dataset.type;
+      let textToCopy;
+      
+      if (type === 'markdown') {
+        textToCopy = contentDiv.dataset.markdown || contentDiv.innerHTML;
+      } else {
+        textToCopy = contentDiv.innerText;
+      }
+      
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        menu.style.display = 'none';
+        const label = type === 'markdown' ? 'Markdown' : '纯文本';
+        showToast(`已复制 ${label}`, { type: 'success', duration: 2000 });
+        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      }).catch(() => {
+        showToast('复制失败', { type: 'error', duration: 3000 });
+      });
+    });
+    
+    document.addEventListener('click', () => {
+      menu.style.display = 'none';
+    }, { passive: true });
+  }
+  
+  _showAskUserCard(question, options, allowCustomInput) {
+    const { contentDiv } = this.chatUI.appendAssistantMessage('');
+    
+    const segments = [{
+      type: 'tool',
+      name: 'ask_user',
+      args: JSON.stringify({
+        question: question,
+        options: options || [],
+        allow_custom_input: allowCustomInput !== false
+      }),
+      result: null,
+      error: null
+    }];
+    
+    this._askUserContentDiv = contentDiv;
+    this.renderSegments(contentDiv, segments, '');
+  }
+  
+  _sendAskUserResponse(message) {
+    if (!message || this.isSendingMessage) return;
+    
+    const sessionId = appState.currentSessionId;
+    if (!sessionId) return;
+    
+    this.isSendingMessage = true;
+    this.setSendingState(true);
+    this.currentAbortController = new AbortController();
+    
+    const { contentDiv: responseContentDiv } = this.chatUI.appendAssistantMessage('');
+    let currentText = '';
+    let segments = [];
+    
+    this.chatService.executeRequest(
+      sessionId,
+      message,
+      (parsed) => {
+        if (parsed._eventType === 'content' && parsed.content) {
+          currentText += parsed.content;
+          this._scheduleRender(responseContentDiv, segments, currentText);
+          this.chatUI.scrollToBottom();
+          return;
+        }
+        
+        if (parsed._eventType === 'clear_content') {
+          currentText = '';
+          segments = [];
+          responseContentDiv.innerHTML = '';
+          return;
+        }
+        
+        if (parsed._eventType === 'tool_start' && parsed.name) {
+          if (currentText.trim()) {
+            segments.push({ type: 'text', content: currentText });
+            currentText = '';
+          }
+          segments.push({
+            type: 'tool',
+            name: parsed.name,
+            args: parsed.args || '{}',
+            result: null,
+            error: null
+          });
+          this._scheduleRender(responseContentDiv, segments, currentText);
+          return;
+        }
+        
+        if (parsed._eventType === 'tool_result' && parsed.name) {
+          const existingTool = segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+          if (existingTool) {
+            existingTool.result = parsed.success ? 'success' : 'error';
+            existingTool.error = parsed.error || null;
+            existingTool.resultContent = parsed.result || null;
+            this._flushRender();
+            this._scheduleRender(responseContentDiv, segments, currentText);
+          }
+          return;
+        }
+        
+        if (parsed._eventType === 'waiting_user') {
+          this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
+          return;
+        }
+      },
+      this.currentAbortController?.signal,
+      null,
+      null
+    ).then(() => {
+      if (currentText.trim()) {
+        segments.push({ type: 'text', content: currentText });
+      }
+      this.renderSegmentsFinal(responseContentDiv, segments, '');
+    }).catch(error => {
+      if (error.name === 'AbortError') {
+        if (currentText.trim()) {
+          segments.push({ type: 'text', content: currentText });
+        }
+        this.renderSegmentsFinal(responseContentDiv, segments, '');
+        responseContentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
+        return;
+      }
+      console.error('发送失败:', error);
+      showToast('发送失败：' + error.message, 'error');
+    }).finally(() => {
+      this.isSendingMessage = false;
+      this.setSendingState(false);
+      this.currentAbortController = null;
+      EventBus.emit('message:sent');
+    });
+  }
+  
+  _bindAskUserCardEvents(card) {
+    const optionBtns = card.querySelectorAll('.option-btn');
+    optionBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const option = btn.getAttribute('data-option');
+        if (option) this._sendAskUserResponse(option);
+      });
+    });
+    
+    const sendBtn = card.querySelector('.send-btn');
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => {
+        const textarea = card.querySelector('.ask-user-input');
+        const userInput = textarea?.value.trim();
+        if (!userInput) {
+          showToast('请输入你的回答', 'warning');
+          return;
+        }
+        this._sendAskUserResponse(userInput);
+      });
+    }
   }
   
   /**
@@ -546,21 +793,19 @@ export class ChatPanel {
    * 停止生成
    */
   stopGeneration() {
-    console.log('🛑 stopGeneration 被调用');
-    console.log('  currentAbortController:', this.currentAbortController);
-    
     if (!this.currentAbortController) {
-      console.warn('⚠️ currentAbortController 为 null，无法停止');
       return;
     }
     
     if (this.isCompleted) {
-      console.log('✅ 消息已完成，无需停止');
       return;
     }
     
+    if (this.elements.stopBtn) {
+      this.elements.stopBtn.disabled = true;
+    }
+    
     this.chatService.stopGeneration(this.currentAbortController);
-    console.log('✅ abort() 已调用');
   }
   
   /**
