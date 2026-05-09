@@ -377,12 +377,7 @@ public class ChatApiHandler implements HttpHandler {
             }
             clientDisconnected.remove();
             // 发送结束标记，确保前端能正确识别流结束
-            try {
-                writer.write("data: [DONE]\n\n");
-                writer.flush();
-            } catch (Exception e) {
-                logger.debug("发送结束标记失败", e);
-            }
+            sendSseEvent(writer, "complete", "[DONE]");
             writer.close();
             exchange.close();
         }
