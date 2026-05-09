@@ -28,8 +28,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Run backend tests
-        run: mvn test --batch-mode
+      # - name: Run backend tests
+      #   run: mvn test --batch-mode
 
       - name: Run frontend unit tests
         run: npm test

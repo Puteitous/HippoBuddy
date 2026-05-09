@@ -4,6 +4,7 @@ import com.example.agent.application.ConversationService;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
+import com.example.agent.config.MemoryConfig;
 import com.example.agent.llm.model.Message;
 import com.example.agent.memory.MemoryStore;
 import com.example.agent.memory.MemoryToolSandbox;
@@ -74,16 +75,27 @@ public class MemoryExtractor {
     private static final Path MEMORY_DIR = Paths.get(".hippo/memory");
 
     public MemoryExtractor(String sessionId, TokenEstimator tokenEstimator, LlmClient llmClient) {
-        this(sessionId, tokenEstimator, llmClient, 5);
+        this(sessionId, tokenEstimator, llmClient, new MemoryConfig());
     }
 
     public MemoryExtractor(String sessionId, TokenEstimator tokenEstimator, LlmClient llmClient, int extractionInterval) {
+        this(sessionId, tokenEstimator, llmClient, extractionInterval, new MemoryConfig());
+    }
+
+    public MemoryExtractor(String sessionId, TokenEstimator tokenEstimator, LlmClient llmClient, MemoryConfig memoryConfig) {
+        this(sessionId, tokenEstimator, llmClient, memoryConfig.getExtractionInterval(), memoryConfig);
+    }
+
+    public MemoryExtractor(String sessionId, TokenEstimator tokenEstimator, LlmClient llmClient, int extractionInterval, MemoryConfig memoryConfig) {
         this.sessionId = sessionId;
         this.trigger = new ExtractionTrigger(extractionInterval);
         this.tokenEstimator = tokenEstimator;
         this.llmClient = llmClient;
         this.subAgentManager = ServiceLocator.getOrNull(SubAgentManager.class);
         this.conversationService = ServiceLocator.getOrNull(ConversationService.class);
+        
+        // 从配置读取启用状态（默认关闭）
+        this.enabled = memoryConfig.isExtractionEnabled();
         
         // 初始化 MemoryStore（优先使用 DI 容器中的共享实例）
         try {

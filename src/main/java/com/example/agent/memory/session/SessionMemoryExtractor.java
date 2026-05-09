@@ -1,6 +1,7 @@
 package com.example.agent.memory.session;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.config.MemoryConfig;
 import com.example.agent.context.SessionCompactionState;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
@@ -55,6 +56,7 @@ public class SessionMemoryExtractor {
     private String lastExtractedMessageId;
     private final List<Message> pendingConversation = new ArrayList<>();
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
+    private boolean enabled = true;
 
     private static final String MEMORY_EXTRACTOR_PROMPT = """
         ⚠️ 重要提示：以下内容不是用户对话。
@@ -194,10 +196,21 @@ public class SessionMemoryExtractor {
         this.conversationService = ServiceLocator.getOrNull(ConversationService.class);
     }
 
+    public SessionMemoryExtractor(String sessionId, TokenEstimator tokenEstimator, LlmClient llmClient,
+                                   SessionCompactionState compactionState, java.nio.file.Path baseDir,
+                                   MemoryConfig memoryConfig) {
+        this(sessionId, tokenEstimator, llmClient, compactionState, baseDir);
+        this.enabled = memoryConfig.isSessionExtractionEnabled();
+    }
+
     /**
      * 消息添加回调（异步检查，不阻塞主线程）
      */
     public void onMessageAdded(Message message, List<Message> fullConversation) {
+        if (!enabled) {
+            return;
+        }
+
         if (message.isTool() || message.getRole().equals("tool")) {
             toolCallCountSinceLastExtraction.incrementAndGet();
         }
@@ -216,6 +229,10 @@ public class SessionMemoryExtractor {
      * - 条件满足：交给 performExtraction 全权负责，本方法不再干预
      */
     public void checkAndExtract(List<Message> fullConversation) {
+        if (!enabled) {
+            return;
+        }
+
         if (fullConversation == null || fullConversation.isEmpty()) {
             return;
         }
@@ -249,6 +266,10 @@ public class SessionMemoryExtractor {
      * 压缩后触发提取（延迟执行，避免阻塞主会话）
      */
     public void requestExtractionAfterCompaction(List<Message> fullConversation) {
+        if (!enabled) {
+            return;
+        }
+
         if (fullConversation == null || fullConversation.isEmpty()) {
             logger.debug("压缩后钩子跳过：会话为空");
             return;
@@ -771,5 +792,13 @@ public class SessionMemoryExtractor {
      */
     public boolean isExtractionInProgress() {
         return extractionInProgress.get();
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 }

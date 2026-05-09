@@ -103,12 +103,18 @@ session:
   auto_resume: true           # 启动时自动检查可恢复会话
   resume_timeout_hours: 72    # 超过 72 小时的会话自动标记为 IGNORED
 
-# =============================================================================
+# 长期记忆提取配置
+# 开启后，系统会定期从对话中提取重要信息作为长期记忆保存
+# 默认关闭，如需启用请设置 extraction_enabled: true
+memory:
+  extraction_enabled: false           # 启用长期记忆提取（默认关闭）
+  extraction_interval: 5              # 每 N 轮对话触发一次提取
+  session_extraction_enabled: true    # 启用会话内记忆提取（默认开启）
+
 # LSP 语言服务器配置（高级代码理解能力）
 # 启用后会获得 IDE 级别的代码理解能力：跳转到定义、查找引用、代码文档等
 # 安装 jdtls: 下载 Eclipse JDT LS 并将 bin 目录加入 PATH
 # 下载地址: https://download.eclipse.org/jdtls/milestones/
-# =============================================================================
 lsp:
   enabled: true               # 全局启用 LSP 功能（推荐启用！）
   

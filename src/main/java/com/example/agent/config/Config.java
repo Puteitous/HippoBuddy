@@ -36,6 +36,7 @@ public class Config {
     private McpConfig mcp = new McpConfig();
     private LspConfig lsp = new LspConfig();
     private EmbeddingConfig embedding = new EmbeddingConfig();
+    private MemoryConfig memory = new MemoryConfig();
 
     private transient ConfigLoader configLoader;
 
@@ -129,6 +130,7 @@ public class Config {
                 this.index = reloaded.index;
                 this.mcp = reloaded.mcp;
                 this.lsp = reloaded.lsp;
+                this.memory = reloaded.memory;
                 this.loadFromEnvironment();
                 logger.info("Configuration reloaded from: {}", configFile.getAbsolutePath());
             } catch (IOException e) {
@@ -299,6 +301,17 @@ public class Config {
         this.embedding = embedding;
     }
 
+    public MemoryConfig getMemory() {
+        if (memory == null) {
+            memory = new MemoryConfig();
+        }
+        return memory;
+    }
+
+    public void setMemory(MemoryConfig memory) {
+        this.memory = memory;
+    }
+
     public String getConfigFilePath() {
         if (configLoader == null) {
             configLoader = new ConfigLoader();
@@ -319,6 +332,7 @@ public class Config {
                 ", rule=" + rule +
 
                 ", index=" + index +
+                ", memory=" + memory +
                 '}';
     }
 }

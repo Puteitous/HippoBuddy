@@ -1,5 +1,7 @@
 package com.example.agent.application;
 
+import com.example.agent.config.Config;
+import com.example.agent.config.MemoryConfig;
 import com.example.agent.context.BudgetWarningInjector;
 import com.example.agent.context.Compressor;
 import com.example.agent.context.ContextWindow;
@@ -201,18 +203,22 @@ public class ConversationService {
         }
 
         // 创建会话记忆提取器
+        MemoryConfig memoryConfig = Config.getInstance().getMemory();
         SessionMemoryExtractor sessionMemoryExtractor = new SessionMemoryExtractor(
             sessionId,
             tokenEstimator,
             llmClient,
-            compactionState
+            compactionState,
+            null,
+            memoryConfig
         );
 
         // 创建长期记忆提取器
         MemoryExtractor memoryExtractor = new MemoryExtractor(
             sessionId,
             tokenEstimator,
-            llmClient
+            llmClient,
+            memoryConfig
         );
 
         // 创建后台记忆整合器
