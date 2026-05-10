@@ -15,6 +15,9 @@ public class Message {
     private String role;
     private String content;
     
+    @JsonProperty("reasoning_content")
+    private String reasoningContent;
+    
     @JsonProperty("tool_calls")
     private List<ToolCall> toolCalls;
     
@@ -53,10 +56,16 @@ public class Message {
     }
 
     public static Message assistantWithToolCalls(List<ToolCall> toolCalls) {
-        Message message = new Message("assistant", null);
+        return assistantWithToolCalls(toolCalls, null);
+    }
+
+    public static Message assistantWithToolCalls(List<ToolCall> toolCalls, String reasoningContent) {
+        Message message = new Message();
+        message.setRole("assistant");
         if (toolCalls != null && !toolCalls.isEmpty()) {
             message.setToolCalls(toolCalls);
         }
+        message.setReasoningContent(reasoningContent);
         return message;
     }
 
@@ -129,6 +138,14 @@ public class Message {
         this.content = content != null ? content : "";
     }
 
+    public String getReasoningContent() {
+        return reasoningContent;
+    }
+
+    public void setReasoningContent(String reasoningContent) {
+        this.reasoningContent = reasoningContent;
+    }
+
     public CacheControl getCacheControl() {
         return cacheControl;
     }
@@ -144,6 +161,7 @@ public class Message {
     public Message shallowCopy() {
         Message copy = new Message(this.role, this.content);
         copy.id = this.id;
+        copy.reasoningContent = this.reasoningContent;
         copy.toolCalls = this.toolCalls != null ? new ArrayList<>(this.toolCalls) : null;
         copy.cacheControl = this.cacheControl;
         copy.toolCallId = this.toolCallId;

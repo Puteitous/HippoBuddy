@@ -95,6 +95,8 @@ public class ChatApiHandler implements HttpHandler {
         public int totalTokens = 0;
         public int llmCalls = 0;
         public int toolCalls = 0;
+        public int totalCacheHitTokens = 0;
+        public int totalCacheMissTokens = 0;
         
         public synchronized void addLlmCall(int prompt, int completion, int total) {
             this.totalInputTokens += prompt;
@@ -103,8 +105,23 @@ public class ChatApiHandler implements HttpHandler {
             this.llmCalls++;
         }
         
+        public synchronized void addLlmCall(int prompt, int completion, int total, int cacheHit, int cacheMiss) {
+            this.totalInputTokens += prompt;
+            this.totalOutputTokens += completion;
+            this.totalTokens += total;
+            this.totalCacheHitTokens += cacheHit;
+            this.totalCacheMissTokens += cacheMiss;
+            this.llmCalls++;
+        }
+        
         public synchronized void addToolCall() {
             this.toolCalls++;
+        }
+        
+        public double getSessionCacheHitRate() {
+            int total = totalCacheHitTokens + totalCacheMissTokens;
+            if (total == 0) return 0.0;
+            return ((double) totalCacheHitTokens / total) * 100;
         }
     }
     
@@ -334,17 +351,20 @@ public class ChatApiHandler implements HttpHandler {
             // 检查是否有待处理的 ask_user 工具调用
             PendingToolCall pendingTool = pendingToolCalls.remove(sessionId);
             if (pendingTool != null) {
-                // 用户回复待处理的工具调用，参照 CLI 实现：
-                // 1. 先将用户消息作为独立的用户消息记录到对话历史
-                Message userMsg = conversationService.addUserMessage(conversation, userMessage);
-                sendSseEvent(writer, "message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
+                // 用户回复待处理的工具调用。
+                // 注意：必须先添加 tool 结果，再添加 user 消息。
+                // 因为 OpenAI API 要求：assistant 的 tool_calls 之后必须紧跟 tool 角色的响应消息。
                 
-                // 2. 再将用户回答作为工具结果记录
+                // 1. 先将用户回答作为工具结果记录（紧跟在 assistant(tool_calls) 之后）
                 String toolResult = "用户回答：" + userMessage;
                 conversationService.addToolResult(conversation, pendingTool.toolCallId, pendingTool.toolName, toolResult, true);
                 SessionLogger.logToolCall(sessionId, pendingTool.toolName, pendingTool.question, toolResult, true);
                 SessionTokenStats stats = sessionTokenStats.computeIfAbsent(sessionId, k -> new SessionTokenStats());
                 stats.addToolCall();
+                
+                // 2. 再将用户消息作为独立的用户消息记录到对话历史（跟在 tool 结果之后）
+                Message userMsg = conversationService.addUserMessage(conversation, userMessage);
+                sendSseEvent(writer, "message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
             } else if (editMessageId != null && !editMessageId.isEmpty()) {
                 Message userMsg = conversationService.editUserMessage(conversation, editMessageId, userMessage);
                 if (userMsg != null) {
@@ -404,6 +424,8 @@ public class ChatApiHandler implements HttpHandler {
             messages = ensureSystemMessageFirst(messages);
             
             StringBuilder contentBuilder = new StringBuilder();
+            StringBuilder reasoningBuilder = new StringBuilder();
+            boolean[] reasoningPhase = {true}; // 标记是否仍在思考阶段
             List<Map<String, Object>> streamToolCalls = new ArrayList<>();
             boolean[] hasAskUser = {false}; // 标记是否检测到 ask_user 工具
 
@@ -415,16 +437,37 @@ public class ChatApiHandler implements HttpHandler {
                 return;
             }
 
+            final int currentTurn = turn + 1;
+
             ChatResponse response = llmClient.chatStream(messages, tools, (StreamChunk chunk) -> {
                 // 如果检测到 ask_user 工具，停止发送 content 事件
                 if (hasAskUser[0]) {
                     return;
                 }
                 
-                if (chunk.getContent() != null && !chunk.getContent().isEmpty()) {
-                    contentBuilder.append(chunk.getContent());
-                    sendSseEvent(writer, "content", "{\"content\":\"" + escapeJson(chunk.getContent()) + "\"}");
+                if (chunk.getReasoning() != null && !chunk.getReasoning().isEmpty()) {
+                    if (reasoningPhase[0] && reasoningBuilder.length() == 0) {
+                        logger.debug("🧠 开始接收思考过程: sessionId={}, turn={}", sessionId, currentTurn);
+                    }
+                    reasoningBuilder.append(chunk.getReasoning());
+                    sendSseEvent(writer, "reasoning", "{\"reasoning\":\"" + escapeJson(chunk.getReasoning()) + "\"}");
                 }
+                
+                if (chunk.getContent() != null && !chunk.getContent().isEmpty()) {
+                    if (reasoningPhase[0]) {
+                        reasoningPhase[0] = false;
+                        if (reasoningBuilder.length() > 0) {
+                            logger.debug("🧠 思考过程结束, 共 {} 字符: sessionId={}, turn={}", 
+                                reasoningBuilder.length(), sessionId, currentTurn);
+                            sendSseEvent(writer, "reasoning_done", "{}");
+                        } else {
+                             logger.debug("📝 模型未输出思考过程, 直接输出内容: sessionId={}, turn={}", 
+                                 sessionId, currentTurn);
+                         }
+                     }
+                     contentBuilder.append(chunk.getContent());
+                     sendSseEvent(writer, "content", "{\"content\":\"" + escapeJson(chunk.getContent()) + "\"}");
+                 }
                 
                 // 实时处理 tool call delta
                 if (chunk.isToolCall() && chunk.getToolCallDeltas() != null) {
@@ -438,6 +481,14 @@ public class ChatApiHandler implements HttpHandler {
                             .anyMatch(tc -> tc.get("id").equals(toolCallId));
                         
                         if (!alreadySent) {
+                            // 如果还在思考阶段，先结束思考
+                            if (reasoningPhase[0]) {
+                                reasoningPhase[0] = false;
+                                if (reasoningBuilder.length() > 0) {
+                                    sendSseEvent(writer, "reasoning_done", "{}");
+                                }
+                            }
+                            
                             Map<String, Object> toolCall = new HashMap<>();
                             toolCall.put("id", toolCallId);
                             toolCall.put("name", toolName);
@@ -511,7 +562,9 @@ public class ChatApiHandler implements HttpHandler {
                 stats.addLlmCall(
                     response.getUsage().getPromptTokens(),
                     response.getUsage().getCompletionTokens(),
-                    response.getUsage().getTotalTokens()
+                    response.getUsage().getTotalTokens(),
+                    response.getUsage().getCacheReadInputTokens(),
+                    response.getUsage().getPromptCacheMissTokens()
                 );
             }
             
@@ -520,6 +573,13 @@ public class ChatApiHandler implements HttpHandler {
             // 检查是否有工具调用
             List<ToolCall> toolCalls = assistantMessage.getToolCalls();
             if (toolCalls == null || toolCalls.isEmpty()) {
+                // 如果还在思考阶段先结束思考
+                if (reasoningPhase[0]) {
+                    reasoningPhase[0] = false;
+                    if (reasoningBuilder.length() > 0) {
+                        sendSseEvent(writer, "reasoning_done", "{}");
+                    }
+                }
                 // 没有工具调用，对话结束
                 sendSseEvent(writer, "done", "{}");
                 return;

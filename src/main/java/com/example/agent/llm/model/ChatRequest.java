@@ -26,6 +26,17 @@ public class ChatRequest {
     
     @JsonProperty("stream_options")
     private Map<String, Object> streamOptions;
+    
+    @JsonProperty("extra_body")
+    private Map<String, Object> extraBody;
+    
+    @JsonProperty("reasoning_effort")
+    private String reasoningEffort;
+    
+    @JsonProperty("response_format")
+    private Map<String, Object> responseFormat;
+    
+    private Map<String, Object> thinking;
 
     public ChatRequest() {
     }
@@ -94,6 +105,31 @@ public class ChatRequest {
         } else {
             this.streamOptions = null;
         }
+        return this;
+    }
+
+    public ChatRequest extraBody(Map<String, Object> extraBody) {
+        this.extraBody = extraBody;
+        return this;
+    }
+
+    public ChatRequest reasoningEffort(String reasoningEffort) {
+        this.reasoningEffort = reasoningEffort;
+        return this;
+    }
+
+    public ChatRequest thinking(Map<String, Object> thinking) {
+        this.thinking = thinking;
+        return this;
+    }
+
+    public ChatRequest responseFormat(Map<String, Object> responseFormat) {
+        this.responseFormat = responseFormat;
+        return this;
+    }
+
+    public ChatRequest responseFormatJson() {
+        this.responseFormat = Map.of("type", "json_object");
         return this;
     }
 
@@ -182,5 +218,37 @@ public class ChatRequest {
     
     public void setStreamOptions(Map<String, Object> streamOptions) {
         this.streamOptions = streamOptions;
+    }
+    
+    public Map<String, Object> getExtraBody() {
+        return extraBody;
+    }
+    
+    public void setExtraBody(Map<String, Object> extraBody) {
+        this.extraBody = extraBody;
+    }
+    
+    public String getReasoningEffort() {
+        return reasoningEffort;
+    }
+    
+    public void setReasoningEffort(String reasoningEffort) {
+        this.reasoningEffort = reasoningEffort;
+    }
+    
+    public Map<String, Object> getResponseFormat() {
+        return responseFormat;
+    }
+    
+    public void setResponseFormat(Map<String, Object> responseFormat) {
+        this.responseFormat = responseFormat;
+    }
+    
+    public Map<String, Object> getThinking() {
+        return thinking;
+    }
+    
+    public void setThinking(Map<String, Object> thinking) {
+        this.thinking = thinking;
     }
 }

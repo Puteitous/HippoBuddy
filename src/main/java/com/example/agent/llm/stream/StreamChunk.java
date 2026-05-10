@@ -11,6 +11,7 @@ import java.util.List;
 public class StreamChunk {
 
     private String content;
+    private String reasoning;
     private List<ToolCallDelta> toolCallDeltas;
     private String finishReason;
     private boolean isToolCall;
@@ -35,6 +36,14 @@ public class StreamChunk {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getReasoning() {
+        return reasoning;
+    }
+
+    public void setReasoning(String reasoning) {
+        this.reasoning = reasoning;
     }
 
     public List<ToolCallDelta> getToolCallDeltas() {
@@ -73,6 +82,10 @@ public class StreamChunk {
         return content != null && !content.isEmpty();
     }
 
+    public boolean hasReasoning() {
+        return reasoning != null && !reasoning.isEmpty();
+    }
+
     public boolean hasToolCalls() {
         return toolCallDeltas != null && !toolCallDeltas.isEmpty();
     }
@@ -85,6 +98,7 @@ public class StreamChunk {
     public String toString() {
         return "StreamChunk{" +
                 "content='" + content + '\'' +
+                ", reasoning='" + reasoning + '\'' +
                 ", toolCallDeltas=" + toolCallDeltas +
                 ", finishReason='" + finishReason + '\'' +
                 ", isToolCall=" + isToolCall +

@@ -245,6 +245,10 @@ public class SessionApiHandler implements HttpHandler {
                     msgMap.put("id", msgNode.path("id").asText(""));
                     msgMap.put("role", role.isEmpty() ? type : role);
                     msgMap.put("content", content);
+                    
+                    if (msgNode.has("reasoning_content")) {
+                        msgMap.put("reasoning_content", msgNode.path("reasoning_content").asText());
+                    }
 
                     if ("assistant".equals(role) && msgNode.has("tool_calls")) {
                         JsonNode toolCalls = msgNode.path("tool_calls");
@@ -318,6 +322,10 @@ public class SessionApiHandler implements HttpHandler {
             msgMap.put("id", msg.getId());
             msgMap.put("role", role);
             msgMap.put("content", msg.getContent());
+            
+            if (msg.getReasoningContent() != null && !msg.getReasoningContent().isEmpty()) {
+                msgMap.put("reasoning_content", msg.getReasoningContent());
+            }
             
             if (hasToolCalls) {
                 List<Map<String, Object>> calls = new ArrayList<>();
@@ -593,6 +601,8 @@ public class SessionApiHandler implements HttpHandler {
             response.put("sessionTotalTokens", 0);
             response.put("sessionLlmCalls", 0);
             response.put("sessionToolCalls", 0);
+            response.put("cacheHitTokens", 0);
+            response.put("cacheHitRate", 0.0);
             
             String json = objectMapper.writeValueAsString(response);
             byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
@@ -630,6 +640,16 @@ public class SessionApiHandler implements HttpHandler {
             response.put("promptTokens", usage.getPromptTokens());
             response.put("completionTokens", usage.getCompletionTokens());
             response.put("totalTokens", conversation.getLastKnownTotalTokens());
+            response.put("cacheHitTokens", usage.getCacheReadInputTokens());
+            response.put("cacheHitRate", Math.round(usage.getCacheHitRate() * 10.0) / 10.0);
+            
+            if (usage.getCacheReadInputTokens() > 0) {
+                logger.info("💾 返回缓存命中数据: cacheHitTokens={}, cacheHitRate={}%",
+                    usage.getCacheReadInputTokens(),
+                    String.format("%.1f", usage.getCacheHitRate()));
+            }
+        } else {
+            logger.debug("📊 hasKnownUsage=false, 缓存命中数据暂不可用（需等待一次 LLM 调用）");
         }
 
         // 添加总 Token 消耗统计（从内存缓存中读取）
@@ -641,6 +661,8 @@ public class SessionApiHandler implements HttpHandler {
                 response.put("sessionTotalTokens", stats.totalTokens);
                 response.put("sessionLlmCalls", stats.llmCalls);
                 response.put("sessionToolCalls", stats.toolCalls);
+                response.put("sessionCacheHitTokens", stats.totalCacheHitTokens);
+                response.put("sessionCacheHitRate", Math.round(stats.getSessionCacheHitRate() * 10.0) / 10.0);
             } else {
                 // 如果内存中没有，尝试从日志文件读取（兼容旧数据）
                 var sessionStats = com.example.agent.web.logging.SessionLogger.getTokenStats(sessionId);

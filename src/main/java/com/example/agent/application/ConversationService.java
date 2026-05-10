@@ -400,8 +400,9 @@ public class ConversationService {
         // 保存 LLM 返回的 usage 数据，用于 Token 统计
         if (usage != null) {
             conversation.updateLastKnownUsage(usage);
-            logger.debug("已保存 usage: prompt={}, completion={}, total={}", 
-                usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens());
+            logger.debug("已保存 usage: prompt={}, completion={}, total={}, cacheHit={}", 
+                usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens(),
+                usage.getCacheReadInputTokens());
         } else {
             logger.warn("LLM 返回的 usage 为 null");
         }

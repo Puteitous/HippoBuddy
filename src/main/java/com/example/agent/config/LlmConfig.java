@@ -31,6 +31,15 @@ public class LlmConfig {
     
     private double temperature = DEFAULT_TEMPERATURE;
     private int timeout = DEFAULT_TIMEOUT;
+    
+    @JsonProperty("thinking_enabled")
+    private boolean thinkingEnabled = true;
+    
+    @JsonProperty("reasoning_effort")
+    private String reasoningEffort = "high";
+    
+    @JsonProperty("response_format")
+    private String responseFormat;
 
     public LlmConfig() {
     }
@@ -105,6 +114,30 @@ public class LlmConfig {
         this.timeout = timeout;
     }
 
+    public boolean isThinkingEnabled() {
+        return thinkingEnabled;
+    }
+
+    public void setThinkingEnabled(boolean thinkingEnabled) {
+        this.thinkingEnabled = thinkingEnabled;
+    }
+
+    public String getReasoningEffort() {
+        return reasoningEffort;
+    }
+
+    public void setReasoningEffort(String reasoningEffort) {
+        this.reasoningEffort = reasoningEffort;
+    }
+
+    public String getResponseFormat() {
+        return responseFormat;
+    }
+
+    public void setResponseFormat(String responseFormat) {
+        this.responseFormat = responseFormat;
+    }
+
     public boolean isValid() {
         if (isLocalProvider()) {
             return true;
@@ -140,6 +173,9 @@ public class LlmConfig {
                 ", maxTokens=" + maxTokens +
                 ", temperature=" + temperature +
                 ", timeout=" + timeout +
+                ", thinkingEnabled=" + thinkingEnabled +
+                ", reasoningEffort='" + reasoningEffort + '\'' +
+                ", responseFormat='" + responseFormat + '\'' +
                 '}';
     }
 }

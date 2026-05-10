@@ -1,6 +1,7 @@
 package com.example.agent.llm.client;
 
 import com.example.agent.config.Config;
+import com.example.agent.config.LlmConfig;
 import com.example.agent.core.event.EventBus;
 import com.example.agent.core.event.LlmRequestEvent;
 import com.example.agent.llm.exception.LlmApiException;
@@ -34,7 +35,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public abstract class AbstractLlmClient implements LlmClient {
@@ -116,11 +119,38 @@ public abstract class AbstractLlmClient implements LlmClient {
         ChatRequest request = ChatRequest.of(getModel(), processedMessages)
                 .maxTokens(config.getLlm().getMaxTokens());
         
+        applyThinkingConfig(request);
+        applyResponseFormat(request);
+        
         if (tools != null && !tools.isEmpty()) {
             request.tools(tools).toolChoiceAuto();
         }
         
         return executeRequest(request);
+    }
+
+    private void applyThinkingConfig(ChatRequest request) {
+        LlmConfig llmConfig = config.getLlm();
+        if (llmConfig == null) return;
+        
+        Map<String, Object> thinking = new HashMap<>();
+        if (llmConfig.isThinkingEnabled()) {
+            thinking.put("type", "enabled");
+            request.reasoningEffort(llmConfig.getReasoningEffort());
+        } else {
+            thinking.put("type", "disabled");
+        }
+        request.thinking(thinking);
+    }
+
+    private void applyResponseFormat(ChatRequest request) {
+        LlmConfig llmConfig = config.getLlm();
+        if (llmConfig == null) return;
+        
+        String responseFormat = llmConfig.getResponseFormat();
+        if (responseFormat != null && !responseFormat.isBlank()) {
+            request.responseFormat(Map.of("type", responseFormat));
+        }
     }
 
     @Override
@@ -144,6 +174,9 @@ public abstract class AbstractLlmClient implements LlmClient {
         ChatRequest request = ChatRequest.of(getModel(), processedMessages)
                 .stream(true)
                 .maxTokens(config.getLlm().getMaxTokens());
+        
+        applyThinkingConfig(request);
+        applyResponseFormat(request);
         
         if (tools != null && !tools.isEmpty()) {
             request.tools(tools).toolChoiceAuto();
@@ -239,11 +272,13 @@ public abstract class AbstractLlmClient implements LlmClient {
         }
         
         StringBuilder fullContent = new StringBuilder();
+        StringBuilder fullReasoning = new StringBuilder();
         List<ToolCall> toolCalls = new ArrayList<>();
         String finishReason = null;
         Usage usage = null;
         int chunkCount = 0;
         int contentChunkCount = 0;
+        int reasoningChunkCount = 0;
         int toolCallChunkCount = 0;
         
         try (BufferedReader reader = new BufferedReader(
@@ -279,6 +314,14 @@ public abstract class AbstractLlmClient implements LlmClient {
                     }
                 }
                 
+                if (chunk.hasReasoning()) {
+                    reasoningChunkCount++;
+                    fullReasoning.append(chunk.getReasoning());
+                    if (onChunk != null) {
+                        onChunk.accept(chunk);
+                    }
+                }
+                
                 if (chunk.isToolCall() && chunk.hasToolCalls()) {
                     toolCallChunkCount++;
                     mergeToolCallDeltas(toolCalls, chunk.getToolCallDeltas());
@@ -302,9 +345,22 @@ public abstract class AbstractLlmClient implements LlmClient {
             throw new LlmException("读取流式响应失败: " + e.getMessage(), e);
         }
         
+        if (reasoningChunkCount > 0) {
+            logger.info("🧠 模型思考过程: reasoningChunks={}, totalReasoningChars={}", 
+                reasoningChunkCount, fullReasoning.length());
+        }
+        
+        if (usage != null) {
+            logger.debug("📊 LLM 响应 Usage: prompt={}, completion={}, total={}, cacheHit={}, cacheMiss={}", 
+                usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens(),
+                usage.getPromptCacheHitTokens(), usage.getPromptCacheMissTokens());
+        } else {
+            logger.warn("⚠️ LLM 响应未返回 usage 字段，缓存命中数据不可用");
+        }
+        
         if (contentChunkCount == 0 && toolCallChunkCount > 0) {
-            logger.debug("流式响应: chunks={}, contentChunks={}, toolCallChunks={}, finishReason={}", 
-                chunkCount, contentChunkCount, toolCallChunkCount, finishReason);
+            logger.debug("流式响应: chunks={}, contentChunks={}, reasoningChunks={}, toolCallChunks={}, finishReason={}", 
+                chunkCount, contentChunkCount, reasoningChunkCount, toolCallChunkCount, finishReason);
             logger.debug("工具调用列表: size={}", toolCalls.size());
             for (int i = 0; i < toolCalls.size(); i++) {
                 ToolCall tc = toolCalls.get(i);
@@ -324,7 +380,7 @@ public abstract class AbstractLlmClient implements LlmClient {
             }
         }
         
-        return buildChatResponse(fullContent.toString(), toolCalls, finishReason, usage);
+        return buildChatResponse(fullContent.toString(), fullReasoning.toString(), toolCalls, finishReason, usage);
     }
 
     protected void mergeToolCallDeltas(List<ToolCall> toolCalls, List<ToolCallDelta> deltas) {
@@ -386,7 +442,7 @@ public abstract class AbstractLlmClient implements LlmClient {
         }
     }
 
-    protected ChatResponse buildChatResponse(String content, List<ToolCall> toolCalls, String finishReason, Usage usage) {
+    protected ChatResponse buildChatResponse(String content, String reasoning, List<ToolCall> toolCalls, String finishReason, Usage usage) {
         ChatResponse response = new ChatResponse();
         response.setId("stream-" + System.currentTimeMillis());
         response.setObject("chat.completion");
@@ -398,6 +454,10 @@ public abstract class AbstractLlmClient implements LlmClient {
         
         if (content != null && !content.isEmpty()) {
             message.setContent(content);
+        }
+        
+        if (reasoning != null && !reasoning.isEmpty()) {
+            message.setReasoningContent(reasoning);
         }
         
         List<ToolCall> validToolCalls = new ArrayList<>();

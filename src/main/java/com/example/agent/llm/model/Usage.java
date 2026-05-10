@@ -13,6 +13,13 @@ public class Usage {
     // DashScope/OpenAI 缓存指标（嵌套在 prompt_tokens_details 中）
     @JsonProperty("prompt_tokens_details")
     private PromptTokensDetails promptTokensDetails;
+    
+    // DeepSeek 缓存指标（直接顶层字段）
+    @JsonProperty("prompt_cache_hit_tokens")
+    private int promptCacheHitTokens;
+    
+    @JsonProperty("prompt_cache_miss_tokens")
+    private int promptCacheMissTokens;
 
     public int getPromptTokens() {
         return promptTokens;
@@ -46,10 +53,29 @@ public class Usage {
         this.promptTokensDetails = promptTokensDetails;
     }
     
+    public int getPromptCacheHitTokens() {
+        return promptCacheHitTokens;
+    }
+    
+    public void setPromptCacheHitTokens(int promptCacheHitTokens) {
+        this.promptCacheHitTokens = promptCacheHitTokens;
+    }
+    
+    public int getPromptCacheMissTokens() {
+        return promptCacheMissTokens;
+    }
+    
+    public void setPromptCacheMissTokens(int promptCacheMissTokens) {
+        this.promptCacheMissTokens = promptCacheMissTokens;
+    }
+    
     /**
-     * 获取命中缓存的 Token 数
+     * 获取命中缓存的 Token 数（兼容 DashScope/OpenAI 的 nested 和 DeepSeek 的 direct 格式）
      */
     public int getCacheReadInputTokens() {
+        if (promptCacheHitTokens > 0) {
+            return promptCacheHitTokens;
+        }
         return promptTokensDetails != null ? promptTokensDetails.getCachedTokens() : 0;
     }
     
@@ -61,13 +87,14 @@ public class Usage {
     }
     
     /**
-     * 计算缓存命中率
+     * 计算缓存命中率（同时兼容 DeepSeek 和 DashScope/OpenAI 格式）
+     * prompt_tokens = cache_hit + cache_miss（DeepSeek 官方 API）
      * @return 缓存命中率百分比 (0-100)
      */
     public double getCacheHitRate() {
         int cacheRead = getCacheReadInputTokens();
-        int cacheCreation = getCacheCreationInputTokens();
-        int totalInput = promptTokens + cacheRead + cacheCreation;
+        if (cacheRead == 0) return 0.0;
+        int totalInput = promptTokens;
         if (totalInput == 0) {
             return 0.0;
         }
@@ -80,8 +107,8 @@ public class Usage {
                 "promptTokens=" + promptTokens +
                 ", completionTokens=" + completionTokens +
                 ", totalTokens=" + totalTokens +
-                ", cacheReadInputTokens=" + getCacheReadInputTokens() +
-                ", cacheCreationInputTokens=" + getCacheCreationInputTokens() +
+                ", cacheHitTokens=" + promptCacheHitTokens +
+                ", cacheMissTokens=" + promptCacheMissTokens +
                 ", cacheHitRate=" + String.format("%.1f", getCacheHitRate()) + "%" +
                 '}';
     }

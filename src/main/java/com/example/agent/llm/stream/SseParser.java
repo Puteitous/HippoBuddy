@@ -98,6 +98,11 @@ public class SseParser {
             chunk.setContent(content);
         }
 
+        String reasoning = getTextValue(delta, "reasoning_content");
+        if (reasoning != null) {
+            chunk.setReasoning(reasoning);
+        }
+
         JsonNode toolCalls = delta.get("tool_calls");
         if (toolCalls != null && toolCalls.isArray()) {
             List<ToolCallDelta> toolCallDeltas = parseToolCalls((ArrayNode) toolCalls);
@@ -128,6 +133,18 @@ public class SseParser {
         
         if (usageNode.has("total_tokens")) {
             usage.setTotalTokens(usageNode.get("total_tokens").asInt());
+        }
+        
+        if (usageNode.has("prompt_cache_hit_tokens")) {
+            int hit = usageNode.get("prompt_cache_hit_tokens").asInt();
+            usage.setPromptCacheHitTokens(hit);
+            logger.info("💾 DeepSeek 缓存命中: hitTokens={}", hit);
+        }
+        
+        if (usageNode.has("prompt_cache_miss_tokens")) {
+            int miss = usageNode.get("prompt_cache_miss_tokens").asInt();
+            usage.setPromptCacheMissTokens(miss);
+            logger.info("💾 DeepSeek 缓存未命中: missTokens={}", miss);
         }
         
         return usage;

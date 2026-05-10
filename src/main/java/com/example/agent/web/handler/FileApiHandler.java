@@ -73,6 +73,7 @@ public class FileApiHandler implements HttpHandler {
         String query = exchange.getRequestURI().getQuery();
         String filePath = null;
         int changeIndex = -1;
+        boolean allChanges = false;
 
         if (query != null) {
             String[] params = query.split("&");
@@ -86,6 +87,8 @@ public class FileApiHandler implements HttpHandler {
                             changeIndex = Integer.parseInt(kv[1]);
                         } catch (NumberFormatException ignored) {
                         }
+                    } else if ("all".equals(kv[0])) {
+                        allChanges = "true".equals(kv[1]);
                     }
                 }
             }
@@ -99,6 +102,37 @@ public class FileApiHandler implements HttpHandler {
         List<FileChangeTracker.FileChange> changes = FileChangeTracker.getAllChanges(filePath);
         if (changes.isEmpty()) {
             sendJson(exchange, 200, "{\"changes\":[]}");
+            return;
+        }
+
+        if (allChanges) {
+            StringBuilder json = new StringBuilder("{");
+            json.append("\"filePath\":\"").append(escapeJson(filePath)).append("\",");
+            json.append("\"allChanges\":[");
+            for (int ci = 0; ci < changes.size(); ci++) {
+                FileChangeTracker.FileChange c = changes.get(ci);
+                if (ci > 0) json.append(",");
+                String original = c.originalContent != null ? c.originalContent : "";
+                String modified = c.newContent != null ? c.newContent : "";
+                List<String[]> diffLines = computeDiff(original, modified);
+                json.append("{")
+                    .append("\"toolName\":\"").append(escapeJson(c.toolName)).append("\",")
+                    .append("\"timestamp\":").append(c.timestamp).append(",")
+                    .append("\"index\":").append(ci).append(",")
+                    .append("\"changes\":[");
+                for (int i = 0; i < diffLines.size(); i++) {
+                    String[] line = diffLines.get(i);
+                    if (i > 0) json.append(",");
+                    json.append("{")
+                        .append("\"type\":\"").append(line[0]).append("\",")
+                        .append("\"content\":\"").append(escapeJson(line[1])).append("\"")
+                        .append("}");
+                }
+                json.append("]");
+                json.append("}");
+            }
+            json.append("]}");
+            sendJson(exchange, 200, json.toString());
             return;
         }
 
