@@ -23,6 +23,7 @@ public class MockLlmClient implements LlmClient {
     private LlmException exceptionToThrow;
     private long delayMs = 0;
     private boolean streamMode = false;
+    private String mockReasoning;
 
     public void enqueueResponse(ChatResponse response) {
         responseQueue.offer(response);
@@ -42,6 +43,13 @@ public class MockLlmClient implements LlmClient {
 
     public void setStreamMode(boolean streamMode) {
         this.streamMode = streamMode;
+    }
+
+    /**
+     * 设置模拟的 reasoning_content（思考过程），启用后流式输出会先发 reasoning 再发 content
+     */
+    public void setMockReasoning(String reasoning) {
+        this.mockReasoning = reasoning;
     }
 
     public List<ChatRequest> getRecordedRequests() {
@@ -136,13 +144,24 @@ public class MockLlmClient implements LlmClient {
             response = LlmResponseBuilder.create().build();
         }
         
-        if (onChunk != null && response.hasContent()) {
-            String content = response.getContent();
-            int chunkSize = Math.max(1, content.length() / 5);
-            for (int i = 0; i < content.length(); i += chunkSize) {
-                int end = Math.min(i + chunkSize, content.length());
-                String chunkContent = content.substring(i, end);
-                onChunk.accept(createStreamChunk(chunkContent));
+        if (onChunk != null && (response.hasContent() || mockReasoning != null)) {
+            // 先发 reasoning chunk（如果有）
+            if (mockReasoning != null && !mockReasoning.isEmpty()) {
+                int reasoningChunkSize = Math.max(1, mockReasoning.length() / 3);
+                for (int i = 0; i < mockReasoning.length(); i += reasoningChunkSize) {
+                    int end = Math.min(i + reasoningChunkSize, mockReasoning.length());
+                    onChunk.accept(createReasoningChunk(mockReasoning.substring(i, end)));
+                }
+            }
+            // 再发 content chunk（如果有）
+            if (response.hasContent()) {
+                String content = response.getContent();
+                int chunkSize = Math.max(1, content.length() / 5);
+                for (int i = 0; i < content.length(); i += chunkSize) {
+                    int end = Math.min(i + chunkSize, content.length());
+                    String chunkContent = content.substring(i, end);
+                    onChunk.accept(createStreamChunk(chunkContent));
+                }
             }
         }
         
@@ -203,6 +222,12 @@ public class MockLlmClient implements LlmClient {
     private StreamChunk createStreamChunk(String content) {
         StreamChunk chunk = new StreamChunk();
         chunk.setContent(content);
+        return chunk;
+    }
+
+    private StreamChunk createReasoningChunk(String reasoning) {
+        StreamChunk chunk = new StreamChunk();
+        chunk.setReasoning(reasoning);
         return chunk;
     }
 }

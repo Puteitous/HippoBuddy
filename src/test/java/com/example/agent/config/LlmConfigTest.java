@@ -23,6 +23,8 @@ class LlmConfigTest {
         assertEquals(0.7, llmConfig.getTemperature());
         assertEquals(60000, llmConfig.getTimeout());
         assertNull(llmConfig.getApiKey());
+        assertTrue(llmConfig.isThinkingEnabled());
+        assertEquals("high", llmConfig.getReasoningEffort());
     }
 
     @Test
@@ -79,6 +81,26 @@ class LlmConfigTest {
         
         llmConfig.setTimeout(Integer.MAX_VALUE);
         assertEquals(Integer.MAX_VALUE, llmConfig.getTimeout());
+    }
+
+    @Test
+    void testThinkingEnabled() {
+        llmConfig.setThinkingEnabled(false);
+        assertFalse(llmConfig.isThinkingEnabled());
+        
+        llmConfig.setThinkingEnabled(true);
+        assertTrue(llmConfig.isThinkingEnabled());
+    }
+
+    @Test
+    void testReasoningEffort() {
+        assertEquals("high", llmConfig.getReasoningEffort());
+        
+        llmConfig.setReasoningEffort("max");
+        assertEquals("max", llmConfig.getReasoningEffort());
+        
+        llmConfig.setReasoningEffort("low");
+        assertEquals("low", llmConfig.getReasoningEffort());
     }
 
     @Test

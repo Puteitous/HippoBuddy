@@ -90,7 +90,7 @@ class ChatApiHandlerTest {
                     } else if (line.startsWith("data:")) {
                         data = line.substring(5).trim();
                     } else if (line.isEmpty() && eventType != null && data != null) {
-                        if ("message".equals(eventType)) {
+                        if ("content".equals(eventType)) {
                             try {
                                 var json = objectMapper.readTree(data);
                                 if (json.has("content")) {
@@ -180,5 +180,157 @@ class ChatApiHandlerTest {
 
         clientRunning.set(false);
         clientThread.join(1000);
+    }
+
+    @Test
+    void testChatApiReasoningFlow_先发reasoning再发content() throws Exception {
+        mockLlmClient.setMockReasoning("让我仔细思考这个问题...首先，需要分析上下文。然后，考虑各种可能性。");
+        mockLlmClient.enqueueSuccessResponse("这是最终答案。");
+
+        CountDownLatch doneLatch = new CountDownLatch(1);
+        AtomicReference<StringBuilder> reasoningContent = new AtomicReference<>(new StringBuilder());
+        AtomicReference<StringBuilder> responseContent = new AtomicReference<>(new StringBuilder());
+        AtomicBoolean reasoningDoneReceived = new AtomicBoolean(false);
+        AtomicBoolean clientRunning = new AtomicBoolean(true);
+
+        Thread clientThread = new Thread(() -> {
+            try {
+                URL url = new URL("http://localhost:" + TEST_PORT + "/api/chat");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(15000);
+
+                ObjectNode requestBody = objectMapper.createObjectNode();
+                requestBody.put("session", "test-reasoning-session");
+                requestBody.put("message", "1+1=?");
+
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(objectMapper.writeValueAsBytes(requestBody));
+                }
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String line;
+                String eventType = null;
+                String data = null;
+
+                while (clientRunning.get() && (line = reader.readLine()) != null) {
+                    if (line.startsWith("event:")) {
+                        eventType = line.substring(6).trim();
+                    } else if (line.startsWith("data:")) {
+                        data = line.substring(5).trim();
+                    } else if (line.isEmpty() && eventType != null && data != null) {
+                        if ("reasoning".equals(eventType)) {
+                            try {
+                                var json = objectMapper.readTree(data);
+                                if (json.has("reasoning")) {
+                                    reasoningContent.get().append(json.get("reasoning").asText());
+                                }
+                            } catch (Exception e) {
+                            }
+                        } else if ("reasoning_done".equals(eventType)) {
+                            reasoningDoneReceived.set(true);
+                        } else if ("content".equals(eventType)) {
+                            try {
+                                var json = objectMapper.readTree(data);
+                                if (json.has("content")) {
+                                    responseContent.get().append(json.get("content").asText());
+                                }
+                            } catch (Exception e) {
+                            }
+                        } else if ("done".equals(eventType)) {
+                            doneLatch.countDown();
+                            break;
+                        }
+                        eventType = null;
+                        data = null;
+                    }
+                }
+
+                conn.disconnect();
+            } catch (Exception e) {
+                System.err.println("客户端异常: " + e.getMessage());
+            }
+        });
+
+        clientThread.start();
+        assertTrue(doneLatch.await(10, TimeUnit.SECONDS), "应该在 10 秒内收到完成信号");
+
+        clientRunning.set(false);
+        clientThread.join(1000);
+
+        assertTrue(reasoningContent.get().length() > 0, "应该收到 reasoning 内容");
+        assertTrue(responseContent.get().length() > 0, "应该收到 content 内容");
+        assertTrue(reasoningDoneReceived.get(), "应该收到 reasoning_done 事件");
+
+        System.out.println("🧠 思考内容: " + reasoningContent.get());
+        System.out.println("📝 最终答案: " + responseContent.get());
+    }
+
+    @Test
+    void testChatApiReasoningFlow_无reasoning模型直接输出() throws Exception {
+        mockLlmClient.setMockReasoning(null);
+        mockLlmClient.enqueueSuccessResponse("直接输出答案。");
+
+        CountDownLatch doneLatch = new CountDownLatch(1);
+        AtomicBoolean reasoningEventReceived = new AtomicBoolean(false);
+        AtomicBoolean reasoningDoneReceived = new AtomicBoolean(false);
+        AtomicBoolean clientRunning = new AtomicBoolean(true);
+
+        Thread clientThread = new Thread(() -> {
+            try {
+                URL url = new URL("http://localhost:" + TEST_PORT + "/api/chat");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(10000);
+
+                ObjectNode requestBody = objectMapper.createObjectNode();
+                requestBody.put("session", "test-no-reasoning");
+                requestBody.put("message", "你好");
+
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(objectMapper.writeValueAsBytes(requestBody));
+                }
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String line;
+                String eventType = null;
+                String data = null;
+
+                while (clientRunning.get() && (line = reader.readLine()) != null) {
+                    if (line.startsWith("event:")) {
+                        eventType = line.substring(6).trim();
+                    } else if (line.startsWith("data:")) {
+                        data = line.substring(5).trim();
+                    } else if (line.isEmpty() && eventType != null && data != null) {
+                        if ("reasoning".equals(eventType)) {
+                            reasoningEventReceived.set(true);
+                        } else if ("reasoning_done".equals(eventType)) {
+                            reasoningDoneReceived.set(true);
+                        } else if ("done".equals(eventType)) {
+                            doneLatch.countDown();
+                            break;
+                        }
+                        eventType = null;
+                        data = null;
+                    }
+                }
+
+                conn.disconnect();
+            } catch (Exception e) {
+            }
+        });
+
+        clientThread.start();
+        assertTrue(doneLatch.await(10, TimeUnit.SECONDS), "应该在 10 秒内收到完成信号");
+
+        clientRunning.set(false);
+        clientThread.join(1000);
+
+        assertFalse(reasoningEventReceived.get(), "非推理模型不应该发出 reasoning 事件");
+        assertFalse(reasoningDoneReceived.get(), "非推理模型不应该发出 reasoning_done 事件");
     }
 }

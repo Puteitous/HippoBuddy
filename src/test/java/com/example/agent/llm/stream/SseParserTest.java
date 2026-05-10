@@ -109,6 +109,44 @@ class SseParserTest {
             assertNotNull(chunk);
             assertEquals("你好世界", chunk.getContent());
         }
+
+        @Test
+        @DisplayName("解析思考过程内容")
+        void testReasoningContent() {
+            String line = "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"让我仔细思考这个问题...\"}}]}";
+            
+            StreamChunk chunk = parser.parse(line);
+            
+            assertNotNull(chunk);
+            assertEquals("让我仔细思考这个问题...", chunk.getReasoning());
+            assertTrue(chunk.hasReasoning());
+            assertNull(chunk.getContent());
+        }
+
+        @Test
+        @DisplayName("同时包含内容和思考过程")
+        void testContentAndReasoning() {
+            String line = "data: {\"choices\":[{\"delta\":{\"content\":\"最终答案\",\"reasoning_content\":\"思考过程\"}}]}";
+            
+            StreamChunk chunk = parser.parse(line);
+            
+            assertNotNull(chunk);
+            assertEquals("最终答案", chunk.getContent());
+            assertEquals("思考过程", chunk.getReasoning());
+            assertTrue(chunk.hasContent());
+            assertTrue(chunk.hasReasoning());
+        }
+
+        @Test
+        @DisplayName("空思考过程返回null")
+        void testEmptyReasoning() {
+            String line = "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"\"}}]}";
+            
+            StreamChunk chunk = parser.parse(line);
+            
+            assertNotNull(chunk);
+            assertFalse(chunk.hasReasoning());
+        }
     }
 
     @Nested
@@ -251,6 +289,43 @@ class SseParserTest {
             
             assertNotNull(chunk);
             assertFalse(chunk.hasUsage());
+        }
+
+        @Test
+        @DisplayName("解析DeepSeek缓存命中字段")
+        void testDeepSeekCacheFields() {
+            String line = "data: {\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150,\"prompt_cache_hit_tokens\":30,\"prompt_cache_miss_tokens\":70},\"choices\":[{\"delta\":{}}]}";
+            
+            StreamChunk chunk = parser.parse(line);
+            
+            assertNotNull(chunk);
+            assertTrue(chunk.hasUsage());
+            assertEquals(30, chunk.getUsage().getPromptCacheHitTokens());
+            assertEquals(70, chunk.getUsage().getPromptCacheMissTokens());
+            assertEquals(30, chunk.getUsage().getCacheReadInputTokens());
+        }
+
+        @Test
+        @DisplayName("缓存命中率为0时返回0")
+        void testCacheHitRateZero() {
+            String line = "data: {\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150,\"prompt_cache_hit_tokens\":0},\"choices\":[{\"delta\":{}}]}";
+            
+            StreamChunk chunk = parser.parse(line);
+            
+            assertNotNull(chunk);
+            assertEquals(0.0, chunk.getUsage().getCacheHitRate(), 0.01);
+        }
+
+        @Test
+        @DisplayName("缓存命中率计算")
+        void testCacheHitRate() {
+            String line = "data: {\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150,\"prompt_cache_hit_tokens\":30,\"prompt_cache_miss_tokens\":70},\"choices\":[{\"delta\":{}}]}";
+            
+            StreamChunk chunk = parser.parse(line);
+            
+            assertNotNull(chunk);
+            // prompt_tokens=100 (hit=30 + miss=70), cache_hit_rate = 30/100 = 30%
+            assertEquals(30.0, chunk.getUsage().getCacheHitRate(), 0.01);
         }
     }
 

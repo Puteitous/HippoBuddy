@@ -1,5 +1,7 @@
 package com.example.agent.llm.model;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -165,6 +167,78 @@ class ChatRequestValidationTest {
             assertSame(base, base.toolChoiceNone());
             assertSame(base, base.toolChoiceRequired());
             assertSame(base, base.toolChoiceFunction("test"));
+        }
+    }
+
+    @Nested
+    @DisplayName("🔵 reasoning_content 序列化（DeepSeek 400 兼容）")
+    class ReasoningContentSerializationTests {
+
+        private final ObjectMapper objectMapper = new ObjectMapper();
+
+        @Test
+        @DisplayName("assistant + reasoning + tool_calls + null content → 不输出 content 字段")
+        void testReasoningWithToolCallsOmitsContent() throws Exception {
+            ToolCall toolCall = new ToolCall();
+            toolCall.setId("call-123");
+            FunctionDefinition func = new FunctionDefinition("get_weather", "Get weather");
+            toolCall.setFunction(func);
+
+            Message msg = Message.assistantWithToolCalls(List.of(toolCall), "我需要先查日期");
+            msg.setContent(null);
+
+            ChatRequest request = ChatRequest.of("deepseek-v4-pro", List.of(
+                Message.user("今天杭州天气怎么样？"),
+                msg
+            ));
+
+            String json = objectMapper.writeValueAsString(request);
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode messages = root.get("messages");
+
+            assertTrue(messages.isArray(), "messages 应该是数组");
+            assertEquals(2, messages.size());
+
+            JsonNode assistantMsg = messages.get(1);
+            assertEquals("assistant", assistantMsg.get("role").asText());
+            assertTrue(assistantMsg.has("reasoning_content"), "应包含 reasoning_content");
+            assertEquals("我需要先查日期", assistantMsg.get("reasoning_content").asText());
+            assertTrue(assistantMsg.has("tool_calls"), "应包含 tool_calls");
+            assertFalse(assistantMsg.has("content"), "content 应为 null 不序列化");
+        }
+
+        @Test
+        @DisplayName("assistant + reasoning + content + null tool_calls → 输出 reasoning_content 和 content")
+        void testReasoningWithContent() throws Exception {
+            Message msg = Message.assistant("今天杭州多云，7~13°C");
+            msg.setReasoningContent("查到了天气数据");
+
+            ChatRequest request = ChatRequest.of("deepseek-v4-pro", List.of(
+                Message.user("杭州天气怎么样？"),
+                msg
+            ));
+
+            String json = objectMapper.writeValueAsString(request);
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode assistantMsg = root.get("messages").get(1);
+
+            assertEquals("assistant", assistantMsg.get("role").asText());
+            assertTrue(assistantMsg.has("reasoning_content"), "应包含 reasoning_content");
+            assertTrue(assistantMsg.has("content"), "应包含 content");
+        }
+
+        @Test
+        @DisplayName("assistant + null reasoning + null tool_calls → 不输出 reasoning_content")
+        void testNoReasoningOmitsField() throws Exception {
+            ChatRequest request = ChatRequest.of("deepseek-v4-pro", List.of(
+                Message.user("你好"),
+                Message.assistant("你好！有什么可以帮你的？")
+            ));
+
+            String json = objectMapper.writeValueAsString(request);
+            JsonNode assistantMsg = objectMapper.readTree(json).get("messages").get(1);
+
+            assertFalse(assistantMsg.has("reasoning_content"), "无 reasoning 时不输出该字段");
         }
     }
 

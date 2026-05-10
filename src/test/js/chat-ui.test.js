@@ -31,7 +31,6 @@ describe('ChatUI', () => {
     Object.defineProperty(container, 'scrollHeight', { value: 500, configurable: true });
     container.scrollTop = 0;
 
-    window.undoFileChange = vi.fn();
     window.currentAskUserCallback = vi.fn();
     window.rollbackMessageChanges = vi.fn();
     window.showToast = vi.fn();
@@ -182,14 +181,16 @@ describe('ChatUI', () => {
       expect(details.classList.contains('show')).toBe(false);
     });
 
-    it('点击 undo-btn 调用 window.undoFileChange', () => {
+    it('点击 undo-btn 撤销文件变更', () => {
       const card = document.createElement('div');
       card.className = 'tool-card editfile-card';
       card.dataset.filePath = '/test/file.txt';
       card.innerHTML = `
         <div class="tool-header">header</div>
         <div class="tool-call-details">
-          <button class="undo-btn">↩ 撤销</button>
+          <div class="file-action-bar">
+            <button class="undo-btn">↩ 撤销</button>
+          </div>
         </div>
       `;
       chatUI.bindToolCardEvents(card);
@@ -197,7 +198,8 @@ describe('ChatUI', () => {
       const undoBtn = card.querySelector('.undo-btn');
       undoBtn.click();
 
-      expect(window.undoFileChange).toHaveBeenCalledWith(undoBtn);
+      expect(undoBtn.disabled).toBe(true);
+      expect(undoBtn.textContent).toBe('撤销中...');
     });
 
     it('没有 header 时不报错', () => {
@@ -296,7 +298,7 @@ describe('ChatUI', () => {
       expect(html).toContain('新文本');
       expect(html).toContain('old content');
       expect(html).toContain('new content');
-      expect(html).toContain('已保留');
+      expect(html).toContain('已生效');
       expect(html).toContain('undo-btn');
     });
 
@@ -330,7 +332,7 @@ describe('ChatUI', () => {
       expect(html).toContain('line1');
       expect(html).toContain('line2');
       expect(html).toContain('line3');
-      expect(html).toContain('已保留');
+      expect(html).toContain('已生效');
       expect(html).toContain('undo-btn');
     });
 

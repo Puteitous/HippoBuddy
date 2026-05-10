@@ -82,12 +82,13 @@ describe('ChatPanel.js', () => {
   });
 
   describe('setSendingState', () => {
-    it('发送中时隐藏发送按钮，显示停止按钮', () => {
+    it('发送中时隐藏发送按钮，显示停止按钮并确保可用', () => {
       chatPanel.setSendingState(true);
 
       expect(chatPanel.isSendingMessage).toBe(true);
       expect(chatPanel.elements.sendBtn.disabled).toBe(true);
       expect(chatPanel.elements.sendBtn.style.display).toBe('none');
+      expect(chatPanel.elements.stopBtn.disabled).toBe(false);
       expect(chatPanel.elements.stopBtn.style.display).toBe('inline-block');
     });
 
@@ -98,6 +99,29 @@ describe('ChatPanel.js', () => {
       expect(chatPanel.elements.sendBtn.disabled).toBe(false);
       expect(chatPanel.elements.sendBtn.style.display).toBe('inline-block');
       expect(chatPanel.elements.stopBtn.style.display).toBe('none');
+    });
+
+    it('发送中重置停止按钮禁用状态 — 回归测试：修复前stopBtn被禁用后再次发送仍为灰色', () => {
+      chatPanel.elements.stopBtn.disabled = true;
+
+      chatPanel.setSendingState(true);
+
+      expect(chatPanel.elements.stopBtn.disabled).toBe(false);
+    });
+
+    it('停止后重新发送，按钮可用 — 完整回归路径测试', () => {
+      const controller = new AbortController();
+      chatPanel.currentAbortController = controller;
+      chatPanel.isCompleted = false;
+
+      chatPanel.stopGeneration();
+
+      expect(chatPanel.elements.stopBtn.disabled).toBe(true);
+
+      chatPanel.setSendingState(true);
+
+      expect(chatPanel.elements.stopBtn.disabled).toBe(false);
+      expect(chatPanel.elements.stopBtn.style.display).toBe('inline-block');
     });
   });
 
@@ -289,6 +313,90 @@ describe('ChatPanel.js', () => {
       );
 
       expect(chatPanel.currentText).toBe('');
+    });
+
+    it('处理 reasoning 事件创建思考气泡', () => {
+      const contentDiv = document.createElement('div');
+
+      chatPanel.handleChunk(
+        { _eventType: 'reasoning', reasoning: '让我想想' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      expect(chatPanel._reasoningSegment).toBeDefined();
+      expect(chatPanel._reasoningSegment.type).toBe('thinking');
+      expect(chatPanel._reasoningSegment.content).toBe('让我想想');
+      expect(chatPanel.segments[0]).toBe(chatPanel._reasoningSegment);
+    });
+
+    it('处理连续的 reasoning 事件追加内容', () => {
+      const contentDiv = document.createElement('div');
+
+      chatPanel.handleChunk(
+        { _eventType: 'reasoning', reasoning: '第一步' },
+        contentDiv,
+        document.createElement('div')
+      );
+      chatPanel.handleChunk(
+        { _eventType: 'reasoning', reasoning: '第二步' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      expect(chatPanel._reasoningSegment.content).toBe('第一步第二步');
+    });
+
+    it('处理 reasoning_done 事件标记完成', () => {
+      const contentDiv = document.createElement('div');
+      chatPanel._reasoningSegment = { type: 'thinking', content: '思考中', done: false };
+      chatPanel.segments.push(chatPanel._reasoningSegment);
+
+      chatPanel.handleChunk(
+        { _eventType: 'reasoning_done' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      expect(chatPanel._reasoningSegment.done).toBe(true);
+    });
+
+    it('clear_content 清空时重置 _reasoningSegment', () => {
+      chatPanel._reasoningSegment = { type: 'thinking', content: '一些思考', done: false };
+      chatPanel.segments.push(chatPanel._reasoningSegment);
+      const contentDiv = document.createElement('div');
+
+      chatPanel.handleChunk(
+        { _eventType: 'clear_content' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      expect(chatPanel._reasoningSegment).toBeNull();
+      expect(chatPanel.segments.length).toBe(0);
+    });
+
+    it('reasoning 和 content 事件共存', () => {
+      const contentDiv = document.createElement('div');
+
+      chatPanel.handleChunk(
+        { _eventType: 'reasoning', reasoning: '思考过程' },
+        contentDiv,
+        document.createElement('div')
+      );
+      chatPanel.handleChunk(
+        { _eventType: 'reasoning_done' },
+        contentDiv,
+        document.createElement('div')
+      );
+      chatPanel.handleChunk(
+        { _eventType: 'content', content: '最终答案' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      expect(chatPanel._reasoningSegment.done).toBe(true);
+      expect(chatPanel.currentText).toBe('最终答案');
     });
   });
 
