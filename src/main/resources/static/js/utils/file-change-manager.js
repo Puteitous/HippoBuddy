@@ -2,6 +2,7 @@ import { escapeHtml } from '../utils.js';
 import { showToast } from './toast.js';
 import { diffModalManager } from './diff-modal.js';
 import { EventBus } from './event-bus.js';
+import { ReviewState } from './review-state.js';
 
 export class FileChangeManager {
   constructor() {
@@ -33,6 +34,10 @@ export class FileChangeManager {
     this.updateFileChanges();
 
     EventBus.on('file:changes-updated', () => {
+      this.updateFileChanges();
+    });
+
+    EventBus.on('file:review-updated', () => {
       this.updateFileChanges();
     });
 
@@ -91,11 +96,13 @@ export class FileChangeManager {
         const time = new Date(c.latest).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
         const icon = c.toolName === 'delete_file' ? '🗑️' : '📝';
         const badge = c.count > 1 ? `<span class="file-change-badge">${c.count}次</span>` : '';
+        const reviewStatus = ReviewState.isRolledBack(c.filePath);
+        const reviewDot = reviewStatus ? '<span class="file-review-dot rolled-back" title="已撤销">↩</span>' : '';
         return `
           <div class="file-change-item" data-path="${escapeHtml(c.filePath)}" style="cursor:pointer;">
             <span class="file-change-icon">${icon}</span>
             <div class="file-change-info">
-              <div class="file-change-path" title="${escapeHtml(c.filePath)}">${escapeHtml(fileName)}</div>
+              <div class="file-change-path" title="${escapeHtml(c.filePath)}">${escapeHtml(fileName)} ${reviewDot}</div>
               <div class="file-change-meta">
                 <span>${escapeHtml(time)}</span>
                 <span class="file-change-tool">${escapeHtml(c.toolName)}</span>

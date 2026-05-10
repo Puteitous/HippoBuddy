@@ -213,6 +213,12 @@ body {
     border-bottom: none;
 }
 
+.token-detail-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
+}
+
 .token-detail-label {
     color: var(--text-muted);
     font-size: var(--font-size-sm);
@@ -925,11 +931,11 @@ body {
 }
 
 #stopBtn {
-    background: var(--error-color);
+    background: var(--primary-color);
 }
 
 #stopBtn:hover:not(:disabled) {
-    background: var(--error-hover);
+    background: var(--primary-hover);
 }
 
 .tool-call-card {
@@ -1741,11 +1747,11 @@ body {
     font-size: var(--font-size-sm);
 }
 
-/* ========== 文件操作栏（默认已保留 + 撤销按钮） ========== */
+/* ========== 文件操作栏（已生效 + 撤销按钮） ========== */
 .file-action-bar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     margin-top: 12px;
     padding-top: 10px;
     border-top: 1px solid var(--border-color);
@@ -1761,6 +1767,7 @@ body {
     border: 1px solid var(--border-color);
     background: var(--bg-white);
     color: var(--text-secondary);
+    line-height: 1.4;
 }
 
 .file-action-btn:hover {
@@ -1768,12 +1775,19 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
+.file-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
 .file-action-btn.undo-btn {
     color: var(--error-color);
     border-color: var(--error-color);
 }
 
-.file-action-btn.undo-btn:hover {
+.file-action-btn.undo-btn:hover:not(:disabled) {
     background: var(--error-bg);
 }
 
@@ -1782,11 +1796,21 @@ body {
     font-weight: 500;
 }
 
-.file-action-status.kept {
-    color: var(--success-text);
+.file-action-status.pending {
+    color: var(--warning-color);
 }
 
 .file-action-status.undone {
+    color: var(--error-color);
+}
+
+/* ========== 侧边栏审阅指示点 ========== */
+.file-review-dot {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    font-size: 10px;
+    vertical-align: middle;
     color: var(--error-color);
 }
 
@@ -2832,6 +2856,8 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
 }
 
 .file-change-meta {
@@ -2974,6 +3000,105 @@ body {
 }
 
 .diff-modal-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    padding: 0;
+}
+
+.diff-timeline {
+    width: 140px;
+    flex-shrink: 0;
+    background: var(--bg-light);
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.diff-timeline-loading,
+.diff-timeline-empty {
+    padding: 16px;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.diff-timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    position: relative;
+}
+
+.diff-timeline-item:hover {
+    background: var(--bg-code);
+}
+
+.diff-timeline-item.active {
+    background: var(--bg-white);
+}
+
+.diff-timeline-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--primary-color);
+}
+
+.diff-timeline-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-color);
+    flex-shrink: 0;
+    margin-top: 5px;
+    position: relative;
+    z-index: 1;
+}
+
+.diff-timeline-item.active .diff-timeline-dot {
+    background: var(--primary-color);
+}
+
+.diff-timeline-item::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 16px;
+    bottom: -8px;
+    width: 1px;
+    background: var(--border-color);
+}
+
+.diff-timeline-item:last-child::after {
+    display: none;
+}
+
+.diff-timeline-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.diff-timeline-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.2;
+}
+
+.diff-timeline-tool {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin-top: 2px;
+}
+
+.diff-content-panel {
     flex: 1;
     overflow-y: auto;
     padding: 0;
@@ -3166,4 +3291,28 @@ body {
 
 [data-theme="dark"] .token-trend-value {
     color: #ffffff;
+}
+
+[data-theme="dark"] .diff-timeline {
+    background: var(--bg-code);
+}
+
+[data-theme="dark"] .diff-timeline-item.active {
+    background: var(--bg-lighter);
+}
+
+[data-theme="dark"] .diff-timeline-item:hover {
+    background: rgba(255,255,255,0.03);
+}
+
+[data-theme="dark"] .diff-timeline-item::after {
+    background: rgba(255,255,255,0.1);
+}
+
+[data-theme="dark"] .diff-timeline-dot {
+    background: rgba(255,255,255,0.2);
+}
+
+[data-theme="dark"] .diff-timeline-item.active .diff-timeline-dot {
+    background: var(--primary-color);
 }

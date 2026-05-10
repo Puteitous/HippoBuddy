@@ -148,6 +148,22 @@
                                 <span class="tvs-label">工具调用</span>
                                 <span class="tvs-value" id="tvToolCalls">0</span>
                             </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">缓存命中</span>
+                                <span class="tvs-value success-text" id="tvCacheHit">0</span>
+                            </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">缓存率</span>
+                                <span class="tvs-value success-text" id="tvCacheRate">0%</span>
+                            </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">总缓存命中</span>
+                                <span class="tvs-value success-text" id="tvSessionCacheHit">0</span>
+                            </div>
+                            <div class="token-visual-stat">
+                                <span class="tvs-label">总缓存率</span>
+                                <span class="tvs-value success-text" id="tvSessionCacheRate">0%</span>
+                            </div>
                         </div>
                         <div class="token-visual-divider"></div>
                         <div class="token-visual-total">
@@ -269,7 +285,10 @@
                 <button class="diff-modal-close" id="diffModalClose">✕</button>
             </div>
             <div class="diff-modal-body" id="diffModalBody">
-                <div class="diff-empty" id="diffEmpty">加载中...</div>
+                <div class="diff-timeline" id="diffTimeline"></div>
+                <div class="diff-content-panel" id="diffContentPanel">
+                    <div class="diff-empty" id="diffEmpty">加载中...</div>
+                </div>
             </div>
             <div class="diff-modal-footer">
                 <div class="diff-stats" id="diffStats"></div>
@@ -323,6 +342,27 @@
                     <div class="token-detail-row">
                         <span class="token-detail-label">工具调用:</span>
                         <span class="token-detail-value" id="detailToolCalls">0</span>
+                    </div>
+                </div>
+
+                <div class="token-details-section">
+                    <h4>💾 缓存命中</h4>
+                    <div class="token-detail-row">
+                        <span class="token-detail-label">当前缓存命中:</span>
+                        <span class="token-detail-value success-text" id="detailCacheHit">0</span>
+                    </div>
+                    <div class="token-detail-row">
+                        <span class="token-detail-label">当前缓存率:</span>
+                        <span class="token-detail-value success-text" id="detailCacheRate">0%</span>
+                    </div>
+                    <div class="token-detail-divider"></div>
+                    <div class="token-detail-row">
+                        <span class="token-detail-label">总缓存命中:</span>
+                        <span class="token-detail-value success-text" id="detailSessionCacheHit">0</span>
+                    </div>
+                    <div class="token-detail-row">
+                        <span class="token-detail-label">总缓存率:</span>
+                        <span class="token-detail-value success-text" id="detailSessionCacheRate">0%</span>
                     </div>
                 </div>
             </div>

@@ -47,6 +47,81 @@ input, textarea {
   animation: blink 1s infinite;
 }
 
+/* ===== 思考气泡 ===== */
+.thinking-bubble {
+  background: var(--bg-lighter);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-md);
+}
+
+.thinking-bubble .thinking-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.thinking-bubble.completed .thinking-header {
+  color: var(--text-secondary);
+}
+
+.thinking-bubble .thinking-icon {
+  flex-shrink: 0;
+}
+
+.thinking-bubble .thinking-label {
+  font-weight: 500;
+  flex: 1;
+}
+
+.thinking-bubble .toggle-icon {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.thinking-bubble .thinking-content {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--font-size-sm);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.thinking-bubble.streaming .thinking-content {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* 思考中 spinner */
+.thinking-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: thinking-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes thinking-spin {
+  to { transform: rotate(360deg); }
+}
+
+[data-theme="dark"] .thinking-bubble {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .empty-state {
   text-align: center;
   color: var(--text-muted);

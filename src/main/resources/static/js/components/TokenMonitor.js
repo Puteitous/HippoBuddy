@@ -31,6 +31,10 @@ export class TokenMonitor {
       tvLlmCalls: document.getElementById('tvLlmCalls'),
       tvToolCalls: document.getElementById('tvToolCalls'),
       tvSessionTotal: document.getElementById('tvSessionTotal'),
+      tvCacheHit: document.getElementById('tvCacheHit'),
+      tvCacheRate: document.getElementById('tvCacheRate'),
+      tvSessionCacheHit: document.getElementById('tvSessionCacheHit'),
+      tvSessionCacheRate: document.getElementById('tvSessionCacheRate'),
       trendCount: document.getElementById('trendCount'),
       trendChart: document.getElementById('trendChart')
     };
@@ -213,6 +217,22 @@ export class TokenMonitor {
     if (this.elements.tvSessionTotal) {
       this.elements.tvSessionTotal.textContent = (stats.sessionTotalTokens || 0).toLocaleString();
     }
+    
+    // 缓存命中
+    if (this.elements.tvCacheHit) {
+      this.elements.tvCacheHit.textContent = stats.cacheHitTokens ? stats.cacheHitTokens.toLocaleString() : '0';
+    }
+    if (this.elements.tvCacheRate) {
+      this.elements.tvCacheRate.textContent = stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%';
+    }
+    
+    // 会话级缓存命中
+    if (this.elements.tvSessionCacheHit) {
+      this.elements.tvSessionCacheHit.textContent = stats.sessionCacheHitTokens ? stats.sessionCacheHitTokens.toLocaleString() : '0';
+    }
+    if (this.elements.tvSessionCacheRate) {
+      this.elements.tvSessionCacheRate.textContent = stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%';
+    }
   }
   
   /**
@@ -346,6 +366,14 @@ export class TokenMonitor {
       document.getElementById('detailSessionTotal').textContent = stats.sessionTotalTokens ? stats.sessionTotalTokens.toLocaleString() : '0';
       document.getElementById('detailLlmCalls').textContent = stats.sessionLlmCalls ? stats.sessionLlmCalls.toLocaleString() : '0';
       document.getElementById('detailToolCalls').textContent = stats.sessionToolCalls ? stats.sessionToolCalls.toLocaleString() : '0';
+      
+      // 缓存命中
+      document.getElementById('detailCacheHit').textContent = stats.cacheHitTokens ? stats.cacheHitTokens.toLocaleString() : '0';
+      document.getElementById('detailCacheRate').textContent = stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%';
+      
+      // 会话级缓存命中
+      document.getElementById('detailSessionCacheHit').textContent = stats.sessionCacheHitTokens ? stats.sessionCacheHitTokens.toLocaleString() : '0';
+      document.getElementById('detailSessionCacheRate').textContent = stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%';
       
       modal.style.display = 'flex';
     } catch (error) {

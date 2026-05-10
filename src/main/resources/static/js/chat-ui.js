@@ -1,6 +1,8 @@
 import { escapeHtml, formatTime, safeParseJSON } from './utils.js';
 import { renderMarkdown } from './markdown-renderer.js';
 import { EventBus } from './utils/event-bus.js';
+import { showToast } from './utils/toast.js';
+import { ReviewState } from './utils/review-state.js';
 
 export class ChatUI {
   constructor(container) {
@@ -170,13 +172,48 @@ export class ChatUI {
         if (details) details.classList.toggle('show');
       });
     }
-    
+
     const undoBtn = card.querySelector('.undo-btn');
     if (undoBtn) {
       undoBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        window.undoFileChange(undoBtn);
+        this.handleUndo(card);
       });
+    }
+  }
+
+  async handleUndo(card) {
+    const filePath = card.dataset.filePath;
+    if (!filePath) return;
+
+    const undoBtn = card.querySelector('.undo-btn');
+    if (undoBtn) undoBtn.disabled = true;
+    if (undoBtn) undoBtn.textContent = '撤销中...';
+
+    try {
+      const response = await fetch('/api/files/rollback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        card.dataset.reviewStatus = 'rolled_back';
+        ReviewState.markRolledBack(filePath);
+        const actionBar = card.querySelector('.file-action-bar');
+        if (actionBar) {
+          actionBar.innerHTML = `<span class="file-action-status undone">↩ 已撤销</span>`;
+        }
+      } else {
+        showToast(`撤销失败：${result.error || '未知错误'}`, { type: 'error', duration: 3000 });
+        if (undoBtn) undoBtn.disabled = false;
+        if (undoBtn) undoBtn.textContent = '↩ 撤销';
+      }
+    } catch (e) {
+      showToast(`撤销失败：${e.message}`, { type: 'error', duration: 3000 });
+      if (undoBtn) undoBtn.disabled = false;
+      if (undoBtn) undoBtn.textContent = '↩ 撤销';
     }
   }
   
@@ -345,7 +382,7 @@ export class ChatUI {
     const newLines = newText.split('\n');
 
     return `
-      <div class="tool-card editfile-card" data-file-path="${escapeHtml(filePath)}">
+      <div class="tool-card editfile-card" data-file-path="${escapeHtml(filePath)}" data-review-status="pending">
         <div class="tool-header">
           <span class="tool-icon">✏️</span>
           <span class="tool-title">编辑文件</span>
@@ -367,7 +404,7 @@ export class ChatUI {
             </div>
           </div>
           <div class="file-action-bar">
-            <span class="file-action-status kept">✓ 已保留</span>
+            <span class="file-action-status pending">🟡 已生效</span>
             <button class="file-action-btn undo-btn">↩ 撤销</button>
           </div>` : ''}
           ${isError && tool.error ? `<div class="editfile-error">${escapeHtml(tool.error)}</div>` : ''}
@@ -386,7 +423,7 @@ export class ChatUI {
     const contentLines = content.split('\n');
 
     return `
-      <div class="tool-card writefile-card" data-file-path="${escapeHtml(filePath)}">
+      <div class="tool-card writefile-card" data-file-path="${escapeHtml(filePath)}" data-review-status="pending">
         <div class="tool-header">
           <span class="tool-icon">📝</span>
           <span class="tool-title">写入文件</span>
@@ -403,7 +440,7 @@ export class ChatUI {
             </div>
           </div>
           <div class="file-action-bar">
-            <span class="file-action-status kept">✓ 已保留</span>
+            <span class="file-action-status pending">🟡 已生效</span>
             <button class="file-action-btn undo-btn">↩ 撤销</button>
           </div>` : ''}
           ${isError && tool.error ? `<div class="writefile-error">${escapeHtml(tool.error)}</div>` : ''}
@@ -527,31 +564,4 @@ window.toggleToolCall = function(header) {
   header.classList.toggle('expanded');
   const details = header.nextElementSibling;
   details.classList.toggle('show');
-};
-
-window.undoFileChange = async function(btn) {
-  const card = btn.closest('.editfile-card, .writefile-card');
-  const filePath = card.dataset.filePath;
-  if (!filePath) return;
-
-  if (!confirm('确定要撤销对文件的修改吗？')) return;
-
-  try {
-    const response = await fetch('/api/files/rollback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filePath: filePath })
-    });
-    const result = await response.json();
-    if (result.success) {
-      const actionBar = card.querySelector('.file-action-bar');
-      if (actionBar) {
-        actionBar.innerHTML = '<span class="file-action-status undone">↩ 已撤销</span>';
-      }
-    } else {
-      showToast('撤销失败：' + (result.error || '未知错误'), 'error');
-    }
-  } catch (e) {
-    showToast('撤销失败：' + e.message, 'error');
-  }
 };

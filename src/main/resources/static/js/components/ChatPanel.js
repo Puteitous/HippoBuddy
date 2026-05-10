@@ -113,7 +113,7 @@ export class ChatPanel {
       console.log('⏭️ sendMessage 跳过：内容为空');
       return;
     }
-    
+
     // 清空输入框
     if (!overrideContent && !editMessageId && this.elements.messageInput) {
       this.elements.messageInput.value = '';
@@ -150,6 +150,7 @@ export class ChatPanel {
     let contentDiv, copyBtn, retryBtn, btnContainer;
     this.segments = [];
     this.currentText = '';
+    this._reasoningSegment = null;
     
     try {
       // 创建 AbortController 用于停止生成
@@ -212,7 +213,13 @@ export class ChatPanel {
         await this.renderSegmentsFinal(contentDiv, this.segments, '');
         contentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
       } else {
-        contentDiv.innerHTML = `<span style="color: var(--error-color);">错误：${error.message}</span>`;
+        const { message, detail } = this._classifyError(error);
+        contentDiv.innerHTML = `
+          <div style="color: var(--error-color); padding: 8px;">
+            <div style="font-weight: 600; margin-bottom: 4px;">❌ ${escapeHtml(message)}</div>
+            ${detail ? `<div style="font-size: 12px; opacity: 0.7;">${escapeHtml(detail)}</div>` : ''}
+          </div>`;
+        showToast(message, { type: 'error', duration: 6000 });
       }
       
       if (btnContainer) btnContainer.style.display = 'flex';
@@ -263,6 +270,7 @@ export class ChatPanel {
       console.log('🧹 清空内容');
       this.currentText = '';
       this.segments = [];
+      this._reasoningSegment = null;
       contentDiv.innerHTML = '';
       return;
     }
@@ -278,6 +286,32 @@ export class ChatPanel {
     // 处理非 JSON 的原始事件（如错误消息）
     if (parsed.type === 'raw' || parsed.type === 'error') {
       contentDiv.innerHTML = `<span style="color: var(--error-color);">❌ ${escapeHtml(parsed.content)}</span>`;
+      return;
+    }
+    
+    // 处理 reasoning 事件 - 思考过程流式显示
+    if (parsed._eventType === 'reasoning' && parsed.reasoning) {
+      if (!this._hasReceivedData) {
+        this._hasReceivedData = true;
+        contentDiv.querySelector('.typing-indicator')?.remove();
+      }
+      
+      if (!this._reasoningSegment) {
+        this._reasoningSegment = { type: 'thinking', content: '', done: false };
+        this.segments.push(this._reasoningSegment);
+      }
+      this._reasoningSegment.content += parsed.reasoning;
+      this._scheduleRender(contentDiv, this.segments, this.currentText);
+      this.smartScroll();
+      return;
+    }
+    
+    // 处理 reasoning_done 事件 - 思考过程结束
+    if (parsed._eventType === 'reasoning_done') {
+      if (this._reasoningSegment) {
+        this._reasoningSegment.done = true;
+        this._flushRender();
+      }
       return;
     }
     
@@ -497,7 +531,9 @@ export class ChatPanel {
     
     let html = '';
     for (const segment of segments) {
-      if (segment.type === 'tool') {
+      if (segment.type === 'thinking') {
+        html += this._renderThinkingBubble(segment);
+      } else if (segment.type === 'tool') {
         html += this.chatUI.renderToolCard(segment);
       } else if (segment.type === 'text' && segment.content) {
         html += await renderMarkdown(segment.content);
@@ -608,6 +644,34 @@ export class ChatPanel {
     }, { passive: true });
   }
   
+  /**
+   * 渲染思考气泡
+   */
+  _renderThinkingBubble(segment) {
+    const escapedContent = escapeHtml(segment.content);
+    
+    if (segment.done) {
+      return `
+        <div class="thinking-bubble completed" data-expanded="false">
+          <div class="thinking-header" onclick="this.closest('.thinking-bubble').dataset.expanded = this.closest('.thinking-bubble').dataset.expanded === 'true' ? 'false' : 'true'; this.querySelector('.toggle-icon').textContent = this.closest('.thinking-bubble').dataset.expanded === 'true' ? '▼' : '▶'; const content = this.nextElementSibling; if(content) content.style.display = this.closest('.thinking-bubble').dataset.expanded === 'true' ? 'block' : 'none';">
+            <span class="thinking-icon">💭</span>
+            <span class="thinking-label">已思考</span>
+            <span class="toggle-icon">▶</span>
+          </div>
+          <div class="thinking-content" style="display:none;">${escapedContent}</div>
+        </div>`;
+    }
+    
+    return `
+      <div class="thinking-bubble streaming">
+        <div class="thinking-header">
+          <span class="thinking-spinner"></span>
+          <span class="thinking-label">思考中...</span>
+        </div>
+        <div class="thinking-content">${escapedContent}</div>
+      </div>`;
+  }
+  
   _showAskUserCard(question, options, allowCustomInput) {
     const { contentDiv } = this.chatUI.appendAssistantMessage('');
     
@@ -640,11 +704,31 @@ export class ChatPanel {
     const { contentDiv: responseContentDiv } = this.chatUI.appendAssistantMessage('');
     let currentText = '';
     let segments = [];
+    let reasoningSegment = null;
     
     this.chatService.executeRequest(
       sessionId,
       message,
       (parsed) => {
+        if (parsed._eventType === 'reasoning' && parsed.reasoning) {
+          if (!reasoningSegment) {
+            reasoningSegment = { type: 'thinking', content: '', done: false };
+            segments.push(reasoningSegment);
+          }
+          reasoningSegment.content += parsed.reasoning;
+          this._scheduleRender(responseContentDiv, segments, currentText);
+          this.chatUI.scrollToBottom();
+          return;
+        }
+        
+        if (parsed._eventType === 'reasoning_done') {
+          if (reasoningSegment) {
+            reasoningSegment.done = true;
+            this._flushRender();
+          }
+          return;
+        }
+        
         if (parsed._eventType === 'content' && parsed.content) {
           currentText += parsed.content;
           this._scheduleRender(responseContentDiv, segments, currentText);
@@ -655,6 +739,7 @@ export class ChatPanel {
         if (parsed._eventType === 'clear_content') {
           currentText = '';
           segments = [];
+          reasoningSegment = null;
           responseContentDiv.innerHTML = '';
           return;
         }
@@ -691,6 +776,17 @@ export class ChatPanel {
           this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
           return;
         }
+        
+        if (parsed._eventType === 'error' && parsed.message) {
+          currentText = '⚠️ ' + parsed.message;
+          this._scheduleRender(responseContentDiv, segments, currentText);
+          this.chatUI.scrollToBottom();
+          return;
+        }
+        
+        if (parsed._eventType === 'done') {
+          return;
+        }
       },
       this.currentAbortController?.signal,
       null,
@@ -710,7 +806,13 @@ export class ChatPanel {
         return;
       }
       console.error('发送失败:', error);
-      showToast('发送失败：' + error.message, 'error');
+      const { message, detail } = this._classifyError(error);
+      responseContentDiv.innerHTML = `
+        <div style="color: var(--error-color); padding: 8px;">
+          <div style="font-weight: 600; margin-bottom: 4px;">❌ ${escapeHtml(message)}</div>
+          ${detail ? `<div style="font-size: 12px; opacity: 0.7;">${escapeHtml(detail)}</div>` : ''}
+        </div>`;
+      showToast(message, { type: 'error', duration: 6000 });
     }).finally(() => {
       this.isSendingMessage = false;
       this.setSendingState(false);
@@ -775,6 +877,42 @@ export class ChatPanel {
   }
   
   /**
+   * 将错误分类为用户友好的消息
+   */
+  _classifyError(error) {
+    const msg = error.message || '';
+    
+    if (error.name === 'TypeError' && (msg.includes('fetch') || msg.includes('Failed to fetch') || msg.includes('NetworkError'))) {
+      return { message: '网络连接失败，请检查后端服务是否正常运行', detail: '无法与服务器建立连接，请确认服务已启动且网络通畅' };
+    }
+    
+    if (msg.includes('超时') || msg.includes('timeout') || msg.includes('Timeout')) {
+      return { message: '请求超时，服务响应时间过长', detail: '请稍后重试，或检查服务是否负载过高' };
+    }
+    
+    if (msg.includes('HTTP error') || /status:? \d{3}/i.test(msg)) {
+      const statusMatch = msg.match(/(\d{3})/);
+      const status = statusMatch ? statusMatch[1] : '';
+      if (status === '502' || status === '503' || status === '504') {
+        return { message: `服务暂时不可用 (${status})`, detail: '后端服务暂时无法处理请求，请稍后重试' };
+      }
+      if (status === '429') {
+        return { message: '请求过于频繁 (429)', detail: '请稍后重试' };
+      }
+      if (status === '401' || status === '403') {
+        return { message: `权限不足 (${status})`, detail: '请检查认证信息是否正确' };
+      }
+      return { message: `服务异常 (${status || msg})`, detail: '请稍后重试，如问题持续请联系管理员' };
+    }
+    
+    if (msg.includes('LLM 未返回有效内容')) {
+      return { message: 'AI 未返回有效响应', detail: '请尝试重新发送消息' };
+    }
+    
+    return { message: msg || '未知错误', detail: null };
+  }
+  
+  /**
    * 设置发送状态
    */
   setSendingState(isSending) {
@@ -785,6 +923,7 @@ export class ChatPanel {
       this.elements.sendBtn.style.display = isSending ? 'none' : 'inline-block';
     }
     if (this.elements.stopBtn) {
+      this.elements.stopBtn.disabled = !isSending;
       this.elements.stopBtn.style.display = isSending ? 'inline-block' : 'none';
     }
   }

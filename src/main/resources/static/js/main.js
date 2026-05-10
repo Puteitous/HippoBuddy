@@ -395,6 +395,7 @@ async function loadHistoryMessages(messages) {
         }
         
         const amText = am.content || '';
+        const amReasoning = am.reasoning_content || '';
         const hasToolCalls = am.tool_calls && am.tool_calls.length > 0;
         
         if (!firstMsgTime && am.timestamp) {
@@ -411,6 +412,10 @@ async function loadHistoryMessages(messages) {
         if (text.trim()) {
           segments.push({ type: 'text', content: text });
           text = '';
+        }
+        
+        if (amReasoning) {
+          segments.push({ type: 'thinking', content: amReasoning, done: true });
         }
         
         if (amText.trim()) {
@@ -461,7 +466,9 @@ async function loadHistoryMessages(messages) {
       } else {
         let html = '';
         for (const seg of segments) {
-          if (seg.type === 'tool') {
+          if (seg.type === 'thinking') {
+            html += chatPanel._renderThinkingBubble(seg);
+          } else if (seg.type === 'tool') {
             html += chatUI.renderToolCard(seg);
           } else if (seg.type === 'text' && seg.content) {
             html += await renderMarkdown(seg.content);
