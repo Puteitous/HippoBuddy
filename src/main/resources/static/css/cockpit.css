@@ -1452,73 +1452,87 @@ body {
     font-size: var(--font-size-sm);
 }
 
-/* ========== ReadFile 卡片 ========== */
-/* ========== EditFile 卡片 ========== */
-.editfile-card {
-    background: var(--bg-white);
+/* ========== EditFile / WriteFile 卡片 ========== */
+.editfile-card,
+.writefile-card {
+    margin: 8px 0;
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 14px 16px;
-    margin: 10px 0;
-    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-md);
+    background: var(--bg-code);
+    overflow: hidden;
 }
 
-.editfile-card .tool-header {
+.editfile-card .tool-header,
+.writefile-card .tool-header {
+    padding: 10px 12px;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 0;
-    cursor: pointer;
+    gap: 8px;
+    font-size: var(--font-size-md);
     user-select: none;
-    padding: 10px 12px;
-    margin: -14px -16px 0;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     transition: background var(--transition-fast);
 }
 
-.editfile-card .tool-header:hover {
+.editfile-card .tool-header:hover,
+.writefile-card .tool-header:hover {
     background: var(--bg-light);
 }
 
-.editfile-card .tool-header .arrow {
+.editfile-card .tool-header .arrow,
+.writefile-card .tool-header .arrow {
     font-size: 12px;
     color: var(--text-muted);
     transition: transform var(--transition-fast);
     margin-left: auto;
 }
 
-.editfile-card .tool-header.expanded .arrow {
+.editfile-card .tool-header.expanded .arrow,
+.writefile-card .tool-header.expanded .arrow {
     transform: rotate(90deg);
 }
 
-.editfile-card .tool-call-details {
-    padding: 12px 16px 16px;
+.editfile-card .tool-call-details,
+.writefile-card .tool-call-details {
+    display: none;
+    padding: 0 12px 12px;
+    font-size: var(--font-size-sm);
+    border-top: 1px solid var(--border-color);
 }
 
-.editfile-card .tool-icon {
-    font-size: 20px;
+.editfile-card .tool-call-details.show,
+.writefile-card .tool-call-details.show {
+    display: block;
 }
 
-.editfile-card .tool-title {
-    font-size: var(--font-size-lg);
+.editfile-card .tool-icon,
+.writefile-card .tool-icon {
+    font-size: 16px;
+}
+
+.editfile-card .tool-title,
+.writefile-card .tool-title {
     font-weight: 600;
     color: var(--text-primary);
     flex: 1;
 }
 
-.editfile-card .tool-status-badge {
+.editfile-card .tool-status-badge,
+.writefile-card .tool-status-badge {
+    margin-left: auto;
     font-size: var(--font-size-xs);
-    padding: 3px 10px;
+    padding: 2px 8px;
     border-radius: 10px;
-    font-weight: 500;
 }
 
-.editfile-card .tool-status-badge.success {
+.editfile-card .tool-status-badge.success,
+.writefile-card .tool-status-badge.success {
     background: var(--success-bg);
     color: var(--success-text);
 }
 
-.editfile-card .tool-status-badge.error {
+.editfile-card .tool-status-badge.error,
+.writefile-card .tool-status-badge.error {
     background: var(--error-bg);
     color: var(--error-text);
 }
@@ -1610,76 +1624,7 @@ body {
     font-size: var(--font-size-sm);
 }
 
-/* ========== WriteFile 卡片 ========== */
-.writefile-card {
-    background: var(--bg-white);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 14px 16px;
-    margin: 10px 0;
-    box-shadow: var(--shadow-sm);
-}
-
-.writefile-card .tool-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 0;
-    cursor: pointer;
-    user-select: none;
-    padding: 10px 12px;
-    margin: -14px -16px 0;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    transition: background var(--transition-fast);
-}
-
-.writefile-card .tool-header:hover {
-    background: var(--bg-light);
-}
-
-.writefile-card .tool-header .arrow {
-    font-size: 12px;
-    color: var(--text-muted);
-    transition: transform var(--transition-fast);
-    margin-left: auto;
-}
-
-.writefile-card .tool-header.expanded .arrow {
-    transform: rotate(90deg);
-}
-
-.writefile-card .tool-call-details {
-    padding: 12px 16px 16px;
-}
-
-.writefile-card .tool-icon {
-    font-size: 20px;
-}
-
-.writefile-card .tool-title {
-    font-size: var(--font-size-lg);
-    font-weight: 600;
-    color: var(--text-primary);
-    flex: 1;
-}
-
-.writefile-card .tool-status-badge {
-    font-size: var(--font-size-xs);
-    padding: 3px 10px;
-    border-radius: 10px;
-    font-weight: 500;
-}
-
-.writefile-card .tool-status-badge.success {
-    background: var(--success-bg);
-    color: var(--success-text);
-}
-
-.writefile-card .tool-status-badge.error {
-    background: var(--error-bg);
-    color: var(--error-text);
-}
-
+/* ========== WriteFile 卡片（展开内容） ========== */
 .writefile-path {
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);

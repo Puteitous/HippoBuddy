@@ -186,6 +186,7 @@ public abstract class AbstractLlmClient implements LlmClient {
     }
 
     protected ChatResponse executeStreamRequest(ChatRequest request, Consumer<StreamChunk> onChunk) throws LlmException {
+        long startMs = System.currentTimeMillis();
         try {
             String requestBody = objectMapper.writeValueAsString(request);
             String url = buildUrl(getBaseUrl(), getChatCompletionsPath());
@@ -208,7 +209,6 @@ public abstract class AbstractLlmClient implements LlmClient {
 
             logger.debug("📤 发送流式 LLM 请求，模型: {}，大小: {} 字节，超时: {} 秒", 
                 getModel(), requestBody.length(), STREAM_TIMEOUT_SECONDS);
-            long startMs = System.currentTimeMillis();
             
             HttpResponse<InputStream> response = httpClient.send(
                     httpRequest, 
@@ -218,19 +218,60 @@ public abstract class AbstractLlmClient implements LlmClient {
             long latencyMs = System.currentTimeMillis() - startMs;
             logger.debug("📥 流式 LLM 响应首包，耗时: {} ms，状态: {}", latencyMs, response.statusCode());
             
-            return processStreamResponse(response, onChunk);
+            ChatResponse chatResponse = processStreamResponse(response, onChunk);
+            
+            long totalLatencyMs = System.currentTimeMillis() - startMs;
+            EventBus.publish(new LlmRequestEvent(
+                    getProviderName(),
+                    getModel(),
+                    chatResponse.getUsage() != null ? chatResponse.getUsage().getPromptTokens() : 0,
+                    chatResponse.getUsage() != null ? chatResponse.getUsage().getCompletionTokens() : 0,
+                    totalLatencyMs,
+                    true
+            ));
+            
+            return chatResponse;
             
         } catch (LlmException e) {
+            EventBus.publish(new LlmRequestEvent(
+                    getProviderName(),
+                    getModel(),
+                    0,
+                    0,
+                    System.currentTimeMillis() - startMs,
+                    false
+            ));
             throw e;
         } catch (java.net.http.HttpTimeoutException e) {
+            EventBus.publish(new LlmRequestEvent(
+                    getProviderName(),
+                    getModel(),
+                    0, 0,
+                    System.currentTimeMillis() - startMs,
+                    false
+            ));
             throw new LlmTimeoutException(
                 "流式请求超时（" + STREAM_TIMEOUT_SECONDS + "秒）。请检查网络连接或稍后重试。", 
                 STREAM_TIMEOUT_SECONDS, e);
         } catch (java.net.ConnectException e) {
+            EventBus.publish(new LlmRequestEvent(
+                    getProviderName(),
+                    getModel(),
+                    0, 0,
+                    System.currentTimeMillis() - startMs,
+                    false
+            ));
             throw new LlmConnectionException(
                 "无法连接到 API 服务器: " + config.getLlm().getBaseUrl() + "。请检查网络连接。", 
                 config.getLlm().getBaseUrl(), e);
         } catch (Exception e) {
+            EventBus.publish(new LlmRequestEvent(
+                    getProviderName(),
+                    getModel(),
+                    0, 0,
+                    System.currentTimeMillis() - startMs,
+                    false
+            ));
             throw new LlmException("流式请求失败: " + e.getMessage(), e);
         }
     }

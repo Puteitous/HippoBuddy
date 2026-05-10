@@ -358,7 +358,8 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel._reasoningSegment.done).toBe(true);
+      expect(chatPanel._reasoningSegment).toBeNull();
+      expect(chatPanel.segments[0].done).toBe(true);
     });
 
     it('clear_content 清空时重置 _reasoningSegment', () => {
@@ -395,7 +396,8 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel._reasoningSegment.done).toBe(true);
+      expect(chatPanel._reasoningSegment).toBeNull();
+      expect(chatPanel.segments[0].done).toBe(true);
       expect(chatPanel.currentText).toBe('最终答案');
     });
   });

@@ -247,7 +247,9 @@ export class ChatPanel {
   handleChunk(parsed, contentDiv, btnContainer) {
     if (this.isCompleted) return;
     
-    console.log('📥 收到 SSE 事件:', parsed._eventType, parsed);
+    if (parsed._eventType !== 'reasoning' && parsed._eventType !== 'content') {
+      console.log('📥 收到 SSE 事件:', parsed._eventType, parsed);
+    }
     
     // 处理 waiting_user 事件（优先处理，避免被其他逻辑拦截）
     if (parsed._eventType === 'waiting_user') {
@@ -262,6 +264,17 @@ export class ChatPanel {
       if (userMsgDiv && !userMsgDiv.dataset.messageId) {
         userMsgDiv.dataset.messageId = parsed.id;
       }
+      return;
+    }
+    
+    // 处理 thinking 事件 - 新轮次思考开始，重置 reasoning 状态
+    if (parsed._eventType === 'thinking') {
+      if (this.currentText.trim()) {
+        this.segments.push({ type: 'text', content: this.currentText });
+        this.currentText = '';
+      }
+      this._reasoningSegment = null;
+      this._flushRender();
       return;
     }
     
@@ -311,6 +324,7 @@ export class ChatPanel {
       if (this._reasoningSegment) {
         this._reasoningSegment.done = true;
         this._flushRender();
+        this._reasoningSegment = null;
       }
       return;
     }
@@ -520,6 +534,70 @@ export class ChatPanel {
   }
   
   /**
+   * 保存当前卡片展开状态（防止 innerHTML 重建导致自动收起）
+   */
+  _saveCardStates(container) {
+    const states = new Map();
+    
+    // 思考卡片：按索引保存 data-expanded 状态
+    container.querySelectorAll('.thinking-bubble.completed').forEach((bubble, idx) => {
+      const content = bubble.querySelector('.thinking-content');
+      states.set(`thinking:${idx}`, {
+        expanded: bubble.dataset.expanded === 'true',
+        display: content ? content.style.display : ''
+      });
+    });
+    
+    // 工具卡片：按工具名称+索引保存 expanded 状态
+    container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
+      const header = card.querySelector('.tool-header, .tool-call-header');
+      const isExpanded = header?.classList.contains('expanded');
+      // 用工具名+内容hash做key
+      const nameEl = card.querySelector('.tool-title, .tool-name');
+      const name = nameEl?.textContent || 'unknown';
+      states.set(`tool:${name}:${card.dataset.expandedKey || ''}`, {
+        expanded: isExpanded || false
+      });
+    });
+    
+    return states;
+  }
+  
+  /**
+   * 恢复卡片展开状态
+   */
+  _restoreCardStates(container, states) {
+    if (!states || states.size === 0) return;
+    
+    // 恢复思考卡片（按索引匹配）
+    container.querySelectorAll('.thinking-bubble.completed').forEach((bubble, idx) => {
+      const thinkingState = states.get(`thinking:${idx}`);
+      if (thinkingState?.expanded) {
+        bubble.dataset.expanded = 'true';
+        const content = bubble.querySelector('.thinking-content');
+        if (content) content.style.display = 'block';
+        const toggleIcon = bubble.querySelector('.toggle-icon');
+        if (toggleIcon) toggleIcon.textContent = '▼';
+      }
+    });
+    
+    // 恢复工具卡片
+    container.querySelectorAll('.tool-card, .tool-call-card').forEach((card, idx) => {
+      const nameEl = card.querySelector('.tool-title, .tool-name');
+      const name = nameEl?.textContent || 'unknown';
+      const key = `tool:${name}:${card.dataset.expandedKey || ''}`;
+      const saved = states.get(key);
+      
+      if (saved?.expanded) {
+        const header = card.querySelector('.tool-header, .tool-call-header');
+        const details = header?.nextElementSibling;
+        header?.classList.add('expanded');
+        details?.classList.add('show');
+      }
+    });
+  }
+  
+  /**
    * 执行实际的 DOM 渲染
    */
   async _doRender() {
@@ -528,6 +606,9 @@ export class ChatPanel {
     this._pendingRender = null;
     
     const { container, segments, currentText } = pending;
+    
+    // 保存展开状态（防止 innerHTML 重建导致卡片收起）
+    const savedStates = this._saveCardStates(container);
     
     let html = '';
     for (const segment of segments) {
@@ -543,6 +624,9 @@ export class ChatPanel {
       html += await renderMarkdown(currentText);
     }
     container.innerHTML = html;
+    
+    // 恢复展开状态
+    this._restoreCardStates(container, savedStates);
     
     container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
       if (this.chatUI.bindToolCardEvents) {
@@ -725,6 +809,7 @@ export class ChatPanel {
           if (reasoningSegment) {
             reasoningSegment.done = true;
             this._flushRender();
+            reasoningSegment = null;
           }
           return;
         }

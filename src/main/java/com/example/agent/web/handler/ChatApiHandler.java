@@ -34,11 +34,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 /**
  * Web Chat API Handler
@@ -428,6 +431,9 @@ public class ChatApiHandler implements HttpHandler {
             boolean[] reasoningPhase = {true}; // 标记是否仍在思考阶段
             List<Map<String, Object>> streamToolCalls = new ArrayList<>();
             boolean[] hasAskUser = {false}; // 标记是否检测到 ask_user 工具
+
+            // 在开始 LLM 调用前，检查并清理上一次循环遗留的未完成工具调用
+            cleanupOrphanToolCalls(messages);
 
             sendSseEvent(writer, "thinking", "{\"turn\":" + (turn + 1) + "}");
 
@@ -928,14 +934,71 @@ public class ChatApiHandler implements HttpHandler {
 
     private String escapeJsonForValue(String input) {
         if (input == null) return "null";
-        // 如果已经是合法的 JSON 字符串，直接返回（不额外加引号）
-        // 否则作为普通字符串转义
         if (input.startsWith("{") || input.startsWith("[")) {
-            // 已经是 JSON 对象/数组，直接返回（假设内容已转义）
-            // 注意：这里假设 LLM 返回的 arguments 已经是合法 JSON
             return input;
         }
-        // 普通字符串需要转义并加引号
         return "\"" + escapeJson(input) + "\"";
+    }
+
+    /**
+     * 清理消息列表中的孤立工具调用。
+     * 当 LLM 返回了 tool_calls 但没有对应的 tool 结果时，清理掉这些 tool_calls，
+     * 避免发送给 API 时因消息顺序错误导致 400 错误。
+     * 可能的原因：之前 Tool 执行挂起/超时/崩溃导致结果未写入对话。
+     */
+    private void cleanupOrphanToolCalls(List<Message> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
+
+        boolean foundOrphan = false;
+        int lastAssistantWithTools = -1;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Message msg = messages.get(i);
+            if (msg.isAssistant() && msg.getToolCalls() != null && !msg.getToolCalls().isEmpty()) {
+                lastAssistantWithTools = i;
+                break;
+            }
+        }
+
+        if (lastAssistantWithTools < 0) {
+            return;
+        }
+
+        Message assistantMsg = messages.get(lastAssistantWithTools);
+        List<ToolCall> toolCalls = assistantMsg.getToolCalls();
+        Set<String> toolCallIds = toolCalls.stream()
+            .map(ToolCall::getId)
+            .filter(id -> id != null && !id.isEmpty())
+            .collect(Collectors.toSet());
+
+        if (toolCallIds.isEmpty()) {
+            return;
+        }
+
+        Set<String> respondedIds = new HashSet<>();
+        for (int i = lastAssistantWithTools + 1; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if (msg.isTool() && msg.getToolCallId() != null && toolCallIds.contains(msg.getToolCallId())) {
+                respondedIds.add(msg.getToolCallId());
+            }
+        }
+
+        boolean allResponded = toolCallIds.stream().allMatch(respondedIds::contains);
+        if (!allResponded) {
+            logger.warn("检测到孤立 tool_calls (assistant消息索引={}), 共 {} 个调用, 仅有 {} 个有响应。将清空 tool_calls 避免 API 400 错误",
+                lastAssistantWithTools, toolCallIds.size(), respondedIds.size());
+            for (ToolCall tc : toolCalls) {
+                String toolName = tc.getFunction() != null ? tc.getFunction().getName() : "unknown";
+                boolean responded = tc.getId() != null && respondedIds.contains(tc.getId());
+                logger.warn("  孤立 ToolCall: id={}, name={}, 有响应={}", tc.getId(), toolName, responded);
+            }
+            assistantMsg.setToolCalls(null);
+            foundOrphan = true;
+        }
+
+        if (foundOrphan) {
+            logger.info("已清理孤立 tool_calls，避免后续 API 调用失败");
+        }
     }
 }
