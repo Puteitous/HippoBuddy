@@ -9,6 +9,7 @@ import com.example.agent.web.handler.MetricsApiHandler;
 import com.example.agent.web.handler.SessionApiHandler;
 import com.example.agent.web.handler.StaticFileHandler;
 import com.example.agent.web.handler.SystemPromptApiHandler;
+import com.example.agent.web.session.WebSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,6 +64,10 @@ public class DashboardServer {
             executor = Executors.newCachedThreadPool();
             server.setExecutor(executor);
             server.start();
+
+            // 启动时初始化 Memory 模块和 Token 缓存（而非等到第一个请求）
+            WebInitializer.ensureMemoryInitialized();
+            WebInitializer.initializeTokenCache(WebSessionManager.getInstance());
 
             // 启动会话清理定时器（参照 CLI 的 cleanupIdleSessions）
             startSessionCleanup();

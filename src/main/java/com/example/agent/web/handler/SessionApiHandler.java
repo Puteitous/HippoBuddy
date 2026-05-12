@@ -7,9 +7,11 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
-import com.example.agent.llm.model.ToolCall;
-import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.service.TokenEstimatorFactory;
+import com.example.agent.web.util.ConversationJsonlReader;
+import com.example.agent.web.util.MessageConverter;
+import com.example.agent.web.util.SessionListBuilder;
+import com.example.agent.web.util.TokenStatsResponseBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
@@ -21,20 +23,18 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
 
 public class SessionApiHandler implements HttpHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(SessionApiHandler.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    private static final Map<String, Path> sessionIdToFileCache = new HashMap<>();
+    private static final ConversationJsonlReader jsonlReader = new ConversationJsonlReader(objectMapper);
+    private static final SessionListBuilder sessionListBuilder = new SessionListBuilder(jsonlReader);
+    private static final MessageConverter messageConverter = new MessageConverter();
+    private static final TokenStatsResponseBuilder tokenStatsResponseBuilder = new TokenStatsResponseBuilder();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -54,7 +54,8 @@ public class SessionApiHandler implements HttpHandler {
 
         try {
             // 初始化内存缓存（从日志文件恢复 Token 统计）
-            com.example.agent.web.handler.ChatApiHandler.initializeMemoryCache();
+            com.example.agent.web.server.WebInitializer.initializeTokenCache(
+                com.example.agent.web.session.WebSessionManager.getInstance());
             
             if ("GET".equals(method) && path.equals("/api/sessions")) {
                 handleListSessions(exchange);
@@ -83,88 +84,8 @@ public class SessionApiHandler implements HttpHandler {
     }
 
     private void handleListSessions(HttpExchange exchange) throws IOException {
-        Map<String, Conversation> activeSessions = ChatApiHandler.getSessions();
-        Set<String> seenIds = new HashSet<>();
-        List<Map<String, Object>> sessionList = new ArrayList<>();
-
-        for (Map.Entry<String, Conversation> entry : activeSessions.entrySet()) {
-            Map<String, Object> sessionInfo = new HashMap<>();
-            sessionInfo.put("id", entry.getKey());
-            sessionInfo.put("messageCount", entry.getValue().getMessageCount());
-            sessionInfo.put("createdAt", extractTimestamp(entry.getKey()));
-            sessionInfo.put("active", true);
-
-            // 优先检查是否有自定义标题
-            Path jsonl = sessionIdToFileCache.get(entry.getKey());
-            String title = null;
-            if (jsonl != null && Files.exists(jsonl)) {
-                title = extractFirstUserMessage(jsonl);
-            }
-            
-            // 如果没有自定义标题，使用第一条用户消息
-            if (title == null || title.isBlank()) {
-                String firstUserMsg = entry.getValue().getMessages().stream()
-                    .filter(m -> "user".equals(m.getRole()))
-                    .map(Message::getContent)
-                    .filter(c -> c != null && !c.isBlank())
-                    .findFirst()
-                    .orElse(null);
-                if (firstUserMsg != null) {
-                    title = firstUserMsg;
-                }
-            }
-            
-            if (title != null && !title.isBlank()) {
-                sessionInfo.put("title", title.length() > 30 ? title.substring(0, 30) + "..." : title);
-            }
-
-            sessionList.add(sessionInfo);
-            seenIds.add(entry.getKey());
-        }
-
-        refreshFileCache();
-        for (Map.Entry<String, Path> entry : sessionIdToFileCache.entrySet()) {
-            String sessionId = entry.getKey();
-            if (seenIds.contains(sessionId)) continue;
-
-            Map<String, Object> sessionInfo = new HashMap<>();
-            sessionInfo.put("id", sessionId);
-            sessionInfo.put("createdAt", extractTimestamp(sessionId));
-            sessionInfo.put("active", false);
-
-            Path jsonl = entry.getValue();
-            try {
-                int msgCount = (int) Files.lines(jsonl).count();
-                sessionInfo.put("messageCount", msgCount);
-            } catch (IOException e) {
-                sessionInfo.put("messageCount", 0);
-            }
-
-            String title = extractFirstUserMessage(jsonl);
-            if (title != null && !title.isBlank()) {
-                sessionInfo.put("title", title.length() > 30 ? title.substring(0, 30) + "..." : title);
-            }
-
-            sessionList.add(sessionInfo);
-        }
-
-        sessionList.sort((a, b) -> {
-            long ta = parseTimestamp((String) a.getOrDefault("createdAt", "0"));
-            long tb = parseTimestamp((String) b.getOrDefault("createdAt", "0"));
-            
-            int cmp = Long.compare(tb, ta);
-            if (cmp != 0) {
-                return cmp;
-            }
-            
-            String idA = (String) a.get("id");
-            String idB = (String) b.get("id");
-            if (idA != null && idB != null) {
-                return idB.compareTo(idA);
-            }
-            
-            return 0;
-        });
+        Map<String, Conversation> activeSessions = com.example.agent.web.session.WebSessionManager.getInstance().getSessions();
+        List<Map<String, Object>> sessionList = sessionListBuilder.buildSessionList(activeSessions);
 
         String response = objectMapper.writeValueAsString(sessionList);
         byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
@@ -173,31 +94,8 @@ public class SessionApiHandler implements HttpHandler {
         exchange.close();
     }
 
-    private void refreshFileCache() {
-        sessionIdToFileCache.clear();
-        Path sessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
-        if (!Files.exists(sessionsDir)) return;
-
-        try (Stream<Path> dateDirs = Files.list(sessionsDir)) {
-            dateDirs.filter(Files::isDirectory).forEach(dateDir -> {
-                try (Stream<Path> sessionDirs = Files.list(dateDir)) {
-                    sessionDirs.filter(Files::isDirectory).forEach(sessionDir -> {
-                        Path jsonl = sessionDir.resolve("conversation.jsonl");
-                        if (Files.exists(jsonl)) {
-                            sessionIdToFileCache.put(sessionDir.getFileName().toString(), jsonl);
-                        }
-                    });
-                } catch (IOException e) {
-                    logger.debug("扫描日期目录失败: {}", dateDir, e);
-                }
-            });
-        } catch (IOException e) {
-            logger.error("扫描会话目录失败", e);
-        }
-    }
-
     private void handleGetMessages(HttpExchange exchange, String sessionId) throws IOException {
-        Map<String, Conversation> activeSessions = ChatApiHandler.getSessions();
+        Map<String, Conversation> activeSessions = com.example.agent.web.session.WebSessionManager.getInstance().getSessions();
         Conversation conversation = activeSessions.get(sessionId);
 
         if (conversation != null) {
@@ -206,9 +104,9 @@ public class SessionApiHandler implements HttpHandler {
             return;
         }
 
-        Path jsonl = findJsonlFile(sessionId);
+        Path jsonl = jsonlReader.findJsonlFile(sessionId);
         if (jsonl != null) {
-            List<Map<String, Object>> messages = readMessagesFromJsonl(jsonl);
+            List<Map<String, Object>> messages = jsonlReader.readMessages(jsonl);
             sendJson(exchange, messages);
             return;
         }
@@ -216,204 +114,14 @@ public class SessionApiHandler implements HttpHandler {
         sendError(exchange, 404, "Session not found");
     }
 
-    private Path findJsonlFile(String sessionId) {
-        if (sessionIdToFileCache.containsKey(sessionId)) {
-            return sessionIdToFileCache.get(sessionId);
-        }
-        refreshFileCache();
-        return sessionIdToFileCache.get(sessionId);
-    }
-
-    private List<Map<String, Object>> readMessagesFromJsonl(Path jsonl) {
-        List<Map<String, Object>> messages = new ArrayList<>();
-        try (Stream<String> lines = Files.lines(jsonl)) {
-            lines.forEach(line -> {
-                try {
-                    JsonNode node = objectMapper.readTree(line);
-                    String type = node.path("type").asText("");
-                    JsonNode msgNode = node.path("message");
-                    String role = msgNode.path("role").asText("");
-                    String content = msgNode.path("content").asText("");
-
-                    if ("system".equals(role) || "system".equals(type)) return;
-                    if (!"user".equals(role) && !"assistant".equals(role) && !"tool".equals(role) && !"tool-result".equals(type)) return;
-                    
-                    boolean hasToolCalls = "assistant".equals(role) && msgNode.has("tool_calls");
-                    if (content.isBlank() && !"tool-result".equals(type) && !hasToolCalls) return;
-
-                    Map<String, Object> msgMap = new HashMap<>();
-                    msgMap.put("id", msgNode.path("id").asText(""));
-                    msgMap.put("role", role.isEmpty() ? type : role);
-                    msgMap.put("content", content);
-                    
-                    if (msgNode.has("reasoning_content")) {
-                        msgMap.put("reasoning_content", msgNode.path("reasoning_content").asText());
-                    }
-
-                    if ("assistant".equals(role) && msgNode.has("tool_calls")) {
-                        JsonNode toolCalls = msgNode.path("tool_calls");
-                        List<Map<String, Object>> calls = new ArrayList<>();
-                        for (JsonNode tc : toolCalls) {
-                            Map<String, Object> call = new HashMap<>();
-                            call.put("id", tc.path("id").asText(""));
-                            call.put("name", tc.path("function").path("name").asText(""));
-                            call.put("arguments", tc.path("function").path("arguments").asText(""));
-                            calls.add(call);
-                        }
-                        msgMap.put("tool_calls", calls);
-                    }
-
-                    if ("tool".equals(role) || "tool-result".equals(type)) {
-                        msgMap.put("toolName", msgNode.path("name").asText(""));
-                        msgMap.put("toolCallId", msgNode.path("tool_call_id").asText(""));
-                        
-                        boolean success = true;
-                        
-                        // 先检查内容是否包含错误关键词
-                        boolean hasErrorKeywords = false;
-                        if (content != null && !content.isBlank()) {
-                            String lowerContent = content.toLowerCase();
-                            hasErrorKeywords = lowerContent.contains("错误:") || 
-                                lowerContent.contains("error:") || 
-                                lowerContent.contains("失败") ||
-                                lowerContent.contains("cancelled") || 
-                                lowerContent.contains("user_cancelled") ||
-                                lowerContent.contains("权限受限") ||
-                                lowerContent.contains("权限拒绝");
-                        }
-                        
-                        // 优先使用保存的真实状态（仅当没有错误关键词时）
-                        // 注意：旧数据中 toolSuccess 总是 true，所以如果有错误关键词，以关键词为准
-                        if (!hasErrorKeywords) {
-                            if (node.has("toolSuccess")) {
-                                success = node.path("toolSuccess").asBoolean(true);
-                            }
-                            else if (msgNode.has("isError")) {
-                                success = !msgNode.path("isError").asBoolean();
-                            }
-                        } else {
-                            success = false;
-                        }
-                        
-                        msgMap.put("success", success);
-                    }
-
-                    messages.add(msgMap);
-                } catch (Exception e) {
-                    // skip malformed lines
-                }
-            });
-        } catch (IOException e) {
-            logger.warn("读取 JSONL 失败: {}", jsonl, e);
-        }
-        return messages;
-    }
-
     private List<Map<String, Object>> extractMessages(List<Message> msgList) {
-        List<Map<String, Object>> messages = new ArrayList<>();
-        for (Message msg : msgList) {
-            String role = msg.getRole();
-            if ("system".equals(role)) continue;
-            
-            boolean hasToolCalls = "assistant".equals(role) && msg.getToolCalls() != null && !msg.getToolCalls().isEmpty();
-            if ((msg.getContent() == null || msg.getContent().isBlank()) && !hasToolCalls) continue;
-
-            Map<String, Object> msgMap = new HashMap<>();
-            msgMap.put("id", msg.getId());
-            msgMap.put("role", role);
-            msgMap.put("content", msg.getContent());
-            
-            if (msg.getReasoningContent() != null && !msg.getReasoningContent().isEmpty()) {
-                msgMap.put("reasoning_content", msg.getReasoningContent());
-            }
-            
-            if (hasToolCalls) {
-                List<Map<String, Object>> calls = new ArrayList<>();
-                for (ToolCall tc : msg.getToolCalls()) {
-                    Map<String, Object> call = new HashMap<>();
-                    call.put("id", tc.getId());
-                    call.put("name", tc.getFunction().getName());
-                    call.put("arguments", tc.getFunction().getArguments());
-                    calls.add(call);
-                }
-                msgMap.put("tool_calls", calls);
-            }
-            
-            // 处理 tool-result 消息，提取 success 状态
-            if ("tool".equals(role)) {
-                msgMap.put("toolName", msg.getName() != null ? msg.getName() : "");
-                msgMap.put("toolCallId", msg.getToolCallId() != null ? msg.getToolCallId() : "");
-                
-                // 从内容中推断 success 状态（因为 Message 对象没有 success 字段）
-                boolean success = true;
-                String content = msg.getContent();
-                if (content != null && !content.isBlank()) {
-                    String lowerContent = content.toLowerCase();
-                    if (lowerContent.contains("错误:") || 
-                        lowerContent.contains("error:") || 
-                        lowerContent.contains("失败") ||
-                        lowerContent.contains("cancelled") || 
-                        lowerContent.contains("user_cancelled") ||
-                        lowerContent.contains("权限受限") ||
-                        lowerContent.contains("权限拒绝")) {
-                        success = false;
-                    }
-                }
-                msgMap.put("success", success);
-            }
-            
-            messages.add(msgMap);
-        }
-        return messages;
-    }
-
-    private String extractFirstUserMessage(Path jsonl) {
-        try (Stream<String> lines = Files.lines(jsonl)) {
-            java.util.Optional<String> customTitle = lines
-                .map(line -> {
-                    try {
-                        JsonNode node = objectMapper.readTree(line);
-                        if ("custom-title".equals(node.path("type").asText())) {
-                            return node.path("title").asText(null);
-                        }
-                        return null;
-                    } catch (Exception e) {
-                        return null;
-                    }
-                })
-                .filter(t -> t != null && !t.isBlank())
-                .findFirst();
-            
-            if (customTitle.isPresent()) {
-                return customTitle.get();
-            }
-            
-            return Files.lines(jsonl)
-                .limit(50)
-                .map(line -> {
-                    try {
-                        JsonNode node = objectMapper.readTree(line);
-                        if ("user".equals(node.path("type").asText()) ||
-                            "user".equals(node.path("message").path("role").asText())) {
-                            return node.path("message").path("content").asText("");
-                        }
-                        return null;
-                    } catch (Exception e) {
-                        return null;
-                    }
-                })
-                .filter(c -> c != null && !c.isBlank())
-                .findFirst()
-                .orElse(null);
-        } catch (IOException e) {
-            return null;
-        }
+        return messageConverter.convertMessages(msgList);
     }
 
     private void handleDeleteSession(HttpExchange exchange, String sessionId) throws IOException {
-        Map<String, Conversation> sessions = ChatApiHandler.getSessions();
+        Map<String, Conversation> sessions = com.example.agent.web.session.WebSessionManager.getInstance().getSessions();
         Conversation conversation = sessions.remove(sessionId);
-        sessionIdToFileCache.remove(sessionId);
+        jsonlReader.removeFromCache(sessionId);
 
         // 调用 ConversationService.destroy 清理组件（参照 CLI 实现）
         if (conversation != null) {
@@ -426,7 +134,7 @@ public class SessionApiHandler implements HttpHandler {
 
         boolean deleted = false;
 
-        Path jsonl = findJsonlFile(sessionId);
+        Path jsonl = jsonlReader.findJsonlFile(sessionId);
         if (jsonl != null && Files.exists(jsonl)) {
             try {
                 Files.delete(jsonl);
@@ -474,7 +182,7 @@ public class SessionApiHandler implements HttpHandler {
             return;
         }
 
-        Path jsonl = findJsonlFile(sessionId);
+        Path jsonl = jsonlReader.findJsonlFile(sessionId);
         if (jsonl != null && Files.exists(jsonl)) {
             try {
                 List<String> lines = Files.readAllLines(jsonl);
@@ -517,7 +225,7 @@ public class SessionApiHandler implements HttpHandler {
      * 请求体: {"instruction": "可选的自定义压缩指令"}
      */
     private void handleCompactSession(HttpExchange exchange, String sessionId) throws IOException {
-        Conversation conversation = ChatApiHandler.getSessions().get(sessionId);
+        Conversation conversation = com.example.agent.web.session.WebSessionManager.getInstance().getSessions().get(sessionId);
         if (conversation == null) {
             sendError(exchange, 404, "Session not found");
             exchange.close();
@@ -585,136 +293,26 @@ public class SessionApiHandler implements HttpHandler {
      * GET /api/sessions/{id}/tokens
      */
     private void handleGetTokens(HttpExchange exchange, String sessionId) throws IOException {
-        Conversation conversation = ChatApiHandler.getSessions().get(sessionId);
-        
-        // 如果会话不存在（新会话还未发送消息），返回默认值
-        if (conversation == null) {
-            int maxTokens = Config.getInstance().getContext().getMaxTokens();
-            Map<String, Object> response = new HashMap<>();
-            response.put("currentTokens", 0);
-            response.put("maxTokens", maxTokens);
-            response.put("usagePercent", 0.0);
-            response.put("messageCount", 0);
-            response.put("hasKnownUsage", false);
-            response.put("sessionTotalInput", 0);
-            response.put("sessionTotalOutput", 0);
-            response.put("sessionTotalTokens", 0);
-            response.put("sessionLlmCalls", 0);
-            response.put("sessionToolCalls", 0);
-            response.put("cacheHitTokens", 0);
-            response.put("cacheHitRate", 0.0);
-            
-            String json = objectMapper.writeValueAsString(response);
-            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, bytes.length);
-            exchange.getResponseBody().write(bytes);
-            exchange.close();
-            return;
-        }
+        Conversation conversation = com.example.agent.web.session.WebSessionManager.getInstance().getSessions().get(sessionId);
 
         int maxTokens = Config.getInstance().getContext().getMaxTokens();
-        int currentTokens;
-        boolean hasKnownUsage = conversation.hasKnownUsage();
-        
-        if (hasKnownUsage) {
-            // 使用真实的 LLM 返回数据
-            currentTokens = conversation.getLastKnownTotalTokens();
-        } else {
-            // 估算值：消息 tokens + 2400（首轮回退模式）
-            List<Message> fullContext = conversation.getMessages();
-            int messageTokens = TokenEstimatorFactory.getDefault().estimateConversationTokens(fullContext);
-            currentTokens = messageTokens + 2400;
-        }
-        
-        double usageRatio = currentTokens * 100.0 / maxTokens;
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("currentTokens", currentTokens);
-        response.put("maxTokens", maxTokens);
-        response.put("usagePercent", Math.round(usageRatio * 10.0) / 10.0);
-        response.put("messageCount", conversation.getMessages().size());
-        response.put("hasKnownUsage", hasKnownUsage);
-
-        if (hasKnownUsage) {
-            var usage = conversation.getLastKnownUsage();
-            response.put("promptTokens", usage.getPromptTokens());
-            response.put("completionTokens", usage.getCompletionTokens());
-            response.put("totalTokens", conversation.getLastKnownTotalTokens());
-            response.put("cacheHitTokens", usage.getCacheReadInputTokens());
-            response.put("cacheHitRate", Math.round(usage.getCacheHitRate() * 10.0) / 10.0);
-            
-            if (usage.getCacheReadInputTokens() > 0) {
-                logger.info("💾 返回缓存命中数据: cacheHitTokens={}, cacheHitRate={}%",
-                    usage.getCacheReadInputTokens(),
-                    String.format("%.1f", usage.getCacheHitRate()));
-            }
-        } else {
-            logger.debug("📊 hasKnownUsage=false, 缓存命中数据暂不可用（需等待一次 LLM 调用）");
-        }
-
-        // 添加总 Token 消耗统计（从内存缓存中读取）
-        try {
-            ChatApiHandler.SessionTokenStats stats = ChatApiHandler.getSessionTokenStats(sessionId);
-            if (stats != null) {
-                response.put("sessionTotalInput", stats.totalInputTokens);
-                response.put("sessionTotalOutput", stats.totalOutputTokens);
-                response.put("sessionTotalTokens", stats.totalTokens);
-                response.put("sessionLlmCalls", stats.llmCalls);
-                response.put("sessionToolCalls", stats.toolCalls);
-                response.put("sessionCacheHitTokens", stats.totalCacheHitTokens);
-                response.put("sessionCacheHitRate", Math.round(stats.getSessionCacheHitRate() * 10.0) / 10.0);
-            } else {
-                // 如果内存中没有，尝试从日志文件读取（兼容旧数据）
-                var sessionStats = com.example.agent.web.logging.SessionLogger.getTokenStats(sessionId);
-                if (sessionStats != null) {
-                    response.put("sessionTotalInput", sessionStats.totalInputTokens);
-                    response.put("sessionTotalOutput", sessionStats.totalOutputTokens);
-                    response.put("sessionTotalTokens", sessionStats.totalTokens);
-                    response.put("sessionLlmCalls", sessionStats.llmCalls);
-                    response.put("sessionToolCalls", sessionStats.toolCalls);
+        com.example.agent.web.session.SessionTokenStats stats = null;
+        com.example.agent.web.logging.SessionLogger.SessionTokenStats legacyStats = null;
+        if (conversation != null) {
+            try {
+                stats = com.example.agent.web.session.WebSessionManager.getInstance().getSessionTokenStats(sessionId);
+                if (stats == null) {
+                    legacyStats = com.example.agent.web.logging.SessionLogger.getTokenStats(sessionId);
                 }
+            } catch (Exception e) {
+                logger.debug("读取会话 Token 统计失败：sessionId={}", sessionId);
             }
-        } catch (Exception e) {
-            logger.debug("读取会话总 Token 统计失败：sessionId={}", sessionId);
         }
+
+        Map<String, Object> response = tokenStatsResponseBuilder.build(conversation, maxTokens, stats, legacyStats);
 
         sendJson(exchange, response);
-    }
-
-    private String extractTimestamp(String sessionId) {
-        if (sessionId == null) {
-            return "0";
-        }
-        
-        if (sessionId.startsWith("web-")) {
-            return sessionId.substring(4);
-        }
-        
-        if (sessionId.startsWith("test-session-")) {
-            return sessionId.substring("test-session-".length());
-        }
-        
-        int lastDash = sessionId.lastIndexOf('-');
-        if (lastDash > 0 && lastDash < sessionId.length() - 1) {
-            String lastPart = sessionId.substring(lastDash + 1);
-            if (lastPart.matches("\\d+")) {
-                return lastPart;
-            }
-        }
-        
-        if (sessionId.matches("\\d+")) {
-            return sessionId;
-        }
-        
-        return "0";
-    }
-
-    private long parseTimestamp(String timestamp) {
-        try {
-            return Long.parseLong(timestamp);
-        } catch (NumberFormatException e) {
-            return 0;
-        }
     }
 
     private void sendJson(HttpExchange exchange, Object data) throws IOException {

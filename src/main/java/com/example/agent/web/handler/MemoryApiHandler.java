@@ -43,6 +43,8 @@ public class MemoryApiHandler implements HttpHandler {
         try {
             if ("GET".equals(method) && path.equals("/api/memories")) {
                 handleListMemories(exchange, memoryStore);
+            } else if ("GET".equals(method) && path.equals("/api/memories/stats")) {
+                handleStats(exchange, memoryStore);
             } else if ("GET".equals(method) && path.matches("/api/memories/[^/]+")) {
                 String id = path.substring("/api/memories/".length());
                 handleGetMemory(exchange, memoryStore, id);
@@ -52,8 +54,6 @@ public class MemoryApiHandler implements HttpHandler {
             } else if ("PUT".equals(method) && path.matches("/api/memories/[^/]+")) {
                 String id = path.substring("/api/memories/".length());
                 handleUpdateMemory(exchange, memoryStore, id);
-            } else if ("GET".equals(method) && path.equals("/api/memories/stats")) {
-                handleStats(exchange, memoryStore);
             } else {
                 sendError(exchange, 404, "未找到");
             }

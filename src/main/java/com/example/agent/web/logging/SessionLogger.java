@@ -2,6 +2,7 @@ package com.example.agent.web.logging;
 
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Usage;
+import com.example.agent.logging.WorkspaceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,7 +11,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.regex.Matcher;
@@ -25,7 +25,9 @@ public class SessionLogger {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     
-    private static final Path LOG_ROOT = Paths.get(".hippo/logs/conversations");
+    private static Path getLogRoot() {
+        return WorkspaceManager.getHippoRoot().resolve("logs/conversations");
+    }
     
     /**
      * 获取会话的总 Token 消耗（从日志文件中读取）
@@ -54,8 +56,8 @@ public class SessionLogger {
             Pattern totalInputPattern = Pattern.compile("总输入 Token:\\s*(\\d+)");
             Pattern totalOutputPattern = Pattern.compile("总输出 Token:\\s*(\\d+)");
             Pattern totalPattern = Pattern.compile("总 Token:\\s*(\\d+)");
-            Pattern llmCallsPattern = Pattern.compile("LLM 调用次数:\\s*(\\d+)");
-            Pattern toolCallsPattern = Pattern.compile("工具调用次数:\\s*(\\d+)");
+            Pattern llmCallsPattern = Pattern.compile("LLM 调用次数[：:]\\s*(\\d+)");
+            Pattern toolCallsPattern = Pattern.compile("工具调用次数[：:]\\s*(\\d+)");
             
             Matcher inputMatcher = totalInputPattern.matcher(summarySection);
             Matcher outputMatcher = totalOutputPattern.matcher(summarySection);
@@ -82,11 +84,11 @@ public class SessionLogger {
      */
     private static Path findSessionLogFile(String sessionId) throws IOException {
         // 按日期目录查找
-        if (!Files.exists(LOG_ROOT)) {
+        if (!Files.exists(getLogRoot())) {
             return null;
         }
         
-        try (var stream = Files.walk(LOG_ROOT)) {
+        try (var stream = Files.walk(getLogRoot())) {
             return stream
                 .filter(Files::isRegularFile)
                 .filter(p -> p.getFileName().toString().equals(sessionId + ".log"))
@@ -177,7 +179,7 @@ public class SessionLogger {
     
     private static SessionLog getOrCreateLog(String sessionId) throws IOException {
         String date = LocalDateTime.now().format(DATE_FORMATTER);
-        Path logDir = LOG_ROOT.resolve(date);
+        Path logDir = getLogRoot().resolve(date);
         Files.createDirectories(logDir);
         
         Path logFile = logDir.resolve(sessionId + ".log");
