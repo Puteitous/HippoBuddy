@@ -323,6 +323,9 @@ export class ChatPanel {
     if (parsed._eventType === 'reasoning_done') {
       if (this._reasoningSegment) {
         this._reasoningSegment.done = true;
+        // 强制重新渲染，将思考卡片从 "streaming"（思考中...）更新为 "completed"（已思考）
+        // 直接设置 _pendingRender 确保即使节流渲染已完成也能触发 _doRender
+        this._pendingRender = { container: contentDiv, segments: this.segments, currentText: this.currentText };
         this._flushRender();
         this._reasoningSegment = null;
       }
