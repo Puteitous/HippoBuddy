@@ -67,12 +67,12 @@ public class DuplicateToolCallBlocker implements Blocker {
         }
 
         logger.error("阻止重复工具调用: {} (第{}次)", signature, count + 1);
-        return HookResult.block(
+        return HookResult.validationError(
             String.format(
-                "重复调用拦截: %s 已在最近 %d 轮中调用 %d 次\n" +
-                "请使用之前的结果，或提供不同的参数",
-                toolName, windowSize, count
-            )
+                "重复工具调用: %s 已调用 %d 次（上限 %d 次）",
+                toolName, count + 1, maxAllowed
+            ),
+            "请使用之前的结果，或提供不同的参数调用其他工具"
         );
     }
 

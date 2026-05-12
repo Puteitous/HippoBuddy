@@ -5,19 +5,25 @@ public class HookResult {
     private final boolean allowed;
     private final String reason;
     private final String suggestion;
+    private final boolean warning;
 
-    private HookResult(boolean allowed, String reason, String suggestion) {
+    private HookResult(boolean allowed, String reason, String suggestion, boolean warning) {
         this.allowed = allowed;
         this.reason = reason;
         this.suggestion = suggestion;
+        this.warning = warning;
     }
 
     public static HookResult allow() {
-        return new HookResult(true, null, null);
+        return new HookResult(true, null, null, false);
+    }
+
+    public static HookResult warn(String reason, String suggestion) {
+        return new HookResult(true, reason, suggestion, true);
     }
 
     public static HookResult validationError(String reason, String example) {
-        return new HookResult(false, reason, example);
+        return new HookResult(false, reason, example, false);
     }
 
     /**
@@ -25,7 +31,7 @@ public class HookResult {
      * 所有 Blocker 的默认选择
      */
     public static HookResult block(String errorCode) {
-        return new HookResult(false, errorCode, null);
+        return new HookResult(false, errorCode, null, false);
     }
 
     public boolean isAllowed() {
@@ -40,8 +46,12 @@ public class HookResult {
         return suggestion;
     }
 
+    public boolean isWarning() {
+        return warning;
+    }
+
     public String formatErrorMessage() {
-        if (allowed) {
+        if (allowed && !warning) {
             return "";
         }
         if (suggestion != null) {
@@ -55,5 +65,15 @@ public class HookResult {
             ⛔ 执行被阻断
             ❌ %s
             """, reason);
+    }
+
+    public String formatWarningMessage() {
+        if (!warning) {
+            return "";
+        }
+        if (suggestion != null) {
+            return String.format("⚠️ %s (%s)", reason, suggestion);
+        }
+        return String.format("⚠️ %s", reason);
     }
 }

@@ -61,6 +61,7 @@ public class BlockerChain implements Blocker {
         }
         
         long chainStart = System.nanoTime();
+        HookResult lastWarning = null;
         
         for (Blocker blocker : blockers) {
             long blockerStart = System.nanoTime();
@@ -83,6 +84,13 @@ public class BlockerChain implements Blocker {
                 }
             }
             
+            if (result.isWarning()) {
+                logger.info("BLOCKER WARN from {} for tool={}: {}", 
+                    blocker.getClass().getSimpleName(), toolName, result.getReason());
+                lastWarning = result;
+                continue;
+            }
+            
             if (!result.isAllowed()) {
                 long totalMs = (System.nanoTime() - chainStart) / 1_000_000;
                 long currentBlocked = blockedCount.incrementAndGet();
@@ -99,6 +107,10 @@ public class BlockerChain implements Blocker {
                     currentBlocked);
                 return result;
             }
+        }
+        
+        if (lastWarning != null) {
+            return lastWarning;
         }
         
         long totalMs = (System.nanoTime() - chainStart) / 1_000_000;

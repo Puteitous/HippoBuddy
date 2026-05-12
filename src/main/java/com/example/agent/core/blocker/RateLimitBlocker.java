@@ -33,7 +33,10 @@ public class RateLimitBlocker implements Blocker {
                 k -> new RateLimiterWindow(window));
 
         if (!limiter.tryAcquire(maxCallsPerWindow)) {
-            return HookResult.block("RATE_LIMITED");
+            return HookResult.validationError(
+                String.format("工具调用过于频繁: %s（每分钟上限 %d 次）", toolName, maxCallsPerWindow),
+                "请等待一段时间后再试，或减少不必要的重复调用"
+            );
         }
 
         return HookResult.allow();

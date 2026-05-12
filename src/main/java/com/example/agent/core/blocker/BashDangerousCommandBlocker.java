@@ -28,7 +28,10 @@ public class BashDangerousCommandBlocker implements Blocker {
 
         for (String pattern : DANGEROUS_PATTERNS) {
             if (command.contains(pattern)) {
-                return HookResult.block(String.format("CommandBlocked: %s", pattern));
+                return HookResult.validationError(
+                    String.format("危险命令模式: %s", pattern),
+                    "请使用白名单内的安全命令（git、cat、grep、ls 等）"
+                );
             }
         }
 
