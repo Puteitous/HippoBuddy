@@ -47,8 +47,8 @@ class RateLimitBlockerTest {
 
             HookResult result = blocker.check("bash", args);
             assertFalse(result.isAllowed());
-            assertEquals("RATE_LIMITED", result.getReason());
-            assertNull(result.getSuggestion());
+            assertTrue(result.getReason().contains("频繁"));
+            assertNotNull(result.getSuggestion());
         }
 
         @Test

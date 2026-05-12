@@ -13,7 +13,6 @@ import com.example.agent.testutil.MockLlmClient;
 import com.example.agent.testutil.LlmResponseBuilder;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.tools.RecallMemoryTool;
-import com.example.agent.web.handler.ChatApiHandler;
 import com.example.agent.web.server.DashboardServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -106,7 +105,7 @@ class WebMemoryInjectionTest {
     void tearDown() {
         DashboardServer.stop();
         ServiceLocator.clear();
-        ChatApiHandler.getSessions().clear();
+        com.example.agent.web.session.WebSessionManager.getInstance().getSessions().clear();
     }
 
     @Test
@@ -163,7 +162,7 @@ class WebMemoryInjectionTest {
     void testWebChatAutoInitializesMemoryWhenNotInDI() throws Exception {
         // 清除 DI 容器中的 MemoryRetriever（模拟 Web 独立启动）
         ServiceLocator.clear();
-        ChatApiHandler.getSessions().clear();
+        com.example.agent.web.session.WebSessionManager.getInstance().getSessions().clear();
 
         // 重新注册必要组件（但不注册 MemoryRetriever）
         mockLlmClient = new MockLlmClient();

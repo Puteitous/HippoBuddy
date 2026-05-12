@@ -18,15 +18,16 @@ class EditBeforeReadBlockerTest {
     }
 
     @Test
-    void editWithoutRead_shouldBeBlocked() {
+    void editWithoutRead_shouldWarn() {
         JsonNode editArgs = JsonNodeFactory.instance.objectNode()
                 .put("path", "/test/Test.java");
 
         HookResult result = blocker.check("edit_file", editArgs);
 
-        assertFalse(result.isAllowed());
-        assertTrue(result.getReason().contains("未读取文件内容"));
-        assertTrue(result.getSuggestion().contains("read_file"));
+        assertTrue(result.isAllowed());
+        assertTrue(result.isWarning());
+        assertTrue(result.getReason().contains("建议先读取"));
+        assertNotNull(result.getSuggestion());
     }
 
     @Test
@@ -40,16 +41,18 @@ class EditBeforeReadBlockerTest {
         HookResult result = blocker.check("edit_file", editArgs);
 
         assertTrue(result.isAllowed());
+        assertFalse(result.isWarning());
     }
 
     @Test
-    void writeWithoutRead_shouldBeBlocked() {
+    void writeWithoutRead_shouldWarn() {
         JsonNode writeArgs = JsonNodeFactory.instance.objectNode()
                 .put("path", "/test/Test.java");
 
         HookResult result = blocker.check("write_file", writeArgs);
 
-        assertFalse(result.isAllowed());
+        assertTrue(result.isAllowed());
+        assertTrue(result.isWarning());
     }
 
     @Test

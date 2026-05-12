@@ -179,7 +179,8 @@ class FileOperationStateMachineTest {
                 .put("path", existingFile.toString());
         HookResult result = editBlocker.check("edit_file", editArgs);
 
-        assertFalse(result.isAllowed(), "已存在文件仍应要求先读");
+        assertTrue(result.isAllowed(), "已存在文件应允许编辑");
+        assertTrue(result.isWarning(), "已存在文件应给出读取建议");
     }
 
     @Test

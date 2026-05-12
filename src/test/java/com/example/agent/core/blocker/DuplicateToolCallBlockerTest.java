@@ -69,7 +69,7 @@ class DuplicateToolCallBlockerTest {
             HookResult result = blocker.check("read_file", args);
             
             assertFalse(result.isAllowed());
-            assertTrue(result.getReason().contains("重复调用拦截"));
+            assertTrue(result.getReason().contains("重复工具调用"));
         }
 
         @Test
@@ -82,7 +82,7 @@ class DuplicateToolCallBlockerTest {
             HookResult result = blocker.check("grep", args);
             
             assertFalse(result.isAllowed());
-            assertTrue(result.getReason().contains("重复调用拦截"));
+            assertTrue(result.getReason().contains("重复工具调用"));
         }
     }
 
@@ -147,7 +147,7 @@ class DuplicateToolCallBlockerTest {
         }
 
         @Test
-        @DisplayName("每轮结束后更新计数")
+        @DisplayName("每轮结束后清空计数")
         void turnCompleteUpdatesCount() {
             JsonNode args = createArgs("test.txt");
             
@@ -156,19 +156,18 @@ class DuplicateToolCallBlockerTest {
                 blocker.check("read_file", args);
             }
             
-            // Map 中只有 1 个唯一键，但计数值为 6
+            // Map 中只有 1 个唯一键
             assertEquals(1, blocker.getActiveCallCount());
             
-            // 调用 onTurnComplete 进行窗口滑动
+            // 调用 onTurnComplete 清空所有计数（跨轮次重置）
             blocker.onTurnComplete();
             
-            // 窗口大小为 5，滑动后应该移除 1 次调用，计数变为 5
-            // 但由于 pruneHistory 只减少计数不移除键，所以仍然有 1 个键
-            assertEquals(1, blocker.getActiveCallCount());
+            // 清空后 activeCallCount 应为 0
+            assertEquals(0, blocker.getActiveCallCount());
             
-            // 再次调用应该仍然被拦截（因为计数仍然 >= 2）
+            // 清空后再次调用应该正常工作（计数重新开始）
             HookResult result = blocker.check("read_file", args);
-            assertFalse(result.isAllowed());
+            assertTrue(result.isAllowed());
         }
     }
 

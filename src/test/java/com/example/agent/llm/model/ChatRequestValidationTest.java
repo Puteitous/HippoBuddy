@@ -181,7 +181,7 @@ class ChatRequestValidationTest {
         void testReasoningWithToolCallsOmitsContent() throws Exception {
             ToolCall toolCall = new ToolCall();
             toolCall.setId("call-123");
-            FunctionDefinition func = new FunctionDefinition("get_weather", "Get weather");
+            FunctionCall func = new FunctionCall("get_weather", "{}");
             toolCall.setFunction(func);
 
             Message msg = Message.assistantWithToolCalls(List.of(toolCall), "我需要先查日期");

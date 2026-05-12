@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -166,6 +167,7 @@ class ReadFileToolTest {
     @Test
     void testReadFileSuccessfully() throws Exception {
         String fileContent = "Hello World\nLine 2\nLine 3";
+        List<String> fileLines = List.of("Hello World", "Line 2", "Line 3");
         
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
@@ -177,7 +179,9 @@ class ReadFileToolTest {
             filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.isReadable(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.size(mockPath)).thenReturn((long) fileContent.length());
-            filesMock.when(() -> Files.readString(mockPath)).thenReturn(fileContent);
+            filesMock.when(() -> Files.readAllLines(mockPath)).thenReturn(fileLines);
+            filesMock.when(() -> Files.getLastModifiedTime(mockPath))
+                .thenReturn(java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
             
             ObjectNode args = objectMapper.createObjectNode();
             args.put("path", "test.txt");
@@ -193,6 +197,7 @@ class ReadFileToolTest {
     @Test
     void testReadFileWithUnicode() throws Exception {
         String fileContent = "你好世界\n🎉 Emoji\n日本語";
+        List<String> fileLines = List.of("你好世界", "🎉 Emoji", "日本語");
         
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
@@ -204,7 +209,9 @@ class ReadFileToolTest {
             filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.isReadable(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.size(mockPath)).thenReturn((long) fileContent.getBytes(StandardCharsets.UTF_8).length);
-            filesMock.when(() -> Files.readString(mockPath)).thenReturn(fileContent);
+            filesMock.when(() -> Files.readAllLines(mockPath)).thenReturn(fileLines);
+            filesMock.when(() -> Files.getLastModifiedTime(mockPath))
+                .thenReturn(java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
             
             ObjectNode args = objectMapper.createObjectNode();
             args.put("path", "unicode.txt");
@@ -228,7 +235,9 @@ class ReadFileToolTest {
             filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.isReadable(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.size(mockPath)).thenReturn(0L);
-            filesMock.when(() -> Files.readString(mockPath)).thenReturn("");
+            filesMock.when(() -> Files.readAllLines(mockPath)).thenReturn(List.of());
+            filesMock.when(() -> Files.getLastModifiedTime(mockPath))
+                .thenReturn(java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
             
             ObjectNode args = objectMapper.createObjectNode();
             args.put("path", "empty.txt");
@@ -278,7 +287,7 @@ class ReadFileToolTest {
             filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.isReadable(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.size(mockPath)).thenReturn(100L);
-            filesMock.when(() -> Files.readString(mockPath))
+            filesMock.when(() -> Files.readAllLines(mockPath))
                 .thenThrow(new IOException("Read error"));
             
             ObjectNode args = objectMapper.createObjectNode();

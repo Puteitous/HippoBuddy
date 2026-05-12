@@ -35,7 +35,7 @@ class BlockerChainIntegrationTest {
         JsonNode arguments = JsonNodeFactory.instance.objectNode()
                 .put("path", "/test/Test.java");
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 10; i++) {
             blockerChain.check("edit_file", arguments);
         }
 
@@ -44,7 +44,7 @@ class BlockerChainIntegrationTest {
         assertFalse(result.isAllowed());
         assertNotNull(result.getReason());
         assertNotNull(result.getSuggestion());
-        assertTrue(result.formatErrorMessage().contains("已被编辑"));
+        assertTrue(result.formatErrorMessage().contains("编辑次数超限"));
     }
 
     @Test
