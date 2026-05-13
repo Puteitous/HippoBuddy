@@ -97,7 +97,7 @@ class WebMemoryInjectionTest {
             fail("Memory 模块初始化失败: " + e.getMessage());
         }
 
-        DashboardServer.start(TEST_PORT);
+        DashboardServer.start(TEST_PORT, false);
         Thread.sleep(500);
     }
 

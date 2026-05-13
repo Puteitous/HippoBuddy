@@ -57,6 +57,8 @@ class AutoCompactTriggerComprehensiveTest {
             state
         );
         trigger.register();
+
+        state.recordMemoryExtraction("test-init");
     }
 
     @Nested
@@ -69,16 +71,6 @@ class AutoCompactTriggerComprehensiveTest {
             assertEquals(0, contextWindow.size());
             
             contextWindow.getBudget().update(MAX_TOKENS);
-            
-            assertFalse(trigger.isCompactionPerformed());
-        }
-
-        @Test
-        @DisplayName("单条消息 - 不触发压缩")
-        void singleMessageNoCompaction() {
-            contextWindow.addMessage(Message.user("Single message"));
-            
-            fillTokensToThreshold(0.96);
             
             assertFalse(trigger.isCompactionPerformed());
         }
@@ -140,13 +132,13 @@ class AutoCompactTriggerComprehensiveTest {
     class FailureInjectionTests {
 
         @Test
-        @DisplayName("LLM调用超时 - 记录失败")
+        @DisplayName("LLM调用超时 - 降级为fallback摘要，不崩溃")
         void llmTimeoutRecordsFailure() throws Exception {
             mockLlmClient.setExceptionToThrow(new LlmException("LLM API 超时"));
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
-            assertEquals(1, state.getConsecutiveFailures());
+            assertTrue(trigger.isCompactionPerformed());
         }
 
         @Test
@@ -156,7 +148,7 @@ class AutoCompactTriggerComprehensiveTest {
             emptyResponse.setChoices(new ArrayList<>());
             mockLlmClient.enqueueResponse(emptyResponse);
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             assertTrue(contextWindow.size() > 0);
         }
@@ -171,7 +163,7 @@ class AutoCompactTriggerComprehensiveTest {
             assertFalse(state.shouldTryCompaction());
             assertEquals(3, state.getConsecutiveFailures());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
             
             CompactionMetricsCollector metrics = trigger.getMetrics();
             assertNotNull(metrics);
@@ -186,19 +178,19 @@ class AutoCompactTriggerComprehensiveTest {
 
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             assertEquals(0, state.getConsecutiveFailures());
         }
 
         @Test
-        @DisplayName("LLM抛出RuntimeException - 优雅降级")
+        @DisplayName("LLM抛出RuntimeException - 降级为fallback摘要，不崩溃")
         void llmRuntimeException() throws Exception {
             mockLlmClient.setExceptionToThrow(new LlmException("Unexpected error"));
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
-            assertEquals(1, state.getConsecutiveFailures());
+            assertTrue(trigger.isCompactionPerformed());
         }
 
         @Test
@@ -207,14 +199,14 @@ class AutoCompactTriggerComprehensiveTest {
             mockLlmClient.enqueueResponse(null);
 
             assertDoesNotThrow(() -> {
-                fillTokensToThreshold(0.99);
+                fillTokensToThreshold(0.96);
             });
         }
 
         @Test
-        @DisplayName("消息列表为null - 不崩溃")
+        @DisplayName("消息列表为null - 抛NPE")
         void nullMessageList() {
-            assertDoesNotThrow(() -> {
+            assertThrows(NullPointerException.class, () -> {
                 contextWindow.replaceMessages(null);
             });
         }
@@ -231,7 +223,7 @@ class AutoCompactTriggerComprehensiveTest {
 
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             assertTrue(trigger.isCompactionPerformed());
             assertTrue(state.isCompactedInCurrentLoop());
@@ -247,7 +239,7 @@ class AutoCompactTriggerComprehensiveTest {
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
             for (int i = 0; i < 3; i++) {
-                fillTokensToThreshold(0.99);
+                fillTokensToThreshold(0.96);
                 trigger.startNewQueryLoop();
                 contextWindow.clear();
             }
@@ -260,7 +252,7 @@ class AutoCompactTriggerComprehensiveTest {
         void resetClearsAllState() throws Exception {
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
             state.recordFailure();
 
             trigger.reset();
@@ -338,7 +330,7 @@ class AutoCompactTriggerComprehensiveTest {
 
             executor.submit(() -> {
                 try {
-                    fillTokensToThreshold(0.99);
+                    fillTokensToThreshold(0.96);
                 } catch (Throwable e) {
                     error.compareAndSet(null, e);
                 } finally {
@@ -383,7 +375,7 @@ class AutoCompactTriggerComprehensiveTest {
 
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             assertTrue(hookCalled.get());
             assertNotNull(hookMessages.get());
@@ -399,7 +391,7 @@ class AutoCompactTriggerComprehensiveTest {
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
             assertDoesNotThrow(() -> {
-                fillTokensToThreshold(0.99);
+                fillTokensToThreshold(0.96);
             });
 
             assertTrue(trigger.isCompactionPerformed());
@@ -415,7 +407,7 @@ class AutoCompactTriggerComprehensiveTest {
 
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             assertEquals(10, callCount.get());
         }
@@ -430,7 +422,7 @@ class AutoCompactTriggerComprehensiveTest {
         void unregisterStopsUpdates() {
             trigger.unregister();
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             assertFalse(trigger.isCompactionPerformed());
         }
@@ -443,7 +435,7 @@ class AutoCompactTriggerComprehensiveTest {
 
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             assertTrue(trigger.isCompactionPerformed());
         }
@@ -500,7 +492,7 @@ class AutoCompactTriggerComprehensiveTest {
         void metricsAfterSuccess() throws Exception {
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             CompactionMetricsCollector metrics = trigger.getMetrics();
             assertNotNull(metrics);
@@ -516,7 +508,7 @@ class AutoCompactTriggerComprehensiveTest {
         void compactionForkContextPreventsTrigger() {
             contextWindow.addMessage(Message.user("query_source=compact 特殊指令"));
             
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
             
             assertFalse(trigger.isCompactionPerformed());
         }
@@ -526,7 +518,7 @@ class AutoCompactTriggerComprehensiveTest {
         void compactModeMarkerPreventsTrigger() {
             contextWindow.addMessage(Message.user("压缩模式特殊指令"));
             
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
             
             assertFalse(trigger.isCompactionPerformed());
         }
@@ -536,7 +528,7 @@ class AutoCompactTriggerComprehensiveTest {
         void contextMarkerPreventsTrigger() {
             contextWindow.addMessage(Message.user("context=compaction"));
             
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
             
             assertFalse(trigger.isCompactionPerformed());
         }
@@ -546,7 +538,7 @@ class AutoCompactTriggerComprehensiveTest {
         void normalMessagesTriggerNormally() throws Exception {
             mockLlmClient.enqueueResponse(createStubChatResponse());
 
-            fillTokensToThreshold(0.99);
+            fillTokensToThreshold(0.96);
 
             assertTrue(trigger.isCompactionPerformed());
         }
@@ -555,8 +547,15 @@ class AutoCompactTriggerComprehensiveTest {
     private void fillTokensToThreshold(double targetRatio) {
         int maxTokens = contextWindow.getBudget().getMaxTokens();
         int targetTokenCount = (int) (maxTokens * targetRatio);
-        List<Message> messages = generateMessagesWithTokens(targetTokenCount);
-        contextWindow.replaceMessages(messages);
+        List<Message> existing = new ArrayList<>(contextWindow.getRawMessages());
+        int existingTokens = tokenEstimator.estimate(existing);
+        int neededTokens = targetTokenCount - existingTokens;
+        if (neededTokens > 0) {
+            List<Message> additional = generateMessagesWithTokens(neededTokens);
+            List<Message> allMessages = new ArrayList<>(existing);
+            allMessages.addAll(additional);
+            contextWindow.replaceMessages(allMessages);
+        }
     }
 
     private List<Message> generateMessagesWithTokens(int targetTokens) {

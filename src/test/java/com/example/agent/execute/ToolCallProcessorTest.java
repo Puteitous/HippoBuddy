@@ -3,6 +3,7 @@ package com.example.agent.execute;
 import com.example.agent.application.ConversationService;
 import com.example.agent.console.AgentUi;
 import com.example.agent.core.AgentContext;
+import com.example.agent.core.AgentMode;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.model.FunctionCall;
 import com.example.agent.llm.model.ToolCall;
@@ -49,6 +50,7 @@ class ToolCallProcessorTest {
         conversation = mock(Conversation.class);
         ui = mock(AgentUi.class);
         context = mock(AgentContext.class);
+        when(context.getCurrentMode()).thenReturn(AgentMode.CODING);
         processor = new ToolCallProcessor(context, executor, conversationService, conversation, ui);
     }
 
@@ -70,7 +72,7 @@ class ToolCallProcessorTest {
             
             assertDoesNotThrow(() -> processor.processToolCallsConcurrently(toolCalls, null));
             
-            verify(conversationService, never()).addToolResult(any(Conversation.class), anyString(), anyString(), anyString());
+            verify(conversationService, never()).addToolResult(any(Conversation.class), anyString(), anyString(), anyString(), anyBoolean());
         }
 
         @Test
@@ -87,7 +89,7 @@ class ToolCallProcessorTest {
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService, never()).addToolResult(any(Conversation.class), anyString(), anyString(), anyString());
+            verify(conversationService, never()).addToolResult(any(Conversation.class), anyString(), anyString(), anyString(), anyBoolean());
         }
 
         @Test
@@ -98,7 +100,7 @@ class ToolCallProcessorTest {
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService, never()).addToolResult(any(Conversation.class), anyString(), anyString(), anyString());
+            verify(conversationService, never()).addToolResult(any(Conversation.class), anyString(), anyString(), anyString(), anyBoolean());
         }
 
         @Test
@@ -113,7 +115,7 @@ class ToolCallProcessorTest {
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService, never()).addToolResult(any(Conversation.class), anyString(), anyString(), anyString());
+            verify(conversationService, never()).addToolResult(any(Conversation.class), anyString(), anyString(), anyString(), anyBoolean());
         }
     }
 
@@ -125,30 +127,31 @@ class ToolCallProcessorTest {
         @DisplayName("工具不存在应返回失败结果，不崩溃")
         void testToolNotExist() {
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "nonexistent_tool", "{}"));
+            toolCalls.add(createToolCall("call-1", "grep", "{}"));
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
             verify(conversationService).addToolResult(eq(conversation), 
                 eq("call-1"),
-                eq("nonexistent_tool"),
-                contains("Error:")
+                eq("grep"),
+                contains("Error:"),
+                eq(false)
             );
         }
 
         @Test
         @DisplayName("多个工具调用中部分不存在应继续执行其他")
         void testPartialToolNotExist() throws ToolExecutionException {
-            toolRegistry.register(new MockToolExecutor("existing_tool", "success result"));
+            toolRegistry.register(new MockToolExecutor("bash", "success result"));
             
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "existing_tool", "{}"));
-            toolCalls.add(createToolCall("call-2", "nonexistent_tool", "{}"));
-            toolCalls.add(createToolCall("call-3", "existing_tool", "{}"));
+            toolCalls.add(createToolCall("call-1", "bash", "{}"));
+            toolCalls.add(createToolCall("call-2", "grep", "{}"));
+            toolCalls.add(createToolCall("call-3", "bash", "{}"));
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService, times(3)).addToolResult(any(Conversation.class), anyString(), anyString(), anyString());
+            verify(conversationService, times(3)).addToolResult(any(Conversation.class), anyString(), anyString(), anyString(), anyBoolean());
         }
     }
 
@@ -159,30 +162,30 @@ class ToolCallProcessorTest {
         @Test
         @DisplayName("单个工具调用成功执行")
         void testSingleToolCallSuccess() throws ToolExecutionException {
-            toolRegistry.register(new MockToolExecutor("test_tool", "test result"));
+            toolRegistry.register(new MockToolExecutor("bash", "test result"));
             
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "test_tool", "{\"arg\": \"value\"}"));
+            toolCalls.add(createToolCall("call-1", "bash", "{\"arg\": \"value\"}"));
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService).addToolResult(conversation, "call-1", "test_tool", "test result");
+            verify(conversationService).addToolResult(conversation, "call-1", "bash", "test result", true);
         }
 
         @Test
         @DisplayName("多个工具调用并发执行")
         void testMultipleToolCallsConcurrent() throws ToolExecutionException {
-            toolRegistry.register(new MockToolExecutor("tool_a", "result_a"));
-            toolRegistry.register(new MockToolExecutor("tool_b", "result_b"));
+            toolRegistry.register(new MockToolExecutor("bash", "result_a"));
+            toolRegistry.register(new MockToolExecutor("glob", "result_b"));
             
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "tool_a", "{}"));
-            toolCalls.add(createToolCall("call-2", "tool_b", "{}"));
+            toolCalls.add(createToolCall("call-1", "bash", "{}"));
+            toolCalls.add(createToolCall("call-2", "glob", "{}"));
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService).addToolResult(conversation, "call-1", "tool_a", "result_a");
-            verify(conversationService).addToolResult(conversation, "call-2", "tool_b", "result_b");
+            verify(conversationService).addToolResult(conversation, "call-1", "bash", "result_a", true);
+            verify(conversationService).addToolResult(conversation, "call-2", "glob", "result_b", true);
         }
     }
 
@@ -194,14 +197,15 @@ class ToolCallProcessorTest {
         @DisplayName("无效JSON参数应返回错误")
         void testInvalidJsonArguments() {
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "test_tool", "not valid json"));
+            toolCalls.add(createToolCall("call-1", "bash", "not valid json"));
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
             verify(conversationService).addToolResult(eq(conversation), 
                 eq("call-1"),
-                eq("test_tool"),
-                contains("Error:")
+                eq("bash"),
+                contains("Error:"),
+                eq(false)
             );
         }
 
@@ -210,7 +214,7 @@ class ToolCallProcessorTest {
         void testNullArguments() {
             ToolCall toolCall = new ToolCall();
             toolCall.setId("call-1");
-            toolCall.setFunction(new FunctionCall("test_tool", null));
+            toolCall.setFunction(new FunctionCall("bash", null));
             
             List<ToolCall> toolCalls = new ArrayList<>();
             toolCalls.add(toolCall);
@@ -219,22 +223,23 @@ class ToolCallProcessorTest {
             
             verify(conversationService).addToolResult(eq(conversation), 
                 eq("call-1"),
-                eq("test_tool"),
-                any()
+                eq("bash"),
+                anyString(),
+                eq(false)
             );
         }
 
         @Test
         @DisplayName("空JSON对象参数应正常处理")
         void testEmptyJsonArguments() throws ToolExecutionException {
-            toolRegistry.register(new MockToolExecutor("test_tool", "success"));
+            toolRegistry.register(new MockToolExecutor("bash", "success"));
             
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "test_tool", "{}"));
+            toolCalls.add(createToolCall("call-1", "bash", "{}"));
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService).addToolResult(conversation, "call-1", "test_tool", "success");
+            verify(conversationService).addToolResult(conversation, "call-1", "bash", "success", true);
         }
     }
 
@@ -245,16 +250,16 @@ class ToolCallProcessorTest {
         @Test
         @DisplayName("成功执行应记录日志")
         void testLogSuccessfulExecution() throws ToolExecutionException {
-            toolRegistry.register(new MockToolExecutor("test_tool", "result"));
+            toolRegistry.register(new MockToolExecutor("bash", "result"));
             
             ConversationLogger logger = mock(ConversationLogger.class);
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "test_tool", "{\"key\": \"value\"}"));
+            toolCalls.add(createToolCall("call-1", "bash", "{\"key\": \"value\"}"));
             
             processor.processToolCallsConcurrently(toolCalls, logger);
             
             verify(logger).logToolCall(
-                eq("test_tool"),
+                eq("bash"),
                 eq("{\"key\": \"value\"}"),
                 eq("result"),
                 anyLong(),
@@ -267,12 +272,12 @@ class ToolCallProcessorTest {
         void testLogFailedExecution() {
             ConversationLogger logger = mock(ConversationLogger.class);
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "nonexistent", "{}"));
+            toolCalls.add(createToolCall("call-1", "grep", "{}"));
             
             processor.processToolCallsConcurrently(toolCalls, logger);
             
             verify(logger).logToolCall(
-                eq("nonexistent"),
+                eq("grep"),
                 eq("{}"),
                 contains("未知的工具"),
                 anyLong(),
@@ -283,10 +288,10 @@ class ToolCallProcessorTest {
         @Test
         @DisplayName("null日志应不崩溃")
         void testNullLogger() throws ToolExecutionException {
-            toolRegistry.register(new MockToolExecutor("test_tool", "result"));
+            toolRegistry.register(new MockToolExecutor("bash", "result"));
             
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "test_tool", "{}"));
+            toolCalls.add(createToolCall("call-1", "bash", "{}"));
             
             assertDoesNotThrow(() -> processor.processToolCallsConcurrently(toolCalls, null));
         }
@@ -299,32 +304,32 @@ class ToolCallProcessorTest {
         @Test
         @DisplayName("有效和无效工具调用混合")
         void testMixedValidInvalidToolCalls() throws ToolExecutionException {
-            toolRegistry.register(new MockToolExecutor("valid_tool", "success"));
+            toolRegistry.register(new MockToolExecutor("bash", "success"));
             
             List<ToolCall> toolCalls = new ArrayList<>();
-            toolCalls.add(createToolCall("call-1", "valid_tool", "{}"));
+            toolCalls.add(createToolCall("call-1", "bash", "{}"));
             toolCalls.add(createToolCall("call-2", null, "{}"));
             toolCalls.add(createToolCall("call-3", "", "{}"));
-            toolCalls.add(createToolCall("call-4", "nonexistent_tool", "{}"));
+            toolCalls.add(createToolCall("call-4", "grep", "{}"));
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService, times(2)).addToolResult(any(Conversation.class), anyString(), anyString(), anyString());
+            verify(conversationService, times(2)).addToolResult(any(Conversation.class), anyString(), anyString(), anyString(), anyBoolean());
         }
 
         @Test
         @DisplayName("大量工具调用并发执行")
         void testLargeNumberOfToolCalls() throws ToolExecutionException {
-            toolRegistry.register(new MockToolExecutor("test_tool", "result"));
+            toolRegistry.register(new MockToolExecutor("bash", "result"));
             
             List<ToolCall> toolCalls = new ArrayList<>();
             for (int i = 0; i < 100; i++) {
-                toolCalls.add(createToolCall("call-" + i, "test_tool", "{}"));
+                toolCalls.add(createToolCall("call-" + i, "bash", "{}"));
             }
             
             processor.processToolCallsConcurrently(toolCalls, null);
             
-            verify(conversationService, times(100)).addToolResult(any(Conversation.class), anyString(), anyString(), anyString());
+            verify(conversationService, times(100)).addToolResult(any(Conversation.class), anyString(), anyString(), anyString(), anyBoolean());
         }
     }
 

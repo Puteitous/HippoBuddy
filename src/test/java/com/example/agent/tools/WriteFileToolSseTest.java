@@ -30,7 +30,7 @@ class WriteFileToolSseTest {
     void setUp() throws InterruptedException {
         writeFileTool = new WriteFileTool();
         objectMapper = new ObjectMapper();
-        DashboardServer.start(TEST_PORT);
+        DashboardServer.start(TEST_PORT, false);
         // 等待服务器启动
         Thread.sleep(500);
     }
