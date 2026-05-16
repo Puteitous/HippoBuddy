@@ -40,19 +40,6 @@ public class TruncationService {
         logger.debug("注册截断策略: {} -> {}", type, strategy.getClass().getSimpleName());
     }
 
-    public String truncateByExtension(String content, String filePath, int maxTokens) {
-        if (content == null || content.isEmpty()) {
-            return content;
-        }
-        int effectiveMax = Math.max(1, Math.min(maxTokens, GLOBAL_HARD_LIMIT));
-        int originalTokens = tokenEstimator.estimateTextTokens(content);
-        if (originalTokens <= effectiveMax) {
-            return content;
-        }
-        ContentType type = detectContentType(filePath);
-        return truncate(content, type, effectiveMax);
-    }
-
     public String truncate(String content, ContentType type, int maxTokens) {
         if (content == null || content.isEmpty()) {
             return content;
@@ -135,37 +122,4 @@ public class TruncationService {
         return result;
     }
 
-    private ContentType detectContentType(String filePath) {
-        String extension = getFileExtension(filePath).toLowerCase();
-        if (isCodeFile(extension)) {
-            return ContentType.CODE;
-        }
-        if (isLogFile(extension)) {
-            return ContentType.LOG;
-        }
-        if (isDiffFile(extension)) {
-            return ContentType.DIFF;
-        }
-        return ContentType.PLAIN_TEXT;
-    }
-
-    private boolean isCodeFile(String extension) {
-        return extension.matches("java|py|js|ts|jsx|tsx|go|rs|c|cpp|h|hpp|rb|php|scala|kt|swift|cs");
-    }
-
-    private boolean isLogFile(String extension) {
-        return extension.matches("log|txt|out");
-    }
-
-    private boolean isDiffFile(String extension) {
-        return extension.matches("diff|patch");
-    }
-
-    private String getFileExtension(String filePath) {
-        if (filePath == null) {
-            return "";
-        }
-        int lastDot = filePath.lastIndexOf('.');
-        return lastDot >= 0 ? filePath.substring(lastDot + 1) : "";
-    }
 }

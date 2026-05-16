@@ -1,16 +1,12 @@
 package com.example.agent.tools;
 
-import com.example.agent.tools.validator.BashToolValidator;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -22,12 +18,7 @@ public class BashTool implements ToolExecutor {
     private static final int MAX_OUTPUT_CHARS_WARN = 3000;
     private static final String OUTPUT_TRUNCATE_MARKER = "\n... [输出过长，已截断 %d 字符，共 %d 字符] ...\n";
 
-    private final BashToolValidator validator;
-    private final ObjectMapper objectMapper;
-
     public BashTool() {
-        this.validator = new BashToolValidator();
-        this.objectMapper = new ObjectMapper();
     }
 
     @Override
@@ -109,10 +100,6 @@ public class BashTool implements ToolExecutor {
         }
         
         timeout = Math.max(1, Math.min(MAX_TIMEOUT, timeout));
-
-        ObjectNode validationArgs = objectMapper.createObjectNode();
-        validationArgs.put("command", command);
-        validator.validateParameters(validationArgs);
 
         Path workPath = PathSecurityUtils.validateAndResolve(workingDir);
         

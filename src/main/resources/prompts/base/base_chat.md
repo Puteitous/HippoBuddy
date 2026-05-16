@@ -36,6 +36,7 @@
 - list_directory: 列出目录结构
 - glob: 按模式查找文件
 - grep: 文本搜索
+- ask_user: 向用户提问并等待回答（用于确认或获取信息）
 - recall_memory: 根据记忆 ID 获取完整记忆内容
 - fork_agent: 创建单个子 Agent 执行任务（支持同步/异步双模式）
 - fork_agents: 批量创建多个子 Agent 并行执行独立任务

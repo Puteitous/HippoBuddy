@@ -35,7 +35,6 @@ class TruncationServiceBoundaryTest {
     @DisplayName("边界 - null 内容直接返回 null")
     void testNullContent() {
         assertNull(truncationService.truncate(null, ContentType.CODE, 100));
-        assertNull(truncationService.truncateByExtension(null, "Test.java", 100));
         assertNull(truncationService.truncateToolOutput("test", null, 100));
     }
 
@@ -43,7 +42,6 @@ class TruncationServiceBoundaryTest {
     @DisplayName("边界 - 空字符串内容直接返回原值")
     void testEmptyContent() {
         assertEquals("", truncationService.truncate("", ContentType.CODE, 100));
-        assertEquals("", truncationService.truncateByExtension("", "Test.java", 100));
         assertEquals("", truncationService.truncateToolOutput("test", "", 100));
     }
 
@@ -56,10 +54,6 @@ class TruncationServiceBoundaryTest {
         String result = truncationService.truncate(content, ContentType.CODE, maxTokens);
         assertNotNull(result);
         assertFalse(result.isEmpty());
-
-        String result2 = truncationService.truncateByExtension(content, "Test.java", maxTokens);
-        assertNotNull(result2);
-        assertFalse(result2.isEmpty());
 
         String result3 = truncationService.truncateToolOutput("test", content, maxTokens);
         assertNotNull(result3);
@@ -128,39 +122,6 @@ class TruncationServiceBoundaryTest {
             String result = truncationService.truncate(content, ContentType.CODE, 100);
             assertNotNull(result);
             assertTrue(result.length() < content.length());
-        });
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"java", "py", "js", "ts", "log", "txt", "diff", "patch", "unknown"})
-    @DisplayName("边界 - 所有文件扩展名都能正常处理")
-    void testAllFileExtensions(String extension) {
-        String content = generateLargeCode(500);
-        String fileName = "Test." + extension;
-
-        assertDoesNotThrow(() -> {
-            String result = truncationService.truncateByExtension(content, fileName, 100);
-            assertNotNull(result);
-        });
-    }
-
-    @Test
-    @DisplayName("边界 - null 文件路径按纯文本处理")
-    void testNullFilePath() {
-        String content = generateLargeCode(500);
-        assertDoesNotThrow(() -> {
-            String result = truncationService.truncateByExtension(content, null, 100);
-            assertNotNull(result);
-        });
-    }
-
-    @Test
-    @DisplayName("边界 - 空文件扩展名按纯文本处理")
-    void testEmptyFileExtension() {
-        String content = generateLargeCode(500);
-        assertDoesNotThrow(() -> {
-            String result = truncationService.truncateByExtension(content, "README", 100);
-            assertNotNull(result);
         });
     }
 
