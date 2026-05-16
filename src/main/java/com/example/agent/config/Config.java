@@ -34,7 +34,6 @@ public class Config {
 
     private McpConfig mcp = new McpConfig();
     private LspConfig lsp = new LspConfig();
-    private EmbeddingConfig embedding = new EmbeddingConfig();
     private MemoryConfig memory = new MemoryConfig();
 
     private transient ConfigLoader configLoader;
@@ -278,17 +277,6 @@ public class Config {
 
     public void setLsp(LspConfig lsp) {
         this.lsp = lsp;
-    }
-
-    public EmbeddingConfig getEmbedding() {
-        if (embedding == null) {
-            embedding = new EmbeddingConfig();
-        }
-        return embedding;
-    }
-
-    public void setEmbedding(EmbeddingConfig embedding) {
-        this.embedding = embedding;
     }
 
     public MemoryConfig getMemory() {

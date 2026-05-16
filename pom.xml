@@ -114,23 +114,6 @@
             <version>1.12.0</version>
         </dependency>
 
-        <!-- Hibernate Validator (JSR 380) for schema validation -->
-        <dependency>
-            <groupId>org.hibernate.validator</groupId>
-            <artifactId>hibernate-validator</artifactId>
-            <version>8.0.1.Final</version>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.validation</groupId>
-            <artifactId>jakarta.validation-api</artifactId>
-            <version>3.0.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish</groupId>
-            <artifactId>jakarta.el</artifactId>
-            <version>4.0.2</version>
-        </dependency>
-
         <!-- ONNX Runtime for local embedding -->
         <dependency>
             <groupId>com.microsoft.onnxruntime</groupId>

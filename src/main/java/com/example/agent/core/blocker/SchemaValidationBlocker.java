@@ -185,8 +185,35 @@ public class SchemaValidationBlocker implements Blocker {
             "pattern", "searchKeyword"
         ));
         
-        examples.put("SearchCodebase", Map.of(
-            "information_request", "查找用户认证相关的代码"
+        examples.put("list_directory", Map.of(
+            "path", "src/main/java/com/example"
+        ));
+        
+        examples.put("ask_user", Map.of(
+            "question", "你希望我怎么做？"
+        ));
+        
+        examples.put("todo_write", Map.of(
+            "title", "实现用户登录功能",
+            "description", "需要添加登录页面和后端接口"
+        ));
+        
+        examples.put("recall_memory", Map.of(
+            "query", "用户偏好设置"
+        ));
+        
+        examples.put("fork_agent", Map.of(
+            "instruction", "搜索项目中的错误处理代码"
+        ));
+        
+        examples.put("fork_agents", Map.of(
+            "instructions", "[\"分析代码结构\", \"查找性能瓶颈\"]"
+        ));
+        
+        examples.put("list_subagents", Map.of());
+        
+        examples.put("cancel_subagent", Map.of(
+            "agent_id", "sub_agent_123"
         ));
         
         return examples;
