@@ -11,10 +11,10 @@ import { appState } from './state/app-state.js';
 import { ChatService } from './chat-service.js';
 import { ChatUI } from './chat-ui.js';
 import { SessionManager } from './session-manager.js';
-import { MemoryPanel } from './memory-panel.js';
 import { ChatPanel } from './components/ChatPanel.js';
 import { TokenMonitor } from './components/TokenMonitor.js';
 import { MetricsPanel } from './components/MetricsPanel.js';
+import { SSEClient } from './sse-client.js';
 import { diffModalManager } from './utils/diff-modal.js';
 import { FileChangeManager } from './utils/file-change-manager.js';
 import { EventBus } from './utils/event-bus.js';
@@ -33,11 +33,9 @@ const chatService = new ChatService();
 const chatContainer = document.getElementById('chatContainer');
 const chatUI = new ChatUI(chatContainer);
 const sessionList = document.getElementById('sessionList');
-const memoryList = document.getElementById('memoryList');
 
 // ========== 组件实例 ==========
 let sessionManager;
-let memoryPanel;
 let chatPanel;
 let tokenMonitor;
 let metricsPanel;
@@ -46,20 +44,13 @@ let fileChangeManager;
 // ========== DOM 元素 ==========
 const elements = {
   themeToggle: document.getElementById('themeToggle'),
+  rightPanelShowBtn: document.getElementById('rightPanelShowBtn'),
   sseStatus: document.getElementById('sseStatus'),
   compactBtn: document.getElementById('compactBtn'),
-  exportBtn: document.getElementById('exportBtn'),
   newSessionBtn: document.getElementById('newSessionBtn'),
   messageInput: document.getElementById('messageInput'),
   sendBtn: document.getElementById('sendBtn'),
   stopBtn: document.getElementById('stopBtn'),
-  tokenStats: document.getElementById('tokenStats'),
-  tokenUsage: document.getElementById('tokenUsage'),
-  tokenPercent: document.getElementById('tokenPercent'),
-  tokenDetailsBtn: document.getElementById('tokenDetailsBtn'),
-  promptModeBar: document.getElementById('promptModeBar'),
-  promptModeOptions: document.getElementById('promptModeOptions'),
-  promptCustomBtn: document.getElementById('promptCustomBtn'),
   promptModal: document.getElementById('promptModal'),
   promptModalText: document.getElementById('promptModalText'),
   promptModalClose: document.getElementById('promptModalClose'),
@@ -67,9 +58,90 @@ const elements = {
   promptModalSave: document.getElementById('promptModalSave')
 };
 
+// ========== Splash 出水动画控制 ==========
+
+let _splashCleanupTimer = null;
+
+/**
+ * 启动 splash 动画：河马浮出水面 + 波浪消退
+ * 绑定点击跳过事件
+ */
+function startSplashAnimation() {
+  const splash = document.getElementById('splashScreen');
+  if (!splash) return;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      splash.classList.add('splash-animating');
+    });
+  });
+
+  splash.addEventListener('click', skipSplash, { once: true });
+}
+
+/**
+ * 跳过 splash 动画：立即隐藏 splash → 显示页面内容
+ */
+function skipSplash() {
+  const splash = document.getElementById('splashScreen');
+  if (!splash || splash.classList.contains('splash-hidden')) return;
+
+  if (_splashCleanupTimer) {
+    clearTimeout(_splashCleanupTimer);
+    _splashCleanupTimer = null;
+  }
+
+  splash.classList.add('splash-hidden');
+
+  setTimeout(() => {
+    splash.style.display = 'none';
+    document.body.classList.remove('page-loading');
+
+    // 更新右侧面板 UI（默认隐藏）
+    const rp = document.getElementById('rightPanel');
+    const rpt = document.getElementById('rightPanelToggle');
+    if (rpt) rpt.title = '展开右侧面板';
+    if (elements.rightPanelShowBtn) {
+      elements.rightPanelShowBtn.style.display = '';
+    }
+  }, 150);
+}
+
+/**
+ * 安排 splash 结束：隐藏 splash → 页面内容渐入
+ * 必须放在 init() 末尾调用，确保所有事件绑定已完成
+ */
+function scheduleSplashCleanup() {
+  const splash = document.getElementById('splashScreen');
+  if (!splash) {
+    document.body.classList.remove('page-loading');
+    return;
+  }
+
+  _splashCleanupTimer = setTimeout(() => {
+    splash.classList.add('splash-hidden');
+
+    _splashCleanupTimer = setTimeout(() => {
+      splash.style.display = 'none';
+      document.body.classList.remove('page-loading');
+
+      // 更新右侧面板 UI（默认隐藏）
+      const rp = document.getElementById('rightPanel');
+      const rpt = document.getElementById('rightPanelToggle');
+      if (rpt) rpt.title = '展开右侧面板';
+      if (elements.rightPanelShowBtn) {
+        elements.rightPanelShowBtn.style.display = '';
+      }
+    }, 600);
+  }, 2400);
+}
+
 // ========== 初始化 ==========
 function init() {
   console.log('🚀 Initializing Hippo Cockpit...');
+  
+  // 0. 启动 splash 出水动画（与初始化并行）
+  startSplashAnimation();
   
   // 1. 初始化主题
   initTheme();
@@ -78,46 +150,47 @@ function init() {
   sessionManager = new SessionManager(sessionList, switchSession);
   window.sessionManagerInstance = sessionManager;
   
-  // 3. 初始化记忆面板
-  memoryPanel = new MemoryPanel(memoryList);
-  
-  // 4. 初始化聊天面板
+  // 3. 初始化聊天面板
   chatPanel = new ChatPanel(chatContainer, chatService, chatUI);
   
-  // 5. 初始化 Token 监控
+  // 4. 初始化 Token 监控
   tokenMonitor = new TokenMonitor(chatService);
   
-  // 6. 初始化监控面板
+  // 5. 初始化监控面板
   metricsPanel = new MetricsPanel();
+  
+  // 6. 预暖 markdown 渲染器（后台初始化，加速首次会话切换）
+  renderMarkdown(' ').catch(() => {});
   
   // 7. 初始化 SSE 连接
   initSSE();
   
-  // 8. 初始化文件变更监控
+  // 7. 初始化文件变更监控
   fileChangeManager = new FileChangeManager();
   fileChangeManager.init();
   
-  // 9. 绑定全局事件
+  // 8. 绑定全局事件
   bindGlobalEvents();
   
-  // 10. 加载预设提示词
+  // 9. 加载预设提示词
   loadPromptPresets();
   
-  // 11. 生成并设置当前会话 ID
+  // 10. 生成并设置当前会话 ID
   currentSessionId = generateSessionId();
   sessionManager.setCurrentSession(currentSessionId);
   appState.currentSessionId = currentSessionId;
   sessionManager.loadSessions();
   
-  // 12. 启动自动更新
+  // 11. 启动自动更新
   tokenMonitor.startAutoUpdate(30000);
   metricsPanel.startAutoUpdate(10000);
   
-  // 13. 初始化趋势图
+  // 12. 初始化趋势图
   tokenMonitor.renderTrendChart();
   
-  // 14. 订阅事件
+  // 13. 订阅事件
   EventBus.on('message:sent', () => {
+    chatService.invalidateMessageCache(appState.currentSessionId);
     tokenMonitor.scheduleUpdate();
     metricsPanel.updateMetrics();
     fileChangeManager.updateFileChanges();
@@ -131,6 +204,9 @@ function init() {
       }
     }
   });
+  
+  // 14. 安排 splash 结束 + 页面内容渐入
+  scheduleSplashCleanup();
   
   console.log('✅ Hippo Cockpit initialized');
 }
@@ -157,8 +233,11 @@ function applyHljsTheme(theme) {
 }
 
 // ========== SSE 连接 ==========
+let sseClient;
+
 function initSSE() {
-  const sseClient = memoryPanel.init();
+  sseClient = new SSEClient('/sse/memory-events');
+  sseClient.connect();
   
   sseClient.onOpen(() => {
     if (elements.sseStatus) {
@@ -245,13 +324,16 @@ function bindGlobalEvents() {
     }
   });
   
-  // Token 详情按钮
-  elements.tokenDetailsBtn?.addEventListener('click', () => {
-    tokenMonitor.showDetails();
-  });
-
-  // 导出对话
-  elements.exportBtn?.addEventListener('click', exportConversation);
+  
+  // 左侧栏折叠（52px 仅图标）
+  const sessionPanel = document.getElementById('sessionPanel');
+  const sessionToggle = document.getElementById('sessionToggle');
+  if (sessionPanel && sessionToggle) {
+    sessionToggle.addEventListener('click', () => {
+      sessionPanel.classList.toggle('collapsed');
+      sessionToggle.title = sessionPanel.classList.contains('collapsed') ? '展开侧栏' : '折叠侧栏';
+    });
+  }
   
   // 侧边栏折叠（通过事件代理处理）
   document.querySelectorAll('.sidebar-section-header').forEach(header => {
@@ -259,6 +341,71 @@ function bindGlobalEvents() {
       header.classList.toggle('expanded');
       const body = header.nextElementSibling;
       if (body) body.classList.toggle('show');
+    });
+  });
+  
+  // 右侧面板显隐折叠
+  const rightPanel = document.getElementById('rightPanel');
+  const rightPanelToggle = document.getElementById('rightPanelToggle');
+  function updateRightPanelUI() {
+    const isHidden = rightPanel.classList.contains('hidden');
+    rightPanelToggle.title = isHidden ? '展开右侧面板' : '收起右侧面板';
+    if (elements.rightPanelShowBtn) {
+      elements.rightPanelShowBtn.style.display = isHidden ? '' : 'none';
+    }
+  }
+  if (rightPanel && rightPanelToggle) {
+    rightPanelToggle.addEventListener('click', () => {
+      rightPanel.classList.toggle('hidden');
+      updateRightPanelUI();
+    });
+  }
+  
+  // 顶栏展开右侧面板按钮
+  if (elements.rightPanelShowBtn && rightPanel) {
+    elements.rightPanelShowBtn.addEventListener('click', () => {
+      rightPanel.classList.remove('hidden');
+      updateRightPanelUI();
+    });
+  }
+  
+  // 状态条各模块独立点击切换
+  const statusBarItems = document.querySelectorAll('.status-bar-item');
+  let lastActiveSection = null;
+  statusBarItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const section = item.dataset.section;
+      if (!section || !rightPanel) return;
+      
+      const isHidden = rightPanel.classList.contains('hidden');
+      
+      // 如果右侧面板隐藏，或点击了不同的模块
+      if (isHidden || lastActiveSection !== section) {
+        // 显示面板
+        rightPanel.classList.remove('hidden');
+        updateRightPanelUI();
+        
+        // 找到对应的 section 并展开
+        const targetSection = rightPanel.querySelector(`.sidebar-section[data-section="${section}"]`);
+        if (targetSection) {
+          // 展开该 section
+          const header = targetSection.querySelector('.sidebar-section-header');
+          const body = targetSection.querySelector('.sidebar-section-body');
+          if (header && body) {
+            header.classList.add('expanded');
+            body.classList.add('show');
+          }
+          // 滚动到该 section
+          targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        lastActiveSection = section;
+      } else {
+        // 点击了同一个模块 → 隐藏面板
+        rightPanel.classList.add('hidden');
+        updateRightPanelUI();
+        lastActiveSection = null;
+      }
     });
   });
   
@@ -327,25 +474,81 @@ async function switchSession(sessionId) {
   appState.currentSessionId = sessionId; // 同步到 appState
   await sessionManager.loadSessions();
   
-  chatContainer.innerHTML = '<div class="empty-state">加载中...</div>';
-  
   try {
     const messages = await chatService.getSessionMessages(sessionId);
-    chatContainer.innerHTML = '';
     
     if (messages.length === 0) {
-      chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
+      chatContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
+          <h1 class="empty-hero-title">Hippo Code</h1>
+          <p class="empty-hero-subtitle">你的 AI 编码助手</p>
+          <div class="empty-hero-input-area">
+            <div class="hero-input-wrapper">
+              <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
+              <button class="hero-send-btn" id="heroSendBtn" title="发送">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="8" y1="15" x2="8" y2="1"/>
+                  <polyline points="2 7 8 1 14 7"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="empty-hero-suggestions">
+            <button class="empty-hero-suggestion" data-prompt="分析一下这个项目的结构和主要功能">分析项目结构</button>
+            <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
+            <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
+          </div>
+          <div class="empty-hero-hint">Enter 发送 · Shift+Enter 换行</div>
+        </div>`;
     } else {
       await loadHistoryMessages(messages);
+      document.querySelector('.chat-panel')?.classList.add('has-messages');
+      // 历史消息级联入场错开延迟
+      requestAnimationFrame(() => {
+        const rows = chatContainer.querySelectorAll('.message-row');
+        rows.forEach((row, i) => {
+          row.style.setProperty('--msg-delay', `${i * 0.04}s`);
+          row.classList.add('animate-in');
+        });
+      });
     }
     
     tokenMonitor.scheduleUpdate();
     metricsPanel.updateMetrics();
     fileChangeManager?.updateFileChanges();
   } catch (e) {
-    chatContainer.innerHTML = '<div class="empty-state">发送消息开始对话</div>';
+    chatContainer.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
+        <h1 class="empty-hero-title">Hippo Code</h1>
+        <p class="empty-hero-subtitle">你的 AI 编码助手</p>
+        <div class="empty-hero-input-area">
+          <div class="hero-input-wrapper">
+            <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
+            <button class="hero-send-btn" id="heroSendBtn" title="发送">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="15" x2="8" y2="1"/>
+                <polyline points="2 7 8 1 14 7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="empty-hero-suggestions">
+          <button class="empty-hero-suggestion" data-prompt="分析一下这个项目的结构和主要功能">分析项目结构</button>
+          <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
+          <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
+        </div>
+      </div>`;
   }
   
+  requestAnimationFrame(() => {
+    const es = chatContainer.querySelector('.empty-state');
+    if (es) {
+      es.classList.add('animate');
+      setTimeout(() => es.classList.remove('animate'), 1000);
+    }
+  });
   elements.messageInput?.focus();
 }
 
@@ -358,6 +561,10 @@ async function loadHistoryMessages(messages) {
     }
   }
   
+  // Phase 1: Build structured message data + collect markdown tasks for parallel rendering
+  const messageRows = [];
+  const markdownTasks = [];
+  
   let i = 0;
   while (i < messages.length) {
     const msg = messages[i];
@@ -367,12 +574,7 @@ async function loadHistoryMessages(messages) {
     }
     
     if (msg.role === 'user') {
-      if (msg.content && msg.content.trim()) {
-        const { msgDiv, editBtn } = chatUI.appendUserMessage(msg.content, msg.id);
-        if (editBtn) {
-          editBtn.addEventListener('click', () => chatPanel.startEditMessage(msgDiv));
-        }
-      }
+      messageRows.push({ type: 'user', content: msg.content, id: msg.id });
       i++;
       continue;
     }
@@ -404,6 +606,9 @@ async function loadHistoryMessages(messages) {
         
         if (amText.trim() && !hasToolCalls) {
           if (text.trim()) segments.push({ type: 'text', content: text });
+          if (amReasoning) {
+            segments.push({ type: 'thinking', content: amReasoning, done: true });
+          }
           text = amText;
           i++;
           break;
@@ -455,82 +660,219 @@ async function loadHistoryMessages(messages) {
         segments.push({ type: 'text', content: text });
       }
       
-      const msgDiv = document.createElement('div');
-      msgDiv.className = 'message assistant';
-      if (firstMsgTime) msgDiv.dataset.timestamp = firstMsgTime;
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'message-content';
-      
-      if (segments.length === 0 && !text.trim()) {
-        contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
-      } else {
-        let html = '';
-        for (const seg of segments) {
-          if (seg.type === 'thinking') {
-            html += chatPanel._renderThinkingBubble(seg);
-          } else if (seg.type === 'tool') {
-            html += chatUI.renderToolCard(seg);
-          } else if (seg.type === 'text' && seg.content) {
-            html += await renderMarkdown(seg.content);
-          }
-        }
-        contentDiv.innerHTML = html;
-        contentDiv.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
-          chatUI.bindToolCardEvents(card);
-        });
-      }
-      msgDiv.appendChild(contentDiv);
-      
-      const btnContainer = document.createElement('div');
-      btnContainer.className = 'message-actions';
-      
-      const retryBtn = document.createElement('button');
-      retryBtn.className = 'message-action-btn';
-      retryBtn.title = '重试';
-      retryBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
-      btnContainer.appendChild(retryBtn);
-      
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'message-action-btn';
-      copyBtn.title = '复制';
-      copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-      btnContainer.appendChild(copyBtn);
-      
-      const rollbackBtn = document.createElement('button');
-      rollbackBtn.className = 'message-action-btn rollback-btn';
-      rollbackBtn.title = '回退此消息的文件修改';
-      rollbackBtn.innerHTML = '↩';
-      rollbackBtn.addEventListener('click', () => EventBus.emit('message:rollback', msgDiv));
-      btnContainer.appendChild(rollbackBtn);
-      
-      const rawMarkdown = segments.filter(s => s.type === 'text').map(s => s.content).join('');
-      contentDiv.dataset.markdown = rawMarkdown;
-      
-      // 设置复制功能（简化版）
-      copyBtn.onclick = () => {
-        const textToCopy = contentDiv.innerText;
-        navigator.clipboard.writeText(textToCopy).then(() => {
-          copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-          copyBtn.classList.add('copied');
-          setTimeout(() => {
-            copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-            copyBtn.classList.remove('copied');
-          }, 2000);
-        });
-      };
-      
-      msgDiv.appendChild(btnContainer);
-      
-      const timeDiv = document.createElement('div');
-      timeDiv.className = 'message-time';
-      timeDiv.textContent = firstMsgTime 
-        ? new Date(firstMsgTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) 
-        : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-      msgDiv.appendChild(timeDiv);
-      
-      chatContainer.appendChild(msgDiv);
+      messageRows.push({ type: 'assistant', segments, firstMsgTime });
     } else {
       i++;
+    }
+  }
+  
+  // Phase 2: Collect all text segment content for parallel markdown rendering
+  for (const row of messageRows) {
+    if (row.type !== 'assistant') continue;
+    for (const seg of row.segments) {
+      if (seg.type === 'text' && seg.content) {
+        markdownTasks.push({ row, seg });
+      }
+    }
+  }
+  
+  // Warm up markdown renderer with first batch, then parallelize the rest
+  if (markdownTasks.length > 0) {
+    const results = await Promise.all(markdownTasks.map(t => renderMarkdown(t.seg.content)));
+    for (let ti = 0; ti < markdownTasks.length; ti++) {
+      markdownTasks[ti].seg._rendered = results[ti];
+    }
+  }
+  
+  // Phase 3: Build and append DOM in batches, yielding to browser between batches
+  const BATCH_SIZE = 6;
+  let isFirstBatch = true;
+  for (let batchStart = 0; batchStart < messageRows.length; batchStart += BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + BATCH_SIZE, messageRows.length);
+    const fragment = document.createDocumentFragment();
+    const pendingUserEditBtns = [];
+    
+    for (let ri = batchStart; ri < batchEnd; ri++) {
+      const row = messageRows[ri];
+      
+      if (row.type === 'user') {
+        if (row.content && row.content.trim()) {
+          const userRow = document.createElement('div');
+          userRow.className = 'message-row user-row';
+          
+          const userMsgDiv = document.createElement('div');
+          userMsgDiv.className = 'message user';
+          if (row.id) userMsgDiv.dataset.messageId = row.id;
+          
+          const userContentDiv = document.createElement('div');
+          userContentDiv.className = 'message-content';
+          userContentDiv.textContent = row.content;
+          userMsgDiv.appendChild(userContentDiv);
+          
+          const timeDiv = document.createElement('div');
+          timeDiv.className = 'message-time';
+          timeDiv.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+          userMsgDiv.appendChild(timeDiv);
+          
+          userRow.appendChild(userMsgDiv);
+          
+          const btnContainer = document.createElement('div');
+          btnContainer.className = 'message-actions';
+          
+          const editBtn = document.createElement('button');
+          editBtn.className = 'message-action-btn';
+          editBtn.title = '编辑';
+          editBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+          btnContainer.appendChild(editBtn);
+          
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'message-action-btn';
+          copyBtn.title = '复制';
+          copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+          copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(row.content).then(() => {
+              copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+              copyBtn.classList.add('copied');
+              setTimeout(() => {
+                copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                copyBtn.classList.remove('copied');
+              }, 2000);
+            }).catch(() => {});
+          });
+          btnContainer.appendChild(copyBtn);
+          
+          userRow.appendChild(btnContainer);
+          
+          fragment.appendChild(userRow);
+          pendingUserEditBtns.push({ editBtn, msgDiv: userMsgDiv });
+        }
+        continue;
+      }
+      
+      if (row.type === 'assistant') {
+        const segments = row.segments;
+        const firstMsgTime = row.firstMsgTime;
+        
+        const rowEl = document.createElement('div');
+        rowEl.className = 'message-row assistant-row';
+        
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message assistant';
+        if (firstMsgTime) msgDiv.dataset.timestamp = firstMsgTime;
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        
+        if (segments.length === 0) {
+          contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
+        } else {
+          let html = '';
+          let toolTimelineHtml = '';
+          function flushToolTimeline() {
+            if (toolTimelineHtml) {
+              html += `<div class="tool-timeline">${toolTimelineHtml}</div>`;
+              toolTimelineHtml = '';
+            }
+          }
+          for (const seg of segments) {
+            if (seg.type === 'thinking') {
+              flushToolTimeline();
+              html += chatPanel._renderThinkingBubble(seg);
+            } else if (seg.type === 'tool') {
+              if (seg.name === 'todo_write' || seg.name === 'ask_user') {
+                flushToolTimeline();
+                html += chatUI.renderToolCard(seg);
+              } else {
+                toolTimelineHtml += chatUI.renderToolTimelineRow(seg);
+              }
+            } else if (seg.type === 'text' && seg.content) {
+              flushToolTimeline();
+              html += seg._rendered || '';
+            }
+          }
+          flushToolTimeline();
+          contentDiv.innerHTML = html;
+          contentDiv.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
+            chatUI.bindToolCardEvents(card);
+          });
+        }
+        msgDiv.appendChild(contentDiv);
+        rowEl.appendChild(msgDiv);
+        
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'message-actions';
+        
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'message-action-btn';
+        retryBtn.title = '重试';
+        retryBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+        btnContainer.appendChild(retryBtn);
+        
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'message-action-btn';
+        copyBtn.title = '复制';
+        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        btnContainer.appendChild(copyBtn);
+        
+        const rollbackBtn = document.createElement('button');
+        rollbackBtn.className = 'message-action-btn rollback-btn';
+        rollbackBtn.title = '回退此消息的文件修改';
+        rollbackBtn.innerHTML = '↩';
+        rollbackBtn.addEventListener('click', () => EventBus.emit('message:rollback', msgDiv));
+        btnContainer.appendChild(rollbackBtn);
+        
+        const rawMarkdown = segments.filter(s => s.type === 'text').map(s => s.content).join('');
+        contentDiv.dataset.markdown = rawMarkdown;
+        
+        copyBtn.onclick = () => {
+          const textToCopy = contentDiv.innerText;
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            copyBtn.classList.add('copied');
+            setTimeout(() => {
+              copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+              copyBtn.classList.remove('copied');
+            }, 2000);
+          });
+        };
+        
+        const footer = document.createElement('div');
+        footer.className = 'message-footer';
+        
+        footer.appendChild(btnContainer);
+        
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = firstMsgTime 
+          ? new Date(firstMsgTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) 
+          : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        footer.appendChild(timeDiv);
+        
+        msgDiv.appendChild(footer);
+        
+        fragment.appendChild(rowEl);
+      }
+    }
+    
+    // First batch: atomically replace loading state with content
+    if (isFirstBatch) {
+      isFirstBatch = false;
+      chatContainer.innerHTML = '';
+      chatContainer.appendChild(fragment);
+    } else {
+      chatContainer.appendChild(fragment);
+    }
+    
+    // Wire up edit buttons after DOM is attached
+    if (pendingUserEditBtns.length > 0) {
+      requestAnimationFrame(() => {
+        for (const { editBtn, msgDiv } of pendingUserEditBtns) {
+          editBtn.addEventListener('click', () => chatPanel.startEditMessage(msgDiv));
+        }
+      });
+    }
+    
+    if (batchEnd < messageRows.length) {
+      await new Promise(r => requestAnimationFrame(r));
     }
   }
   
@@ -603,7 +945,6 @@ async function handleCompact() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
         <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
       </svg>
-      压缩中...
     `;
     
     const result = await chatService.compactSession(currentSessionId, instruction || null);
@@ -621,7 +962,6 @@ async function handleCompact() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6"/>
       </svg>
-      压缩
     `;
   }
 }

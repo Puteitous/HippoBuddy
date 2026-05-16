@@ -65,6 +65,8 @@ export class FileChangeManager {
       if (!changes || changes.length === 0) {
         list.innerHTML = '';
         empty.style.display = 'block';
+        const statusBarFiles = document.getElementById('statusBarFilesValue');
+        if (statusBarFiles) statusBarFiles.textContent = '0';
         return;
       }
 
@@ -91,10 +93,15 @@ export class FileChangeManager {
         }
       }
 
+      const statusBarFiles = document.getElementById('statusBarFilesValue');
+      if (statusBarFiles) statusBarFiles.textContent = `${fileGroups.size}`;
+
       list.innerHTML = Array.from(fileGroups.values()).map(c => {
         const fileName = c.filePath.split(/[/\\]/).pop();
         const time = new Date(c.latest).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        const icon = c.toolName === 'delete_file' ? '🗑️' : '📝';
+        const icon = c.toolName === 'delete_file'
+          ? '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h10"/><path d="M5 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M4 6v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6"/></svg>'
+          : '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v3h3"/></svg>';
         const badge = c.count > 1 ? `<span class="file-change-badge">${c.count}次</span>` : '';
         const reviewStatus = ReviewState.isRolledBack(c.filePath);
         const reviewDot = reviewStatus ? '<span class="file-review-dot rolled-back" title="已撤销">↩</span>' : '';

@@ -73,7 +73,7 @@ export async function initMarkdownRenderer(options = {}) {
       return `<div class="code-block-wrapper">
         <div class="code-block-header">
           <span class="code-lang">${lang}</span>
-          <button class="copy-btn" onclick="window.copyCode('${codeId}')">📋 复制</button>
+          <button class="copy-btn" onclick="window.copyCode('${codeId}')">复制</button>
         </div>
         <div class="code-block-body">
           <div class="code-ln-nums"><pre>${lineNumsText}</pre></div>
@@ -105,10 +105,10 @@ export function copyCode(codeId) {
       : codeEl.textContent;
     navigator.clipboard.writeText(rawCode).then(() => {
       const btn = codeEl.closest('.code-block-wrapper').querySelector('.copy-btn');
-      btn.textContent = '✅ 已复制!';
+      btn.textContent = '已复制';
       btn.classList.add('copied');
       setTimeout(() => {
-        btn.textContent = '📋 复制';
+        btn.textContent = '复制';
         btn.classList.remove('copied');
       }, 2000);
     });

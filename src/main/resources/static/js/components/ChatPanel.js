@@ -35,9 +35,6 @@ export class ChatPanel {
       sendBtn: document.getElementById('sendBtn'),
       stopBtn: document.getElementById('stopBtn'),
       newMsgHint: document.getElementById('newMsgHint'),
-      promptModeBar: document.getElementById('promptModeBar'),
-      promptModeOptions: document.getElementById('promptModeOptions'),
-      promptCustomBtn: document.getElementById('promptCustomBtn'),
       compactBtn: document.getElementById('compactBtn')
     };
     
@@ -55,10 +52,77 @@ export class ChatPanel {
       });
       
       this.elements.messageInput.addEventListener('input', () => {
-        this.elements.messageInput.style.height = 'auto';
-        this.elements.messageInput.style.height = Math.min(this.elements.messageInput.scrollHeight, 150) + 'px';
+        const el = this.elements.messageInput;
+        const prevHeight = el.style.height;
+        el.style.height = 'auto';
+        const newHeight = Math.min(el.scrollHeight, 300) + 'px';
+        el.style.height = prevHeight || el.offsetHeight + 'px';
+        void el.offsetHeight;
+        el.style.height = newHeight;
       });
     }
+    
+    // Hero 输入框事件（事件代理）
+    this.container.addEventListener('keydown', (e) => {
+      const heroInput = e.target.closest('#heroInput');
+      if (!heroInput) return;
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const content = heroInput.value.trim();
+        if (content) {
+          heroInput.value = '';
+          heroInput.style.height = 'auto';
+          this.sendMessage(content);
+        }
+      }
+    });
+    
+    this.container.addEventListener('input', (e) => {
+      const heroInput = e.target.closest('#heroInput');
+      if (!heroInput) return;
+      const prevHeight = heroInput.style.height;
+      heroInput.style.height = 'auto';
+      const newHeight = Math.min(heroInput.scrollHeight, 300) + 'px';
+      heroInput.style.height = prevHeight || heroInput.offsetHeight + 'px';
+      void heroInput.offsetHeight;
+      heroInput.style.height = newHeight;
+    });
+    
+    // Hero 快捷建议按钮
+    this.container.addEventListener('click', (e) => {
+      // 河马互动：点击弹跳 + 吐泡泡
+      const hippo = e.target.closest('.empty-hero-logo');
+      if (hippo) {
+        hippo.classList.remove('bouncing');
+        void hippo.offsetWidth;
+        hippo.classList.add('bouncing');
+        setTimeout(() => hippo.classList.remove('bouncing'), 500);
+        this._spawnHippoBubbles(hippo);
+        this._spawnHippoSpeech(hippo);
+        return;
+      }
+      
+      const suggestionBtn = e.target.closest('.empty-hero-suggestion');
+      if (suggestionBtn) {
+        const prompt = suggestionBtn.dataset.prompt;
+        if (prompt) {
+          this.sendMessage(prompt);
+        }
+      }
+      // Hero 发送按钮
+      const heroSendBtn = e.target.closest('#heroSendBtn');
+      if (heroSendBtn) {
+        const heroInput = document.getElementById('heroInput');
+        if (heroInput) {
+          const content = heroInput.value.trim();
+          if (content) {
+            heroInput.value = '';
+            heroInput.style.height = 'auto';
+            this.sendMessage(content);
+          }
+        }
+      }
+    });
     
     // 发送按钮
     if (this.elements.sendBtn) {
@@ -125,11 +189,12 @@ export class ChatPanel {
     // 自动重命名会话（首次发送消息时）
     EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId, content });
     
-    // 编辑模式：删除后续消息
-    if (editMessageId && editMsgDiv) {
+    // 编辑模式：替换消息内容并删除后续消息
+    if (editMsgDiv) {
+      const row = editMsgDiv.closest('.message-row') || editMsgDiv;
       const contentDiv = editMsgDiv.querySelector('.message-content');
       if (contentDiv) contentDiv.textContent = content;
-      const nextSibling = editMsgDiv.nextElementSibling;
+      let nextSibling = row.nextElementSibling;
       while (nextSibling) {
         const toRemove = nextSibling;
         nextSibling = nextSibling.nextElementSibling;
@@ -234,6 +299,11 @@ export class ChatPanel {
       
       if (this.elements.messageInput) {
         this.elements.messageInput.focus();
+        // 明确将光标置于起始位置，避免空输入框时 placeholder 与光标位置的视觉混淆
+        requestAnimationFrame(() => {
+          this.elements.messageInput.setSelectionRange(0, 0);
+          this.elements.messageInput.scrollLeft = 0;
+        });
       }
       
       // 通知完成
@@ -296,7 +366,18 @@ export class ChatPanel {
       return;
     }
     
-    // 处理非 JSON 的原始事件（如错误消息）
+    // 处理 SSE error 事件（来自后端的结构化错误，附带 message 字段）
+    if (parsed._eventType === 'error' && parsed.message) {
+      if (this._reasoningSegment) {
+        this._reasoningSegment.done = true;
+        this._reasoningSegment = null;
+      }
+      this.currentText = '⚠️ ' + parsed.message;
+      this._scheduleRender(contentDiv, this.segments, this.currentText);
+      return;
+    }
+
+    // 处理非 JSON 的原始事件（如解析失败的错误消息）
     if (parsed.type === 'raw' || parsed.type === 'error') {
       contentDiv.innerHTML = `<span style="color: var(--error-color);">❌ ${escapeHtml(parsed.content)}</span>`;
       return;
@@ -334,6 +415,13 @@ export class ChatPanel {
     
     // 处理 content 事件 - 流式显示（带渲染节流）
     if (parsed._eventType === 'content' && parsed.content) {
+      // 如果 reasoning_done 未正常到达，但 content 已经来了，隐式结束思考
+      if (this._reasoningSegment) {
+        this._reasoningSegment.done = true;
+        this._pendingRender = { container: contentDiv, segments: this.segments, currentText: this.currentText };
+        this._flushRender();
+        this._reasoningSegment = null;
+      }
       this.currentText += parsed.content;
       
       if (!this._hasReceivedData) {
@@ -353,6 +441,12 @@ export class ChatPanel {
       if (!this._hasReceivedData) {
         this._hasReceivedData = true;
         contentDiv.querySelector('.typing-indicator')?.remove();
+      }
+      
+      // 如果 reasoning_done 未正常到达，但 tool 已经来了，隐式结束思考
+      if (this._reasoningSegment) {
+        this._reasoningSegment.done = true;
+        this._reasoningSegment = null;
       }
       
       // 立即刷新任何未完成的节流渲染，确保 segments 最新
@@ -542,24 +636,30 @@ export class ChatPanel {
   _saveCardStates(container) {
     const states = new Map();
     
-    // 思考卡片：按索引保存 data-expanded 状态
-    container.querySelectorAll('.thinking-bubble.completed').forEach((bubble, idx) => {
-      const content = bubble.querySelector('.thinking-content');
+    // 思考卡片：按索引保存 expanded 状态
+    container.querySelectorAll('.thinking-row.completed').forEach((bubble, idx) => {
       states.set(`thinking:${idx}`, {
-        expanded: bubble.dataset.expanded === 'true',
-        display: content ? content.style.display : ''
+        expanded: bubble.classList.contains('expanded')
       });
     });
     
     // 工具卡片：按工具名称+索引保存 expanded 状态
     container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
       const header = card.querySelector('.tool-header, .tool-call-header');
-      const isExpanded = header?.classList.contains('expanded');
-      // 用工具名+内容hash做key
       const nameEl = card.querySelector('.tool-title, .tool-name');
       const name = nameEl?.textContent || 'unknown';
+      // todo/ask_user: expanded 在 card 上；bash/edit/write: expanded 在 header 上
+      const isExpanded = card.classList.contains('expanded') || header?.classList.contains('expanded') || false;
       states.set(`tool:${name}:${card.dataset.expandedKey || ''}`, {
         expanded: isExpanded || false
+      });
+    });
+    
+    // 时间线行：按工具名称保存 expanded 状态
+    container.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
+      const name = item.dataset.toolName || 'unknown';
+      states.set(`timeline:${name}:${idx}`, {
+        expanded: item.classList.contains('expanded')
       });
     });
     
@@ -573,14 +673,20 @@ export class ChatPanel {
     if (!states || states.size === 0) return;
     
     // 恢复思考卡片（按索引匹配）
-    container.querySelectorAll('.thinking-bubble.completed').forEach((bubble, idx) => {
+    container.querySelectorAll('.thinking-row.completed').forEach((bubble, idx) => {
       const thinkingState = states.get(`thinking:${idx}`);
       if (thinkingState?.expanded) {
-        bubble.dataset.expanded = 'true';
-        const content = bubble.querySelector('.thinking-content');
-        if (content) content.style.display = 'block';
-        const toggleIcon = bubble.querySelector('.toggle-icon');
+        bubble.classList.add('expanded');
+        const toggleIcon = bubble.querySelector('.thinking-row-toggle');
         if (toggleIcon) toggleIcon.textContent = '▼';
+        const content = bubble.querySelector('.thinking-row-content');
+        if (content) {
+          const h = content.scrollHeight;
+          // 离屏 DOM 中 scrollHeight 可能为 0，用很大值兜底（自然高度）
+          const isCapped = h > 300;
+          content.style.maxHeight = (h > 0 ? (isCapped ? '300px' : h + 'px') : '9999px');
+          content.style.overflowY = isCapped ? 'auto' : '';
+        }
       }
     });
     
@@ -592,10 +698,36 @@ export class ChatPanel {
       const saved = states.get(key);
       
       if (saved?.expanded) {
-        const header = card.querySelector('.tool-header, .tool-call-header');
-        const details = header?.nextElementSibling;
-        header?.classList.add('expanded');
-        details?.classList.add('show');
+        if (card.classList.contains('tool-card')) {
+          // todo/ask_user: expanded 在 card 上，通过 JS 设 maxHeight
+          card.classList.add('expanded');
+          const details = card.querySelector('.tool-call-details');
+          if (details) {
+            const h = details.scrollHeight;
+            details.style.maxHeight = h > 0 ? h + 'px' : '9999px';
+          }
+        } else {
+          // bash/edit/write: expanded 在 header 上，通过 CSS .show 控制
+          const header = card.querySelector('.tool-header, .tool-call-header');
+          const details = header?.nextElementSibling;
+          header?.classList.add('expanded');
+          details?.classList.add('show');
+        }
+      }
+    });
+    
+    // 恢复时间线行状态
+    container.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
+      const name = item.dataset.toolName || 'unknown';
+      const saved = states.get(`timeline:${name}:${idx}`);
+      if (saved?.expanded) {
+        item.classList.add('expanded');
+        const detail = item.querySelector('.tool-timeline-detail');
+        if (detail) {
+          // 离屏 DOM 中 scrollHeight 可能为 0，用很大值兜底
+          const h = detail.scrollHeight;
+          detail.style.maxHeight = h > 0 ? h + 'px' : '9999px';
+        }
       }
     });
   }
@@ -610,26 +742,77 @@ export class ChatPanel {
     
     const { container, segments, currentText } = pending;
     
-    // 保存展开状态（防止 innerHTML 重建导致卡片收起）
-    const savedStates = this._saveCardStates(container);
+    // 保存聊天容器的滚动位置，防止 DOM 重建导致内容跳动
+    const chatContainer = this.container;
+    const savedScrollTop = chatContainer.scrollTop;
     
     let html = '';
+    let toolTimelineHtml = '';
+
+    function flushToolTimeline() {
+      if (toolTimelineHtml) {
+        html += `<div class="tool-timeline">${toolTimelineHtml}</div>`;
+        toolTimelineHtml = '';
+      }
+    }
+
     for (const segment of segments) {
       if (segment.type === 'thinking') {
+        flushToolTimeline();
         html += this._renderThinkingBubble(segment);
       } else if (segment.type === 'tool') {
-        html += this.chatUI.renderToolCard(segment);
+        if (segment.name === 'todo_write' || segment.name === 'ask_user') {
+          flushToolTimeline();
+          html += this.chatUI.renderToolCard(segment);
+        } else {
+          toolTimelineHtml += this.chatUI.renderToolTimelineRow(segment);
+        }
       } else if (segment.type === 'text' && segment.content) {
+        flushToolTimeline();
         html += await renderMarkdown(segment.content);
       }
     }
+    flushToolTimeline();
+
     if (currentText) {
       html += await renderMarkdown(currentText);
     }
-    container.innerHTML = html;
+
+    // 从当前 DOM 中保存展开状态（在重建之前）
+    const savedStates = this._saveCardStates(container);
+
+    // 离屏构建新 DOM，恢复好状态后再原子置换
+    const tempDiv = document.createElement('div');
+    tempDiv.style.display = 'contents';
+    tempDiv.innerHTML = html;
+
+    // 1) 禁用所有可动画元素的 transition
+    const animEls = tempDiv.querySelectorAll('.tool-timeline-detail, .thinking-row-content, .tool-card .tool-call-details');
+    for (const el of animEls) {
+      el.dataset._trans = el.style.transition || '';
+      el.style.transition = 'none';
+    }
+
+    // 2) 在离屏 DOM 上恢复展开状态（此时用户完全看不见）
+    this._restoreCardStates(tempDiv, savedStates);
+
+    // 3) 恢复动画
+    for (const el of animEls) {
+      el.style.transition = el.dataset._trans;
+      delete el.dataset._trans;
+    }
+
+    // 4) 原子置换：一次操作完成新旧 DOM 切换（零中间帧）
+    container.replaceChildren(...tempDiv.children);
+
+    // 恢复滚动位置（避免 DOM 重建导致滚动跳动）
+    chatContainer.scrollTop = savedScrollTop;
     
-    // 恢复展开状态
-    this._restoreCardStates(container, savedStates);
+    // 思考流式渲染时，自动滚动思考内容到底部
+    const streamingRow = container.querySelector('.thinking-row.streaming .thinking-row-content');
+    if (streamingRow) {
+      streamingRow.scrollTop = streamingRow.scrollHeight;
+    }
     
     container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
       if (this.chatUI.bindToolCardEvents) {
@@ -732,30 +915,95 @@ export class ChatPanel {
   }
   
   /**
+   * 河马吐泡泡
+   */
+  _spawnHippoBubbles(hippoEl) {
+    const state = hippoEl.closest('.empty-state');
+    if (!state) return;
+    const hippoRect = hippoEl.getBoundingClientRect();
+    const stateRect = state.getBoundingClientRect();
+    const cx = hippoRect.left - stateRect.left + hippoRect.width / 2;
+    const cy = hippoRect.top - stateRect.top + hippoRect.height / 2;
+    const count = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const bubble = document.createElement('div');
+        bubble.className = 'hippo-bubble';
+        const size = 6 + Math.random() * 5;
+        const drift = (Math.random() - 0.5) * 30;
+        bubble.style.width = size + 'px';
+        bubble.style.height = size + 'px';
+        bubble.style.left = (cx - size / 2) + 'px';
+        bubble.style.top = (cy - size / 2) + 'px';
+        bubble.style.setProperty('--bubble-drift', drift + 'px');
+        state.appendChild(bubble);
+        bubble.addEventListener('animationend', () => bubble.remove());
+      }, i * 80);
+    }
+  }
+
+  /**
+   * 河马对话框气泡
+   */
+  _spawnHippoSpeech(hippoEl) {
+    const existing = hippoEl.querySelector('.hippo-speech');
+    if (existing) existing.remove();
+
+    const speeches = [
+      '代码写得不错嘛 🦛',
+      '好热🫠',
+      '想泡水💧',
+      '饿了吗🍉',
+      '今天吃什么',
+      '又在写 bug 了？',
+      '你好呀 👋',
+      '让我看看…',
+      '这个我熟！',
+      '要帮忙吗？',
+      '💤 有点困…',
+      '该下班了 🕐',
+      '正在思考中… 🤔',
+      '快夸我快夸我',
+      '🦛 哼！',
+    ];
+
+    const text = speeches[Math.floor(Math.random() * speeches.length)];
+
+    const speech = document.createElement('div');
+    speech.className = 'hippo-speech';
+    speech.textContent = text;
+
+    hippoEl.appendChild(speech);
+    speech.addEventListener('animationend', () => speech.remove());
+  }
+  
+  /**
    * 渲染思考气泡
    */
   _renderThinkingBubble(segment) {
-    const escapedContent = escapeHtml(segment.content);
+    const normalized = segment.content.replace(/\n{2,}/g, '\n');
+    const escapedContent = escapeHtml(normalized);
+    const thinkSvg = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>';
     
     if (segment.done) {
       return `
-        <div class="thinking-bubble completed" data-expanded="false">
-          <div class="thinking-header" onclick="this.closest('.thinking-bubble').dataset.expanded = this.closest('.thinking-bubble').dataset.expanded === 'true' ? 'false' : 'true'; this.querySelector('.toggle-icon').textContent = this.closest('.thinking-bubble').dataset.expanded === 'true' ? '▼' : '▶'; const content = this.nextElementSibling; if(content) content.style.display = this.closest('.thinking-bubble').dataset.expanded === 'true' ? 'block' : 'none';">
-            <span class="thinking-icon">💭</span>
-            <span class="thinking-label">已思考</span>
-            <span class="toggle-icon">▶</span>
+        <div class="thinking-row completed">
+          <div class="thinking-row-header" onclick="window.toggleThinkingRow(this)">
+            <span class="thinking-row-icon">${thinkSvg}</span>
+            <span class="thinking-row-label">已思考</span>
+            <span class="thinking-row-toggle">▶</span>
           </div>
-          <div class="thinking-content" style="display:none;">${escapedContent}</div>
+          <div class="thinking-row-content">${escapedContent}</div>
         </div>`;
     }
     
     return `
-      <div class="thinking-bubble streaming">
-        <div class="thinking-header">
-          <span class="thinking-spinner"></span>
-          <span class="thinking-label">思考中...</span>
+      <div class="thinking-row streaming">
+        <div class="thinking-row-header">
+          <span class="thinking-row-icon">${thinkSvg}</span>
+          <span class="thinking-row-label">思考中...</span>
         </div>
-        <div class="thinking-content">${escapedContent}</div>
+        <div class="thinking-row-content">${escapedContent}</div>
       </div>`;
   }
   
@@ -866,6 +1114,10 @@ export class ChatPanel {
         }
         
         if (parsed._eventType === 'error' && parsed.message) {
+          if (reasoningSegment) {
+            reasoningSegment.done = true;
+            reasoningSegment = null;
+          }
           currentText = '⚠️ ' + parsed.message;
           this._scheduleRender(responseContentDiv, segments, currentText);
           this.chatUI.scrollToBottom();
@@ -910,26 +1162,26 @@ export class ChatPanel {
   }
   
   _bindAskUserCardEvents(card) {
+    const details = card.querySelector('.tool-call-details');
+    if (!details) return;
+
+    details.style.transition = 'none';
+    const h = details.scrollHeight;
+    details.style.maxHeight = h > 0 ? h + 'px' : '9999px';
+    details.style.transition = '';
+    card.classList.add('expanded');
+
     const optionBtns = card.querySelectorAll('.option-btn');
     optionBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         const option = btn.getAttribute('data-option');
-        if (option) this._sendAskUserResponse(option);
+        if (option) {
+          details.style.maxHeight = '0';
+          card.classList.remove('expanded');
+          this._sendAskUserResponse(option);
+        }
       });
     });
-    
-    const sendBtn = card.querySelector('.send-btn');
-    if (sendBtn) {
-      sendBtn.addEventListener('click', () => {
-        const textarea = card.querySelector('.ask-user-input');
-        const userInput = textarea?.value.trim();
-        if (!userInput) {
-          showToast('请输入你的回答', 'warning');
-          return;
-        }
-        this._sendAskUserResponse(userInput);
-      });
-    }
   }
   
   /**
@@ -1046,14 +1298,12 @@ export class ChatPanel {
     msgDiv.classList.add('editing');
     
     const originalText = contentDiv.textContent;
-    
-    const editContainer = document.createElement('div');
-    editContainer.className = 'message-edit-container';
+    const row = msgDiv.closest('.message-row') || msgDiv;
     
     const textarea = document.createElement('textarea');
     textarea.className = 'message-edit-textarea';
     textarea.value = originalText;
-    textarea.rows = Math.min(Math.max(originalText.split('\n').length, 2), 8);
+    textarea.rows = Math.min(Math.max(originalText.split('\n').length, 4), 15);
     
     const editActions = document.createElement('div');
     editActions.className = 'message-edit-actions';
@@ -1062,58 +1312,50 @@ export class ChatPanel {
     cancelBtn.className = 'message-edit-cancel';
     cancelBtn.textContent = '取消';
     
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'message-edit-save';
-    saveBtn.textContent = '保存并重新生成';
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'message-edit-send';
+    sendBtn.textContent = '发送';
     
     editActions.appendChild(cancelBtn);
-    editActions.appendChild(saveBtn);
-    editContainer.appendChild(textarea);
-    editContainer.appendChild(editActions);
+    editActions.appendChild(sendBtn);
     
     contentDiv.style.display = 'none';
-    const btnContainer = msgDiv.querySelector('.message-actions');
-    if (btnContainer) btnContainer.style.display = 'none';
+    const originalActions = row.querySelector('.message-actions');
+    if (originalActions) originalActions.style.display = 'none';
     
-    contentDiv.parentNode.insertBefore(editContainer, contentDiv.nextSibling);
+    contentDiv.parentNode.insertBefore(textarea, contentDiv.nextSibling);
+    row.appendChild(editActions);
     
     textarea.focus();
-    textarea.select();
     
     // 取消编辑
     cancelBtn.onclick = () => {
       msgDiv.classList.remove('editing');
-      editContainer.remove();
+      textarea.remove();
+      editActions.remove();
       contentDiv.style.display = '';
-      if (btnContainer) btnContainer.style.display = '';
+      if (originalActions) originalActions.style.display = '';
     };
     
-    // 保存编辑
-    saveBtn.onclick = () => {
+    // 发送编辑
+    sendBtn.onclick = () => {
       const newContent = textarea.value.trim();
       if (!newContent || newContent === originalText) {
         cancelBtn.click();
         return;
       }
       
-      const messageId = msgDiv.dataset.messageId;
       msgDiv.classList.remove('editing');
-      editContainer.remove();
-      
-      if (messageId) {
-        this.sendMessage(newContent, messageId, msgDiv);
-      } else {
-        contentDiv.textContent = newContent;
-        contentDiv.style.display = '';
-        if (btnContainer) btnContainer.style.display = '';
-      }
+      textarea.remove();
+      editActions.remove();
+      this.sendMessage(newContent, msgDiv.dataset.messageId || '', msgDiv);
     };
     
     // 键盘事件
     textarea.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
         e.preventDefault();
-        saveBtn.click();
+        sendBtn.click();
       }
       if (e.key === 'Escape') {
         cancelBtn.click();
@@ -1130,3 +1372,35 @@ export class ChatPanel {
     }
   }
 }
+
+window.toggleThinkingRow = function(headerEl) {
+  const row = headerEl.closest('.thinking-row.completed');
+  if (!row) return;
+  const content = row.querySelector('.thinking-row-content');
+  if (!content) return;
+  const toggleIcon = row.querySelector('.thinking-row-toggle');
+
+  if (row.classList.contains('expanded')) {
+    content.style.maxHeight = '0';
+    row.classList.remove('expanded');
+    if (toggleIcon) toggleIcon.textContent = '▶';
+    content.style.overflowY = '';
+  } else {
+    content.style.overflowY = 'hidden';
+    const h = content.scrollHeight;
+    const expandedPadding = 16;
+    const totalH = h + expandedPadding;
+    const isCapped = totalH > 300;
+    content.style.maxHeight = isCapped ? '300px' : totalH + 'px';
+    row.classList.add('expanded');
+    if (toggleIcon) toggleIcon.textContent = '▼';
+    const onEnd = (e) => {
+      if (e.propertyName !== 'max-height') return;
+      content.removeEventListener('transitionend', onEnd);
+      if (isCapped) {
+        content.style.overflowY = 'auto';
+      }
+    };
+    content.addEventListener('transitionend', onEnd);
+  }
+};

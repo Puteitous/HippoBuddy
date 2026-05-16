@@ -5,52 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hippo Cockpit</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦛</text></svg>">
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/cockpit.css">
+    <link rel="stylesheet" href="css/variables.css?v=20260514-5">
+    <link rel="stylesheet" href="css/common.css?v=20260514-7">
+    <link rel="stylesheet" href="css/cockpit.css?v=20260514-5">
     <link id="hljs-light-theme" rel="stylesheet" href="js/vendor/github.min.css">
     <link id="hljs-dark-theme" rel="stylesheet" href="js/vendor/github-dark.min.css" disabled>
     <script src="js/vendor/marked.min.js"></script>
     <script src="js/vendor/highlight.min.js"></script>
 </head>
-<body>
+<body class="page-loading">
+    <!-- ===== 启动 Splash：河马出水 ===== -->
+    <div class="splash-screen" id="splashScreen">
+        <div class="splash-hippo" id="splashHippo">🦛</div>
+        <div class="splash-wave-wrap">
+            <div class="splash-wave splash-wave-back"></div>
+            <div class="splash-wave splash-wave-front"></div>
+        </div>
+        <div class="splash-skip-hint" id="splashSkipHint">点击任意处跳过</div>
+    </div>
+
     <!-- 顶部栏 -->
     <div class="header">
         <span>Hippo Cockpit</span>
-        <div style="display:flex;align-items:center;gap:12px;">
-            <span class="token-legend" title="✓ = 真实值（来自 LLM）| ~ = 估算值（首轮回退）">✓ 真实 / ~ 估算</span>
-            <div class="token-stats" id="tokenStats">
-                <div class="token-stat-item">
-                    <span class="token-stat-label">Token 使用</span>
-                    <span class="token-stat-value" id="tokenUsage">0 / 0</span>
-                </div>
-                <div class="token-stat-item">
-                    <span class="token-stat-label">使用率</span>
-                    <span class="token-stat-value" id="tokenPercent">0%</span>
-                </div>
-            </div>
-            <button class="header-icon-btn" id="tokenDetailsBtn" title="查看总 Token 消耗">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="20" x2="12" y2="10"/>
-                    <line x1="18" y1="20" x2="18" y2="4"/>
-                    <line x1="6" y1="20" x2="6" y2="16"/>
+        <div class="header-actions">
+            <button class="header-icon-btn" id="rightPanelShowBtn" title="展开右侧面板" style="display:none;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="15" width="4" height="6" rx="0.5"/>
+                    <rect x="10" y="9" width="4" height="12" rx="0.5"/>
+                    <rect x="17" y="3" width="4" height="18" rx="0.5"/>
                 </svg>
             </button>
-            <button class="compact-btn" id="compactBtn" title="压缩上下文">
+            <button class="header-icon-btn" id="compactBtn" title="压缩上下文">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6"/>
                 </svg>
-                压缩
             </button>
-            <button class="export-btn" id="exportBtn" title="导出对话">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                导出
-            </button>
-            <button id="themeToggle" title="切换主题">🌙</button>
+            <button class="header-icon-btn" id="themeToggle" title="切换主题">🌙</button>
             <span id="sseStatus" class="sse-status disconnected">SSE 连接中...</span>
         </div>
     </div>
@@ -58,9 +48,21 @@
     <!-- 主容器 -->
     <div class="main-container">
         <!-- 会话面板 -->
-        <div class="session-panel">
+        <div class="session-panel" id="sessionPanel">
             <div class="session-header">
-                <span>会话</span>
+                <div class="session-header-left">
+                    <button class="session-toggle-btn" id="sessionToggle" title="折叠侧栏">
+                        <span class="toggle-icon-hamburger">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="3" y1="6" x2="21" y2="6"/>
+                                <line x1="3" y1="12" x2="21" y2="12"/>
+                                <line x1="3" y1="18" x2="21" y2="18"/>
+                            </svg>
+                        </span>
+                        <span class="toggle-icon-hippo">🦛</span>
+                    </button>
+                    <span class="session-header-title">会话</span>
+                </div>
                 <button id="newSessionBtn" title="新建会话">+</button>
             </div>
             <div class="session-list" id="sessionList"></div>
@@ -69,43 +71,107 @@
         <!-- 聊天面板 -->
         <div class="chat-panel">
             <div class="chat-container" id="chatContainer">
-                <div class="empty-state">发送消息开始对话</div>
+                <div class="empty-state">
+                    <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
+                    <h1 class="empty-hero-title">Hippo Code</h1>
+                    <p class="empty-hero-subtitle">你的 AI 编码助手</p>
+                    <div class="empty-hero-input-area">
+                        <div class="hero-input-wrapper">
+                            <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
+                            <button class="hero-send-btn" id="heroSendBtn" title="发送">
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="8" y1="15" x2="8" y2="1"/>
+                                    <polyline points="2 7 8 1 14 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="empty-hero-suggestions">
+                        <button class="empty-hero-suggestion" data-prompt="分析一下这个项目的结构和主要功能">分析项目结构</button>
+                        <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
+                        <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
+                    </div>
+                </div>
             </div>
-            <div class="new-msg-hint" id="newMsgHint" title="滚动到底部">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 12 15 18 9"/>
-                </svg>
-            </div>
-
-            <div class="prompt-mode-bar" id="promptModeBar">
-                <div class="prompt-mode-label">角色:</div>
-                <div class="prompt-mode-options" id="promptModeOptions"></div>
-                <button class="prompt-custom-btn" id="promptCustomBtn" title="自定义提示词">⚙️</button>
-            </div>
-            <div class="input-container">
-                <textarea id="messageInput" placeholder="输入消息... (Enter 发送，Shift+Enter 换行)" rows="1" autocomplete="off"></textarea>
-                <button id="stopBtn" style="display:none;" title="停止生成">⏹</button>
-                <button id="sendBtn" title="发送消息">➤</button>
+            <div class="input-container" id="inputContainer">
+                <div class="new-msg-hint" id="newMsgHint" title="滚动到底部">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </div>
+                <div class="input-inner">
+                    <div class="input-row">
+                        <textarea id="messageInput" placeholder="输入消息..." rows="1" autocomplete="off"></textarea>
+                    </div>
+                    <div class="input-status-bar" id="inputStatusBar">
+                        <div class="status-bar-left">
+                            <span class="status-bar-item" id="statusBarToken" data-section="token" title="Token 使用率">
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="10" width="3" height="4" rx="0.5"/>
+                                    <rect x="6.5" y="6" width="3" height="8" rx="0.5"/>
+                                    <rect x="11" y="2" width="3" height="12" rx="0.5"/>
+                                </svg>
+                                <span class="status-bar-label">Token</span>
+                                <span class="status-bar-value" id="statusBarTokenValue">0%</span>
+                            </span>
+                            <span class="status-bar-divider"></span>
+                            <span class="status-bar-item" id="statusBarFiles" data-section="files" title="文件变更">
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
+                                    <path d="M9 2v3h3"/>
+                                </svg>
+                                <span class="status-bar-label">文件</span>
+                                <span class="status-bar-value" id="statusBarFilesValue">0</span>
+                            </span>
+                            <span class="status-bar-divider"></span>
+                            <span class="status-bar-item" id="statusBarMonitor" data-section="monitor" title="实时监控">
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="1 11 5 7 8 10 15 2"/>
+                                    <polyline points="11 2 15 2 15 6"/>
+                                </svg>
+                                <span class="status-bar-label">监控</span>
+                            </span>
+                        </div>
+                        <div class="status-bar-actions">
+                            <button id="stopBtn" style="display:none;" title="停止生成">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                            </button>
+                            <button id="sendBtn" title="发送消息">
+                                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="8" y1="15" x2="8" y2="1"/>
+                                    <polyline points="2 7 8 1 14 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- 右侧面板 -->
-        <div class="right-panel">
-            <!-- 记忆面板 -->
-            <div class="sidebar-section">
-                <div class="sidebar-section-header">
-                    <span>🧠 Memory Panel</span>
-                    <span class="arrow">▶</span>
-                </div>
-                <div class="sidebar-section-body">
-                    <div class="memory-list" id="memoryList"></div>
-                </div>
+        <!-- 右侧面板（默认隐藏） -->
+        <div class="right-panel hidden" id="rightPanel">
+            <div class="right-panel-toggle" id="rightPanelToggle" title="收起右侧面板">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="10" width="3" height="4" rx="0.5"/>
+                    <rect x="6.5" y="6" width="3" height="8" rx="0.5"/>
+                    <rect x="11" y="2" width="3" height="12" rx="0.5"/>
+                </svg>
             </div>
 
+            <!-- 右侧面板内容 -->
+            <div class="right-panel-body">
+
             <!-- Token 统计 -->
-            <div class="sidebar-section">
+            <div class="sidebar-section" data-section="token">
                 <div class="sidebar-section-header">
-                    <span>📊 Token 统计</span>
+                    <span>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="10" width="3" height="4" rx="0.5"/>
+                            <rect x="6.5" y="6" width="3" height="8" rx="0.5"/>
+                            <rect x="11" y="2" width="3" height="12" rx="0.5"/>
+                        </svg>
+                        Token 统计
+                    </span>
                     <span class="arrow">▶</span>
                 </div>
                 <div class="sidebar-section-body show">
@@ -183,16 +249,33 @@
                 </div>
             </div>
 
-            <!-- 实时监控 -->
-            <div class="sidebar-section">
+            <!-- 实时监控（简化版，去掉🧠记忆系统） -->
+            <div class="sidebar-section" data-section="monitor">
                 <div class="sidebar-section-header">
-                    <span>📡 实时监控</span>
+                    <span>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="1 11 5 7 8 10 15 2"/>
+                            <polyline points="11 2 15 2 15 6"/>
+                        </svg>
+                        实时监控
+                    </span>
                     <span class="arrow">▶</span>
                 </div>
                 <div class="sidebar-section-body">
                     <div class="metrics-panel" id="metricsPanel">
                         <div class="metrics-group">
-                            <div class="metrics-group-title">🤖 LLM 调用</div>
+                            <div class="metrics-group-title">
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4" width="10" height="7" rx="2"/>
+                                    <circle cx="6.5" cy="7.5" r="0.8" fill="currentColor"/>
+                                    <circle cx="9.5" cy="7.5" r="0.8" fill="currentColor"/>
+                                    <path d="M5 4V2"/>
+                                    <path d="M11 4V2"/>
+                                    <path d="M3 11v2"/>
+                                    <path d="M13 11v2"/>
+                                </svg>
+                                LLM 调用
+                            </div>
                             <div class="metrics-grid">
                                 <div class="metrics-item">
                                     <span class="metrics-label">请求次数</span>
@@ -231,37 +314,21 @@
                             </div>
                             <div class="metrics-tool-list" id="metToolList"></div>
                         </div>
-                        <div class="metrics-divider"></div>
-                        <div class="metrics-group">
-                            <div class="metrics-group-title">🧠 记忆系统</div>
-                            <div class="metrics-grid">
-                                <div class="metrics-item">
-                                    <span class="metrics-label">检索次数</span>
-                                    <span class="metrics-value" id="metMemSearchCount">0</span>
-                                </div>
-                                <div class="metrics-item">
-                                    <span class="metrics-label">命中率</span>
-                                    <span class="metrics-value" id="metMemHitRate">0%</span>
-                                </div>
-                                <div class="metrics-item">
-                                    <span class="metrics-label">关键词回退</span>
-                                    <span class="metrics-value" id="metMemFallback">0</span>
-                                </div>
-                                <div class="metrics-item">
-                                    <span class="metrics-label">注入成功</span>
-                                    <span class="metrics-value" id="metMemInjection">0</span>
-                                </div>
-                            </div>
-                        </div>
                         <div class="metrics-update-time" id="metUpdateTime"></div>
                     </div>
                 </div>
             </div>
 
             <!-- 文件变更 -->
-            <div class="sidebar-section">
+            <div class="sidebar-section" data-section="files">
                 <div class="sidebar-section-header">
-                    <span>📂 文件变更</span>
+                    <span>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
+                            <path d="M9 2v3h3"/>
+                        </svg>
+                        文件变更
+                    </span>
                     <span class="arrow">▶</span>
                 </div>
                 <div class="sidebar-section-body">
@@ -270,6 +337,8 @@
                         <div class="file-changes-list" id="fileChangesList"></div>
                     </div>
                 </div>
+            </div>
+
             </div>
         </div>
     </div>
@@ -306,7 +375,13 @@
             </div>
             <div class="modal-body">
                 <div class="token-details-section">
-                    <h4>📝 当前上下文</h4>
+                    <h4>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
+                            <path d="M9 2v3h3"/>
+                        </svg>
+                        当前上下文
+                    </h4>
                     <div class="token-detail-row">
                         <span class="token-detail-label">Prompt:</span>
                         <span class="token-detail-value" id="detailPrompt">0</span>
@@ -322,7 +397,13 @@
                 </div>
                 
                 <div class="token-details-section">
-                    <h4>📈 会话总计</h4>
+                    <h4>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="1 12 5 8 8 10 15 2"/>
+                            <polyline points="11 2 15 2 15 6"/>
+                        </svg>
+                        会话总计
+                    </h4>
                     <div class="token-detail-row">
                         <span class="token-detail-label">总输入:</span>
                         <span class="token-detail-value" id="detailSessionInput">0</span>
@@ -346,7 +427,16 @@
                 </div>
 
                 <div class="token-details-section">
-                    <h4>💾 缓存命中</h4>
+                    <h4>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <ellipse cx="8" cy="4" rx="6" ry="2"/>
+                            <path d="M2 4v4"/>
+                            <ellipse cx="8" cy="8" rx="6" ry="2"/>
+                            <path d="M2 8v4"/>
+                            <ellipse cx="8" cy="12" rx="6" ry="2"/>
+                        </svg>
+                        缓存命中
+                    </h4>
                     <div class="token-detail-row">
                         <span class="token-detail-label">当前缓存命中:</span>
                         <span class="token-detail-value success-text" id="detailCacheHit">0</span>
@@ -392,6 +482,6 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- 应用入口 -->
-    <script type="module" src="js/main.js?v=20260508-4"></script>
+    <script type="module" src="js/main.js?v=20260514-5"></script>
 </body>
 </html>

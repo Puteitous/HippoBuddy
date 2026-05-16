@@ -1,53 +1,71 @@
 :root {
-  --primary-color: #6ea8d7;
+  /* ==========================================
+     白色基调色彩体系
+     参考 Claude/ChatGPT 配色哲学
+     蓝色仅用于极少数交互元素（链接 hover、焦点边框）
+     ========================================== */
+
+  /* --- 新变量体系 --- */
+  --bg-app:        #ffffff;
+  --bg-sidebar:    #f8f9fa;
+  --bg-chat:       #ffffff;
+  --bg-code:       #f3f4f6;
+
+  --border:        #e5e7eb;
+  --text-primary:  #111827;
+  --text-secondary:#4b5563;
+  --text-muted:    #9ca3af;
+
+  --accent:        #6ea8d7;
+
+  /* --- 向后兼容别名（旧变量映射到新值） --- */
+  --bg-white:      var(--bg-app);
+  --bg-light:      var(--bg-sidebar);
+  --bg-lighter:    var(--bg-sidebar);
+  --border-color:  var(--border);
+  --border-code:   var(--border);
+  --text-light:    #d1d5db;
+
+  --primary-color: var(--accent);
   --primary-hover: #5a94c2;
-  --primary-dark: #1a1a2e;
+  --primary-dark:  #1a1a2e;
   --primary-dark-hover: #16213e;
-  
+
   --success-color: #4CAF50;
-  --success-bg: #e8f5e9;
-  --success-text: #2e7d32;
-  
-  --error-color: #c62828;
-  --error-bg: #ffebee;
-  --error-text: #c62828;
-  --error-hover: #b71c1c;
-  
+  --success-bg:    #e8f5e9;
+  --success-text:  #2e7d32;
+
+  --error-color:   #c62828;
+  --error-bg:      #ffebee;
+  --error-text:    #c62828;
+  --error-hover:   #b71c1c;
+
   --warning-color: #e65100;
-  --warning-bg: #fff3e0;
-  
-  --bg-light: #f5f5f5;
-  --bg-lighter: #fafafa;
-  --bg-white: #ffffff;
-  --bg-code: #f6f8fa;
-  
-  --border-color: #e0e0e0;
-  --border-code: #e1e4e8;
-  
-  --text-primary: #333333;
-  --text-secondary: #666666;
-  --text-muted: #999999;
-  --text-light: #bbbbbb;
-  
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-  --shadow-md: 0 2px 4px rgba(0,0,0,0.1);
-  --shadow-lg: 0 2px 8px rgba(0,0,0,0.15);
-  
+  --warning-bg:    #fff3e0;
+
+  /* --- 阴影 --- */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.1);
+
+  /* --- 圆角 --- */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  
+
+  /* --- 间距 --- */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 12px;
   --spacing-lg: 16px;
   --spacing-xl: 20px;
   --spacing-2xl: 24px;
-  
+
+  /* --- 字体 --- */
   --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  
+
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-md: 13px;
@@ -55,41 +73,50 @@
   --font-size-xl: 15px;
   --font-size-2xl: 16px;
   --font-size-3xl: 18px;
-  
+
+  /* --- 过渡 --- */
   --transition-fast: 0.2s;
   --transition-normal: 0.3s;
 }
 
 [data-theme="dark"] {
-  --primary-color: #5b9bd5;
+  /* --- 新变量体系（暗色） --- */
+  --bg-app:        #0d1117;
+  --bg-sidebar:    #161b22;
+  --bg-chat:       #0d1117;
+  --bg-code:       #1c2128;
+
+  --border:        #30363d;
+  --text-primary:  #e6edf3;
+  --text-secondary:#8b949e;
+  --text-muted:    #6e7681;
+
+  --accent:        #58a6ff;
+
+  /* --- 向后兼容别名（暗色） --- */
+  --bg-white:      var(--bg-app);
+  --bg-light:      var(--bg-sidebar);
+  --bg-lighter:    var(--bg-sidebar);
+  --border-color:  var(--border);
+  --border-code:   var(--border);
+  --text-light:    #6e7681;
+
+  --primary-color: var(--accent);
   --primary-hover: #4a8ac4;
-  
+
   --success-color: #66bb6a;
-  --success-bg: #1b3a1e;
-  --success-text: #81c784;
-  
-  --error-color: #ef5350;
-  --error-bg: #3a1a1a;
-  --error-text: #ef5350;
-  --error-hover: #d32f2f;
-  
+  --success-bg:    #1b3a1e;
+  --success-text:  #81c784;
+
+  --error-color:   #ef5350;
+  --error-bg:      #3a1a1a;
+  --error-text:    #ef5350;
+  --error-hover:   #d32f2f;
+
   --warning-color: #ff9800;
-  --warning-bg: #3a2a10;
-  
-  --bg-light: #1e1e2e;
-  --bg-lighter: #181825;
-  --bg-white: #1e1e2e;
-  --bg-code: #2a2a3c;
-  
-  --border-color: #3a3a4e;
-  --border-code: #3a3a4e;
-  
-  --text-primary: #cdd6f4;
-  --text-secondary: #a6adc8;
-  --text-muted: #6c7086;
-  --text-light: #585b70;
-  
+  --warning-bg:    #3a2a10;
+
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md: 0 2px 4px rgba(0,0,0,0.3);
-  --shadow-lg: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.35);
 }

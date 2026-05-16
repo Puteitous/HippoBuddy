@@ -36,7 +36,9 @@ export class TokenMonitor {
       tvSessionCacheHit: document.getElementById('tvSessionCacheHit'),
       tvSessionCacheRate: document.getElementById('tvSessionCacheRate'),
       trendCount: document.getElementById('trendCount'),
-      trendChart: document.getElementById('trendChart')
+      trendChart: document.getElementById('trendChart'),
+      statusBarToken: document.getElementById('statusBarToken'),
+      statusBarTokenValue: document.getElementById('statusBarTokenValue')
     };
     
     // 绑定事件
@@ -232,6 +234,11 @@ export class TokenMonitor {
     }
     if (this.elements.tvSessionCacheRate) {
       this.elements.tvSessionCacheRate.textContent = stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%';
+    }
+    
+    // 更新输入框状态条
+    if (this.elements.statusBarTokenValue) {
+      this.elements.statusBarTokenValue.textContent = `${percent.toFixed(0)}%`;
     }
   }
   

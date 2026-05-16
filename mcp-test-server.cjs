@@ -42,7 +42,7 @@ const testResources = {
         name: "配置示例",
         description: "MCP 服务器配置示例",
         mimeType: "text/yaml",
-        content: "mcp:\n  enabled: true\n  auto_connect: true\n  servers:\n    - id: echo\n      name: Echo Test Server\n      type: stdio\n      command: node\n      args: [\"mcp-test-server.js\"]\n"
+        content: "mcp:\n  enabled: true\n  auto_connect: true\n  servers:\n    - id: echo\n      name: Echo Test Server\n      type: stdio\n      command: node\n      args: [\"mcp-test-server.cjs\"]\n"
     },
     "test:///server-status": {
         name: "服务器状态",
@@ -247,107 +247,105 @@ rl.on('line', (line) => {
                 description: info.description,
                 mimeType: info.mimeType
             }));
-            sendResponse(msg.id, { resources });
-            console.error(`✅ 返回资源列表: ${resources.length} 个资源`);
+            sendResponse(msg.id, { resources: resources });
+            console.error("✅ 返回资源列表: " + resources.length + " 个资源");
         }
         else if (msg.method === 'resources/read') {
             const uri = msg.params.uri;
             const resource = testResources[uri];
-            
             if (resource) {
                 sendResponse(msg.id, {
-                    contents: [
-                        {
-                            uri: uri,
-                            mimeType: resource.mimeType,
-                            text: resource.content
-                        }
-                    ]
+                    contents: [{
+                        uri: uri,
+                        mimeType: resource.mimeType,
+                        text: resource.content
+                    }]
                 });
-                console.error(`✅ 读取资源: ${uri}`);
+                console.error("✅ 返回资源内容: " + uri);
             } else {
-                sendError(msg.id, -32602, `资源不存在: ${uri}`);
+                sendError(msg.id, -32602, "Resource not found: " + uri);
+                console.error("❌ 资源未找到: " + uri);
             }
         }
         else if (msg.method === 'prompts/list') {
-            const prompts = Object.values(testPrompts).map(p => ({
-                name: p.name,
-                description: p.description,
-                arguments: p.arguments
+            const prompts = Object.entries(testPrompts).map(([name, info]) => ({
+                name: info.name,
+                description: info.description,
+                arguments: info.arguments
             }));
-            sendResponse(msg.id, { prompts });
-            console.error(`✅ 返回提示词列表: ${prompts.length} 个提示词`);
+            sendResponse(msg.id, { prompts: prompts });
+            console.error("✅ 返回提示词列表: " + prompts.length + " 个提示词");
         }
         else if (msg.method === 'prompts/get') {
-            const promptName = msg.params.name;
-            const promptArgs = msg.params.arguments || {};
-            const prompt = testPrompts[promptName];
-            
+            const name = msg.params.name;
+            const prompt = testPrompts[name];
             if (prompt) {
-                sendResponse(msg.id, prompt.render(promptArgs));
-                console.error(`✅ 渲染提示词: ${promptName}, 参数:`, promptArgs);
+                const rendered = prompt.render(msg.params.arguments || {});
+                sendResponse(msg.id, {
+                    description: rendered.description,
+                    messages: rendered.messages
+                });
+                console.error("✅ 返回提示词: " + name);
             } else {
-                sendError(msg.id, -32602, `提示词不存在: ${promptName}`);
+                sendError(msg.id, -32602, "Prompt not found: " + name);
+                console.error("❌ 提示词未找到: " + name);
             }
         }
         else if (msg.method === 'tools/call') {
             const toolName = msg.params.name;
             const args = msg.params.arguments || {};
 
-            console.error(`调用工具: ${toolName}, 参数:`, args);
-
             if (toolName === 'echo') {
                 sendResponse(msg.id, {
-                    content: [
-                        {
-                            type: "text",
-                            text: `Echo: ${args.message}`
-                        }
-                    ]
+                    content: [{
+                        type: "text",
+                        text: `Echo: ${args.message || '(空消息)'}`
+                    }]
                 });
+                console.error("✅ 执行工具: echo");
             }
             else if (toolName === 'add') {
-                const sum = args.a + args.b;
+                const result = (parseInt(args.a) || 0) + (parseInt(args.b) || 0);
                 sendResponse(msg.id, {
-                    content: [
-                        {
-                            type: "text",
-                            text: `${args.a} + ${args.b} = ${sum}`
-                        }
-                    ]
+                    content: [{
+                        type: "text",
+                        text: `${args.a} + ${args.b} = ${result}`
+                    }]
                 });
+                console.error("✅ 执行工具: add => " + result);
             }
             else if (toolName === 'get_server_info') {
                 sendResponse(msg.id, {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                server: "echo-server",
-                                version: "1.0.0",
-                                tools: ["echo", "add", "get_server_info"],
-                                resources: Object.keys(testResources),
-                                prompts: Object.keys(testPrompts),
-                                timestamp: new Date().toISOString()
-                            }, null, 2)
-                        }
-                    ]
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            name: "Echo Test Server",
+                            version: "1.0.0",
+                            protocolVersion: "2024-11-05",
+                            tools: 3,
+                            resources: Object.keys(testResources).length,
+                            prompts: Object.keys(testPrompts).length,
+                            uptime: process.uptime().toFixed(2) + "s"
+                        }, null, 2)
+                    }]
                 });
+                console.error("✅ 执行工具: get_server_info");
             }
             else {
-                sendError(msg.id, -32601, `未知工具: ${toolName}`);
+                sendError(msg.id, -32602, "Unknown tool: " + toolName);
+                console.error("❌ 未知工具: " + toolName);
             }
         }
         else {
-            console.error("未知方法:", msg.method);
-            sendError(msg.id, -32601, `方法未实现: ${msg.method}`);
+            sendError(msg.id, -32601, "Method not found: " + msg.method);
+            console.error("❌ 未知方法: " + msg.method);
         }
     } catch (e) {
-        console.error("解析错误:", e.message, line);
+        console.error("解析错误:", e.message);
     }
 });
 
-process.on('SIGINT', () => {
-    console.error("收到关闭信号，正在退出...");
+rl.on('close', () => {
+    console.error("MCP Echo Server 关闭");
     process.exit(0);
 });

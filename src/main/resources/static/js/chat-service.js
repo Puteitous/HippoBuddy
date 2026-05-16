@@ -5,6 +5,76 @@ export class ChatService {
     this.baseUrl = baseUrl;
     this.maxRetries = options.maxRetries || 2;
     this.retryDelay = options.retryDelay || 1000;
+    this._messageCache = new Map();
+    this._pendingRefreshes = new Map();
+    this._maxCacheSize = 20;
+    this._cacheAccessOrder = [];
+  }
+
+  _touchCache(sessionId) {
+    const idx = this._cacheAccessOrder.indexOf(sessionId);
+    if (idx !== -1) this._cacheAccessOrder.splice(idx, 1);
+    this._cacheAccessOrder.push(sessionId);
+    if (this._cacheAccessOrder.length > this._maxCacheSize) {
+      const oldest = this._cacheAccessOrder.shift();
+      this._messageCache.delete(oldest);
+    }
+  }
+
+  invalidateMessageCache(sessionId) {
+    this._messageCache.delete(sessionId);
+    this._pendingRefreshes.delete(sessionId);
+    const idx = this._cacheAccessOrder.indexOf(sessionId);
+    if (idx !== -1) this._cacheAccessOrder.splice(idx, 1);
+  }
+
+  clearMessageCache() {
+    this._messageCache.clear();
+    this._pendingRefreshes.clear();
+    this._cacheAccessOrder = [];
+  }
+
+  async _fetchSessionMessages(sessionId) {
+    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/messages`);
+    if (response.status === 404) return [];
+    if (!response.ok) {
+      throw new Error(`获取消息失败: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  async getSessionMessages(sessionId) {
+    const cached = this._messageCache.get(sessionId);
+    if (cached) {
+      this._touchCache(sessionId);
+      // Background refresh: fetch latest data without blocking the caller
+      this._refreshInBackground(sessionId);
+      return cached.messages;
+    }
+    const messages = await this._fetchWithDedup(sessionId);
+    this._messageCache.set(sessionId, { messages, timestamp: Date.now() });
+    this._touchCache(sessionId);
+    return messages;
+  }
+
+  async _fetchWithDedup(sessionId) {
+    const pending = this._pendingRefreshes.get(sessionId);
+    if (pending) return pending;
+    const promise = this._fetchSessionMessages(sessionId).finally(() => {
+      this._pendingRefreshes.delete(sessionId);
+    });
+    this._pendingRefreshes.set(sessionId, promise);
+    return promise;
+  }
+
+  async _refreshInBackground(sessionId) {
+    try {
+      const messages = await this._fetchWithDedup(sessionId);
+      this._messageCache.set(sessionId, { messages, timestamp: Date.now() });
+      this._touchCache(sessionId);
+    } catch {
+      // Silent fail — cached data remains valid
+    }
   }
 
   async sendMessage(session, message, onChunk, signal, systemPrompt, editMessageId) {
@@ -169,15 +239,6 @@ export class ChatService {
     const response = await fetch(`${this.baseUrl}/api/sessions`);
     if (!response.ok) {
       throw new Error(`获取会话列表失败: ${response.status}`);
-    }
-    return response.json();
-  }
-
-  async getSessionMessages(sessionId) {
-    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/messages`);
-    if (response.status === 404) return [];
-    if (!response.ok) {
-      throw new Error(`获取消息失败: ${response.status}`);
     }
     return response.json();
   }
