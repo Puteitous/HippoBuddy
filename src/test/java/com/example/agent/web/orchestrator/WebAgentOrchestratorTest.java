@@ -26,9 +26,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.io.PrintWriter;
+import java.io.IOException;
 import java.io.StringWriter;
-import java.lang.reflect.Field;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,7 +49,6 @@ class WebAgentOrchestratorTest {
     private TokenEstimator mockTokenEstimator;
     private WebAgentOrchestrator orchestrator;
     private StringWriter stringWriter;
-    private PrintWriter printWriter;
     private SseWriter sseWriter;
     private Conversation conversation;
     private List<Message> baseContext;
@@ -72,8 +71,7 @@ class WebAgentOrchestratorTest {
         orchestrator = new WebAgentOrchestrator(mockSessionManager);
 
         stringWriter = new StringWriter();
-        printWriter = new PrintWriter(stringWriter);
-        sseWriter = new SseWriter(printWriter);
+        sseWriter = new SseWriter(stringWriter);
 
         conversation = new Conversation(DEFAULT_MAX_TOKENS, mockTokenEstimator, TEST_SESSION_ID);
         Message systemMsg = Message.system("You are a helpful assistant.");
@@ -102,16 +100,7 @@ class WebAgentOrchestratorTest {
         ServiceLocator.clear();
     }
 
-    @SuppressWarnings("unchecked")
-    private void setClientDisconnectedBeforeReflect(boolean value) throws Exception {
-        Field field = SseWriter.class.getDeclaredField("clientDisconnected");
-        field.setAccessible(true);
-        ThreadLocal<Boolean> tl = (ThreadLocal<Boolean>) field.get(null);
-        tl.set(value);
-    }
-
     private String sseOutput() {
-        printWriter.flush();
         return stringWriter.toString();
     }
 
@@ -397,11 +386,133 @@ class WebAgentOrchestratorTest {
         void disconnectedBeforeExecute() throws Exception {
             mockLlmClient.enqueueSuccessResponse("Hello");
 
-            setClientDisconnectedBeforeReflect(true);
+            SseWriter.setClientDisconnected(true);
 
             orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
 
             assertTrue(sseOutput().isEmpty(), "断开后不应有任何 SSE 输出");
+        }
+
+        @Test
+        @DisplayName("流式回调中断开应调用 abortCurrentRequest 并跳过持久化")
+        void disconnectDuringStreamAbortsAndSkipsPersistence() throws Exception {
+            SseWriter.removeClientDisconnected();
+
+            Writer failAfterThinkingWriter = new Writer() {
+                private int eventCount = 0;
+                @Override
+                public void write(char[] cbuf, int off, int len) throws IOException {
+                    String text = new String(cbuf, off, len);
+                    if (text.startsWith("event: ")) {
+                        eventCount++;
+                    }
+                    if (eventCount >= 2) {
+                        throw new IOException("Broken pipe");
+                    }
+                }
+                @Override
+                public void flush() throws IOException {}
+                @Override
+                public void close() throws IOException {}
+            };
+            SseWriter disconnectSseWriter = new SseWriter(failAfterThinkingWriter);
+
+            mockLlmClient.enqueueSuccessResponse("Hello, I am Hippo!");
+
+            orchestrator.execute(TEST_SESSION_ID, conversation, disconnectSseWriter);
+
+            assertTrue(mockLlmClient.isAborted(), "客户端断开时应调用 abortCurrentRequest()");
+            verify(mockConversationService, never())
+                .addAssistantMessage(any(), any(Message.class), any());
+        }
+
+        @Test
+        @DisplayName("工具执行期间断开应跳过剩余工具调用")
+        void disconnectDuringToolExecutionSkipsRemainingTools() throws Exception {
+            ToolExecutor disconnectTrigger = mock(ToolExecutor.class);
+            lenient().when(disconnectTrigger.getName()).thenReturn("disconnect_trigger");
+            lenient().when(disconnectTrigger.getDescription()).thenReturn("Triggers disconnect during execution");
+            lenient().when(disconnectTrigger.getParametersSchema())
+                .thenReturn("{\"type\":\"object\",\"properties\":{}}");
+            try {
+                lenient().when(disconnectTrigger.execute(any(JsonNode.class))).thenAnswer(invocation -> {
+                    SseWriter.setClientDisconnected(true);
+                    return "{}";
+                });
+            } catch (ToolExecutionException e) {
+                throw new RuntimeException(e);
+            }
+            toolRegistry.register(disconnectTrigger);
+
+            ToolExecutor normalTool = mock(ToolExecutor.class);
+            lenient().when(normalTool.getName()).thenReturn("normal_tool");
+            lenient().when(normalTool.getDescription()).thenReturn("Normal tool that should be skipped");
+            lenient().when(normalTool.getParametersSchema())
+                .thenReturn("{\"type\":\"object\",\"properties\":{}}");
+            try {
+                lenient().when(normalTool.execute(any(JsonNode.class))).thenReturn("normal result");
+            } catch (ToolExecutionException e) {
+                throw new RuntimeException(e);
+            }
+            toolRegistry.register(normalTool);
+
+            List<ToolCall> toolCalls = List.of(
+                createToolCall("call-1", "disconnect_trigger", "{}"),
+                createToolCall("call-2", "normal_tool", "{}")
+            );
+            mockLlmClient.enqueueResponse(
+                LlmResponseBuilder.withToolCalls(toolCalls)
+            );
+            mockLlmClient.enqueueSuccessResponse("Done.");
+
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            String output = sseOutput();
+            assertTrue(output.contains("\"name\":\"disconnect_trigger\""),
+                "第一个工具应有 tool_start 事件");
+            assertFalse(output.contains("\"name\":\"normal_tool\""),
+                "断开后第二个工具的 tool_start 不应发送");
+        }
+
+        @Test
+        @DisplayName("多轮：第一轮工具完整执行，第二轮流式输出中断 → 第一轮完整、第二轮不残留")
+        void multiTurn_interruptDuringSecondTurnStreaming() throws Exception {
+            SseWriter.removeClientDisconnected();
+
+            Writer multiTurnWriter = new Writer() {
+                boolean turn2Started = false;
+                @Override
+                public void write(char[] cbuf, int off, int len) throws IOException {
+                    String text = new String(cbuf, off, len);
+                    if (text.contains("\"turn\":2")) {
+                        turn2Started = true;
+                    }
+                    if (turn2Started && text.startsWith("event: content")) {
+                        throw new IOException("Broken pipe during turn 2 streaming");
+                    }
+                }
+                @Override
+                public void flush() throws IOException {}
+                @Override
+                public void close() throws IOException {}
+            };
+            SseWriter turn2SseWriter = new SseWriter(multiTurnWriter);
+
+            registerMockTool("tool_turn1", "result from turn 1");
+
+            mockLlmClient.enqueueResponse(
+                LlmResponseBuilder.withToolCall("tool_turn1", "{}")
+            );
+            mockLlmClient.enqueueSuccessResponse("Turn 2 response content");
+
+            orchestrator.execute(TEST_SESSION_ID, conversation, turn2SseWriter);
+
+            verify(mockConversationService, times(1))
+                .addAssistantMessage(any(), any(Message.class), any());
+            verify(mockConversationService, times(1))
+                .addToolResult(any(), anyString(), eq("tool_turn1"), anyString(), eq(true));
+            assertTrue(mockLlmClient.isAborted(),
+                "第二轮流式回调中断开时应调用 abortCurrentRequest()");
         }
     }
 
@@ -490,6 +601,152 @@ class WebAgentOrchestratorTest {
             String output = sseOutput();
             assertTrue(output.contains("event: content"), "空列表 context 仍应有 content");
             assertTrue(output.contains("event: done"), "空列表 context 仍应有 done");
+        }
+    }
+
+    @Nested
+    @DisplayName("孤立 ToolCall 清理 (cleanupOrphanToolCalls)")
+    class OrphanToolCallCleanupTests {
+
+        @Test
+        @DisplayName("相邻破坏：assistant(tool_calls) 后接 user 消息 → 清理并添加中断标记")
+        void adjacentBroken_cleansUpOrphanToolCalls() throws Exception {
+            ToolCall tc1 = createToolCall("call-1", "read_file", "{\"path\":\"test.txt\"}");
+            ToolCall tc2 = createToolCall("call-2", "grep", "{\"pattern\":\"test\"}");
+            Message assistantMsg = Message.assistantWithToolCalls(List.of(tc1, tc2));
+            assistantMsg.setContent(null);
+
+            List<Message> orphanedMessages = List.of(
+                Message.system("You are a helper."),
+                Message.user("search and read"),
+                assistantMsg,
+                Message.user("next query")
+            );
+            when(mockConversationService.getContextForInference(conversation))
+                .thenReturn(new ArrayList<>(orphanedMessages));
+
+            mockLlmClient.enqueueSuccessResponse("Result");
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            List<Message> sentMessages = mockLlmClient.getLastSentMessages();
+            assertNotNull(sentMessages, "chatStream 应被调用并记录消息");
+            assertEquals(4, sentMessages.size(), "消息数量应保持不变");
+            Message cleanedAssistant = sentMessages.get(2);
+            assertTrue(cleanedAssistant.getContent().contains("会话中断"),
+                "应添加会话中断标记");
+            assertNull(cleanedAssistant.getToolCalls(),
+                "tool_calls 应被清空");
+        }
+
+        @Test
+        @DisplayName("部分响应：部分 tool 有结果部分缺失 → 清理并添加中断标记")
+        void partialToolResponses_cleansUpOrphanToolCalls() throws Exception {
+            ToolCall tc1 = createToolCall("call-1", "read_file", "{\"path\":\"test.txt\"}");
+            ToolCall tc2 = createToolCall("call-2", "grep", "{\"pattern\":\"test\"}");
+            Message assistantMsg = Message.assistantWithToolCalls(List.of(tc1, tc2));
+            assistantMsg.setContent(null);
+
+            List<Message> orphanedMessages = List.of(
+                Message.system("You are a helper."),
+                Message.user("search and read"),
+                assistantMsg,
+                Message.toolResult("call-1", "read_file", "found!")
+            );
+            when(mockConversationService.getContextForInference(conversation))
+                .thenReturn(new ArrayList<>(orphanedMessages));
+
+            mockLlmClient.enqueueSuccessResponse("Result");
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            List<Message> sentMessages = mockLlmClient.getLastSentMessages();
+            assertNotNull(sentMessages);
+            assertEquals(3, sentMessages.size(),
+                "tool_calls 清空后关联的 tool_result 也会被移除，所以共 3 条");
+            Message cleanedAssistant = sentMessages.get(2);
+            assertTrue(cleanedAssistant.getContent().contains("会话中断"),
+                "孤立 tool_calls 应添加会话中断标记");
+            assertNull(cleanedAssistant.getToolCalls(),
+                "tool_calls 应被清空");
+        }
+
+        @Test
+        @DisplayName("全部响应：所有 tool 都有对应 tool_result → 不清理")
+        void allToolResultsPresent_noCleanup() throws Exception {
+            ToolCall tc1 = createToolCall("call-1", "read_file", "{\"path\":\"test.txt\"}");
+            ToolCall tc2 = createToolCall("call-2", "grep", "{\"pattern\":\"test\"}");
+            Message assistantMsg = Message.assistantWithToolCalls(List.of(tc1, tc2));
+            assistantMsg.setContent(null);
+
+            List<Message> completeMessages = List.of(
+                Message.system("You are a helper."),
+                Message.user("search and read"),
+                assistantMsg,
+                Message.toolResult("call-1", "read_file", "found!"),
+                Message.toolResult("call-2", "grep", "matched!")
+            );
+            when(mockConversationService.getContextForInference(conversation))
+                .thenReturn(new ArrayList<>(completeMessages));
+
+            mockLlmClient.enqueueSuccessResponse("Result");
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            List<Message> sentMessages = mockLlmClient.getLastSentMessages();
+            assertNotNull(sentMessages);
+            assertEquals(5, sentMessages.size());
+            Message unchangedAssistant = sentMessages.get(2);
+            assertFalse(unchangedAssistant.getContent() != null && unchangedAssistant.getContent().contains("会话中断"),
+                "全部响应时不应添加会话中断标记");
+            assertNotNull(unchangedAssistant.getToolCalls(),
+                "全部响应时 tool_calls 应保留");
+            assertEquals(2, unchangedAssistant.getToolCalls().size(),
+                "全部响应时 tool_calls 数量应不变");
+        }
+
+        @Test
+        @DisplayName("无 tool_calls：assistant 不含工具调用 → 跳过清理")
+        void noToolCalls_skipsCleanup() throws Exception {
+            List<Message> normalMessages = List.of(
+                Message.system("You are a helper."),
+                Message.user("hello"),
+                Message.assistant("normal response")
+            );
+            when(mockConversationService.getContextForInference(conversation))
+                .thenReturn(new ArrayList<>(normalMessages));
+
+            mockLlmClient.enqueueSuccessResponse("Next result");
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            List<Message> sentMessages = mockLlmClient.getLastSentMessages();
+            assertNotNull(sentMessages);
+            assertEquals(3, sentMessages.size());
+            Message assistant = sentMessages.get(2);
+            assertNull(assistant.getToolCalls(), "普通 assistant 无 tool_calls");
+            assertEquals("normal response", assistant.getContent());
+        }
+
+        @Test
+        @DisplayName("空 tool_calls 列表 → 跳过清理")
+        void emptyToolCalls_skipsCleanup() throws Exception {
+            Message assistantMsg = Message.assistantWithToolCalls(new ArrayList<>());
+            assistantMsg.setContent("some content");
+
+            List<Message> messages = List.of(
+                Message.system("You are a helper."),
+                Message.user("hello"),
+                assistantMsg
+            );
+            when(mockConversationService.getContextForInference(conversation))
+                .thenReturn(new ArrayList<>(messages));
+
+            mockLlmClient.enqueueSuccessResponse("Next result");
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            List<Message> sentMessages = mockLlmClient.getLastSentMessages();
+            assertNotNull(sentMessages);
+            Message assistant = sentMessages.get(2);
+            assertTrue(assistant.getToolCalls() == null || assistant.getToolCalls().isEmpty(),
+                "空 tool_calls 的 assistant 不应被修改");
+            assertEquals("some content", assistant.getContent());
         }
     }
 }

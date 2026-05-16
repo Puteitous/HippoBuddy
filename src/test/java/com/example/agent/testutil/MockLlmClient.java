@@ -24,6 +24,7 @@ public class MockLlmClient implements LlmClient {
     private long delayMs = 0;
     private boolean streamMode = false;
     private String mockReasoning;
+    private boolean aborted = false;
 
     public void enqueueResponse(ChatResponse response) {
         responseQueue.offer(response);
@@ -52,8 +53,20 @@ public class MockLlmClient implements LlmClient {
         this.mockReasoning = reasoning;
     }
 
+    /**
+     * 返回 abortCurrentRequest() 是否被调用过
+     */
+    public boolean isAborted() {
+        return aborted;
+    }
+
     public List<ChatRequest> getRecordedRequests() {
         return new ArrayList<>(recordedRequests);
+    }
+
+    @Override
+    public void abortCurrentRequest() {
+        this.aborted = true;
     }
 
     @Override
@@ -101,6 +114,7 @@ public class MockLlmClient implements LlmClient {
         recordedMessages.clear();
         exceptionToThrow = null;
         delayMs = 0;
+        aborted = false;
     }
 
     @Override

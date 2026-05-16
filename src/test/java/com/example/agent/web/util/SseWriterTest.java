@@ -6,8 +6,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.io.PrintWriter;
+import java.io.IOException;
 import java.io.StringWriter;
+import java.io.Writer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,15 +16,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class SseWriterTest {
 
     private StringWriter stringWriter;
-    private PrintWriter printWriter;
     private SseWriter sseWriter;
 
     @BeforeEach
     void setUp() {
         SseWriter.resetClientDisconnected();
         stringWriter = new StringWriter();
-        printWriter = new PrintWriter(stringWriter);
-        sseWriter = new SseWriter(printWriter);
+        sseWriter = new SseWriter(stringWriter);
     }
 
     @AfterEach
@@ -70,7 +69,7 @@ class SseWriterTest {
         @Test
         @DisplayName("sendSseEvent 返回 writer 引用")
         void getWriterReturnsWriter() {
-            assertSame(printWriter, sseWriter.getWriter());
+            assertSame(stringWriter, sseWriter.getWriter());
         }
     }
 
@@ -91,6 +90,59 @@ class SseWriterTest {
             SseWriter.removeClientDisconnected();
             SseWriter.resetClientDisconnected();
             assertFalse(SseWriter.isClientDisconnected());
+        }
+    }
+
+    @Nested
+    @DisplayName("IOException 处理")
+    class IOExceptionHandlingTests {
+
+        @Test
+        @DisplayName("write 抛出 IOException 时应设置 clientDisconnected=true")
+        void ioExceptionOnWriteSetsDisconnectedFlag() {
+            SseWriter.removeClientDisconnected();
+            Writer brokenWriter = new Writer() {
+                @Override
+                public void write(char[] cbuf, int off, int len) throws IOException {
+                    throw new IOException("Broken pipe");
+                }
+                @Override
+                public void flush() throws IOException {}
+                @Override
+                public void close() throws IOException {}
+            };
+            SseWriter sseWriter = new SseWriter(brokenWriter);
+
+            sseWriter.sendSseEvent("test", "data");
+
+            assertTrue(SseWriter.isClientDisconnected());
+        }
+
+        @Test
+        @DisplayName("已断开后 sendSseEvent 应静默跳过，不再调用 writer")
+        void sendAfterDisconnectDoesNotThrow() {
+            SseWriter.removeClientDisconnected();
+            int[] writeCount = {0};
+            Writer countingWriter = new Writer() {
+                @Override
+                public void write(char[] cbuf, int off, int len) throws IOException {
+                    writeCount[0]++;
+                    if (writeCount[0] == 1) {
+                        throw new IOException("Broken pipe");
+                    }
+                }
+                @Override
+                public void flush() throws IOException {}
+                @Override
+                public void close() throws IOException {}
+            };
+            SseWriter sseWriter = new SseWriter(countingWriter);
+
+            sseWriter.sendSseEvent("first", "data");
+            assertTrue(SseWriter.isClientDisconnected());
+
+            sseWriter.sendSseEvent("second", "data");
+            assertEquals(1, writeCount[0], "断开后不应再调用 writer.write()");
         }
     }
 

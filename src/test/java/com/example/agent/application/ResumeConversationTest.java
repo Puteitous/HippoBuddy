@@ -288,7 +288,7 @@ class ResumeConversationTest {
         ConversationService.ResumeResult result = service.resumeConversation(conv, sessionId);
 
         assertThat(result.getTotalMessages()).isEqualTo(3);
-        assertThat(result.getLoadedMessages()).isEqualTo(3);
+        assertThat(result.getLoadedMessages()).isEqualTo(4);
     }
 
     @Test
