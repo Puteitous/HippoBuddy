@@ -51,6 +51,13 @@ public class DashboardServer {
             return;
         }
 
+        // 在创建任何 handler 之前初始化 Memory 和 ConversationService，
+        // 确保 ChatApiHandler/WebAgentOrchestrator 等依赖 ConversationService 的组件
+        // 在构造时获取到的是已注册的正确实例，而非 ServiceLocator 自动创建的临时实例
+        if (initializeServices) {
+            WebInitializer.ensureMemoryInitialized();
+        }
+
         try {
             server = HttpServer.create(new InetSocketAddress(port), 0);
 
@@ -70,7 +77,6 @@ public class DashboardServer {
             server.start();
 
             if (initializeServices) {
-                WebInitializer.ensureMemoryInitialized();
                 WebInitializer.initializeTokenCache(WebSessionManager.getInstance());
                 startSessionCleanup();
             }
@@ -127,10 +133,7 @@ public class DashboardServer {
     }
 
     public static void broadcast(String eventType, String data) {
-        logger.info("SSE 广播：eventType={}, data={}, clients={}", eventType, data, clients.size());
-        
         if (clients.isEmpty()) {
-            logger.warn("没有 SSE 客户端，跳过广播");
             return;
         }
 
@@ -140,9 +143,10 @@ public class DashboardServer {
             try {
                 writer.write(message);
                 writer.flush();
-                logger.debug("SSE 事件发送成功");
             } catch (Exception e) {
-                logger.warn("SSE 广播失败：{}", e.getMessage());
+                logger.debug("SSE 广播失败，移除客户端：{}", e.getMessage());
+                clients.remove(writer);
+                try { writer.close(); } catch (Exception ignored) {}
             }
         }
     }
@@ -183,6 +187,9 @@ public class DashboardServer {
             try {
                 while (true) {
                     Thread.sleep(1000);
+                    if (writer.checkError()) {
+                        break;
+                    }
                     writer.write(": heartbeat\n\n");
                     writer.flush();
                 }
@@ -192,8 +199,8 @@ public class DashboardServer {
                 logger.debug("SSE 连接关闭：{}", e.getMessage());
             } finally {
                 clients.remove(writer);
-                writer.close();
-                exchange.close();
+                try { writer.close(); } catch (Exception ignored) {}
+                try { exchange.close(); } catch (Exception ignored) {}
                 logger.info("SSE 客户端已断开，当前连接数：{}", clients.size());
             }
         }

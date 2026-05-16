@@ -3,7 +3,8 @@ package com.example.agent.web.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.Writer;
 
 public class SseWriter {
 
@@ -11,9 +12,9 @@ public class SseWriter {
 
     private static final ThreadLocal<Boolean> clientDisconnected = ThreadLocal.withInitial(() -> false);
 
-    private final PrintWriter writer;
+    private final Writer writer;
 
-    public SseWriter(PrintWriter writer) {
+    public SseWriter(Writer writer) {
         this.writer = writer;
     }
 
@@ -29,7 +30,11 @@ public class SseWriter {
         clientDisconnected.remove();
     }
 
-    public PrintWriter getWriter() {
+    public static void setClientDisconnected(boolean disconnected) {
+        clientDisconnected.set(disconnected);
+    }
+
+    public Writer getWriter() {
         return writer;
     }
 
@@ -41,7 +46,7 @@ public class SseWriter {
             writer.write("event: " + event + "\n");
             writer.write("data: " + data + "\n\n");
             writer.flush();
-        } catch (Exception e) {
+        } catch (IOException e) {
             clientDisconnected.set(true);
             logger.debug("客户端连接已断开，停止发送 SSE 事件 (event={})", event);
         }

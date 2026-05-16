@@ -22,6 +22,7 @@ public final class WebInitializer {
 
     private static final Logger logger = LoggerFactory.getLogger(WebInitializer.class);
     private static volatile boolean memoryInitialized = false;
+    private static volatile boolean tokenCacheInitialized = false;
 
     private WebInitializer() {
     }
@@ -45,9 +46,7 @@ public final class WebInitializer {
                     Path memoryRoot = WorkspaceManager.getUserMemoryDir();
                     com.example.agent.memory.MemoryModule.initialize(config, memoryRoot);
 
-                    try {
-                        ServiceLocator.get(ConversationService.class);
-                    } catch (Exception ex) {
+                    if (ServiceLocator.getOrNull(ConversationService.class) == null) {
                         logger.info("DI 容器中未找到 ConversationService，创建新实例...");
                         var tokenEstimator = TokenEstimatorFactory.getDefault();
                         var llmClient = ServiceLocator.get(LlmClient.class);
@@ -70,54 +69,65 @@ public final class WebInitializer {
     }
 
     public static void initializeTokenCache(WebSessionManager sessionManager) {
-        try {
-            Path logsDir = Paths.get(System.getProperty("user.dir"), ".hippo", "logs", "conversations");
-            if (!Files.exists(logsDir)) {
+        if (tokenCacheInitialized) {
+            return;
+        }
+        synchronized (WebInitializer.class) {
+            if (tokenCacheInitialized) {
                 return;
             }
+            try {
+                Path logsDir = Paths.get(System.getProperty("user.dir"), ".hippo", "logs", "conversations");
+                if (!Files.exists(logsDir)) {
+                    tokenCacheInitialized = true;
+                    return;
+                }
 
-            Map<String, SessionTokenStats> preloaded = new HashMap<>();
+                Map<String, SessionTokenStats> preloaded = new HashMap<>();
 
-            try (var stream = Files.list(logsDir)) {
-                var recentFiles = stream
-                    .filter(p -> p.toString().endsWith(".log"))
-                    .sorted((a, b) -> {
+                try (var stream = Files.list(logsDir)) {
+                    var recentFiles = stream
+                        .filter(p -> p.toString().endsWith(".log"))
+                        .sorted((a, b) -> {
+                            try {
+                                return Long.compare(
+                                    Files.getLastModifiedTime(b).toMillis(),
+                                    Files.getLastModifiedTime(a).toMillis()
+                                );
+                            } catch (Exception e) {
+                                return 0;
+                            }
+                        })
+                        .limit(100)
+                        .toList();
+
+                    for (Path logFile : recentFiles) {
                         try {
-                            return Long.compare(
-                                Files.getLastModifiedTime(b).toMillis(),
-                                Files.getLastModifiedTime(a).toMillis()
-                            );
+                            String fileName = logFile.getFileName().toString();
+                            String id = fileName.replace(".log", "");
+
+                            var stats = SessionLogger.getTokenStats(id);
+                            if (stats != null && stats.totalTokens > 0) {
+                                SessionTokenStats cachedStats = new SessionTokenStats();
+                                cachedStats.totalInputTokens = stats.totalInputTokens;
+                                cachedStats.totalOutputTokens = stats.totalOutputTokens;
+                                cachedStats.totalTokens = stats.totalTokens;
+                                cachedStats.llmCalls = stats.llmCalls;
+                                cachedStats.toolCalls = stats.toolCalls;
+                                preloaded.put(id, cachedStats);
+                            }
                         } catch (Exception e) {
-                            return 0;
                         }
-                    })
-                    .limit(100)
-                    .toList();
-
-                for (Path logFile : recentFiles) {
-                    try {
-                        String fileName = logFile.getFileName().toString();
-                        String id = fileName.replace(".log", "");
-
-                        var stats = SessionLogger.getTokenStats(id);
-                        if (stats != null && stats.totalTokens > 0) {
-                            SessionTokenStats cachedStats = new SessionTokenStats();
-                            cachedStats.totalInputTokens = stats.totalInputTokens;
-                            cachedStats.totalOutputTokens = stats.totalOutputTokens;
-                            cachedStats.totalTokens = stats.totalTokens;
-                            cachedStats.llmCalls = stats.llmCalls;
-                            cachedStats.toolCalls = stats.toolCalls;
-                            preloaded.put(id, cachedStats);
-                        }
-                    } catch (Exception e) {
                     }
                 }
-            }
 
-            sessionManager.loadTokenCache(preloaded);
-            logger.info("初始化会话 Token 缓存完成，共加载 {} 个会话", preloaded.size());
-        } catch (Exception e) {
-            logger.warn("初始化会话 Token 缓存失败", e);
+                sessionManager.loadTokenCache(preloaded);
+                logger.info("初始化会话 Token 缓存完成，共加载 {} 个会话", preloaded.size());
+            } catch (Exception e) {
+                logger.warn("初始化会话 Token 缓存失败", e);
+            } finally {
+                tokenCacheInitialized = true;
+            }
         }
     }
 }

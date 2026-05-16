@@ -52,13 +52,21 @@ public class WebAgentOrchestrator {
     private final SessionManager sessionManager;
     private final LlmClient llmClient;
     private final ToolRegistry toolRegistry;
-    private final ConversationService conversationService;
 
     public WebAgentOrchestrator(SessionManager sessionManager) {
         this.sessionManager = sessionManager;
         this.llmClient = ServiceLocator.get(LlmClient.class);
         this.toolRegistry = ServiceLocator.get(ToolRegistry.class);
-        this.conversationService = ServiceLocator.get(ConversationService.class);
+    }
+
+    private ConversationService getConversationService() {
+        // 每次调用都从 ServiceLocator 动态获取，而非在构造函数中缓存字段。
+        // 原因：DashboardServer 启动时，WebInitializer.ensureMemoryInitialized()
+        // 会在 handler 构造之后注册 ConversationService 实例。如果构造函数中缓存，
+        // 拿到的是自动创建的临时实例，其 componentRegistry 永远为空，
+        // 导致 addAssistantMessage() 等方法的 transcript 写入被静默跳过。
+        // 历史教训：.hippo/snapshots/lessons-2026-05-13-di-constructor-capture.md
+        return ServiceLocator.get(ConversationService.class);
     }
 
     public void execute(String sessionId, Conversation conversation, SseWriter sseWriter) throws LlmException {
@@ -70,7 +78,7 @@ public class WebAgentOrchestrator {
                 return;
             }
 
-            List<Message> messages = new ArrayList<>(conversationService.getContextForInference(conversation));
+            List<Message> messages = new ArrayList<>(getConversationService().getContextForInference(conversation));
 
             messages = ensureSystemMessageFirst(messages);
 
@@ -92,6 +100,11 @@ public class WebAgentOrchestrator {
             final int currentTurn = turn + 1;
 
             ChatResponse response = llmClient.chatStream(messages, tools, (StreamChunk chunk) -> {
+                if (SseWriter.isClientDisconnected()) {
+                    llmClient.abortCurrentRequest();
+                    return;
+                }
+
                 if (hasAskUser[0]) {
                     return;
                 }
@@ -182,6 +195,11 @@ public class WebAgentOrchestrator {
                 logger.warn("LLM 返回空内容：sessionId={}, turn={}, finishReason={}, contentChunks={}, model={}",
                     sessionId, turn + 1, finishReason, contentBuilder.length(), response.getModel());
 
+                if (reasoningPhase[0] && reasoningBuilder.length() > 0) {
+                    reasoningPhase[0] = false;
+                    sseWriter.sendSseEvent("reasoning_done", "{}");
+                }
+
                 String errorMessage = switch (finishReason) {
                     case "length" -> "响应长度达到限制，请减少上下文或增加 max_tokens";
                     case "content_filter" -> "内容被安全过滤器阻止";
@@ -208,7 +226,7 @@ public class WebAgentOrchestrator {
                 );
             }
 
-            conversationService.addAssistantMessage(conversation, assistantMessage, response.getUsage());
+            getConversationService().addAssistantMessage(conversation, assistantMessage, response.getUsage());
 
             List<ToolCall> toolCalls = assistantMessage.getToolCalls();
             if (toolCalls == null || toolCalls.isEmpty()) {
@@ -226,7 +244,7 @@ public class WebAgentOrchestrator {
 
             toolRegistry.getBlockerChain().onTurnComplete();
 
-            List<Message> history = conversationService.getHistory(conversation);
+            List<Message> history = getConversationService().getHistory(conversation);
             StopHook.StopHookContext hookCtx = new StopHook.StopHookContext(
                 conversation, history, turn + 1, AgentTurnResult.DONE
             );
@@ -263,6 +281,11 @@ public class WebAgentOrchestrator {
 
     private void executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId) {
         for (ToolCall toolCall : toolCalls) {
+            if (SseWriter.isClientDisconnected()) {
+                logger.info("客户端已断开，跳过工具执行 (sessionId={})", sessionId);
+                return;
+            }
+
             String toolName = toolCall.getFunction().getName();
             String arguments = toolCall.getFunction().getArguments();
 
@@ -299,7 +322,7 @@ public class WebAgentOrchestrator {
 
                 String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
 
-                conversationService.addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
+                getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
                 sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
                     + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                     + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult) + "\"}");
@@ -309,7 +332,7 @@ public class WebAgentOrchestrator {
                 stats.addToolCall();
             } catch (Exception e) {
                 String errorMsg = e.getMessage();
-                conversationService.addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
                 sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
                     + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                     + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg) + "\"}");

@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
@@ -63,8 +62,8 @@ public class ChatApiHandler implements HttpHandler {
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.sendResponseHeaders(200, 0);
 
-        PrintWriter printWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(exchange.getResponseBody(), StandardCharsets.UTF_8)), true);
-        SseWriter sseWriter = new SseWriter(printWriter);
+        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(exchange.getResponseBody(), StandardCharsets.UTF_8));
+        SseWriter sseWriter = new SseWriter(bufferedWriter);
 
         String sessionId = null;
         boolean lockAcquired = false;
@@ -140,7 +139,7 @@ public class ChatApiHandler implements HttpHandler {
             }
             SseWriter.removeClientDisconnected();
             sseWriter.sendSseEvent("complete", "[DONE]");
-            printWriter.close();
+            bufferedWriter.close();
             exchange.close();
         }
     }
