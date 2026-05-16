@@ -36,6 +36,9 @@ public interface LlmClient {
         return prompt.substring(0, Math.min(prompt.length(), 500)) + " [生成失败]";
     }
 
+    default void abortCurrentRequest() {
+    }
+
     ChatResponse continueWithToolResults(ChatResponse previousResponse, List<Message> messages, 
                                          List<ToolResult> toolResults) throws LlmException;
 

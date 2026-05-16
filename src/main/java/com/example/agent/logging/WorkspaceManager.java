@@ -132,7 +132,7 @@ public class WorkspaceManager {
     private static String extractDateFromSessionId(String sessionId) {
         try {
             if (sessionId != null) {
-                String numericPart = sessionId.startsWith("web-") ? sessionId.substring(4) : sessionId;
+                String numericPart = sessionId.replaceFirst("^[a-zA-Z]+-", "");
                 if (numericPart.length() >= 13) {
                     long timestamp = Long.parseLong(numericPart.substring(0, 13));
                     return LocalDate.ofInstant(

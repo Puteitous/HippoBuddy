@@ -184,7 +184,7 @@ public class StdioMcpClient extends AbstractMcpClient {
             String line;
             while ((line = stderrReader.readLine()) != null) {
                 if (!line.trim().isEmpty()) {
-                    logger.warn("MCP stderr: {}", line);
+                    logger.debug("MCP stderr: {}", line);
                 }
             }
         } catch (Exception e) {

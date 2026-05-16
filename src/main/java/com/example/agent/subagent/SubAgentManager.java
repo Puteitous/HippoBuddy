@@ -32,7 +32,6 @@ public class SubAgentManager {
     private final Map<String, SubAgentTask> activeTasks;
     private final Map<String, SubAgentLogger> loggers;
     private final Map<String, Runnable> completionCallbacks;
-    private final ConversationService conversationService;
     private final LlmClient llmClient;
     private ToolRegistry toolRegistry;
     private final ExecutorService executor;
@@ -43,7 +42,6 @@ public class SubAgentManager {
         this.activeTasks = new ConcurrentHashMap<>();
         this.loggers = new ConcurrentHashMap<>();
         this.completionCallbacks = new ConcurrentHashMap<>();
-        this.conversationService = ServiceLocator.get(ConversationService.class);
         this.llmClient = ServiceLocator.get(LlmClient.class);
         
         String workspacePath = WorkspaceManager.getCurrentProjectDir().toString();
@@ -70,6 +68,10 @@ public class SubAgentManager {
         sb.append(BuiltInAgent.getAgentMenu());
         sb.append(projectAgentLoader.getCustomAgentMenu());
         return sb.toString();
+    }
+
+    private ConversationService getConversationService() {
+        return ServiceLocator.get(ConversationService.class);
     }
 
     private ToolRegistry getToolRegistry() {
@@ -131,7 +133,7 @@ public class SubAgentManager {
         }
         SubAgentConfig config = configBuilder.build();
         
-        Conversation subConversation = conversationService.createSubAgentConversation(null, parentSessionId);
+        Conversation subConversation = getConversationService().createSubAgentConversation(null, parentSessionId);
         
         if (parentConversation != null) {
             subConversation.replaceMessages(parentConversation.getMessages());
@@ -181,7 +183,7 @@ public class SubAgentManager {
         logger.info("forkAgent: taskDescription={}, timeout={}秒, permission={}, dependsOn={}", 
             taskDescription, timeoutSeconds, permission.getName(), dependsOn);
 
-        Conversation subConversation = conversationService.createSubAgentConversation(
+        Conversation subConversation = getConversationService().createSubAgentConversation(
             finalInstruction,
             parentSessionId
         );
@@ -257,7 +259,7 @@ public class SubAgentManager {
             ? systemPrompt + "\n\n## 当前任务\n" + taskDescription
             : buildSubAgentSystemPrompt(taskDescription, null);
         
-        Conversation subConversation = conversationService.createSubAgentConversation(
+        Conversation subConversation = getConversationService().createSubAgentConversation(
             finalInstruction,
             parentSessionId
         );
@@ -347,7 +349,7 @@ public class SubAgentManager {
             toolExecutor,
             llmClient,
             registry,
-            conversationService,
+            getConversationService(),
             config
         );
 

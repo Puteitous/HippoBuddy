@@ -286,7 +286,27 @@ public class SessionTranscript {
         ensureInitialized();
 
         if (failed) {
-            return;
+            logger.warn("Transcript 之前因写入失败被禁用，尝试恢复: {}", sessionId);
+            writeLock.lock();
+            try {
+                failed = false;
+                running.set(false);
+                initialized = false;
+                if (writer != null) {
+                    try {
+                        writer.close();
+                    } catch (IOException ignored) {
+                    }
+                    writer = null;
+                }
+            } finally {
+                writeLock.unlock();
+            }
+            ensureInitialized();
+            if (failed) {
+                return;
+            }
+            logger.info("Transcript 恢复成功: {}", sessionId);
         }
 
         String uuid = entry.getUuid();

@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -54,6 +55,9 @@ public abstract class AbstractLlmClient implements LlmClient {
     protected final Config config;
     protected final RetryPolicy retryPolicy;
     protected final SseParser sseParser;
+
+    private final ThreadLocal<InputStream> currentResponseStream = new ThreadLocal<>();
+    private final ThreadLocal<Boolean> aborted = ThreadLocal.withInitial(() -> false);
 
     protected AbstractLlmClient(Config config, RetryPolicy retryPolicy) {
         if (config == null) {
@@ -94,6 +98,19 @@ public abstract class AbstractLlmClient implements LlmClient {
     protected abstract String getAuthorizationHeader();
     
     protected void enrichRequestHeaders(HttpRequest.Builder builder) {
+    }
+
+    @Override
+    public void abortCurrentRequest() {
+        aborted.set(true);
+        InputStream stream = currentResponseStream.get();
+        if (stream != null) {
+            try {
+                stream.close();
+            } catch (IOException e) {
+                logger.debug("关闭 LLM 响应流时出错（可能已关闭）: {}", e.getMessage());
+            }
+        }
     }
     
     protected List<Message> applyCacheStrategy(List<Message> messages) {
@@ -218,7 +235,16 @@ public abstract class AbstractLlmClient implements LlmClient {
             long latencyMs = System.currentTimeMillis() - startMs;
             logger.debug("📥 流式 LLM 响应首包，耗时: {} ms，状态: {}", latencyMs, response.statusCode());
             
-            ChatResponse chatResponse = processStreamResponse(response, onChunk);
+            this.currentResponseStream.set(response.body());
+            this.aborted.set(false);
+            
+            ChatResponse chatResponse;
+            try {
+                chatResponse = processStreamResponse(response, onChunk);
+            } finally {
+                this.currentResponseStream.remove();
+                this.aborted.remove();
+            }
             
             long totalLatencyMs = System.currentTimeMillis() - startMs;
             EventBus.publish(new LlmRequestEvent(
@@ -380,6 +406,11 @@ public abstract class AbstractLlmClient implements LlmClient {
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
+            if (aborted.get()) {
+                logger.info("LLM 流式请求被主动中止，返回已收集的部分响应 (content={}字符, reasoning={}字符, toolCalls={})",
+                    fullContent.length(), fullReasoning.length(), toolCalls.size());
+                return buildChatResponse(fullContent.toString(), fullReasoning.toString(), toolCalls, finishReason, usage);
+            }
             if (e instanceof LlmException) {
                 throw (LlmException) e;
             }
