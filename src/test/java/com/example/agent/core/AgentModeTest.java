@@ -52,12 +52,6 @@ class AgentModeTest {
         }
 
         @Test
-        @DisplayName("CHAT 模式允许 search_code 工具")
-        void testChatAllowsSearchCode() {
-            assertTrue(AgentMode.CHAT.isToolAllowed("search_code"));
-        }
-
-        @Test
         @DisplayName("CHAT 模式允许 ask_user 工具")
         void testChatAllowsAskUser() {
             assertTrue(AgentMode.CHAT.isToolAllowed("ask_user"));
@@ -188,13 +182,13 @@ class AgentModeTest {
         @Test
         @DisplayName("CHAT 模式允许的工具数量正确")
         void testChatAllowedToolsCount() {
-            assertEquals(17, AgentMode.CHAT.getAllowedTools().size());
+            assertEquals(16, AgentMode.CHAT.getAllowedTools().size());
         }
 
         @Test
         @DisplayName("CODING 模式允许的工具数量正确")
         void testCodingAllowedToolsCount() {
-            assertEquals(21, AgentMode.CODING.getAllowedTools().size());
+            assertEquals(20, AgentMode.CODING.getAllowedTools().size());
         }
 
         @Test

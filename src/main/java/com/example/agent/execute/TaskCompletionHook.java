@@ -16,7 +16,6 @@ public class TaskCompletionHook implements StopHook {
 
     private static final Set<String> READ_ONLY_TOOLS = Set.of(
         "read_file",
-        "search_code",
         "grep",
         "list_directory",
         "glob"

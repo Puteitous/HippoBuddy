@@ -45,7 +45,7 @@ public class WorkspaceSymbolTool extends LspBaseTool {
     public String execute(JsonNode arguments) throws ToolExecutionException {
         if (!lspClient.isInitialized()) {
             return "ℹ️ LSP 服务正在启动中，暂时无法使用工作区符号功能。\n" +
-                   "建议：可以先用 search_code 或 glob 工具进行搜索，等待 LSP 初始化完成后再重试。\n" +
+                   "建议：可以先用 grep 或 glob 工具进行搜索，等待 LSP 初始化完成后再重试。\n" +
                    "提示：jdtls 首次启动需要 60-120 秒建立索引。";
         }
         
@@ -60,7 +60,7 @@ public class WorkspaceSymbolTool extends LspBaseTool {
             String msg = e.getMessage() != null ? e.getMessage() : "未知错误";
             if (msg.contains("未初始化") || msg.contains("连接未建立")) {
                 return "ℹ️ LSP 服务正在启动中，暂时无法使用工作区符号功能。\n" +
-                       "建议：可以先用 search_code 或 glob 工具进行搜索，等待 LSP 初始化完成后再重试。";
+                       "建议：可以先用 grep 或 glob 工具进行搜索，等待 LSP 初始化完成后再重试。";
             }
             return "⚠️ 搜索工作区符号失败: " + msg + "\n" +
                    "建议：检查搜索词是否正确。";

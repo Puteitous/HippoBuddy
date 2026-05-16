@@ -14,7 +14,6 @@ import com.example.agent.core.health.HealthCheckRegistry;
 import com.example.agent.core.health.LlmHealthIndicator;
 import com.example.agent.core.health.SystemHealthIndicator;
 
-import com.example.agent.domain.index.CodeIndex;
 import com.example.agent.domain.rule.RuleManager;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.client.LlmClientFactory;
@@ -73,10 +72,6 @@ public final class CoreModule {
         ServiceLocator.registerSingleton(RuleManager.class, ruleManager);
         logger.info("✅ [Level 2] 领域服务: RuleManager");
 
-        CodeIndex codeIndex = new CodeIndex(tokenEstimator, config.getIndex());
-        ServiceLocator.registerSingleton(CodeIndex.class, codeIndex);
-        logger.info("✅ [Level 2] 领域服务: CodeIndex");
-
         TodoManager todoManager = new TodoManager();
         ServiceLocator.registerSingleton(TodoManager.class, todoManager);
         logger.info("✅ [Level 2] 领域服务: TodoManager");
@@ -90,7 +85,7 @@ public final class CoreModule {
         ServiceLocator.registerSingleton(PromptLibrary.class, PromptLibrary.getInstance());
         logger.info("✅ [Level 2] 领域服务: PromptService, PromptLibrary");
 
-        ToolRegistry toolRegistry = createConfiguredToolRegistry(objectMapper, codeIndex);
+        ToolRegistry toolRegistry = createConfiguredToolRegistry(objectMapper);
         ServiceLocator.registerSingleton(ToolRegistry.class, toolRegistry);
         logger.info("✅ [Level 3] 工具层: ToolRegistry");
 
@@ -114,14 +109,12 @@ public final class CoreModule {
         logger.info("========== DI 容器初始化完成，共 {} 个服务 ==========", ServiceLocator.countSingletons());
     }
 
-    private static ToolRegistry createConfiguredToolRegistry(ObjectMapper objectMapper,
-                                                             CodeIndex codeIndex) {
+    private static ToolRegistry createConfiguredToolRegistry(ObjectMapper objectMapper) {
         ToolRegistry registry = new ToolRegistry(objectMapper);
 
         registry.register(new ReadFileTool());
         registry.register(new WriteFileTool());
         registry.register(new EditFileTool());
-        registry.register(new SearchCodeTool(codeIndex));
 
         registry.register(new ListDirectoryTool());
         registry.register(new GlobTool());

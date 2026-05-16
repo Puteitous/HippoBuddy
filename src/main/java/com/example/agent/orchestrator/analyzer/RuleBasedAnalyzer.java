@@ -18,7 +18,7 @@ public class RuleBasedAnalyzer implements DependencyAnalyzer {
 
     private static final Set<String> READ_TOOLS = Set.of("read_file", "cat");
     private static final Set<String> EDIT_TOOLS = Set.of("edit_file", "write_file");
-    private static final Set<String> SEARCH_TOOLS = Set.of("search_code", "grep", "SearchCodebase");
+    private static final Set<String> SEARCH_TOOLS = Set.of("grep", "SearchCodebase");
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override

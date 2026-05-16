@@ -32,7 +32,6 @@ public class Config {
     private TokenEstimatorConfig tokenizer = new TokenEstimatorConfig();
     private RuleConfig rule = new RuleConfig();
 
-    private IndexConfig index = new IndexConfig();
     private McpConfig mcp = new McpConfig();
     private LspConfig lsp = new LspConfig();
     private EmbeddingConfig embedding = new EmbeddingConfig();
@@ -127,7 +126,6 @@ public class Config {
                 this.tokenizer = reloaded.tokenizer;
                 this.rule = reloaded.rule;
 
-                this.index = reloaded.index;
                 this.mcp = reloaded.mcp;
                 this.lsp = reloaded.lsp;
                 this.memory = reloaded.memory;
@@ -260,14 +258,6 @@ public class Config {
 
 
 
-    public IndexConfig getIndex() {
-        return index;
-    }
-
-    public void setIndex(IndexConfig index) {
-        this.index = index;
-    }
-
     public McpConfig getMcp() {
         if (mcp == null) {
             mcp = new McpConfig();
@@ -331,7 +321,6 @@ public class Config {
                 ", tokenizer=" + tokenizer +
                 ", rule=" + rule +
 
-                ", index=" + index +
                 ", memory=" + memory +
                 '}';
     }

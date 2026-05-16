@@ -70,8 +70,8 @@ class ToolOrchestratorTest {
 
     @Test
     void shouldDetectSearchThenEdit() {
-        ToolCall search = createToolCall("call_1", "search_code",
-                Map.of("query", "test"));
+        ToolCall search = createToolCall("call_1", "grep",
+                Map.of("pattern", "test"));
         ToolCall edit = createToolCall("call_2", "edit_file",
                 Map.of("path", "/tmp/test.java"));
 

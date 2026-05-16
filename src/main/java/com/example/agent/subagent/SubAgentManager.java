@@ -545,7 +545,7 @@ public class SubAgentManager {
             "1. ✅ **必须调用工具获取真实数据** - 所有信息必须通过工具调用获得\n" +
             "2. ❌ **严禁编造任何结果** - 不知道就调用工具，绝对不能想象、假设、编造\n" +
             "3. ❌ **严禁直接回答** - 你没有本地知识，不调用工具给出的任何答案都是错误的\n" +
-            "4. ✅ **必须使用工具** - 你只能通过以下工具完成任务: read_file, glob, grep, search_code, list_directory, list_subagents\n" +
+            "4. ✅ **必须使用工具** - 你只能通过以下工具完成任务: read_file, glob, grep, list_directory, list_subagents\n" +
             "5. ✅ **如实汇报结果** - 工具返回什么就总结什么，不要添加任何工具未返回的信息\n\n" +
             "## 📋 执行流程\n" +
             "1. 分析任务需要哪些数据\n" +

@@ -23,7 +23,6 @@ public class ContentClassifier {
             case "run_command":
             case "shell":
                 return ContentType.LOG;
-            case "search_code":
             case "grep":
             case "glob":
                 return ContentType.LIST;

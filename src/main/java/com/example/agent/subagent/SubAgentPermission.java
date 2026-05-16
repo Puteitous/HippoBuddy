@@ -9,7 +9,7 @@ public class SubAgentPermission {
 
     public static final SubAgentPermission DEFAULT = new SubAgentPermission(
         "DEFAULT",
-        Set.of("read_file", "glob", "grep", "search_code", "list_directory", "list_subagents"),
+        Set.of("read_file", "glob", "grep", "list_directory", "list_subagents"),
         true
     );
 
@@ -33,7 +33,7 @@ public class SubAgentPermission {
 
     public static final SubAgentPermission READ_ONLY = new SubAgentPermission(
         "READ_ONLY",
-        Set.of("read_file", "glob", "grep", "search_code", "list_directory"),
+        Set.of("read_file", "glob", "grep", "list_directory"),
         true
     );
 

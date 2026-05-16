@@ -9,7 +9,6 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.rule.RuleManager;
 import com.example.agent.subagent.SubAgentManager;
 
-import com.example.agent.domain.index.CodeIndex;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
 import com.example.agent.logging.EventMetricsCollector;
@@ -59,7 +58,6 @@ public class AgentContext {
     private TokenMetricsCollector tokenMetricsCollector;
     private EventMetricsCollector eventMetricsCollector;
     private RuleManager ruleManager;
-    private CodeIndex codeIndex;
     private McpServiceManager mcpServiceManager;
     private LspServiceManager lspServiceManager;
     private com.example.agent.memory.MemoryRetriever memoryRetriever;
@@ -153,7 +151,6 @@ public class AgentContext {
         this.llmClient = ServiceLocator.get(LlmClient.class);
         this.tokenEstimator = ServiceLocator.get(TokenEstimator.class);
         this.ruleManager = ServiceLocator.get(RuleManager.class);
-        this.codeIndex = ServiceLocator.get(CodeIndex.class);
         this.toolRegistry = ServiceLocator.get(ToolRegistry.class);
         this.concurrentToolExecutor = ServiceLocator.get(ConcurrentToolExecutor.class);
 
@@ -341,10 +338,6 @@ public class AgentContext {
 
 
 
-
-    public CodeIndex getCodeIndex() {
-        return codeIndex;
-    }
 
     public com.example.agent.memory.MemoryRetriever getMemoryRetriever() {
         return memoryRetriever;

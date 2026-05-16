@@ -229,7 +229,7 @@ class LoopProtectionIntegrationTest {
 
             // 使用不同的只读工具组合，避免 RepetitionPatternHook 触发
             // 但仍然触发 TaskCompletionHook 的停滞警告
-            String[] readOnlyTools = {"read_file", "grep", "search_code", "list_directory", "glob"};
+            String[] readOnlyTools = {"read_file", "grep", "list_directory", "glob"};
 
             for (int i = 0; i < 15; i++) {
                 String tool = readOnlyTools[i % readOnlyTools.length];

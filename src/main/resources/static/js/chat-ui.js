@@ -370,7 +370,7 @@ export class ChatUI {
     } else if (name === 'glob') {
       const args = this.parseToolArgs(tool.args);
       summary = args.pattern || '';
-    } else if (name === 'search_code' || name === 'SearchCodebase') {
+    } else if (name === 'SearchCodebase') {
       const args = this.parseToolArgs(tool.args);
       summary = args.information_request || '';
     } else if (name === 'edit_file' || name === 'write_file') {
@@ -431,7 +431,7 @@ export class ChatUI {
     if (name === 'glob') {
       return this._renderGlobDetail(tool);
     }
-    if (name === 'search_code' || name === 'SearchCodebase') {
+    if (name === 'SearchCodebase') {
       return this._renderSearchDetail(tool);
     }
     return this._renderDefaultToolDetail(tool);

@@ -87,7 +87,7 @@ public class ToolArgumentSanitizerEnhancedTest {
     @Test
     public void testNonEditFileToolShouldNotBeModified() {
         String json = "{\"query\":\"test\"}";
-        String result = ToolArgumentSanitizer.fixJsonArguments("search_code", json);
+        String result = ToolArgumentSanitizer.fixJsonArguments("glob", json);
         assertEquals(json, result);
     }
 

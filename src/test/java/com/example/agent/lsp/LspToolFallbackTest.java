@@ -111,7 +111,7 @@ class LspToolFallbackTest {
 
         assertThat(result)
                 .contains("LSP 服务正在启动中")
-                .contains("search_code")
+                .contains("grep")
                 .contains("60-120 秒");
     }
 

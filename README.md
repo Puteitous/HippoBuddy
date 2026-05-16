@@ -83,7 +83,7 @@
 | 分类 | 工具列表 |
 |------|----------|
 | **文件操作** | `read_file` `write_file` `edit_file` `list_directory` |
-| **代码搜索** | `glob` `grep` `search_code` (语义搜索) |
+| **代码搜索** | `glob` `grep` |
 | **代码导航** | LSP 系列 | `definition` `references` `hover` `document_symbol` `workspace_symbol` |
 | **系统交互** | `bash` `ask_user` `todo_write` |
 | **多代理** | `fork_agent` `fork_agents` `list_subagents` `cancel_subagent` |
