@@ -287,6 +287,14 @@ public class ConversationService {
             } catch (Exception e) {
                 logger.warn("会话结束时触发 AutoDream 失败: sessionId={}", sessionId, e);
             }
+            
+            // 刷盘并关闭 Transcript，确保异步队列中的消息全部写入文件
+            try {
+                components.transcript.forceFlush();
+                components.transcript.close();
+            } catch (Exception e) {
+                logger.warn("关闭 Transcript 失败: sessionId={}", sessionId, e);
+            }
         }
         
         componentRegistry.remove(sessionId);

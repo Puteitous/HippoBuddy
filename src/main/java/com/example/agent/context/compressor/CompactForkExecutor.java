@@ -22,7 +22,6 @@ public class CompactForkExecutor {
     private static final int COMPACT_TIMEOUT_SECONDS = 120;
     
     private final LlmClient llmClient;
-    private final ConversationService conversationService;
     private final TokenEstimator tokenEstimator;
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
     
@@ -30,14 +29,12 @@ public class CompactForkExecutor {
     
     public CompactForkExecutor() {
         this.llmClient = ServiceLocator.get(LlmClient.class);
-        this.conversationService = ServiceLocator.get(ConversationService.class);
         this.tokenEstimator = ServiceLocator.get(TokenEstimator.class);
     }
     
-    public CompactForkExecutor(LlmClient llmClient, ConversationService conversationService, 
+    public CompactForkExecutor(LlmClient llmClient, ConversationService conversationService,
                                TokenEstimator tokenEstimator) {
         this.llmClient = llmClient;
-        this.conversationService = conversationService;
         this.tokenEstimator = tokenEstimator;
     }
     

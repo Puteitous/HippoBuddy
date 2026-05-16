@@ -41,6 +41,7 @@ public class AgentApplication {
     }
 
     public void run() {
+        ServiceLocator.clear();
         AgentContext context = null;
         try {
             context = new AgentContext();
@@ -54,6 +55,8 @@ public class AgentApplication {
             AgentUi ui = new AgentUi(context.getTerminal(), context.getConfig());
             ServiceLocator.registerSingleton(AgentUi.class, ui);
             ServiceLocator.registerSingleton(LineReader.class, context.getReader());
+            ServiceLocator.freeze();
+            logger.info("DI 容器已冻结，后续 registerSingleton 调用将抛出异常");
             
             // ✅ 初始化 Terminal 状态栏标题
             ui.updateTerminalTitle(context.getCurrentMode());

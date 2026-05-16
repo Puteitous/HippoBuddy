@@ -15,7 +15,6 @@ import com.example.agent.llm.model.Message;
 import com.example.agent.logging.EventMetricsCollector;
 import com.example.agent.logging.TokenMetricsCollector;
 import com.example.agent.logging.WorkspaceManager;
-import com.example.agent.prompt.PromptLibrary;
 import com.example.agent.prompt.PromptService;
 import com.example.agent.service.TokenEstimator;
 
@@ -190,9 +189,7 @@ public class AgentContext {
 
 
         // 初始化 PromptLibrary
-        PromptService promptService = new PromptService();
-        ServiceLocator.registerSingleton(PromptService.class, promptService);
-        ServiceLocator.registerSingleton(PromptLibrary.class, PromptLibrary.getInstance());
+        PromptService promptService = ServiceLocator.get(PromptService.class);
         logger.info("PromptLibrary 初始化完成 ✅");
 
         // 初始化会话服务（无状态，全局共享）

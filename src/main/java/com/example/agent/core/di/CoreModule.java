@@ -23,6 +23,8 @@ import com.example.agent.logging.CostMetricsCollector;
 
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.service.TokenEstimatorFactory;
+import com.example.agent.prompt.PromptLibrary;
+import com.example.agent.prompt.PromptService;
 import com.example.agent.tools.*;
 import com.example.agent.tools.concurrent.ConcurrentToolExecutor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -82,6 +84,11 @@ public final class CoreModule {
         LlmClient llmClient = LlmClientFactory.create(config, ServiceLocator.get(RetryPolicy.class));
         ServiceLocator.registerSingleton(LlmClient.class, llmClient);
         logger.info("✅ [Level 2] 领域服务: LlmClient");
+
+        PromptService promptService = new PromptService();
+        ServiceLocator.registerSingleton(PromptService.class, promptService);
+        ServiceLocator.registerSingleton(PromptLibrary.class, PromptLibrary.getInstance());
+        logger.info("✅ [Level 2] 领域服务: PromptService, PromptLibrary");
 
         ToolRegistry toolRegistry = createConfiguredToolRegistry(objectMapper, codeIndex);
         ServiceLocator.registerSingleton(ToolRegistry.class, toolRegistry);
