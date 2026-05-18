@@ -60,7 +60,7 @@ class ReadFileToolCacheTest {
         }
 
         @Test
-        @DisplayName("第二次读取返回缓存提示")
+        @DisplayName("第二次读取返回缓存提示和完整内容")
         void secondReadReturnsCacheHint() throws Exception {
             JsonNode args = createArgs(testFile.toString());
             
@@ -70,8 +70,9 @@ class ReadFileToolCacheTest {
             String secondResult = readFileTool.execute(args);
             assertTrue(secondResult.contains("<system-reminder>"));
             assertTrue(secondResult.contains("内容未改变"));
-            assertTrue(secondResult.contains("请直接使用上下文中的内容"));
-            assertFalse(secondResult.contains("<file_content>"));
+            assertTrue(secondResult.contains("内容已从缓存返回"));
+            assertTrue(secondResult.contains("<file_content>"));
+            assertTrue(secondResult.contains("Hello, World!"));
         }
 
         @Test
@@ -177,6 +178,8 @@ class ReadFileToolCacheTest {
 
             assertTrue(cached1.contains("<system-reminder>"));
             assertTrue(cached2.contains("<system-reminder>"));
+            assertTrue(cached1.contains("Content 1"));
+            assertTrue(cached2.contains("Content 2"));
         }
     }
 

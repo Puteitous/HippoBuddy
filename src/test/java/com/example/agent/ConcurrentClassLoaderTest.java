@@ -1,6 +1,5 @@
 package com.example.agent;
 
-import com.example.agent.core.blocker.FileOperationStateMachine;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.tools.concurrent.ConcurrentToolExecutor;
 import org.junit.jupiter.api.Test;
@@ -106,7 +105,7 @@ class ConcurrentClassLoaderTest {
             Thread.currentThread().setContextClassLoader(ToolRegistry.class.getClassLoader());
 
             try {
-                FileOperationStateMachine.FileState state = FileOperationStateMachine.FileState.EXISTS;
+                InnerStateMachine.InnerState state = InnerStateMachine.InnerState.RUNNING;
                 assertThat(state).isNotNull();
                 successCount.incrementAndGet();
             } finally {
@@ -137,8 +136,8 @@ class ConcurrentClassLoaderTest {
                     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
                     Thread.currentThread().setContextClassLoader(ToolRegistry.class.getClassLoader());
                     try {
-                        FileOperationStateMachine.FileState s1 = FileOperationStateMachine.FileState.NEWLY_CREATED;
-                        FileOperationStateMachine.FileState s2 = FileOperationStateMachine.FileState.IS_DIRECTORY;
+                        InnerStateMachine.InnerState s1 = InnerStateMachine.InnerState.INIT;
+                        InnerStateMachine.InnerState s2 = InnerStateMachine.InnerState.DONE;
                         NestedClass nested = new NestedClass();
                         TestEnum e = TestEnum.VALUE_B;
 
@@ -169,7 +168,7 @@ class ConcurrentClassLoaderTest {
         System.out.println("⚠️  重现原始 Bug 场景...");
         System.out.println("   - 线程: ForkJoinPool.commonPool-worker");
         System.out.println("   - TCCL: 设置为 null (模拟 OSGi/模块系统问题)");
-        System.out.println("   - 首次加载: FileOperationStateMachine$FileState 枚举");
+        System.out.println("   - 首次加载: InnerStateMachine.InnerState 枚举");
 
         ClassLoader systemClassLoader = ToolRegistry.class.getClassLoader();
         CountDownLatch latch = new CountDownLatch(1);
@@ -179,7 +178,7 @@ class ConcurrentClassLoaderTest {
             Thread.currentThread().setContextClassLoader(null);
 
             try {
-                FileOperationStateMachine.FileState state = FileOperationStateMachine.FileState.NOT_EXISTS;
+                InnerStateMachine.InnerState state = InnerStateMachine.InnerState.INIT;
                 System.out.println("   ✅ 枚举加载成功: " + state);
             } catch (NoClassDefFoundError e) {
                 System.out.println("   ❌ Bug 重现成功: " + e.getMessage());
@@ -197,7 +196,7 @@ class ConcurrentClassLoaderTest {
             System.out.println("   执行修复后: TCCL = " + Thread.currentThread().getContextClassLoader());
 
             try {
-                FileOperationStateMachine.FileState state = FileOperationStateMachine.FileState.EXISTS;
+                InnerStateMachine.InnerState state = InnerStateMachine.InnerState.DONE;
                 System.out.println("   ✅ 修复后枚举加载成功: " + state);
             } finally {
                 Thread.currentThread().setContextClassLoader(contextClassLoader);

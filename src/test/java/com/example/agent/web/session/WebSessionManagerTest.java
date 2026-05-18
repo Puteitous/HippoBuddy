@@ -280,6 +280,130 @@ class WebSessionManagerTest {
     }
 
     @Nested
+    @DisplayName("待处理 Bash 确认 (PendingBashConfirmation)")
+    class PendingBashConfirmationTests {
+
+        @Test
+        @DisplayName("hasPendingBashConfirmation 对不存在的会话应返回 false")
+        void hasPendingReturnsFalseForUnknown() {
+            assertFalse(manager.hasPendingBashConfirmation("unknown"));
+        }
+
+        @Test
+        @DisplayName("setPendingBashConfirmation 后 hasPending 应返回 true")
+        void hasPendingReturnsTrueAfterSet() {
+            PendingBashConfirmation pending = new PendingBashConfirmation(
+                "uuid-1", "call-1", "bash", "rm file.txt", "{\"command\":\"rm file.txt\"}", "medium", "可能有副作用"
+            );
+            manager.setPendingBashConfirmation("session-1", pending);
+            assertTrue(manager.hasPendingBashConfirmation("session-1"));
+        }
+
+        @Test
+        @DisplayName("pollPendingBashConfirmation 应返回并移除")
+        void pollPendingReturnsAndRemoves() {
+            PendingBashConfirmation pending = new PendingBashConfirmation(
+                "uuid-1", "call-1", "bash", "rm file.txt", "{\"command\":\"rm file.txt\"}", "medium", "可能有副作用"
+            );
+            manager.setPendingBashConfirmation("session-1", pending);
+
+            PendingBashConfirmation retrieved = manager.pollPendingBashConfirmation("session-1");
+            assertSame(pending, retrieved);
+            assertEquals("uuid-1", retrieved.confirmId);
+            assertEquals("rm file.txt", retrieved.command);
+            assertEquals("medium", retrieved.riskLevel);
+
+            assertFalse(manager.hasPendingBashConfirmation("session-1"));
+        }
+
+        @Test
+        @DisplayName("pollPendingBashConfirmation 对不存在的会话应返回 null")
+        void pollPendingReturnsNullForUnknown() {
+            assertNull(manager.pollPendingBashConfirmation("unknown"));
+        }
+
+        @Test
+        @DisplayName("clearPendingBashConfirmation 应移除指定会话的待确认")
+        void clearPendingRemovesPending() {
+            manager.setPendingBashConfirmation("session-1", new PendingBashConfirmation(
+                "uuid-1", "call-1", "bash", "rm file.txt", "{}", "medium", "风险"
+            ));
+            assertTrue(manager.hasPendingBashConfirmation("session-1"));
+            manager.clearPendingBashConfirmation("session-1");
+            assertFalse(manager.hasPendingBashConfirmation("session-1"));
+        }
+
+        @Test
+        @DisplayName("isExpired 超时后应返回 true")
+        void isExpiredReturnsTrueAfterTimeout() {
+            PendingBashConfirmation pending = new PendingBashConfirmation(
+                "uuid-1", "call-1", "bash", "echo test", "{}", "medium", "测试"
+            );
+            assertFalse(pending.isExpired(60_000));
+            assertTrue(pending.isExpired(-1));
+        }
+    }
+
+    @Nested
+    @DisplayName("Session 级 auto-allow")
+    class SessionAutoAllowTests {
+
+        @Test
+        @DisplayName("新会话默认无 auto-allow 规则")
+        void newSessionHasNoRules() {
+            assertFalse(manager.isAutoAllowed("session-1", "rm"));
+        }
+
+        @Test
+        @DisplayName("添加规则后 isAutoAllowed 应返回 true")
+        void addRuleThenIsAllowed() {
+            manager.addAutoAllowRule("session-1", "rm");
+            assertTrue(manager.isAutoAllowed("session-1", "rm"));
+        }
+
+        @Test
+        @DisplayName("不同会话的 auto-allow 规则互不干扰")
+        void rulesAreIsolatedBySession() {
+            manager.addAutoAllowRule("session-a", "rm");
+            manager.addAutoAllowRule("session-b", "curl");
+
+            assertTrue(manager.isAutoAllowed("session-a", "rm"));
+            assertFalse(manager.isAutoAllowed("session-a", "curl"));
+            assertTrue(manager.isAutoAllowed("session-b", "curl"));
+            assertFalse(manager.isAutoAllowed("session-b", "rm"));
+        }
+
+        @Test
+        @DisplayName("同一会话可添加多条规则")
+        void multipleRulesForSameSession() {
+            manager.addAutoAllowRule("session-1", "rm");
+            manager.addAutoAllowRule("session-1", "curl");
+            manager.addAutoAllowRule("session-1", "git");
+
+            assertTrue(manager.isAutoAllowed("session-1", "rm"));
+            assertTrue(manager.isAutoAllowed("session-1", "curl"));
+            assertTrue(manager.isAutoAllowed("session-1", "git"));
+        }
+
+        @Test
+        @DisplayName("clear() 应清除所有 auto-allow 规则")
+        void clearClearsAutoAllowRules() {
+            manager.addAutoAllowRule("session-1", "rm");
+            manager.clear();
+            assertFalse(manager.isAutoAllowed("session-1", "rm"));
+        }
+
+        @Test
+        @DisplayName("null 参数不抛异常")
+        void nullParamsDoNotThrow() {
+            assertDoesNotThrow(() -> manager.addAutoAllowRule(null, "rm"));
+            assertDoesNotThrow(() -> manager.addAutoAllowRule("session-1", null));
+            assertFalse(manager.isAutoAllowed(null, "rm"));
+            assertFalse(manager.isAutoAllowed("session-1", null));
+        }
+    }
+
+    @Nested
     @DisplayName("loadTokenCache")
     class LoadTokenCacheTests {
 

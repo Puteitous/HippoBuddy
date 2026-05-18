@@ -61,41 +61,7 @@ class BashToolTest {
         });
     }
 
-    @Test
-    void testBlockedCommand() {
-        ObjectNode args = objectMapper.createObjectNode();
-        args.put("command", "rm -rf /");
-        
-        ToolExecutionException exception = assertThrows(ToolExecutionException.class, () -> {
-            tool.execute(args);
-        });
-        
-        assertTrue(exception.getMessage().contains("安全限制"));
-    }
 
-    @Test
-    void testBlockedCommandSudo() {
-        ObjectNode args = objectMapper.createObjectNode();
-        args.put("command", "sudo apt-get update");
-        
-        ToolExecutionException exception = assertThrows(ToolExecutionException.class, () -> {
-            tool.execute(args);
-        });
-        
-        assertTrue(exception.getMessage().contains("安全限制"));
-    }
-
-    @Test
-    void testNotAllowedCommand() {
-        ObjectNode args = objectMapper.createObjectNode();
-        args.put("command", "python script.py");
-        
-        ToolExecutionException exception = assertThrows(ToolExecutionException.class, () -> {
-            tool.execute(args);
-        });
-        
-        assertTrue(exception.getMessage().contains("不在允许列表中"));
-    }
 
     @Test
     void testRequiresFileLock() {
@@ -254,18 +220,6 @@ class BashToolTest {
     }
 
     @Test
-    void testDangerousPatternRmRf() {
-        ObjectNode args = objectMapper.createObjectNode();
-        args.put("command", "git rm -rf .");
-        
-        ToolExecutionException exception = assertThrows(ToolExecutionException.class, () -> {
-            tool.execute(args);
-        });
-        
-        assertTrue(exception.getMessage().contains("危险命令模式"));
-    }
-
-    @Test
     void testAllowedPipeOperator() {
         ObjectNode args = objectMapper.createObjectNode();
         args.put("command", "git log --oneline");
@@ -291,18 +245,6 @@ class BashToolTest {
         } catch (ToolExecutionException e) {
             assertTrue(e.getMessage().contains("安全限制") || e.getMessage().contains("echo"));
         }
-    }
-
-    @Test
-    void testBlockedSemicolonOperator() {
-        ObjectNode args = objectMapper.createObjectNode();
-        args.put("command", "git status; ls");
-        
-        ToolExecutionException exception = assertThrows(ToolExecutionException.class, () -> {
-            tool.execute(args);
-        });
-        
-        assertTrue(exception.getMessage().contains("安全限制"));
     }
 
     @Test

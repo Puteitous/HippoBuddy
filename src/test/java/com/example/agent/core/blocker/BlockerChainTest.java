@@ -276,29 +276,6 @@ class BlockerChainTest {
         }
     }
 
-    @Nested
-    @DisplayName("生命周期测试")
-    class LifecycleTests {
-
-        @Test
-        @DisplayName("onTurnComplete 调用 DuplicateToolCallBlocker")
-        void onTurnCompleteCallsDuplicateToolCallBlocker() {
-            DuplicateToolCallBlocker duplicateBlocker = new DuplicateToolCallBlocker();
-            blockerChain.add(duplicateBlocker);
-
-            JsonNode args = createArgs("test.txt");
-            duplicateBlocker.check("read_file", args);
-            duplicateBlocker.check("read_file", args);
-
-            // 调用前应该有计数
-            assertTrue(duplicateBlocker.getActiveCallCount() > 0);
-
-            // 调用 onTurnComplete 后清空
-            blockerChain.onTurnComplete();
-
-            assertEquals(0, duplicateBlocker.getActiveCallCount());
-        }
-    }
 
     private JsonNode createArgs(String path) {
         ObjectNode node = objectMapper.createObjectNode();
