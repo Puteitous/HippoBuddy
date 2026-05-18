@@ -12,6 +12,7 @@ import { ChatService } from './chat-service.js';
 import { ChatUI } from './chat-ui.js';
 import { SessionManager } from './session-manager.js';
 import { ChatPanel } from './components/ChatPanel.js';
+import { ChatNav } from './components/ChatNav.js';
 import { TokenMonitor } from './components/TokenMonitor.js';
 import { MetricsPanel } from './components/MetricsPanel.js';
 import { SSEClient } from './sse-client.js';
@@ -37,6 +38,7 @@ const sessionList = document.getElementById('sessionList');
 // ========== 组件实例 ==========
 let sessionManager;
 let chatPanel;
+let chatNav;
 let tokenMonitor;
 let metricsPanel;
 let fileChangeManager;
@@ -153,7 +155,10 @@ function init() {
   // 3. 初始化聊天面板
   chatPanel = new ChatPanel(chatContainer, chatService, chatUI);
   
-  // 4. 初始化 Token 监控
+  // 4. 初始化对话导航
+  chatNav = new ChatNav(chatContainer);
+  
+  // 5. 初始化 Token 监控
   tokenMonitor = new TokenMonitor(chatService);
   
   // 5. 初始化监控面板
@@ -824,7 +829,7 @@ async function loadHistoryMessages(messages) {
         contentDiv.dataset.markdown = rawMarkdown;
         
         copyBtn.onclick = () => {
-          const textToCopy = contentDiv.innerText;
+          const textToCopy = contentDiv.dataset.markdown || contentDiv.innerText;
           navigator.clipboard.writeText(textToCopy).then(() => {
             copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
             copyBtn.classList.add('copied');

@@ -944,49 +944,6 @@ body {
     color: var(--text-secondary);
 }
 
-/* ========== 复制菜单 ========== */
-.copy-menu {
-    position: absolute;
-    bottom: 100%;
-    right: 0;
-    margin-bottom: 4px;
-    background: var(--bg-white);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    z-index: 100;
-    display: none;
-    overflow: hidden;
-    min-width: 140px;
-}
-
-.copy-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-    white-space: nowrap;
-}
-
-.copy-menu-item:hover {
-    background: var(--bg-code);
-}
-
-.copy-menu-item svg {
-    flex-shrink: 0;
-    opacity: 0.7;
-}
-
-.copy-menu-item .copy-shortcut {
-    margin-left: auto;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    opacity: 0.6;
-}
 
 .message-time {
     font-size: var(--font-size-xs);
@@ -1289,6 +1246,173 @@ body {
 
 #sendBtn:hover svg {
     transform: translateY(-1px);
+}
+
+/* ========== 对话导航悬浮条 ========== */
+.chat-nav-strip {
+    position: fixed;
+    right: 8px;
+    top: 168px;
+    z-index: 20;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-radius: 0;
+    box-shadow: none;
+    transition: box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, border-radius 0.2s ease, backdrop-filter 0.2s ease;
+    cursor: default;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid transparent;
+}
+
+.chat-nav-strip:hover {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .chat-nav-strip {
+    background: transparent;
+    box-shadow: none;
+}
+
+[data-theme="dark"] .chat-nav-strip:hover {
+    background: rgba(30, 30, 35, 0.95);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+.chat-nav-panel {
+    display: flex;
+    flex-direction: column;
+    width: 16px;
+    transition: width 0.2s ease;
+}
+
+.chat-nav-strip:hover .chat-nav-panel {
+    width: 240px;
+}
+
+.chat-nav-strip:not(:hover) .chat-nav-panel {
+    pointer-events: none;
+}
+
+.chat-nav-strip:not(:hover) .chat-nav-items {
+    padding: 8px 0;
+}
+
+.chat-nav-items {
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    min-height: 0;
+    max-height: 296px;
+}
+
+.chat-nav-items::-webkit-scrollbar {
+    display: none;
+}
+
+.chat-nav-item {
+    padding: 6px 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.15s ease, color 0.15s ease;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.chat-nav-item:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .chat-nav-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.chat-nav-item::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--text-muted);
+    margin-right: 8px;
+    vertical-align: middle;
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: width 0.2s ease, height 0.2s ease, border-radius 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, transparent 15%, black 30%, black 70%, transparent 85%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, transparent 15%, black 30%, black 70%, transparent 85%, transparent 100%);
+}
+
+.chat-nav-strip:not(:hover) .chat-nav-item {
+    padding: 6px 0;
+    text-align: center;
+    font-size: 0;
+    line-height: 0;
+    pointer-events: none;
+    min-height: 30px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+}
+
+.chat-nav-strip:not(:hover) .chat-nav-item::before {
+    display: block;
+    margin: 0;
+    width: 12px;
+    height: 2px;
+}
+
+.chat-nav-strip:hover .chat-nav-item::before {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 8px;
+    mask-image: none;
+    -webkit-mask-image: none;
+}
+
+.chat-nav-item.active::before {
+    opacity: 0.9;
+    background: var(--text-primary);
+}
+
+.chat-nav-strip:hover .chat-nav-item.active::before {
+    width: 7px;
+    height: 7px;
+    opacity: 1;
+}
+
+.chat-nav-strip:not(:hover) .chat-nav-item.active::before {
+    width: 10px;
+    height: 2px;
+    border-radius: 1px;
+    opacity: 0.9;
+}
+
+/* 空状态时隐藏导航条 */
+.chat-panel:not(.has-messages) .chat-nav-strip {
+    display: none;
 }
 
 /* 空状态时隐藏底部输入栏 */
@@ -3340,6 +3464,74 @@ body {
     color: var(--text-muted);
 }
 
+.timeline-detail-progress {
+    margin: 4px 0;
+    position: relative;
+}
+
+.timeline-detail-progress pre {
+    background: var(--bg-code);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent);
+}
+
+.timeline-detail-progress pre code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.timeline-detail-progress::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: linear-gradient(transparent, var(--bg-code));
+    pointer-events: none;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.tool-abort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    padding: 4px 12px;
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    color: #fff;
+    background: var(--error-color, #e53e3e);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 4px);
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+    line-height: 1.4;
+}
+
+.tool-abort-btn:hover {
+    background: var(--error-hover, #c53030);
+}
+
+.tool-abort-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.tool-abort-btn.aborted {
+    background: var(--text-muted, #718096);
+}
+
 .timeline-detail-error {
     padding: 8px 12px;
     background: var(--error-bg);
@@ -3476,6 +3668,142 @@ body {
 
 [data-theme="dark"] .tool-timeline-row:hover {
     background: rgba(255,255,255,0.04);
+}
+
+/* ===== 待确认状态样式 ===== */
+.tool-timeline-status.pending_confirmation svg {
+    stroke: var(--warning-color, #e6a817);
+}
+
+.timeline-detail-confirmation {
+    padding: 8px 0;
+}
+
+.confirmation-command {
+    margin-bottom: 8px;
+}
+
+.confirmation-command pre {
+    background: var(--bg-code);
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    margin: 0;
+    border: 1px solid var(--border-color);
+    overflow-x: auto;
+}
+
+.confirmation-command pre code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.confirmation-risk {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(230, 168, 23, 0.08);
+    border: 1px solid rgba(230, 168, 23, 0.25);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+}
+
+.confirmation-risk.high {
+    background: rgba(220, 60, 60, 0.08);
+    border-color: rgba(220, 60, 60, 0.25);
+}
+
+.confirmation-risk.low {
+    background: rgba(60, 180, 75, 0.08);
+    border-color: rgba(60, 180, 75, 0.25);
+}
+
+.risk-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--warning-color, #e6a817);
+    white-space: nowrap;
+}
+
+.confirmation-risk.high .risk-badge {
+    color: var(--error-text);
+}
+
+.confirmation-risk.low .risk-badge {
+    color: var(--success-text);
+}
+
+.risk-text {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.confirmation-options {
+    margin-bottom: 10px;
+}
+
+.confirmation-auto-allow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.confirmation-auto-allow input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+}
+
+.confirmation-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.confirmation-btn {
+    flex: 1;
+    padding: 7px 16px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+}
+
+.confirmation-btn.allow {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.confirmation-btn.allow:hover {
+    opacity: 0.9;
+}
+
+.confirmation-btn.deny {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.confirmation-btn.deny:hover {
+    background: var(--bg-code);
+    color: var(--text-primary);
+}
+
+.confirmation-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* ==========================================

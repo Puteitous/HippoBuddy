@@ -25,6 +25,7 @@ export class ChatPanel {
     this._renderThrottleTimer = null;
     this._pendingRender = null;
     this._hasReceivedData = false;
+    this._runningToolCallIds = new Set();
     
     this.init();
   }
@@ -226,6 +227,8 @@ export class ChatPanel {
       copyBtn = result.copyBtn;
       retryBtn = result.retryBtn;
       btnContainer = result.btnContainer;
+      this._responseContentDiv = contentDiv;
+      this._responseBtnContainer = btnContainer;
       
       // 绑定复制按钮
       this._setupCopyButton(copyBtn, contentDiv);
@@ -438,6 +441,10 @@ export class ChatPanel {
     if (parsed._eventType === 'tool_start' && parsed.name) {
       console.log('🔧 工具开始:', parsed.name);
       
+      if (parsed.id) {
+        this._runningToolCallIds.add(parsed.id);
+      }
+      
       if (!this._hasReceivedData) {
         this._hasReceivedData = true;
         contentDiv.querySelector('.typing-indicator')?.remove();
@@ -562,6 +569,12 @@ export class ChatPanel {
     
     // 处理 tool_result 事件
     if (parsed._eventType === 'tool_result' && parsed.name) {
+      // 清理运行追踪
+      const resultId = parsed.tool_call_id || parsed.id;
+      if (resultId) {
+        this._runningToolCallIds.delete(resultId);
+      }
+      
       // 优先匹配 toolCallId，如果没有则匹配 name
       let existingTool;
       if (parsed.tool_call_id) {
@@ -575,6 +588,40 @@ export class ChatPanel {
         existingTool.result = parsed.success ? 'success' : 'error';
         existingTool.error = parsed.error || null;
         existingTool.resultContent = parsed.result || null;
+        existingTool.confirmationData = null;
+        existingTool.progressLines = null; // 清除实时进度
+        this._flushRender();
+        this._scheduleRender(contentDiv, this.segments, this.currentText);
+      }
+      return;
+    }
+
+    // 处理 tool_progress 事件
+    if (parsed._eventType === 'tool_progress' && parsed.id) {
+      const existingTool = this.segments.find(s =>
+        s.type === 'tool' && s.id === parsed.id && !s.result
+      );
+      if (existingTool) {
+        existingTool.progressLines = existingTool.progressLines || [];
+        existingTool.progressLines.push(parsed.line);
+        this._flushRender();
+        this._scheduleRender(contentDiv, this.segments, this.currentText);
+      }
+      return;
+    }
+
+    // 处理 tool_confirmation 事件
+    if (parsed._eventType === 'tool_confirmation' && parsed.confirmId) {
+      const bashSegment = this.segments.find(s =>
+        s.type === 'tool' && s.name === 'bash' && !s.result && !s.confirmationData
+      );
+      if (bashSegment) {
+        bashSegment.confirmationData = {
+          confirmId: parsed.confirmId,
+          command: parsed.command,
+          riskLevel: parsed.riskLevel,
+          riskReason: parsed.riskReason
+        };
         this._flushRender();
         this._scheduleRender(contentDiv, this.segments, this.currentText);
       }
@@ -720,11 +767,11 @@ export class ChatPanel {
     container.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
       const name = item.dataset.toolName || 'unknown';
       const saved = states.get(`timeline:${name}:${idx}`);
-      if (saved?.expanded) {
+      const isPendingConfirm = item.dataset.toolStatus === 'pending_confirmation';
+      if (saved?.expanded || isPendingConfirm) {
         item.classList.add('expanded');
         const detail = item.querySelector('.tool-timeline-detail');
         if (detail) {
-          // 离屏 DOM 中 scrollHeight 可能为 0，用很大值兜底
           const h = detail.scrollHeight;
           detail.style.maxHeight = h > 0 ? h + 'px' : '9999px';
         }
@@ -805,6 +852,18 @@ export class ChatPanel {
     // 4) 原子置换：一次操作完成新旧 DOM 切换（零中间帧）
     container.replaceChildren(...tempDiv.children);
 
+    // 自动展开有实时进度的工具时间线行
+    container.querySelectorAll('.tool-timeline-item').forEach(item => {
+      const detail = item.querySelector('.tool-timeline-detail');
+      if (detail && detail.querySelector('.timeline-detail-progress')) {
+        if (!item.classList.contains('expanded')) {
+          item.classList.add('expanded');
+          const h = detail.scrollHeight;
+          detail.style.maxHeight = h > 0 ? h + 'px' : '9999px';
+        }
+      }
+    });
+
     // 恢复滚动位置（避免 DOM 重建导致滚动跳动）
     chatContainer.scrollTop = savedScrollTop;
     
@@ -822,6 +881,25 @@ export class ChatPanel {
     
     container.querySelectorAll('.ask-user-card').forEach(card => {
       this._bindAskUserCardEvents(card);
+    });
+
+    container.querySelectorAll('.confirmation-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const confirmId = btn.dataset.confirmId;
+        const decision = btn.classList.contains('allow') ? 'allow' : 'deny';
+        const item = btn.closest('.tool-timeline-item');
+        const checkbox = item?.querySelector('.auto-allow-checkbox');
+        const autoAllowSimilar = checkbox ? checkbox.checked : false;
+        this._sendToolConfirmResponse(confirmId, decision, autoAllowSimilar);
+        // 点击后自动收起确认卡片
+        if (item) {
+          const detail = item.querySelector('.tool-timeline-detail');
+          if (detail) {
+            detail.style.maxHeight = '0';
+          }
+          item.classList.remove('expanded');
+        }
+      });
     });
     
     this.smartScroll();
@@ -844,74 +922,17 @@ export class ChatPanel {
   }
   
   _setupCopyButton(copyBtn, contentDiv) {
-    const btnContainer = copyBtn.parentNode;
-    if (!btnContainer) {
-      copyBtn.onclick = () => {
-        const textToCopy = contentDiv.innerText;
-        navigator.clipboard.writeText(textToCopy).catch(() => {});
-      };
-      return;
-    }
-    
-    const menu = document.createElement('div');
-    menu.className = 'copy-menu';
-    menu.innerHTML = `
-      <div class="copy-menu-item" data-type="markdown">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        复制 Markdown
-        <span class="copy-shortcut">MD</span>
-      </div>
-      <div class="copy-menu-item" data-type="text">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        复制纯文本
-        <span class="copy-shortcut">TXT</span>
-      </div>
-    `;
-    
-    btnContainer.appendChild(menu);
-    
-    copyBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      
-      document.querySelectorAll('.copy-menu').forEach(m => {
-        if (m !== menu) m.style.display = 'none';
-      });
-      
-      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    });
-    
-    menu.addEventListener('click', (e) => {
-      const item = e.target.closest('.copy-menu-item');
-      if (!item) return;
-      
-      const type = item.dataset.type;
-      let textToCopy;
-      
-      if (type === 'markdown') {
-        textToCopy = contentDiv.dataset.markdown || contentDiv.innerHTML;
-      } else {
-        textToCopy = contentDiv.innerText;
-      }
-      
+    copyBtn.addEventListener('click', () => {
+      const textToCopy = contentDiv.dataset.markdown || contentDiv.innerText;
       navigator.clipboard.writeText(textToCopy).then(() => {
-        menu.style.display = 'none';
-        const label = type === 'markdown' ? 'Markdown' : '纯文本';
-        showToast(`已复制 ${label}`, { type: 'success', duration: 2000 });
         copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
         copyBtn.classList.add('copied');
         setTimeout(() => {
           copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
           copyBtn.classList.remove('copied');
         }, 2000);
-      }).catch(() => {
-        showToast('复制失败', { type: 'error', duration: 3000 });
-      });
+      }).catch(() => {});
     });
-    
-    document.addEventListener('click', () => {
-      menu.style.display = 'none';
-    }, { passive: true });
   }
   
   /**
@@ -1160,6 +1181,100 @@ export class ChatPanel {
       EventBus.emit('message:sent');
     });
   }
+
+  _sendToolConfirmResponse(confirmId, decision, autoAllowSimilar) {
+    const sessionId = appState.currentSessionId;
+    if (!sessionId || !confirmId) return;
+
+    const btn = document.querySelector(`.confirmation-btn.${decision}[data-confirm-id="${confirmId}"]`);
+    if (btn) btn.disabled = true;
+
+    this.isCompleted = false;
+
+    fetch('/api/tool/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        confirmId,
+        decision,
+        autoAllowSimilar: !!autoAllowSimilar
+      })
+    }).then(async response => {
+      if (!response.ok) {
+        return response.json().then(err => {
+          showToast(err.error || '确认请求失败', { type: 'error', duration: 4000 });
+          if (btn) btn.disabled = false;
+        });
+      }
+
+      const contentDiv = this._responseContentDiv;
+      const btnContainer = this._responseBtnContainer;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentEvent = 'message';
+      let dataBuffer = '';
+
+      const flushDataBuffer = () => {
+        if (!dataBuffer) return;
+        try {
+          const parsed = JSON.parse(dataBuffer);
+          parsed._eventType = currentEvent;
+          this.handleChunk(parsed, contentDiv, btnContainer);
+        } catch (e) {
+          console.error('解析确认 SSE 数据失败:', e);
+        }
+        dataBuffer = '';
+      };
+
+      const processLines = (lines) => {
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            flushDataBuffer();
+            currentEvent = line.substring(7).trim();
+          } else if (line.startsWith('data: ')) {
+            dataBuffer += line.substring(6);
+          } else if (line === '') {
+            flushDataBuffer();
+          }
+        }
+        flushDataBuffer();
+      };
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          processLines(lines);
+        }
+
+        if (buffer.trim()) {
+          processLines(buffer.split('\n'));
+        }
+      } catch (e) {
+        console.error('读取确认 SSE 流失败:', e);
+      }
+
+      if (this.currentText.trim()) {
+        this.segments.push({ type: 'text', content: this.currentText });
+      }
+      this.renderSegmentsFinal(contentDiv, this.segments, '');
+      this.isCompleted = true;
+
+    }).catch(err => {
+      console.error('确认请求失败:', err);
+      showToast('确认请求失败', { type: 'error', duration: 4000 });
+      if (btn) btn.disabled = false;
+      this.isCompleted = true;
+    });
+  }
   
   _bindAskUserCardEvents(card) {
     const details = card.querySelector('.tool-call-details');
@@ -1283,6 +1398,16 @@ export class ChatPanel {
     if (this.elements.stopBtn) {
       this.elements.stopBtn.disabled = true;
     }
+    
+    // 中止服务端正在运行的 bash 进程
+    for (const toolCallId of this._runningToolCallIds) {
+      fetch('/api/tool/abort', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toolCallId })
+      }).catch(() => {});
+    }
+    this._runningToolCallIds.clear();
     
     this.chatService.stopGeneration(this.currentAbortController);
   }

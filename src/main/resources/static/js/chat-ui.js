@@ -205,8 +205,9 @@ export class ChatUI {
     copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     btnContainer.appendChild(copyBtn);
 
+    contentDiv.dataset.markdown = content;
     copyBtn.onclick = () => {
-        const textToCopy = contentDiv.innerText;
+        const textToCopy = contentDiv.dataset.markdown || contentDiv.innerText;
         navigator.clipboard.writeText(textToCopy).then(() => {
           copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
           copyBtn.classList.add('copied');
@@ -216,7 +217,6 @@ export class ChatUI {
           }, 2000);
         });
       };
-    contentDiv.dataset.markdown = content;
     
     const footer = document.createElement('div');
     footer.className = 'message-footer';
@@ -354,7 +354,8 @@ export class ChatUI {
 
   renderToolTimelineRow(tool) {
     const name = tool.name;
-    const status = tool.result || 'running';
+    const isPendingConfirm = !!(tool.confirmationData);
+    const status = isPendingConfirm ? 'pending_confirmation' : (tool.result || 'running');
     const detailHTML = this.renderToolTimelineDetailContent(tool);
 
     let summary = '';
@@ -380,11 +381,16 @@ export class ChatUI {
       summary = name;
     }
 
-    const statusSvg = status === 'success'
-      ? '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 7 11 12 5"/></svg>'
-      : status === 'error'
-      ? '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>'
-      : '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/></svg>';
+    let statusSvg;
+    if (isPendingConfirm) {
+      statusSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z"/><line x1="8" y1="5" x2="8" y2="9"/><line x1="8" y1="11" x2="8.01" y2="11"/></svg>';
+    } else {
+      statusSvg = status === 'success'
+        ? '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 7 11 12 5"/></svg>'
+        : status === 'error'
+        ? '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>'
+        : '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/></svg>';
+    }
 
     const toolSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a4 4 0 0 0-3.5 5.7L2 12.2 3.8 14l4.5-4.5A4 4 0 1 0 10 2z"/><line x1="10" y1="6" x2="12" y2="4"/></svg>';
 
@@ -407,8 +413,23 @@ export class ChatUI {
     const isError = tool.result === 'error';
     const isRunning = !tool.result;
 
+    // 待确认状态：显示确认界面
+    if (tool.confirmationData) {
+      return this._renderConfirmationDetail(tool);
+    }
+
     if (isRunning) {
-      return '<div class="timeline-detail-status">运行中...</div>';
+      if (tool.progressLines && tool.progressLines.length > 0) {
+        const lines = tool.progressLines.slice(-20);
+        const stopBtn = tool.id
+          ? `<button class="tool-abort-btn" data-tool-id="${escapeHtml(tool.id)}" onclick="window.abortToolCall(this)">■ 终止</button>`
+          : '';
+        return `<div class="timeline-detail-progress"><pre><code>${lines.map(l => escapeHtml(l)).join('\n')}</code></pre></div>${stopBtn}`;
+      }
+      const stopBtn = tool.id
+        ? `<button class="tool-abort-btn" data-tool-id="${escapeHtml(tool.id)}" onclick="window.abortToolCall(this)">■ 终止</button>`
+        : '';
+      return `<div class="timeline-detail-status">运行中...</div>${stopBtn}`;
     }
     if (isError && tool.error) {
       return `<div class="timeline-detail-error">${escapeHtml(tool.error)}</div>`;
@@ -440,6 +461,7 @@ export class ChatUI {
   _renderBashDetail(tool) {
     let output = '';
     let exitCode = null;
+    let exitSuccess = true;
     let duration = null;
     if (tool.resultContent) {
       const lines = tool.resultContent.split('\n');
@@ -448,6 +470,7 @@ export class ChatUI {
         if (line.startsWith('退出码:') || line.startsWith('退出代码:')) {
           const match = line.match(/(\d+)/);
           if (match) exitCode = match[1];
+          exitSuccess = line.includes('成功');
         } else if (line.startsWith('执行时间:')) {
           const match = line.match(/(\d+)\s*ms/);
           if (match) duration = match[1];
@@ -469,9 +492,12 @@ export class ChatUI {
     if (exitCode !== null) {
       const successSvg = '<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 7 11 12 5"/></svg>';
       const errorSvg = '<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>';
-      const exitIcon = exitCode === '0' ? successSvg : errorSvg;
-      const exitLabel = exitCode === '0' ? '退出码: 0' : `退出码: ${exitCode}`;
-      html += `<div class="timeline-detail-meta"><span class="timeline-detail-exit ${exitCode === '0' ? 'success' : 'error'}">${exitIcon} ${exitLabel}</span>${duration ? `<span class="timeline-detail-duration">⏱ ${duration}ms</span>` : ''}</div>`;
+      const exitIcon = exitSuccess ? successSvg : errorSvg;
+      const exitLabel = `退出码: ${exitCode}`;
+      html += `<div class="timeline-detail-meta"><span class="timeline-detail-exit ${exitSuccess ? 'success' : 'error'}">${exitIcon} ${exitLabel}</span>${duration ? `<span class="timeline-detail-duration">⏱ ${duration}ms</span>` : ''}</div>`;
+    }
+    if (!html && tool.resultContent) {
+      html = `<div class="timeline-detail-output"><pre><code>${escapeHtml(tool.resultContent)}</code></pre></div>`;
     }
     return html;
   }
@@ -581,6 +607,34 @@ export class ChatUI {
     return html;
   }
 
+  _renderConfirmationDetail(tool) {
+    const data = tool.confirmationData;
+    const cmd = data.command || '';
+    const riskLevel = data.riskLevel || 'medium';
+    const riskReason = data.riskReason || '';
+    const riskLabel = riskLevel === 'high' ? '高风险' : riskLevel === 'low' ? '低风险' : '中风险';
+    const riskSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z"/><line x1="8" y1="5" x2="8" y2="9"/><line x1="8" y1="11" x2="8.01" y2="11"/></svg>';
+
+    return `
+      <div class="timeline-detail-confirmation">
+        <div class="confirmation-command"><pre><code>${escapeHtml(cmd)}</code></pre></div>
+        <div class="confirmation-risk ${riskLevel}">
+          <span class="risk-badge">${riskSvg} ${riskLabel}</span>
+          <span class="risk-text">${escapeHtml(riskReason)}</span>
+        </div>
+        <div class="confirmation-options">
+          <label class="confirmation-auto-allow">
+            <input type="checkbox" class="auto-allow-checkbox" data-confirm-id="${escapeHtml(data.confirmId)}">
+            <span>本次会话不再询问此类命令</span>
+          </label>
+        </div>
+        <div class="confirmation-buttons">
+          <button class="confirmation-btn deny" data-confirm-id="${escapeHtml(data.confirmId)}">拒绝</button>
+          <button class="confirmation-btn allow" data-confirm-id="${escapeHtml(data.confirmId)}">允许执行</button>
+        </div>
+      </div>`;
+  }
+
   renderTodoWriteCard(tool) {
     const todos = this.parseTodos(tool.args);
     const completed = todos.filter(t => t.status === 'completed').length;
@@ -635,6 +689,7 @@ export class ChatUI {
 
     let output = '';
     let exitCode = null;
+    let exitSuccess = true;
     let duration = null;
     if (tool.resultContent) {
       const lines = tool.resultContent.split('\n');
@@ -643,6 +698,7 @@ export class ChatUI {
         if (line.startsWith('退出码:') || line.startsWith('退出代码:')) {
           const match = line.match(/(\d+)/);
           if (match) exitCode = match[1];
+          exitSuccess = line.includes('成功');
         } else if (line.startsWith('执行时间:')) {
           const match = line.match(/(\d+)\s*ms/);
           if (match) duration = match[1];
@@ -936,4 +992,29 @@ window.toggleToolCardDetails = function(headerEl) {
     details.style.maxHeight = isCapped ? '300px' : h + 'px';
     card.classList.add('expanded');
   }
+};
+
+window.abortToolCall = function(btnEl) {
+  const toolCallId = btnEl.dataset.toolId;
+  if (!toolCallId) return;
+
+  btnEl.disabled = true;
+  btnEl.textContent = '正在终止...';
+
+  fetch('/api/tool/abort', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ toolCallId })
+  }).then(res => {
+    if (res.ok) {
+      btnEl.textContent = '已终止';
+      btnEl.classList.add('aborted');
+    } else {
+      btnEl.textContent = '终止失败';
+      btnEl.disabled = false;
+    }
+  }).catch(() => {
+    btnEl.textContent = '终止失败';
+    btnEl.disabled = false;
+  });
 };
