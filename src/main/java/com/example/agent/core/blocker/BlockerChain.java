@@ -193,11 +193,6 @@ public class BlockerChain implements Blocker {
     }
 
     public void onTurnComplete() {
-        for (Blocker blocker : blockers) {
-            if (blocker instanceof DuplicateToolCallBlocker) {
-                ((DuplicateToolCallBlocker) blocker).onTurnComplete();
-            }
-        }
     }
 
     public List<Blocker> getBlockers() {
