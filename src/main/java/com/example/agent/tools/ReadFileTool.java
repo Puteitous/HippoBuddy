@@ -56,7 +56,7 @@ public class ReadFileTool implements ToolExecutor {
             }
         }
 
-        String generateCacheHitMessage(String filePath, String content) {
+        String generateCacheHitMessage(String filePath, Path path) {
             this.accessCount++;
             long timeSinceRead = System.currentTimeMillis() - readTime;
             String timeDesc;
@@ -68,16 +68,26 @@ public class ReadFileTool implements ToolExecutor {
                 timeDesc = (timeSinceRead / 60000) + " 分钟前";
             }
 
+            String relativePath = PathSecurityUtils.getRelativePath(path);
+            int totalLines = content.split("\n", -1).length;
+
             return String.format(
                 "<system-reminder>\n" +
                 "文件 %s 内容未改变（%s 读取，第 %d 次访问）。\n" +
-                "请直接使用上下文中的内容进行后续操作，无需重复读取。\n" +
+                "内容已从缓存返回，可直接使用。\n" +
                 "</system-reminder>\n" +
-                "(%d 字符)",
+                "文件内容 (%s) [缓存]:\n" +
+                "<file_content>\n" +
+                "%s\n" +
+                "</file_content>\n" +
+                "(%d 字符, 文件共 %d 行)\n",
                 filePath,
                 timeDesc,
                 accessCount,
-                contentLength
+                relativePath,
+                content,
+                contentLength,
+                totalLines
             );
         }
     }
@@ -206,7 +216,7 @@ public class ReadFileTool implements ToolExecutor {
                     return cached.content;
                 }
                 
-                return cached.generateCacheHitMessage(filePath, cached.content);
+                return cached.generateCacheHitMessage(filePath, path);
             } else if (cached != null) {
                 fileCache.remove(cacheKey);
             }
@@ -253,9 +263,8 @@ public class ReadFileTool implements ToolExecutor {
             result.append("<file_content>\n");
             result.append(content);
             result.append("\n</file_content>\n");
-            result.append("(").append(content.length()).append(" 字符");
+            result.append("(").append(content.length()).append(" 字符, 文件共 ").append(totalLines).append(" 行");
             if (isPartialRead) {
-                result.append(", 文件共 ").append(totalLines).append(" 行");
                 result.append(", 已读取 ").append(actualOffset + 1).append("-").append(actualOffset + actualLimit).append(" 行");
                 result.append("\n提示: 使用 offset/limit 参数继续读取其他部分");
             }

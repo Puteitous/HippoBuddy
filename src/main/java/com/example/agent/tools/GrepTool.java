@@ -19,7 +19,7 @@ public class GrepTool implements ToolExecutor {
 
     private static final int MAX_RESULTS = 100;
     private static final int MAX_FILE_SIZE = 10 * 1024 * 1024;
-    private static final int MAX_LINE_LENGTH = 200;
+    private static final int MAX_LINE_LENGTH = 2000;
     private static final int MAX_DEPTH = 20;
 
     @Override

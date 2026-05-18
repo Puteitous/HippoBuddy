@@ -5,18 +5,39 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+import java.util.function.Consumer;
 
 public class BashTool implements ToolExecutor {
 
     private static final int DEFAULT_TIMEOUT = 30;
     private static final int MAX_TIMEOUT = 300;
-    private static final int MAX_OUTPUT_CHARS = 5000;
-    private static final int MAX_OUTPUT_CHARS_WARN = 3000;
+    private static final int MAX_OUTPUT_CHARS = 50000;
+    private static final int MAX_OUTPUT_CHARS_WARN = 30000;
     private static final String OUTPUT_TRUNCATE_MARKER = "\n... [输出过长，已截断 %d 字符，共 %d 字符] ...\n";
+
+    private static final Map<String, Set<Integer>> EXPECTED_NONZERO_EXIT_CODES = Map.of(
+        "grep", Set.of(1),
+        "diff", Set.of(1)
+    );
+
+    private static final Pattern FIRST_COMMAND_PATTERN = Pattern.compile("^\\s*(\\S+)");
+
+    private static final ThreadLocal<String> currentToolCallId = new ThreadLocal<>();
+
+    public static void setCurrentToolCallId(String toolCallId) {
+        currentToolCallId.set(toolCallId);
+    }
+
+    public static void clearCurrentToolCallId() {
+        currentToolCallId.remove();
+    }
 
     public BashTool() {
     }
@@ -30,7 +51,7 @@ public class BashTool implements ToolExecutor {
     public String getDescription() {
         return "执行终端命令。支持构建工具（mvn, gradle, npm）、版本控制、文件操作等。" +
                "支持管道（|）和重定向（>）操作。" +
-               "出于安全考虑，只允许执行白名单内的命令，禁止危险操作。" +
+               "Windows 环境下使用 cmd 执行，自动适配系统编码以解决中文乱码问题。" +
                "执行前会进行安全检查，危险命令需要用户确认。";
     }
 
@@ -76,6 +97,11 @@ public class BashTool implements ToolExecutor {
 
     @Override
     public String execute(JsonNode arguments) throws ToolExecutionException {
+        return execute(arguments, null);
+    }
+
+    @Override
+    public String execute(JsonNode arguments, Consumer<String> progressCallback) throws ToolExecutionException {
         if (!arguments.has("command") || arguments.get("command").isNull()) {
             throw new ToolExecutionException("缺少必需参数: command");
         }
@@ -112,7 +138,7 @@ public class BashTool implements ToolExecutor {
         }
 
         try {
-            return executeCommand(command, workPath, timeout);
+            return executeCommand(command, workPath, timeout, progressCallback);
         } catch (IOException e) {
             throw new ToolExecutionException("命令执行失败: " + e.getMessage(), e);
         } catch (InterruptedException e) {
@@ -121,11 +147,10 @@ public class BashTool implements ToolExecutor {
         }
     }
 
-    private String executeCommand(String command, Path workPath, int timeout) 
+    private String executeCommand(String command, Path workPath, int timeout, Consumer<String> progressCallback) 
             throws IOException, InterruptedException, ToolExecutionException {
         
         ProcessBuilder processBuilder;
-        String shell;
         
         if (isWindows()) {
             processBuilder = new ProcessBuilder("cmd.exe", "/c", command);
@@ -136,38 +161,68 @@ public class BashTool implements ToolExecutor {
         processBuilder.directory(workPath.toFile());
         processBuilder.redirectErrorStream(true);
         
-        Map<String, String> env = processBuilder.environment();
-        env.put("LANG", "en_US.UTF-8");
-        
         long startTime = System.currentTimeMillis();
         Process process = processBuilder.start();
         
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
+        String toolCallId = currentToolCallId.get();
+        if (toolCallId != null) {
+            BashProcessManager.getInstance().register(toolCallId, process);
+        }
+        
+        try {
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), getPipeCharset()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (toolCallId != null && !BashProcessManager.getInstance().isRunning(toolCallId)) {
+                        process.destroyForcibly();
+                        while (reader.readLine() != null) {
+                        }
+                        break;
+                    }
+                    if (progressCallback != null) {
+                        progressCallback.accept(line);
+                    }
+                    output.append(line).append("\n");
+                }
+            }
+            
+            boolean finished = process.waitFor(timeout, TimeUnit.SECONDS);
+            long duration = System.currentTimeMillis() - startTime;
+            
+            if (!finished) {
+                process.destroyForcibly();
+                return formatResult(command, truncateOutput(output.toString()), 124, duration, workPath, true);
+            }
+            
+            int exitCode = process.exitValue();
+            
+            String rawOutput = truncateOutput(output.toString());
+            
+            return formatResult(command, rawOutput, exitCode, duration, workPath, false);
+        } finally {
+            if (toolCallId != null) {
+                BashProcessManager.getInstance().unregister(toolCallId);
             }
         }
-        
-        boolean finished = process.waitFor(timeout, TimeUnit.SECONDS);
-        long duration = System.currentTimeMillis() - startTime;
-        
-        if (!finished) {
-            process.destroyForcibly();
-            return formatResult(command, truncateOutput(output.toString()), 124, duration, workPath, true);
-        }
-        
-        int exitCode = process.exitValue();
-        
-        String rawOutput = truncateOutput(output.toString());
-        
-        return formatResult(command, rawOutput, exitCode, duration, workPath, false);
     }
 
     private boolean isWindows() {
         return System.getProperty("os.name").toLowerCase().contains("win");
+    }
+
+    private Charset getPipeCharset() {
+        if (isWindows()) {
+            String nativeEncoding = System.getProperty("native.encoding");
+            if (nativeEncoding != null && !nativeEncoding.isEmpty()) {
+                try {
+                    return Charset.forName(nativeEncoding);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return StandardCharsets.UTF_8;
     }
 
     private String truncateOutput(String output) {
@@ -182,6 +237,24 @@ public class BashTool implements ToolExecutor {
         return head + marker + tail;
     }
 
+    private boolean isExpectedExitCode(String command, int exitCode) {
+        if (exitCode == 0) return true;
+        String baseCommand = extractBaseCommand(command);
+        Set<Integer> expected = EXPECTED_NONZERO_EXIT_CODES.get(baseCommand);
+        return expected != null && expected.contains(exitCode);
+    }
+
+    private String extractBaseCommand(String command) {
+        if (command == null || command.isBlank()) return "";
+        java.util.regex.Matcher m = FIRST_COMMAND_PATTERN.matcher(command);
+        if (!m.find()) return "";
+        String firstToken = m.group(1);
+        int lastSep = firstToken.lastIndexOf('/');
+        int lastBack = firstToken.lastIndexOf('\\');
+        int lastSlash = Math.max(lastSep, lastBack);
+        return (lastSlash >= 0 ? firstToken.substring(lastSlash + 1) : firstToken).toLowerCase();
+    }
+
     private String formatResult(String command, String output, int exitCode, 
                                long duration, Path workPath, boolean isTimeout) {
         StringBuilder result = new StringBuilder();
@@ -192,10 +265,10 @@ public class BashTool implements ToolExecutor {
         result.append("工作目录: ").append(PathSecurityUtils.getRelativePath(workPath)).append("\n");
         
         if (isTimeout) {
-            result.append("退出码: 124 ⏱️ 执行超时（超过 ").append(duration / 1000).append(" 秒）\n");
+            result.append("退出码: 124（执行超时，超过 ").append(duration / 1000).append(" 秒）\n");
         } else {
             result.append("退出码: ").append(exitCode).append(" ");
-            result.append(exitCode == 0 ? "✅ 成功" : "❌ 失败").append("\n");
+            result.append(isExpectedExitCode(command, exitCode) ? "成功" : "失败").append("\n");
         }
         
         result.append("执行时间: ").append(duration).append(" ms\n");
@@ -214,7 +287,7 @@ public class BashTool implements ToolExecutor {
         result.append("─────────────────────────────────────────────────────────────\n");
         
         if (isTimeout) {
-            result.append("\n💡 提示: 该命令执行超过 ").append(duration / 1000).append(" 秒未完成，已被自动终止。\n");
+            result.append("\n提示: 该命令执行超过 ").append(duration / 1000).append(" 秒未完成，已被自动终止。\n");
             result.append("建议你在终端手动执行该命令，将完整结果贴回来。\n");
         }
         
