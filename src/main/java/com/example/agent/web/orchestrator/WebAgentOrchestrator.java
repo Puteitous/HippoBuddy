@@ -1,12 +1,12 @@
 package com.example.agent.web.orchestrator;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.core.blocker.HookResult;
 import com.example.agent.core.blocker.RequestContext;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.truncation.TruncationService;
 import com.example.agent.execute.AgentTurnResult;
-import com.example.agent.execute.RepetitionPatternHook;
 import com.example.agent.execute.StopHook;
 import com.example.agent.execute.TaskCompletionHook;
 import com.example.agent.llm.client.LlmClient;
@@ -17,8 +17,11 @@ import com.example.agent.llm.model.Tool;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.service.TokenEstimatorFactory;
+import com.example.agent.tools.BashTool;
+import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.web.logging.SessionLogger;
+import com.example.agent.web.session.PendingBashConfirmation;
 import com.example.agent.web.session.PendingToolCall;
 import com.example.agent.web.session.SessionManager;
 import com.example.agent.web.session.SessionTokenStats;
@@ -43,7 +46,6 @@ public class WebAgentOrchestrator {
     private static final int MAX_TURNS = 20;
 
     private static final List<StopHook> stopHooks = List.of(
-        new RepetitionPatternHook(),
         new TaskCompletionHook()
     );
 
@@ -271,6 +273,10 @@ public class WebAgentOrchestrator {
                 return;
             }
 
+            if (sessionManager.hasPendingBashConfirmation(sessionId)) {
+                return;
+            }
+
             if (turn < MAX_TURNS - 1) {
                 sseWriter.sendSseEvent("continue", "{\"reason\":\"tool_complete\",\"nextTurn\":" + (turn + 2) + "}");
             }
@@ -290,12 +296,120 @@ public class WebAgentOrchestrator {
             String arguments = toolCall.getFunction().getArguments();
 
             if (!"ask_user".equals(toolName)) {
-                sseWriter.sendSseEvent("tool_start", "{\"name\":\"" + SseWriter.escapeJson(toolName)
+                sseWriter.sendSseEvent("tool_start", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                    + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                     + "\",\"args\":" + SseWriter.escapeJsonForValue(arguments) + "}");
             }
 
             try {
                 RequestContext.set(RequestContext.ContextType.WEB);
+
+                // 对 bash 工具做预检查：三级安全模型 + session auto-allow
+                if ("bash".equals(toolName)) {
+                    JsonNode args = objectMapper.readTree(arguments);
+                    String command = args.has("command") ? args.get("command").asText() : "";
+
+                    // session 级 auto-allow 检测：用户之前授权过同类命令，直接放行
+                    if (!command.isEmpty()) {
+                        String commandName = extractCommandName(command);
+                        if (sessionManager.isAutoAllowed(sessionId, commandName)) {
+                            logger.debug("auto-allow 跳过确认: sessionId={}, command={}", sessionId, commandName);
+                            ToolExecutor executor = toolRegistry.getExecutor(toolName);
+                            if (executor != null) {
+                                long[] lastProgressTime = {0};
+                                BashTool.setCurrentToolCallId(toolCall.getId());
+                                try {
+                                    String rawResult = executor.execute(args, line -> {
+                                        long now = System.currentTimeMillis();
+                                        if (now - lastProgressTime[0] > 200) {
+                                            lastProgressTime[0] = now;
+                                            sseWriter.sendSseEvent("tool_progress",
+                                                "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                                                + "\",\"line\":\"" + SseWriter.escapeJson(line) + "\"}");
+                                        }
+                                    });
+                                    String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
+                                    getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
+                                    sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                                        + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
+                                        + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult) + "\"}");
+                                    SessionLogger.logToolCall(sessionId, toolName, arguments, truncatedResult, true);
+                                    SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
+                                    stats.addToolCall();
+                                } finally {
+                                    BashTool.clearCurrentToolCallId();
+                                }
+                                continue;
+                            }
+                        } else {
+                            HookResult hookResult = toolRegistry.getBlockerChain().check(toolName, args);
+
+                            if (hookResult.isDenied()) {
+                                String errorMsg = hookResult.getReason();
+                                getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                                sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                                    + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
+                                    + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg) + "\"}");
+                                SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
+                                continue;
+                            }
+
+                            if (hookResult.isConfirmationRequired()) {
+                                String confirmId = java.util.UUID.randomUUID().toString();
+
+                                PendingBashConfirmation pending = new PendingBashConfirmation(
+                                    confirmId, toolCall.getId(), toolName,
+                                    command, arguments, hookResult.getRiskLevel(), hookResult.getReason()
+                                );
+                                sessionManager.setPendingBashConfirmation(sessionId, pending);
+
+                                String confirmJson = "{\"confirmId\":\"" + SseWriter.escapeJson(confirmId)
+                                    + "\",\"command\":\"" + SseWriter.escapeJson(command)
+                                    + "\",\"riskLevel\":\"" + SseWriter.escapeJson(hookResult.getRiskLevel())
+                                    + "\",\"riskReason\":\"" + SseWriter.escapeJson(hookResult.getReason()) + "\"}";
+                                sseWriter.sendSseEvent("tool_confirmation", confirmJson);
+                                logger.info("发送 tool_confirmation 事件: confirmId={}, command={}, riskLevel={}",
+                                    confirmId, command, hookResult.getRiskLevel());
+                                return;
+                            }
+                        }
+                    }
+
+                    // 放行：继续执行，blockerChain 在 toolRegistry.execute() 内部会再次检查
+                }
+
+                // bash：使用流式执行 + 逐行进度推送
+                if ("bash".equals(toolName)) {
+                    JsonNode args = objectMapper.readTree(arguments);
+                    ToolExecutor executor = toolRegistry.getExecutor(toolName);
+                    if (executor != null) {
+                        long[] lastProgressTime = {0};
+                        BashTool.setCurrentToolCallId(toolCall.getId());
+                        try {
+                            String rawResult = executor.execute(args, line -> {
+                                long now = System.currentTimeMillis();
+                                if (now - lastProgressTime[0] > 200) {
+                                    lastProgressTime[0] = now;
+                                    sseWriter.sendSseEvent("tool_progress",
+                                        "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                                        + "\",\"line\":\"" + SseWriter.escapeJson(line) + "\"}");
+                                }
+                            });
+                            String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
+                            getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
+                            sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                                + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
+                                + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult) + "\"}");
+                            SessionLogger.logToolCall(sessionId, toolName, arguments, truncatedResult, true);
+                            SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
+                            stats.addToolCall();
+                        } finally {
+                            BashTool.clearCurrentToolCallId();
+                        }
+                        continue;
+                    }
+                }
+
                 String rawResult = toolRegistry.execute(toolName, arguments);
 
                 if ("ask_user".equals(toolName)) {
@@ -332,6 +446,9 @@ public class WebAgentOrchestrator {
                 stats.addToolCall();
             } catch (Exception e) {
                 String errorMsg = e.getMessage();
+                if (errorMsg == null || errorMsg.isEmpty()) {
+                    errorMsg = e.getClass().getSimpleName() + " (无详细信息)";
+                }
                 getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
                 sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
                     + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
@@ -489,5 +606,21 @@ public class WebAgentOrchestrator {
             messages.removeAll(toRemove);
             logger.info("已移除 {} 条孤儿 tool 消息，避免 DeepSeek API 400 错误", toRemove.size());
         }
+    }
+
+    private static String extractCommandName(String command) {
+        String firstPart = command.split("\\|")[0].trim();
+        firstPart = firstPart.split(">")[0].trim();
+        firstPart = firstPart.split(">>")[0].trim();
+        String[] parts = firstPart.split("\\s+");
+        if (parts.length > 0) {
+            String cmd = parts[0];
+            int lastSlash = cmd.lastIndexOf('/');
+            if (lastSlash >= 0 && lastSlash < cmd.length() - 1) {
+                return cmd.substring(lastSlash + 1).toLowerCase();
+            }
+            return cmd.toLowerCase();
+        }
+        return command.toLowerCase();
     }
 }

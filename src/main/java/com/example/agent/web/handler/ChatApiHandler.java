@@ -9,6 +9,7 @@ import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.web.logging.SessionLogger;
 import com.example.agent.web.orchestrator.WebAgentOrchestrator;
 import com.example.agent.web.server.WebInitializer;
+import com.example.agent.web.session.PendingBashConfirmation;
 import com.example.agent.web.session.PendingToolCall;
 import com.example.agent.web.session.SessionManager;
 import com.example.agent.web.session.SessionTokenStats;
@@ -121,6 +122,13 @@ public class ChatApiHandler implements HttpHandler {
                     sseWriter.sendSseEvent("message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
                 }
             } else {
+                // 新消息到达时，自动清理挂起的 bash 确认（用户忽略了确认框）
+                PendingBashConfirmation stalePending = sessionManager.pollPendingBashConfirmation(sessionId);
+                if (stalePending != null) {
+                    logger.info("新消息到达，自动清理挂起的 bash 确认：confirmId={}, command={}",
+                        stalePending.confirmId, stalePending.command);
+                }
+
                 Message userMsg = conversationService.addUserMessage(conversation, userMessage);
                 sseWriter.sendSseEvent("message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
             }

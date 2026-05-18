@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -29,6 +30,8 @@ public class WebSessionManager implements SessionManager {
     private static final Map<String, SessionLoadMetrics> sessionLoadMetrics = new ConcurrentHashMap<>();
     private static final Map<String, SessionTokenStats> sessionTokenStats = new ConcurrentHashMap<>();
     private static final Map<String, PendingToolCall> pendingToolCalls = new ConcurrentHashMap<>();
+    private static final Map<String, PendingBashConfirmation> pendingBashConfirmations = new ConcurrentHashMap<>();
+    private static final Map<String, Set<String>> sessionAutoAllowRules = new ConcurrentHashMap<>();
     private static final Map<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
 
     private static WebSessionManager instance;
@@ -72,7 +75,43 @@ public class WebSessionManager implements SessionManager {
         sessionLoadMetrics.clear();
         sessionTokenStats.clear();
         pendingToolCalls.clear();
+        pendingBashConfirmations.clear();
+        sessionAutoAllowRules.clear();
         sessionLocks.clear();
+    }
+
+    @Override
+    public void addAutoAllowRule(String sessionId, String commandName) {
+        if (sessionId == null || commandName == null) return;
+        sessionAutoAllowRules.computeIfAbsent(sessionId, k -> ConcurrentHashMap.newKeySet()).add(commandName);
+        logger.info("添加 auto-allow 规则: sessionId={}, command={}", sessionId, commandName);
+    }
+
+    @Override
+    public boolean isAutoAllowed(String sessionId, String commandName) {
+        if (sessionId == null || commandName == null) return false;
+        Set<String> rules = sessionAutoAllowRules.get(sessionId);
+        return rules != null && rules.contains(commandName);
+    }
+
+    @Override
+    public boolean hasPendingBashConfirmation(String sessionId) {
+        return pendingBashConfirmations.containsKey(sessionId);
+    }
+
+    @Override
+    public PendingBashConfirmation pollPendingBashConfirmation(String sessionId) {
+        return pendingBashConfirmations.remove(sessionId);
+    }
+
+    @Override
+    public void setPendingBashConfirmation(String sessionId, PendingBashConfirmation pending) {
+        pendingBashConfirmations.put(sessionId, pending);
+    }
+
+    @Override
+    public void clearPendingBashConfirmation(String sessionId) {
+        pendingBashConfirmations.remove(sessionId);
     }
 
     @Override

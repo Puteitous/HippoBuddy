@@ -9,6 +9,8 @@ import com.example.agent.web.handler.MetricsApiHandler;
 import com.example.agent.web.handler.SessionApiHandler;
 import com.example.agent.web.handler.StaticFileHandler;
 import com.example.agent.web.handler.SystemPromptApiHandler;
+import com.example.agent.web.handler.ToolAbortHandler;
+import com.example.agent.web.handler.ToolConfirmHandler;
 import com.example.agent.web.session.WebSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +65,8 @@ public class DashboardServer {
 
             server.createContext("/sse/memory-events", new SseHandler());
             server.createContext("/api/chat", new ChatApiHandler());
+            server.createContext("/api/tool/confirm", new ToolConfirmHandler());
+            server.createContext("/api/tool/abort", new ToolAbortHandler());
             server.createContext("/api/sessions", new SessionApiHandler());
             server.createContext("/api/memories", new MemoryApiHandler());
             server.createContext("/api/metrics", new MetricsApiHandler());
