@@ -7,13 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class GracefulShutdown {
 
     private static final Logger logger = LoggerFactory.getLogger(GracefulShutdown.class);
     private static final List<ExecutorService> EXECUTORS = new ArrayList<>();
-    private static final AtomicBoolean hookRegistered = new AtomicBoolean(false);
 
     private GracefulShutdown() {}
 
@@ -24,18 +22,9 @@ public final class GracefulShutdown {
         synchronized (EXECUTORS) {
             EXECUTORS.add(executor);
         }
-        registerHookIfNeeded();
     }
 
-    private static void registerHookIfNeeded() {
-        if (hookRegistered.compareAndSet(false, true)) {
-            Runtime.getRuntime().addShutdownHook(
-                    new Thread(GracefulShutdown::shutdownAll, "graceful-shutdown"));
-            logger.debug("GracefulShutdown hook 已注册");
-        }
-    }
-
-    private static void shutdownAll() {
+    public static void shutdownAll() {
         logger.info("GracefulShutdown: 正在关闭 {} 个线程池...", EXECUTORS.size());
 
         List<ExecutorService> snapshot;

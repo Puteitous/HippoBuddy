@@ -91,8 +91,8 @@ public class AutoCompactTrigger implements BudgetListener {
 
     @Override
     public void onThresholdReached(BudgetThreshold threshold, int currentTokens, int maxTokens) {
-        logger.info("📊 收到阈值通知：threshold={}, currentTokens={}, maxTokens={}, ratio={:.2f}%", 
-            threshold, currentTokens, maxTokens, (double) currentTokens / maxTokens * 100);
+        logger.info("📊 收到阈值通知：threshold={}, currentTokens={}, maxTokens={}, ratio={}%", 
+            threshold, currentTokens, maxTokens, String.format("%.2f", (double) currentTokens / maxTokens * 100));
         
         if (isCompactionForkContext()) {
             logger.warn("🚫 检测到压缩 Fork 上下文，递归保护已触发，跳过压缩");
@@ -104,8 +104,8 @@ public class AutoCompactTrigger implements BudgetListener {
         }
         
         if (threshold == BudgetThreshold.AUTO_COMPACT && !compactionPerformed && state.shouldTryCompaction()) {
-            logger.info("🚀 触发 AUTO_COMPACT 压缩：currentTokens={}, maxTokens={}, ratio={:.2f}%", 
-                currentTokens, maxTokens, (double) currentTokens / maxTokens * 100);
+            logger.info("🚀 触发 AUTO_COMPACT 压缩：currentTokens={}, maxTokens={}, ratio={}%", 
+                currentTokens, maxTokens, String.format("%.2f", (double) currentTokens / maxTokens * 100));
             performSmartCompaction(currentTokens, maxTokens);
             compactionPerformed = true;
         } else {

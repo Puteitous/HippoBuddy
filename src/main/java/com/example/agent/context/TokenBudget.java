@@ -62,8 +62,8 @@ public class TokenBudget {
             synchronized (triggeredThresholds) {
                 if (!triggeredThresholds.contains(currentThreshold)) {
                     triggeredThresholds.add(currentThreshold);
-                    logger.info("🔔 达到新阈值：{} (ratio={:.2f}%, currentTokens={}, maxTokens={})", 
-                        currentThreshold, ratio * 100, currentTokens.get(), maxTokens);
+                    logger.info("🔔 达到新阈值：{} (ratio={}%, currentTokens={}, maxTokens={})", 
+                        currentThreshold, String.format("%.2f", ratio * 100), currentTokens.get(), maxTokens);
                     notifyThreshold(currentThreshold);
                 }
             }

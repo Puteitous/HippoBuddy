@@ -20,6 +20,7 @@ import com.example.agent.service.TokenEstimator;
 import java.util.List;
 import com.example.agent.lsp.LspServiceManager;
 import com.example.agent.mcp.McpServiceManager;
+import com.example.agent.memory.MemoryStore;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.tools.concurrent.ConcurrentToolExecutor;
 import com.example.agent.console.AgentUi;
@@ -380,6 +381,11 @@ public class AgentContext {
 
         if (mcpServiceManager != null) {
             mcpServiceManager.shutdown();
+        }
+
+        MemoryStore memoryStore = ServiceLocator.getOrNull(MemoryStore.class);
+        if (memoryStore != null) {
+            memoryStore.close();
         }
 
         try {

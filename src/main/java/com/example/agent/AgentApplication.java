@@ -5,6 +5,7 @@ import com.example.agent.console.CommandDispatcher;
 import com.example.agent.console.InputHandler;
 import com.example.agent.console.ConsoleStyle;
 import com.example.agent.core.AgentContext;
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.execute.AgentTurnExecutor;
 import com.example.agent.execute.ConversationLoop;
@@ -252,6 +253,8 @@ public class AgentApplication {
                 finalContext.close();
             } catch (Exception ignored) {
             }
+
+            GracefulShutdown.shutdownAll();
 
             try {
                 Thread.sleep(100);
