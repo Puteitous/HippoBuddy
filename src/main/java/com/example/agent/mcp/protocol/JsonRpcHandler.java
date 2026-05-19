@@ -2,6 +2,7 @@ package com.example.agent.mcp.protocol;
 
 import com.example.agent.mcp.exception.McpProtocolException;
 import com.example.agent.mcp.exception.McpTimeoutException;
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -34,6 +35,7 @@ public class JsonRpcHandler {
 
     public JsonRpcHandler() {
         cleanupExecutor.scheduleAtFixedRate(this::cleanupTimeoutRequests, 30, 30, TimeUnit.SECONDS);
+        GracefulShutdown.register(cleanupExecutor);
     }
 
     private void cleanupTimeoutRequests() {

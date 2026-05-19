@@ -3,6 +3,7 @@ package com.example.agent.memory.session;
 import com.example.agent.application.ConversationService;
 import com.example.agent.config.MemoryConfig;
 import com.example.agent.context.SessionCompactionState;
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
@@ -60,6 +61,10 @@ public class SessionMemoryExtractor {
         t.setDaemon(true);
         return t;
     });
+
+    static {
+        GracefulShutdown.register(EXECUTOR);
+    }
     private boolean enabled = true;
 
     private static final String MEMORY_EXTRACTOR_PROMPT = """

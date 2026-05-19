@@ -1,5 +1,6 @@
 package com.example.agent.memory;
 
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.memory.consolidation.MemoryConsolidator;
 import com.example.agent.web.server.DashboardServer;
 import org.slf4j.Logger;
@@ -60,6 +61,10 @@ public class MemoryStore {
         t.setDaemon(true);
         return t;
     });
+
+    {
+        GracefulShutdown.register(backgroundExecutor);
+    }
 
     /**
      * 记忆条目元数据（轻量级，用于索引）

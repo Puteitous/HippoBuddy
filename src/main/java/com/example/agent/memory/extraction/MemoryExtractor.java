@@ -1,6 +1,7 @@
 package com.example.agent.memory.extraction;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
@@ -68,6 +69,10 @@ public class MemoryExtractor {
         t.setDaemon(true);
         return t;
     });
+
+    static {
+        GracefulShutdown.register(EXECUTOR);
+    }
 
     // 游标追踪：记录上次处理到的最后一条消息 UUID
     private String lastMemoryMessageUuid;

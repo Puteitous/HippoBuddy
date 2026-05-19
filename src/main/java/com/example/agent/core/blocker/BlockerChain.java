@@ -1,5 +1,6 @@
 package com.example.agent.core.blocker;
 
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,7 @@ public class BlockerChain implements Blocker {
                 STATS_LOG_INTERVAL_MINUTES,
                 TimeUnit.MINUTES
             );
+            GracefulShutdown.register(scheduler);
             logger.info("BlockerChain 定时统计已启动（每 {} 分钟）", STATS_LOG_INTERVAL_MINUTES);
         }
     }

@@ -1,6 +1,7 @@
 package com.example.agent.memory.consolidation;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
@@ -53,6 +54,10 @@ public class MemoryConsolidator {
         t.setDaemon(true);
         return t;
     });
+
+    static {
+        GracefulShutdown.register(EXECUTOR);
+    }
 
     public MemoryConsolidator(LlmClient llmClient) {
         this.llmClient = llmClient;

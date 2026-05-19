@@ -1,6 +1,7 @@
 package com.example.agent.web.server;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.concurrency.ThreadPools;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.web.handler.ChatApiHandler;
@@ -135,6 +136,7 @@ public class DashboardServer {
 
         logger.info("会话清理定时器已启动: 间隔={} 分钟, 过期={} 小时", 
             CLEANUP_INTERVAL_MS / 60000, SESSION_IDLE_TIMEOUT_MS / 3600000);
+        GracefulShutdown.register(sessionCleanupScheduler);
     }
 
     public static void broadcast(String eventType, String data) {
