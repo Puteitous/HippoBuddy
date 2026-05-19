@@ -55,7 +55,11 @@ public class MemoryStore {
     private final Path indexPath;
     
     // 后台刷新线程（低负载时全量重建索引）
-    private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "memory-store-bg");
+        t.setDaemon(true);
+        return t;
+    });
 
     /**
      * 记忆条目元数据（轻量级，用于索引）

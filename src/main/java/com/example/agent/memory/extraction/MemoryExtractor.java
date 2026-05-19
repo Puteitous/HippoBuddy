@@ -63,7 +63,11 @@ public class MemoryExtractor {
     // 并发控制
     private final AtomicBoolean extractionInProgress = new AtomicBoolean(false);
     private List<Message> trailingContext; // 暂存提取期间的上下文
-    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "memory-extractor");
+        t.setDaemon(true);
+        return t;
+    });
 
     // 游标追踪：记录上次处理到的最后一条消息 UUID
     private String lastMemoryMessageUuid;

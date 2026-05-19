@@ -55,7 +55,11 @@ public class SessionMemoryExtractor {
     private int lastExtractedTokenCount = 0;
     private String lastExtractedMessageId;
     private final List<Message> pendingConversation = new ArrayList<>();
-    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "session-memory-extractor");
+        t.setDaemon(true);
+        return t;
+    });
     private boolean enabled = true;
 
     private static final String MEMORY_EXTRACTOR_PROMPT = """

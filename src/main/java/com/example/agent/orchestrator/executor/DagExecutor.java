@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
@@ -29,7 +28,6 @@ public class DagExecutor {
     private final RetryHandler retryHandler;
     private final TransactionHandler transactionHandler;
     private final CompilationChecker compilationChecker;
-    private final ExecutorService executorService;
     private final Map<String, ToolExecutionResult> results = new ConcurrentHashMap<>();
 
     private boolean compilationCheckEnabled = true;
@@ -39,7 +37,6 @@ public class DagExecutor {
         this.retryHandler = new RetryHandler();
         this.transactionHandler = new TransactionHandler();
         this.compilationChecker = new CompilationChecker();
-        this.executorService = Executors.newCachedThreadPool();
     }
 
     public List<ToolExecutionResult> execute(ToolExecutionPlan plan, List<ToolCall> originalCalls) {
@@ -93,11 +90,14 @@ public class DagExecutor {
     }
 
     private void executeParallel(List<ToolNode> nodes, List<ToolCall> originalCalls) {
-        List<CompletableFuture<Void>> futures = nodes.stream()
-                .map(node -> CompletableFuture.runAsync(() -> executeSingle(node, originalCalls), executorService))
-                .collect(Collectors.toList());
-
-        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+        try (var executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual()
+                .inheritInheritableThreadLocals(true)
+                .factory())) {
+            List<CompletableFuture<Void>> futures = nodes.stream()
+                    .map(node -> CompletableFuture.runAsync(() -> executeSingle(node, originalCalls), executor))
+                    .collect(Collectors.toList());
+            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+        }
     }
 
     private void executeSingle(ToolNode node, List<ToolCall> originalCalls) {
@@ -182,7 +182,4 @@ public class DagExecutor {
         this.compilationCheckEnabled = enabled;
     }
 
-    public void shutdown() {
-        executorService.shutdown();
-    }
 }

@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockerChain implements Blocker {
@@ -35,14 +36,22 @@ public class BlockerChain implements Blocker {
         return t;
     });
 
+    private static final AtomicBoolean statsLoggerStarted = new AtomicBoolean(false);
+
     static {
-        scheduler.scheduleAtFixedRate(
-            BlockerChain::logPeriodicStats,
-            STATS_LOG_INTERVAL_MINUTES,
-            STATS_LOG_INTERVAL_MINUTES,
-            TimeUnit.MINUTES
-        );
-        logger.info("BlockerChain 定时统计已启动（每 {} 分钟）", STATS_LOG_INTERVAL_MINUTES);
+        startStatsLoggerIfNeeded();
+    }
+
+    private static void startStatsLoggerIfNeeded() {
+        if (statsLoggerStarted.compareAndSet(false, true)) {
+            scheduler.scheduleAtFixedRate(
+                BlockerChain::logPeriodicStats,
+                STATS_LOG_INTERVAL_MINUTES,
+                STATS_LOG_INTERVAL_MINUTES,
+                TimeUnit.MINUTES
+            );
+            logger.info("BlockerChain 定时统计已启动（每 {} 分钟）", STATS_LOG_INTERVAL_MINUTES);
+        }
     }
 
     private final List<Blocker> blockers = new ArrayList<>();
@@ -146,8 +155,8 @@ public class BlockerChain implements Blocker {
         long slowBlockers = slowBlockerCount.get();
         long slowChains = slowChainCount.get();
 
-        logger.info("[BlockerStats] totalChecks={}, blocked={}({:.2f}%), slowBlockers={}, slowChains={}",
-            total, blocked, blockRate, slowBlockers, slowChains);
+        logger.info("[BlockerStats] totalChecks={}, blocked={} ({}%), slowBlockers={}, slowChains={}",
+            total, blocked, String.format("%.2f", blockRate), slowBlockers, slowChains);
 
         if (!toolBlockCounts.isEmpty()) {
             logger.info("[BlockerStats] 工具拦截排名:");
@@ -159,7 +168,7 @@ public class BlockerChain implements Blocker {
                     long blockCount = entry.getValue().get();
                     long checkCount = toolCheckCounts.getOrDefault(toolName, new AtomicLong(0)).get();
                     double rate = checkCount > 0 ? (double) blockCount / checkCount * 100 : 0;
-                    logger.info("  - {}: 拦截 {}/{} ({:.2f}%)", toolName, blockCount, checkCount, rate);
+                    logger.info("  - {}: 拦截 {}/{} ({}%)", toolName, blockCount, checkCount, String.format("%.2f", rate));
                 });
         }
 

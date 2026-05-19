@@ -48,7 +48,11 @@ public class MemoryConsolidator {
     private MemoryStore memoryStore;
 
     private final AtomicBoolean consolidationInProgress = new AtomicBoolean(false);
-    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "memory-consolidator");
+        t.setDaemon(true);
+        return t;
+    });
 
     public MemoryConsolidator(LlmClient llmClient) {
         this.llmClient = llmClient;

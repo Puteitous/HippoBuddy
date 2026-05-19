@@ -1,6 +1,7 @@
 package com.example.agent.web.server;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.core.concurrency.ThreadPools;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.web.handler.ChatApiHandler;
 import com.example.agent.web.handler.FileApiHandler;
@@ -76,7 +77,7 @@ public class DashboardServer {
             server.createContext("/cockpit", new StaticFileHandler("/static"));
             server.createContext("/", new StaticFileHandler("/static"));
 
-            executor = Executors.newCachedThreadPool();
+            executor = Executors.newCachedThreadPool(ThreadPools.namedThreadFactory("dashboard-http-", true));
             server.setExecutor(executor);
             server.start();
 
