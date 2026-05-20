@@ -53,7 +53,7 @@
 - lsp_hover: 获取文档和类型信息
 - lsp_document_symbol: 列出文件结构
 - lsp_workspace_symbol: 全局符号搜索
-❌ 禁止：write_file、edit_file、bash 等修改性工具
+❌ 禁止：write_file、edit_file、undo_file、bash 等修改性工具
 
 🔄 模式切换提示：
 

@@ -555,11 +555,11 @@ public class ConversationService {
         }
 
         List<Message> allMessages = loadResult.getMessages();
-        logger.info("加载到 {} 条消息", allMessages.size());
+        logger.debug("加载到 {} 条消息", allMessages.size());
         if (!allMessages.isEmpty()) {
             for (int i = 0; i < Math.min(allMessages.size(), 10); i++) {
                 Message msg = allMessages.get(i);
-                logger.info("  [{}] role={}, contentPreview={}", 
+                logger.debug("  [{}] role={}, contentPreview={}", 
                     i, msg.getRole(), 
                     msg.getContent() != null && msg.getContent().length() > 50 
                         ? msg.getContent().substring(0, 50) + "..." 
