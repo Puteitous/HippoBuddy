@@ -26,7 +26,8 @@ export class ChatPanel {
     this._pendingRender = null;
     this._hasReceivedData = false;
     this._runningToolCallIds = new Set();
-    
+    this._destroyed = false;
+
     this.init();
   }
   
@@ -43,6 +44,7 @@ export class ChatPanel {
   }
   
   bindEvents() {
+    if (!this.container) return;
     // 输入框事件
     if (this.elements.messageInput) {
       this.elements.messageInput.addEventListener('keydown', (e) => {
@@ -267,6 +269,7 @@ export class ChatPanel {
       }
       
       btnContainer.style.display = 'flex';
+      this.chatUI.scrollToBottom();
       
     } catch (error) {
       console.error('sendMessage 异常:', error.message);
@@ -291,6 +294,7 @@ export class ChatPanel {
       }
       
       if (btnContainer) btnContainer.style.display = 'flex';
+      this.chatUI.scrollToBottom();
       
     } finally {
       if (contentDiv) {
@@ -327,7 +331,7 @@ export class ChatPanel {
     // 处理 waiting_user 事件（优先处理，避免被其他逻辑拦截）
     if (parsed._eventType === 'waiting_user') {
       console.log('📥 收到 waiting_user 事件:', parsed);
-      this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
+      this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input, contentDiv);
       return;
     }
     
@@ -630,7 +634,7 @@ export class ChatPanel {
     
     // 处理 waiting_user 事件（嵌套的 ask_user）
     if (parsed._eventType === 'waiting_user') {
-      this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
+      this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input, contentDiv);
       return;
     }
   }
@@ -783,6 +787,7 @@ export class ChatPanel {
    * 执行实际的 DOM 渲染
    */
   async _doRender() {
+    if (this._destroyed) return;
     const pending = this._pendingRender;
     if (!pending) return;
     this._pendingRender = null;
@@ -817,6 +822,7 @@ export class ChatPanel {
       } else if (segment.type === 'text' && segment.content) {
         flushToolTimeline();
         html += await renderMarkdown(segment.content);
+        if (this._destroyed) return;
       }
     }
     flushToolTimeline();
@@ -824,6 +830,8 @@ export class ChatPanel {
     if (currentText) {
       html += await renderMarkdown(currentText);
     }
+
+    if (this._destroyed) return;
 
     // 从当前 DOM 中保存展开状态（在重建之前）
     const savedStates = this._saveCardStates(container);
@@ -1028,10 +1036,8 @@ export class ChatPanel {
       </div>`;
   }
   
-  _showAskUserCard(question, options, allowCustomInput) {
-    const { contentDiv } = this.chatUI.appendAssistantMessage('');
-    
-    const segments = [{
+  _showAskUserCard(question, options, allowCustomInput, container) {
+    const segment = {
       type: 'tool',
       name: 'ask_user',
       args: JSON.stringify({
@@ -1041,10 +1047,33 @@ export class ChatPanel {
       }),
       result: null,
       error: null
-    }];
+    };
     
-    this._askUserContentDiv = contentDiv;
-    this.renderSegments(contentDiv, segments, '');
+    if (container) {
+      // 必须先将 currentText flush 为 text segment，再 push ask_user。
+      // 否则渲染时 currentText 会追加在 ask 卡片之后，导致时序正确的 LLM 文本出现在卡片下方
+      if (this.currentText.trim()) {
+        this.segments.push({ type: 'text', content: this.currentText });
+        this.currentText = '';
+      }
+      this.segments.push(segment);
+      this._askUserContentDiv = container;
+      
+      if (this._renderThrottleTimer) {
+        clearTimeout(this._renderThrottleTimer);
+        this._renderThrottleTimer = null;
+      }
+      this._pendingRender = { container, segments: this.segments, currentText: this.currentText };
+      this._lastRenderTime = Date.now();
+      this._doRender().then(() => {
+        this.chatUI.scrollToBottom();
+      });
+    } else {
+      const { contentDiv } = this.chatUI.appendAssistantMessage('');
+      const segments = [segment];
+      this._askUserContentDiv = contentDiv;
+      this.renderSegments(contentDiv, segments, '');
+    }
   }
   
   _sendAskUserResponse(message) {
@@ -1492,6 +1521,12 @@ export class ChatPanel {
    * 销毁组件
    */
   destroy() {
+    this._destroyed = true;
+    if (this._renderThrottleTimer) {
+      clearTimeout(this._renderThrottleTimer);
+      this._renderThrottleTimer = null;
+    }
+    this._pendingRender = null;
     if (this.currentAbortController) {
       this.currentAbortController.abort();
     }

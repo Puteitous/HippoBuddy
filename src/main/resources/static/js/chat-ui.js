@@ -511,8 +511,7 @@ export class ChatUI {
     const oldLines = oldText.split('\n');
     const newLines = newText.split('\n');
 
-    let html = `<div class="timeline-detail-filepath">${escapeHtml(filePath)}</div>`;
-    html += `<div class="timeline-detail-diff">
+    let html = `<div class="timeline-detail-diff">
       <div class="diff-section diff-old">
         <div class="diff-label">原文本</div>
         ${oldLines.map((line, i) => `<div class="diff-line old"><span class="diff-line-num">${i + 1}</span><span class="diff-line-content">${escapeHtml(line)}</span></div>`).join('')}
@@ -532,7 +531,7 @@ export class ChatUI {
     const content = args.content || '';
     const contentLines = content.split('\n');
 
-    let html = `<div class="timeline-detail-filepath">${escapeHtml(filePath)}</div>`;
+    let html = ``;
     if (contentLines.length > 0) {
       html += `<div class="timeline-detail-file-content">
         <div class="writefile-label">写入内容</div>
@@ -548,7 +547,7 @@ export class ChatUI {
     const args = this.parseToolArgs(tool.args);
     const filePath = args.path || '';
     const content = tool.resultContent || '';
-    let html = `<div class="timeline-detail-filepath">${escapeHtml(filePath)}</div>`;
+    let html = ``;
     if (content) {
       html += `<div class="timeline-detail-output"><pre><code>${escapeHtml(content)}</code></pre></div>`;
     }
@@ -556,10 +555,8 @@ export class ChatUI {
   }
 
   _renderGrepDetail(tool) {
-    const args = this.parseToolArgs(tool.args);
-    const pattern = args.pattern || '';
     const content = tool.resultContent || '';
-    let html = `<div class="timeline-detail-meta"><span class="timeline-detail-query">${escapeHtml(pattern)}</span></div>`;
+    let html = '';
     if (content) {
       html += `<div class="timeline-detail-output"><pre><code>${escapeHtml(content)}</code></pre></div>`;
     }
@@ -567,10 +564,8 @@ export class ChatUI {
   }
 
   _renderGlobDetail(tool) {
-    const args = this.parseToolArgs(tool.args);
-    const pattern = args.pattern || '';
     const content = tool.resultContent || '';
-    let html = `<div class="timeline-detail-meta"><span class="timeline-detail-query">${escapeHtml(pattern)}</span></div>`;
+    let html = '';
     if (content) {
       html += `<div class="timeline-detail-output"><pre><code>${escapeHtml(content)}</code></pre></div>`;
     }

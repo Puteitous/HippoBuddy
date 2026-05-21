@@ -25,13 +25,19 @@ export class SessionManager {
     return this.currentSessionId;
   }
 
+  /** Render a given list of sessions into the container (synchronous) */
+  renderSessionList(sessions) {
+    this.sessions = sessions;
+    this.sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    this._resetRenderer();
+    this._rows = this._computeRows();
+    this._renderNextBatch();
+  }
+
   async loadSessions() {
     try {
-      this.sessions = await this.chatService.getSessions();
-      this.sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      this._resetRenderer();
-      this._rows = this._computeRows();
-      this._renderNextBatch();
+      const sessions = await this.chatService.getSessions();
+      this.renderSessionList(sessions);
     } catch (e) {
       console.error('加载会话列表失败:', e);
     }

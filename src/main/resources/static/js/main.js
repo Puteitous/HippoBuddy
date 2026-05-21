@@ -884,7 +884,7 @@ async function loadHistoryMessages(messages) {
     }
   }
   
-  chatPanel.smartScroll();
+  chatUI.scrollToBottom();
 }
 
 // ========== 提示词管理 ==========
