@@ -260,7 +260,6 @@ public class BashTool implements ToolExecutor {
         StringBuilder result = new StringBuilder();
         
         result.append("命令执行结果\n");
-        result.append("─────────────────────────────────────────────────────────────\n");
         result.append("命令: ").append(command).append("\n");
         result.append("工作目录: ").append(PathSecurityUtils.getRelativePath(workPath)).append("\n");
         
@@ -272,7 +271,6 @@ public class BashTool implements ToolExecutor {
         }
         
         result.append("执行时间: ").append(duration).append(" ms\n");
-        result.append("─────────────────────────────────────────────────────────────\n");
         
         if (output.isEmpty()) {
             result.append("(无输出)\n");
@@ -283,8 +281,6 @@ public class BashTool implements ToolExecutor {
                 result.append("\n");
             }
         }
-        
-        result.append("─────────────────────────────────────────────────────────────\n");
         
         if (isTimeout) {
             result.append("\n提示: 该命令执行超过 ").append(duration / 1000).append(" 秒未完成，已被自动终止。\n");

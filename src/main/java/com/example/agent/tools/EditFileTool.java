@@ -214,10 +214,15 @@ public class EditFileTool implements ToolExecutor {
                 FileTime currentFileTime = Files.getLastModifiedTime(path);
                 long currentTimestamp = (currentFileTime != null) ? currentFileTime.toMillis() : 0;
                 if (currentTimestamp != readTimestamp) {
-                    throw new ToolExecutionException(
-                        "文件已被外部修改，编辑操作已终止以防止覆盖变更。\n" +
-                        "请重新执行 read_file 获取最新内容后再试。"
-                    );
+                    String currentContent = Files.readString(path, StandardCharsets.UTF_8);
+                    String normalizedCurrent = currentContent.replace("\r\n", "\n");
+                    if (!normalizedCurrent.equals(content)) {
+                        throw new ToolExecutionException(
+                            "文件在读取后被外部修改（可能被用户或 linter 改动）。\n" +
+                            "AI 的编辑基于旧版本，直接写入会覆盖外部改动。\n" +
+                            "请重新执行 read_file 获取最新内容后再试。"
+                        );
+                    }
                 }
             }
 
@@ -383,23 +388,18 @@ public class EditFileTool implements ToolExecutor {
             sb.append("EditMismatchError: old_text 与文件内容不匹配。\n\n");
             
             sb.append("文件中匹配位置附近的内容:\n");
-            sb.append("┌─────────────────────────────────────────────────\n");
             for (int i = contentStartLine; i < contentEndLine; i++) {
                 boolean matched = (i - contentStartLine) < partialLines.length;
-                sb.append(String.format("%s %5d: %s\n", matched ? "│>" : "│ ", i + 1, contentLines[i]));
+                sb.append(String.format("  %s %5d: %s\n", matched ? " " : ">>", i + 1, contentLines[i]));
             }
-            sb.append("└─────────────────────────────────────────────────\n");
             
             sb.append("\n你提供的 old_text:\n");
-            sb.append("┌─────────────────────────────────────────────────\n");
             for (int i = oldStartLine; i < oldEndLine; i++) {
                 boolean matched = (i - oldStartLine) < partialLines.length && i < oldLines.length;
-                sb.append(String.format("%s %5d: %s\n", matched ? "│>" : "│ ", i + 1, oldLines[i]));
+                sb.append(String.format("  %s %5d: %s\n", matched ? " " : ">>", i + 1, oldLines[i]));
             }
-            sb.append("└─────────────────────────────────────────────────\n");
             
-            sb.append("\n│> 标注的行 = 已成功匹配的行，未标注 = 匹配失败的行\n");
-            sb.append(String.format("已匹配前 %d 行（%d 字符），差异出现在 old_text 第 %d 行附近。\n",
+            sb.append(String.format("\n>> 标注的行 = 匹配失败；已匹配前 %d 行（%d 字符），差异出现在 old_text 第 %d 行附近。\n",
                 partialLines.length, partial.length(), oldStartLine + partialLines.length + 1));
         } else {
             sb.append("EditMismatchError: old_text 与文件内容差异过大，无法自动定位匹配位置。\n");

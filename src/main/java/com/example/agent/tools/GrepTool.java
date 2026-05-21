@@ -240,15 +240,6 @@ public class GrepTool implements ToolExecutor {
     private String formatResults(List<SearchResult> results, String pattern, String searchPath, String filePattern, int maxResults) {
         StringBuilder sb = new StringBuilder();
         
-        sb.append("Grep 搜索结果\n");
-        sb.append("─────────────────────────────────────────────────────────────\n");
-        sb.append("模式: ").append(pattern).append("\n");
-        sb.append("路径: ").append(searchPath).append("\n");
-        if (filePattern != null && !filePattern.isEmpty()) {
-            sb.append("文件过滤: ").append(filePattern).append("\n");
-        }
-        sb.append("─────────────────────────────────────────────────────────────\n");
-
         if (results.isEmpty()) {
             sb.append("未找到匹配的内容\n");
         } else {
@@ -273,7 +264,7 @@ public class GrepTool implements ToolExecutor {
             sb.append(String.format("在 %d 个文件中找到 %d 处匹配", fileCount, results.size()));
             
             if (results.size() >= maxResults) {
-                sb.append("（已达到最大结果数限制）");
+                sb.append("（仅展示前 ").append(maxResults).append(" 条，可能不完整）");
             }
             sb.append("\n");
         }

@@ -193,12 +193,6 @@ public class GlobTool implements ToolExecutor {
     private String formatResults(List<FileInfo> results, String pattern, String searchPath, int maxResults) {
         StringBuilder sb = new StringBuilder();
         
-        sb.append("Glob 搜索结果\n");
-        sb.append("─────────────────────────────────────────────────────────────\n");
-        sb.append("模式: ").append(pattern).append("\n");
-        sb.append("路径: ").append(searchPath).append("\n");
-        sb.append("─────────────────────────────────────────────────────────────\n");
-
         if (results.isEmpty()) {
             sb.append("未找到匹配的文件\n");
         } else {
@@ -213,7 +207,7 @@ public class GlobTool implements ToolExecutor {
             sb.append(String.format("找到 %d 个文件", results.size()));
             
             if (results.size() >= maxResults) {
-                sb.append("（已达到最大结果数限制）");
+                sb.append("（仅展示前 ").append(maxResults).append(" 条，可能不完整）");
             }
             sb.append("\n");
 
