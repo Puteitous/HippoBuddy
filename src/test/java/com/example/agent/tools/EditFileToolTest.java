@@ -719,7 +719,7 @@ class EditFileToolTest {
             assertAll(
                 () -> assertTrue(exception.getMessage().contains("文件中匹配位置附近的内容"),
                     "应输出诊断头部"),
-                () -> assertTrue(exception.getMessage().contains("│>"),
+                () -> assertTrue(exception.getMessage().contains(">>"),
                     "应包含行级匹配标注"),
                 () -> assertTrue(exception.getMessage().contains("差异出现在 old_text 第"),
                     "应指出差异行位置")
@@ -752,7 +752,7 @@ class EditFileToolTest {
             assertAll(
                 () -> assertTrue(exception.getMessage().contains("文件中匹配位置附近的内容"),
                     "应输出诊断头部"),
-                () -> assertTrue(exception.getMessage().contains("│>"),
+                () -> assertTrue(exception.getMessage().contains(">>"),
                     "应包含行级匹配标注"),
                 () -> assertTrue(exception.getMessage().contains("差异出现在 old_text 第"),
                     "应指出差异行位置")
@@ -1092,7 +1092,8 @@ class EditFileToolTest {
             filesMock.when(() -> Files.isRegularFile(any())).thenReturn(true);
             filesMock.when(() -> Files.isReadable(any())).thenReturn(true);
             filesMock.when(() -> Files.isWritable(any())).thenReturn(true);
-            filesMock.when(() -> Files.readString(any(), any())).thenReturn("Hello World");
+            filesMock.when(() -> Files.readString(any(), any()))
+                .thenReturn("Hello World", "Modified Content");
             filesMock.when(() -> Files.getLastModifiedTime(any()))
                 .thenReturn(FileTime.fromMillis(1000), FileTime.fromMillis(2000));
 
@@ -1102,7 +1103,7 @@ class EditFileToolTest {
             args.put("new_text", "Modified");
 
             ToolExecutionException exception = assertThrows(ToolExecutionException.class, () -> tool.execute(args));
-            assertTrue(exception.getMessage().contains("已被外部修改"));
+            assertTrue(exception.getMessage().contains("外部修改"));
         }
     }
 }

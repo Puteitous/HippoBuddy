@@ -48,7 +48,8 @@ describe('session-manager.js', () => {
 
       expect(groups['今天']).toHaveLength(2);
       expect(groups['昨天']).toHaveLength(0);
-      expect(groups['本周']).toHaveLength(0);
+      expect(groups['7天内']).toHaveLength(0);
+      expect(groups['30天内']).toHaveLength(0);
     });
 
     it('将昨天的会话归入"昨天"分组', () => {
@@ -62,7 +63,7 @@ describe('session-manager.js', () => {
       expect(groups['昨天']).toHaveLength(1);
     });
 
-    it('将本周的会话归入"本周"分组', () => {
+    it('将7天内的会话归入"7天内"分组', () => {
       const threeDaysAgo = Date.now() - 3 * 86400000;
       const sessions = [
         { id: 's1', createdAt: threeDaysAgo.toString() },
@@ -70,13 +71,13 @@ describe('session-manager.js', () => {
 
       const groups = sessionManager.groupSessionsByTime(sessions);
 
-      expect(groups['本周']).toHaveLength(1);
+      expect(groups['7天内']).toHaveLength(1);
     });
 
     it('将更早的会话归入"更早"分组', () => {
-      const tenDaysAgo = Date.now() - 10 * 86400000;
+      const thirtyFiveDaysAgo = Date.now() - 35 * 86400000;
       const sessions = [
-        { id: 's1', createdAt: tenDaysAgo.toString() },
+        { id: 's1', createdAt: thirtyFiveDaysAgo.toString() },
       ];
 
       const groups = sessionManager.groupSessionsByTime(sessions);
@@ -89,7 +90,8 @@ describe('session-manager.js', () => {
 
       expect(groups['今天']).toHaveLength(0);
       expect(groups['昨天']).toHaveLength(0);
-      expect(groups['本周']).toHaveLength(0);
+      expect(groups['7天内']).toHaveLength(0);
+      expect(groups['30天内']).toHaveLength(0);
       expect(groups['更早']).toHaveLength(0);
     });
   });

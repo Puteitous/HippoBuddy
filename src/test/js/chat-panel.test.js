@@ -46,6 +46,7 @@ describe('ChatPanel.js', () => {
       }),
       scrollToBottom: vi.fn(),
       renderToolCard: vi.fn().mockReturnValue('<div class="tool-card">tool</div>'),
+      renderToolTimelineRow: vi.fn().mockReturnValue('<div class="tool-timeline-row">tool</div>'),
       parseTodos: vi.fn().mockReturnValue([]),
       bindAskUserEvents: vi.fn(),
     };
@@ -400,6 +401,46 @@ describe('ChatPanel.js', () => {
       expect(chatPanel.segments[0].done).toBe(true);
       expect(chatPanel.currentText).toBe('最终答案');
     });
+
+    it('content 后收到 waiting_user 时，先 flush currentText 再 push ask_user', () => {
+      const contentDiv = document.createElement('div');
+
+      chatPanel.handleChunk(
+        { _eventType: 'content', content: 'LLM 生成的文本' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      expect(chatPanel.currentText).toBe('LLM 生成的文本');
+
+      chatPanel.handleChunk(
+        { _eventType: 'waiting_user', question: '确认吗？', options: ['是', '否'] },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      const textIdx = chatPanel.segments.findIndex(s => s.type === 'text');
+      const askIdx = chatPanel.segments.findIndex(s => s.type === 'tool' && s.name === 'ask_user');
+      expect(textIdx).toBeGreaterThanOrEqual(0);
+      expect(askIdx).toBeGreaterThanOrEqual(0);
+      expect(textIdx).toBeLessThan(askIdx);
+      expect(chatPanel.segments[textIdx].content).toBe('LLM 生成的文本');
+      expect(chatPanel.currentText).toBe('');
+    });
+
+    it('currentText 为空时 waiting_user 不创建多余 text segment', () => {
+      const contentDiv = document.createElement('div');
+
+      chatPanel.handleChunk(
+        { _eventType: 'waiting_user', question: '直接询问？', options: ['好', '不好'] },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      const textSegments = chatPanel.segments.filter(s => s.type === 'text');
+      expect(textSegments).toHaveLength(0);
+      expect(chatPanel.segments[0].name).toBe('ask_user');
+    });
   });
 
   describe('isNearBottom', () => {
@@ -438,7 +479,7 @@ describe('ChatPanel.js', () => {
       chatPanel.startEditMessage(msgDiv);
 
       expect(msgDiv.classList.contains('editing')).toBe(true);
-      expect(msgDiv.querySelector('.message-edit-container')).toBeTruthy();
+      expect(msgDiv.querySelector('.message-edit-textarea')).toBeTruthy();
       expect(msgDiv.querySelector('.message-edit-textarea').value).toBe('原始消息');
     });
 

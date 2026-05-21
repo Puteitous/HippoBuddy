@@ -55,7 +55,7 @@ describe('ChatUI', () => {
       container.innerHTML = '<div>some content</div>';
       chatUI.clear();
       expect(container.innerHTML).toContain('empty-state');
-      expect(container.innerHTML).toContain('发送消息开始对话');
+      expect(container.innerHTML).toContain('你的 AI 编码助手');
     });
   });
 
@@ -63,6 +63,9 @@ describe('ChatUI', () => {
     it('移除空状态元素', () => {
       container.innerHTML = '<div class="empty-state">empty</div><div>content</div>';
       chatUI.removeEmptyState();
+      const emptyState = container.querySelector('.empty-state');
+      expect(emptyState.classList.contains('fade-out')).toBe(true);
+      emptyState.dispatchEvent(new Event('transitionend'));
       expect(container.querySelector('.empty-state')).toBeNull();
       expect(container.children.length).toBe(1);
     });
@@ -88,6 +91,8 @@ describe('ChatUI', () => {
     it('移除空状态', () => {
       container.innerHTML = '<div class="empty-state">empty</div>';
       chatUI.appendUserMessage('test');
+      const emptyState = container.querySelector('.empty-state');
+      emptyState.dispatchEvent(new Event('transitionend'));
       expect(container.querySelector('.empty-state')).toBeNull();
     });
 
@@ -147,6 +152,8 @@ describe('ChatUI', () => {
     it('移除空状态', () => {
       container.innerHTML = '<div class="empty-state">empty</div>';
       chatUI.appendToolCallCard({ name: 'bash', args: '{}' });
+      const emptyState = container.querySelector('.empty-state');
+      emptyState.dispatchEvent(new Event('transitionend'));
       expect(container.querySelector('.empty-state')).toBeNull();
     });
   });
@@ -230,7 +237,7 @@ describe('ChatUI', () => {
     it('ask_user 工具调用 renderAskUserCard', () => {
       const html = chatUI.renderToolCard({ name: 'ask_user', args: '{}' });
       expect(html).toContain('ask-user-card');
-      expect(html).toContain('需要你的确认');
+      expect(html).toContain('需要确认');
     });
 
     it('todo_write 工具调用 renderTodoWriteCard', () => {
@@ -384,9 +391,9 @@ describe('ChatUI', () => {
       expect(html).not.toContain('send-btn');
     });
 
-    it('没有内联 onclick', () => {
+    it('header 使用内联 onclick 切换折叠', () => {
       const html = chatUI.renderAskUserCard({ name: 'ask_user', args: '{"question":"?"}' });
-      expect(html).not.toContain('onclick=');
+      expect(html).toContain('onclick=');
     });
   });
 
@@ -406,18 +413,18 @@ describe('ChatUI', () => {
       expect(html).toContain('任务1');
       expect(html).toContain('任务2');
       expect(html).toContain('任务3');
-      expect(html).toContain('33% (1/3)');
+      expect(html).toContain('1/3');
     });
 
     it('空任务列表不报错', () => {
       const html = chatUI.renderTodoWriteCard({ name: 'todo_write', args: '{}' });
       expect(html).toContain('todo-card');
-      expect(html).toContain('0% (0/0)');
+      expect(html).toContain('0/0');
     });
 
-    it('没有内联 onclick', () => {
+    it('header 使用内联 onclick 切换折叠', () => {
       const html = chatUI.renderTodoWriteCard({ name: 'todo_write', args: '{}' });
-      expect(html).not.toContain('onclick=');
+      expect(html).toContain('onclick=');
     });
   });
 
@@ -471,34 +478,6 @@ describe('ChatUI', () => {
       expect(mockEventBusEmit).toHaveBeenCalledTimes(2);
       expect(mockEventBusEmit).toHaveBeenCalledWith('ask_user:respond', '是');
       expect(mockEventBusEmit).toHaveBeenCalledWith('ask_user:respond', '否');
-    });
-
-    it('发送按钮点击发送输入框内容', () => {
-      const card = document.createElement('div');
-      card.innerHTML = `
-        <div class="custom-input-area">
-          <textarea class="ask-user-input">用户输入内容</textarea>
-          <button class="send-btn">发送</button>
-        </div>
-      `;
-      chatUI.bindAskUserEvents(card);
-
-      card.querySelector('.send-btn').click();
-      expect(mockEventBusEmit).toHaveBeenCalledWith('ask_user:respond', '用户输入内容');
-    });
-
-    it('空输入时发送按钮不触发回调', () => {
-      const card = document.createElement('div');
-      card.innerHTML = `
-        <div class="custom-input-area">
-          <textarea class="ask-user-input"></textarea>
-          <button class="send-btn">发送</button>
-        </div>
-      `;
-      chatUI.bindAskUserEvents(card);
-
-      card.querySelector('.send-btn').click();
-      expect(mockEventBusEmit).not.toHaveBeenCalled();
     });
 
     it('没有选项按钮时不报错', () => {

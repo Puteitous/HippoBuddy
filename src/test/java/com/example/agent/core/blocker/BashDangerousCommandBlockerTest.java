@@ -42,11 +42,31 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void shellOperators_shouldBeBlocked() {
+    void dangerousPatternWithChainOperators_shouldBeBlocked() {
         assertBlocked("ls; rm -rf /");
         assertBlocked("git status && rm -rf /");
+    }
+
+    @Test
+    void commandSubstitution_shouldBeBlocked() {
         assertBlocked("echo $(dangerous)");
         assertBlocked("echo `dangerous`");
+    }
+
+    @Test
+    void commandChaining_shouldRequireConfirmation() {
+        assertRequiresConfirmation("echo hello && echo world");
+        assertRequiresConfirmation("echo hello; echo world");
+        assertRequiresConfirmation("cd dir || mkdir dir");
+        assertRequiresConfirmation("git status && git log");
+        assertRequiresConfirmation("mvn compile; mvn test");
+    }
+
+    @Test
+    void safeSingleCommand_shouldNotBeAffectedByChainCheck() {
+        assertAllowed("echo hello");
+        assertAllowed("git status");
+        assertAllowed("mvn compile");
     }
 
     @Test
