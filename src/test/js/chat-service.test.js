@@ -321,5 +321,58 @@ describe('chat-service.js', () => {
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/sessions/s1/tokens');
       expect(result.currentTokens).toBe(100);
     });
+
+    it('truncateSession 调用 POST /api/sessions/{id}/truncate', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true, message: '已截断' }),
+      });
+
+      const result = await chatService.truncateSession('s1', 'msg-123', 1000, 2000);
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/sessions/s1/truncate',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId: 'msg-123', startTime: 1000, endTime: 2000 }),
+        })
+      );
+      expect(result).toEqual({ success: true, message: '已截断' });
+    });
+
+    it('truncateSession 不带时间戳参数时使用默认值', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      });
+
+      await chatService.truncateSession('s1', 'msg-123');
+
+      const callBody = JSON.parse(globalThis.fetch.mock.calls[0][1].body);
+      expect(callBody.messageId).toBe('msg-123');
+      expect(callBody.startTime).toBeUndefined();
+      expect(callBody.endTime).toBeUndefined();
+    });
+
+    it('truncateSession 请求失败时抛出错误', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ error: 'messageId is required' }),
+      });
+
+      await expect(
+        chatService.truncateSession('s1', '')
+      ).rejects.toThrow('messageId is required');
+    });
+
+    it('truncateSession 网络错误时抛出错误', async () => {
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+      await expect(
+        chatService.truncateSession('s1', 'msg-123', 0, 1000)
+      ).rejects.toThrow('Network error');
+    });
   });
 });

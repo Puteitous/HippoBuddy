@@ -257,4 +257,72 @@ class ConversationServiceTest {
 
         service.fixUnfinishedToolCall(conv);
     }
+
+    @Test
+    @DisplayName("✅ flushTranscript 对未知会话返回 null")
+    void flushTranscriptReturnsNullForUnknownSession() {
+        Path result = service.flushTranscript("non-existent-session");
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("✅ flushTranscript 对已知会话返回非 null 路径")
+    void flushTranscriptReturnsPathForExistingSession() {
+        Conversation conv = service.create("System prompt");
+        String sessionId = conv.getSessionId();
+        service.addUserMessage(conv, "Hello");
+
+        Path result = service.flushTranscript(sessionId);
+
+        assertThat(result).isNotNull();
+        assertThat(result.toString()).contains("conversation.jsonl");
+    }
+
+    @Test
+    @DisplayName("✅ destroyTranscript 对未知会话不崩溃")
+    void destroyTranscriptDoesNotCrashForUnknownSession() {
+        service.destroyTranscript("non-existent-session");
+    }
+
+    @Test
+    @DisplayName("✅ destroyTranscript 后需重建组件")
+    void destroyTranscriptRemovesComponents() {
+        Conversation conv = service.create("System prompt");
+        String sessionId = conv.getSessionId();
+
+        Path beforeFlush = service.flushTranscript(sessionId);
+        assertThat(beforeFlush).isNotNull();
+
+        service.destroyTranscript(sessionId);
+
+        Path afterDestroy = service.flushTranscript(sessionId);
+        assertThat(afterDestroy).isNull();
+
+        service.ensureSessionComponents(conv);
+        Path afterRecreate = service.flushTranscript(sessionId);
+        assertThat(afterRecreate).isNotNull();
+    }
+
+    @Test
+    @DisplayName("✅ flushTranscript + destroyTranscript 完整调用链不崩溃")
+    void flushThenDestroyFullChain() {
+        Conversation conv = service.create("Test");
+        String sessionId = conv.getSessionId();
+        service.addUserMessage(conv, "Message 1");
+        service.addAssistantMessage(conv, "Response 1");
+        service.addUserMessage(conv, "Message 2");
+        service.addAssistantMessage(conv, "Response 2");
+
+        Path path = service.flushTranscript(sessionId);
+        assertThat(path).isNotNull();
+
+        service.destroyTranscript(sessionId);
+
+        service.ensureSessionComponents(conv);
+
+        Path newPath = service.flushTranscript(sessionId);
+        assertThat(newPath).isNotNull();
+        assertThat(newPath).isEqualTo(path);
+    }
 }

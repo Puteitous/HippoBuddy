@@ -4,7 +4,7 @@
     width: 220px;
     display: flex;
     flex-direction: column;
-    background: var(--bg-sidebar);
+    background: transparent;
     min-width: 52px;
     overflow: hidden;
     transition: width var(--transition-normal);
@@ -36,42 +36,17 @@
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
+    line-height: 1;
     transition: opacity var(--transition-fast);
 }
 
-.session-panel.collapsed .session-header {
-    justify-content: center;
-    padding: 12px 0 8px;
-}
-
-.session-panel.collapsed .session-header-title {
-    opacity: 0;
-    width: 0;
-    overflow: hidden;
-}
-
-.session-panel.collapsed #newSessionBtn {
-    display: none;
-}
-
-.session-panel.collapsed .session-category {
-    display: none;
-}
-
-.session-panel.collapsed .session-list {
-    display: none;
-}
-
-#newSessionBtn {
+.session-new-btn {
     width: 28px;
     height: 28px;
-    border: none;
     border-radius: var(--radius-md);
+    border: none;
     background: transparent;
-    color: var(--text-muted);
-    font-size: 20px;
-    font-weight: 300;
-    line-height: 1;
+    color: var(--text-secondary);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -80,9 +55,50 @@
     flex-shrink: 0;
 }
 
-#newSessionBtn:hover {
+.session-new-btn:hover {
     background: var(--bg-code);
-    color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.session-new-btn:active {
+    transform: scale(0.95);
+}
+
+.toggle-icon-hamburger {
+    display: flex;
+    align-items: center;
+    transform: translateY(1px);
+}
+
+.session-panel.collapsed .session-header {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 0 8px;
+    gap: 2px;
+}
+
+.session-panel.collapsed .session-header-left {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.session-panel.collapsed .session-header-title {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
+.session-panel.collapsed .session-category {
+    display: none;
+}
+
+.session-panel.collapsed .session-list {
+    display: none;
 }
 
 /* 折叠触发按钮 */
@@ -110,22 +126,12 @@
     transition: transform var(--transition-normal);
 }
 
-.toggle-icon-hippo {
-    display: none;
-    font-size: 20px;
-    line-height: 1;
-}
-
-.session-panel.collapsed .toggle-icon-hamburger {
-    display: none;
-}
-
-.session-panel.collapsed .toggle-icon-hippo {
-    display: inline;
-}
-
 .session-panel.collapsed .session-toggle-btn svg {
-    transform: scaleX(-1);
+    transform: rotate(180deg);
+}
+
+.session-panel.collapsed .session-new-btn {
+    display: flex;
 }
 
 .session-list {
@@ -133,8 +139,8 @@
     overflow-y: auto;
     padding: 0 6px 8px;
     contain: layout style paint;
-    -webkit-mask-image: linear-gradient(to bottom, black 0, black calc(100% - 12px), transparent 100%);
-    mask-image: linear-gradient(to bottom, black 0, black calc(100% - 12px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, var(--bg-canvas) 0, var(--bg-canvas) calc(100% - 12px), transparent 100%);
+    mask-image: linear-gradient(to bottom, var(--bg-canvas) 0, var(--bg-canvas) calc(100% - 12px), transparent 100%);
 }
 
 .session-category {
@@ -147,19 +153,7 @@
     position: sticky;
     top: 0;
     z-index: 2;
-    background: var(--bg-sidebar);
-}
-
-.session-category::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -3px;
-    height: 3px;
-    background: linear-gradient(to bottom, var(--bg-sidebar) 0%, transparent 100%);
-    pointer-events: none;
-    z-index: 3;
+    background: var(--bg-canvas);
 }
 
 /* Infinite scroll sentinel — invisible trigger for IntersectionObserver */
@@ -172,8 +166,9 @@
     margin: 0 0 1px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: var(--font-size-md);
-    color: var(--text-secondary);
+    font-size: var(--font-size-lg);
+    color: var(--text-primary);
+    font-weight: 400;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -190,16 +185,13 @@
 }
 
 .session-item.active {
-    background: color-mix(in srgb, var(--bg-app), var(--accent) 18%);
+    background: rgb(220, 224, 228);
     color: var(--text-primary);
+    font-weight: 400;
 }
 
 [data-theme="dark"] .session-item.active {
-    background: color-mix(in srgb, var(--bg-app), var(--accent) 14%);
-}
-
-.session-item.active .session-time {
-    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .session-info {
@@ -214,12 +206,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     line-height: 1.4;
-}
-
-.session-item .session-time {
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    margin-top: 1px;
 }
 
 .session-item .session-actions {
@@ -313,7 +299,7 @@
     width: 28px;
     height: 28px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--border);
+    border: none;
     background: transparent;
     color: var(--text-secondary);
     font-size: var(--font-size-xl);

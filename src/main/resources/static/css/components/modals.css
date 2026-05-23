@@ -582,3 +582,93 @@
 [data-theme="dark"] .diff-timeline-item.active .diff-timeline-dot {
     background: var(--primary-color);
 }
+
+/* ========== 回滚确认弹窗 ========== */
+.rollback-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    animation: fadeIn 0.2s ease;
+}
+
+.rollback-modal {
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+    animation: modalSlideIn 0.25s ease-out;
+    text-align: center;
+}
+
+.rollback-modal-icon {
+    margin-bottom: 16px;
+    color: var(--warning-color, #e6a23c);
+    display: flex;
+    justify-content: center;
+}
+
+.rollback-modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.rollback-modal-message {
+    font-size: var(--font-size-md);
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 24px;
+}
+
+.rollback-modal-message strong {
+    color: var(--error-color, #f56c6c);
+    font-weight: 600;
+}
+
+.rollback-modal-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.rollback-modal-btn {
+    padding: 8px 24px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-md);
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+    min-width: 100px;
+}
+
+.rollback-modal-btn-cancel {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.rollback-modal-btn-cancel:hover {
+    background: var(--bg-code);
+    color: var(--text-primary);
+}
+
+.rollback-modal-btn-confirm {
+    background: var(--error-color, #f56c6c);
+    color: #fff;
+    border-color: var(--error-color, #f56c6c);
+}
+
+.rollback-modal-btn-confirm:hover {
+    opacity: 0.85;
+}

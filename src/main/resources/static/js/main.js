@@ -51,7 +51,6 @@ const elements = {
   rightPanelShowBtn: document.getElementById('rightPanelShowBtn'),
   sseStatus: document.getElementById('sseStatus'),
   compactBtn: document.getElementById('compactBtn'),
-  newSessionBtn: document.getElementById('newSessionBtn'),
   messageInput: document.getElementById('messageInput'),
   sendBtn: document.getElementById('sendBtn'),
   stopBtn: document.getElementById('stopBtn'),
@@ -279,7 +278,7 @@ function bindGlobalEvents() {
   });
   
   // 新建会话
-  elements.newSessionBtn?.addEventListener('click', createNewSession);
+  document.getElementById('sessionNewBtn')?.addEventListener('click', createNewSession);
   
   // 压缩会话
   elements.compactBtn?.addEventListener('click', handleCompact);
@@ -400,38 +399,114 @@ function bindGlobalEvents() {
 
 // ========== 消息回滚处理 ==========
 async function handleMessageRollback(msgDiv) {
+  // 移除已存在的回滚确认弹窗
+  const existing = document.querySelector('.rollback-modal-overlay');
+  if (existing) existing.remove();
+  
+  // 创建确认弹窗
+  const overlay = document.createElement('div');
+  overlay.className = 'rollback-modal-overlay';
+  overlay.innerHTML = `
+    <div class="rollback-modal">
+      <div class="rollback-modal-icon">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div class="rollback-modal-title">回滚确认</div>
+      <div class="rollback-modal-message">
+        此操作将回滚到<strong>上一轮对话</strong>，删除本轮及之后的所有消息，并撤销对应的文件变更。
+        <br><br>
+        该操作无法撤销，确定要继续吗？
+      </div>
+      <div class="rollback-modal-buttons">
+        <button class="rollback-modal-btn rollback-modal-btn-cancel">取消</button>
+        <button class="rollback-modal-btn rollback-modal-btn-confirm">确定回滚</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  
+  // 等待用户确认
+  const confirmed = await new Promise((resolve) => {
+    const cancelBtn = overlay.querySelector('.rollback-modal-btn-cancel');
+    const confirmBtn = overlay.querySelector('.rollback-modal-btn-confirm');
+    
+    const close = (result) => {
+      overlay.remove();
+      resolve(result);
+    };
+    
+    cancelBtn.addEventListener('click', () => close(false));
+    confirmBtn.addEventListener('click', () => close(true));
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close(false);
+    });
+  });
+  
+  if (!confirmed) {
+    return;
+  }
+  
+  // ========== 用户确认后：截断会话 ==========
   const rollbackBtn = msgDiv.querySelector('.rollback-btn');
   if (!rollbackBtn || rollbackBtn.classList.contains('rolling')) return;
   rollbackBtn.classList.add('rolling');
   rollbackBtn.innerHTML = '<span style="font-size:12px;">⋯</span>';
   
-  const msgTimestamp = parseInt(msgDiv.dataset.timestamp);
-  if (!msgTimestamp) {
-    showToast('无法确定消息时间', { type: 'error', duration: 3000 });
+  // 1. 如果存在正在生成的流，先中止
+  if (chatPanel.currentAbortController) {
+    chatPanel.stopGeneration();
+  }
+  
+  // 2. 找到前一条用户消息的 messageId（截断锚点）
+  const assistantRow = msgDiv.closest('.message-row');
+  let userRow = assistantRow?.previousElementSibling;
+  let messageId = userRow?.querySelector('.message.user')?.dataset?.messageId;
+  
+  // 如果 DOM 查找不到，尝试使用 ChatPanel 中存储的最后一条消息 ID
+  if (!messageId) {
+    const isLastAssistant = !assistantRow?.nextElementSibling?.querySelector('.message.assistant');
+    if (isLastAssistant && chatPanel._lastUserMessageId && !chatPanel._lastUserMessageId.startsWith('tmp-')) {
+      messageId = chatPanel._lastUserMessageId;
+    }
+  }
+  
+  if (!messageId) {
+    showToast('无法确定上一轮对话的消息 ID，请刷新后重试', { type: 'error', duration: 3000 });
     rollbackBtn.innerHTML = '↩';
     rollbackBtn.classList.remove('rolling');
     return;
   }
   
+  // 3. 计算文件回滚的时间范围
+  const msgTimestamp = parseInt(msgDiv.dataset.timestamp);
   let startTime = 0;
-  const prevMsg = msgDiv.previousElementSibling;
-  if (prevMsg && prevMsg.dataset.timestamp) {
-    startTime = parseInt(prevMsg.dataset.timestamp);
-  } else {
-    startTime = msgTimestamp - 5 * 60 * 1000;
+  if (msgTimestamp) {
+    const prevMsg = msgDiv.previousElementSibling;
+    if (prevMsg && prevMsg.dataset.timestamp) {
+      startTime = parseInt(prevMsg.dataset.timestamp);
+    } else {
+      startTime = msgTimestamp - 5 * 60 * 1000;
+    }
   }
+  const endTime = msgTimestamp || Date.now();
   
   try {
-    const response = await fetch('/api/files/rollback-range', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ startTime, endTime: msgTimestamp })
-    });
-    const result = await response.json();
+    // 4. 调用 truncate API：一次请求完成 文件回滚 + 内存截断 + JSONL 清理
+    const result = await chatService.truncateSession(currentSessionId, messageId, startTime, endTime);
     
     if (result.success) {
-      showToast(result.message || '已回滚文件变更', { type: 'success', duration: 3000 });
+      // 5. 重新加载会话消息（输入框内容保留不变）
+      chatContainer.classList.add('switching');
+      const messages = await chatService.getSessionMessages(currentSessionId);
+      await chatPanel.loadHistoryMessages(messages);
+      chatContainer.classList.remove('switching');
       fileChangeManager.updateFileChanges();
+      
+      showToast(result.message || '已回滚到上一轮对话', { type: 'success', duration: 3000 });
     } else {
       showToast(`回滚失败：${result.error || '未知错误'}`, { type: 'error', duration: 3000 });
     }
@@ -439,6 +514,7 @@ async function handleMessageRollback(msgDiv) {
     showToast(`回滚失败：${e.message}`, { type: 'error', duration: 3000 });
   }
   
+  chatContainer.classList.remove('switching');
   rollbackBtn.innerHTML = '↩';
   rollbackBtn.classList.remove('rolling');
 }

@@ -139,7 +139,6 @@ export class SessionManager {
     const s = row.session;
     const name = row.name;
     const isActive = s.id === this.currentSessionId;
-    const timeStr = this.formatTimestamp(s.createdAt);
 
     const item = document.createElement('div');
     item.className = 'session-item' + (isActive ? ' active' : '');
@@ -152,12 +151,7 @@ export class SessionManager {
     nameSpan.className = 'session-name';
     nameSpan.textContent = name;
 
-    const timeSpan = document.createElement('span');
-    timeSpan.className = 'session-time';
-    timeSpan.textContent = timeStr;
-
     infoDiv.appendChild(nameSpan);
-    infoDiv.appendChild(timeSpan);
 
     const actionsDiv = document.createElement('span');
     actionsDiv.className = 'session-actions';

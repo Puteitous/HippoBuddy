@@ -25,6 +25,8 @@ export class ChatPanel {
     this._renderThrottleTimer = null;
     this._pendingRender = null;
     this._hasReceivedData = false;
+    this._lastUserMsgDiv = null;
+    this._lastUserMessageId = null;
     this._runningToolCallIds = new Set();
     this._destroyed = false;
 
@@ -210,7 +212,10 @@ export class ChatPanel {
       }
     } else {
       // 新增模式：添加用户消息
-      const { msgDiv, editBtn } = this.chatUI.appendUserMessage(content);
+      const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      this._lastUserMessageId = tempId;
+      const { msgDiv, editBtn } = this.chatUI.appendUserMessage(content, tempId);
+      this._lastUserMsgDiv = msgDiv;
       if (editBtn) {
         editBtn.addEventListener('click', () => this.startEditMessage(msgDiv));
       }
@@ -340,11 +345,12 @@ export class ChatPanel {
       return;
     }
     
-    // 处理 message_id 事件（存储消息ID用于编辑功能）
+    // 处理 message_id 事件（存储消息ID用于编辑和回滚功能）
     if (parsed._eventType === 'message_id' && parsed.id) {
-      const userMsgDiv = document.querySelector('.message.user:last-child');
-      if (userMsgDiv && !userMsgDiv.dataset.messageId) {
+      const userMsgDiv = this._lastUserMsgDiv;
+      if (userMsgDiv) {
         userMsgDiv.dataset.messageId = parsed.id;
+        this._lastUserMessageId = parsed.id;
       }
       return;
     }
@@ -736,8 +742,6 @@ export class ChatPanel {
       const thinkingState = states.get(`thinking:${idx}`);
       if (thinkingState?.expanded) {
         bubble.classList.add('expanded');
-        const toggleIcon = bubble.querySelector('.thinking-row-toggle');
-        if (toggleIcon) toggleIcon.textContent = '▼';
         const content = bubble.querySelector('.thinking-row-content');
         if (content) {
           const h = content.scrollHeight;
@@ -1039,7 +1043,6 @@ export class ChatPanel {
           <div class="thinking-row-header" onclick="window.toggleThinkingRow(this)">
             <span class="thinking-row-icon">${thinkSvg}</span>
             <span class="thinking-row-label">已思考</span>
-            <span class="thinking-row-toggle">▶</span>
           </div>
           <div class="thinking-row-content">${escapedContent}</div>
         </div>`;
@@ -1883,12 +1886,10 @@ window.toggleThinkingRow = function(headerEl) {
   if (!row) return;
   const content = row.querySelector('.thinking-row-content');
   if (!content) return;
-  const toggleIcon = row.querySelector('.thinking-row-toggle');
 
   if (row.classList.contains('expanded')) {
     content.style.maxHeight = '0';
     row.classList.remove('expanded');
-    if (toggleIcon) toggleIcon.textContent = '▶';
     content.style.overflowY = '';
   } else {
     content.style.overflowY = 'hidden';

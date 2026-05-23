@@ -34,7 +34,10 @@
     <div class="header">
         <div class="header-brand">
             <span class="header-brand-icon">🦛</span>
-            <span>Hippo Cockpit</span>
+            <span class="header-brand-text">
+                <span class="brand-hippo">Hippo</span>
+                <span class="brand-code">Code</span>
+            </span>
         </div>
         <div class="header-actions">
             <button class="header-icon-btn" id="rightPanelShowBtn" title="展开右侧面板" style="display:none;">
@@ -72,11 +75,15 @@
                                 <line x1="3" y1="18" x2="21" y2="18"/>
                             </svg>
                         </span>
-                        <span class="toggle-icon-hippo">🦛</span>
                     </button>
                     <span class="session-header-title">会话</span>
                 </div>
-                <button id="newSessionBtn" title="新建会话">+</button>
+                <button class="session-new-btn" id="sessionNewBtn" title="新建会话">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
             </div>
             <div class="session-list" id="sessionList"></div>
         </div>

@@ -83,19 +83,6 @@ input, textarea {
   font-weight: 600;
   color: var(--text-primary);
   font-size: var(--font-size-xs);
-  flex: 1;
-}
-
-.thinking-row .thinking-row-toggle {
-  flex-shrink: 0;
-  font-size: 8px;
-  color: var(--text-muted);
-  transition: transform var(--transition-fast);
-  line-height: 1;
-}
-
-.thinking-row.completed.expanded .thinking-row-toggle {
-  transform: rotate(90deg);
 }
 
 .thinking-row .thinking-row-content {
@@ -123,8 +110,8 @@ input, textarea {
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  padding: 0 12px 0 28px;
-  margin-top: 0;
+  padding: 0 12px 0 14px;
+  margin: 0 0 0 16px;
   border-top: none;
   transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.25s ease, margin-top 0.25s ease;
 }
@@ -132,13 +119,20 @@ input, textarea {
 .thinking-row.completed.expanded .thinking-row-content {
   opacity: 1;
   overflow: hidden;
-  padding: 8px 12px 8px 28px;
-  margin-top: 4px;
-  border-top: 1px solid var(--border-color);
+  padding: 8px 12px 8px 14px;
+  margin: 4px 0 0 16px;
+  border-top: none;
+  border-left: 2px solid var(--border-color);
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 [data-theme="dark"] .thinking-row .thinking-row-header:hover {
   background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .thinking-row.completed.expanded .thinking-row-content {
+  border-left-color: rgba(255, 255, 255, 0.12);
 }
 
 .empty-state {

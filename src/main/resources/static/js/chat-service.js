@@ -296,6 +296,26 @@ export class ChatService {
     return response.json();
   }
 
+  /**
+   * 截断会话：删除从指定消息开始及之后的所有消息，回滚文件变更，同步清理 JSONL
+   * @param {string} sessionId - 会话 ID
+   * @param {string} messageId - 用户消息的 UUID（截断锚点）
+   * @param {number} startTime - 文件回滚开始时间戳
+   * @param {number} endTime - 文件回滚结束时间戳
+   */
+  async truncateSession(sessionId, messageId, startTime, endTime) {
+    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/truncate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId, startTime, endTime })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: '请求失败' }));
+      throw new Error(err.error || `截断失败: ${response.status}`);
+    }
+    return response.json();
+  }
+
   stopGeneration(abortController) {
     if (abortController) {
       abortController.abort();
