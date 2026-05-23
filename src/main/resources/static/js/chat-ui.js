@@ -5,8 +5,9 @@ import { showToast } from './utils/toast.js';
 import { ReviewState } from './utils/review-state.js';
 
 export class ChatUI {
-  constructor(container) {
+  constructor(container, options = {}) {
     this.container = container;
+    this.rollbackFile = options.rollbackFile || null;
   }
 
   clear() {
@@ -285,12 +286,10 @@ export class ChatUI {
     if (undoBtn) undoBtn.textContent = '撤销中...';
 
     try {
-      const response = await fetch('/api/files/rollback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath })
-      });
-      const result = await response.json();
+      if (!this.rollbackFile) {
+        throw new Error('rollbackFile 未配置');
+      }
+      const result = await this.rollbackFile(filePath);
 
       if (result.success) {
         card.dataset.reviewStatus = 'rolled_back';

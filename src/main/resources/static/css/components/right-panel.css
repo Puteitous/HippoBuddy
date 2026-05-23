@@ -1,0 +1,408 @@
+/* ========== 右侧面板内容区 ========== */
+
+.right-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 8px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
+}
+
+.sidebar-section {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-section:last-child {
+    border-bottom: none;
+}
+
+.sidebar-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    font-weight: 600;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition-fast);
+    letter-spacing: 0.03em;
+}
+
+.sidebar-section-header > span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sidebar-section-header svg {
+    flex-shrink: 0;
+}
+
+.sidebar-section-header:hover {
+    background: var(--bg-code);
+}
+
+.sidebar-section-header .arrow {
+    font-size: 11px;
+    color: var(--text-muted);
+    transition: transform var(--transition-fast);
+    margin-left: auto;
+}
+
+.sidebar-section-header.expanded .arrow {
+    transform: rotate(90deg);
+}
+
+.sidebar-section-body {
+    display: none;
+    padding: 6px 10px 10px;
+}
+
+.sidebar-section-body.show {
+    display: block;
+}
+
+/* Token 可视化面板 */
+.token-visual {
+    font-size: var(--font-size-sm);
+}
+
+.token-visual-item {
+    margin-bottom: 4px;
+}
+
+.token-visual-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+}
+
+.token-visual-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.token-visual-track {
+    height: 8px;
+    background: var(--bg-code);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.token-visual-fill {
+    height: 100%;
+    background: var(--primary-color);
+    border-radius: 4px;
+    transition: width 0.5s ease, background 0.5s ease, box-shadow 0.3s ease;
+}
+
+.token-visual-sub {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.token-visual-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 10px 0;
+}
+
+.token-visual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.token-visual-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tvs-label {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.tvs-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: var(--font-size-md);
+}
+
+.token-visual-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-secondary);
+}
+
+.tv-total-value {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: var(--font-size-lg);
+}
+
+/* ========== Token 趋势图 ========== */
+.token-trend {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.token-trend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.token-trend-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.token-trend-value {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.token-trend-chart {
+    width: 100%;
+    height: 48px;
+    overflow: visible;
+}
+
+.token-trend-chart svg {
+    width: 100%;
+    height: 100%;
+}
+
+.token-trend-chart polyline {
+    fill: none;
+    stroke: var(--primary-color);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.token-trend-chart .trend-area {
+    fill: url(#trendGradient);
+    opacity: 0.3;
+}
+
+.token-trend-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    padding: 16px 0;
+}
+
+/* ========== 实时监控面板 ========== */
+.metrics-panel {
+    padding: 4px 0;
+}
+
+.metrics-group {
+    margin-bottom: 8px;
+}
+
+.metrics-group-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: 0.3px;
+}
+
+.metrics-group-title svg {
+    flex-shrink: 0;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
+.metrics-item {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.metrics-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.2;
+}
+
+.metrics-value {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.metrics-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 8px 0;
+}
+
+.metrics-tool-list {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.metrics-tool-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.metrics-tool-tag .tool-count {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.metrics-update-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: right;
+    margin-top: 6px;
+    opacity: 0.7;
+}
+
+/* ========== 文件变更看板 ========== */
+.file-changes-panel {
+    padding: 4px 0;
+}
+
+.file-changes-empty {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-align: center;
+    padding: 16px 8px;
+}
+
+.file-changes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.file-change-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    cursor: default;
+    transition: background var(--transition-fast);
+}
+
+.file-change-item:hover {
+    background: var(--bg-code);
+}
+
+.file-change-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+}
+
+.file-change-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-change-path {
+    font-size: var(--font-size-xs);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+}
+
+.file-change-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+    margin-top: 1px;
+}
+
+.file-change-tool {
+    background: var(--bg-light);
+    padding: 0 4px;
+    border-radius: 3px;
+}
+
+.file-change-badge {
+    background: var(--primary-color);
+    color: white;
+    padding: 0 5px;
+    border-radius: 8px;
+    font-size: 9px;
+    margin-left: 4px;
+}
+
+.file-change-rollback {
+    font-size: 10px;
+    padding: 2px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-white);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+}
+
+.file-change-rollback:hover {
+    background: var(--error-bg);
+    border-color: var(--error-color);
+    color: var(--error-text);
+}
+
+.file-change-rollback.rolling {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ========== 侧边栏审阅指示点 ========== */
+.file-review-dot {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    font-size: 10px;
+    vertical-align: middle;
+    color: var(--error-color);
+}

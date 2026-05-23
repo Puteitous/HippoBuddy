@@ -283,6 +283,19 @@ export class ChatService {
     return response.json();
   }
 
+  async rollbackFile(filePath) {
+    const response = await fetch(`${this.baseUrl}/api/files/rollback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: '请求失败' }));
+      throw new Error(err.error || `撤销失败: ${response.status}`);
+    }
+    return response.json();
+  }
+
   stopGeneration(abortController) {
     if (abortController) {
       abortController.abort();

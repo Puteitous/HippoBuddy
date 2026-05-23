@@ -28,6 +28,11 @@ export class ChatPanel {
     this._runningToolCallIds = new Set();
     this._destroyed = false;
 
+    // 增量渲染：streaming 文本快速更新
+    this._streamingAnchor = null;
+    this._lastSegmentCount = 0;
+    this._pendingIsTextOnly = false;
+
     this.init();
   }
   
@@ -140,7 +145,7 @@ export class ChatPanel {
     // 滚动事件
     if (this.container) {
       this.container.addEventListener('scroll', () => {
-        if (this.isNearBottom()) {
+        if (this.isNearBottom(100)) {
           appState.userScrolledUp = false;
           if (this.elements.newMsgHint) {
             this.elements.newMsgHint.style.display = 'none';
@@ -436,6 +441,7 @@ export class ChatPanel {
         contentDiv.querySelector('.typing-indicator')?.remove();
       }
       
+      this._pendingIsTextOnly = true;
       this._scheduleRender(contentDiv, this.segments, this.currentText);
       this.smartScroll();
       return;
@@ -653,7 +659,8 @@ export class ChatPanel {
     const THROTTLE_MS = 60;
     const now = Date.now();
     
-    this._pendingRender = { container, segments, currentText };
+    this._pendingRender = { container, segments, currentText, _isTextOnly: !!this._pendingIsTextOnly };
+    this._pendingIsTextOnly = false;
     
     if (now - this._lastRenderTime >= THROTTLE_MS) {
       this._lastRenderTime = now;
@@ -668,7 +675,7 @@ export class ChatPanel {
   }
   
   /**
-   * 立即刷新挂起的渲染
+   * 立即刷新挂起的渲染（总是全量重建——仅在纯文本 streaming 时走增量路径）
    */
   _flushRender() {
     if (this._renderThrottleTimer) {
@@ -676,6 +683,7 @@ export class ChatPanel {
       this._renderThrottleTimer = null;
     }
     if (this._pendingRender) {
+      this._pendingRender._isTextOnly = false;
       this._lastRenderTime = Date.now();
       this._doRender();
     }
@@ -785,6 +793,9 @@ export class ChatPanel {
   
   /**
    * 执行实际的 DOM 渲染
+   *
+   * — 纯文本 streaming（_isTextOnly）: 仅更新 .streaming-region，不碰已有 DOM
+   * — 其他（新 segment / 工具状态变化）: 全量重建
    */
   async _doRender() {
     if (this._destroyed) return;
@@ -792,21 +803,36 @@ export class ChatPanel {
     if (!pending) return;
     this._pendingRender = null;
     
-    const { container, segments, currentText } = pending;
+    const { container, segments, currentText, _isTextOnly } = pending;
     
-    // 保存聊天容器的滚动位置，防止 DOM 重建导致内容跳动
+    // ========== FAST PATH：仅 streaming 文本变化，无新 segment ==========
+    if (_isTextOnly && this._streamingAnchor && this._streamingAnchor.isConnected &&
+        this._lastSegmentCount === segments.length) {
+      if (currentText) {
+        this._streamingAnchor.innerHTML = await renderMarkdown(currentText);
+        if (this._destroyed) return;
+      } else {
+        this._streamingAnchor.innerHTML = '';
+      }
+      this.smartScroll();
+      return;
+    }
+    
+    // ========== FULL REBUILD：新增 segment 或工具状态变化 ==========
+    this._lastSegmentCount = segments.length;
+    
     const chatContainer = this.container;
     const savedScrollTop = chatContainer.scrollTop;
     
     let html = '';
     let toolTimelineHtml = '';
 
-    function flushToolTimeline() {
+    const flushToolTimeline = () => {
       if (toolTimelineHtml) {
         html += `<div class="tool-timeline">${toolTimelineHtml}</div>`;
         toolTimelineHtml = '';
       }
-    }
+    };
 
     for (const segment of segments) {
       if (segment.type === 'thinking') {
@@ -827,9 +853,12 @@ export class ChatPanel {
     }
     flushToolTimeline();
 
+    // 用已知容器包裹 streaming 文本，方便后续增量更新
+    html += `<div class="streaming-region">`;
     if (currentText) {
       html += await renderMarkdown(currentText);
     }
+    html += `</div>`;
 
     if (this._destroyed) return;
 
@@ -860,17 +889,8 @@ export class ChatPanel {
     // 4) 原子置换：一次操作完成新旧 DOM 切换（零中间帧）
     container.replaceChildren(...tempDiv.children);
 
-    // 自动展开有实时进度的工具时间线行
-    container.querySelectorAll('.tool-timeline-item').forEach(item => {
-      const detail = item.querySelector('.tool-timeline-detail');
-      if (detail && detail.querySelector('.timeline-detail-progress')) {
-        if (!item.classList.contains('expanded')) {
-          item.classList.add('expanded');
-          const h = detail.scrollHeight;
-          detail.style.maxHeight = h > 0 ? h + 'px' : '9999px';
-        }
-      }
-    });
+    // 保存 streaming anchor 引用
+    this._streamingAnchor = container.querySelector('.streaming-region');
 
     // 恢复滚动位置（避免 DOM 重建导致滚动跳动）
     chatContainer.scrollTop = savedScrollTop;
@@ -899,7 +919,6 @@ export class ChatPanel {
         const checkbox = item?.querySelector('.auto-allow-checkbox');
         const autoAllowSimilar = checkbox ? checkbox.checked : false;
         this._sendToolConfirmResponse(confirmId, decision, autoAllowSimilar);
-        // 点击后自动收起确认卡片
         if (item) {
           const detail = item.querySelector('.tool-timeline-detail');
           if (detail) {
@@ -1117,6 +1136,7 @@ export class ChatPanel {
         
         if (parsed._eventType === 'content' && parsed.content) {
           currentText += parsed.content;
+          this._pendingIsTextOnly = true;
           this._scheduleRender(responseContentDiv, segments, currentText);
           this.chatUI.scrollToBottom();
           return;
@@ -1332,7 +1352,7 @@ export class ChatPanel {
    * 智能滚动
    */
   smartScroll() {
-    if (this.isNearBottom()) {
+    if (this.isNearBottom(100)) {
       this.chatUI.scrollToBottom();
       if (this.elements.newMsgHint) {
         this.elements.newMsgHint.style.display = 'none';
@@ -1346,20 +1366,14 @@ export class ChatPanel {
     }
   }
   
-  /**
-   * 检查是否在底部
-   */
-  isNearBottom() {
+  isNearBottom(threshold = 100) {
     if (!this.container) return true;
-    
-    const threshold = 100;
     const scrollTop = this.container.scrollTop;
     const scrollHeight = this.container.scrollHeight;
     const clientHeight = this.container.clientHeight;
-    
     return scrollHeight - scrollTop - clientHeight < threshold;
   }
-  
+
   /**
    * 将错误分类为用户友好的消息
    */
@@ -1517,6 +1531,337 @@ export class ChatPanel {
     });
   }
   
+  /**
+   * 从服务端消息数组加载历史消息（会话切换时调用）
+   */
+  async loadHistoryMessages(messages) {
+    const toolResults = {};
+    for (const msg of messages) {
+      if ((msg.role === 'tool' || msg.role === 'tool-result') && msg.toolCallId) {
+        toolResults[msg.toolCallId] = msg;
+      }
+    }
+
+    const messageRows = [];
+
+    let i = 0;
+    while (i < messages.length) {
+      const msg = messages[i];
+      if (msg.role === 'tool' || msg.role === 'tool-result') {
+        i++;
+        continue;
+      }
+
+      if (msg.role === 'user') {
+        messageRows.push({ type: 'user', content: msg.content, id: msg.id });
+        i++;
+        continue;
+      }
+
+      if (msg.role === 'assistant') {
+        const segments = [];
+        let text = '';
+        let firstMsgTime = null;
+
+        while (i < messages.length) {
+          const am = messages[i];
+
+          if (am.role === 'tool' || am.role === 'tool-result') {
+            i++;
+            continue;
+          }
+
+          if (am.role !== 'assistant') {
+            break;
+          }
+
+          const amText = am.content || '';
+          const amReasoning = am.reasoning_content || '';
+          const hasToolCalls = am.tool_calls && am.tool_calls.length > 0;
+
+          if (!firstMsgTime && am.timestamp) {
+            firstMsgTime = am.timestamp;
+          }
+
+          if (amText.trim() && !hasToolCalls) {
+            if (text.trim()) segments.push({ type: 'text', content: text });
+            if (amReasoning) {
+              segments.push({ type: 'thinking', content: amReasoning, done: true });
+            }
+            text = amText;
+            i++;
+            break;
+          }
+
+          if (text.trim()) {
+            segments.push({ type: 'text', content: text });
+            text = '';
+          }
+
+          if (amReasoning) {
+            segments.push({ type: 'thinking', content: amReasoning, done: true });
+          }
+
+          if (amText.trim()) {
+            text = amText;
+          }
+
+          if (hasToolCalls) {
+            if (text.trim()) {
+              segments.push({ type: 'text', content: text });
+              text = '';
+            }
+
+            for (const tc of am.tool_calls) {
+              let result = null;
+              let resultContent = null;
+              let error = null;
+              const tr = toolResults[tc.id];
+              if (tr) {
+                result = tr.success ? 'success' : 'error';
+                resultContent = tr.content || null;
+                if (!tr.success) error = resultContent;
+              }
+              segments.push({
+                type: 'tool',
+                name: tc.name,
+                args: tc.arguments,
+                result: result,
+                resultContent: resultContent,
+                error: error
+              });
+            }
+          }
+          i++;
+        }
+
+        if (text.trim()) {
+          segments.push({ type: 'text', content: text });
+        }
+
+        messageRows.push({ type: 'assistant', segments, firstMsgTime });
+      } else {
+        i++;
+      }
+    }
+
+    // Process markdown + DOM in batches — content appears progressively
+    const BATCH_SIZE = 20;
+    let isFirstBatch = true;
+
+    this.container.innerHTML = '';
+
+    for (let batchStart = 0; batchStart < messageRows.length; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, messageRows.length);
+
+      // Render markdown for text segments in this batch only
+      const batchRenderTasks = [];
+      for (let ri = batchStart; ri < batchEnd; ri++) {
+        const row = messageRows[ri];
+        if (row.type !== 'assistant') continue;
+        for (const seg of row.segments) {
+          if (seg.type === 'text' && seg.content && !seg._rendered) {
+            batchRenderTasks.push(seg);
+          }
+        }
+      }
+      if (batchRenderTasks.length > 0) {
+        const results = await Promise.all(batchRenderTasks.map(seg => renderMarkdown(seg.content)));
+        for (let ti = 0; ti < batchRenderTasks.length; ti++) {
+          batchRenderTasks[ti]._rendered = results[ti];
+        }
+      }
+
+      // Build DOM for this batch
+      const fragment = document.createDocumentFragment();
+      const pendingUserEditBtns = [];
+      let rowIndex = 0;
+
+      for (let ri = batchStart; ri < batchEnd; ri++) {
+        const row = messageRows[ri];
+
+        if (row.type === 'user') {
+          if (row.content && row.content.trim()) {
+            const userRow = document.createElement('div');
+            userRow.className = 'message-row user-row';
+            userRow.style.setProperty('--msg-delay', `${Math.min(rowIndex * 0.04, 0.6)}s`);
+            userRow.classList.add('animate-in');
+            rowIndex++;
+
+            const userMsgDiv = document.createElement('div');
+            userMsgDiv.className = 'message user';
+            if (row.id) userMsgDiv.dataset.messageId = row.id;
+
+            const userContentDiv = document.createElement('div');
+            userContentDiv.className = 'message-content';
+            userContentDiv.textContent = row.content;
+            userMsgDiv.appendChild(userContentDiv);
+
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            userMsgDiv.appendChild(timeDiv);
+
+            userRow.appendChild(userMsgDiv);
+
+            const btnContainer = document.createElement('div');
+            btnContainer.className = 'message-actions';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'message-action-btn';
+            editBtn.title = '编辑';
+            editBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+            btnContainer.appendChild(editBtn);
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'message-action-btn';
+            copyBtn.title = '复制';
+            copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            copyBtn.addEventListener('click', () => {
+              navigator.clipboard.writeText(row.content).then(() => {
+                copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                  copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                  copyBtn.classList.remove('copied');
+                }, 2000);
+              }).catch(() => {});
+            });
+            btnContainer.appendChild(copyBtn);
+            userRow.appendChild(btnContainer);
+            fragment.appendChild(userRow);
+            pendingUserEditBtns.push({ editBtn, msgDiv: userMsgDiv });
+          }
+          continue;
+        }
+
+        if (row.type === 'assistant') {
+          const segments = row.segments;
+          const firstMsgTime = row.firstMsgTime;
+
+          const rowEl = document.createElement('div');
+          rowEl.className = 'message-row assistant-row';
+          rowEl.style.setProperty('--msg-delay', `${Math.min(rowIndex * 0.04, 0.6)}s`);
+          rowEl.classList.add('animate-in');
+          rowIndex++;
+
+          const msgDiv = document.createElement('div');
+          msgDiv.className = 'message assistant';
+          if (firstMsgTime) msgDiv.dataset.timestamp = firstMsgTime;
+          const contentDiv = document.createElement('div');
+          contentDiv.className = 'message-content';
+
+          if (segments.length === 0) {
+            contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
+          } else {
+            let html = '';
+            let toolTimelineHtml = '';
+            const flushToolTimeline = () => {
+              if (toolTimelineHtml) {
+                html += `<div class="tool-timeline">${toolTimelineHtml}</div>`;
+                toolTimelineHtml = '';
+              }
+            };
+            for (const seg of segments) {
+              if (seg.type === 'thinking') {
+                flushToolTimeline();
+                html += this._renderThinkingBubble(seg);
+              } else if (seg.type === 'tool') {
+                if (seg.name === 'todo_write' || seg.name === 'ask_user') {
+                  flushToolTimeline();
+                  html += this.chatUI.renderToolCard(seg);
+                } else {
+                  toolTimelineHtml += this.chatUI.renderToolTimelineRow(seg);
+                }
+              } else if (seg.type === 'text' && seg.content) {
+                flushToolTimeline();
+                html += seg._rendered || '';
+              }
+            }
+            flushToolTimeline();
+            contentDiv.innerHTML = html;
+            contentDiv.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
+              this.chatUI.bindToolCardEvents(card);
+            });
+          }
+          msgDiv.appendChild(contentDiv);
+          rowEl.appendChild(msgDiv);
+
+          const btnContainer = document.createElement('div');
+          btnContainer.className = 'message-actions';
+
+          const retryBtn = document.createElement('button');
+          retryBtn.className = 'message-action-btn';
+          retryBtn.title = '重试';
+          retryBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+          btnContainer.appendChild(retryBtn);
+
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'message-action-btn';
+          copyBtn.title = '复制';
+          copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+          btnContainer.appendChild(copyBtn);
+
+          const rollbackBtn = document.createElement('button');
+          rollbackBtn.className = 'message-action-btn rollback-btn';
+          rollbackBtn.title = '回退此消息的文件修改';
+          rollbackBtn.innerHTML = '↩';
+          rollbackBtn.addEventListener('click', () => EventBus.emit('message:rollback', msgDiv));
+          btnContainer.appendChild(rollbackBtn);
+
+          const rawMarkdown = segments.filter(s => s.type === 'text').map(s => s.content).join('');
+          contentDiv.dataset.markdown = rawMarkdown;
+
+          copyBtn.onclick = () => {
+            const textToCopy = contentDiv.dataset.markdown || contentDiv.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+              copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+              copyBtn.classList.add('copied');
+              setTimeout(() => {
+                copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                copyBtn.classList.remove('copied');
+              }, 2000);
+            });
+          };
+
+          const footer = document.createElement('div');
+          footer.className = 'message-footer';
+          footer.appendChild(btnContainer);
+
+          const timeDiv = document.createElement('div');
+          timeDiv.className = 'message-time';
+          timeDiv.textContent = firstMsgTime
+            ? new Date(firstMsgTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+          footer.appendChild(timeDiv);
+          msgDiv.appendChild(footer);
+          fragment.appendChild(rowEl);
+        }
+      }
+
+      if (isFirstBatch) {
+        isFirstBatch = false;
+        this.container.appendChild(fragment);
+        // Reveal container after first batch is in DOM — no flash, no drop
+        this.container.classList.remove('switching');
+        // Yield to browser so first batch paints before remaining batches
+        await new Promise(r => requestAnimationFrame(r));
+      } else {
+        this.container.appendChild(fragment);
+      }
+
+      if (pendingUserEditBtns.length > 0) {
+        requestAnimationFrame(() => {
+          for (const { editBtn, msgDiv } of pendingUserEditBtns) {
+            editBtn.addEventListener('click', () => this.startEditMessage(msgDiv));
+          }
+        });
+      }
+    }
+
+    this.chatUI.scrollToBottom();
+  }
+
   /**
    * 销毁组件
    */

@@ -92,9 +92,13 @@ export async function initMarkdownRenderer(options = {}) {
   return marked;
 }
 
+let _cachedMarked = null;
+
 export async function renderMarkdown(text) {
-  const marked = await initMarkdownRenderer({ enableHighlight: true });
-  return marked.parse(text);
+  if (!_cachedMarked) {
+    _cachedMarked = await initMarkdownRenderer({ enableHighlight: true });
+  }
+  return _cachedMarked.parse(text);
 }
 
 export function copyCode(codeId) {

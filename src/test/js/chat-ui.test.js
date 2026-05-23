@@ -37,7 +37,9 @@ describe('ChatUI', () => {
 
     const mod = await vi.importActual('../../main/resources/static/js/chat-ui.js');
     ChatUI = mod.ChatUI;
-    chatUI = new ChatUI(container);
+    chatUI = new ChatUI(container, {
+      rollbackFile: vi.fn().mockResolvedValue({ success: true })
+    });
   });
 
   afterEach(() => {

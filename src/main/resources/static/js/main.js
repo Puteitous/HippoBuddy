@@ -32,7 +32,9 @@ let selectedPresetId = appState.selectedPresetId;
 // ========== 服务实例 ==========
 const chatService = new ChatService();
 const chatContainer = document.getElementById('chatContainer');
-const chatUI = new ChatUI(chatContainer);
+const chatUI = new ChatUI(chatContainer, {
+  rollbackFile: (filePath) => chatService.rollbackFile(filePath)
+});
 const sessionList = document.getElementById('sessionList');
 
 // ========== 组件实例 ==========
@@ -308,31 +310,6 @@ function bindGlobalEvents() {
     closePromptModal();
   });
   
-  // 输入框事件
-  elements.messageInput?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (chatPanel) {
-        chatPanel.sendMessage();
-      }
-    }
-  });
-  
-  // 发送按钮
-  elements.sendBtn?.addEventListener('click', () => {
-    if (chatPanel) {
-      chatPanel.sendMessage();
-    }
-  });
-  
-  // 停止按钮
-  elements.stopBtn?.addEventListener('click', () => {
-    if (chatPanel) {
-      chatPanel.stopGeneration();
-    }
-  });
-  
-  
   // 左侧栏折叠（52px 仅图标）
   const sessionPanel = document.getElementById('sessionPanel');
   const sessionToggle = document.getElementById('sessionToggle');
@@ -479,13 +456,19 @@ async function switchSession(sessionId) {
   
   currentSessionId = sessionId;
   sessionManager.setCurrentSession(sessionId);
-  appState.currentSessionId = sessionId; // 同步到 appState
-  await sessionManager.loadSessions();
+  appState.currentSessionId = sessionId;
+  
+  // Update active state in-place — no full session list rebuild
+  sessionManager.updateActiveSession(sessionId);
+  
+  // Fade out current chat content while loading
+  chatContainer.classList.add('switching');
   
   try {
     const messages = await chatService.getSessionMessages(sessionId);
     
     if (messages.length === 0) {
+      chatContainer.classList.remove('switching');
       chatContainer.innerHTML = `
         <div class="empty-state">
           <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
@@ -510,22 +493,15 @@ async function switchSession(sessionId) {
           <div class="empty-hero-hint">Enter 发送 · Shift+Enter 换行</div>
         </div>`;
     } else {
-      await loadHistoryMessages(messages);
+      await chatPanel.loadHistoryMessages(messages);
       document.querySelector('.chat-panel')?.classList.add('has-messages');
-      // 历史消息级联入场错开延迟
-      requestAnimationFrame(() => {
-        const rows = chatContainer.querySelectorAll('.message-row');
-        rows.forEach((row, i) => {
-          row.style.setProperty('--msg-delay', `${i * 0.04}s`);
-          row.classList.add('animate-in');
-        });
-      });
     }
     
     tokenMonitor.scheduleUpdate();
     metricsPanel.updateMetrics();
     fileChangeManager?.updateFileChanges();
   } catch (e) {
+    chatContainer.classList.remove('switching');
     chatContainer.innerHTML = `
       <div class="empty-state">
         <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
@@ -560,334 +536,7 @@ async function switchSession(sessionId) {
   elements.messageInput?.focus();
 }
 
-// ========== 加载历史消息 ==========
-async function loadHistoryMessages(messages) {
-  const toolResults = {};
-  for (const msg of messages) {
-    if ((msg.role === 'tool' || msg.role === 'tool-result') && msg.toolCallId) {
-      toolResults[msg.toolCallId] = msg;
-    }
-  }
-  
-  // Phase 1: Build structured message data + collect markdown tasks for parallel rendering
-  const messageRows = [];
-  const markdownTasks = [];
-  
-  let i = 0;
-  while (i < messages.length) {
-    const msg = messages[i];
-    if (msg.role === 'tool' || msg.role === 'tool-result') { 
-      i++; 
-      continue; 
-    }
-    
-    if (msg.role === 'user') {
-      messageRows.push({ type: 'user', content: msg.content, id: msg.id });
-      i++;
-      continue;
-    }
-    
-    if (msg.role === 'assistant') {
-      const segments = [];
-      let text = '';
-      let firstMsgTime = null;
-      
-      while (i < messages.length) {
-        const am = messages[i];
-        
-        if (am.role === 'tool' || am.role === 'tool-result') {
-          i++;
-          continue;
-        }
-        
-        if (am.role !== 'assistant') {
-          break;
-        }
-        
-        const amText = am.content || '';
-        const amReasoning = am.reasoning_content || '';
-        const hasToolCalls = am.tool_calls && am.tool_calls.length > 0;
-        
-        if (!firstMsgTime && am.timestamp) {
-          firstMsgTime = am.timestamp;
-        }
-        
-        if (amText.trim() && !hasToolCalls) {
-          if (text.trim()) segments.push({ type: 'text', content: text });
-          if (amReasoning) {
-            segments.push({ type: 'thinking', content: amReasoning, done: true });
-          }
-          text = amText;
-          i++;
-          break;
-        }
-        
-        if (text.trim()) {
-          segments.push({ type: 'text', content: text });
-          text = '';
-        }
-        
-        if (amReasoning) {
-          segments.push({ type: 'thinking', content: amReasoning, done: true });
-        }
-        
-        if (amText.trim()) {
-          text = amText;
-        }
-        
-        if (hasToolCalls) {
-          if (text.trim()) {
-            segments.push({ type: 'text', content: text });
-            text = '';
-          }
-          
-          for (const tc of am.tool_calls) {
-            let result = null;
-            let resultContent = null;
-            let error = null;
-            const tr = toolResults[tc.id];
-            if (tr) {
-              result = tr.success ? 'success' : 'error';
-              resultContent = tr.content || null;
-              if (!tr.success) error = resultContent;
-            }
-            segments.push({
-              type: 'tool',
-              name: tc.name,
-              args: tc.arguments,
-              result: result,
-              resultContent: resultContent,
-              error: error
-            });
-          }
-        }
-        i++;
-      }
-      
-      if (text.trim()) {
-        segments.push({ type: 'text', content: text });
-      }
-      
-      messageRows.push({ type: 'assistant', segments, firstMsgTime });
-    } else {
-      i++;
-    }
-  }
-  
-  // Phase 2: Collect all text segment content for parallel markdown rendering
-  for (const row of messageRows) {
-    if (row.type !== 'assistant') continue;
-    for (const seg of row.segments) {
-      if (seg.type === 'text' && seg.content) {
-        markdownTasks.push({ row, seg });
-      }
-    }
-  }
-  
-  // Warm up markdown renderer with first batch, then parallelize the rest
-  if (markdownTasks.length > 0) {
-    const results = await Promise.all(markdownTasks.map(t => renderMarkdown(t.seg.content)));
-    for (let ti = 0; ti < markdownTasks.length; ti++) {
-      markdownTasks[ti].seg._rendered = results[ti];
-    }
-  }
-  
-  // Phase 3: Build and append DOM in batches, yielding to browser between batches
-  const BATCH_SIZE = 6;
-  let isFirstBatch = true;
-  for (let batchStart = 0; batchStart < messageRows.length; batchStart += BATCH_SIZE) {
-    const batchEnd = Math.min(batchStart + BATCH_SIZE, messageRows.length);
-    const fragment = document.createDocumentFragment();
-    const pendingUserEditBtns = [];
-    
-    for (let ri = batchStart; ri < batchEnd; ri++) {
-      const row = messageRows[ri];
-      
-      if (row.type === 'user') {
-        if (row.content && row.content.trim()) {
-          const userRow = document.createElement('div');
-          userRow.className = 'message-row user-row';
-          
-          const userMsgDiv = document.createElement('div');
-          userMsgDiv.className = 'message user';
-          if (row.id) userMsgDiv.dataset.messageId = row.id;
-          
-          const userContentDiv = document.createElement('div');
-          userContentDiv.className = 'message-content';
-          userContentDiv.textContent = row.content;
-          userMsgDiv.appendChild(userContentDiv);
-          
-          const timeDiv = document.createElement('div');
-          timeDiv.className = 'message-time';
-          timeDiv.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-          userMsgDiv.appendChild(timeDiv);
-          
-          userRow.appendChild(userMsgDiv);
-          
-          const btnContainer = document.createElement('div');
-          btnContainer.className = 'message-actions';
-          
-          const editBtn = document.createElement('button');
-          editBtn.className = 'message-action-btn';
-          editBtn.title = '编辑';
-          editBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
-          btnContainer.appendChild(editBtn);
-          
-          const copyBtn = document.createElement('button');
-          copyBtn.className = 'message-action-btn';
-          copyBtn.title = '复制';
-          copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-          copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(row.content).then(() => {
-              copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-              copyBtn.classList.add('copied');
-              setTimeout(() => {
-                copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-                copyBtn.classList.remove('copied');
-              }, 2000);
-            }).catch(() => {});
-          });
-          btnContainer.appendChild(copyBtn);
-          
-          userRow.appendChild(btnContainer);
-          
-          fragment.appendChild(userRow);
-          pendingUserEditBtns.push({ editBtn, msgDiv: userMsgDiv });
-        }
-        continue;
-      }
-      
-      if (row.type === 'assistant') {
-        const segments = row.segments;
-        const firstMsgTime = row.firstMsgTime;
-        
-        const rowEl = document.createElement('div');
-        rowEl.className = 'message-row assistant-row';
-        
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'message assistant';
-        if (firstMsgTime) msgDiv.dataset.timestamp = firstMsgTime;
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-        
-        if (segments.length === 0) {
-          contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
-        } else {
-          let html = '';
-          let toolTimelineHtml = '';
-          function flushToolTimeline() {
-            if (toolTimelineHtml) {
-              html += `<div class="tool-timeline">${toolTimelineHtml}</div>`;
-              toolTimelineHtml = '';
-            }
-          }
-          for (const seg of segments) {
-            if (seg.type === 'thinking') {
-              flushToolTimeline();
-              html += chatPanel._renderThinkingBubble(seg);
-            } else if (seg.type === 'tool') {
-              if (seg.name === 'todo_write' || seg.name === 'ask_user') {
-                flushToolTimeline();
-                html += chatUI.renderToolCard(seg);
-              } else {
-                toolTimelineHtml += chatUI.renderToolTimelineRow(seg);
-              }
-            } else if (seg.type === 'text' && seg.content) {
-              flushToolTimeline();
-              html += seg._rendered || '';
-            }
-          }
-          flushToolTimeline();
-          contentDiv.innerHTML = html;
-          contentDiv.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
-            chatUI.bindToolCardEvents(card);
-          });
-        }
-        msgDiv.appendChild(contentDiv);
-        rowEl.appendChild(msgDiv);
-        
-        const btnContainer = document.createElement('div');
-        btnContainer.className = 'message-actions';
-        
-        const retryBtn = document.createElement('button');
-        retryBtn.className = 'message-action-btn';
-        retryBtn.title = '重试';
-        retryBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
-        btnContainer.appendChild(retryBtn);
-        
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'message-action-btn';
-        copyBtn.title = '复制';
-        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-        btnContainer.appendChild(copyBtn);
-        
-        const rollbackBtn = document.createElement('button');
-        rollbackBtn.className = 'message-action-btn rollback-btn';
-        rollbackBtn.title = '回退此消息的文件修改';
-        rollbackBtn.innerHTML = '↩';
-        rollbackBtn.addEventListener('click', () => EventBus.emit('message:rollback', msgDiv));
-        btnContainer.appendChild(rollbackBtn);
-        
-        const rawMarkdown = segments.filter(s => s.type === 'text').map(s => s.content).join('');
-        contentDiv.dataset.markdown = rawMarkdown;
-        
-        copyBtn.onclick = () => {
-          const textToCopy = contentDiv.dataset.markdown || contentDiv.innerText;
-          navigator.clipboard.writeText(textToCopy).then(() => {
-            copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-            copyBtn.classList.add('copied');
-            setTimeout(() => {
-              copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-              copyBtn.classList.remove('copied');
-            }, 2000);
-          });
-        };
-        
-        const footer = document.createElement('div');
-        footer.className = 'message-footer';
-        
-        footer.appendChild(btnContainer);
-        
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'message-time';
-        timeDiv.textContent = firstMsgTime 
-          ? new Date(firstMsgTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) 
-          : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        footer.appendChild(timeDiv);
-        
-        msgDiv.appendChild(footer);
-        
-        fragment.appendChild(rowEl);
-      }
-    }
-    
-    // First batch: atomically replace loading state with content
-    if (isFirstBatch) {
-      isFirstBatch = false;
-      chatContainer.innerHTML = '';
-      chatContainer.appendChild(fragment);
-    } else {
-      chatContainer.appendChild(fragment);
-    }
-    
-    // Wire up edit buttons after DOM is attached
-    if (pendingUserEditBtns.length > 0) {
-      requestAnimationFrame(() => {
-        for (const { editBtn, msgDiv } of pendingUserEditBtns) {
-          editBtn.addEventListener('click', () => chatPanel.startEditMessage(msgDiv));
-        }
-      });
-    }
-    
-    if (batchEnd < messageRows.length) {
-      await new Promise(r => requestAnimationFrame(r));
-    }
-  }
-  
-  chatUI.scrollToBottom();
-}
 
-// ========== 提示词管理 ==========
 async function loadPromptPresets() {
   try {
     const response = await fetch('/api/system-prompts/presets');

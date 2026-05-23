@@ -25,6 +25,16 @@ export class SessionManager {
     return this.currentSessionId;
   }
 
+  /** Update active class on session items in-place (no DOM rebuild) */
+  updateActiveSession(sessionId) {
+    this.currentSessionId = sessionId;
+    const items = this.listContainer.querySelectorAll('.session-item');
+    for (const item of items) {
+      const sid = item.dataset.sessionId;
+      item.classList.toggle('active', sid === sessionId);
+    }
+  }
+
   /** Render a given list of sessions into the container (synchronous) */
   renderSessionList(sessions) {
     this.sessions = sessions;

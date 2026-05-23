@@ -1,0 +1,111 @@
+/* ==========================================
+   Splash Screen — 河马出水动画
+   ========================================== */
+
+.splash-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-app);
+    overflow: hidden;
+    pointer-events: all;
+    cursor: pointer;
+}
+
+.splash-screen.splash-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+}
+
+.splash-hippo {
+    font-size: 130px;
+    line-height: 1;
+    z-index: 1;
+    position: relative;
+    transform: translateY(32vh);
+    transition: transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    filter: drop-shadow(0 8px 32px rgba(0,0,0,0.12));
+}
+
+.splash-screen.splash-animating .splash-hippo {
+    transform: translateY(0);
+}
+
+.splash-skip-hint {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    transition-delay: 1.8s;
+    letter-spacing: 0.04em;
+    user-select: none;
+    z-index: 3;
+}
+
+.splash-screen.splash-animating .splash-skip-hint {
+    opacity: 1;
+}
+
+.splash-screen.splash-hidden .splash-skip-hint {
+    opacity: 0;
+    transition-delay: 0s;
+}
+
+.splash-wave-wrap {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 38vh;
+    z-index: 2;
+    overflow: hidden;
+    transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-delay: 1s;
+}
+
+.splash-screen.splash-animating .splash-wave-wrap {
+    height: 0;
+}
+
+.splash-wave {
+    position: absolute;
+    bottom: 0;
+    width: 200%;
+    height: 100%;
+    border-radius: 40% 60% 0 0 / 100% 100% 0 0;
+    transform-origin: bottom center;
+}
+
+.splash-wave-back {
+    left: -50%;
+    background: linear-gradient(180deg, rgba(79,172,254,0.35) 0%, rgba(79,172,254,0.08) 100%);
+    animation: splash-wave-move 4s ease-in-out infinite alternate;
+}
+
+.splash-wave-front {
+    left: -25%;
+    background: linear-gradient(180deg, rgba(79,172,254,0.55) 0%, rgba(79,172,254,0.18) 100%);
+    animation: splash-wave-move 3s ease-in-out infinite alternate-reverse;
+}
+
+[data-theme="dark"] .splash-wave-back {
+    background: linear-gradient(180deg, rgba(25,75,140,0.5) 0%, rgba(25,75,140,0.15) 100%);
+}
+
+[data-theme="dark"] .splash-wave-front {
+    background: linear-gradient(180deg, rgba(35,95,185,0.6) 0%, rgba(35,95,185,0.2) 100%);
+}
+
+@keyframes splash-wave-move {
+    0%   { transform: translateX(0) scaleY(1); }
+    50%  { transform: translateX(-6%) scaleY(0.92); }
+    100% { transform: translateX(-12%) scaleY(1.06); }
+}
