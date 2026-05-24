@@ -297,21 +297,51 @@ export class ChatService {
   }
 
   /**
-   * 截断会话：删除从指定消息开始及之后的所有消息，回滚文件变更，同步清理 JSONL
-   * @param {string} sessionId - 会话 ID
-   * @param {string} messageId - 用户消息的 UUID（截断锚点）
-   * @param {number} startTime - 文件回滚开始时间戳
-   * @param {number} endTime - 文件回滚结束时间戳
+   * 快照回滚（基于快照方案）
+   * @param {string} sessionId
+   * @param {string} messageId
+   * @returns {Promise<{success: boolean, filesChanged: number}>}
    */
-  async truncateSession(sessionId, messageId, startTime, endTime) {
-    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/truncate`, {
+  async rewind(sessionId, messageId) {
+    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/rewind`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messageId, startTime, endTime })
+      body: JSON.stringify({ messageId })
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({ error: '请求失败' }));
-      throw new Error(err.error || `截断失败: ${response.status}`);
+      throw new Error(err.error || `回滚失败: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * 快照回滚预览
+   * @param {string} sessionId
+   * @param {string} messageId
+   * @returns {Promise<{files: Array}>}
+   */
+  async rewindPreview(sessionId, messageId) {
+    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/rewind-check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId })
+    });
+    if (!response.ok) {
+      return { files: [] };
+    }
+    return response.json();
+  }
+
+  /**
+   * 获取快照列表
+   * @param {string} sessionId
+   * @returns {Promise<{snapshots: Array}>}
+   */
+  async getSnapshots(sessionId) {
+    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/snapshots`);
+    if (!response.ok) {
+      return { snapshots: [] };
     }
     return response.json();
   }
