@@ -18,6 +18,8 @@ import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.tools.BashTool;
+import com.example.agent.tools.FileChangeTracker;
+import com.example.agent.snapshot.FileSnapshotManager;
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.web.logging.SessionLogger;
@@ -303,6 +305,8 @@ public class WebAgentOrchestrator {
 
             try {
                 RequestContext.set(RequestContext.ContextType.WEB);
+                FileChangeTracker.setCurrentSessionId(sessionId);
+                FileSnapshotManager.setCurrentSessionId(sessionId);
 
                 // 对 bash 工具做预检查：三级安全模型 + session auto-allow
                 if ("bash".equals(toolName)) {
@@ -456,6 +460,8 @@ public class WebAgentOrchestrator {
 
                 SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
             } finally {
+                FileChangeTracker.clearCurrentSessionId();
+                FileSnapshotManager.clearCurrentSessionId();
                 RequestContext.clear();
             }
         }

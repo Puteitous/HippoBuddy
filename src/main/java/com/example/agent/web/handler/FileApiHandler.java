@@ -43,8 +43,6 @@ public class FileApiHandler implements HttpHandler {
                 handleGetChanges(exchange);
             } else if ("GET".equals(method) && path.endsWith("/diff")) {
                 handleGetDiff(exchange);
-            } else if ("POST".equals(method) && path.endsWith("/rollback-range")) {
-                handleRollbackRange(exchange);
             } else if ("POST".equals(method) && path.endsWith("/rollback")) {
                 handleRollback(exchange);
             } else {
@@ -180,33 +178,6 @@ public class FileApiHandler implements HttpHandler {
         } else {
             logger.warn("文件回滚失败: filePath={}", filePath);
             sendJson(exchange, 404, objectMapper.writeValueAsString(Map.of("success", false, "error", "未找到可恢复的版本")));
-        }
-    }
-
-    private void handleRollbackRange(HttpExchange exchange) throws IOException {
-        String body = new BufferedReader(
-            new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8))
-            .lines().collect(Collectors.joining());
-
-        logger.debug("Rollback-range request body: {}", body);
-
-        JsonNode json = objectMapper.readTree(body);
-        long startTime = json.has("startTime") ? json.get("startTime").asLong() : 0;
-        long endTime = json.has("endTime") ? json.get("endTime").asLong() : System.currentTimeMillis();
-
-        if (startTime <= 0 || endTime <= 0 || startTime >= endTime) {
-            sendJson(exchange, 400, objectMapper.writeValueAsString(Map.of("error", "无效的时间范围")));
-            return;
-        }
-
-        logger.info("执行批量回滚: startTime={}, endTime={}", startTime, endTime);
-        int count = FileChangeTracker.rollbackRange(startTime, endTime);
-
-        if (count > 0) {
-            logger.info("批量回滚成功: 回滚了 {} 个文件", count);
-            sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", true, "message", "已回滚 " + count + " 个文件")));
-        } else {
-            sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", true, "message", "没有需要回滚的文件变更")));
         }
     }
 

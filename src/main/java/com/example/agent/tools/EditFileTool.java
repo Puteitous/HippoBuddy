@@ -2,6 +2,7 @@ package com.example.agent.tools;
 
 
 import com.example.agent.logging.EditFailureLogger;
+import com.example.agent.snapshot.FileSnapshotManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -234,8 +235,10 @@ public class EditFileTool implements ToolExecutor {
                 path.toAbsolutePath().toString(),
                 content,
                 newContent,
-                "edit_file"
+                "edit_file",
+                false
             );
+            FileSnapshotManager.trackCurrentSessionFile(path.toAbsolutePath().toString(), false);
 
             String absolutePath = path.toAbsolutePath() != null ? path.toAbsolutePath().toString() : path.toString();
             String relativePath = PathSecurityUtils.getRelativePath(path);

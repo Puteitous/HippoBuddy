@@ -8,6 +8,8 @@ import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
 import com.example.agent.service.TokenEstimatorFactory;
+import com.example.agent.snapshot.FileSnapshotManager;
+import com.example.agent.snapshot.Snapshot;
 import com.example.agent.web.util.ConversationJsonlReader;
 import com.example.agent.web.util.MessageConverter;
 import com.example.agent.web.util.SessionListBuilder;
@@ -23,9 +25,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public class SessionApiHandler implements HttpHandler {
 
@@ -68,6 +73,15 @@ public class SessionApiHandler implements HttpHandler {
             } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/compact$")) {
                 String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/compact"));
                 handleCompactSession(exchange, sessionId);
+            } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/rewind-check$")) {
+                String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/rewind-check"));
+                handleRewindCheck(exchange, sessionId);
+            } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/rewind$")) {
+                String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/rewind"));
+                handleRewindSession(exchange, sessionId);
+            } else if ("GET".equals(method) && path.matches("/api/sessions/[^/]+/snapshots$")) {
+                String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/snapshots"));
+                handleListSnapshots(exchange, sessionId);
             } else if ("DELETE".equals(method) && path.matches("/api/sessions/[^/]+$")) {
                 String sessionId = path.substring("/api/sessions/".length());
                 handleDeleteSession(exchange, sessionId);
@@ -137,21 +151,23 @@ public class SessionApiHandler implements HttpHandler {
         Path jsonl = jsonlReader.findJsonlFile(sessionId);
         if (jsonl != null && Files.exists(jsonl)) {
             try {
-                Files.delete(jsonl);
-                logger.info("删除会话文件：sessionId={}, file={}", sessionId, jsonl);
-                deleted = true;
-                
                 Path sessionDir = jsonl.getParent();
-                if (Files.exists(sessionDir) && Files.list(sessionDir).findAny().isEmpty()) {
-                    try {
-                        Files.delete(sessionDir);
-                        logger.debug("删除空会话目录：{}", sessionDir);
-                    } catch (IOException e) {
-                        logger.debug("删除空目录失败：{}", sessionDir, e);
+                if (Files.exists(sessionDir)) {
+                    try (Stream<Path> walk = Files.walk(sessionDir)) {
+                        walk.sorted((a, b) -> b.compareTo(a))
+                            .forEach(path -> {
+                                try {
+                                    Files.delete(path);
+                                } catch (IOException e) {
+                                    logger.warn("删除会话文件失败: {}", path);
+                                }
+                            });
                     }
+                    deleted = true;
+                    logger.info("已删除会话目录: sessionId={}, dir={}", sessionId, sessionDir);
                 }
             } catch (IOException e) {
-                logger.warn("删除会话文件失败：sessionId={}", sessionId, e);
+                logger.warn("删除会话目录失败：sessionId={}", sessionId, e);
             }
         }
 
@@ -286,6 +302,181 @@ public class SessionApiHandler implements HttpHandler {
             sendError(exchange, 500, "Failed to compact session: " + e.getMessage());
         }
         exchange.close();
+    }
+
+    /**
+     * 快照回滚预览（基于快照方案）
+     * POST /api/sessions/{id}/rewind-check
+     * 请求体: {"messageId": "uuid"}
+     */
+    private void handleRewindCheck(HttpExchange exchange, String sessionId) throws IOException {
+        String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        JsonNode json = objectMapper.readTree(requestBody);
+        String messageId = json.has("messageId") ? json.get("messageId").asText() : "";
+
+        if (messageId.isBlank()) {
+            sendJson(exchange, Map.of("files", List.of()));
+            return;
+        }
+
+        FileSnapshotManager.PreviewResult preview = FileSnapshotManager.getPreview(sessionId, messageId);
+        if (preview == null) {
+            sendJson(exchange, Map.of("files", List.of()));
+            return;
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("files", preview.getFiles().stream().map(f -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("filePath", f.getFilePath());
+            item.put("action", f.getAction());
+            return item;
+        }).collect(java.util.stream.Collectors.toList()));
+        sendJson(exchange, response);
+    }
+
+    /**
+     * 快照回滚（基于快照方案）
+     * POST /api/sessions/{id}/rewind
+     * 请求体: {"messageId": "uuid"}
+     *
+     * 此操作会：
+     * 1. 根据快照恢复文件
+     * 2. 截断内存中的 Conversation 消息
+     * 3. 事务性重写 JSONL 文件
+     * 4. 截断 snapshots.jsonl
+     */
+    private void handleRewindSession(HttpExchange exchange, String sessionId) throws IOException {
+        String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        JsonNode json = objectMapper.readTree(requestBody);
+        String messageId = json.has("messageId") ? json.get("messageId").asText("") : "";
+
+        if (messageId.isBlank()) {
+            sendError(exchange, 400, "messageId is required");
+            return;
+        }
+
+        Conversation conversation = com.example.agent.web.session.WebSessionManager.getInstance().getSessions().get(sessionId);
+        boolean isActiveSession = conversation != null;
+        ConversationService conversationService = null;
+        Path jsonlPath = null;
+
+        if (isActiveSession) {
+            conversationService = ServiceLocator.get(ConversationService.class);
+            jsonlPath = conversationService.flushTranscript(sessionId);
+        } else {
+            jsonlPath = jsonlReader.findJsonlFile(sessionId);
+        }
+
+        if (jsonlPath == null || !Files.exists(jsonlPath)) {
+            sendError(exchange, 404, "Session not found");
+            return;
+        }
+
+        try {
+            boolean foundMessageInJsonl = false;
+            List<String> lines = Files.readAllLines(jsonlPath, StandardCharsets.UTF_8);
+            for (String line : lines) {
+                if (line.isBlank()) continue;
+                try {
+                    JsonNode lineNode = objectMapper.readTree(line);
+                    String uuid = lineNode.has("uuid") ? lineNode.get("uuid").asText() : "";
+                    if (messageId.equals(uuid)) {
+                        foundMessageInJsonl = true;
+                        break;
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (!foundMessageInJsonl) {
+                sendError(exchange, 404, "Message not found in session file");
+                return;
+            }
+
+            FileSnapshotManager.RewindResult rewindResult = FileSnapshotManager.rewindToSnapshot(sessionId, messageId);
+            if (!rewindResult.isSuccess()) {
+                sendError(exchange, 500, rewindResult.getError());
+                return;
+            }
+
+            truncateConversationJsonl(jsonlPath, sessionId, messageId);
+            FileSnapshotManager.truncateSnapshotsAfter(sessionId, messageId);
+
+            if (isActiveSession) {
+                int removed = conversationService.truncateMessagesAfter(conversation, messageId);
+                logger.debug("内存截断完成: sessionId={}, 删除{}条消息", sessionId, removed);
+
+                conversationService.destroyTranscript(sessionId);
+                conversationService.ensureSessionComponents(conversation);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "已回滚到指定轮次");
+            response.put("filesChanged", rewindResult.getRestoredFiles().size());
+            sendJson(exchange, response);
+
+        } catch (Exception e) {
+            logger.error("回滚失败: sessionId={}", sessionId, e);
+            sendError(exchange, 500, "回滚失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 事务性重写 JSONL 文件：删除从 messageId 开始及之后的所有行。
+     * 使用临时文件 + ATOMIC_MOVE（Windows 回退到 REPLACE_EXISTING）。
+     */
+    private void truncateConversationJsonl(Path jsonlPath, String sessionId, String messageId) throws IOException {
+        List<String> lines = Files.readAllLines(jsonlPath, StandardCharsets.UTF_8);
+        List<String> keptLines = new ArrayList<>();
+        boolean passedTarget = false;
+        for (String line : lines) {
+            if (line.isBlank()) continue;
+            try {
+                JsonNode lineNode = objectMapper.readTree(line);
+                String uuid = lineNode.has("uuid") ? lineNode.get("uuid").asText() : "";
+                if (messageId.equals(uuid)) {
+                    passedTarget = true;
+                    continue;
+                }
+                if (!passedTarget) {
+                    keptLines.add(line);
+                }
+            } catch (Exception e) {
+                if (!passedTarget) {
+                    keptLines.add(line);
+                }
+            }
+        }
+
+        Path tempFile = jsonlPath.resolveSibling("conversation.jsonl.tmp");
+        Files.write(tempFile, keptLines, StandardCharsets.UTF_8);
+        try {
+            Files.move(tempFile, jsonlPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception e) {
+            logger.warn("原子移动失败，使用常规替换: {}", e.getMessage());
+            Files.move(tempFile, jsonlPath, StandardCopyOption.REPLACE_EXISTING);
+        }
+        jsonlReader.removeFromCache(sessionId);
+        logger.debug("JSONL 文件截断完成: sessionId={}, 保留{}行", sessionId, keptLines.size());
+    }
+
+    /**
+     * 获取快照列表
+     * GET /api/sessions/{id}/snapshots
+     */
+    private void handleListSnapshots(HttpExchange exchange, String sessionId) throws IOException {
+        List<Snapshot> snapshots = FileSnapshotManager.loadAllSnapshots(sessionId);
+        List<Map<String, Object>> snapshotList = new ArrayList<>();
+        for (Snapshot s : snapshots) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("messageId", s.getMessageId());
+            item.put("timestamp", s.getTimestamp());
+            item.put("fileCount", s.getTrackedFiles().size());
+            snapshotList.add(item);
+        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("snapshots", snapshotList);
+        sendJson(exchange, response);
     }
 
     /**

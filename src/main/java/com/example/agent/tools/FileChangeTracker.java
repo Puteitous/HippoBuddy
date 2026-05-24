@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,59 +21,119 @@ public class FileChangeTracker {
 
     private static final Logger logger = LoggerFactory.getLogger(FileChangeTracker.class);
 
-    private static final Map<String, List<FileChange>> changesByPath = new ConcurrentHashMap<>();
+    private static final Map<String, Map<String, List<FileChange>>> changesBySession = new ConcurrentHashMap<>();
     private static final int MAX_CHANGES_PER_FILE = 20;
     private static final int MAX_TOTAL_CHANGES = 500;
     private static final String STORAGE_FILE = "changes.jsonl";
 
     private static final AtomicBoolean initialized = new AtomicBoolean(false);
-    private static Path storageFile;
+    private static Path testBaseDir;
+
+    private static final ThreadLocal<String> currentSessionId = new ThreadLocal<>();
 
     private FileChangeTracker() {}
 
+    public static void setCurrentSessionId(String sessionId) {
+        currentSessionId.set(sessionId);
+    }
+
+    public static void clearCurrentSessionId() {
+        currentSessionId.remove();
+    }
+
+    public static String getCurrentSessionId() {
+        String id = currentSessionId.get();
+        return id != null ? id : "";
+    }
+
     public static synchronized void init() {
         if (initialized.get()) return;
-        try {
-            Path changesDir = WorkspaceManager.getCurrentProjectDir().resolve("changes");
-            Files.createDirectories(changesDir);
-            storageFile = changesDir.resolve(STORAGE_FILE);
+        initialized.set(true);
 
-            if (Files.exists(storageFile)) {
-                List<String> lines = Files.readAllLines(storageFile, StandardCharsets.UTF_8);
-                for (String line : lines) {
-                    if (line.isBlank()) continue;
-                    try {
-                        FileChange change = FileChange.fromJson(line);
-                        changesByPath
-                            .computeIfAbsent(change.filePath, k -> new CopyOnWriteArrayList<>())
-                            .add(change);
-                    } catch (Exception e) {
-                        logger.warn("跳过损坏的变更记录: {}", e.getMessage());
-                    }
+        // 一次性清理旧全局 changes/changes.jsonl（不再使用的全局共享文件）
+        try {
+            Path oldGlobalFile = WorkspaceManager.getCurrentProjectDir().resolve("changes").resolve("changes.jsonl");
+            if (Files.exists(oldGlobalFile)) {
+                Files.delete(oldGlobalFile);
+                logger.info("已删除旧全局 changes.jsonl（迁移到会话级存储）");
+
+                Path oldChangesDir = oldGlobalFile.getParent();
+                if (Files.exists(oldChangesDir) && Files.list(oldChangesDir).findAny().isEmpty()) {
+                    Files.delete(oldChangesDir);
+                    logger.debug("已删除空 changes 目录");
                 }
-                logger.info("✅ 已从文件恢复 {} 条文件变更记录", lines.size());
-            } else {
-                logger.info("无持久化的文件变更记录，从空白开始");
             }
-            initialized.set(true);
         } catch (Exception e) {
-            logger.error("❌ 初始化文件变更持久化失败", e);
-            initialized.set(true);
+            logger.debug("清理旧全局 changes.jsonl 失败（可忽略）: {}", e.getMessage());
+        }
+
+        logger.info("FileChangeTracker 已初始化（会话级存储）");
+    }
+
+    public static void loadSessionChanges(String sessionId) {
+        if (sessionId == null || sessionId.isEmpty()) return;
+        if (changesBySession.containsKey(sessionId)) return;
+
+        Path sessionFile = resolveSessionStorageFile(sessionId);
+        if (sessionFile == null || !Files.exists(sessionFile)) return;
+
+        try {
+            List<String> lines = Files.readAllLines(sessionFile, StandardCharsets.UTF_8);
+            Map<String, List<FileChange>> sessionChanges = new ConcurrentHashMap<>();
+            for (String line : lines) {
+                if (line.isBlank()) continue;
+                try {
+                    FileChange change = FileChange.fromJson(line);
+                    sessionChanges
+                        .computeIfAbsent(change.filePath, k -> new CopyOnWriteArrayList<>())
+                        .add(change);
+                } catch (Exception e) {
+                    logger.warn("跳过损坏的变更记录: {}", e.getMessage());
+                }
+            }
+            changesBySession.put(sessionId, sessionChanges);
+            logger.info("已加载会话变更记录: sessionId={}, {}条", sessionId, lines.size());
+        } catch (IOException e) {
+            logger.warn("加载会话变更记录失败: sessionId={}", sessionId, e);
         }
     }
 
-    private static Path resolveStorageFile() {
-        if (storageFile == null) {
-            init();
+    private static Path resolveSessionStorageFile(String sessionId) {
+        if (sessionId == null || sessionId.isEmpty()) {
+            if (testBaseDir != null) {
+                return testBaseDir.resolve(STORAGE_FILE);
+            }
+            return null;
         }
-        return storageFile;
+        try {
+            if (testBaseDir != null) {
+                Path sessionDir = testBaseDir.resolve(sessionId);
+                return sessionDir.resolve(STORAGE_FILE);
+            }
+            String projectKey = WorkspaceManager.getCurrentProjectKey();
+            return WorkspaceManager.getSessionDir(projectKey, sessionId).resolve(STORAGE_FILE);
+        } catch (Exception e) {
+            logger.warn("解析会话存储路径失败: sessionId={}", sessionId, e);
+            return null;
+        }
+    }
+
+    private static Map<String, List<FileChange>> getOrCreateSessionChanges(String sessionId) {
+        String sid = (sessionId != null && !sessionId.isEmpty()) ? sessionId : "";
+        return changesBySession.computeIfAbsent(sid, k -> new ConcurrentHashMap<>());
     }
 
     public static void recordChange(String filePath, String originalContent, String newContent, String toolName) {
-        ensureInitialized();
-        FileChange change = new FileChange(filePath, originalContent, newContent, toolName, System.currentTimeMillis());
+        recordChange(filePath, originalContent, newContent, toolName, false);
+    }
 
-        List<FileChange> list = changesByPath.computeIfAbsent(filePath, k -> new CopyOnWriteArrayList<>());
+    public static void recordChange(String filePath, String originalContent, String newContent, String toolName, boolean newFile) {
+        ensureInitialized();
+        String sessionId = getCurrentSessionId();
+        FileChange change = new FileChange(filePath, originalContent, newContent, toolName, System.currentTimeMillis(), newFile, sessionId);
+
+        Map<String, List<FileChange>> sessionChanges = getOrCreateSessionChanges(sessionId);
+        List<FileChange> list = sessionChanges.computeIfAbsent(filePath, k -> new CopyOnWriteArrayList<>());
         list.add(change);
         while (list.size() > MAX_CHANGES_PER_FILE) {
             list.remove(0);
@@ -86,8 +147,10 @@ public class FileChangeTracker {
     public static List<FileChange> getRecentChanges(int limit) {
         ensureInitialized();
         List<FileChange> all = new ArrayList<>();
-        for (List<FileChange> list : changesByPath.values()) {
-            all.addAll(list);
+        for (Map<String, List<FileChange>> sessionChanges : changesBySession.values()) {
+            for (List<FileChange> list : sessionChanges.values()) {
+                all.addAll(list);
+            }
         }
         all.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
         int end = Math.min(limit, all.size());
@@ -96,63 +159,32 @@ public class FileChangeTracker {
 
     public static FileChange getLastChange(String filePath) {
         ensureInitialized();
-        List<FileChange> list = changesByPath.get(filePath);
-        if (list != null && !list.isEmpty()) {
-            return list.get(list.size() - 1);
-        }
-
         String normalizedPath = normalizePath(filePath);
-        for (Map.Entry<String, List<FileChange>> entry : changesByPath.entrySet()) {
-            if (normalizePath(entry.getKey()).equals(normalizedPath)) {
-                list = entry.getValue();
-                if (!list.isEmpty()) {
-                    return list.get(list.size() - 1);
+        FileChange latest = null;
+        for (Map<String, List<FileChange>> sessionChanges : changesBySession.values()) {
+            for (Map.Entry<String, List<FileChange>> entry : sessionChanges.entrySet()) {
+                if (normalizePath(entry.getKey()).equals(normalizedPath)) {
+                    List<FileChange> list = entry.getValue();
+                    if (!list.isEmpty()) {
+                        FileChange last = list.get(list.size() - 1);
+                        if (latest == null || last.timestamp > latest.timestamp) {
+                            latest = last;
+                        }
+                    }
                 }
             }
         }
-
-        return null;
+        return latest;
     }
 
     public static List<FileChange> getAllChanges(String filePath) {
         ensureInitialized();
-        List<FileChange> list = changesByPath.get(filePath);
-        if (list != null && !list.isEmpty()) {
-            return new ArrayList<>(list);
-        }
-        String normalizedPath = normalizePath(filePath);
-        for (Map.Entry<String, List<FileChange>> entry : changesByPath.entrySet()) {
-            if (normalizePath(entry.getKey()).equals(normalizedPath)) {
-                return new ArrayList<>(entry.getValue());
-            }
-        }
-        return new ArrayList<>();
-    }
-
-    public static boolean rollback(String filePath) {
-        ensureInitialized();
-        FileChange change = getLastChange(filePath);
-        if (change == null) return false;
-        try {
-            Files.writeString(Path.of(change.filePath), change.originalContent, StandardCharsets.UTF_8);
-            List<FileChange> list = changesByPath.get(change.filePath);
-            if (list != null && !list.isEmpty()) {
-                list.remove(list.size() - 1);
-            }
-            flushToFile();
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    public static List<FileChange> getChangesInRange(long startTime, long endTime) {
-        ensureInitialized();
         List<FileChange> result = new ArrayList<>();
-        for (List<FileChange> list : changesByPath.values()) {
-            for (FileChange change : list) {
-                if (change.timestamp >= startTime && change.timestamp <= endTime) {
-                    result.add(change);
+        String normalizedPath = normalizePath(filePath);
+        for (Map<String, List<FileChange>> sessionChanges : changesBySession.values()) {
+            for (Map.Entry<String, List<FileChange>> entry : sessionChanges.entrySet()) {
+                if (normalizePath(entry.getKey()).equals(normalizedPath)) {
+                    result.addAll(entry.getValue());
                 }
             }
         }
@@ -160,104 +192,139 @@ public class FileChangeTracker {
         return result;
     }
 
-    public static int rollbackRange(long startTime, long endTime) {
+    public static boolean rollback(String filePath) {
         ensureInitialized();
-        List<FileChange> changes = getChangesInRange(startTime, endTime);
-        if (changes.isEmpty()) return 0;
+        FileChange change = getLastChange(filePath);
+        if (change == null) return false;
 
-        Map<String, List<FileChange>> grouped = new java.util.LinkedHashMap<>();
-        for (FileChange change : changes) {
-            grouped.computeIfAbsent(change.filePath, k -> new ArrayList<>()).add(change);
-        }
+        String sessionId = change.sessionId;
+        Map<String, List<FileChange>> sessionChanges = changesBySession.get(sessionId);
+        if (sessionChanges == null) return false;
 
-        int rolledBack = 0;
-        for (Map.Entry<String, List<FileChange>> entry : grouped.entrySet()) {
-            String filePath = entry.getKey();
-            List<FileChange> fileChanges = entry.getValue();
-            String originalContent = fileChanges.get(0).originalContent;
-            try {
-                Files.writeString(Path.of(filePath), originalContent, StandardCharsets.UTF_8);
-                List<FileChange> tracked = changesByPath.get(filePath);
-                if (tracked != null) {
-                    tracked.removeAll(fileChanges);
-                }
-                rolledBack++;
-            } catch (Exception e) {
-                // skip failed files
+        try {
+            if (change.newFile) {
+                Files.deleteIfExists(Path.of(change.filePath));
+            } else {
+                Files.writeString(Path.of(change.filePath), change.originalContent, StandardCharsets.UTF_8);
             }
+            List<FileChange> list = sessionChanges.get(change.filePath);
+            if (list != null && !list.isEmpty()) {
+                list.remove(list.size() - 1);
+            }
+            flushSessionToFile(sessionId, sessionChanges);
+            return true;
+        } catch (Exception e) {
+            return false;
         }
-
-        if (rolledBack > 0) {
-            flushToFile();
-        }
-        return rolledBack;
     }
 
     public static synchronized void clear() {
-        changesByPath.clear();
-        if (storageFile != null) {
+        changesBySession.clear();
+        if (testBaseDir != null) {
             try {
-                Files.deleteIfExists(storageFile);
+                Files.walk(testBaseDir)
+                    .filter(p -> p.getFileName().toString().equals(STORAGE_FILE))
+                    .forEach(p -> {
+                        try { Files.deleteIfExists(p); } catch (IOException ignored) {}
+                    });
             } catch (IOException e) {
                 logger.warn("清除变更记录文件失败: {}", e.getMessage());
             }
+            testBaseDir = null;
         }
     }
 
-    /** package-private: 用于测试中重置全部状态 */
     static synchronized void resetForTest() {
-        changesByPath.clear();
-        storageFile = null;
+        changesBySession.clear();
+        testBaseDir = null;
         initialized.set(false);
+        currentSessionId.remove();
     }
 
-    /** package-private: 设置测试用存储目录，绕过 WorkspaceManager */
     static synchronized void setStorageDirForTest(Path dir) {
-        changesByPath.clear();
+        changesBySession.clear();
+        testBaseDir = dir;
+        initialized.set(true);
+        currentSessionId.remove();
+
+        // 从测试目录加载已有记录（兼容旧版本测试）
         try {
-            Files.createDirectories(dir);
-            storageFile = dir.resolve(STORAGE_FILE);
-            initialized.set(true);
-            // 如果文件存在，加载已有记录
-            if (Files.exists(storageFile)) {
-                List<String> lines = Files.readAllLines(storageFile, StandardCharsets.UTF_8);
+            Path rootFile = dir.resolve(STORAGE_FILE);
+            if (Files.exists(rootFile)) {
+                Map<String, List<FileChange>> rootChanges = new ConcurrentHashMap<>();
+                List<String> lines = Files.readAllLines(rootFile, StandardCharsets.UTF_8);
                 for (String line : lines) {
                     if (line.isBlank()) continue;
                     try {
                         FileChange change = FileChange.fromJson(line);
-                        changesByPath
+                        rootChanges
                             .computeIfAbsent(change.filePath, k -> new CopyOnWriteArrayList<>())
                             .add(change);
                     } catch (Exception e) {
                         logger.warn("跳过损坏的变更记录: {}", e.getMessage());
                     }
                 }
+                if (!rootChanges.isEmpty()) {
+                    changesBySession.put("", rootChanges);
+                }
+            }
+
+            try (var stream = Files.list(dir)) {
+                stream.filter(Files::isDirectory).forEach(sessionDir -> {
+                    Path sessionFile = sessionDir.resolve(STORAGE_FILE);
+                    if (Files.exists(sessionFile)) {
+                        try {
+                            String sessionId = sessionDir.getFileName().toString();
+                            Map<String, List<FileChange>> sessionChanges = new ConcurrentHashMap<>();
+                            List<String> lines = Files.readAllLines(sessionFile, StandardCharsets.UTF_8);
+                            for (String line : lines) {
+                                if (line.isBlank()) continue;
+                                try {
+                                    FileChange change = FileChange.fromJson(line);
+                                    sessionChanges
+                                        .computeIfAbsent(change.filePath, k -> new CopyOnWriteArrayList<>())
+                                        .add(change);
+                                } catch (Exception e) {
+                                    logger.warn("跳过损坏的变更记录: {}", e.getMessage());
+                                }
+                            }
+                            changesBySession.put(sessionId, sessionChanges);
+                        } catch (IOException e) {
+                            logger.warn("加载测试会话变更记录失败: {}", e.getMessage());
+                        }
+                    }
+                });
             }
         } catch (IOException e) {
-            throw new RuntimeException("设置测试存储目录失败", e);
+            logger.warn("加载测试变更记录失败: {}", e.getMessage());
         }
     }
 
-    private static synchronized void appendToFile(FileChange change) {
-        Path file = resolveStorageFile();
+    private static void appendToFile(FileChange change) {
+        String sessionId = change.sessionId;
+        if (sessionId == null) sessionId = "";
+        Path file = resolveSessionStorageFile(sessionId);
         if (file == null) {
             logger.debug("持久化文件未初始化，跳过写入");
             return;
         }
         try {
-            Files.write(file, List.of(change.toJson()), StandardCharsets.UTF_8,
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, change.toJson() + System.lineSeparator(), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
-            logger.warn("写入文件变更记录失败: {}", e.getMessage());
+            logger.warn("写入会话变更记录失败: sessionId={}", sessionId, e);
         }
     }
 
-    private static synchronized void flushToFile() {
-        Path file = resolveStorageFile();
+    private static void flushSessionToFile(String sessionId, Map<String, List<FileChange>> sessionChanges) {
+        if (sessionChanges == null) return;
+        Path file = resolveSessionStorageFile(sessionId);
         if (file == null) return;
         try {
+            Files.createDirectories(file.getParent());
             List<String> lines = new ArrayList<>();
-            for (List<FileChange> list : changesByPath.values()) {
+            for (List<FileChange> list : sessionChanges.values()) {
                 for (FileChange change : list) {
                     lines.add(change.toJson());
                 }
@@ -265,33 +332,38 @@ public class FileChangeTracker {
             Files.write(file, lines, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException e) {
-            logger.warn("刷新文件变更记录失败: {}", e.getMessage());
+            logger.warn("刷新会话变更记录失败: sessionId={}", sessionId, e);
         }
     }
 
     private static void trimTotalIfNeeded() {
-        int total = 0;
-        for (List<FileChange> list : changesByPath.values()) {
-            total += list.size();
-        }
-        if (total <= MAX_TOTAL_CHANGES) return;
+        for (Map.Entry<String, Map<String, List<FileChange>>> sessionEntry : changesBySession.entrySet()) {
+            String sessionId = sessionEntry.getKey();
+            Map<String, List<FileChange>> sessionChanges = sessionEntry.getValue();
 
-        List<FileChange> all = new ArrayList<>();
-        for (List<FileChange> list : changesByPath.values()) {
-            all.addAll(list);
-        }
-        all.sort((a, b) -> Long.compare(a.timestamp, b.timestamp));
-
-        int toRemove = total - MAX_TOTAL_CHANGES;
-        for (int i = 0; i < toRemove && i < all.size(); i++) {
-            FileChange oldest = all.get(i);
-            List<FileChange> list = changesByPath.get(oldest.filePath);
-            if (list != null) {
-                list.remove(oldest);
+            int total = 0;
+            for (List<FileChange> list : sessionChanges.values()) {
+                total += list.size();
             }
-        }
+            if (total <= MAX_TOTAL_CHANGES) continue;
 
-        flushToFile();
+            List<FileChange> all = new ArrayList<>();
+            for (List<FileChange> list : sessionChanges.values()) {
+                all.addAll(list);
+            }
+            all.sort((a, b) -> Long.compare(a.timestamp, b.timestamp));
+
+            int toRemove = total - MAX_TOTAL_CHANGES;
+            for (int i = 0; i < toRemove && i < all.size(); i++) {
+                FileChange oldest = all.get(i);
+                List<FileChange> list = sessionChanges.get(oldest.filePath);
+                if (list != null) {
+                    list.remove(oldest);
+                }
+            }
+
+            flushSessionToFile(sessionId, sessionChanges);
+        }
     }
 
     private static void ensureInitialized() {
@@ -314,13 +386,21 @@ public class FileChangeTracker {
         public final String newContent;
         public final String toolName;
         public final long timestamp;
+        public final boolean newFile;
+        public final String sessionId;
 
-        public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp) {
+        public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile) {
+            this(filePath, originalContent, newContent, toolName, timestamp, newFile, "");
+        }
+
+        public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile, String sessionId) {
             this.filePath = filePath;
             this.originalContent = originalContent;
             this.newContent = newContent;
             this.toolName = toolName;
             this.timestamp = timestamp;
+            this.newFile = newFile;
+            this.sessionId = sessionId != null ? sessionId : "";
         }
 
         public String toJson() {
@@ -328,7 +408,9 @@ public class FileChangeTracker {
                 "\",\"originalContent\":\"" + escapeJson(originalContent) +
                 "\",\"newContent\":\"" + escapeJson(newContent) +
                 "\",\"toolName\":\"" + escapeJson(toolName) +
-                "\",\"timestamp\":" + timestamp + "}";
+                "\",\"timestamp\":" + timestamp +
+                ",\"newFile\":" + newFile +
+                ",\"sessionId\":\"" + escapeJson(sessionId) + "\"}";
         }
 
         public static FileChange fromJson(String json) {
@@ -337,7 +419,9 @@ public class FileChangeTracker {
             String newContent = extractJsonString(json, "newContent");
             String toolName = extractJsonString(json, "toolName");
             long timestamp = extractJsonLong(json, "timestamp");
-            return new FileChange(filePath, originalContent, newContent, toolName, timestamp);
+            boolean newFile = extractJsonBoolean(json, "newFile");
+            String sessionId = extractJsonString(json, "sessionId");
+            return new FileChange(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId);
         }
 
         private static String extractJsonString(String json, String key) {
@@ -386,6 +470,15 @@ public class FileChangeTracker {
             } catch (NumberFormatException e) {
                 return 0;
             }
+        }
+
+        private static boolean extractJsonBoolean(String json, String key) {
+            String search = "\"" + key + "\":";
+            int start = json.indexOf(search);
+            if (start < 0) return false;
+            start += search.length();
+            while (start < json.length() && json.charAt(start) == ' ') start++;
+            return start < json.length() && json.charAt(start) == 't';
         }
 
         private static String escapeJson(String s) {

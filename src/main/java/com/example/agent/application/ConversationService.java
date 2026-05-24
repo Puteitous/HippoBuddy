@@ -21,10 +21,12 @@ import com.example.agent.memory.extraction.MemoryExtractor;
 import com.example.agent.memory.consolidation.MemoryConsolidator;
 import com.example.agent.memory.session.SessionMemoryExtractor;
 import com.example.agent.service.TokenEstimator;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import com.example.agent.session.SessionData;
 import com.example.agent.session.SessionTranscript;
 import com.example.agent.tools.ToolArgumentSanitizer;
+import com.example.agent.snapshot.FileSnapshotManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -387,6 +389,36 @@ public class ConversationService {
         return removed;
     }
 
+    /**
+     * 强制刷盘 Transcript 并返回其文件路径
+     */
+    public Path flushTranscript(String sessionId) {
+        ConversationComponents components = componentRegistry.get(sessionId);
+        if (components != null) {
+            components.transcript.forceFlush();
+            return components.transcript.getTranscriptFile();
+        }
+        return null;
+    }
+
+    /**
+     * 销毁 Transcript 组件（强制刷盘 + 关闭 + 从注册表移除）
+     * 调用后需通过 ensureSessionComponents() 重建
+     */
+    public void destroyTranscript(String sessionId) {
+        ConversationComponents components = componentRegistry.remove(sessionId);
+        if (components != null) {
+            try {
+                components.transcript.forceFlush();
+                components.transcript.close();
+                logger.debug("已销毁 Transcript 组件: sessionId={}", sessionId);
+            } catch (Exception e) {
+                logger.warn("销毁 Transcript 组件失败: sessionId={}", sessionId, e);
+            }
+        }
+        sessionLastAccessTime.remove(sessionId);
+    }
+
     public Message editUserMessage(Conversation conversation, String messageId, String newContent) {
         if (conversation == null || messageId == null || newContent == null) {
             return null;
@@ -458,12 +490,30 @@ public class ConversationService {
                 components.transcript.appendUserMessage(message);
             } else if (message.isAssistant()) {
                 components.transcript.appendAssistantMessage(message, null);
+                String snapshotSessionId = conversation.getSessionId();
+                if (snapshotSessionId != null) {
+                    String userMsgId = findLastUserMessageId(conversation);
+                    if (userMsgId != null) {
+                        FileSnapshotManager.makeSnapshot(snapshotSessionId, userMsgId);
+                    }
+                }
             } else if (message.isTool()) {
                 components.transcript.appendToolResult(message, message.getName(), 0, toolSuccess);
             } else if (message.isSystem()) {
                 components.transcript.appendSystemMessage(message.getContent());
             }
         }
+    }
+
+    private String findLastUserMessageId(Conversation conversation) {
+        List<Message> messages = conversation.getMessages();
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Message msg = messages.get(i);
+            if (msg.isUser() && msg.getId() != null && !msg.getId().isEmpty()) {
+                return msg.getId();
+            }
+        }
+        return null;
     }
 
     public List<Message> prepareForInference(Conversation conversation) {

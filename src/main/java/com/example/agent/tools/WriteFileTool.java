@@ -1,6 +1,7 @@
 package com.example.agent.tools;
 
 
+import com.example.agent.snapshot.FileSnapshotManager;
 import com.example.agent.web.server.DashboardServer;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
@@ -113,8 +114,10 @@ public class WriteFileTool implements ToolExecutor {
                 path.toAbsolutePath().toString(),
                 originalContent,
                 content,
-                "write_file"
+                "write_file",
+                !fileExisted
             );
+            FileSnapshotManager.trackCurrentSessionFile(path.toAbsolutePath().toString(), !fileExisted);
 
             String absolutePath = path.toAbsolutePath() != null ? path.toAbsolutePath().toString() : path.toString();
             String relativePath = PathSecurityUtils.getRelativePath(path);
