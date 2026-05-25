@@ -16,11 +16,21 @@ public class FileFilter {
     private final IgnoredDirectories ignoredDirectories;
     private final IgnoredExtensions ignoredExtensions;
     private final GitignoreMatcher gitignoreMatcher;
+    private final boolean respectGitignore;
 
     public FileFilter(Path searchRoot) {
+        this(searchRoot, true);
+    }
+
+    public FileFilter(Path searchRoot, boolean respectGitignore) {
         this.ignoredDirectories = new IgnoredDirectories();
         this.ignoredExtensions = new IgnoredExtensions();
-        this.gitignoreMatcher = new GitignoreMatcher(searchRoot);
+        this.gitignoreMatcher = respectGitignore ? new GitignoreMatcher(searchRoot) : null;
+        this.respectGitignore = respectGitignore;
+    }
+
+    public static FileFilter withoutGitignore(Path searchRoot) {
+        return new FileFilter(searchRoot, false);
     }
 
     public FileFilter(IgnoredDirectories ignoredDirectories,
@@ -29,6 +39,7 @@ public class FileFilter {
         this.ignoredDirectories = ignoredDirectories;
         this.ignoredExtensions = ignoredExtensions;
         this.gitignoreMatcher = gitignoreMatcher;
+        this.respectGitignore = true;
     }
 
     public Stream<Path> walkFiles(Path start, int maxDepth) throws IOException {
@@ -40,7 +51,7 @@ public class FileFilter {
                     if (ignoredDirectories.isIgnored(dir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
-                    if (gitignoreMatcher.isIgnored(dir)) {
+                    if (respectGitignore && gitignoreMatcher.isIgnored(dir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                 }
@@ -73,6 +84,22 @@ public class FileFilter {
         if (ignoredExtensions.isIgnored(path)) {
             return false;
         }
-        return !gitignoreMatcher.isIgnored(path);
+        if (respectGitignore && gitignoreMatcher.isIgnored(path)) {
+            return false;
+        }
+        return true;
+    }
+
+    public boolean shouldList(Path path) {
+        if (ignoredDirectories.isIgnored(path)) {
+            return false;
+        }
+        if (Files.isRegularFile(path) && ignoredExtensions.isIgnored(path)) {
+            return false;
+        }
+        if (respectGitignore && gitignoreMatcher.isIgnored(path)) {
+            return false;
+        }
+        return true;
     }
 }

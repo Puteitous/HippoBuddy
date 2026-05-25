@@ -234,10 +234,10 @@ public class GrepTool implements ToolExecutor {
             }
 
             if (result.isContext()) {
-                sb.append("   - ").append(String.format("%4d", result.getLineNumber()))
+                sb.append("   · ").append(String.format("%4d", result.getLineNumber()))
                   .append(": ").append(result.getLineContent()).append("\n");
             } else {
-                sb.append("     ").append(String.format("%4d", result.getLineNumber()))
+                sb.append("   → ").append(String.format("%4d", result.getLineNumber()))
                   .append(": ").append(result.getLineContent()).append("\n");
             }
         }

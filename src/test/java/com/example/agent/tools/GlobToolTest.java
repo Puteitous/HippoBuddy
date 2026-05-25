@@ -2,8 +2,14 @@ package com.example.agent.tools;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -11,11 +17,24 @@ class GlobToolTest {
 
     private GlobTool tool;
     private ObjectMapper objectMapper;
+    private Path tempTestDir;
 
     @BeforeEach
     void setUp() {
         tool = new GlobTool();
         objectMapper = new ObjectMapper();
+    }
+
+    @AfterEach
+    void cleanUp() throws IOException {
+        if (tempTestDir != null && Files.exists(tempTestDir)) {
+            Files.walk(tempTestDir)
+                .sorted(Comparator.reverseOrder())
+                .forEach(p -> {
+                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
+                });
+            tempTestDir = null;
+        }
     }
 
     @Test
@@ -498,5 +517,63 @@ class GlobToolTest {
         
         assertNotNull(result);
         assertTrue(result.contains("未找到匹配的文件"));
+    }
+
+    @Test
+    void testRespectGitignoreTrue() throws Exception {
+        Path dir = Files.createTempDirectory(Path.of("."), ".globtest-");
+        tempTestDir = dir;
+        Files.writeString(dir.resolve(".gitignore"), "*.log\n");
+        Files.createFile(dir.resolve("test.log"));
+        Files.createFile(dir.resolve("test.txt"));
+
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", "*");
+        args.put("path", dir.normalize().toAbsolutePath().toString());
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("test.txt"), "应包含未被忽略的文件");
+        assertFalse(result.contains("test.log"), "应过滤掉 .gitignore 中列出的文件");
+    }
+
+    @Test
+    void testRespectGitignoreFalse() throws Exception {
+        Path dir = Files.createTempDirectory(Path.of("."), ".globtest-");
+        tempTestDir = dir;
+        Files.writeString(dir.resolve(".gitignore"), "*.log\n");
+        Files.createFile(dir.resolve("test.log"));
+        Files.createFile(dir.resolve("test.txt"));
+
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", "*");
+        args.put("path", dir.normalize().toAbsolutePath().toString());
+        args.put("respect_gitignore", false);
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("test.txt"), "应包含未被忽略的文件");
+        assertTrue(result.contains("test.log"), "respect_gitignore=false 时应保留被忽略的文件");
+    }
+
+    @Test
+    void testAbsolutePattern() throws Exception {
+        Path dir = Files.createTempDirectory(Path.of("."), ".globtest-");
+        tempTestDir = dir;
+        Files.createFile(dir.resolve("test.txt"));
+        Files.createFile(dir.resolve("other.java"));
+
+        String absolutePattern = dir.toAbsolutePath().normalize().toString().replace("\\", "/") + "/*.txt";
+
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", absolutePattern);
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("test.txt"), "绝对路径模式应匹配到文件");
+        assertFalse(result.contains("other.java"), "不应匹配模式外的文件");
     }
 }

@@ -13,9 +13,10 @@ import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.PriorityQueue;
 
 public class GlobTool implements ToolExecutor {
 
@@ -31,7 +32,7 @@ public class GlobTool implements ToolExecutor {
     @Override
     public String getDescription() {
         return "使用 glob 模式查找文件。支持通配符: * 匹配任意字符, ** 匹配任意层级目录。" +
-               "按修改时间排序返回匹配的文件列表。只能搜索项目目录内的文件。";
+               "也支持绝对路径模式（如 C:/src/**/*.java）。按修改时间排序返回匹配的文件列表。";
     }
 
     @Override
@@ -42,7 +43,7 @@ public class GlobTool implements ToolExecutor {
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "glob 模式，例如 '**/*.java' 或 'src/**/*.txt'"
+                        "description": "glob 模式，例如 '**/*.java' 或 'src/**/*.txt'。支持绝对路径模式如 'C:/src/**/*.java'"
                     },
                     "path": {
                         "type": "string",
@@ -54,6 +55,11 @@ public class GlobTool implements ToolExecutor {
                         "default": 100,
                         "minimum": 1,
                         "maximum": 1000
+                    },
+                    "respect_gitignore": {
+                        "type": "boolean",
+                        "description": "是否遵循 .gitignore 规则过滤文件（默认 true，设为 false 可搜索被 .gitignore 忽略的文件）",
+                        "default": true
                     }
                 },
                 "required": ["pattern"]
@@ -84,58 +90,79 @@ public class GlobTool implements ToolExecutor {
         if (pattern == null || pattern.trim().isEmpty()) {
             throw new ToolExecutionException("pattern 参数不能为空");
         }
-        
-        String searchPath = ".";
-        if (arguments.has("path") && !arguments.get("path").isNull()) {
-            String pathValue = arguments.get("path").asText();
-            if (pathValue != null && !pathValue.trim().isEmpty()) {
-                searchPath = pathValue;
-            }
-        }
-        
+
+        boolean respectGitignore = !arguments.has("respect_gitignore")
+                || arguments.get("respect_gitignore").isNull()
+                || arguments.get("respect_gitignore").asBoolean(true);
+
         int maxResults = 100;
         if (arguments.has("max_results") && !arguments.get("max_results").isNull()) {
             maxResults = arguments.get("max_results").asInt();
         }
-        
         maxResults = Math.max(1, Math.min(MAX_RESULTS, maxResults));
 
-        Path basePath = PathSecurityUtils.validateAndResolve(searchPath);
+        String effectivePattern = pattern;
+        String effectiveSearchPath;
+
+        if (GlobPathParser.isAbsolutePattern(pattern)) {
+            GlobPathParser.ParsedGlob parsed = GlobPathParser.extractGlobBaseDirectory(pattern);
+            effectiveSearchPath = parsed.baseDir();
+            effectivePattern = parsed.relativePattern();
+        } else {
+            effectiveSearchPath = ".";
+            if (arguments.has("path") && !arguments.get("path").isNull()) {
+                String pathValue = arguments.get("path").asText();
+                if (pathValue != null && !pathValue.trim().isEmpty()) {
+                    effectiveSearchPath = pathValue;
+                }
+            }
+        }
+
+        Path basePath = PathSecurityUtils.validateAndResolve(effectiveSearchPath);
 
         if (!Files.exists(basePath)) {
-            throw new ToolExecutionException("搜索路径不存在: " + searchPath);
+            throw new ToolExecutionException("搜索路径不存在: " + effectiveSearchPath);
         }
-
         if (!Files.isDirectory(basePath)) {
-            throw new ToolExecutionException("搜索路径不是目录: " + searchPath);
+            throw new ToolExecutionException("搜索路径不是目录: " + effectiveSearchPath);
         }
-
         if (!Files.isReadable(basePath)) {
-            throw new ToolExecutionException("搜索路径不可读: " + searchPath);
+            throw new ToolExecutionException("搜索路径不可读: " + effectiveSearchPath);
         }
 
         try {
-            String normalizedPattern = normalizePattern(pattern);
+            String normalizedPattern = normalizePattern(effectivePattern);
             PathMatcher matcher;
             try {
                 matcher = FileSystems.getDefault().getPathMatcher("glob:" + normalizedPattern);
             } catch (Exception e) {
-                throw new ToolExecutionException("无效的 glob 模式: " + pattern + " (" + e.getMessage() + ")");
+                throw new ToolExecutionException("无效的 glob 模式: " + effectivePattern + " (" + e.getMessage() + ")");
             }
-            
-            FileFilter fileFilter = new FileFilter(basePath);
-            
-            List<FileInfo> results = fileFilter.walkFiles(basePath, MAX_DEPTH)
-                    .filter(p -> isWithinProject(p))
-                    .filter(p -> matcher.matches(basePath.relativize(p)))
-                    .limit(maxResults * 2L)
-                    .map(this::toFileInfo)
-                    .sorted((a, b) -> b.modifiedTime.compareTo(a.modifiedTime))
-                    .limit(maxResults)
-                    .collect(Collectors.toList());
 
-            return formatResults(results, pattern, searchPath, maxResults);
-            
+            FileFilter fileFilter = respectGitignore
+                    ? new FileFilter(basePath)
+                    : FileFilter.withoutGitignore(basePath);
+
+            List<Path> matchedPaths = fileFilter.walkFiles(basePath, MAX_DEPTH)
+                    .filter(p -> matcher.matches(basePath.relativize(p)))
+                    .toList();
+
+            boolean truncated = matchedPaths.size() > maxResults;
+
+            PriorityQueue<FileInfo> heap = new PriorityQueue<>(
+                    (a, b) -> a.modifiedTime.compareTo(b.modifiedTime)
+            );
+            for (Path p : matchedPaths) {
+                heap.offer(toFileInfo(p));
+                if (heap.size() > maxResults) {
+                    heap.poll();
+                }
+            }
+            List<FileInfo> results = new ArrayList<>(heap);
+            results.sort((a, b) -> b.modifiedTime.compareTo(a.modifiedTime));
+
+            return formatResults(results, effectivePattern, effectiveSearchPath, maxResults, truncated);
+
         } catch (IOException e) {
             throw new ToolExecutionException("搜索文件失败: " + e.getMessage(), e);
         }
@@ -171,10 +198,6 @@ public class GlobTool implements ToolExecutor {
         return pattern;
     }
 
-    private boolean isWithinProject(Path path) {
-        return PathSecurityUtils.isWithinProject(path);
-    }
-
     private FileInfo toFileInfo(Path path) {
         try {
             BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
@@ -188,7 +211,7 @@ public class GlobTool implements ToolExecutor {
         }
     }
 
-    private String formatResults(List<FileInfo> results, String pattern, String searchPath, int maxResults) {
+    private String formatResults(List<FileInfo> results, String pattern, String searchPath, int maxResults, boolean truncated) {
         StringBuilder sb = new StringBuilder();
         
         if (results.isEmpty()) {
@@ -204,8 +227,8 @@ public class GlobTool implements ToolExecutor {
             sb.append("─────────────────────────────────────────────────────────────\n");
             sb.append(String.format("找到 %d 个文件", results.size()));
             
-            if (results.size() >= maxResults) {
-                sb.append("（仅展示前 ").append(maxResults).append(" 条，可能不完整）");
+            if (truncated) {
+                sb.append("（结果已截断，仅展示前 ").append(maxResults).append(" 条。尝试使用更精确的路径或模式）");
             }
             sb.append("\n");
 

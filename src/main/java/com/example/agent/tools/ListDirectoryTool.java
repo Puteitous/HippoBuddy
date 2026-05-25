@@ -1,5 +1,6 @@
 package com.example.agent.tools;
 
+import com.example.agent.tools.filter.FileFilter;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.IOException;
@@ -29,7 +30,7 @@ public class ListDirectoryTool implements ToolExecutor {
     @Override
     public String getDescription() {
         return "列出指定目录的内容。可以显示文件和子目录的详细信息，支持递归显示目录树。" +
-               "用于了解项目结构、查找文件位置。只能访问项目目录内的路径。";
+               "用于了解项目结构、查找文件位置。";
     }
 
     @Override
@@ -58,6 +59,11 @@ public class ListDirectoryTool implements ToolExecutor {
                         "type": "boolean",
                         "description": "是否显示隐藏文件（以 . 开头的文件，默认 false）",
                         "default": false
+                    },
+                    "respect_gitignore": {
+                        "type": "boolean",
+                        "description": "是否遵循 .gitignore 规则过滤文件（默认 true，设为 false 可显示被 .gitignore 忽略的文件）",
+                        "default": true
                     }
                 },
                 "required": []
@@ -101,6 +107,10 @@ public class ListDirectoryTool implements ToolExecutor {
                             !arguments.get("show_hidden").isNull() && 
                             arguments.get("show_hidden").asBoolean();
 
+        boolean respectGitignore = !arguments.has("respect_gitignore")
+                || arguments.get("respect_gitignore").isNull()
+                || arguments.get("respect_gitignore").asBoolean(true);
+
         maxDepth = Math.max(1, Math.min(5, maxDepth));
 
         Path path = PathSecurityUtils.validateAndResolve(directoryPath);
@@ -118,19 +128,23 @@ public class ListDirectoryTool implements ToolExecutor {
         }
 
         try {
+            FileFilter fileFilter = respectGitignore
+                    ? new FileFilter(path)
+                    : FileFilter.withoutGitignore(path);
+
             String relativePath = PathSecurityUtils.getRelativePath(path);
             
             if (recursive) {
-                return listRecursively(path, relativePath, maxDepth, showHidden);
+                return listRecursively(path, relativePath, maxDepth, showHidden, fileFilter);
             } else {
-                return listFlat(path, relativePath, showHidden);
+                return listFlat(path, relativePath, showHidden, fileFilter);
             }
         } catch (IOException e) {
             throw new ToolExecutionException("列出目录失败: " + e.getMessage(), e);
         }
     }
 
-    private String listFlat(Path directory, String relativePath, boolean showHidden) throws IOException {
+    private String listFlat(Path directory, String relativePath, boolean showHidden, FileFilter fileFilter) throws IOException {
         StringBuilder result = new StringBuilder();
         result.append("目录内容: ").append(relativePath).append("\n");
         result.append("─────────────────────────────────────────────────────────────\n");
@@ -138,6 +152,7 @@ public class ListDirectoryTool implements ToolExecutor {
         try (Stream<Path> stream = Files.list(directory)) {
             List<Path> entries = stream
                 .filter(p -> showHidden || !p.getFileName().toString().startsWith("."))
+                .filter(p -> fileFilter.shouldList(p))
                 .sorted((a, b) -> {
                     boolean aIsDir = Files.isDirectory(a);
                     boolean bIsDir = Files.isDirectory(b);
@@ -190,7 +205,7 @@ public class ListDirectoryTool implements ToolExecutor {
         return result.toString();
     }
 
-    private String listRecursively(Path directory, String relativePath, int maxDepth, boolean showHidden) throws IOException {
+    private String listRecursively(Path directory, String relativePath, int maxDepth, boolean showHidden, FileFilter fileFilter) throws IOException {
         StringBuilder result = new StringBuilder();
         result.append("目录树: ").append(relativePath).append("\n");
         result.append("─────────────────────────────────────────────────────────────\n");
@@ -198,7 +213,7 @@ public class ListDirectoryTool implements ToolExecutor {
         int[] count = new int[2];
         int[] totalItems = {0};
         
-        buildTree(directory, "", result, 0, maxDepth, showHidden, count, totalItems);
+        buildTree(directory, "", result, 0, maxDepth, showHidden, count, totalItems, fileFilter);
 
         result.append("─────────────────────────────────────────────────────────────\n");
         result.append(String.format("统计: %d 个目录, %d 个文件\n", count[0], count[1]));
@@ -211,7 +226,7 @@ public class ListDirectoryTool implements ToolExecutor {
     }
 
     private void buildTree(Path path, String prefix, StringBuilder result, int depth, int maxDepth, 
-                          boolean showHidden, int[] count, int[] totalItems) throws IOException {
+                          boolean showHidden, int[] count, int[] totalItems, FileFilter fileFilter) throws IOException {
         if (depth > maxDepth || totalItems[0] >= MAX_RESULTS) {
             return;
         }
@@ -219,6 +234,7 @@ public class ListDirectoryTool implements ToolExecutor {
         try (Stream<Path> stream = Files.list(path)) {
             List<Path> entries = stream
                 .filter(p -> showHidden || !p.getFileName().toString().startsWith("."))
+                .filter(p -> fileFilter.shouldList(p))
                 .sorted((a, b) -> {
                     boolean aIsDir = Files.isDirectory(a);
                     boolean bIsDir = Files.isDirectory(b);
@@ -252,7 +268,7 @@ public class ListDirectoryTool implements ToolExecutor {
 
                 if (isDir && depth < maxDepth) {
                     String newPrefix = prefix + (isLast ? "   " : "│  ");
-                    buildTree(entry, newPrefix, result, depth + 1, maxDepth, showHidden, count, totalItems);
+                    buildTree(entry, newPrefix, result, depth + 1, maxDepth, showHidden, count, totalItems, fileFilter);
                 }
             }
         }
