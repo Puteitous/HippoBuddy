@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class FileSnapshotManager {
 
@@ -174,6 +175,7 @@ public class FileSnapshotManager {
         trackedFilesBySession.remove(sessionId);
         trackedFileCreatedBySession.remove(sessionId);
 
+        gc(sessionId);
         logger.info("快照已创建: sessionId={}, messageId={}, files={}", sessionId, messageId, newTrackedFiles.size());
         return snapshot;
     }
@@ -500,6 +502,8 @@ public class FileSnapshotManager {
         rewriteSnapshotsFile(sessionId, retained);
         logger.info("快照 GC 完成: sessionId={}, 保留 {} 个, 删除 {} 个, 清理备份文件",
             sessionId, retained.size(), evicted.size());
+
+        cleanupEmptyDateDir(sessionId);
     }
 
     // ===== helpers =====
@@ -564,6 +568,22 @@ public class FileSnapshotManager {
             return HexFormat.of().formatHex(hashBytes).substring(0, 16);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 不可用", e);
+        }
+    }
+
+    private static void cleanupEmptyDateDir(String sessionId) {
+        if (testBaseDir != null) return;
+        Path sessionDir = resolveSessionDir(sessionId);
+        if (sessionDir == null) return;
+        Path dateDir = sessionDir.getParent();
+        if (dateDir == null || !Files.exists(dateDir)) return;
+        try (Stream<Path> entries = Files.list(dateDir)) {
+            if (entries.findAny().isEmpty()) {
+                Files.delete(dateDir);
+                logger.debug("已清理空的日期目录: {}", dateDir.getFileName());
+            }
+        } catch (IOException e) {
+            logger.warn("清理空日期目录失败: dateDir={}", dateDir, e);
         }
     }
 

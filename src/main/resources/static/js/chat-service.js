@@ -322,15 +322,19 @@ export class ChatService {
    * @returns {Promise<{files: Array}>}
    */
   async rewindPreview(sessionId, messageId) {
-    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/rewind-check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messageId })
-    });
-    if (!response.ok) {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/rewind-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId })
+      });
+      if (!response.ok) {
+        return { files: [] };
+      }
+      return response.json();
+    } catch {
       return { files: [] };
     }
-    return response.json();
   }
 
   /**
@@ -339,11 +343,15 @@ export class ChatService {
    * @returns {Promise<{snapshots: Array}>}
    */
   async getSnapshots(sessionId) {
-    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/snapshots`);
-    if (!response.ok) {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/snapshots`);
+      if (!response.ok) {
+        return { snapshots: [] };
+      }
+      return response.json();
+    } catch {
       return { snapshots: [] };
     }
-    return response.json();
   }
 
   stopGeneration(abortController) {

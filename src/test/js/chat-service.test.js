@@ -374,5 +374,76 @@ describe('chat-service.js', () => {
         chatService.rewind('s1', 'msg-123')
       ).rejects.toThrow('Network error');
     });
+
+    it('rewindPreview 调用 POST /api/sessions/{id}/rewind-check', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ files: [{ path: 'test.java', action: 'restore' }] }),
+      });
+
+      const result = await chatService.rewindPreview('s1', 'msg-123');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/sessions/s1/rewind-check',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId: 'msg-123' }),
+        })
+      );
+      expect(result.files).toHaveLength(1);
+      expect(result.files[0].path).toBe('test.java');
+      expect(result.files[0].action).toBe('restore');
+    });
+
+    it('rewindPreview 请求失败时返回空文件列表', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+
+      const result = await chatService.rewindPreview('s1', 'msg-unknown');
+
+      expect(result).toEqual({ files: [] });
+    });
+
+    it('rewindPreview 网络错误时返回空文件列表', async () => {
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+      const result = await chatService.rewindPreview('s1', 'msg-123');
+
+      expect(result).toEqual({ files: [] });
+    });
+
+    it('getSnapshots 调用 GET /api/sessions/{id}/snapshots', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          snapshots: [
+            { messageId: 'msg-001', timestamp: 1000 },
+            { messageId: 'msg-002', timestamp: 2000 },
+          ],
+        }),
+      });
+
+      const result = await chatService.getSnapshots('s1');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/sessions/s1/snapshots');
+      expect(result.snapshots).toHaveLength(2);
+      expect(result.snapshots[0].messageId).toBe('msg-001');
+    });
+
+    it('getSnapshots 请求失败时返回空快照列表', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+
+      const result = await chatService.getSnapshots('s1');
+
+      expect(result).toEqual({ snapshots: [] });
+    });
+
+    it('getSnapshots 网络错误时返回空快照列表', async () => {
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+      const result = await chatService.getSnapshots('s1');
+
+      expect(result).toEqual({ snapshots: [] });
+    });
   });
 });

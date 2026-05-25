@@ -374,6 +374,21 @@ class FileSnapshotManagerTest {
     }
 
     @Test
+    void testMakeSnapshotAutoTriggersGc() throws Exception {
+        Path testFile = tempDir.resolve("auto_gc.java");
+
+        for (int i = 1; i <= 101; i++) {
+            Files.writeString(testFile, "v" + i, StandardCharsets.UTF_8);
+            FileSnapshotManager.trackFile(SESSION_ID, testFile.toString());
+            FileSnapshotManager.makeSnapshot(SESSION_ID, "msg-" + i);
+        }
+
+        List<Snapshot> snapshots = FileSnapshotManager.loadAllSnapshots(SESSION_ID);
+        assertEquals(100, snapshots.size(), "超过 100 个快照时应自动 GC 到 100 个");
+        assertEquals("msg-2", snapshots.get(0).getMessageId(), "最旧的快照 msg-1 应被淘汰");
+    }
+
+    @Test
     void testMultipleSessionsIsolation() throws Exception {
         String sessionA = "session-A";
         String sessionB = "session-B";
@@ -567,5 +582,59 @@ class FileSnapshotManagerTest {
         FileSnapshotManager.PreviewFile pf = preview.getFiles().get(0);
         assertEquals("restore", pf.getAction(), "被删除的文件预览应显示 restore");
         assertEquals(testFile.toString(), pf.getFilePath());
+    }
+
+    @Test
+    void testContinuousRewindTwice() throws Exception {
+        Path fileA = tempDir.resolve("fileA.txt");
+
+        // Round 1 (msg-001): create fileA
+        Files.writeString(fileA, "v1");
+        FileSnapshotManager.trackFile(SESSION_ID, fileA.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_1);
+        assertEquals("v1", Files.readString(fileA));
+
+        // Round 2 (msg-002): edit fileA, create fileB
+        Path fileB = tempDir.resolve("fileB.txt");
+        Files.writeString(fileA, "v2");
+        Files.writeString(fileB, "new");
+        FileSnapshotManager.trackFile(SESSION_ID, fileA.toString());
+        FileSnapshotManager.trackFile(SESSION_ID, fileB.toString(), true);
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_2);
+        assertEquals("v2", Files.readString(fileA));
+        assertTrue(Files.exists(fileB));
+
+        // Round 3 (msg-003): edit fileA, edit fileB
+        Files.writeString(fileA, "v3");
+        Files.writeString(fileB, "v3_edit");
+        FileSnapshotManager.trackFile(SESSION_ID, fileA.toString());
+        FileSnapshotManager.trackFile(SESSION_ID, fileB.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, "msg-003");
+        assertEquals("v3", Files.readString(fileA));
+        assertEquals("v3_edit", Files.readString(fileB));
+
+        // --- First rollback: rewind to msg-002 ---
+        FileSnapshotManager.RewindResult r1 = FileSnapshotManager.rewindToSnapshot(SESSION_ID, MSG_ID_2);
+        assertTrue(r1.isSuccess());
+        FileSnapshotManager.truncateSnapshotsAfter(SESSION_ID, MSG_ID_2);
+
+        // fileA should be restored to "v1" (from msg-001 backup, pre-edit)
+        assertEquals("v1", Files.readString(fileA), "第一次回滚后 fileA 应恢复为 v1");
+        // fileB should be deleted (created=true in msg-002, the target round)
+        assertFalse(Files.exists(fileB), "第一次回滚后 fileB 应被删除");
+        // snapshots.jsonl should only have msg-001 left
+        assertEquals(1, FileSnapshotManager.loadAllSnapshots(SESSION_ID).size());
+
+        // --- Second rollback: rewind to msg-001 ---
+        FileSnapshotManager.RewindResult r2 = FileSnapshotManager.rewindToSnapshot(SESSION_ID, MSG_ID_1);
+        assertTrue(r2.isSuccess());
+        FileSnapshotManager.truncateSnapshotsAfter(SESSION_ID, MSG_ID_1);
+
+        // fileA should remain "v1" (restored from its own backup, no previous snapshot)
+        assertEquals("v1", Files.readString(fileA), "第二次回滚后 fileA 仍为 v1");
+        // fileB should not exist (never tracked in msg-001)
+        assertFalse(Files.exists(fileB), "第二次回滚后 fileB 不应存在");
+        // snapshots.jsonl should be empty
+        assertTrue(FileSnapshotManager.loadAllSnapshots(SESSION_ID).isEmpty());
     }
 }
