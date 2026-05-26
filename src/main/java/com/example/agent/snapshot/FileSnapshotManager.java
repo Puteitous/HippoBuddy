@@ -275,10 +275,15 @@ public class FileSnapshotManager {
                 if (backupToRestore != null) {
                     Path restorePath = resolveBackupPath(sessionId, backupToRestore);
                     if (Files.exists(restorePath)) {
-                        Files.createDirectories(filePath.getParent());
-                        Files.copy(restorePath, filePath, StandardCopyOption.REPLACE_EXISTING);
-                        restoredFiles.add(tf.getPath());
-                        logger.debug("文件已恢复: filePath={}, backup={}", tf.getPath(), backupToRestore);
+                        if (Files.exists(filePath) && !checkOriginFileChanged(filePath, restorePath)) {
+                            restoredFiles.add(tf.getPath() + " (unchanged)");
+                            logger.debug("文件未变化，跳过恢复: filePath={}", tf.getPath());
+                        } else {
+                            Files.createDirectories(filePath.getParent());
+                            Files.copy(restorePath, filePath, StandardCopyOption.REPLACE_EXISTING);
+                            restoredFiles.add(tf.getPath());
+                            logger.debug("文件已恢复: filePath={}, backup={}", tf.getPath(), backupToRestore);
+                        }
                     } else {
                         logger.warn("备份文件不存在，跳过: backupPath={}", restorePath);
                     }

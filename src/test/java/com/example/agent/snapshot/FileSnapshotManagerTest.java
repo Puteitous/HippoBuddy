@@ -119,6 +119,49 @@ class FileSnapshotManagerTest {
     }
 
     @Test
+    void testRewindSkipsUnchangedFile() throws Exception {
+        Path testFile = tempDir.resolve("skip_unchanged.java");
+        Files.writeString(testFile, "stable content", StandardCharsets.UTF_8);
+
+        FileSnapshotManager.trackFile(SESSION_ID, testFile.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_1);
+
+        // Do NOT modify the file; rewind to same snapshot
+        FileSnapshotManager.RewindResult result = FileSnapshotManager.rewindToSnapshot(SESSION_ID, MSG_ID_1);
+
+        assertTrue(result.isSuccess());
+        assertEquals(1, result.getRestoredFiles().size());
+        assertTrue(result.getRestoredFiles().get(0).contains("(unchanged)"),
+            "文件未变化时应标记为 unchanged: " + result.getRestoredFiles().get(0));
+        assertEquals("stable content", Files.readString(testFile, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void testRewindSkipsUnchangedFileWhenAlreadyReverted() throws Exception {
+        Path testFile = tempDir.resolve("already_reverted.java");
+        Files.writeString(testFile, "version 1", StandardCharsets.UTF_8);
+
+        FileSnapshotManager.trackFile(SESSION_ID, testFile.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_1);
+
+        Files.writeString(testFile, "version 2", StandardCharsets.UTF_8);
+        FileSnapshotManager.trackFile(SESSION_ID, testFile.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_2);
+
+        // Manually revert file back to version 1
+        Files.writeString(testFile, "version 1", StandardCharsets.UTF_8);
+
+        // Rewind to msg-001: file already matches snapshot, should skip
+        FileSnapshotManager.RewindResult result = FileSnapshotManager.rewindToSnapshot(SESSION_ID, MSG_ID_1);
+
+        assertTrue(result.isSuccess());
+        assertEquals("version 1", Files.readString(testFile, StandardCharsets.UTF_8));
+        boolean hasUnchanged = result.getRestoredFiles().stream()
+            .anyMatch(f -> f.contains("(unchanged)"));
+        assertTrue(hasUnchanged, "已与快照一致的文件应跳过恢复");
+    }
+
+    @Test
     void testRewindToSnapshotWithUnknownMessageId() {
         FileSnapshotManager.RewindResult result = FileSnapshotManager.rewindToSnapshot(SESSION_ID, "nonexistent-msg");
         assertFalse(result.isSuccess());
