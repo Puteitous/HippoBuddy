@@ -174,11 +174,6 @@ export class ChatUI {
 
     footer.appendChild(btnContainer);
 
-    const timeDiv = document.createElement('div');
-    timeDiv.className = 'message-time';
-    timeDiv.textContent = formatTime(new Date());
-    footer.appendChild(timeDiv);
-
     msgDiv.appendChild(footer);
     
     this.container.appendChild(row);
@@ -223,11 +218,6 @@ export class ChatUI {
     footer.className = 'message-footer';
 
     footer.appendChild(btnContainer);
-
-    const timeDiv = document.createElement('div');
-    timeDiv.className = 'message-time';
-    timeDiv.textContent = timestamp ? formatTime(new Date(timestamp)) : formatTime(new Date());
-    footer.appendChild(timeDiv);
 
     msgDiv.appendChild(footer);
     

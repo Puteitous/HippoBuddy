@@ -57,6 +57,7 @@ export class ChatPanel {
       this.elements.messageInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
           e.preventDefault();
+          if (this.isSendingMessage) return;
           this.sendMessage();
         }
       });
@@ -78,6 +79,7 @@ export class ChatPanel {
       if (!heroInput) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
+        if (this.isSendingMessage) return;
         const content = heroInput.value.trim();
         if (content) {
           heroInput.value = '';
@@ -173,7 +175,13 @@ export class ChatPanel {
    * 发送消息
    */
   async sendMessage(overrideContent, editMessageId, editMsgDiv) {
-    console.log('📤 sendMessage 被调用', { overrideContent, editMessageId });
+    console.log('📤 sendMessage 被调用', { overrideContent, editMessageId, isSending: this.isSendingMessage });
+    
+    // LLM 输出中禁止重复发送
+    if (this.isSendingMessage) {
+      console.log('⏭️ sendMessage 跳过：LLM 正在输出中');
+      return;
+    }
     
     // 重置状态
     this.isCompleted = false;
@@ -224,6 +232,11 @@ export class ChatPanel {
     // 锁定输入
     this.setSendingState(true);
     
+    // 立即聚焦输入框，让光标在 LLM 思考/输出期间始终可见
+    if (this.elements.messageInput) {
+      this.elements.messageInput.focus();
+    }
+    
     // 创建助手消息容器
     let contentDiv, copyBtn, retryBtn, btnContainer;
     this.segments = [];
@@ -250,10 +263,6 @@ export class ChatPanel {
         if (!this.lastUserMessage) return;
         this.chatService.stopGeneration(this.currentAbortController);
         this.currentAbortController = new AbortController();
-        contentDiv.innerHTML = '<span class="typing-indicator">...</span>';
-        this.segments = [];
-        this.currentText = '';
-        btnContainer.style.display = 'none';
         this.sendMessage(this.lastUserMessage);
       };
       
@@ -1106,9 +1115,25 @@ export class ChatPanel {
     
     this.isSendingMessage = true;
     this.setSendingState(true);
+    if (this.elements.messageInput) {
+      this.elements.messageInput.focus();
+    }
     this.currentAbortController = new AbortController();
     
-    const { contentDiv: responseContentDiv } = this.chatUI.appendAssistantMessage('');
+    // 先将用户的选项作为用户消息气泡显示
+    this.chatUI.appendUserMessage(message);
+    
+    const { contentDiv: responseContentDiv, btnContainer: responseBtnContainer, copyBtn: responseCopyBtn, retryBtn: responseRetryBtn, msgDiv: responseMsgDiv } = this.chatUI.appendAssistantMessage('');
+    this._setupCopyButton(responseCopyBtn, responseContentDiv);
+    
+    const askUserMessage = message;
+    responseRetryBtn.onclick = () => {
+      if (!askUserMessage) return;
+      this.chatService.stopGeneration(this.currentAbortController);
+      this.isSendingMessage = false;
+      this.currentAbortController = new AbortController();
+      this._sendAskUserResponse(askUserMessage);
+    };
     let currentText = '';
     let segments = [];
     let reasoningSegment = null;
@@ -1209,6 +1234,7 @@ export class ChatPanel {
         segments.push({ type: 'text', content: currentText });
       }
       this.renderSegmentsFinal(responseContentDiv, segments, '');
+      if (responseBtnContainer) responseBtnContainer.style.display = 'flex';
     }).catch(error => {
       if (error.name === 'AbortError') {
         if (currentText.trim()) {
@@ -1216,6 +1242,7 @@ export class ChatPanel {
         }
         this.renderSegmentsFinal(responseContentDiv, segments, '');
         responseContentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
+        if (responseBtnContainer) responseBtnContainer.style.display = 'flex';
         return;
       }
       console.error('发送失败:', error);
@@ -1225,6 +1252,7 @@ export class ChatPanel {
           <div style="font-weight: 600; margin-bottom: 4px;">❌ ${escapeHtml(message)}</div>
           ${detail ? `<div style="font-size: 12px; opacity: 0.7;">${escapeHtml(detail)}</div>` : ''}
         </div>`;
+      if (responseBtnContainer) responseBtnContainer.style.display = 'flex';
       showToast(message, { type: 'error', duration: 6000 });
     }).finally(() => {
       this.isSendingMessage = false;
@@ -1830,13 +1858,6 @@ export class ChatPanel {
           const footer = document.createElement('div');
           footer.className = 'message-footer';
           footer.appendChild(btnContainer);
-
-          const timeDiv = document.createElement('div');
-          timeDiv.className = 'message-time';
-          timeDiv.textContent = firstMsgTime
-            ? new Date(firstMsgTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-            : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-          footer.appendChild(timeDiv);
           msgDiv.appendChild(footer);
           fragment.appendChild(rowEl);
         }

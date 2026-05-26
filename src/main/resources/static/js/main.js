@@ -483,9 +483,34 @@ async function handleMessageRollback(msgDiv) {
       chatService.invalidateMessageCache(currentSessionId);
       chatContainer.classList.add('switching');
       const messages = await chatService.getSessionMessages(currentSessionId);
+
+      if (messages.length === 0) {
+        try {
+          await chatService.deleteSession(currentSessionId);
+        } catch (_) {}
+        chatService.invalidateMessageCache(currentSessionId);
+        chatContainer.classList.remove('switching');
+        rollbackBtn.innerHTML = '↩';
+        rollbackBtn.classList.remove('rolling');
+        await createNewSession();
+        if (result.lastUserMessage && elements.messageInput) {
+          elements.messageInput.value = result.lastUserMessage;
+          elements.messageInput.focus();
+        }
+        showToast('此会话已清空，已自动创建新会话', { type: 'info', duration: 4000 });
+        return;
+      }
+
       await chatPanel.loadHistoryMessages(messages);
       chatContainer.classList.remove('switching');
       fileChangeManager.updateFileChanges();
+
+      if (result.lastUserMessage && elements.messageInput) {
+        elements.messageInput.value = result.lastUserMessage;
+        elements.messageInput.style.height = 'auto';
+        elements.messageInput.style.height = elements.messageInput.scrollHeight + 'px';
+        elements.messageInput.focus();
+      }
 
       showToast(result.message || '已回滚到上一轮对话', { type: 'success', duration: 4000 });
     } else {

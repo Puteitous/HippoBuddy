@@ -768,7 +768,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--bg-light);
+    background: var(--bg-code);
     padding: 8px 12px;
 }
 
