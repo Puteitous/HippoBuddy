@@ -143,15 +143,11 @@ public class FileSnapshotManager {
         boolean allSucceeded = true;
         for (String filePath : filePaths) {
             try {
-                // 获取 created 标志：
-                // 1. 如果是本轮新跟踪的文件，从 createdMap 读取
-                // 2. 如果是上一快照延续的文件，从上一快照的 TrackedFile 读取
                 boolean isCreated;
                 if (tracked != null && tracked.contains(filePath)) {
                     isCreated = createdMap.getOrDefault(filePath, false);
                 } else {
-                    Snapshot.TrackedFile prevTf = findTrackedFile(lastSnapshot, filePath);
-                    isCreated = prevTf != null && prevTf.isCreated();
+                    isCreated = false;
                 }
 
                 Snapshot.TrackedFile tf = createBackupIfNeeded(sessionId, filePath, latestVersionMap, lastSnapshot, isCreated);
@@ -201,7 +197,7 @@ public class FileSnapshotManager {
             if (Files.size(diskPath) > MAX_FILE_SIZE_BYTES) {
                 logger.warn("文件超过大小限制(>10MB)，跳过快照: filePath={}", filePath);
                 Snapshot.TrackedFile existing = findTrackedFile(lastSnapshot, filePath);
-                return existing != null ? existing : new Snapshot.TrackedFile(filePath, hash, null, created);
+                return existing != null ? new Snapshot.TrackedFile(filePath, existing.getHash(), existing.getBackup(), created) : new Snapshot.TrackedFile(filePath, hash, null, created);
             }
         } catch (IOException e) {
             logger.warn("读取文件大小失败: filePath={}", filePath, e);
@@ -213,7 +209,7 @@ public class FileSnapshotManager {
             Path prevBackupPath = resolveBackupPath(sessionId, previousTf.getBackup());
             if (Files.exists(prevBackupPath) && !checkOriginFileChanged(diskPath, prevBackupPath)) {
                 logger.debug("文件未变化，复用上一版本备份: filePath={}, backup={}", filePath, previousTf.getBackup());
-                return previousTf;
+                return new Snapshot.TrackedFile(filePath, previousTf.getHash(), previousTf.getBackup(), created);
             }
         }
 
@@ -341,6 +337,7 @@ public class FileSnapshotManager {
             return null;
         }
 
+        Snapshot previousSnapshot = findPreviousSnapshot(sessionId, messageId);
         List<PreviewFile> previewFiles = new ArrayList<>();
 
         for (Snapshot.TrackedFile tf : target.getTrackedFiles()) {
@@ -350,7 +347,12 @@ public class FileSnapshotManager {
             if (tf.isCreated()) {
                 action = exists ? "delete" : "restore";
             } else if (tf.getBackup() == null) {
-                action = exists ? "delete" : "unchanged";
+                if (exists) {
+                    action = "delete";
+                } else {
+                    Snapshot.TrackedFile prevTf = previousSnapshot != null ? findTrackedFile(previousSnapshot, tf.getPath()) : null;
+                    action = (prevTf != null && prevTf.getBackup() != null) ? "restore" : "unchanged";
+                }
             } else {
                 action = "restore";
             }
@@ -428,6 +430,41 @@ public class FileSnapshotManager {
 
         List<Snapshot> retained = allSnapshots.subList(0, targetIndex);
         rewriteSnapshotsFile(sessionId, retained);
+    }
+
+    public static void retainSnapshots(String sessionId, Set<String> retainedMessageIds) {
+        List<Snapshot> allSnapshots = loadAllSnapshots(sessionId);
+        List<Snapshot> retained = new ArrayList<>();
+        int removedCount = 0;
+        for (Snapshot s : allSnapshots) {
+            if (retainedMessageIds.contains(s.getMessageId())) {
+                retained.add(s);
+            } else {
+                removedCount++;
+                logger.debug("移除快照: messageId={}, 原因: 对话已被截断", s.getMessageId());
+            }
+        }
+        Set<String> retainedBackups = retained.stream()
+            .flatMap(s -> s.getTrackedFiles().stream())
+            .map(Snapshot.TrackedFile::getBackup)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        for (Snapshot s : allSnapshots) {
+            if (!retainedMessageIds.contains(s.getMessageId())) {
+                for (Snapshot.TrackedFile tf : s.getTrackedFiles()) {
+                    if (tf.getBackup() != null && !retainedBackups.contains(tf.getBackup())) {
+                        try {
+                            Files.deleteIfExists(resolveBackupPath(sessionId, tf.getBackup()));
+                        } catch (IOException e) {
+                            logger.warn("清理备份文件失败: backupPath={}", tf.getBackup(), e);
+                        }
+                    }
+                }
+            }
+        }
+        rewriteSnapshotsFile(sessionId, retained);
+        logger.debug("快照清理完成: sessionId={}, 保留 {} 个, 移除 {} 个", sessionId, retained.size(), removedCount);
+        cleanupEmptyDateDir(sessionId);
     }
 
     private static void rewriteSnapshotsFile(String sessionId, List<Snapshot> snapshots) {

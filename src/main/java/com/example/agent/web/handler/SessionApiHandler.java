@@ -28,8 +28,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class SessionApiHandler implements HttpHandler {
@@ -375,6 +377,7 @@ public class SessionApiHandler implements HttpHandler {
 
         try {
             boolean foundMessageInJsonl = false;
+            String userMessageContent = null;
             List<String> lines = Files.readAllLines(jsonlPath, StandardCharsets.UTF_8);
             for (String line : lines) {
                 if (line.isBlank()) continue;
@@ -383,6 +386,10 @@ public class SessionApiHandler implements HttpHandler {
                     String uuid = lineNode.has("uuid") ? lineNode.get("uuid").asText() : "";
                     if (messageId.equals(uuid)) {
                         foundMessageInJsonl = true;
+                        JsonNode msgNode = lineNode.get("message");
+                        if (msgNode != null && msgNode.has("content")) {
+                            userMessageContent = msgNode.get("content").asText();
+                        }
                         break;
                     }
                 } catch (Exception ignored) {}
@@ -392,14 +399,24 @@ public class SessionApiHandler implements HttpHandler {
                 return;
             }
 
-            FileSnapshotManager.RewindResult rewindResult = FileSnapshotManager.rewindToSnapshot(sessionId, messageId);
-            if (!rewindResult.isSuccess()) {
-                sendError(exchange, 500, rewindResult.getError());
-                return;
+            int filesChanged = 0;
+            Snapshot targetSnapshot = FileSnapshotManager.findSnapshot(sessionId, messageId);
+            if (targetSnapshot == null) {
+                targetSnapshot = findLastSnapshot(jsonlPath, sessionId, messageId);
+            }
+            if (targetSnapshot != null) {
+                FileSnapshotManager.RewindResult rewindResult = FileSnapshotManager.rewindToSnapshot(sessionId, targetSnapshot.getMessageId());
+                if (!rewindResult.isSuccess()) {
+                    sendError(exchange, 500, rewindResult.getError());
+                    return;
+                }
+                filesChanged = rewindResult.getRestoredFiles().size();
             }
 
             truncateConversationJsonl(jsonlPath, sessionId, messageId);
-            FileSnapshotManager.truncateSnapshotsAfter(sessionId, messageId);
+
+            Set<String> retainedIds = extractAllMessageIds(jsonlPath);
+            FileSnapshotManager.retainSnapshots(sessionId, retainedIds);
 
             if (isActiveSession) {
                 int removed = conversationService.truncateMessagesAfter(conversation, messageId);
@@ -412,7 +429,10 @@ public class SessionApiHandler implements HttpHandler {
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "已回滚到指定轮次");
-            response.put("filesChanged", rewindResult.getRestoredFiles().size());
+            response.put("filesChanged", filesChanged);
+            if (userMessageContent != null) {
+                response.put("lastUserMessage", userMessageContent);
+            }
             sendJson(exchange, response);
 
         } catch (Exception e) {
@@ -504,6 +524,40 @@ public class SessionApiHandler implements HttpHandler {
         Map<String, Object> response = tokenStatsResponseBuilder.build(conversation, maxTokens, stats, legacyStats);
 
         sendJson(exchange, response);
+    }
+
+    private Snapshot findLastSnapshot(Path jsonlPath, String sessionId, String targetMessageId) throws IOException {
+        Set<String> snapshotMsgIds = new HashSet<>();
+        for (Snapshot s : FileSnapshotManager.loadAllSnapshots(sessionId)) {
+            snapshotMsgIds.add(s.getMessageId());
+        }
+        String lastFoundId = null;
+        for (String line : Files.readAllLines(jsonlPath, StandardCharsets.UTF_8)) {
+            if (line.isBlank()) continue;
+            try {
+                JsonNode node = objectMapper.readTree(line);
+                String type = node.has("type") ? node.get("type").asText() : "";
+                String uuid = node.has("uuid") ? node.get("uuid").asText() : "";
+                if (uuid.equals(targetMessageId)) break;
+                if ("user".equals(type) && snapshotMsgIds.contains(uuid)) {
+                    lastFoundId = uuid;
+                }
+            } catch (Exception ignored) {}
+        }
+        return lastFoundId != null ? FileSnapshotManager.findSnapshot(sessionId, lastFoundId) : null;
+    }
+
+    private Set<String> extractAllMessageIds(Path jsonlPath) throws IOException {
+        Set<String> ids = new HashSet<>();
+        for (String line : Files.readAllLines(jsonlPath, StandardCharsets.UTF_8)) {
+            if (line.isBlank()) continue;
+            try {
+                JsonNode node = objectMapper.readTree(line);
+                String uuid = node.has("uuid") ? node.get("uuid").asText() : "";
+                if (!uuid.isEmpty()) ids.add(uuid);
+            } catch (Exception ignored) {}
+        }
+        return ids;
     }
 
     private void sendJson(HttpExchange exchange, Object data) throws IOException {

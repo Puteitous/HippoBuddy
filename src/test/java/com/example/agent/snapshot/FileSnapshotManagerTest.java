@@ -7,7 +7,9 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -636,5 +638,62 @@ class FileSnapshotManagerTest {
         assertFalse(Files.exists(fileB), "第二次回滚后 fileB 不应存在");
         // snapshots.jsonl should be empty
         assertTrue(FileSnapshotManager.loadAllSnapshots(SESSION_ID).isEmpty());
+    }
+
+    @Test
+    void testMakeSnapshotReturnsNullForPureChat() {
+        Snapshot result = FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_1);
+        assertNull(result, "纯对话轮次无文件变更时应返回 null");
+        assertTrue(FileSnapshotManager.loadAllSnapshots(SESSION_ID).isEmpty(), "无文件变更时不应写入快照");
+    }
+
+    @Test
+    void testRetainSnapshotsPreservesValidRecords() throws Exception {
+        Path testFile = tempDir.resolve("retain_test.java");
+        Files.writeString(testFile, "content", StandardCharsets.UTF_8);
+
+        FileSnapshotManager.trackFile(SESSION_ID, testFile.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_1);
+        FileSnapshotManager.trackFile(SESSION_ID, testFile.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_2);
+
+        assertEquals(2, FileSnapshotManager.loadAllSnapshots(SESSION_ID).size());
+
+        Set<String> retain = new HashSet<>();
+        retain.add(MSG_ID_1);
+        FileSnapshotManager.retainSnapshots(SESSION_ID, retain);
+
+        List<Snapshot> remaining = FileSnapshotManager.loadAllSnapshots(SESSION_ID);
+        assertEquals(1, remaining.size());
+        assertEquals(MSG_ID_1, remaining.get(0).getMessageId());
+    }
+
+    @Test
+    void testRetainSnapshotsRemovesOrphanedBackups() throws Exception {
+        Path testFile = tempDir.resolve("orphan_test.java");
+        Files.writeString(testFile, "orphan content", StandardCharsets.UTF_8);
+
+        FileSnapshotManager.trackFile(SESSION_ID, testFile.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_1);
+        FileSnapshotManager.trackFile(SESSION_ID, testFile.toString());
+        FileSnapshotManager.makeSnapshot(SESSION_ID, MSG_ID_2);
+
+        Path fileHistoryDir = tempDir.resolve(SESSION_ID).resolve("file-history");
+        long beforeCount;
+        try (var stream = Files.list(fileHistoryDir)) {
+            beforeCount = stream.count();
+        }
+
+        assertTrue(beforeCount > 0, "应有备份文件");
+
+        Set<String> retain = new HashSet<>();
+        retain.add(MSG_ID_1);
+        FileSnapshotManager.retainSnapshots(SESSION_ID, retain);
+
+        try (var stream = Files.list(fileHistoryDir)) {
+            long afterCount = stream.count();
+            assertTrue(afterCount <= beforeCount, "孤立的备份文件应被清理");
+            assertTrue(afterCount > 0, "被保留快照引用的备份文件不应被清理");
+        }
     }
 }
