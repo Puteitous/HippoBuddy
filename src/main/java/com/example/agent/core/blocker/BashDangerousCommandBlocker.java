@@ -26,6 +26,8 @@ public class BashDangerousCommandBlocker implements Blocker {
         "grep", "findstr", "find", "wc", "sort", "uniq",
         // 信息查询
         "pwd", "echo", "printf", "which", "where",
+        // 网络诊断（只读）
+        "ping", "traceroute", "tracert",
         // 目录导航（完全无害）
         "cd", "chdir", "pushd", "popd",
         // 环境变量（只读）

@@ -15,6 +15,7 @@ public class BashTool {
         "awk", "sed", "sort", "uniq", "cut", "tr", "xargs",
         "python", "python3", "node", "deno",
         "pip", "pip3", "which", "where",
+        "ping", "traceroute", "tracert",
         "cd", "chdir", "pushd", "popd", "set",
         "docker"
     );
