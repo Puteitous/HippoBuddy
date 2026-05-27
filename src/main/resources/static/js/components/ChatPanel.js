@@ -1711,6 +1711,8 @@ export class ChatPanel {
 
     this.container.innerHTML = '';
 
+    let precedingUserContent = '';
+
     for (let batchStart = 0; batchStart < messageRows.length; batchStart += BATCH_SIZE) {
       const batchEnd = Math.min(batchStart + BATCH_SIZE, messageRows.length);
 
@@ -1742,6 +1744,7 @@ export class ChatPanel {
 
         if (row.type === 'user') {
           if (row.content && row.content.trim()) {
+            precedingUserContent = row.content;
             const userRow = document.createElement('div');
             userRow.className = 'message-row user-row';
             if (!noAnimation) {
@@ -1860,6 +1863,12 @@ export class ChatPanel {
           retryBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
           btnContainer.appendChild(retryBtn);
 
+          const userContent = precedingUserContent;
+          retryBtn.onclick = () => {
+            if (!userContent) return;
+            this.sendMessage(userContent);
+          };
+
           const copyBtn = document.createElement('button');
           copyBtn.className = 'message-action-btn';
           copyBtn.title = '复制';
@@ -1916,9 +1925,7 @@ export class ChatPanel {
       }
     }
 
-    if (!noAnimation) {
-      this.chatUI.scrollToBottom();
-    }
+    this.chatUI.scrollToBottom();
   }
 
   /**

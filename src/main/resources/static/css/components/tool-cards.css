@@ -1217,19 +1217,84 @@
 }
 
 .timeline-detail-confirmation {
-    padding: 8px 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--bg-white);
+}
+
+.timeline-detail-confirmation.high {
+    --risk-color: var(--error-text);
+    --risk-bg: rgba(220, 60, 60, 0.08);
+    --risk-border: rgba(220, 60, 60, 0.25);
+}
+
+.timeline-detail-confirmation.medium {
+    --risk-color: var(--warning-color, #e6a817);
+    --risk-bg: rgba(230, 168, 23, 0.08);
+    --risk-border: rgba(230, 168, 23, 0.25);
+}
+
+.timeline-detail-confirmation.low {
+    --risk-color: var(--success-text);
+    --risk-bg: rgba(60, 180, 75, 0.08);
+    --risk-border: rgba(60, 180, 75, 0.25);
+}
+
+.confirmation-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-app);
+}
+
+.confirmation-header-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--risk-color, var(--warning-color));
+}
+
+.confirmation-header-title {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.risk-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    background: var(--risk-bg);
+    color: var(--risk-color);
+    border: 1px solid var(--risk-border);
+    line-height: 1.5;
+}
+
+.confirmation-body {
+    padding: 0 0 10px;
 }
 
 .confirmation-command {
     margin-bottom: 8px;
 }
 
-.confirmation-command pre {
-    background: var(--bg-code);
-    padding: 8px 10px;
-    border-radius: var(--radius-sm);
+.timeline-detail-confirmation .confirmation-command pre {
     margin: 0;
-    border: 1px solid var(--border-color);
+    padding: 8px 12px;
+    background: var(--bg-code);
+    border-radius: 0;
+    border-left: none;
     overflow-x: auto;
 }
 
@@ -1242,90 +1307,80 @@
     word-break: break-all;
 }
 
-.confirmation-risk {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: rgba(230, 168, 23, 0.08);
-    border: 1px solid rgba(230, 168, 23, 0.25);
-    border-radius: var(--radius-sm);
-    margin-bottom: 8px;
-}
-
-.confirmation-risk.high {
-    background: rgba(220, 60, 60, 0.08);
-    border-color: rgba(220, 60, 60, 0.25);
-}
-
-.confirmation-risk.low {
-    background: rgba(60, 180, 75, 0.08);
-    border-color: rgba(60, 180, 75, 0.25);
-}
-
-.risk-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--warning-color, #e6a817);
-    white-space: nowrap;
-}
-
-.confirmation-risk.high .risk-badge {
-    color: var(--error-text);
-}
-
-.confirmation-risk.low .risk-badge {
-    color: var(--success-text);
-}
-
-.risk-text {
+.confirmation-reason {
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
+    padding: 0 12px;
+    margin-bottom: 8px;
+    line-height: 1.5;
 }
 
-.confirmation-options {
-    margin-bottom: 10px;
+.confirmation-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px;
 }
 
 .confirmation-auto-allow {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     font-size: var(--font-size-xs);
     color: var(--text-muted);
     cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
 }
 
 .confirmation-auto-allow input[type="checkbox"] {
     width: 13px;
     height: 13px;
     cursor: pointer;
-    accent-color: var(--primary-color);
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    background: transparent;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.confirmation-auto-allow input[type="checkbox"]:checked {
+    background: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='2.5 6 5 8.5 9.5 3.5' fill='none' stroke='rgb(17,24,39)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.confirmation-auto-allow input[type="checkbox"]:focus {
+    outline: none;
+    box-shadow: none;
 }
 
 .confirmation-buttons {
     display: flex;
-    gap: 8px;
+    gap: 6px;
+    margin-left: auto;
 }
 
 .confirmation-btn {
-    flex: 1;
-    padding: 7px 16px;
+    padding: 6px 14px;
     border-radius: var(--radius-md);
     font-size: var(--font-size-sm);
     font-weight: 500;
     cursor: pointer;
     border: 1px solid var(--border-color);
     transition: all var(--transition-fast);
+    line-height: 1.4;
 }
 
 .confirmation-btn.allow {
-    background: var(--primary-color);
+    background: rgb(17, 24, 39);
     color: #fff;
-    border-color: var(--primary-color);
+    border-color: rgb(17, 24, 39);
 }
 
 .confirmation-btn.allow:hover {
@@ -1380,14 +1435,14 @@
 }
 
 .rollback-inline-exit {
-    animation: rollbackSlideOut 0.2s ease-in forwards;
+    animation: rollbackSlideOut 0.25s ease-out forwards;
 }
 
 .rollback-inline-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 14px 8px;
+    padding: 6px 14px 6px;
     font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--text-primary);
@@ -1493,13 +1548,14 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 14px 10px;
+    padding: 8px 5px 10px;
 }
 
 .rollback-inline-footer .rollback-inline-note {
     font-size: var(--font-size-xs);
     color: var(--text-muted);
     line-height: 1.4;
+    margin-left: 30px;
 }
 
 .rollback-inline-footer .rollback-inline-actions {
@@ -1509,9 +1565,9 @@
 }
 
 .rollback-inline-btn {
-    padding: 5px 14px;
+    padding: 3px 10px;
     border-radius: var(--radius-sm);
-    font-size: var(--font-size-sm);
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
     border: 1px solid var(--border-color);

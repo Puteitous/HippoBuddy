@@ -191,6 +191,15 @@
     margin-top: 0;
 }
 
+.message-footer .message-action-btn,
+.message-footer .message-action-btn:hover,
+.message-footer .message-action-btn.copied,
+.message-actions .message-action-btn,
+.message-actions .message-action-btn:hover,
+.message-actions .message-action-btn.copied {
+    border: none;
+}
+
 .message-action-btn {
     font-size: var(--font-size-md);
     padding: 4px;

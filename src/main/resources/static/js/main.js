@@ -575,7 +575,6 @@ async function handleMessageRollback(msgDiv) {
       await chatPanel.loadHistoryMessages(messages, true);
       chatContainer.classList.remove('switching');
       requestAnimationFrame(() => {
-        chatContainer.scrollTop = 0;
         chatContainer.querySelectorAll('.message-row.animate-in').forEach(el => el.classList.remove('animate-in'));
       });
       fileChangeManager.updateFileChanges();
@@ -664,7 +663,6 @@ async function switchSession(sessionId) {
       await chatPanel.loadHistoryMessages(messages, true);
       chatContainer.classList.remove('switching');
       requestAnimationFrame(() => {
-        chatContainer.scrollTop = 0;
         chatContainer.querySelectorAll('.message-row.animate-in').forEach(el => el.classList.remove('animate-in'));
       });
       document.querySelector('.chat-panel')?.classList.add('has-messages');
