@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,14 +45,17 @@ public class DashboardServer {
 
     private DashboardServer() {}
 
-    public static void start(int port) {
-        start(port, true);
+    public static CompletableFuture<Void> start(int port) {
+        return start(port, true);
     }
 
-    public static void start(int port, boolean initializeServices) {
+    public static CompletableFuture<Void> start(int port, boolean initializeServices) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
         if (server != null) {
             logger.warn("DashboardServer 已在运行，端口：{}", port);
-            return;
+            future.complete(null);
+            return future;
         }
 
         // 在创建任何 handler 之前初始化 Memory 和 ConversationService，
@@ -90,9 +94,14 @@ public class DashboardServer {
             logger.info("Hippo Cockpit: http://localhost:{}/cockpit", port);
             logger.info("Web Chat: http://localhost:{}/chat", port);
             logger.info("Memory Dashboard: http://localhost:{}/", port);
+
+            future.complete(null);
         } catch (IOException e) {
             logger.error("启动服务器失败：{}", e.getMessage());
+            future.completeExceptionally(e);
         }
+
+        return future;
     }
 
     public static void stop() {

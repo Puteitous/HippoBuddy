@@ -135,6 +135,25 @@
             <version>4.12</version>
         </dependency>
 
+        <!-- JCEF Maven: 嵌入式 Chromium 浏览器 -->
+        <dependency>
+            <groupId>me.friwi</groupId>
+            <artifactId>jcefmaven</artifactId>
+            <version>146.0.10</version>
+        </dependency>
+        <!-- jcefmaven 解压时需要 commons-io >= 2.14，显式声明避免旧版本冲突 -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.16.1</version>
+        </dependency>
+        <!-- commons-compress 1.28.0 与 commons-io 2.16.1 有 API 不兼容，降级至 1.27.1 -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.27.1</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -168,7 +187,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <argLine>${surefireArgLine} --enable-preview -Dfile.encoding=UTF-8</argLine>
+                    <argLine>${surefireArgLine} --enable-preview -Dfile.encoding=UTF-8 --add-exports java.base/java.lang=ALL-UNNAMED --add-opens java.desktop/sun.awt=ALL-UNNAMED --add-opens java.desktop/sun.java2d=ALL-UNNAMED</argLine>
                 </configuration>
             </plugin>
             <plugin>

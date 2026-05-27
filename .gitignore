@@ -50,3 +50,6 @@ node_modules/
 test-results/
 playwright-report/
 coverage/
+
+# JCEF 桌面端 - Chromium 原生二进制（首次运行自动下载，~100MB）
+jcef-bundle/
