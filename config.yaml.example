@@ -47,6 +47,9 @@ ui:
   show_timestamp: false
   color_output: true
 
+web:
+  port: 9090
+
 context:
   policy: simple
   max_tokens: 30000

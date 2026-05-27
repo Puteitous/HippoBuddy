@@ -35,6 +35,7 @@ public class Config {
     private McpConfig mcp = new McpConfig();
     private LspConfig lsp = new LspConfig();
     private MemoryConfig memory = new MemoryConfig();
+    private WebConfig web = new WebConfig();
 
     private transient ConfigLoader configLoader;
 
@@ -128,6 +129,7 @@ public class Config {
                 this.mcp = reloaded.mcp;
                 this.lsp = reloaded.lsp;
                 this.memory = reloaded.memory;
+                this.web = reloaded.web;
                 this.loadFromEnvironment();
                 logger.info("Configuration reloaded from: {}", configFile.getAbsolutePath());
             } catch (IOException e) {
@@ -290,6 +292,17 @@ public class Config {
         this.memory = memory;
     }
 
+    public WebConfig getWeb() {
+        if (web == null) {
+            web = new WebConfig();
+        }
+        return web;
+    }
+
+    public void setWeb(WebConfig web) {
+        this.web = web;
+    }
+
     public String getConfigFilePath() {
         if (configLoader == null) {
             configLoader = new ConfigLoader();
@@ -310,6 +323,7 @@ public class Config {
                 ", rule=" + rule +
 
                 ", memory=" + memory +
+                ", web=" + web +
                 '}';
     }
 }

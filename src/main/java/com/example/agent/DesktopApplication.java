@@ -1,7 +1,10 @@
-package com.example.agent.desktop;
+package com.example.agent;
 
+import com.example.agent.config.Config;
 import com.example.agent.core.di.CoreModule;
 import com.example.agent.core.concurrency.GracefulShutdown;
+import com.example.agent.logging.WorkspaceManager;
+import com.example.agent.memory.MemoryModule;
 import com.example.agent.web.server.DashboardServer;
 
 import me.friwi.jcefmaven.CefAppBuilder;
@@ -21,12 +24,13 @@ import java.awt.event.WindowEvent;
 import java.io.File;
 
 /**
- * 桌面端主入口 — 通过 JCEF 内嵌 Chromium 窗口，加载现有 Web UI。
+ * 桌面端主入口 — 通过 JCEF 内嵌 Chromium 浏览器窗口，加载 Hippo Cockpit Web UI。
  *
  * <p>
  * 启动流程：
  * <ol>
  *   <li>初始化 DI 容器（CoreModule.configure）</li>
+ *   <li>初始化记忆模块（MemoryModule.initialize）</li>
  *   <li>启动 HTTP Server（DashboardServer.start），等待端口就绪</li>
  *   <li>初始化 JCEF，创建浏览器窗口加载 /cockpit</li>
  * </ol>
@@ -41,13 +45,13 @@ import java.io.File;
  * </pre>
  * </p>
  */
-public final class JcefMain {
+public final class DesktopApplication {
 
-    private static final Logger logger = LoggerFactory.getLogger(JcefMain.class);
+    private static final Logger logger = LoggerFactory.getLogger(DesktopApplication.class);
 
-    private static final int PORT = 8080;
+    private static int PORT;
 
-    private JcefMain() {
+    private DesktopApplication() {
     }
 
     public static void main(String[] args) {
@@ -55,15 +59,22 @@ public final class JcefMain {
         logger.info("  Hippo Code Desktop 启动");
         logger.info("========================================");
 
-        // 1. 初始化 DI 容器（与 CLI 模式共享同一套初始化流程）
+        // 1. 初始化 DI 容器（与 CLI / Web 模式共享同一套初始化流程）
         CoreModule.configure();
 
-        // 2. 启动 HTTP Server，等待端口就绪后再初始化 JCEF
+        // 2. 初始化记忆模块
+        Config config = Config.getInstance();
+        PORT = config.getWeb().getPort();
+        java.nio.file.Path memoryRoot = WorkspaceManager.getUserMemoryDir();
+        MemoryModule.initialize(config, memoryRoot);
+        logger.info("记忆模块初始化完成 ✅");
+
+        // 3. 启动 HTTP Server，等待端口就绪后再初始化 JCEF
         logger.info("正在启动 HTTP Server（端口 {}）...", PORT);
         DashboardServer.start(PORT)
                 .thenRun(() -> {
                     logger.info("HTTP Server 已就绪，正在初始化 JCEF...");
-                    SwingUtilities.invokeLater(JcefMain::initJcef);
+                    SwingUtilities.invokeLater(DesktopApplication::initJcef);
                 })
                 .exceptionally(throwable -> {
                     logger.error("HTTP Server 启动失败", throwable);
@@ -74,40 +85,32 @@ public final class JcefMain {
 
     private static void initJcef() {
         try {
-            // 创建 CefAppBuilder 并设置安装目录
             CefAppBuilder builder = new CefAppBuilder();
             builder.setInstallDir(new File("jcef-bundle"));
             builder.setProgressHandler(new ConsoleProgressHandler());
 
-            // 窗口渲染模式（非 OSR），确保 GPU 加速可用
             builder.getCefSettings().windowless_rendering_enabled = false;
 
-            // 设置 AppHandler（macOS 必需）
             builder.setAppHandler(new MavenCefAppHandlerAdapter() {
             });
 
-            // 构建 CefApp
             CefApp app = builder.build();
             logger.info("JCEF 初始化完成");
 
-            // 创建浏览器客户端
             CefClient client = app.createClient();
             CefBrowser browser = client.createBrowser(
                     "http://localhost:" + PORT + "/cockpit",
                     false, false
             );
 
-            // 创建桌面窗口
             JFrame frame = new JFrame("Hippo Code");
             frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
             frame.setSize(1280, 800);
             frame.setLocationRelativeTo(null);
 
-            // 嵌入浏览器组件
             Component browserComponent = browser.getUIComponent();
             frame.add(browserComponent, BorderLayout.CENTER);
 
-            // 窗口关闭时的清理流程
             frame.addWindowListener(new WindowAdapter() {
                 @Override
                 public void windowClosing(WindowEvent e) {

@@ -11,7 +11,7 @@ import com.example.agent.execute.AgentTurnExecutor;
 import com.example.agent.execute.ConversationLoop;
 import com.example.agent.execute.ToolCallProcessor;
 import com.example.agent.logging.WorkspaceManager;
-
+import com.example.agent.memory.MemoryModule;
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.session.SessionData;
 import com.example.agent.session.SessionStorage;
@@ -32,19 +32,33 @@ import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
-public class AgentApplication {
+public class CliApplication {
 
-    private static final Logger logger = LoggerFactory.getLogger(AgentApplication.class);
-
-
+    private static final Logger logger = LoggerFactory.getLogger(CliApplication.class);
 
     public static void main(String[] args) {
         System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
-        AgentApplication app = new AgentApplication();
-        app.run();
+
+        boolean enableWeb = false;
+        int webPort = 0;
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--web":
+                    enableWeb = true;
+                    break;
+                case "--web-port":
+                    if (i + 1 < args.length) {
+                        webPort = Integer.parseInt(args[++i]);
+                    }
+                    break;
+            }
+        }
+
+        CliApplication app = new CliApplication();
+        app.run(enableWeb, webPort);
     }
 
-    public void run() {
+    public void run(boolean enableWeb, int webPort) {
         ServiceLocator.clear();
         AgentContext context = null;
         try {
@@ -54,6 +68,11 @@ public class AgentApplication {
 
             context.initialize();
 
+            if (enableWeb) {
+                int port = webPort > 0 ? webPort : context.getConfig().getWeb().getPort();
+                MemoryModule.startDashboardServer(port);
+            }
+
             runTranscriptHealthCheck();
 
             AgentUi ui = new AgentUi(context.getTerminal(), context.getConfig());
@@ -61,13 +80,12 @@ public class AgentApplication {
             ServiceLocator.registerSingleton(LineReader.class, context.getReader());
             ServiceLocator.freeze();
             logger.info("DI 容器已冻结，后续 registerSingleton 调用将抛出异常");
-            
-            // ✅ 初始化 Terminal 状态栏标题
+
             ui.updateTerminalTitle(context.getCurrentMode());
-            
+
             TokenEstimator tokenEstimator = context.getTokenEstimator();
             InputHandler inputHandler = new InputHandler(context.getReader(), tokenEstimator);
-            
+
             SessionStorage sessionStorage = SessionStorageFactory.create(context.getConfig().getSession());
 
             if (context.getConfig().getSession().isEnableBackgroundCleanup()) {
@@ -110,7 +128,7 @@ public class AgentApplication {
             });
 
             ui.printWelcome();
-            
+
             if (context.getConfig().getSession().isAutoResume()) {
                 checkAndPromptResume(ui, sessionStorage, conversationLoop, inputHandler);
             }
@@ -173,57 +191,57 @@ public class AgentApplication {
         }
     }
 
-    private void checkAndPromptResume(AgentUi ui, SessionStorage sessionStorage, 
+    private void checkAndPromptResume(AgentUi ui, SessionStorage sessionStorage,
                                        ConversationLoop conversationLoop, InputHandler inputHandler) {
         sessionStorage.cleanupExpiredSessions(72);
-        
+
         Optional<SessionData> latestSession = sessionStorage.findLatestResumableSession();
-        
+
         if (!latestSession.isPresent()) {
             return;
         }
-        
+
         SessionData session = latestSession.get();
-        
+
         ui.println();
         ui.println(ConsoleStyle.yellow("╔══════════════════════════════════════════════════════════════╗"));
         ui.println(ConsoleStyle.yellow("║                  🔄 检测到未完成的会话                        ║"));
         ui.println(ConsoleStyle.yellow("╠══════════════════════════════════════════════════════════════╣"));
-        
+
         String shortId = session.getSessionId().substring(0, Math.min(12, session.getSessionId().length()));
         String time = session.getLastActiveAt().format(DateTimeFormatter.ofPattern("MM-dd HH:mm"));
-        
-        ui.println(ConsoleStyle.yellow("║") + 
-            String.format("  会话: %-52s", shortId) + 
+
+        ui.println(ConsoleStyle.yellow("║") +
+            String.format("  会话: %-52s", shortId) +
             ConsoleStyle.yellow("║"));
-        ui.println(ConsoleStyle.yellow("║") + 
-            String.format("  时间: %-52s", time) + 
+        ui.println(ConsoleStyle.yellow("║") +
+            String.format("  时间: %-52s", time) +
             ConsoleStyle.yellow("║"));
-        ui.println(ConsoleStyle.yellow("║") + 
-            String.format("  消息: %-52d", session.getMessageCount()) + 
+        ui.println(ConsoleStyle.yellow("║") +
+            String.format("  消息: %-52d", session.getMessageCount()) +
             ConsoleStyle.yellow("║"));
-        
+
         String preview = session.getLastUserMessage();
         if (preview != null) {
             if (preview.length() > 40) {
                 preview = preview.substring(0, 40) + "...";
             }
-            ui.println(ConsoleStyle.yellow("║") + 
-                String.format("  预览: %-52s", preview) + 
+            ui.println(ConsoleStyle.yellow("║") +
+                String.format("  预览: %-52s", preview) +
                 ConsoleStyle.yellow("║"));
         }
-        
+
         String toolCalls = session.getLastToolCalls();
         if (toolCalls != null && !toolCalls.isEmpty()) {
-            ui.println(ConsoleStyle.yellow("║") + 
-                String.format("  待执行: %-50s", toolCalls) + 
+            ui.println(ConsoleStyle.yellow("║") +
+                String.format("  待执行: %-50s", toolCalls) +
                 ConsoleStyle.yellow("║"));
         }
-        
+
         ui.println(ConsoleStyle.yellow("╚══════════════════════════════════════════════════════════════╝"));
         ui.println();
         ui.println(ConsoleStyle.gray("是否恢复该会话？(y/n，默认 n): "));
-        
+
         try {
             String response = inputHandler.readLine("").trim();
             if ("y".equalsIgnoreCase(response) || "yes".equalsIgnoreCase(response)) {
@@ -247,7 +265,7 @@ public class AgentApplication {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             String osName = ManagementFactory.getRuntimeMXBean().getName();
             long pid = Long.parseLong(osName.split("@")[0]);
-            logger.info("Agent 正在退出 (PID: {} 正在清理资源...", pid);
+            logger.info("CLI 正在退出 (PID: {}), 清理资源...", pid);
 
             try {
                 finalContext.close();
@@ -260,7 +278,7 @@ public class AgentApplication {
                 Thread.sleep(100);
             } catch (InterruptedException ignored) {
             }
-        }, "agent-shutdown-hook"));
+        }, "cli-shutdown-hook"));
 
         logger.debug("ShutdownHook 已注册");
     }
@@ -268,10 +286,10 @@ public class AgentApplication {
     private static void runTranscriptHealthCheck() {
         try {
             logger.info("🔍 启动 Transcript 健康检查...");
-            
+
             int repairedCount = 0;
             var sessions = TranscriptLister.listSessions();
-            
+
             for (var session : sessions) {
                 if (session.isHasCrashMarker()) {
                     try {
@@ -282,7 +300,7 @@ public class AgentApplication {
                         int lines = TranscriptLoader.repairAndCompact(transcriptFile);
                         if (lines > 0) {
                             repairedCount++;
-                            logger.warn("🛠️  修复会话 {}: 移除了 {} 损坏行", 
+                            logger.warn("🛠️  修复会话 {}: 移除了 {} 损坏行",
                                 session.getSessionId(), lines);
                         }
                     } catch (Exception e) {
@@ -290,13 +308,13 @@ public class AgentApplication {
                     }
                 }
             }
-            
+
             if (repairedCount > 0) {
                 logger.info("✅ Transcript 健康检查完成: 修复了 {} 个会话", repairedCount);
             } else {
                 logger.info("✅ Transcript 健康检查完成: 所有会话状态良好");
             }
-            
+
         } catch (Exception e) {
             logger.warn("Transcript 健康检查失败，继续启动", e);
         }

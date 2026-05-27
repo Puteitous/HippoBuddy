@@ -177,7 +177,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.example.agent.AgentApplication</mainClass>
+                            <mainClass>com.example.agent.CliApplication</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -251,7 +251,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.example.agent.AgentApplication</mainClass>
+                                    <mainClass>com.example.agent.CliApplication</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

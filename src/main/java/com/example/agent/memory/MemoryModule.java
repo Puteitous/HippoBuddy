@@ -59,24 +59,35 @@ public class MemoryModule {
         // 5. 注册记忆工具到 ToolRegistry
         registerMemoryTools();
         
-        // 6. 启动 SSE 看板服务器
-        startDashboardServer();
-        
         logger.info("========== 记忆模块初始化完成 ==========");
         
         return memoryRetriever;
     }
     
     /**
-     * 启动 SSE 看板服务器（默认端口 9090）
+     * 启动 Dashboard Server（Web UI / API 服务）
+     * <p>
+     * 由各入口（CLI、Desktop）按需显式调用，不再由 initialize() 隐式启动。
+     * 端口号从 {@link com.example.agent.config.Config#getWeb()} 读取。
      */
-    private static void startDashboardServer() {
+    public static void startDashboardServer() {
+        int port = com.example.agent.config.Config.getInstance().getWeb().getPort();
+        startDashboardServer(port);
+    }
+
+    /**
+     * 启动 Dashboard Server（Web UI / API 服务）
+     *
+     * @param port HTTP 端口号
+     */
+    public static void startDashboardServer(int port) {
         try {
-            int port = 9090;
             DashboardServer.start(port);
-            logger.info("✅ SSE 看板服务器已启动，端口：{}，访问：http://localhost:{}/sse/memory-events", port, port);
+            logger.info("✅ Dashboard 服务器已启动，端口：{}", port);
+            logger.info("   Hippo Cockpit: http://localhost:{}/cockpit", port);
+            logger.info("   Web Chat:      http://localhost:{}/chat", port);
         } catch (Exception e) {
-            logger.warn("SSE 看板服务器启动失败（不影响核心功能）：{}", e.getMessage(), e);
+            logger.warn("Dashboard 服务器启动失败（不影响核心功能）：{}", e.getMessage(), e);
         }
     }
     

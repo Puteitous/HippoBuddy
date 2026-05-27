@@ -151,7 +151,7 @@ hippo-code/
 ├── README.md                            # 项目说明
 └── src/
     ├── main/java/com/example/agent/
-    │   ├── AgentApplication.java         # 应用入口
+    │   ├── CliApplication.java              # CLI 终端入口
     │   ├── SimpleJavaAgent.java          # Agent 主程序
     │   ├── subagent/                   # 子代理系统
     │   │   ├── SubAgentManager.java      # 子代理管理器
