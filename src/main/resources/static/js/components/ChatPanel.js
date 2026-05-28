@@ -6,6 +6,7 @@ import { showToast } from '../utils/toast.js';
 import { EventBus } from '../utils/event-bus.js';
 import { RenderPipeline } from './RenderPipeline.js';
 import { EventRouter } from './EventRouter.js';
+import { MessageSession } from './MessageSession.js';
 
 export class ChatPanel {
   constructor(container, chatService, chatUI) {
@@ -14,17 +15,16 @@ export class ChatPanel {
     this.chatUI = chatUI;
     
     // 状态
-    this.segments = [];
-    this.currentText = '';
     this.isSendingMessage = false;
     this.isCompleted = false;
     this.currentAbortController = null;
     this.lastUserMessage = '';
-    this._hasReceivedData = false;
     this._lastUserMsgDiv = null;
     this._lastUserMessageId = null;
     this._runningToolCallIds = new Set();
     this._destroyed = false;
+
+    this._activeSession = null;
 
     this.renderPipeline = new RenderPipeline(chatUI, {
       bindAskUserCard: (card) => this._bindAskUserCardEvents(card),
@@ -191,15 +191,12 @@ export class ChatPanel {
   async sendMessage(overrideContent, editMessageId, editMsgDiv) {
     console.log('📤 sendMessage 被调用', { overrideContent, editMessageId, isSending: this.isSendingMessage });
     
-    // LLM 输出中禁止重复发送
     if (this.isSendingMessage) {
       console.log('⏭️ sendMessage 跳过：LLM 正在输出中');
       return;
     }
     
-    // 重置状态
     this.isCompleted = false;
-    this._hasReceivedData = false;
     
     const content = (typeof overrideContent === 'string' && overrideContent)
       ? overrideContent
@@ -210,22 +207,16 @@ export class ChatPanel {
       return;
     }
 
-    // 自愈：新消息发送前，标记所有未完成的 tool 卡片为已取消
-    // 这些卡片是因为用户忽略了确认弹窗而残留的
     this._healStuckToolCards();
 
-    // 清空输入框
     if (!overrideContent && !editMessageId && this.elements.messageInput) {
       this.elements.messageInput.value = '';
       this.elements.messageInput.style.height = 'auto';
     }
     
     this.lastUserMessage = content;
-    
-    // 自动重命名会话（首次发送消息时）
     EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId, content });
     
-    // 编辑模式：替换消息内容并删除后续消息
     if (editMsgDiv) {
       const row = editMsgDiv.closest('.message-row') || editMsgDiv;
       const contentDiv = editMsgDiv.querySelector('.message-content');
@@ -237,7 +228,6 @@ export class ChatPanel {
         toRemove.remove();
       }
     } else {
-      // 新增模式：添加用户消息
       const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       this._lastUserMessageId = tempId;
       const { msgDiv, editBtn } = this.chatUI.appendUserMessage(content, tempId);
@@ -247,121 +237,63 @@ export class ChatPanel {
       }
     }
     
-    // 锁定输入
     this.setSendingState(true);
-    
-    // 立即聚焦输入框，让光标在 LLM 思考/输出期间始终可见
     if (this.elements.messageInput) {
       this.elements.messageInput.focus();
     }
     
-    // 创建助手消息容器
-    let contentDiv, copyBtn, retryBtn, btnContainer;
-    this.segments = [];
-    this.currentText = '';
-    this._reasoningSegment = null;
+    this.currentAbortController = new AbortController();
     
-    try {
-      // 创建 AbortController 用于停止生成
+    const session = new MessageSession({
+      chatUI: this.chatUI,
+      renderPipeline: this.renderPipeline,
+      chatService: this.chatService
+    });
+    this._activeSession = session;
+
+    const onRetry = () => {
+      if (!this.lastUserMessage) return;
+      this.chatService.stopGeneration(this.currentAbortController);
       this.currentAbortController = new AbortController();
-      
-      const result = this.chatUI.appendAssistantMessage();
-      contentDiv = result.contentDiv;
-      copyBtn = result.copyBtn;
-      retryBtn = result.retryBtn;
-      btnContainer = result.btnContainer;
-      this._responseContentDiv = contentDiv;
-      this._responseBtnContainer = btnContainer;
-      this.renderPipeline.setContainer(contentDiv);
-      
-      // 绑定复制按钮
-      this._setupCopyButton(copyBtn, contentDiv);
-      
-      // 绑定重试按钮
-      retryBtn.onclick = () => {
-        if (!this.lastUserMessage) return;
-        this.chatService.stopGeneration(this.currentAbortController);
-        this.currentAbortController = new AbortController();
-        this.sendMessage(this.lastUserMessage);
-      };
-      
-      // 调用聊天服务
-      await this.chatService.sendMessage(
-        appState.currentSessionId,
-        content,
-        (parsed) => this.handleChunk(parsed, contentDiv, btnContainer),
-        this.currentAbortController?.signal,
-        appState.getSystemPrompt(),
-        editMessageId || null
-      );
-      
-      // 渲染最终内容
-      if (this.currentText.trim()) {
-        this.segments.push({ type: 'text', content: this.currentText });
-      }
-      
-      if (this.segments.length === 0 && !this.currentText.trim()) {
-        contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
-      } else {
-        this.renderPipeline.setContainer(contentDiv);
-        await this.renderPipeline.renderFinal(this.segments, '');
-      }
-      
-      btnContainer.style.display = 'flex';
-      this.chatUI.scrollToBottom();
-      
-    } catch (error) {
-      console.error('sendMessage 异常:', error.message);
-      console.log('  error.name:', error.name);
-      console.log('  error.constructor.name:', error.constructor.name);
-      
-      if (error.name === 'AbortError' || error.constructor.name === 'AbortError') {
-        console.log('🛑 捕获到 AbortError，显示已停止生成');
-        if (this.currentText.trim()) {
-          this.segments.push({ type: 'text', content: this.currentText });
+      this.sendMessage(this.lastUserMessage);
+    };
+
+    await session.start({
+      sessionId: appState.currentSessionId,
+      content,
+      signal: this.currentAbortController?.signal,
+      systemPrompt: appState.getSystemPrompt(),
+      editMessageId: editMessageId || null,
+      useExecuteRequest: false,
+      onMessageId: (id) => {
+        if (this._lastUserMsgDiv) {
+          this._lastUserMsgDiv.dataset.messageId = id;
+          this._lastUserMessageId = id;
         }
-        this.renderPipeline.setContainer(contentDiv);
-        await this.renderPipeline.renderFinal(this.segments, '');
-        contentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
-      } else {
-        const { message, detail } = this._classifyError(error);
-        contentDiv.innerHTML = `
-          <div style="color: var(--error-color); padding: 8px;">
-            <div style="font-weight: 600; margin-bottom: 4px;">❌ ${escapeHtml(message)}</div>
-            ${detail ? `<div style="font-size: 12px; opacity: 0.7;">${escapeHtml(detail)}</div>` : ''}
-          </div>`;
-        showToast(message, { type: 'error', duration: 6000 });
-      }
-      
-      if (btnContainer) btnContainer.style.display = 'flex';
-      this.chatUI.scrollToBottom();
-      
-    } finally {
-      if (contentDiv) {
-        contentDiv.dataset.markdown = this.currentText;
-      }
-      this.isCompleted = true;
-      this.setSendingState(false);
-      this.currentAbortController = null;
-      
-      if (this.elements.messageInput) {
-        this.elements.messageInput.focus();
-        // 明确将光标置于起始位置，避免空输入框时 placeholder 与光标位置的视觉混淆
-        requestAnimationFrame(() => {
-          this.elements.messageInput.setSelectionRange(0, 0);
-          this.elements.messageInput.scrollLeft = 0;
-        });
-      }
-      
-      // 通知完成
-      EventBus.emit('message:sent');
+      },
+      onRetry
+    });
+
+    this.isCompleted = true;
+    this.setSendingState(false);
+    this.currentAbortController = null;
+    
+    if (this.elements.messageInput) {
+      this.elements.messageInput.focus();
+      requestAnimationFrame(() => {
+        this.elements.messageInput.setSelectionRange(0, 0);
+        this.elements.messageInput.scrollLeft = 0;
+      });
     }
+    
+    EventBus.emit('message:sent');
   }
   
   /**
    * 处理 SSE 数据块
    */
   _createEventRouter() {
+    const s = () => this._activeSession;
     return new EventRouter({
       waiting_user: (parsed, contentDiv) => {
         console.log('📥 收到 waiting_user 事件:', parsed);
@@ -377,35 +309,32 @@ export class ChatPanel {
       },
 
       thinking: () => {
-        if (this.currentText.trim()) {
-          this.segments.push({ type: 'text', content: this.currentText });
-          this.currentText = '';
-        }
-        this._reasoningSegment = null;
+        const session = s();
+        if (!session) return;
+        session.pushTextSegment();
         this.renderPipeline.flush();
       },
 
       clear_content: (contentDiv) => {
-        console.log('🧹 清空内容');
-        this.currentText = '';
-        this.segments = [];
-        this._reasoningSegment = null;
+        const session = s();
+        if (!session) return;
+        session.clearAll();
         contentDiv.innerHTML = '';
       },
 
       retry: (parsed, contentDiv) => {
         contentDiv.innerHTML = `<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🔄 ${escapeHtml(parsed.message)}</div>`;
-        this.currentText = '';
-        this.segments = [];
+        const session = s();
+        if (!session) return;
+        session.clearAll();
       },
 
       sse_error: (parsed) => {
-        if (this._reasoningSegment) {
-          this._reasoningSegment.done = true;
-          this._reasoningSegment = null;
-        }
-        this.currentText = '⚠️ ' + parsed.message;
-        this.renderPipeline.scheduleRender(this.segments, this.currentText);
+        const session = s();
+        if (!session) return;
+        session.clearReasoning();
+        session.setCurrentText('⚠️ ' + parsed.message);
+        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
       },
 
       raw_error: (parsed, contentDiv) => {
@@ -413,74 +342,46 @@ export class ChatPanel {
       },
 
       reasoning: (parsed, contentDiv) => {
-        if (!this._hasReceivedData) {
-          this._hasReceivedData = true;
-          contentDiv.querySelector('.typing-indicator')?.remove();
-        }
-        if (!this._reasoningSegment) {
-          this._reasoningSegment = { type: 'thinking', content: '', done: false };
-          this.segments.push(this._reasoningSegment);
-        }
-        this._reasoningSegment.content += parsed.reasoning;
-        this.renderPipeline.scheduleRender(this.segments, this.currentText);
+        const session = s();
+        if (!session) return;
+        session.handleReasoning(parsed, contentDiv);
+        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
         this.smartScroll();
       },
 
       reasoning_done: () => {
-        if (this._reasoningSegment) {
-          this._reasoningSegment.done = true;
-          this.renderPipeline.flush();
-          this._reasoningSegment = null;
-        }
+        const session = s();
+        if (!session) return;
+        session.handleReasoningDone();
+        this.renderPipeline.flush();
       },
 
       content: (parsed, contentDiv) => {
-        if (this._reasoningSegment) {
-          this._reasoningSegment.done = true;
-          this.renderPipeline.flush(this.segments, this.currentText);
-          this._reasoningSegment = null;
-        }
-        this.currentText += parsed.content;
-        if (!this._hasReceivedData) {
-          this._hasReceivedData = true;
-          contentDiv.querySelector('.typing-indicator')?.remove();
-        }
+        const session = s();
+        if (!session) return;
+        session.handleContent(parsed, contentDiv);
         this.renderPipeline.markTextOnly();
-        this.renderPipeline.scheduleRender(this.segments, this.currentText);
+        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
         this.smartScroll();
       },
 
       tool_start: (parsed, contentDiv) => {
-        if (parsed.id) {
-          if (this._runningToolCallIds.has(parsed.id)) {
-            return;
-          }
-          this._runningToolCallIds.add(parsed.id);
-        }
-        if (!this._hasReceivedData) {
-          this._hasReceivedData = true;
-          contentDiv.querySelector('.typing-indicator')?.remove();
-        }
-        if (this._reasoningSegment) {
-          this._reasoningSegment.done = true;
-          this._reasoningSegment = null;
-        }
+        const session = s();
+        if (!session) return;
+        if (parsed.id && this._runningToolCallIds.has(parsed.id)) return;
+        if (parsed.id) this._runningToolCallIds.add(parsed.id);
+        session.handleToolStart(parsed, contentDiv);
         this.renderPipeline.flush();
 
-        if (parsed.name === 'ask_user') {
-        } else if (parsed.name === 'todo_write') {
-          console.log('🔧 收到 todo_write 事件:', parsed);
-          if (this.currentText.trim()) {
-            this.segments.push({ type: 'text', content: this.currentText });
-            this.currentText = '';
-          }
-          const existingTodoIndex = this.segments.findIndex(s =>
-            s.type === 'tool' && s.name === 'todo_write' && !s.result
-          );
+        if (parsed.name === 'todo_write') {
           const incomingTodos = this.chatUI.parseTodos(parsed.args);
+          session.pushTextSegment();
+          const existingTodoIndex = session.getSegments().findIndex(
+            seg => seg.type === 'tool' && seg.name === 'todo_write' && !seg.result
+          );
           let finalTodos;
           if (existingTodoIndex >= 0) {
-            const oldSegment = this.segments[existingTodoIndex];
+            const oldSegment = session.getSegments()[existingTodoIndex];
             const oldTodos = this.chatUI.parseTodos(oldSegment.args);
             const todoMap = new Map();
             oldTodos.forEach(todo => { todoMap.set(todo.id, { ...todo }); });
@@ -491,8 +392,7 @@ export class ChatPanel {
                 if (newTodo.status) existing.status = newTodo.status;
               } else {
                 todoMap.set(newTodo.id, {
-                  id: newTodo.id,
-                  content: newTodo.content || '未命名任务',
+                  id: newTodo.id, content: newTodo.content || '未命名任务',
                   status: newTodo.status || 'pending'
                 });
               }
@@ -500,8 +400,7 @@ export class ChatPanel {
             finalTodos = Array.from(todoMap.values());
           } else {
             finalTodos = incomingTodos.map(todo => ({
-              id: todo.id,
-              content: todo.content || '未命名任务',
+              id: todo.id, content: todo.content || '未命名任务',
               status: todo.status || 'pending'
             }));
           }
@@ -511,77 +410,43 @@ export class ChatPanel {
             args: parsed.args, result: null, error: null
           };
           if (existingTodoIndex >= 0) {
-            this.segments[existingTodoIndex] = todoSegment;
+             session.updateTodoAtIndex(existingTodoIndex, todoSegment);
           } else {
-            this.segments.push(todoSegment);
+            session.pushSegment(todoSegment);
           }
-          this.renderPipeline.flush(this.segments, this.currentText);
-        } else {
-          if (this.currentText.trim()) {
-            this.segments.push({ type: 'text', content: this.currentText });
-            this.currentText = '';
-          }
-          this.segments.push({
+          this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
+        } else if (parsed.name !== 'ask_user') {
+          session.pushTextSegment();
+          session.pushSegment({
             type: 'tool', id: parsed.id || null, name: parsed.name,
             args: parsed.args, result: null, error: null
           });
-          this.renderPipeline.flush(this.segments, this.currentText);
+          this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
         }
       },
 
       tool_result: (parsed) => {
-        const resultId = parsed.tool_call_id || parsed.id;
-        if (resultId) {
-          this._runningToolCallIds.delete(resultId);
-        }
-        let existingTool;
-        if (parsed.tool_call_id) {
-          existingTool = this.segments.find(s => s.type === 'tool' && s.id === parsed.tool_call_id && !s.result);
-        }
-        if (!existingTool) {
-          existingTool = this.segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
-        }
-        if (existingTool) {
-          existingTool.result = parsed.success ? 'success' : 'error';
-          existingTool.error = parsed.error || null;
-          existingTool.resultContent = parsed.result || null;
-          if (parsed.args) {
-            existingTool.args = parsed.args;
-          }
-          existingTool.confirmationData = null;
-          existingTool.progressLines = null;
-          this.renderPipeline.flush(this.segments, this.currentText);
-          this.renderPipeline.scheduleRender(this.segments, this.currentText);
-        }
+        const session = s();
+        if (!session) return;
+        session.handleToolResult(parsed);
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
+        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
       },
 
       tool_progress: (parsed) => {
-        const existingTool = this.segments.find(s =>
-          s.type === 'tool' && s.id === parsed.id && !s.result
-        );
-        if (existingTool) {
-          existingTool.progressLines = existingTool.progressLines || [];
-          existingTool.progressLines.push(parsed.line);
-          this.renderPipeline.flush(this.segments, this.currentText);
-          this.renderPipeline.scheduleRender(this.segments, this.currentText);
-        }
+        const session = s();
+        if (!session) return;
+        session.handleToolProgress(parsed);
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
+        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
       },
 
       tool_confirmation: (parsed) => {
-        const bashSegment = this.segments.find(s =>
-          s.type === 'tool' && s.name === 'bash' && !s.result && !s.confirmationData
-        );
-        if (bashSegment) {
-          bashSegment.confirmationData = {
-            confirmId: parsed.confirmId,
-            command: parsed.command,
-            riskLevel: parsed.riskLevel,
-            riskReason: parsed.riskReason
-          };
-          bashSegment._savedCommand = parsed.command;
-          this.renderPipeline.flush(this.segments, this.currentText);
-          this.renderPipeline.scheduleRender(this.segments, this.currentText);
-        }
+        const session = s();
+        if (!session) return;
+        session.handleToolConfirmation(parsed);
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
+        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
       }
     });
   }
@@ -676,6 +541,14 @@ export class ChatPanel {
   }
   
   _showAskUserCard(question, options, allowCustomInput, container) {
+    const session = this._activeSession;
+    if (!session) {
+      const { contentDiv } = this.chatUI.appendAssistantMessage('');
+      const fallbackDiv = container || contentDiv;
+      fallbackDiv.innerHTML = `<div style="padding:8px;color:var(--text-muted)">❓ ${escapeHtml(question)}</div>`;
+      return;
+    }
+
     const segment = {
       type: 'tool',
       name: 'ask_user',
@@ -689,17 +562,12 @@ export class ChatPanel {
     };
     
     if (container) {
-      // 必须先将 currentText flush 为 text segment，再 push ask_user。
-      // 否则渲染时 currentText 会追加在 ask 卡片之后，导致时序正确的 LLM 文本出现在卡片下方
-      if (this.currentText.trim()) {
-        this.segments.push({ type: 'text', content: this.currentText });
-        this.currentText = '';
-      }
-      this.segments.push(segment);
+      session.pushTextSegment();
+      session.pushSegment(segment);
       this._askUserContentDiv = container;
       
       this.renderPipeline.setContainer(container);
-      this.renderPipeline.flush(this.segments, this.currentText);
+      this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
     } else {
       const { contentDiv } = this.chatUI.appendAssistantMessage('');
       const segments = [segment];
@@ -721,144 +589,30 @@ export class ChatPanel {
     }
     this.currentAbortController = new AbortController();
     
-    // 先将用户的选项作为用户消息气泡显示
     this.chatUI.appendUserMessage(message);
     
-    const { contentDiv: responseContentDiv, btnContainer: responseBtnContainer, copyBtn: responseCopyBtn, retryBtn: responseRetryBtn, msgDiv: responseMsgDiv } = this.chatUI.appendAssistantMessage('');
-    this._setupCopyButton(responseCopyBtn, responseContentDiv);
-    this.renderPipeline.setContainer(responseContentDiv);
-    
+    const session = new MessageSession({
+      chatUI: this.chatUI,
+      renderPipeline: this.renderPipeline,
+      chatService: this.chatService
+    });
+    this._activeSession = session;
+
     const askUserMessage = message;
-    responseRetryBtn.onclick = () => {
+    const onRetry = () => {
       if (!askUserMessage) return;
       this.chatService.stopGeneration(this.currentAbortController);
       this.isSendingMessage = false;
       this.currentAbortController = new AbortController();
       this._sendAskUserResponse(askUserMessage);
     };
-    let currentText = '';
-    let segments = [];
-    let reasoningSegment = null;
-    
-    this.chatService.executeRequest(
+
+    session.start({
       sessionId,
-      message,
-      (parsed) => {
-        if (parsed._eventType === 'reasoning' && parsed.reasoning) {
-          if (!reasoningSegment) {
-            reasoningSegment = { type: 'thinking', content: '', done: false };
-            segments.push(reasoningSegment);
-          }
-          reasoningSegment.content += parsed.reasoning;
-          this.renderPipeline.scheduleRender(segments, currentText);
-          this.chatUI.scrollToBottom();
-          return;
-        }
-        
-        if (parsed._eventType === 'reasoning_done') {
-          if (reasoningSegment) {
-            reasoningSegment.done = true;
-            this.renderPipeline.flush();
-            reasoningSegment = null;
-          }
-          return;
-        }
-        
-        if (parsed._eventType === 'content' && parsed.content) {
-          currentText += parsed.content;
-          this.renderPipeline.markTextOnly();
-          this.renderPipeline.scheduleRender(segments, currentText);
-          this.chatUI.scrollToBottom();
-          return;
-        }
-        
-        if (parsed._eventType === 'clear_content') {
-          currentText = '';
-          segments = [];
-          reasoningSegment = null;
-          responseContentDiv.innerHTML = '';
-          return;
-        }
-        
-        if (parsed._eventType === 'tool_start' && parsed.name) {
-          if (currentText.trim()) {
-            segments.push({ type: 'text', content: currentText });
-            currentText = '';
-          }
-          segments.push({
-            type: 'tool',
-            name: parsed.name,
-            args: parsed.args || '{}',
-            result: null,
-            error: null
-          });
-          this.renderPipeline.scheduleRender(segments, currentText);
-          return;
-        }
-        
-        if (parsed._eventType === 'tool_result' && parsed.name) {
-          const existingTool = segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
-          if (existingTool) {
-            existingTool.result = parsed.success ? 'success' : 'error';
-            existingTool.error = parsed.error || null;
-            existingTool.resultContent = parsed.result || null;
-            if (parsed.args) {
-              existingTool.args = parsed.args;
-            }
-            this.renderPipeline.flush(segments, currentText);
-            this.renderPipeline.scheduleRender(segments, currentText);
-          }
-          return;
-        }
-        
-        if (parsed._eventType === 'waiting_user') {
-          this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input);
-          return;
-        }
-        
-        if (parsed._eventType === 'error' && parsed.message) {
-          if (reasoningSegment) {
-            reasoningSegment.done = true;
-            reasoningSegment = null;
-          }
-          currentText = '⚠️ ' + parsed.message;
-          this.renderPipeline.scheduleRender(segments, currentText);
-          this.chatUI.scrollToBottom();
-          return;
-        }
-        
-        if (parsed._eventType === 'done') {
-          return;
-        }
-      },
-      this.currentAbortController?.signal,
-      null,
-      null
-    ).then(() => {
-      if (currentText.trim()) {
-        segments.push({ type: 'text', content: currentText });
-      }
-      this.renderPipeline.renderFinal(segments, '');
-      if (responseBtnContainer) responseBtnContainer.style.display = 'flex';
-    }).catch(error => {
-      if (error.name === 'AbortError') {
-        if (currentText.trim()) {
-          segments.push({ type: 'text', content: currentText });
-        }
-        this.renderPipeline.renderFinal(segments, '');
-        responseContentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
-        if (responseBtnContainer) responseBtnContainer.style.display = 'flex';
-        return;
-      }
-      console.error('发送失败:', error);
-      const { message, detail } = this._classifyError(error);
-      responseContentDiv.innerHTML = `
-        <div style="color: var(--error-color); padding: 8px;">
-          <div style="font-weight: 600; margin-bottom: 4px;">❌ ${escapeHtml(message)}</div>
-          ${detail ? `<div style="font-size: 12px; opacity: 0.7;">${escapeHtml(detail)}</div>` : ''}
-        </div>`;
-      if (responseBtnContainer) responseBtnContainer.style.display = 'flex';
-      showToast(message, { type: 'error', duration: 6000 });
+      content: message,
+      signal: this.currentAbortController?.signal,
+      useExecuteRequest: true,
+      onRetry
     }).finally(() => {
       this.isSendingMessage = false;
       this.setSendingState(false);
@@ -893,8 +647,8 @@ export class ChatPanel {
         });
       }
 
-      const contentDiv = this._responseContentDiv;
-      const btnContainer = this._responseBtnContainer;
+      const contentDiv = this._activeSession?.getContentDiv();
+      const btnContainer = this._activeSession?.getBtnContainer();
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -947,11 +701,12 @@ export class ChatPanel {
         console.error('读取确认 SSE 流失败:', e);
       }
 
-      if (this.currentText.trim()) {
-        this.segments.push({ type: 'text', content: this.currentText });
+      const session = this._activeSession;
+      if (session) {
+        session.pushTextSegment();
+        if (contentDiv) this.renderPipeline.setContainer(contentDiv);
+        this.renderPipeline.renderFinal(session.getSegments(), '');
       }
-      this.renderPipeline.setContainer(contentDiv);
-      this.renderPipeline.renderFinal(this.segments, '');
       this.isCompleted = true;
 
     }).catch(err => {
@@ -1100,28 +855,11 @@ export class ChatPanel {
    * 用户忽略了确认弹窗，或停止了生成，需要修复 UI 状态
    */
   _healStuckToolCards() {
-    let changed = false;
-    for (const seg of this.segments) {
-      if (seg.type !== 'tool' || seg.result) continue;
+    const session = this._activeSession;
+    if (!session) return;
 
-      if (seg.confirmationData) {
-        // 有待确认信息但从未执行 → 用户忽略了确认弹窗
-        seg.result = 'cancelled';
-        seg.confirmationData = null;
-        changed = true;
-      } else if (seg.progressLines && seg.progressLines.length > 0) {
-        // 有进度输出但没有最终结果 → 执行被中断
-        seg.result = 'interrupted';
-        changed = true;
-      } else {
-        // 既没有确认也没进度，只是一个空壳 → 已取消
-        seg.result = 'cancelled';
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      const contentDiv = this._responseContentDiv;
+    if (session.healStuckCards()) {
+      const contentDiv = this._activeSession?.getContentDiv();
       if (contentDiv) {
         // 直接操作 DOM，不触发 RenderPipeline 全量重建
         // flush → doRender 有 await renderMarkdown，会被后续新消息覆盖
