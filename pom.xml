@@ -154,6 +154,18 @@
             <version>1.27.1</version>
         </dependency>
 
+        <!-- JNA: Windows 原生 API 调用（桌面端原生文件对话框） -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>5.14.0</version>
+        </dependency>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna-platform</artifactId>
+            <version>5.14.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>

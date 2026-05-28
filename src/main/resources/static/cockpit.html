@@ -52,6 +52,18 @@
                     <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6"/>
                 </svg>
             </button>
+            <button class="header-icon-btn desktop-only" id="desktopOpenFolderBtn" title="打开工作区文件夹" style="display:none;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+            </button>
+            <div class="workspace-indicator desktop-only" id="workspaceIndicator" style="display:none;">
+                <svg class="workspace-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span class="workspace-path" id="workspacePath"></span>
+                <button class="workspace-clear" id="workspaceClear" title="清除工作区">✕</button>
+            </div>
             <button class="header-icon-btn" id="themeToggle" title="切换主题">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -507,6 +519,9 @@
 
     <!-- Toast 通知容器 -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Desktop Bridge（JCEF JS↔Java 通信） -->
+    <script src="js/desktop-bridge.js"></script>
 
     <!-- 应用入口 -->
     <script type="module" src="js/main.js?v=20260527-6"></script>

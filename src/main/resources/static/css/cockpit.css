@@ -120,6 +120,51 @@ body {
     height: 16px;
 }
 
+.workspace-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px 0 8px;
+    margin-left: 2px;
+    height: 28px;
+    background: var(--bg-code);
+    border-radius: 6px;
+    max-width: 240px;
+    flex-shrink: 0;
+}
+
+.workspace-indicator .workspace-icon {
+    flex-shrink: 0;
+    color: var(--accent);
+}
+
+.workspace-indicator .workspace-path {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.workspace-indicator .workspace-clear {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+}
+
+.workspace-indicator .workspace-clear:hover {
+    background: var(--error-bg);
+    color: var(--error-text);
+}
+
 @keyframes spin {
     to { transform: rotate(360deg); }
 }

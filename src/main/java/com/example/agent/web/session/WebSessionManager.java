@@ -1,5 +1,6 @@
 package com.example.agent.web.session;
 
+import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.config.Config;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
@@ -298,6 +299,7 @@ public class WebSessionManager implements SessionManager {
     }
 
     private String getDefaultSystemPrompt() {
+        String prompt;
         try {
             PromptLibrary library = ServiceLocator.getOrNull(PromptLibrary.class);
             if (library == null) {
@@ -305,11 +307,19 @@ public class WebSessionManager implements SessionManager {
                 library.initialize();
             }
             PromptService promptService = new PromptService();
-            return promptService.getSystemPrompt(PromptService.TaskContext.defaultContext());
+            prompt = promptService.getSystemPrompt(PromptService.TaskContext.defaultContext());
         } catch (Exception e) {
             logger.warn("加载默认 System Prompt 失败，使用 fallback", e);
-            return "You are Hippo, a helpful AI assistant with access to various tools including file operations, code search, and bash commands. Always respond in the same language as the user's message.";
+            prompt = "You are Hippo, a helpful AI assistant with access to various tools including file operations, code search, and bash commands. Always respond in the same language as the user's message.";
         }
+
+        String workspacePath = WorkspaceContext.getCurrentFolder();
+        if (workspacePath != null && !workspacePath.isBlank()) {
+            prompt += "\n\n## 当前工作区\n用户已选择以下文件夹作为当前工作区。Agent 的所有文件操作（readFile/writeFile/editFile 等）应以此目录为根目录：\n"
+                    + workspacePath;
+        }
+
+        return prompt;
     }
 
     private static class SessionLoadMetrics {

@@ -5,6 +5,7 @@ import com.example.agent.config.MemoryConfig;
 import com.example.agent.context.BudgetWarningInjector;
 import com.example.agent.context.Compressor;
 import com.example.agent.context.ContextWindow;
+import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.context.SessionCompactionState;
 import com.example.agent.context.compressor.AutoCompactTrigger;
 import com.example.agent.context.compressor.TruncateCompressor;
@@ -560,7 +561,12 @@ public class ConversationService {
     }
 
     public SessionData exportSession(Conversation conversation, String sessionId, SessionData.Status status) {
-        return SessionData.create(sessionId, new ArrayList<>(conversation.getMessages()), status);
+        SessionData data = SessionData.create(sessionId, new ArrayList<>(conversation.getMessages()), status);
+        String workspacePath = WorkspaceContext.getCurrentFolder();
+        if (workspacePath != null && !workspacePath.isBlank()) {
+            data.setWorkspacePath(workspacePath);
+        }
+        return data;
     }
 
     public boolean importSession(Conversation conversation, SessionData sessionData) {

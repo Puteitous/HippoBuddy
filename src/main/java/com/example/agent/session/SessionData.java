@@ -26,6 +26,7 @@ public class SessionData {
     private Status status;
     private int messageCount;
     private String lastUserMessage;
+    private String workspacePath;
 
     public SessionData() {
         this.messages = new ArrayList<>();
@@ -133,6 +134,14 @@ public class SessionData {
 
     public void setLastUserMessage(String lastUserMessage) {
         this.lastUserMessage = lastUserMessage;
+    }
+
+    public String getWorkspacePath() {
+        return workspacePath;
+    }
+
+    public void setWorkspacePath(String workspacePath) {
+        this.workspacePath = workspacePath;
     }
 
     public String getLastToolCalls() {
