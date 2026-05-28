@@ -1,3 +1,5 @@
+import { WorkspaceUI } from './components/WorkspaceUI.js';
+
 const HippoDesktop = (() => {
     function send(action, payload = {}) {
         return new Promise((resolve, reject) => {
@@ -41,32 +43,6 @@ const HippoDesktop = (() => {
         }, 3000);
     }
 
-    function truncatePath(path, maxLen) {
-        maxLen = maxLen || 45;
-        if (path.length <= maxLen) return path;
-        const parts = path.replace(/\\/g, '/').split('/');
-        if (parts.length <= 2) return path;
-        const head = parts.slice(0, 2).join('/');
-        const tail = parts.slice(-2).join('/');
-        return head + '/.../' + tail;
-    }
-
-    const indicator = document.getElementById('workspaceIndicator');
-    const pathEl = document.getElementById('workspacePath');
-    const clearBtn = document.getElementById('workspaceClear');
-
-    function showIndicator(path) {
-        if (!indicator || !pathEl) return;
-        pathEl.textContent = truncatePath(path);
-        pathEl.title = path;
-        indicator.style.display = '';
-    }
-
-    function hideIndicator() {
-        if (!indicator) return;
-        indicator.style.display = 'none';
-    }
-
     const api = {
         get isAvailable() {
             return typeof window.cefQuery !== 'undefined';
@@ -94,36 +70,22 @@ const HippoDesktop = (() => {
     };
 
     if (api.isAvailable) {
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                send('clearCurrentFolder').catch(() => {});
-                hideIndicator();
-                showToast('工作区已清除');
-            });
-        }
-
-        const btn = document.getElementById('desktopOpenFolderBtn');
-        if (btn) {
-            btn.style.display = '';
-            btn.addEventListener('click', () => {
-                api.openFileDialog()
-                    .then((result) => {
-                        if (result && result.path) {
-                            api.setCurrentFolder(result.path);
-                            showIndicator(result.path);
-                            showToast('工作区已切换: ' + result.path);
-                        }
-                    })
-                    .catch((err) => {
-                        console.error('DesktopBridge: openFileDialog failed', err);
-                        showToast('打开文件夹失败: ' + err.message);
-                    });
-            });
-        }
+        const workspaceUI = new WorkspaceUI({
+            showToast,
+            onClear: () => send('clearCurrentFolder').catch(() => {}),
+            onOpenFolder: async () => {
+                const result = await api.openFileDialog();
+                if (result && result.path) {
+                    await api.setCurrentFolder(result.path);
+                    return result.path;
+                }
+                return null;
+            }
+        });
 
         api.getCurrentFolder().then((result) => {
             if (result && result.path) {
-                showIndicator(result.path);
+                workspaceUI.show(result.path);
             }
         }).catch(() => {});
     } else {

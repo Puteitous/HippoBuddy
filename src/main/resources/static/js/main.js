@@ -20,8 +20,10 @@ import { diffModalManager } from './utils/diff-modal.js';
 import { FileChangeManager } from './utils/file-change-manager.js';
 import { EventBus } from './utils/event-bus.js';
 import { showToast } from './utils/toast.js';
-import { generateSessionId, escapeHtml } from './utils.js';
+import { generateSessionId } from './utils.js';
 import { renderMarkdown } from './markdown-renderer.js';
+import { SplashScreen } from './components/SplashScreen.js';
+import { RollbackPanel } from './components/RollbackPanel.js';
 
 // ========== 全局状态 ==========
 let currentSessionId = null;
@@ -44,6 +46,8 @@ let chatNav;
 let tokenMonitor;
 let metricsPanel;
 let fileChangeManager;
+let splashScreen;
+let rollbackPanel;
 
 // ========== DOM 元素 ==========
 const elements = {
@@ -61,90 +65,15 @@ const elements = {
   promptModalSave: document.getElementById('promptModalSave')
 };
 
-// ========== Splash 出水动画控制 ==========
-
-let _splashCleanupTimer = null;
-
-/**
- * 启动 splash 动画：河马浮出水面 + 波浪消退
- * 绑定点击跳过事件
- */
-function startSplashAnimation() {
-  const splash = document.getElementById('splashScreen');
-  if (!splash) return;
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      splash.classList.add('splash-animating');
-    });
-  });
-
-  splash.addEventListener('click', skipSplash, { once: true });
-}
-
-/**
- * 跳过 splash 动画：立即隐藏 splash → 显示页面内容
- */
-function skipSplash() {
-  const splash = document.getElementById('splashScreen');
-  if (!splash || splash.classList.contains('splash-hidden')) return;
-
-  if (_splashCleanupTimer) {
-    clearTimeout(_splashCleanupTimer);
-    _splashCleanupTimer = null;
-  }
-
-  splash.classList.add('splash-hidden');
-
-  setTimeout(() => {
-    splash.style.display = 'none';
-    document.body.classList.remove('page-loading');
-
-    // 更新右侧面板 UI（默认隐藏）
-    const rp = document.getElementById('rightPanel');
-    const rpt = document.getElementById('rightPanelToggle');
-    if (rpt) rpt.title = '展开右侧面板';
-    if (elements.rightPanelShowBtn) {
-      elements.rightPanelShowBtn.style.display = '';
-    }
-  }, 150);
-}
-
-/**
- * 安排 splash 结束：隐藏 splash → 页面内容渐入
- * 必须放在 init() 末尾调用，确保所有事件绑定已完成
- */
-function scheduleSplashCleanup() {
-  const splash = document.getElementById('splashScreen');
-  if (!splash) {
-    document.body.classList.remove('page-loading');
-    return;
-  }
-
-  _splashCleanupTimer = setTimeout(() => {
-    splash.classList.add('splash-hidden');
-
-    _splashCleanupTimer = setTimeout(() => {
-      splash.style.display = 'none';
-      document.body.classList.remove('page-loading');
-
-      // 更新右侧面板 UI（默认隐藏）
-      const rp = document.getElementById('rightPanel');
-      const rpt = document.getElementById('rightPanelToggle');
-      if (rpt) rpt.title = '展开右侧面板';
-      if (elements.rightPanelShowBtn) {
-        elements.rightPanelShowBtn.style.display = '';
-      }
-    }, 600);
-  }, 2400);
-}
+// SplashScreen 接管了启动动画控制
 
 // ========== 初始化 ==========
 function init() {
   console.log('🚀 Initializing Hippo Cockpit...');
   
   // 0. 启动 splash 出水动画（与初始化并行）
-  startSplashAnimation();
+  splashScreen = new SplashScreen({ rightPanelShowBtn: elements.rightPanelShowBtn });
+  splashScreen.startAnimation();
   
   // 1. 初始化主题
   initTheme();
@@ -155,6 +84,16 @@ function init() {
   
   // 3. 初始化聊天面板
   chatPanel = new ChatPanel(chatContainer, chatService, chatUI);
+  
+  // 3.1 初始化回滚面板
+  rollbackPanel = new RollbackPanel({
+    chatService,
+    chatPanel,
+    chatContainer,
+    messageInput: elements.messageInput,
+    onCreateNewSession: () => createNewSession(),
+    onUpdateFileChanges: () => fileChangeManager?.updateFileChanges()
+  });
   
   // 4. 初始化对话导航
   chatNav = new ChatNav(chatContainer);
@@ -212,7 +151,7 @@ function init() {
   });
   
   // 14. 安排 splash 结束 + 页面内容渐入
-  scheduleSplashCleanup();
+  splashScreen.scheduleCleanup();
   
   console.log('✅ Hippo Cockpit initialized');
 }
@@ -394,210 +333,12 @@ function bindGlobalEvents() {
   });
   
   // 消息回滚事件
-  EventBus.on('message:rollback', (msgDiv) => handleMessageRollback(msgDiv));
-}
-
-// 内联面板平滑移除
-function animateRemovePanel(panel) {
-  panel.classList.add('rollback-inline-exit');
-  panel.addEventListener('animationend', () => panel.remove(), { once: true });
-}
-
-// ========== 消息回滚处理（内联快照方案）==========
-async function handleMessageRollback(msgDiv) {
-  const rollbackBtn = msgDiv.querySelector('.rollback-btn');
-  if (!rollbackBtn || rollbackBtn.classList.contains('rolling')) return;
-
-  const assistantRow = msgDiv.closest('.message-row');
-  if (!assistantRow) return;
-
-  // 如果已有内联面板，收起它（切换开关效果，带退出动画）
-  const existingPanel = assistantRow.nextElementSibling;
-  if (existingPanel && existingPanel.classList.contains('rollback-inline')) {
-    animateRemovePanel(existingPanel);
-    return;
-  }
-
-  rollbackBtn.classList.add('rolling');
-  rollbackBtn.innerHTML = '<span style="font-size:12px;">⋯</span>';
-
-  if (chatPanel.currentAbortController) {
-    chatPanel.stopGeneration();
-  }
-
-  let userRow = assistantRow?.previousElementSibling;
-  let messageId = userRow?.querySelector('.message.user')?.dataset?.messageId;
-
-  if (!messageId) {
-    const isLastAssistant = !assistantRow?.nextElementSibling?.querySelector('.message.assistant');
-    if (isLastAssistant && chatPanel._lastUserMessageId && !chatPanel._lastUserMessageId.startsWith('tmp-')) {
-      messageId = chatPanel._lastUserMessageId;
-    }
-  }
-
-  if (!messageId) {
-    showToast('无法确定上一轮对话的消息 ID，请刷新后重试', { type: 'error', duration: 3000 });
-    rollbackBtn.innerHTML = '↩';
-    rollbackBtn.classList.remove('rolling');
-    return;
-  }
-
-  // 插入加载中面板
-  const loadingPanel = document.createElement('div');
-  loadingPanel.className = 'rollback-inline-loading';
-  loadingPanel.innerHTML = `
-    <svg class="loading-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-      <circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
-    </svg>
-    正在检查文件变更...
-  `;
-  assistantRow.insertAdjacentElement('afterend', loadingPanel);
-
-  let previewFiles = [];
-  try {
-    const previewData = await chatService.rewindPreview(currentSessionId, messageId);
-    previewFiles = previewData.files || [];
-  } catch (e) {
-    loadingPanel.remove();
-    showToast('检查文件变更失败，请重试', { type: 'error', duration: 3000 });
-    rollbackBtn.innerHTML = '↩';
-    rollbackBtn.classList.remove('rolling');
-    return;
-  }
-
-  // 移除加载中面板
-  loadingPanel.remove();
-
-  const fileSvg = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v3h3"/></svg>';
-
-  let filesHtml = '';
-  if (previewFiles.length > 0) {
-    filesHtml = `
-    <div class="rollback-inline-files">
-      ${previewFiles.map(f => {
-        const actionLabel = f.action === 'delete' ? '删除' : f.action === 'restore' ? '恢复' : '无变化';
-        const actionClass = f.action === 'delete' ? 'action-delete' : f.action === 'restore' ? 'action-restore' : 'action-unchanged';
-        let diffStats = '';
-        if (f.action === 'restore' && (f.insertions > 0 || f.deletions > 0)) {
-          const parts = [];
-          if (f.insertions > 0) parts.push(`<span class="diff-add">+${f.insertions}</span>`);
-          if (f.deletions > 0) parts.push(`<span class="diff-del">-${f.deletions}</span>`);
-          diffStats = `<span class="diff-stats">${parts.join(' ')}</span>`;
-        } else if (f.action === 'restore') {
-          diffStats = `<span class="diff-stats"><span class="diff-none">无变动</span></span>`;
-        }
-        return `<div class="rollback-inline-file">
-          <span class="file-icon">${fileSvg}</span>
-          <span class="file-name" title="${escapeHtml(f.filePath)}">${escapeHtml(f.filePath.replace(/^.*[/\\]/, ''))}</span>
-          <span class="file-action-badge ${actionClass}">${actionLabel}</span>
-          ${diffStats}
-        </div>`;
-      }).join('')}
-    </div>
-    <div class="rollback-inline-divider"></div>`;
-  }
-
-  const panel = document.createElement('div');
-  panel.className = 'rollback-inline';
-  panel.innerHTML = `
-    <div class="rollback-inline-header">
-      <span class="rollback-inline-icon">
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="8" cy="8" r="6"/>
-          <line x1="8" y1="5" x2="8" y2="9"/>
-          <line x1="8" y1="11" x2="8" y2="11.5"/>
-        </svg>
-      </span>
-      <span>回滚到上一轮对话</span>
-      <span class="rollback-inline-count">${previewFiles.length > 0 ? previewFiles.length + ' 个文件' : '无文件变更'}</span>
-    </div>
-    ${filesHtml}
-    <div class="rollback-inline-footer">
-      <span class="rollback-inline-note">此操作无法撤销</span>
-      <span class="rollback-inline-actions">
-        <button class="rollback-inline-btn rollback-inline-btn-cancel">取消</button>
-        <button class="rollback-inline-btn rollback-inline-btn-confirm">确认</button>
-      </span>
-    </div>
-  `;
-  assistantRow.insertAdjacentElement('afterend', panel);
-
-  // 滚动到面板可见
-  requestAnimationFrame(() => {
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  EventBus.on('message:rollback', (msgDiv) => {
+    rollbackPanel.execute(msgDiv, currentSessionId);
   });
-
-  // 恢复按钮状态
-  rollbackBtn.innerHTML = '↩';
-  rollbackBtn.classList.remove('rolling');
-
-  // 等待用户操作
-  const result = await new Promise((resolve) => {
-    const cancelBtn = panel.querySelector('.rollback-inline-btn-cancel');
-    const confirmBtn = panel.querySelector('.rollback-inline-btn-confirm');
-
-    cancelBtn.addEventListener('click', () => {
-      animateRemovePanel(panel);
-      resolve(null);
-    });
-
-    confirmBtn.addEventListener('click', async () => {
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = '回滚中...';
-      cancelBtn.disabled = true;
-      resolve('confirm');
-    });
-  });
-
-  if (!result) return;
-
-  try {
-    const rewindResult = await chatService.rewind(currentSessionId, messageId);
-
-    if (rewindResult.success) {
-      panel.remove();
-
-      chatService.invalidateMessageCache(currentSessionId);
-      chatContainer.classList.add('switching');
-      const messages = await chatService.getSessionMessages(currentSessionId);
-
-      if (messages.length === 0) {
-        try {
-          await chatService.deleteSession(currentSessionId);
-        } catch (_) {}
-        chatService.invalidateMessageCache(currentSessionId);
-        chatContainer.classList.remove('switching');
-        await createNewSession();
-        showToast('此会话已清空，已自动创建新会话', { type: 'info', duration: 4000 });
-        return;
-      }
-
-      await chatPanel.loadHistoryMessages(messages, true);
-      chatContainer.classList.remove('switching');
-      requestAnimationFrame(() => {
-        chatContainer.querySelectorAll('.message-row.animate-in').forEach(el => el.classList.remove('animate-in'));
-      });
-      fileChangeManager.updateFileChanges();
-
-      if (rewindResult.lastUserMessage && elements.messageInput) {
-        elements.messageInput.value = rewindResult.lastUserMessage;
-        elements.messageInput.style.height = 'auto';
-        elements.messageInput.style.height = elements.messageInput.scrollHeight + 'px';
-        elements.messageInput.focus();
-      }
-
-      showToast(rewindResult.message || '已回滚到上一轮对话', { type: 'success', duration: 4000 });
-    } else {
-      animateRemovePanel(panel);
-      showToast(`回滚失败：${rewindResult.error || '未知错误'}`, { type: 'error', duration: 3000 });
-    }
-  } catch (e) {
-    animateRemovePanel(panel);
-    showToast(`回滚失败：${e.message}`, { type: 'error', duration: 3000 });
-  }
-
-  chatContainer.classList.remove('switching');
 }
+
+// RollbackPanel 接管了回滚逻辑
 
 // ========== 会话管理 ==========
 async function createNewSession() {

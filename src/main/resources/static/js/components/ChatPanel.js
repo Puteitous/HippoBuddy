@@ -4,6 +4,8 @@ import { escapeHtml } from '../utils.js';
 import { renderMarkdown } from '../markdown-renderer.js';
 import { showToast } from '../utils/toast.js';
 import { EventBus } from '../utils/event-bus.js';
+import { RenderPipeline } from './RenderPipeline.js';
+import { EventRouter } from './EventRouter.js';
 
 export class ChatPanel {
   constructor(container, chatService, chatUI) {
@@ -18,28 +20,34 @@ export class ChatPanel {
     this.isCompleted = false;
     this.currentAbortController = null;
     this.lastUserMessage = '';
-    this.renderTimer = null;
-    
-    // 渲染性能优化
-    this._lastRenderTime = 0;
-    this._renderThrottleTimer = null;
-    this._pendingRender = null;
     this._hasReceivedData = false;
     this._lastUserMsgDiv = null;
     this._lastUserMessageId = null;
     this._runningToolCallIds = new Set();
     this._destroyed = false;
 
-    // 增量渲染：streaming 文本快速更新
-    this._streamingAnchor = null;
-    this._lastSegmentCount = 0;
-    this._pendingIsTextOnly = false;
+    this.renderPipeline = new RenderPipeline(chatUI, {
+      bindAskUserCard: (card) => this._bindAskUserCardEvents(card),
+      onConfirmationClick: (e) => {
+        const btn = e.currentTarget;
+        const confirmId = btn.dataset.confirmId;
+        const decision = btn.classList.contains('allow') ? 'allow' : 'deny';
+        const item = btn.closest('.tool-timeline-item');
+        const checkbox = item?.querySelector('.auto-allow-checkbox');
+        const autoAllowSimilar = checkbox ? checkbox.checked : false;
+        this._sendToolConfirmResponse(confirmId, decision, autoAllowSimilar);
+        if (item) {
+          const detail = item.querySelector('.tool-timeline-detail');
+          if (detail) {
+            detail.style.maxHeight = '0';
+          }
+          item.classList.remove('expanded');
+        }
+      },
+      afterRender: () => this.smartScroll()
+    });
 
-    // 渲染版本号：防止 async 重入覆盖
-    this._renderVersion = 0;
-
-    // 调度标记：_scheduleRender 设置的定时器不应被 _flushRender 取消
-    this._renderScheduled = false;
+    this.eventRouter = this._createEventRouter();
 
     this.init();
   }
@@ -264,6 +272,7 @@ export class ChatPanel {
       btnContainer = result.btnContainer;
       this._responseContentDiv = contentDiv;
       this._responseBtnContainer = btnContainer;
+      this.renderPipeline.setContainer(contentDiv);
       
       // 绑定复制按钮
       this._setupCopyButton(copyBtn, contentDiv);
@@ -294,7 +303,8 @@ export class ChatPanel {
       if (this.segments.length === 0 && !this.currentText.trim()) {
         contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
       } else {
-        await this.renderSegmentsFinal(contentDiv, this.segments, '');
+        this.renderPipeline.setContainer(contentDiv);
+        await this.renderPipeline.renderFinal(this.segments, '');
       }
       
       btnContainer.style.display = 'flex';
@@ -310,7 +320,8 @@ export class ChatPanel {
         if (this.currentText.trim()) {
           this.segments.push({ type: 'text', content: this.currentText });
         }
-        await this.renderSegmentsFinal(contentDiv, this.segments, '');
+        this.renderPipeline.setContainer(contentDiv);
+        await this.renderPipeline.renderFinal(this.segments, '');
         contentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
       } else {
         const { message, detail } = this._classifyError(error);
@@ -350,648 +361,242 @@ export class ChatPanel {
   /**
    * 处理 SSE 数据块
    */
-  handleChunk(parsed, contentDiv, btnContainer) {
-    if (this.isCompleted) return;
-    
-    // 处理 waiting_user 事件（优先处理，避免被其他逻辑拦截）
-    if (parsed._eventType === 'waiting_user') {
-      console.log('📥 收到 waiting_user 事件:', parsed);
-      this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input, contentDiv);
-      return;
-    }
-    
-    // 处理 message_id 事件（存储消息ID用于编辑和回滚功能）
-    if (parsed._eventType === 'message_id' && parsed.id) {
-      const userMsgDiv = this._lastUserMsgDiv;
-      if (userMsgDiv) {
-        userMsgDiv.dataset.messageId = parsed.id;
-        this._lastUserMessageId = parsed.id;
-      }
-      return;
-    }
-    
-    // 处理 thinking 事件 - 新轮次思考开始，重置 reasoning 状态
-    if (parsed._eventType === 'thinking') {
-      if (this.currentText.trim()) {
-        this.segments.push({ type: 'text', content: this.currentText });
-        this.currentText = '';
-      }
-      this._reasoningSegment = null;
-      this._flushRender();
-      return;
-    }
-    
-    // 处理 clear_content 事件（清空 LLM 多余文本）
-    if (parsed._eventType === 'clear_content') {
-      console.log('🧹 清空内容');
-      this.currentText = '';
-      this.segments = [];
-      this._reasoningSegment = null;
-      contentDiv.innerHTML = '';
-      return;
-    }
-    
-    // 处理 retry 事件
-    if (parsed.type === 'retry') {
-      contentDiv.innerHTML = `<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🔄 ${escapeHtml(parsed.message)}</div>`;
-      this.currentText = '';
-      this.segments = [];
-      return;
-    }
-    
-    // 处理 SSE error 事件（来自后端的结构化错误，附带 message 字段）
-    if (parsed._eventType === 'error' && parsed.message) {
-      if (this._reasoningSegment) {
-        this._reasoningSegment.done = true;
-        this._reasoningSegment = null;
-      }
-      this.currentText = '⚠️ ' + parsed.message;
-      this._scheduleRender(contentDiv, this.segments, this.currentText);
-      return;
-    }
+  _createEventRouter() {
+    return new EventRouter({
+      waiting_user: (parsed, contentDiv) => {
+        console.log('📥 收到 waiting_user 事件:', parsed);
+        this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input, contentDiv);
+      },
 
-    // 处理非 JSON 的原始事件（如解析失败的错误消息）
-    if (parsed.type === 'raw' || parsed.type === 'error') {
-      contentDiv.innerHTML = `<span style="color: var(--error-color);">❌ ${escapeHtml(parsed.content)}</span>`;
-      return;
-    }
-    
-    // 处理 reasoning 事件 - 思考过程流式显示
-    if (parsed._eventType === 'reasoning' && parsed.reasoning) {
-      if (!this._hasReceivedData) {
-        this._hasReceivedData = true;
-        contentDiv.querySelector('.typing-indicator')?.remove();
-      }
-      
-      if (!this._reasoningSegment) {
-        this._reasoningSegment = { type: 'thinking', content: '', done: false };
-        this.segments.push(this._reasoningSegment);
-      }
-      this._reasoningSegment.content += parsed.reasoning;
-      this._scheduleRender(contentDiv, this.segments, this.currentText);
-      this.smartScroll();
-      return;
-    }
-    
-    // 处理 reasoning_done 事件 - 思考过程结束
-    if (parsed._eventType === 'reasoning_done') {
-      if (this._reasoningSegment) {
-        this._reasoningSegment.done = true;
-        this._flushRender();
-        this._reasoningSegment = null;
-      }
-      return;
-    }
-    
-    // 处理 content 事件 - 流式显示（带渲染节流）
-    if (parsed._eventType === 'content' && parsed.content) {
-      // 如果 reasoning_done 未正常到达，但 content 已经来了，隐式结束思考
-      if (this._reasoningSegment) {
-        this._reasoningSegment.done = true;
-        this._pendingRender = { container: contentDiv, segments: this.segments, currentText: this.currentText };
-        this._flushRender();
-        this._reasoningSegment = null;
-      }
-      this.currentText += parsed.content;
-      
-      if (!this._hasReceivedData) {
-        this._hasReceivedData = true;
-        contentDiv.querySelector('.typing-indicator')?.remove();
-      }
-      
-      this._pendingIsTextOnly = true;
-      this._scheduleRender(contentDiv, this.segments, this.currentText);
-      this.smartScroll();
-      return;
-    }
-    
-    // 处理 tool_start 事件
-    if (parsed._eventType === 'tool_start' && parsed.name) {
-      
-      if (parsed.id) {
-        if (this._runningToolCallIds.has(parsed.id)) {
-          return;
+      message_id: (parsed) => {
+        const userMsgDiv = this._lastUserMsgDiv;
+        if (userMsgDiv) {
+          userMsgDiv.dataset.messageId = parsed.id;
+          this._lastUserMessageId = parsed.id;
         }
-        this._runningToolCallIds.add(parsed.id);
-      }
-      
-      if (!this._hasReceivedData) {
-        this._hasReceivedData = true;
-        contentDiv.querySelector('.typing-indicator')?.remove();
-      }
-      
-      // 如果 reasoning_done 未正常到达，但 tool 已经来了，隐式结束思考
-      if (this._reasoningSegment) {
-        this._reasoningSegment.done = true;
-        this._reasoningSegment = null;
-      }
+      },
 
-      // 立即刷新，确保思考段已完成后再推 tool 段
-      this._flushRender();
-      
-      // ask_user 工具不在这里渲染，等待 waiting_user 事件处理
-      if (parsed.name === 'ask_user') {
-        // 跳过渲染，但继续处理后续事件（不 return）
-      } else if (parsed.name === 'todo_write') {
-        console.log('🔧 收到 todo_write 事件:', parsed);
-        // todo_write 工具：更新或创建卡片
+      thinking: () => {
         if (this.currentText.trim()) {
           this.segments.push({ type: 'text', content: this.currentText });
           this.currentText = '';
         }
-        
-        // 查找是否已有 todo_write 工具卡片
-        const existingTodoIndex = this.segments.findIndex(s => 
-          s.type === 'tool' && s.name === 'todo_write' && !s.result
+        this._reasoningSegment = null;
+        this.renderPipeline.flush();
+      },
+
+      clear_content: (contentDiv) => {
+        console.log('🧹 清空内容');
+        this.currentText = '';
+        this.segments = [];
+        this._reasoningSegment = null;
+        contentDiv.innerHTML = '';
+      },
+
+      retry: (parsed, contentDiv) => {
+        contentDiv.innerHTML = `<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🔄 ${escapeHtml(parsed.message)}</div>`;
+        this.currentText = '';
+        this.segments = [];
+      },
+
+      sse_error: (parsed) => {
+        if (this._reasoningSegment) {
+          this._reasoningSegment.done = true;
+          this._reasoningSegment = null;
+        }
+        this.currentText = '⚠️ ' + parsed.message;
+        this.renderPipeline.scheduleRender(this.segments, this.currentText);
+      },
+
+      raw_error: (parsed, contentDiv) => {
+        contentDiv.innerHTML = `<span style="color: var(--error-color);">❌ ${escapeHtml(parsed.content)}</span>`;
+      },
+
+      reasoning: (parsed, contentDiv) => {
+        if (!this._hasReceivedData) {
+          this._hasReceivedData = true;
+          contentDiv.querySelector('.typing-indicator')?.remove();
+        }
+        if (!this._reasoningSegment) {
+          this._reasoningSegment = { type: 'thinking', content: '', done: false };
+          this.segments.push(this._reasoningSegment);
+        }
+        this._reasoningSegment.content += parsed.reasoning;
+        this.renderPipeline.scheduleRender(this.segments, this.currentText);
+        this.smartScroll();
+      },
+
+      reasoning_done: () => {
+        if (this._reasoningSegment) {
+          this._reasoningSegment.done = true;
+          this.renderPipeline.flush();
+          this._reasoningSegment = null;
+        }
+      },
+
+      content: (parsed, contentDiv) => {
+        if (this._reasoningSegment) {
+          this._reasoningSegment.done = true;
+          this.renderPipeline.flush(this.segments, this.currentText);
+          this._reasoningSegment = null;
+        }
+        this.currentText += parsed.content;
+        if (!this._hasReceivedData) {
+          this._hasReceivedData = true;
+          contentDiv.querySelector('.typing-indicator')?.remove();
+        }
+        this.renderPipeline.markTextOnly();
+        this.renderPipeline.scheduleRender(this.segments, this.currentText);
+        this.smartScroll();
+      },
+
+      tool_start: (parsed, contentDiv) => {
+        if (parsed.id) {
+          if (this._runningToolCallIds.has(parsed.id)) {
+            return;
+          }
+          this._runningToolCallIds.add(parsed.id);
+        }
+        if (!this._hasReceivedData) {
+          this._hasReceivedData = true;
+          contentDiv.querySelector('.typing-indicator')?.remove();
+        }
+        if (this._reasoningSegment) {
+          this._reasoningSegment.done = true;
+          this._reasoningSegment = null;
+        }
+        this.renderPipeline.flush();
+
+        if (parsed.name === 'ask_user') {
+        } else if (parsed.name === 'todo_write') {
+          console.log('🔧 收到 todo_write 事件:', parsed);
+          if (this.currentText.trim()) {
+            this.segments.push({ type: 'text', content: this.currentText });
+            this.currentText = '';
+          }
+          const existingTodoIndex = this.segments.findIndex(s =>
+            s.type === 'tool' && s.name === 'todo_write' && !s.result
+          );
+          const incomingTodos = this.chatUI.parseTodos(parsed.args);
+          let finalTodos;
+          if (existingTodoIndex >= 0) {
+            const oldSegment = this.segments[existingTodoIndex];
+            const oldTodos = this.chatUI.parseTodos(oldSegment.args);
+            const todoMap = new Map();
+            oldTodos.forEach(todo => { todoMap.set(todo.id, { ...todo }); });
+            incomingTodos.forEach(newTodo => {
+              if (todoMap.has(newTodo.id)) {
+                const existing = todoMap.get(newTodo.id);
+                if (newTodo.content) existing.content = newTodo.content;
+                if (newTodo.status) existing.status = newTodo.status;
+              } else {
+                todoMap.set(newTodo.id, {
+                  id: newTodo.id,
+                  content: newTodo.content || '未命名任务',
+                  status: newTodo.status || 'pending'
+                });
+              }
+            });
+            finalTodos = Array.from(todoMap.values());
+          } else {
+            finalTodos = incomingTodos.map(todo => ({
+              id: todo.id,
+              content: todo.content || '未命名任务',
+              status: todo.status || 'pending'
+            }));
+          }
+          parsed.args = JSON.stringify({ todos: finalTodos });
+          const todoSegment = {
+            type: 'tool', id: parsed.id || null, name: 'todo_write',
+            args: parsed.args, result: null, error: null
+          };
+          if (existingTodoIndex >= 0) {
+            this.segments[existingTodoIndex] = todoSegment;
+          } else {
+            this.segments.push(todoSegment);
+          }
+          this.renderPipeline.flush(this.segments, this.currentText);
+        } else {
+          if (this.currentText.trim()) {
+            this.segments.push({ type: 'text', content: this.currentText });
+            this.currentText = '';
+          }
+          this.segments.push({
+            type: 'tool', id: parsed.id || null, name: parsed.name,
+            args: parsed.args, result: null, error: null
+          });
+          this.renderPipeline.flush(this.segments, this.currentText);
+        }
+      },
+
+      tool_result: (parsed) => {
+        const resultId = parsed.tool_call_id || parsed.id;
+        if (resultId) {
+          this._runningToolCallIds.delete(resultId);
+        }
+        let existingTool;
+        if (parsed.tool_call_id) {
+          existingTool = this.segments.find(s => s.type === 'tool' && s.id === parsed.tool_call_id && !s.result);
+        }
+        if (!existingTool) {
+          existingTool = this.segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+        }
+        if (existingTool) {
+          existingTool.result = parsed.success ? 'success' : 'error';
+          existingTool.error = parsed.error || null;
+          existingTool.resultContent = parsed.result || null;
+          if (parsed.args) {
+            existingTool.args = parsed.args;
+          }
+          existingTool.confirmationData = null;
+          existingTool.progressLines = null;
+          this.renderPipeline.flush(this.segments, this.currentText);
+          this.renderPipeline.scheduleRender(this.segments, this.currentText);
+        }
+      },
+
+      tool_progress: (parsed) => {
+        const existingTool = this.segments.find(s =>
+          s.type === 'tool' && s.id === parsed.id && !s.result
         );
-        
-        // 解析当前的 todos
-        const incomingTodos = this.chatUI.parseTodos(parsed.args);
-        console.log('🔧 todo_write - 收到的 todos:', incomingTodos);
-        console.log('  收到数量:', incomingTodos.length);
-        
-        let finalTodos;
-        
-        // 如果是更新（已有卡片），合并到现有列表
-        if (existingTodoIndex >= 0) {
-          const oldSegment = this.segments[existingTodoIndex];
-          const oldTodos = this.chatUI.parseTodos(oldSegment.args);
-          console.log('🔧 todo_write - 旧的 todos:', oldTodos);
-          console.log('  旧的数量:', oldTodos.length);
-          
-          // 创建映射：id -> todo
-          const todoMap = new Map();
-          
-          // 先放入所有旧的
-          oldTodos.forEach(todo => {
-            todoMap.set(todo.id, { ...todo });
-          });
-          
-          // 用新的更新（只更新匹配的 id）
-          incomingTodos.forEach(newTodo => {
-            if (todoMap.has(newTodo.id)) {
-              // 更新现有任务
-              const existing = todoMap.get(newTodo.id);
-              if (newTodo.content) existing.content = newTodo.content;
-              if (newTodo.status) existing.status = newTodo.status;
-              console.log('  更新任务 id=' + newTodo.id, existing);
-            } else {
-              // 新任务
-              todoMap.set(newTodo.id, {
-                id: newTodo.id,
-                content: newTodo.content || '未命名任务',
-                status: newTodo.status || 'pending'
-              });
-              console.log('  新增任务 id=' + newTodo.id);
-            }
-          });
-          
-          finalTodos = Array.from(todoMap.values());
-          console.log('✅ 合并后数量:', finalTodos.length);
-        } else {
-          console.log('🆕 首次创建 todo 卡片');
-          // 首次创建，补充缺失的 content
-          finalTodos = incomingTodos.map(todo => ({
-            id: todo.id,
-            content: todo.content || '未命名任务',
-            status: todo.status || 'pending'
-          }));
+        if (existingTool) {
+          existingTool.progressLines = existingTool.progressLines || [];
+          existingTool.progressLines.push(parsed.line);
+          this.renderPipeline.flush(this.segments, this.currentText);
+          this.renderPipeline.scheduleRender(this.segments, this.currentText);
         }
-        
-        // 更新 args 为最终的完整列表
-        parsed.args = JSON.stringify({ todos: finalTodos });
-        
-        const todoSegment = { 
-          type: 'tool', 
-          id: parsed.id || null,
-          name: 'todo_write', 
-          args: parsed.args, 
-          result: null, 
-          error: null 
-        };
-        
-        if (existingTodoIndex >= 0) {
-          // 更新已有的 todo 卡片
-          this.segments[existingTodoIndex] = todoSegment;
-        } else {
-          // 创建新的 todo 卡片
-          this.segments.push(todoSegment);
-        }
-        this._pendingRender = { container: contentDiv, segments: this.segments, currentText: this.currentText, _isTextOnly: false };
-          this._flushRender();
-         } else {
-           // 其他工具：创建新卡片
-           if (this.currentText.trim()) {
-             this.segments.push({ type: 'text', content: this.currentText });
-             this.currentText = '';
-           }
-           this.segments.push({ 
-             type: 'tool', 
-             id: parsed.id || null,
-             name: parsed.name, 
-             args: parsed.args, 
-             result: null, 
-             error: null 
-           });
-           this._pendingRender = { container: contentDiv, segments: this.segments, currentText: this.currentText, _isTextOnly: false };
-           this._flushRender();
-        }
-        return;
-    }
-    
-    // 处理 tool_result 事件
-    if (parsed._eventType === 'tool_result' && parsed.name) {
-      // 清理运行追踪
-      const resultId = parsed.tool_call_id || parsed.id;
-      if (resultId) {
-        this._runningToolCallIds.delete(resultId);
-      }
-      
-      let existingTool;
-      if (parsed.tool_call_id) {
-        existingTool = this.segments.find(s => s.type === 'tool' && s.id === parsed.tool_call_id && !s.result);
-      }
-      if (!existingTool) {
-        existingTool = this.segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
-      }
-      
-      if (existingTool) {
-        existingTool.result = parsed.success ? 'success' : 'error';
-        existingTool.error = parsed.error || null;
-        existingTool.resultContent = parsed.result || null;
-        if (parsed.args) {
-          existingTool.args = parsed.args;
-        }
-        existingTool.confirmationData = null;
-        existingTool.progressLines = null; // 清除实时进度
-        this._pendingRender = { container: contentDiv, segments: this.segments, currentText: this.currentText };
-        this._flushRender();
-        this._scheduleRender(contentDiv, this.segments, this.currentText);
-      }
-      return;
-    }
+      },
 
-    // 处理 tool_progress 事件
-    if (parsed._eventType === 'tool_progress' && parsed.id) {
-      const existingTool = this.segments.find(s =>
-        s.type === 'tool' && s.id === parsed.id && !s.result
-      );
-      if (existingTool) {
-        existingTool.progressLines = existingTool.progressLines || [];
-        existingTool.progressLines.push(parsed.line);
-        this._pendingRender = { container: contentDiv, segments: this.segments, currentText: this.currentText };
-        this._flushRender();
-        this._scheduleRender(contentDiv, this.segments, this.currentText);
+      tool_confirmation: (parsed) => {
+        const bashSegment = this.segments.find(s =>
+          s.type === 'tool' && s.name === 'bash' && !s.result && !s.confirmationData
+        );
+        if (bashSegment) {
+          bashSegment.confirmationData = {
+            confirmId: parsed.confirmId,
+            command: parsed.command,
+            riskLevel: parsed.riskLevel,
+            riskReason: parsed.riskReason
+          };
+          bashSegment._savedCommand = parsed.command;
+          this.renderPipeline.flush(this.segments, this.currentText);
+          this.renderPipeline.scheduleRender(this.segments, this.currentText);
+        }
       }
-      return;
-    }
+    });
+  }
 
-    // 处理 tool_confirmation 事件
-    if (parsed._eventType === 'tool_confirmation' && parsed.confirmId) {
-      const bashSegment = this.segments.find(s =>
-        s.type === 'tool' && s.name === 'bash' && !s.result && !s.confirmationData
-      );
-      if (bashSegment) {
-        bashSegment.confirmationData = {
-          confirmId: parsed.confirmId,
-          command: parsed.command,
-          riskLevel: parsed.riskLevel,
-          riskReason: parsed.riskReason
-        };
-        // 在 segment 上持久化命令，确保各种渲染路径下 summary 都能取到
-        bashSegment._savedCommand = parsed.command;
-        this._pendingRender = { container: contentDiv, segments: this.segments, currentText: this.currentText };
-        this._flushRender();
-        this._scheduleRender(contentDiv, this.segments, this.currentText);
-      }
-      return;
-    }
-    
-    // 处理 waiting_user 事件（嵌套的 ask_user）
-    if (parsed._eventType === 'waiting_user') {
-      this._showAskUserCard(parsed.question, parsed.options, parsed.allow_custom_input, contentDiv);
-      return;
-    }
+  handleChunk(parsed, contentDiv, btnContainer) {
+    if (this.isCompleted) return;
+    this.eventRouter.handle(parsed, contentDiv, btnContainer);
   }
   
-  /**
-   * 渲染消息片段（带节流）
-   */
   async renderSegments(container, segments, currentText) {
-    this._scheduleRender(container, segments, currentText);
-  }
-  
-  /**
-   * 调度节流渲染：内容快速到达时合并渲染，最多每 ~60ms 一次
-   */
-  _scheduleRender(container, segments, currentText) {
-    const THROTTLE_MS = 60;
-    const now = Date.now();
-    
-    this._pendingRender = { container, segments, currentText, _isTextOnly: !!this._pendingIsTextOnly };
-    this._pendingIsTextOnly = false;
-    
-    if (now - this._lastRenderTime >= THROTTLE_MS) {
-      this._renderScheduled = false;
-      this._lastRenderTime = now;
-      this._doRender();
-    } else if (!this._renderThrottleTimer) {
-      const remaining = THROTTLE_MS - (now - this._lastRenderTime);
-      this._renderScheduled = true;
-      this._renderThrottleTimer = setTimeout(() => {
-        this._renderThrottleTimer = null;
-        this._renderScheduled = false;
-        this._lastRenderTime = Date.now();
-        this._doRender();
-      }, THROTTLE_MS);
-    }
-  }
-  
-  /**
-   * 立即刷新挂起的渲染（总是全量重建——仅在纯文本 streaming 时走增量路径）
-   */
-  _flushRender() {
-    // 如果 _scheduleRender 设置了有意延迟的定时器（节流窗口内），
-    // 不取消它——让定时器到期后自然渲染最新状态。
-    // 避免后续事件（如 thinking）过早覆盖 tool_result 的 pending 渲染。
-    if (this._renderScheduled) {
-      return;
-    }
-    if (this._renderThrottleTimer) {
-      clearTimeout(this._renderThrottleTimer);
-      this._renderThrottleTimer = null;
-    }
-    if (this._pendingRender) {
-      this._pendingRender._isTextOnly = false;
-      this._lastRenderTime = Date.now();
-      this._doRender();
-    }
+    this.renderPipeline.setContainer(container);
+    this.renderPipeline.scheduleRender(segments, currentText);
   }
 
-  /**
-   * 保存当前卡片展开状态（防止 innerHTML 重建导致自动收起）
-   */
-  _saveCardStates(container) {
-    const states = new Map();
-    
-    // 思考卡片：按索引保存 expanded 状态
-    container.querySelectorAll('.thinking-row.completed').forEach((bubble, idx) => {
-      states.set(`thinking:${idx}`, {
-        expanded: bubble.classList.contains('expanded')
-      });
-    });
-    
-    // 工具卡片：按工具名称+索引保存 expanded 状态
-    container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
-      const header = card.querySelector('.tool-header, .tool-call-header');
-      const nameEl = card.querySelector('.tool-title, .tool-name');
-      const name = nameEl?.textContent || 'unknown';
-      // todo/ask_user: expanded 在 card 上；bash/edit/write: expanded 在 header 上
-      const isExpanded = card.classList.contains('expanded') || header?.classList.contains('expanded') || false;
-      states.set(`tool:${name}:${card.dataset.expandedKey || ''}`, {
-        expanded: isExpanded || false
-      });
-    });
-    
-    // 时间线行：按工具名称保存 expanded 状态
-    container.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
-      const name = item.dataset.toolName || 'unknown';
-      states.set(`timeline:${name}:${idx}`, {
-        expanded: item.classList.contains('expanded')
-      });
-    });
-    
-    return states;
-  }
-  
-  /**
-   * 恢复卡片展开状态
-   */
-  _restoreCardStates(container, states) {
-    if (!states || states.size === 0) return;
-    
-    // 恢复思考卡片（按索引匹配）
-    container.querySelectorAll('.thinking-row.completed').forEach((bubble, idx) => {
-      const thinkingState = states.get(`thinking:${idx}`);
-      if (thinkingState?.expanded) {
-        bubble.classList.add('expanded');
-        const content = bubble.querySelector('.thinking-row-content');
-        if (content) {
-          const h = content.scrollHeight;
-          // 离屏 DOM 中 scrollHeight 可能为 0，用很大值兜底（自然高度）
-          const isCapped = h > 300;
-          content.style.maxHeight = (h > 0 ? (isCapped ? '300px' : h + 'px') : '9999px');
-          content.style.overflowY = isCapped ? 'auto' : '';
-        }
-      }
-    });
-    
-    // 恢复工具卡片
-    container.querySelectorAll('.tool-card, .tool-call-card').forEach((card, idx) => {
-      const nameEl = card.querySelector('.tool-title, .tool-name');
-      const name = nameEl?.textContent || 'unknown';
-      const key = `tool:${name}:${card.dataset.expandedKey || ''}`;
-      const saved = states.get(key);
-      
-      if (saved?.expanded) {
-        if (card.classList.contains('tool-card')) {
-          // todo/ask_user: expanded 在 card 上，通过 JS 设 maxHeight
-          card.classList.add('expanded');
-          const details = card.querySelector('.tool-call-details');
-          if (details) {
-            const h = details.scrollHeight;
-            details.style.maxHeight = h > 0 ? h + 'px' : '9999px';
-          }
-        } else {
-          // bash/edit/write: expanded 在 header 上，通过 CSS .show 控制
-          const header = card.querySelector('.tool-header, .tool-call-header');
-          const details = header?.nextElementSibling;
-          header?.classList.add('expanded');
-          details?.classList.add('show');
-        }
-      }
-    });
-    
-    // 恢复时间线行状态
-    container.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
-      const name = item.dataset.toolName || 'unknown';
-      const saved = states.get(`timeline:${name}:${idx}`);
-      const isPendingConfirm = item.dataset.toolStatus === 'pending_confirmation';
-      const isCancelled = item.dataset.toolStatus === 'cancelled' || item.dataset.toolStatus === 'interrupted';
-      if ((saved?.expanded || isPendingConfirm) && !isCancelled) {
-        item.classList.add('expanded');
-        const detail = item.querySelector('.tool-timeline-detail');
-        if (detail) {
-          const h = detail.scrollHeight;
-          detail.style.maxHeight = h > 0 ? h + 'px' : '9999px';
-        }
-      }
-    });
-  }
-  
-  /**
-   * 执行实际的 DOM 渲染
-   *
-   * — 纯文本 streaming（_isTextOnly）: 仅更新 .streaming-region，不碰已有 DOM
-   * — 其他（新 segment / 工具状态变化）: 全量重建
-   */
-  async _doRender() {
-    if (this._destroyed) return;
-    this._renderVersion++;
-    const renderVersion = this._renderVersion;
-    const pending = this._pendingRender;
-    if (!pending) return;
-    this._pendingRender = null;
-    
-    const { container, segments, currentText, _isTextOnly } = pending;
-
-    // ========== FAST PATH：仅 streaming 文本变化，无新 segment ==========
-    if (_isTextOnly && this._streamingAnchor && this._streamingAnchor.isConnected &&
-        this._lastSegmentCount === segments.length) {
-      if (currentText) {
-        this._streamingAnchor.innerHTML = await renderMarkdown(currentText);
-        if (this._destroyed) return;
-      } else {
-        this._streamingAnchor.innerHTML = '';
-      }
-      this.smartScroll();
-      return;
-    }
-    
-    // ========== FULL REBUILD：新增 segment 或工具状态变化 ==========
-    this._lastSegmentCount = segments.length;
-    
-    const chatContainer = this.container;
-    const savedScrollTop = chatContainer.scrollTop;
-    
-    let html = '';
-    let toolTimelineHtml = '';
-
-    const flushToolTimeline = () => {
-      if (toolTimelineHtml) {
-        html += `<div class="tool-timeline">${toolTimelineHtml}</div>`;
-        toolTimelineHtml = '';
-      }
-    };
-
-    for (const segment of segments) {
-      if (segment.type === 'thinking') {
-        flushToolTimeline();
-        html += this._renderThinkingBubble(segment);
-      } else if (segment.type === 'tool') {
-        if (segment.name === 'todo_write' || segment.name === 'ask_user') {
-          flushToolTimeline();
-          html += this.chatUI.renderToolCard(segment);
-        } else {
-          toolTimelineHtml += this.chatUI.renderToolTimelineRow(segment);
-        }
-      } else if (segment.type === 'text' && segment.content) {
-        flushToolTimeline();
-        html += await renderMarkdown(segment.content);
-        if (this._destroyed) return;
-      }
-    }
-    flushToolTimeline();
-
-    // 用已知容器包裹 streaming 文本，方便后续增量更新
-    html += `<div class="streaming-region">`;
-    if (currentText) {
-      html += await renderMarkdown(currentText);
-    }
-    html += `</div>`;
-
-    if (this._destroyed) return;
-
-    // 如果已存在更新的渲染版本，跳过本次结果（防 async 重入覆盖）
-    if (renderVersion !== this._renderVersion) return;
-
-    // 从当前 DOM 中保存展开状态（在重建之前）
-    const savedStates = this._saveCardStates(container);
-
-    // 离屏构建新 DOM，恢复好状态后再原子置换
-    const tempDiv = document.createElement('div');
-    tempDiv.style.display = 'contents';
-    tempDiv.innerHTML = html;
-
-    // 1) 禁用所有可动画元素的 transition
-    const animEls = tempDiv.querySelectorAll('.tool-timeline-detail, .thinking-row-content, .tool-card .tool-call-details');
-    for (const el of animEls) {
-      el.dataset._trans = el.style.transition || '';
-      el.style.transition = 'none';
-    }
-
-    // 2) 在离屏 DOM 上恢复展开状态（此时用户完全看不见）
-    this._restoreCardStates(tempDiv, savedStates);
-
-    // 3) 恢复动画
-    for (const el of animEls) {
-      el.style.transition = el.dataset._trans;
-      delete el.dataset._trans;
-    }
-
-    // 4) 原子置换：一次操作完成新旧 DOM 切换（零中间帧）
-    //   再次检查版本，防止 await renderMarkdown 期间被覆盖
-    if (renderVersion !== this._renderVersion) return;
-    container.replaceChildren(...tempDiv.children);
-
-    // 保存 streaming anchor 引用
-    this._streamingAnchor = container.querySelector('.streaming-region');
-
-    // 恢复滚动位置（避免 DOM 重建导致滚动跳动）
-    chatContainer.scrollTop = savedScrollTop;
-    
-    // 思考流式渲染时，自动滚动思考内容到底部
-    const streamingRow = container.querySelector('.thinking-row.streaming .thinking-row-content');
-    if (streamingRow) {
-      streamingRow.scrollTop = streamingRow.scrollHeight;
-    }
-    
-    container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
-      if (this.chatUI.bindToolCardEvents) {
-        this.chatUI.bindToolCardEvents(card);
-      }
-    });
-    
-    container.querySelectorAll('.ask-user-card').forEach(card => {
-      this._bindAskUserCardEvents(card);
-    });
-
-    container.querySelectorAll('.confirmation-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const confirmId = btn.dataset.confirmId;
-        const decision = btn.classList.contains('allow') ? 'allow' : 'deny';
-        const item = btn.closest('.tool-timeline-item');
-        const checkbox = item?.querySelector('.auto-allow-checkbox');
-        const autoAllowSimilar = checkbox ? checkbox.checked : false;
-        this._sendToolConfirmResponse(confirmId, decision, autoAllowSimilar);
-        if (item) {
-          const detail = item.querySelector('.tool-timeline-detail');
-          if (detail) {
-            detail.style.maxHeight = '0';
-          }
-          item.classList.remove('expanded');
-        }
-      });
-    });
-    
-    this.smartScroll();
-  }
-  
-  /**
-   * 最终渲染（立即执行）
-   */
-  async renderSegmentsFinal(container, segments, currentText) {
-    if (this.renderTimer) {
-      clearTimeout(this.renderTimer);
-      this.renderTimer = null;
-    }
-    if (this._renderThrottleTimer) {
-      clearTimeout(this._renderThrottleTimer);
-      this._renderThrottleTimer = null;
-    }
-    this._pendingRender = { container, segments, currentText };
-    await this._doRender();
-  }
+  // RenderPipeline 接管了所有渲染调度和 DOM 构建
   
   _setupCopyButton(copyBtn, contentDiv) {
     copyBtn.addEventListener('click', () => {
@@ -1070,35 +675,6 @@ export class ChatPanel {
     speech.addEventListener('animationend', () => speech.remove());
   }
   
-  /**
-   * 渲染思考气泡
-   */
-  _renderThinkingBubble(segment) {
-    const normalized = segment.content.replace(/\n{2,}/g, '\n');
-    const escapedContent = escapeHtml(normalized);
-    const thinkSvg = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>';
-    
-    if (segment.done) {
-      return `
-        <div class="thinking-row completed">
-          <div class="thinking-row-header" onclick="window.toggleThinkingRow(this)">
-            <span class="thinking-row-icon">${thinkSvg}</span>
-            <span class="thinking-row-label">已思考</span>
-          </div>
-          <div class="thinking-row-content">${escapedContent}</div>
-        </div>`;
-    }
-    
-    return `
-      <div class="thinking-row streaming">
-        <div class="thinking-row-header">
-          <span class="thinking-row-icon">${thinkSvg}</span>
-          <span class="thinking-row-label">思考中...</span>
-        </div>
-        <div class="thinking-row-content">${escapedContent}</div>
-      </div>`;
-  }
-  
   _showAskUserCard(question, options, allowCustomInput, container) {
     const segment = {
       type: 'tool',
@@ -1122,15 +698,8 @@ export class ChatPanel {
       this.segments.push(segment);
       this._askUserContentDiv = container;
       
-      if (this._renderThrottleTimer) {
-        clearTimeout(this._renderThrottleTimer);
-        this._renderThrottleTimer = null;
-      }
-      this._pendingRender = { container, segments: this.segments, currentText: this.currentText };
-      this._lastRenderTime = Date.now();
-      this._doRender().then(() => {
-        this.chatUI.scrollToBottom();
-      });
+      this.renderPipeline.setContainer(container);
+      this.renderPipeline.flush(this.segments, this.currentText);
     } else {
       const { contentDiv } = this.chatUI.appendAssistantMessage('');
       const segments = [segment];
@@ -1157,6 +726,7 @@ export class ChatPanel {
     
     const { contentDiv: responseContentDiv, btnContainer: responseBtnContainer, copyBtn: responseCopyBtn, retryBtn: responseRetryBtn, msgDiv: responseMsgDiv } = this.chatUI.appendAssistantMessage('');
     this._setupCopyButton(responseCopyBtn, responseContentDiv);
+    this.renderPipeline.setContainer(responseContentDiv);
     
     const askUserMessage = message;
     responseRetryBtn.onclick = () => {
@@ -1180,7 +750,7 @@ export class ChatPanel {
             segments.push(reasoningSegment);
           }
           reasoningSegment.content += parsed.reasoning;
-          this._scheduleRender(responseContentDiv, segments, currentText);
+          this.renderPipeline.scheduleRender(segments, currentText);
           this.chatUI.scrollToBottom();
           return;
         }
@@ -1188,7 +758,7 @@ export class ChatPanel {
         if (parsed._eventType === 'reasoning_done') {
           if (reasoningSegment) {
             reasoningSegment.done = true;
-            this._flushRender();
+            this.renderPipeline.flush();
             reasoningSegment = null;
           }
           return;
@@ -1196,8 +766,8 @@ export class ChatPanel {
         
         if (parsed._eventType === 'content' && parsed.content) {
           currentText += parsed.content;
-          this._pendingIsTextOnly = true;
-          this._scheduleRender(responseContentDiv, segments, currentText);
+          this.renderPipeline.markTextOnly();
+          this.renderPipeline.scheduleRender(segments, currentText);
           this.chatUI.scrollToBottom();
           return;
         }
@@ -1222,7 +792,7 @@ export class ChatPanel {
             result: null,
             error: null
           });
-          this._scheduleRender(responseContentDiv, segments, currentText);
+          this.renderPipeline.scheduleRender(segments, currentText);
           return;
         }
         
@@ -1235,9 +805,8 @@ export class ChatPanel {
             if (parsed.args) {
               existingTool.args = parsed.args;
             }
-            this._pendingRender = { container: responseContentDiv, segments, currentText };
-            this._flushRender();
-            this._scheduleRender(responseContentDiv, segments, currentText);
+            this.renderPipeline.flush(segments, currentText);
+            this.renderPipeline.scheduleRender(segments, currentText);
           }
           return;
         }
@@ -1253,7 +822,7 @@ export class ChatPanel {
             reasoningSegment = null;
           }
           currentText = '⚠️ ' + parsed.message;
-          this._scheduleRender(responseContentDiv, segments, currentText);
+          this.renderPipeline.scheduleRender(segments, currentText);
           this.chatUI.scrollToBottom();
           return;
         }
@@ -1269,14 +838,14 @@ export class ChatPanel {
       if (currentText.trim()) {
         segments.push({ type: 'text', content: currentText });
       }
-      this.renderSegmentsFinal(responseContentDiv, segments, '');
+      this.renderPipeline.renderFinal(segments, '');
       if (responseBtnContainer) responseBtnContainer.style.display = 'flex';
     }).catch(error => {
       if (error.name === 'AbortError') {
         if (currentText.trim()) {
           segments.push({ type: 'text', content: currentText });
         }
-        this.renderSegmentsFinal(responseContentDiv, segments, '');
+        this.renderPipeline.renderFinal(segments, '');
         responseContentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
         if (responseBtnContainer) responseBtnContainer.style.display = 'flex';
         return;
@@ -1381,7 +950,8 @@ export class ChatPanel {
       if (this.currentText.trim()) {
         this.segments.push({ type: 'text', content: this.currentText });
       }
-      this.renderSegmentsFinal(contentDiv, this.segments, '');
+      this.renderPipeline.setContainer(contentDiv);
+      this.renderPipeline.renderFinal(this.segments, '');
       this.isCompleted = true;
 
     }).catch(err => {
@@ -1553,9 +1123,8 @@ export class ChatPanel {
     if (changed) {
       const contentDiv = this._responseContentDiv;
       if (contentDiv) {
-        // 直接操作 DOM，不触发异步 _doRender 全量重建
-        // _flushRender → _doRender 有 await renderMarkdown，会被后续新消息的 SSE 渲染版本号覆盖，
-        // 导致重建时重新展开已被折叠的卡片
+        // 直接操作 DOM，不触发 RenderPipeline 全量重建
+        // flush → doRender 有 await renderMarkdown，会被后续新消息覆盖
         const statusSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><line x1="5" y1="5" x2="11" y2="11"/></svg>';
         contentDiv.querySelectorAll('.tool-timeline-item').forEach(item => {
           const cur = item.dataset.toolStatus;
@@ -1925,7 +1494,7 @@ export class ChatPanel {
             for (const seg of segments) {
               if (seg.type === 'thinking') {
                 flushToolTimeline();
-                html += this._renderThinkingBubble(seg);
+                html += RenderPipeline.renderThinkingBubble(seg);
               } else if (seg.type === 'tool') {
                 if (seg.name === 'todo_write' || seg.name === 'ask_user') {
                   flushToolTimeline();
@@ -2026,11 +1595,7 @@ export class ChatPanel {
    */
   destroy() {
     this._destroyed = true;
-    if (this._renderThrottleTimer) {
-      clearTimeout(this._renderThrottleTimer);
-      this._renderThrottleTimer = null;
-    }
-    this._pendingRender = null;
+    this.renderPipeline.destroy();
     if (this.currentAbortController) {
       this.currentAbortController.abort();
     }
