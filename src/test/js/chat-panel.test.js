@@ -66,8 +66,7 @@ describe('ChatPanel.js', () => {
       expect(chatPanel.container).toBe(container);
       expect(chatPanel.chatService).toBe(mockChatService);
       expect(chatPanel.chatUI).toBe(mockChatUI);
-      expect(chatPanel.segments).toEqual([]);
-      expect(chatPanel.currentText).toBe('');
+      expect(chatPanel._activeSession).toBeNull();
       expect(chatPanel.isSendingMessage).toBe(false);
       expect(chatPanel.isCompleted).toBe(false);
       expect(chatPanel.currentAbortController).toBeNull();
@@ -219,6 +218,94 @@ describe('ChatPanel.js', () => {
   });
 
   describe('handleChunk', () => {
+    function createMockSession() {
+      const session = {
+        _segments: [],
+        _currentText: '',
+        _reasoningSegment: null,
+        _hasReceivedData: false,
+        _runningToolCallIds: new Set(),
+        getSegments() { return this._segments; },
+        getCurrentText() { return this._currentText; },
+        setCurrentText(text) { this._currentText = text; },
+        pushTextSegment() {
+          if (this._currentText.trim()) {
+            this._segments.push({ type: 'text', content: this._currentText });
+            this._currentText = '';
+          }
+        },
+        pushSegment(seg) { this._segments.push(seg); },
+        clearAll() {
+          this._currentText = '';
+          this._segments = [];
+          this._reasoningSegment = null;
+        },
+        clearReasoning() {
+          if (this._reasoningSegment) {
+            this._reasoningSegment.done = true;
+            this._reasoningSegment = null;
+          }
+        },
+        handleReasoning(parsed, contentDiv) {
+          if (!this._hasReceivedData) {
+            this._hasReceivedData = true;
+            contentDiv.querySelector('.typing-indicator')?.remove();
+          }
+          if (!this._reasoningSegment) {
+            this._reasoningSegment = { type: 'thinking', content: '', done: false };
+            this._segments.push(this._reasoningSegment);
+          }
+          this._reasoningSegment.content += parsed.reasoning;
+        },
+        handleReasoningDone() {
+          if (this._reasoningSegment) {
+            this._reasoningSegment.done = true;
+            this._reasoningSegment = null;
+          }
+        },
+        handleContent(parsed, contentDiv) {
+          if (this._reasoningSegment) {
+            this._reasoningSegment.done = true;
+            this._reasoningSegment = null;
+          }
+          this._currentText += parsed.content;
+          if (!this._hasReceivedData) {
+            this._hasReceivedData = true;
+            contentDiv.querySelector('.typing-indicator')?.remove();
+          }
+        },
+        handleToolStart(parsed, contentDiv) {
+           if (!this._hasReceivedData) {
+             this._hasReceivedData = true;
+             contentDiv.querySelector('.typing-indicator')?.remove();
+           }
+           if (this._reasoningSegment) {
+             this._reasoningSegment.done = true;
+             this._reasoningSegment = null;
+           }
+         },
+        handleToolResult(parsed) {
+          const existingTool = this._segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+          if (existingTool) {
+            existingTool.result = parsed.success ? 'success' : 'error';
+            existingTool.error = parsed.error || null;
+            existingTool.resultContent = parsed.result || null;
+            if (parsed.args) existingTool.args = parsed.args;
+            existingTool.confirmationData = null;
+            existingTool.progressLines = null;
+          }
+        },
+        handleToolProgress() {},
+        handleToolConfirmation() {},
+        getContentDiv() { return null; }
+      };
+      return session;
+    }
+
+    beforeEach(() => {
+      chatPanel._activeSession = createMockSession();
+    });
+
     it('处理 content 事件追加文本', () => {
       const contentDiv = document.createElement('div');
       const btnContainer = document.createElement('div');
@@ -229,7 +316,7 @@ describe('ChatPanel.js', () => {
         btnContainer
       );
 
-      expect(chatPanel.currentText).toBe('Hello');
+      expect(chatPanel._activeSession.getCurrentText()).toBe('Hello');
     });
 
     it('处理 message_id 事件', () => {
@@ -248,8 +335,9 @@ describe('ChatPanel.js', () => {
     });
 
     it('处理 clear_content 事件清空内容', () => {
-      chatPanel.currentText = '已有文本';
-      chatPanel.segments = [{ type: 'text', content: '已有' }];
+      const session = chatPanel._activeSession;
+      session.setCurrentText('已有文本');
+      session._segments = [{ type: 'text', content: '已有' }];
       const contentDiv = document.createElement('div');
       contentDiv.innerHTML = 'some content';
 
@@ -259,8 +347,8 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel.currentText).toBe('');
-      expect(chatPanel.segments).toEqual([]);
+      expect(session.getCurrentText()).toBe('');
+      expect(session.getSegments()).toEqual([]);
       expect(contentDiv.innerHTML).toBe('');
     });
 
@@ -285,14 +373,16 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel.segments.length).toBe(1);
-      expect(chatPanel.segments[0].type).toBe('tool');
-      expect(chatPanel.segments[0].name).toBe('bash');
+      const segments = chatPanel._activeSession.getSegments();
+      expect(segments.length).toBe(1);
+      expect(segments[0].type).toBe('tool');
+      expect(segments[0].name).toBe('bash');
     });
 
     it('处理 tool_result 事件更新工具状态', () => {
       const contentDiv = document.createElement('div');
-      chatPanel.segments.push({
+      const session = chatPanel._activeSession;
+      session._segments.push({
         type: 'tool', name: 'bash', args: '{}', result: null, error: null
       });
 
@@ -302,7 +392,7 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel.segments[0].result).toBe('success');
+      expect(session.getSegments()[0].result).toBe('success');
     });
 
     it('isCompleted 为 true 时忽略后续事件', () => {
@@ -314,7 +404,7 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel.currentText).toBe('');
+      expect(chatPanel._activeSession.getCurrentText()).toBe('');
     });
 
     it('处理 reasoning 事件创建思考气泡', () => {
@@ -326,10 +416,11 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel._reasoningSegment).toBeDefined();
-      expect(chatPanel._reasoningSegment.type).toBe('thinking');
-      expect(chatPanel._reasoningSegment.content).toBe('让我想想');
-      expect(chatPanel.segments[0]).toBe(chatPanel._reasoningSegment);
+      const session = chatPanel._activeSession;
+      expect(session._reasoningSegment).toBeDefined();
+      expect(session._reasoningSegment.type).toBe('thinking');
+      expect(session._reasoningSegment.content).toBe('让我想想');
+      expect(session.getSegments()[0]).toBe(session._reasoningSegment);
     });
 
     it('处理连续的 reasoning 事件追加内容', () => {
@@ -346,13 +437,14 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel._reasoningSegment.content).toBe('第一步第二步');
+      expect(chatPanel._activeSession._reasoningSegment.content).toBe('第一步第二步');
     });
 
     it('处理 reasoning_done 事件标记完成', () => {
       const contentDiv = document.createElement('div');
-      chatPanel._reasoningSegment = { type: 'thinking', content: '思考中', done: false };
-      chatPanel.segments.push(chatPanel._reasoningSegment);
+      const session = chatPanel._activeSession;
+      session._reasoningSegment = { type: 'thinking', content: '思考中', done: false };
+      session._segments.push(session._reasoningSegment);
 
       chatPanel.handleChunk(
         { _eventType: 'reasoning_done' },
@@ -360,13 +452,14 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel._reasoningSegment).toBeNull();
-      expect(chatPanel.segments[0].done).toBe(true);
+      expect(session._reasoningSegment).toBeNull();
+      expect(session.getSegments()[0].done).toBe(true);
     });
 
     it('clear_content 清空时重置 _reasoningSegment', () => {
-      chatPanel._reasoningSegment = { type: 'thinking', content: '一些思考', done: false };
-      chatPanel.segments.push(chatPanel._reasoningSegment);
+      const session = chatPanel._activeSession;
+      session._reasoningSegment = { type: 'thinking', content: '一些思考', done: false };
+      session._segments.push(session._reasoningSegment);
       const contentDiv = document.createElement('div');
 
       chatPanel.handleChunk(
@@ -375,12 +468,13 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel._reasoningSegment).toBeNull();
-      expect(chatPanel.segments.length).toBe(0);
+      expect(session._reasoningSegment).toBeNull();
+      expect(session.getSegments().length).toBe(0);
     });
 
     it('reasoning 和 content 事件共存', () => {
       const contentDiv = document.createElement('div');
+      const session = chatPanel._activeSession;
 
       chatPanel.handleChunk(
         { _eventType: 'reasoning', reasoning: '思考过程' },
@@ -398,13 +492,14 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel._reasoningSegment).toBeNull();
-      expect(chatPanel.segments[0].done).toBe(true);
-      expect(chatPanel.currentText).toBe('最终答案');
+      expect(session._reasoningSegment).toBeNull();
+      expect(session.getSegments()[0].done).toBe(true);
+      expect(session.getCurrentText()).toBe('最终答案');
     });
 
     it('content 后收到 waiting_user 时，先 flush currentText 再 push ask_user', () => {
       const contentDiv = document.createElement('div');
+      const session = chatPanel._activeSession;
 
       chatPanel.handleChunk(
         { _eventType: 'content', content: 'LLM 生成的文本' },
@@ -412,7 +507,7 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(chatPanel.currentText).toBe('LLM 生成的文本');
+      expect(session.getCurrentText()).toBe('LLM 生成的文本');
 
       chatPanel.handleChunk(
         { _eventType: 'waiting_user', question: '确认吗？', options: ['是', '否'] },
@@ -420,17 +515,19 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      const textIdx = chatPanel.segments.findIndex(s => s.type === 'text');
-      const askIdx = chatPanel.segments.findIndex(s => s.type === 'tool' && s.name === 'ask_user');
+      const segments = session.getSegments();
+      const textIdx = segments.findIndex(s => s.type === 'text');
+      const askIdx = segments.findIndex(s => s.type === 'tool' && s.name === 'ask_user');
       expect(textIdx).toBeGreaterThanOrEqual(0);
       expect(askIdx).toBeGreaterThanOrEqual(0);
       expect(textIdx).toBeLessThan(askIdx);
-      expect(chatPanel.segments[textIdx].content).toBe('LLM 生成的文本');
-      expect(chatPanel.currentText).toBe('');
+      expect(segments[textIdx].content).toBe('LLM 生成的文本');
+      expect(session.getCurrentText()).toBe('');
     });
 
     it('currentText 为空时 waiting_user 不创建多余 text segment', () => {
       const contentDiv = document.createElement('div');
+      const session = chatPanel._activeSession;
 
       chatPanel.handleChunk(
         { _eventType: 'waiting_user', question: '直接询问？', options: ['好', '不好'] },
@@ -438,9 +535,9 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      const textSegments = chatPanel.segments.filter(s => s.type === 'text');
+      const textSegments = session.getSegments().filter(s => s.type === 'text');
       expect(textSegments).toHaveLength(0);
-      expect(chatPanel.segments[0].name).toBe('ask_user');
+      expect(session.getSegments()[0].name).toBe('ask_user');
     });
   });
 
