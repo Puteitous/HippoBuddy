@@ -38,10 +38,15 @@ describe('session-manager.js', () => {
 
   describe('groupSessionsByTime', () => {
     it('将今天的会话归入"今天"分组', () => {
+      const BEIJING_OFFSET = 8 * 3600 * 1000;
       const now = Date.now();
+      const beijingNow = now + BEIJING_OFFSET;
+      const startOfBeijingDay = Math.floor(beijingNow / 86400000) * 86400000;
+      const safeTimestamp = startOfBeijingDay + 10 * 3600 * 1000 - BEIJING_OFFSET;
+
       const sessions = [
-        { id: 's1', createdAt: now.toString() },
-        { id: 's2', createdAt: (now - 3600000).toString() },
+        { id: 's1', createdAt: safeTimestamp.toString() },
+        { id: 's2', createdAt: (safeTimestamp - 3600000).toString() },
       ];
 
       const groups = sessionManager.groupSessionsByTime(sessions);

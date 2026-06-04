@@ -22,6 +22,11 @@ export class MessageSession {
     this._eventRouter = this._createEventRouter();
   }
 
+  _logReasoning(event) {
+    const seg = this._reasoningSegment;
+    console.log(`[Thinking] ${event} | segment=${seg ? `done=${seg.done}, len=${seg.content.length}` : 'null'} | segments=${this._segments.length} | currentText=${this._currentText.length}ch`);
+  }
+
   _createEventRouter() {
     const s = this;
     return new EventRouter({
@@ -46,9 +51,13 @@ export class MessageSession {
       },
 
       thinking: () => {
+        s._logReasoning('thinking_start');
         s._pushTextSegment();
-        s._reasoningSegment = null;
-        s._renderPipeline.flush();
+        if (s._reasoningSegment) {
+          s._reasoningSegment.done = true;
+          s._reasoningSegment = null;
+        }
+        s._renderPipeline.flush(s._segments, s._currentText);
       },
 
       clear_content: (contentDiv) => {
@@ -85,6 +94,7 @@ export class MessageSession {
         if (!s._reasoningSegment) {
           s._reasoningSegment = { type: 'thinking', content: '', done: false };
           s._segments.push(s._reasoningSegment);
+          s._logReasoning('reasoning_created');
         }
         s._reasoningSegment.content += parsed.reasoning;
         s._renderPipeline.scheduleRender(s._segments, s._currentText);
@@ -92,6 +102,7 @@ export class MessageSession {
       },
 
       reasoning_done: () => {
+        s._logReasoning('reasoning_done');
         if (s._reasoningSegment) {
           s._reasoningSegment.done = true;
           s._renderPipeline.flush(s._segments, s._currentText);
@@ -101,6 +112,7 @@ export class MessageSession {
 
       content: (parsed, contentDiv) => {
         if (s._reasoningSegment) {
+          s._logReasoning('content_done');
           s._reasoningSegment.done = true;
           s._renderPipeline.flush(s._segments, s._currentText);
           s._reasoningSegment = null;
@@ -127,10 +139,11 @@ export class MessageSession {
           contentDiv.querySelector('.typing-indicator')?.remove();
         }
         if (s._reasoningSegment) {
+          s._logReasoning('tool_start_done');
           s._reasoningSegment.done = true;
           s._reasoningSegment = null;
+          s._renderPipeline.flush(s._segments, s._currentText);
         }
-        s._renderPipeline.flush();
 
         if (parsed.name === 'ask_user') {
         } else if (parsed.name === 'todo_write') {
@@ -261,6 +274,14 @@ export class MessageSession {
         this._segments.push({ type: 'text', content: this._currentText });
       }
 
+      // safety net: 流式过程中任何原因导致 thinking segment 未标记 done
+      // 在最终渲染前确保收起
+      for (const seg of this._segments) {
+        if (seg.type === 'thinking' && !seg.done) {
+          seg.done = true;
+        }
+      }
+
       if (this._segments.length === 0 && !this._currentText.trim()) {
         this._contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
       } else {
@@ -275,6 +296,11 @@ export class MessageSession {
       if (error.name === 'AbortError' || error.constructor.name === 'AbortError') {
         if (this._currentText.trim()) {
           this._segments.push({ type: 'text', content: this._currentText });
+        }
+        for (const seg of this._segments) {
+          if (seg.type === 'thinking' && !seg.done) {
+            seg.done = true;
+          }
         }
         this._renderPipeline.setContainer(this._contentDiv);
         await this._renderPipeline.renderFinal(this._segments, '');

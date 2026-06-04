@@ -20,6 +20,44 @@ export class RenderPipeline {
     this._renderVersion = 0;
     this._renderScheduled = false;
     this._destroyed = false;
+
+    // 去重指纹：上次完整重构的输入摘要
+    this._lastFingerprint = null;
+    // 降噪：上次日志的 thinking 长度
+    this._lastLoggedThinkingLen = -1;
+    // 只打第一次 done=true
+    this._loggedFirstDone = false;
+    // 重复调用溯源
+    this._loggedRedundantCaller = false;
+  }
+
+  _computeFingerprint(segments, currentText) {
+    const thinkingDone = segments
+      .filter(s => s.type === 'thinking')
+      .map(s => `${s.done}:${s.content.length}`)
+      .join('|');
+    return { segments: segments.length, thinkingDone, textLen: currentText.length };
+  }
+
+  _fingerprintChanged(f) {
+    const last = this._lastFingerprint;
+    if (!last) return true;
+    return last.segments !== f.segments || last.thinkingDone !== f.thinkingDone || last.textLen !== f.textLen;
+  }
+
+  _logThinking(thinkingSegments) {
+    const allDone = thinkingSegments.every(s => s.done);
+    if (allDone) {
+      if (!this._loggedFirstDone) {
+        this._loggedFirstDone = true;
+        console.log('[Thinking:Render] done=true: v' + this._renderVersion, thinkingSegments.map(s => `len=${s.content.length}`).join(', '));
+      }
+      return;
+    }
+    const maxLen = thinkingSegments.reduce((m, s) => Math.max(m, s.content.length), 0);
+    if (Math.abs(maxLen - this._lastLoggedThinkingLen) < 50) return;
+    this._lastLoggedThinkingLen = maxLen;
+    console.log('[Thinking:Render] v' + this._renderVersion, thinkingSegments.map(s => `done=${s.done}, len=${s.content.length}`).join(', '));
   }
 
   setContainer(container) {
@@ -31,6 +69,16 @@ export class RenderPipeline {
   }
 
   scheduleRender(segments, currentText) {
+    const fp = this._computeFingerprint(segments, currentText);
+    const allThinkingDone = segments.some(s => s.type === 'thinking' && s.done);
+    if (!this._fingerprintChanged(fp)) {
+      if (allThinkingDone && !this._loggedRedundantCaller) {
+        this._loggedRedundantCaller = true;
+        console.log('[Thinking:Render] redundant after done:', new Error().stack.split('\n').slice(2, 4).join(' -> '));
+      }
+      return;
+    }
+
     const THROTTLE_MS = 60;
     const now = Date.now();
 
@@ -92,6 +140,11 @@ export class RenderPipeline {
     const container = this.container;
     if (!container) return;
 
+    const thinkingSegments = segments.filter(s => s.type === 'thinking');
+    if (thinkingSegments.length > 0) {
+      this._logThinking(thinkingSegments);
+    }
+
     if (_isTextOnly && this._streamingAnchor && this._streamingAnchor.isConnected &&
         this._lastSegmentCount === segments.length) {
       if (currentText) {
@@ -105,6 +158,12 @@ export class RenderPipeline {
     }
 
     this._lastSegmentCount = segments.length;
+
+    const fp = this._computeFingerprint(segments, currentText);
+    if (!this._fingerprintChanged(fp)) {
+      return;
+    }
+    this._lastFingerprint = fp;
 
     const chatContainer = this.container.closest('.chat-container') || this.container;
     const savedScrollTop = chatContainer.scrollTop;
@@ -167,6 +226,25 @@ export class RenderPipeline {
 
     if (renderVersion !== this._renderVersion) return;
     container.replaceChildren(...tempDiv.children);
+
+    if (thinkingSegments.length > 0 && thinkingSegments.some(s => s.done)) {
+      const bubbles = container.querySelectorAll('.thinking-row');
+      if (bubbles.length > 0) {
+        const info = Array.from(bubbles).map(b => {
+          const content = b.querySelector('.thinking-row-content');
+          return `${b.className} | display=${content ? getComputedStyle(content).display : 'no-content'}`;
+        });
+        console.log('[Thinking:DOM] v' + renderVersion, info.join(' || '));
+        requestAnimationFrame(() => {
+          if (this._destroyed || !container.isConnected) return;
+          const infoRaf = Array.from(container.querySelectorAll('.thinking-row')).map(b => {
+            const content = b.querySelector('.thinking-row-content');
+            return `${b.className} | display=${content ? getComputedStyle(content).display : 'no-content'}`;
+          });
+          console.log('[Thinking:DOM-RAF] v' + renderVersion, infoRaf.join(' || '));
+        });
+      }
+    }
 
     this._streamingAnchor = container.querySelector('.streaming-region');
 
@@ -240,10 +318,12 @@ export class RenderPipeline {
         bubble.classList.add('expanded');
         const content = bubble.querySelector('.thinking-row-content');
         if (content) {
+          content.style.display = 'block';
           const h = content.scrollHeight;
           const isCapped = h > 300;
           content.style.maxHeight = (h > 0 ? (isCapped ? '300px' : h + 'px') : '9999px');
           content.style.overflowY = isCapped ? 'auto' : '';
+          content.style.display = '';
         }
       }
     });

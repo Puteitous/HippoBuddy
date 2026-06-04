@@ -312,7 +312,7 @@ export class ChatPanel {
         const session = s();
         if (!session) return;
         session.pushTextSegment();
-        this.renderPipeline.flush();
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
       },
 
       clear_content: (contentDiv) => {
@@ -371,7 +371,7 @@ export class ChatPanel {
         if (parsed.id && this._runningToolCallIds.has(parsed.id)) return;
         if (parsed.id) this._runningToolCallIds.add(parsed.id);
         session.handleToolStart(parsed, contentDiv);
-        this.renderPipeline.flush();
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
 
         if (parsed.name === 'todo_write') {
           const incomingTodos = this.chatUI.parseTodos(parsed.args);
@@ -1351,12 +1351,13 @@ window.toggleThinkingRow = function(headerEl) {
     row.classList.remove('expanded');
     content.style.overflowY = '';
   } else {
-    content.style.overflowY = 'hidden';
+    content.style.display = 'block';
     const h = content.scrollHeight;
     const expandedPadding = 16;
     const totalH = h + expandedPadding;
     const isCapped = totalH > 300;
     content.style.maxHeight = isCapped ? '300px' : totalH + 'px';
+    content.style.overflowY = 'hidden';
     row.classList.add('expanded');
     const onEnd = (e) => {
       if (e.propertyName !== 'max-height') return;

@@ -117,6 +117,7 @@ input, textarea {
 
 /* Completed - 可展开/收起 */
 .thinking-row.completed .thinking-row-content {
+  display: none;
   max-height: 0;
   overflow: hidden;
   opacity: 0;
@@ -127,6 +128,7 @@ input, textarea {
 }
 
 .thinking-row.completed.expanded .thinking-row-content {
+  display: block;
   opacity: 1;
   overflow: hidden;
   padding: 8px 12px 8px 14px;
