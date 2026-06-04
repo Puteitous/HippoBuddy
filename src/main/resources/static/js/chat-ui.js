@@ -433,27 +433,5 @@ window.toggleToolCardDetails = function(headerEl) {
   }
 };
 
-window.abortToolCall = function(btnEl) {
-  const toolCallId = btnEl.dataset.toolId;
-  if (!toolCallId) return;
 
-  btnEl.disabled = true;
-  btnEl.textContent = '正在终止...';
 
-  fetch('/api/tool/abort', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ toolCallId })
-  }).then(res => {
-    if (res.ok) {
-      btnEl.textContent = '已终止';
-      btnEl.classList.add('aborted');
-    } else {
-      btnEl.textContent = '终止失败';
-      btnEl.disabled = false;
-    }
-  }).catch(() => {
-    btnEl.textContent = '终止失败';
-    btnEl.disabled = false;
-  });
-};

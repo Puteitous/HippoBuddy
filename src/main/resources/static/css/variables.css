@@ -84,8 +84,8 @@
   /* --- 新变量体系（暗色） ---
      以 chat-nav-strip 展开色调为基准：温暖炭灰，告别冷峻深蓝黑
      --- */
-  --bg-canvas:     #222427;
-  --bg-app:        #1a1a20;
+  --bg-canvas:     #32353c;
+  --bg-app:        #181a1b;
   --bg-sidebar:    #212127;
   --bg-chat:       #1a1a20;
   --bg-code:       #2a2a32;

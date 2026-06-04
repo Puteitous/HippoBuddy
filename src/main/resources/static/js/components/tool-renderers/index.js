@@ -48,15 +48,9 @@ export function renderToolTimelineDetailContent(tool) {
   if (!tool.result) {
     if (tool.progressLines && tool.progressLines.length > 0) {
       const lines = tool.progressLines.slice(-20);
-      const stopBtn = tool.id
-        ? `<button class="tool-abort-btn" data-tool-id="${escapeHtml(tool.id)}" onclick="window.abortToolCall(this)">■ 终止</button>`
-        : '';
-      return `<div class="timeline-detail-progress"><pre><code>${lines.map(l => escapeHtml(l)).join('\n')}</code></pre></div>${stopBtn}`;
+      return `<div class="timeline-detail-progress"><pre><code>${lines.map(l => escapeHtml(l)).join('\n')}</code></pre></div>`;
     }
-    const stopBtn = tool.id
-      ? `<button class="tool-abort-btn" data-tool-id="${escapeHtml(tool.id)}" onclick="window.abortToolCall(this)">■ 终止</button>`
-      : '';
-    return `<div class="timeline-detail-status">运行中...</div>${stopBtn}`;
+    return `<div class="timeline-detail-status">运行中...</div>`;
   }
 
   if (tool.result === 'error' && tool.error) {

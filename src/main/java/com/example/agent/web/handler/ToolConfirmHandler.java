@@ -149,10 +149,11 @@ public class ToolConfirmHandler implements HttpHandler {
                     conversationService.addToolResult(
                         conversation, pending.toolCallId, pending.toolName, truncatedResult, true);
 
+                    String cleanArgs = pending.arguments.replace("\r", "").replace("\n", "");
                     sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
                         + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
                         + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
-                        + "\",\"args\":" + pending.arguments + "}");
+                        + "\",\"args\":" + cleanArgs + "}");
                 } catch (Exception e) {
                     String errorMsg = e.getMessage();
                     if (errorMsg == null || errorMsg.isEmpty()) {
@@ -161,10 +162,11 @@ public class ToolConfirmHandler implements HttpHandler {
                     conversationService.addToolResult(
                         conversation, pending.toolCallId, pending.toolName, "错误: " + errorMsg, false);
 
+                    String cleanArgs = pending.arguments.replace("\r", "").replace("\n", "");
                     sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
                         + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
                         + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                        + "\",\"args\":" + pending.arguments + "}");
+                        + "\",\"args\":" + cleanArgs + "}");
                 }
 
                 // session 级 auto-allow 存储
@@ -179,10 +181,11 @@ public class ToolConfirmHandler implements HttpHandler {
                 conversationService.addToolResult(
                     conversation, pending.toolCallId, pending.toolName, "错误: 用户拒绝了执行该命令", false);
 
+                String denyArgs = pending.arguments.replace("\r", "").replace("\n", "");
                 sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
                     + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                    + "\",\"success\":false,\"error\":\"用户拒绝了执行该命令\""
-                    + "\",\"args\":" + pending.arguments + "}");
+                    + "\",\"success\":false,\"error\":\"用户拒绝了执行该命令"
+                    + "\",\"args\":" + denyArgs + "}");
             }
 
             // 继续 Agent 循环

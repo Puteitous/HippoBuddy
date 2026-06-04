@@ -280,10 +280,6 @@ export class ChatPanel {
     
     if (this.elements.messageInput) {
       this.elements.messageInput.focus();
-      requestAnimationFrame(() => {
-        this.elements.messageInput.setSelectionRange(0, 0);
-        this.elements.messageInput.scrollLeft = 0;
-      });
     }
     
     EventBus.emit('message:sent');
@@ -663,7 +659,7 @@ export class ChatPanel {
           parsed._eventType = currentEvent;
           this.handleChunk(parsed, contentDiv, btnContainer);
         } catch (e) {
-          console.error('解析确认 SSE 数据失败:', e);
+          console.error('[ConfirmSSE] 解析失败:', e.message, dataBuffer.slice(0, 500));
         }
         dataBuffer = '';
       };

@@ -22,11 +22,6 @@ export class MessageSession {
     this._eventRouter = this._createEventRouter();
   }
 
-  _logReasoning(event) {
-    const seg = this._reasoningSegment;
-    console.log(`[Thinking] ${event} | segment=${seg ? `done=${seg.done}, len=${seg.content.length}` : 'null'} | segments=${this._segments.length} | currentText=${this._currentText.length}ch`);
-  }
-
   _createEventRouter() {
     const s = this;
     return new EventRouter({
@@ -51,7 +46,6 @@ export class MessageSession {
       },
 
       thinking: () => {
-        s._logReasoning('thinking_start');
         s._pushTextSegment();
         if (s._reasoningSegment) {
           s._reasoningSegment.done = true;
@@ -94,7 +88,6 @@ export class MessageSession {
         if (!s._reasoningSegment) {
           s._reasoningSegment = { type: 'thinking', content: '', done: false };
           s._segments.push(s._reasoningSegment);
-          s._logReasoning('reasoning_created');
         }
         s._reasoningSegment.content += parsed.reasoning;
         s._renderPipeline.scheduleRender(s._segments, s._currentText);
@@ -102,7 +95,6 @@ export class MessageSession {
       },
 
       reasoning_done: () => {
-        s._logReasoning('reasoning_done');
         if (s._reasoningSegment) {
           s._reasoningSegment.done = true;
           s._renderPipeline.flush(s._segments, s._currentText);
@@ -139,7 +131,6 @@ export class MessageSession {
           contentDiv.querySelector('.typing-indicator')?.remove();
         }
         if (s._reasoningSegment) {
-          s._logReasoning('tool_start_done');
           s._reasoningSegment.done = true;
           s._reasoningSegment = null;
           s._renderPipeline.flush(s._segments, s._currentText);

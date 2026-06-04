@@ -1068,36 +1068,6 @@
     border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
-.tool-abort-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 8px;
-    padding: 4px 12px;
-    font-size: var(--font-size-xs);
-    font-family: inherit;
-    color: #fff;
-    background: var(--error-color, #e53e3e);
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm, 4px);
-    cursor: pointer;
-    transition: background 0.2s, opacity 0.2s;
-    line-height: 1.4;
-}
-
-.tool-abort-btn:hover {
-    background: var(--error-hover, #c53030);
-}
-
-.tool-abort-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.tool-abort-btn.aborted {
-    background: var(--text-muted, #718096);
-}
-
 .timeline-detail-error {
     padding: 8px 12px;
     background: var(--error-bg);
