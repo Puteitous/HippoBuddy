@@ -34,6 +34,12 @@ tools:
       - .p12
       - .jks
 
+  web_search:
+    provider: tavily     # brave | tavily
+    api_key: "your-api-key"
+    # Brave Search 免费注册: https://brave.com/search/api/（月 2,000 次）
+    # Tavily 免费注册: https://tavily.com/（月 1,000 basic + 100 advanced）
+
 session:
   auto_save: true
   max_history: 50

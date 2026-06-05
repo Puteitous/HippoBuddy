@@ -74,6 +74,13 @@ public class Config {
         if (envModel != null && !envModel.isEmpty()) {
             llm.setModel(envModel);
         }
+
+        String envTavilyKey = System.getenv("TAVILY_API_KEY");
+        if (envTavilyKey != null && !envTavilyKey.isEmpty() &&
+                (tools.getWebSearch().getApiKey() == null || tools.getWebSearch().getApiKey().isEmpty())) {
+            tools.getWebSearch().setApiKey(envTavilyKey);
+            logger.info("WebSearch API Key loaded from environment variable: TAVILY_API_KEY");
+        }
     }
 
     public void save() {

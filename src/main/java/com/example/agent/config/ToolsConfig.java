@@ -1,5 +1,6 @@
 package com.example.agent.config;
 
+import com.example.agent.tools.web.WebSearchConfig;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -15,6 +16,9 @@ public class ToolsConfig {
 
     private BashToolConfig bash = new BashToolConfig();
     private FileToolConfig file = new FileToolConfig();
+
+    @JsonProperty("web_search")
+    private WebSearchConfig webSearch = new WebSearchConfig();
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class BashToolConfig {
@@ -187,5 +191,13 @@ public class ToolsConfig {
 
     public void setFile(FileToolConfig file) {
         this.file = file;
+    }
+
+    public WebSearchConfig getWebSearch() {
+        return webSearch;
+    }
+
+    public void setWebSearch(WebSearchConfig webSearch) {
+        this.webSearch = webSearch;
     }
 }

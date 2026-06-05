@@ -23,6 +23,8 @@ import com.example.agent.prompt.PromptLibrary;
 import com.example.agent.prompt.PromptService;
 import com.example.agent.tools.*;
 import com.example.agent.tools.concurrent.ConcurrentToolExecutor;
+import com.example.agent.tools.web.WebFetchTool;
+import com.example.agent.tools.web.WebSearchTool;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -120,6 +122,8 @@ public final class CoreModule {
         registry.register(new AskUserTool());
         registry.register(new BashTool());
         registry.register(new TodoWriteTool(ServiceLocator.get(TodoManager.class)));
+        registry.register(new WebSearchTool(Config.getInstance().getTools().getWebSearch()));
+        registry.register(new WebFetchTool());
 
         registry.getBlockerChain().add(new com.example.agent.core.blocker.SchemaValidationBlocker(registry));
         registry.getBlockerChain().add(new com.example.agent.core.blocker.ConcurrentEditBlocker());

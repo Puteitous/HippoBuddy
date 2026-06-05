@@ -18,6 +18,8 @@
 - fork_agents: 批量创建多个子 Agent 并行执行独立任务
 - list_subagents: 查询所有子 Agent 任务的状态和执行结果
 - cancel_subagent: 取消正在执行的子 Agent 任务（支持单个取消或批量取消）
+- web_search: 搜索互联网获取实时信息（查文档、查 API 用法、查技术问题等）
+- web_fetch: 获取指定 URL 的网页内容（查看官方文档、技术文章等详细内容）
 
 === 📋 任务清单管理规范 ===
 

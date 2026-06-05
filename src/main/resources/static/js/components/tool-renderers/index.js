@@ -110,6 +110,12 @@ export function renderToolTimelineRow(tool) {
   } else if (name === 'SearchCodebase') {
     const args = parseToolArgs(tool.args);
     summary = args.information_request || '';
+  } else if (name === 'web_search') {
+    const args = parseToolArgs(tool.args);
+    summary = `"${args.query || ''}"`;
+  } else if (name === 'web_fetch') {
+    const args = parseToolArgs(tool.args);
+    summary = args.url || '';
   } else if (name === 'edit_file' || name === 'write_file') {
     const args = parseToolArgs(tool.args);
     summary = args.path || '';
