@@ -364,8 +364,16 @@ export class ChatPanel {
       tool_start: (parsed, contentDiv) => {
         const session = s();
         if (!session) return;
-        if (parsed.id && this._runningToolCallIds.has(parsed.id)) return;
+        if (parsed.id && this._runningToolCallIds.has(parsed.id)) {
+          return;
+        }
         if (parsed.id) this._runningToolCallIds.add(parsed.id);
+        // 检查 session._segments 中是否已存在相同 id 的 tool segment
+        // 主 SSE 流通过 MessageSession._eventRouter 创建 segment，不会更新 ChatPanel._runningToolCallIds
+        // 确认 SSE 流通过 ChatPanel.eventRouter 到达此处，需要二次防重
+        if (parsed.id && session.getSegments().some(seg => seg.type === 'tool' && seg.id === parsed.id)) {
+          return;
+        }
         session.handleToolStart(parsed, contentDiv);
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
 

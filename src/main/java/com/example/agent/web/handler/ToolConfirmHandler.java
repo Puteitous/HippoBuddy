@@ -41,7 +41,7 @@ public class ToolConfirmHandler implements HttpHandler {
 
     public ToolConfirmHandler() {
         this.sessionManager = WebSessionManager.getInstance();
-        this.orchestrator = new WebAgentOrchestrator(sessionManager);
+        this.orchestrator = WebAgentOrchestrator.getInstance();
     }
 
     ToolConfirmHandler(SessionManager sessionManager, WebAgentOrchestrator orchestrator) {
@@ -188,8 +188,8 @@ public class ToolConfirmHandler implements HttpHandler {
                     + "\",\"args\":" + denyArgs + "}");
             }
 
-            // 继续 Agent 循环
-            orchestrator.execute(sessionId, conversation, sseWriter);
+            // 先执行剩余工具调用，再继续 Agent 循环
+            orchestrator.continueAfterConfirmation(sessionId, conversation, sseWriter);
 
             outputStreamWriter.close();
             exchange.close();

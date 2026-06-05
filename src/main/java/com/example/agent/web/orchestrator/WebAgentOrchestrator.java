@@ -27,6 +27,7 @@ import com.example.agent.web.session.PendingBashConfirmation;
 import com.example.agent.web.session.PendingToolCall;
 import com.example.agent.web.session.SessionManager;
 import com.example.agent.web.session.SessionTokenStats;
+import com.example.agent.web.session.WebSessionManager;
 import com.example.agent.web.util.SseWriter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class WebAgentOrchestrator {
@@ -53,9 +55,23 @@ public class WebAgentOrchestrator {
 
     private static final TruncationService truncationService = new TruncationService(TokenEstimatorFactory.getDefault());
 
+    private static final WebAgentOrchestrator INSTANCE = new WebAgentOrchestrator(WebSessionManager.getInstance());
+
     private final SessionManager sessionManager;
     private final LlmClient llmClient;
+
+    /**
+     * 暂存因 bash 确认弹窗而尚未执行的剩余 tool calls。
+     * key=sessionId, value=剩余工具列表（当前轮确认点之后的部分）。
+     * 生命周期：executeToolCalls 遇到确认时写入 → continueAfterConfirmation 消费后清除。
+     * 覆盖语义：后续写入会覆盖前一次残留（execute() 入口也会主动清理防止幽灵队列）。
+     */
+    private final Map<String, List<ToolCall>> remainingToolCalls = new ConcurrentHashMap<>();
     private final ToolRegistry toolRegistry;
+
+    public static WebAgentOrchestrator getInstance() {
+        return INSTANCE;
+    }
 
     public WebAgentOrchestrator(SessionManager sessionManager) {
         this.sessionManager = sessionManager;
@@ -74,6 +90,9 @@ public class WebAgentOrchestrator {
     }
 
     public void execute(String sessionId, Conversation conversation, SseWriter sseWriter) throws LlmException {
+        // 每轮新 Agent 循环开始时，清理上一轮因确认弹窗残留的剩余工具队列
+        remainingToolCalls.remove(sessionId);
+
         List<Tool> tools = toolRegistry.toTools();
 
         for (int turn = 0; turn < MAX_TURNS; turn++) {
@@ -291,7 +310,8 @@ public class WebAgentOrchestrator {
     }
 
     private void executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId) {
-        for (ToolCall toolCall : toolCalls) {
+        for (int i = 0; i < toolCalls.size(); i++) {
+            ToolCall toolCall = toolCalls.get(i);
             if (SseWriter.isClientDisconnected()) {
                 logger.info("客户端已断开，跳过工具执行 (sessionId={})", sessionId);
                 return;
@@ -301,6 +321,8 @@ public class WebAgentOrchestrator {
             String arguments = toolCall.getFunction().getArguments();
 
             if (!"ask_user".equals(toolName)) {
+                logger.debug("executeToolCalls 发送 tool_start: toolCallId={}, toolName={} (sessionId={})",
+                    toolCall.getId(), toolName, sessionId);
                 sseWriter.sendSseEvent("tool_start", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
                     + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                     + "\",\"args\":" + SseWriter.escapeJsonForValue(arguments) + "}");
@@ -379,6 +401,17 @@ public class WebAgentOrchestrator {
                                 sseWriter.sendSseEvent("tool_confirmation", confirmJson);
                                 logger.info("发送 tool_confirmation 事件: confirmId={}, command={}, riskLevel={}",
                                     confirmId, command, hookResult.getRiskLevel());
+                                // 保存当前轮中尚未执行的剩余工具，确认弹窗关闭后继续执行
+                                // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，确认/拒绝一个不影响其他
+                                if (i < toolCalls.size() - 1) {
+                                    List<ToolCall> remaining = toolCalls.subList(i + 1, toolCalls.size());
+                                    String remainingIds = remaining.stream()
+                                        .map(tc -> tc.getId() + "(" + tc.getFunction().getName() + ")")
+                                        .collect(java.util.stream.Collectors.joining(", "));
+                                    remainingToolCalls.put(sessionId, remaining);
+                                    logger.info("暂存剩余工具调用: sessionId={}, 数量={}, 列表=[{}]",
+                                        sessionId, remaining.size(), remainingIds);
+                                }
                                 return;
                             }
                         }
@@ -473,6 +506,32 @@ public class WebAgentOrchestrator {
                 RequestContext.clear();
             }
         }
+    }
+
+    /**
+     * 确认弹窗（bash 安全性确认）关闭后，统一恢复执行路径。
+     * 1. 执行确认前暂存的剩余工具调用
+     * 2. 进入下一轮 Agent 循环（新一轮 LLM 调用）
+     *
+     * 调用方（ToolConfirmHandler）不需要关心内部编排顺序。
+     */
+    public void continueAfterConfirmation(String sessionId, Conversation conversation, SseWriter sseWriter) throws LlmException {
+        // 执行确认前暂存的剩余工具调用
+        // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，拒绝一个不影响其他
+        List<ToolCall> remaining = remainingToolCalls.remove(sessionId);
+        if (remaining != null && !remaining.isEmpty()) {
+            String remainingIds = remaining.stream()
+                .map(tc -> tc.getId() + "(" + tc.getFunction().getName() + ")")
+                .collect(java.util.stream.Collectors.joining(", "));
+            logger.info("确认弹窗关闭，开始执行剩余工具 (sessionId={}, 数量={}, 列表=[{}])",
+                sessionId, remaining.size(), remainingIds);
+            executeToolCalls(remaining, conversation, sseWriter, sessionId);
+        } else {
+            logger.info("确认弹窗关闭，无剩余工具 (sessionId={})", sessionId);
+        }
+        // 进入下一轮 Agent 循环
+        logger.info("确认弹窗关闭后，进入下一轮 Agent 循环 (sessionId={})", sessionId);
+        execute(sessionId, conversation, sseWriter);
     }
 
     private List<Message> ensureSystemMessageFirst(List<Message> messages) {

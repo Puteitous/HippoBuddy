@@ -37,7 +37,7 @@ public class ChatApiHandler implements HttpHandler {
 
     public ChatApiHandler() {
         this.sessionManager = WebSessionManager.getInstance();
-        this.orchestrator = new WebAgentOrchestrator(sessionManager);
+        this.orchestrator = WebAgentOrchestrator.getInstance();
     }
 
     ChatApiHandler(SessionManager sessionManager, WebAgentOrchestrator orchestrator) {
