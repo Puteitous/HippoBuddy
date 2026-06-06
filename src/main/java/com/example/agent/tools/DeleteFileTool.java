@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -19,7 +18,8 @@ public class DeleteFileTool implements ToolExecutor {
 
     /** 受保护的目录名（即使 glob 匹配到也跳过） */
     private static final Set<String> PROTECTED_DIR_NAMES = Set.of(
-        ".git", ".svn", ".hg", "node_modules", ".idea", ".gradle", "target", "build", "dist"
+        ".git", ".svn", ".hg", "node_modules", ".idea", ".gradle", "target", "build", "dist",
+        ".hippo"
     );
 
     /** 受保护的文件扩展名（blockedExtensions 的补充，执行时硬拦截） */
@@ -32,6 +32,9 @@ public class DeleteFileTool implements ToolExecutor {
         ".gitignore", ".gitattributes", ".env.example"
     );
 
+    /** 单次删除操作的最大文件数，超过直接拒绝 */
+    private static final int MAX_DELETE_COUNT = 50;
+
     public DeleteFileTool() {
     }
 
@@ -42,7 +45,7 @@ public class DeleteFileTool implements ToolExecutor {
 
     @Override
     public String getDescription() {
-        return "删除一个或多个文件或目录，支持 glob 批量匹配。";
+        return "删除一个或多个文件或目录（不接收 glob 通配符，请使用精确路径）。";
     }
 
     @Override
@@ -54,7 +57,7 @@ public class DeleteFileTool implements ToolExecutor {
                     "paths": {
                         "type": "array",
                         "items": { "type": "string" },
-                        "description": "要删除的文件路径列表，支持 glob 模式（如 src/**/*.js）和目录路径"
+                        "description": "要删除的文件或目录路径列表（不接收 glob 通配符）。传目录时会递归删除目录下所有文件"
                     }
                 },
                 "required": ["paths"]
@@ -87,7 +90,7 @@ public class DeleteFileTool implements ToolExecutor {
             throw new ToolExecutionException("paths 不能为空数组");
         }
 
-        // Phase 1: 展开所有路径（glob 解析 + 目录递归）
+        // Phase 1: 展开所有路径（目录递归）
         List<Path> allFiles = new ArrayList<>();
         List<String> rawPaths = new ArrayList<>();
         for (JsonNode p : pathsNode) {
@@ -121,6 +124,14 @@ public class DeleteFileTool implements ToolExecutor {
 
         // Phase 2: 去重
         allFiles = allFiles.stream().distinct().collect(Collectors.toList());
+
+        // Phase 2.5: 检查批量删除数量限制（超过阈值直接拒绝，不给确认窗）
+        if (allFiles.size() > MAX_DELETE_COUNT) {
+            throw new ToolExecutionException(
+                "安全限制: 单次删除操作最多允许 " + MAX_DELETE_COUNT + " 个文件（当前 " + allFiles.size() + " 个）。" +
+                "请缩小删除范围，或分多次执行。"
+            );
+        }
 
         // Phase 3: 执行删除（先 track 再删，确保快照记录的是删除前的内容）
         List<String> deleted = new ArrayList<>();
@@ -195,14 +206,30 @@ public class DeleteFileTool implements ToolExecutor {
     // ====== 路径展开 ======
 
     /**
-     * 展开一个原始路径（支持 glob / 目录 / 普通文件），将结果加入 allFiles。
+     * 展开一个原始路径（目录 / 普通文件），将结果加入 allFiles。
+     *
+     * 注意：* 和 ? 通配符被明确拒绝，必须使用精确路径。
+     * Windows 上 Path.of("*") 会抛出 InvalidPathException，此处提前拦截。
      */
     private void expandPath(String raw, List<Path> allFiles,
                             List<String> skippedProtected, List<String> notFound)
             throws ToolExecutionException {
 
+        // 拒绝通配符：delete_file 不接收 glob，LLM 应先 bash ls 再传精确路径
+        if (raw.contains("*") || raw.contains("?")) {
+            throw new ToolExecutionException(
+                "安全限制: delete_file 不支持 glob 通配符（" + raw + "），请使用精确文件路径。" +
+                "如需批量删除，请先用 bash ls/tree 列出文件后再指定精确路径。"
+            );
+        }
+
         Path resolved = PathSecurityUtils.validateAndResolve(raw);
         String rawFileName = resolved.getFileName() != null ? resolved.getFileName().toString() : "";
+
+        // 禁止删除项目根目录（防止 "." 或 ".." 或显式传根目录路径误删整个项目）
+        if (resolved.equals(PathSecurityUtils.getProjectRoot())) {
+            throw new ToolExecutionException("安全限制: 禁止删除项目根目录");
+        }
 
         // 检查是否直接匹配保护文件
         if (isProtectedFileName(rawFileName) || isProtectedExtension(rawFileName)) {
@@ -217,11 +244,6 @@ public class DeleteFileTool implements ToolExecutor {
         }
 
         if (!Files.exists(resolved)) {
-            // 可能包含通配符
-            if (raw.contains("*") || raw.contains("?")) {
-                expandGlob(raw, allFiles, skippedProtected, notFound);
-                return;
-            }
             // 普通路径但不存在
             notFound.add(raw);
             return;
@@ -236,67 +258,16 @@ public class DeleteFileTool implements ToolExecutor {
     }
 
     /**
-     * 展开 glob 模式。
-     * 先解析出根目录（通配符前的最长前缀），只在根目录下 walk。
-     */
-    private void expandGlob(String raw, List<Path> allFiles,
-                            List<String> skippedProtected, List<String> notFound)
-            throws ToolExecutionException {
-
-        // 解析 glob 根目录
-        int wildcardIdx = findWildcardIndex(raw);
-        if (wildcardIdx < 0) {
-            notFound.add(raw);
-            return;
-        }
-
-        String rootStr = raw.substring(0, wildcardIdx);
-        // 如果根目录为空，则使用整个项目目录
-        if (rootStr.isEmpty() || rootStr.equals("/") || rootStr.equals("\\")) {
-            rootStr = ".";
-        }
-
-        Path root = PathSecurityUtils.validateAndResolve(rootStr);
-        if (!Files.exists(root) || !Files.isDirectory(root)) {
-            notFound.add(raw);
-            return;
-        }
-
-        // 检查根目录是否被保护
-        if (isUnderProtectedDir(root)) {
-            skippedProtected.add(PathSecurityUtils.getRelativePath(root));
-            return;
-        }
-
-        // 构造绝对路径 glob 模式
-        String absGlob;
-        if (raw.startsWith("/") || raw.indexOf(':') == 1) { // 绝对路径
-            absGlob = "glob:" + raw.replace('\\', '/');
-        } else {
-            // 相对路径：从项目根开始匹配
-            Path projectRoot = PathSecurityUtils.getProjectRoot();
-            String normalizedRaw = raw.replace('\\', '/');
-            absGlob = "glob:" + projectRoot.toAbsolutePath().normalize().toString().replace('\\', '/') + "/" + normalizedRaw;
-        }
-
-        PathMatcher matcher = FileSystems.getDefault().getPathMatcher(absGlob);
-
-        // 在根目录下递归 walk
-        try (Stream<Path> walk = Files.walk(root, Integer.MAX_VALUE)) {
-            walkAndFilterFiles(walk, matcher::matches, allFiles, skippedProtected);
-        } catch (IOException e) {
-            logger.warn("glob 展开失败: raw={}", raw, e);
-            notFound.add(raw);
-        }
-    }
-
-    /**
      * 递归展开目录。
      */
     private void expandDirectory(Path directory, List<Path> allFiles,
-                                 List<String> skippedProtected) {
+                                 List<String> skippedProtected) throws ToolExecutionException {
+        // 兜底保护：禁止递归删除项目根目录
+        if (directory.equals(PathSecurityUtils.getProjectRoot())) {
+            throw new ToolExecutionException("安全限制: 禁止递归删除项目根目录");
+        }
         try (Stream<Path> walk = Files.walk(directory, Integer.MAX_VALUE)) {
-            walkAndFilterFiles(walk, null, allFiles, skippedProtected);
+            walkAndFilterFiles(walk, allFiles, skippedProtected);
         } catch (IOException e) {
             logger.warn("目录展开失败: {}", directory, e);
         }
@@ -305,22 +276,18 @@ public class DeleteFileTool implements ToolExecutor {
     /**
      * walk 文件流，过滤出常规文件后执行保护文件检查并分类收集。
      *
-     * @param walk             文件流（需已通过 Files.isRegularFile 过滤）
-     * @param extraFilter      额外的过滤条件（如 PathMatcher::matches），可为 null
+     * @param walk             文件流
      * @param allFiles         收集到的可删除文件
      * @param skippedProtected 因保护规则跳过的文件
      */
-    private void walkAndFilterFiles(Stream<Path> walk, Predicate<Path> extraFilter,
+    private void walkAndFilterFiles(Stream<Path> walk,
                                     List<Path> allFiles, List<String> skippedProtected) {
         Stream<Path> stream = walk.filter(Files::isRegularFile);
-        if (extraFilter != null) {
-            stream = stream.filter(extraFilter);
-        }
         stream.forEach(p -> {
             String fileName = p.getFileName() != null ? p.getFileName().toString() : "";
             if (isProtectedFileName(fileName) || isProtectedExtension(fileName)) {
                 skippedProtected.add(PathSecurityUtils.getRelativePath(p));
-            } else if (!isUnderProtectedDir(p)) {
+            } else if (!isUnderProtectedDir(p) && PathSecurityUtils.isWithinAllowedPath(p)) {
                 allFiles.add(p);
             } else {
                 skippedProtected.add(PathSecurityUtils.getRelativePath(p));
@@ -354,21 +321,6 @@ public class DeleteFileTool implements ToolExecutor {
     }
 
     // ====== 工具方法 ======
-
-    /** 找到第一个通配符的索引 */
-    private int findWildcardIndex(String path) {
-        for (int i = 0; i < path.length(); i++) {
-            char c = path.charAt(i);
-            if (c == '*' || c == '?') {
-                // 向前找路径分隔符，确定根目录结束位置
-                int sepIdx = path.lastIndexOf('/', i);
-                int backIdx = path.lastIndexOf('\\', i);
-                int lastSep = Math.max(sepIdx, backIdx);
-                return (lastSep >= 0) ? lastSep + 1 : 0;
-            }
-        }
-        return -1;
-    }
 
     private String formatResult(List<String> deleted, List<String> failed,
                                 List<String> skippedProtected, List<String> notFound) {
@@ -411,7 +363,7 @@ public class DeleteFileTool implements ToolExecutor {
     // ====== 供外部调用的预览方法 ======
 
     /**
-     * 预览删除操作将影响哪些文件（展开 glob / 目录，但不执行删除）。
+     * 预览删除操作将影响哪些文件（展开目录，但不执行删除）。
      * 供 WebAgentOrchestrator 在确认弹窗前调用。
      *
      * @return PreviewResult，包含文件列表和保护文件信息

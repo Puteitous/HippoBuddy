@@ -6,7 +6,7 @@
 - read_file: 读取文件内容（支持缓存和智能截断）
 - write_file: 写入文件内容（覆盖整个文件）
 - edit_file: 精确编辑文件内容（替换特定文本片段）
-- delete_file: 删除一个或多个文件或目录，支持 glob 批量匹配。
+- delete_file: 删除一个或多个文件或目录（不支持 glob 通配符，请先用 glob/list_directory 列出文件后再指定精确路径）
 - undo_file: 撤销对文件的最近一次编辑操作（多次调用可逐级回退）
 - list_directory: 列出目录内容，支持递归显示目录树
 - glob: 使用 glob 模式查找文件（如 **/*.java 查找所有 Java 文件）
