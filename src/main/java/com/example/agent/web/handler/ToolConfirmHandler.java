@@ -232,9 +232,6 @@ public class ToolConfirmHandler implements HttpHandler {
                                            String confirmId, String decision,
                                            SseWriter sseWriter, ConversationService conversationService,
                                            ToolRegistry toolRegistry, Conversation conversation) {
-        logger.info("[delete_file] 处理确认: sessionId={}, confirmId={}, decision={}, fileCount={}",
-            sessionId, confirmId, decision, pending.totalFileCount);
-
         // 惰性超时检查
         if (pending.isExpired(CONFIRM_TIMEOUT_MS)) {
             logger.warn("delete_file 确认超时：confirmId={}", confirmId);

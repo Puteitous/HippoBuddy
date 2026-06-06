@@ -127,7 +127,16 @@ public class EditFileTool implements ToolExecutor {
                     String.format("文件过大（%d 字节），最大支持 %d 字节（10MB）", fileSize, MAX_FILE_SIZE));
             }
             
-            String content = Files.readString(path, StandardCharsets.UTF_8);
+            String content;
+            try {
+                content = Files.readString(path, StandardCharsets.UTF_8);
+            } catch (java.nio.charset.MalformedInputException e) {
+                throw new ToolExecutionException(
+                    "文件编码不是 UTF-8，无法编辑。\n" +
+                    "该文件不是 UTF-8 编码（可能是 GBK 或其他编码），edit_file 工具仅支持 UTF-8 编码的文本文件。\n" +
+                    "请将文件转换为 UTF-8 编码后再编辑。"
+                );
+            }
             boolean hasCrlf = content.contains("\r\n");
             content = content.replace("\r\n", "\n");
 
@@ -215,7 +224,15 @@ public class EditFileTool implements ToolExecutor {
                 FileTime currentFileTime = Files.getLastModifiedTime(path);
                 long currentTimestamp = (currentFileTime != null) ? currentFileTime.toMillis() : 0;
                 if (currentTimestamp != readTimestamp) {
-                    String currentContent = Files.readString(path, StandardCharsets.UTF_8);
+                    String currentContent;
+                    try {
+                        currentContent = Files.readString(path, StandardCharsets.UTF_8);
+                    } catch (java.nio.charset.MalformedInputException e) {
+                        throw new ToolExecutionException(
+                            "文件被外部修改后编码不再是 UTF-8，无法安全编辑。\n" +
+                            "请重新执行 read_file 获取最新内容后再试。"
+                        );
+                    }
                     String normalizedCurrent = currentContent.replace("\r\n", "\n");
                     if (!normalizedCurrent.equals(content)) {
                         throw new ToolExecutionException(

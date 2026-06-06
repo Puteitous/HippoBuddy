@@ -221,7 +221,16 @@ public class ReadFileTool implements ToolExecutor {
                 fileCache.remove(cacheKey);
             }
 
-            List<String> allLines = Files.readAllLines(path);
+            List<String> allLines;
+            try {
+                allLines = Files.readAllLines(path);
+            } catch (java.nio.charset.MalformedInputException e) {
+                throw new ToolExecutionException(
+                    "文件编码不是 UTF-8，无法读取。\n" +
+                    "该文件不是 UTF-8 编码（可能是 GBK 或其他编码），read_file 工具仅支持 UTF-8 编码的文本文件。\n" +
+                    "请将文件转换为 UTF-8 编码后重试。"
+                );
+            }
             int totalLines = allLines.size();
 
             if (totalLines > MAX_LINES_TO_READ && offset == 0 && !arguments.has("limit")) {

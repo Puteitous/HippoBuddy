@@ -279,8 +279,6 @@ public class WebAgentOrchestrator {
             }
 
             executeToolCalls(toolCalls, conversation, sseWriter, sessionId);
-            logger.info("[delete_file] executeToolCalls 返回后: sessionId={}, turn={}, hasPendingDeleteConfirmation={}",
-                sessionId, turn + 1, sessionManager.hasPendingDeleteConfirmation(sessionId));
 
             toolRegistry.getBlockerChain().onTurnComplete();
 
@@ -312,10 +310,6 @@ public class WebAgentOrchestrator {
             }
 
             if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
-                logger.info("[delete_file] 检测到挂起确认，停止 Agent 循环: sessionId={}, turn={}, hasBash={}, hasDelete={}",
-                    sessionId, turn + 1,
-                    sessionManager.hasPendingBashConfirmation(sessionId),
-                    sessionManager.hasPendingDeleteConfirmation(sessionId));
                 return;
             }
 
@@ -473,8 +467,6 @@ public class WebAgentOrchestrator {
 
                 // delete_file：预览 → 保护文件检查 → 需要用户确认
                 if ("delete_file".equals(toolName)) {
-                    logger.info("[delete_file] 进入 executeToolCalls 处理: toolCallId={}, sessionId={}", toolCall.getId(), sessionId);
-
                     JsonNode args = objectMapper.readTree(arguments);
                     DeleteFileTool.PreviewResult preview = DeleteFileTool.preview(args);
 
@@ -522,8 +514,6 @@ public class WebAgentOrchestrator {
                         args, filePaths, preview.totalCount()
                     );
                     sessionManager.setPendingDeleteConfirmation(sessionId, pending);
-                    logger.info("[delete_file] 已设置 PendingDeleteConfirmation: confirmId={}, fileCount={}, sessionId={}", confirmId, preview.totalCount(), sessionId);
-                    logger.info("[delete_file] hasPendingDeleteConfirmation 验证: {} (sessionId={})", sessionManager.hasPendingDeleteConfirmation(sessionId), sessionId);
 
                     // 构建 SSE 确认消息
                     String confirmJson = buildDeleteConfirmJson(confirmId, filePaths, preview.totalCount());
@@ -536,7 +526,6 @@ public class WebAgentOrchestrator {
                         remainingToolCalls.put(sessionId, remaining);
                         logger.info("暂存剩余工具调用: sessionId={}, 数量={}", sessionId, remaining.size());
                     }
-                    logger.info("[delete_file] executeToolCalls 将 return (sessionId={})", sessionId);
                     return;
                 }
 
