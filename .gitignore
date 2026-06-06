@@ -43,6 +43,7 @@ dependency-reduced-pom.xml
 .settings/
 
 .trae/
+.obsidian/
 
 node_modules/
 
