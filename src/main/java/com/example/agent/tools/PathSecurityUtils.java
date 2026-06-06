@@ -38,6 +38,11 @@ public class PathSecurityUtils {
         return PROJECT_ROOT;
     }
 
+    /** 返回当前生效的根目录（工作区目录或项目目录），用于安全检查 */
+    public static Path getAllowedRoot() {
+        return getEffectiveRoot();
+    }
+
     public static Path validateAndResolve(String filePath) throws ToolExecutionException {
         if (filePath == null || filePath.trim().isEmpty()) {
             return getEffectiveRoot();

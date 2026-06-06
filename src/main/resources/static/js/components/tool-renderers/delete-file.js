@@ -8,7 +8,8 @@ import { escapeHtml } from '../../utils.js';
  */
 function _renderDeleteFileConfirmBody(data) {
   const files = data.files || [];
-  const totalCount = data.totalCount || files.length;
+  const directories = data.directories || [];
+  const totalCount = data.totalCount || files.length + directories.length;
   const truncated = data.truncated || false;
 
   const fileListHtml = files.map(f => `
@@ -24,10 +25,22 @@ function _renderDeleteFileConfirmBody(data) {
     </div>
   `).join('');
 
+  const dirListHtml = directories.map(d => `
+    <div class="delete-file-item directory">
+      <span class="delete-file-icon">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 4v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H8L6 4H3a1 1 0 0 0-1 1z"/>
+        </svg>
+      </span>
+      <span class="delete-file-path" title="${escapeHtml(d)}">${escapeHtml(d)}/</span>
+    </div>
+  `).join('');
+
   const truncateHtml = truncated
-    ? `<div class="delete-file-truncated">... 还有 ${totalCount - files.length} 个文件</div>`
+    ? `<div class="delete-file-truncated">... 还有 ${totalCount - files.length - directories.length} 项</div>`
     : '';
 
+  const itemLabel = totalCount > 0 ? (directories.length > 0 ? '个文件/目录' : '个文件') : '';
   const restoreHint = totalCount > 0
     ? `<div class="delete-file-hint">
         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -35,16 +48,17 @@ function _renderDeleteFileConfirmBody(data) {
           <line x1="8" y1="5" x2="8" y2="9"/>
           <line x1="8" y1="11" x2="8" y2="11.5"/>
         </svg>
-        已通过快照备份，可从文件变更中回滚恢复
+        空目录直接删除（无回滚）。已通过快照备份文件，可从文件变更中回滚恢复
       </div>`
     : '';
 
   return `
     <div class="delete-file-header">
-      将删除以下 <strong>${totalCount}</strong> 个文件：
+      将删除以下 <strong>${totalCount}</strong> ${itemLabel}：
     </div>
     <div class="delete-file-list">
       ${fileListHtml}
+      ${dirListHtml}
       ${truncateHtml}
     </div>
     ${restoreHint}

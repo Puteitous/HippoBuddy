@@ -1712,6 +1712,21 @@
     white-space: nowrap;
 }
 
+.delete-file-item.directory .delete-file-icon {
+    color: var(--color-warning, #d97706);
+}
+
+.delete-file-item.directory .delete-file-path {
+    font-style: italic;
+}
+
+.delete-file-item.directory .delete-file-path::after {
+    content: ' (空目录)';
+    font-style: normal;
+    color: var(--text-tertiary, #9ca3af);
+    font-size: 0.9em;
+}
+
 .delete-file-truncated {
     padding: 6px 10px;
     font-size: var(--font-size-xs);
@@ -1796,6 +1811,21 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.timeline-detail-confirmation .delete-file-item.directory .delete-file-icon {
+    color: var(--color-warning, #d97706);
+}
+
+.timeline-detail-confirmation .delete-file-item.directory .delete-file-path {
+    font-style: italic;
+}
+
+.timeline-detail-confirmation .delete-file-item.directory .delete-file-path::after {
+    content: ' (空目录)';
+    font-style: normal;
+    color: var(--text-tertiary, #9ca3af);
+    font-size: 0.9em;
 }
 
 .timeline-detail-confirmation .delete-file-truncated {

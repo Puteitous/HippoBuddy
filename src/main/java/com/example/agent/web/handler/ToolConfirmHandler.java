@@ -124,6 +124,7 @@ public class ToolConfirmHandler implements HttpHandler {
             logger.error("处理确认请求失败", e);
             if (sessionId != null) {
                 sessionManager.clearPendingBashConfirmation(sessionId);
+                sessionManager.clearPendingDeleteConfirmation(sessionId);
             }
             try {
                 sendJsonError(exchange, 500, "处理失败: " + e.getMessage());

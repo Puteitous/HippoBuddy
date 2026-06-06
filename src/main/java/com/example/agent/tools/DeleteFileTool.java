@@ -92,9 +92,15 @@ public class DeleteFileTool implements ToolExecutor {
 
         // Phase 1: 展开所有路径（目录递归）
         List<Path> allFiles = new ArrayList<>();
+        List<Path> emptyDirs = new ArrayList<>();
         List<String> rawPaths = new ArrayList<>();
         for (JsonNode p : pathsNode) {
-            rawPaths.add(p.asText());
+            String raw = p.asText();
+            // 拒绝空路径：防止 validateAndResolve("") 返回根目录导致误删整个工作目录
+            if (raw == null || raw.trim().isEmpty()) {
+                throw new ToolExecutionException("安全限制: 路径不能为空字符串");
+            }
+            rawPaths.add(raw);
         }
 
         // 如果只有一个路径且是目录，在确认阶段展示目录名
@@ -104,7 +110,7 @@ public class DeleteFileTool implements ToolExecutor {
 
         for (String raw : rawPaths) {
             try {
-                expandPath(raw, allFiles, skippedProtected, notFound);
+                expandPath(raw, allFiles, emptyDirs, skippedProtected, notFound);
             } catch (ToolExecutionException e) {
                 // 路径安全校验失败（如试图删除项目外）
                 throw e;
@@ -112,14 +118,26 @@ public class DeleteFileTool implements ToolExecutor {
         }
 
         if (allFiles.isEmpty()) {
-            StringBuilder msg = new StringBuilder("没有文件需要删除。");
+            // 没有常规文件可删，但可能有空目录需要处理
+            if (!emptyDirs.isEmpty()) {
+                deleteEmptyDirectoriesFromPaths(List.of(), emptyDirs, new ArrayList<>());
+            }
+            StringBuilder msg = new StringBuilder();
+            if (!emptyDirs.isEmpty()) {
+                msg.append("已删除 ").append(emptyDirs.size()).append(" 个空目录:\n");
+                for (Path d : emptyDirs) {
+                    msg.append("  - ").append(PathSecurityUtils.getRelativePath(d)).append("\n");
+                }
+            } else {
+                msg.append("没有文件需要删除。");
+            }
             if (!notFound.isEmpty()) {
                 msg.append("\n不存在的路径（已跳过）：").append(String.join(", ", notFound));
             }
             if (!skippedProtected.isEmpty()) {
                 msg.append("\n受保护的文件（已跳过）：").append(String.join(", ", skippedProtected));
             }
-            return msg.toString();
+            return msg.toString().trim();
         }
 
         // Phase 2: 去重
@@ -181,26 +199,14 @@ public class DeleteFileTool implements ToolExecutor {
             }
         }
 
-        // Phase 4: 尝试删除空目录（如果原始路径是目录）
-        for (String raw : rawPaths) {
-            try {
-                Path p = PathSecurityUtils.validateAndResolve(raw);
-                if (Files.isDirectory(p)) {
-                    try (Stream<Path> entries = Files.list(p)) {
-                        if (entries.findAny().isEmpty()) {
-                            Files.deleteIfExists(p);
-                            logger.debug("已删除空目录: {}", p);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                // 目录清理失败不阻塞主流程
-                logger.debug("清理目录失败（可忽略）: {}", raw, e);
-            }
-        }
+        // Phase 4: 尝试删除空目录。
+        // emptyDirs 是在 expandPath 阶段就识别出的空目录；rawPaths 是为了处理
+        // "删除目录下所有文件后目录变空"的情况。
+        List<String> deletedDirs = new ArrayList<>();
+        deleteEmptyDirectoriesFromPaths(rawPaths, emptyDirs, deletedDirs);
 
         // Phase 5: 格式化结果
-        return formatResult(deleted, failed, skippedProtected, notFound);
+        return formatResult(deleted, deletedDirs, failed, skippedProtected, notFound);
     }
 
     // ====== 路径展开 ======
@@ -211,7 +217,7 @@ public class DeleteFileTool implements ToolExecutor {
      * 注意：* 和 ? 通配符被明确拒绝，必须使用精确路径。
      * Windows 上 Path.of("*") 会抛出 InvalidPathException，此处提前拦截。
      */
-    private void expandPath(String raw, List<Path> allFiles,
+    private void expandPath(String raw, List<Path> allFiles, List<Path> emptyDirs,
                             List<String> skippedProtected, List<String> notFound)
             throws ToolExecutionException {
 
@@ -226,8 +232,8 @@ public class DeleteFileTool implements ToolExecutor {
         Path resolved = PathSecurityUtils.validateAndResolve(raw);
         String rawFileName = resolved.getFileName() != null ? resolved.getFileName().toString() : "";
 
-        // 禁止删除项目根目录（防止 "." 或 ".." 或显式传根目录路径误删整个项目）
-        if (resolved.equals(PathSecurityUtils.getProjectRoot())) {
+        // 禁止删除项目根目录或工作区根目录（防止 "." 或 ".." 或空字符串误删整个项目）
+        if (resolved.equals(PathSecurityUtils.getProjectRoot()) || resolved.equals(PathSecurityUtils.getAllowedRoot())) {
             throw new ToolExecutionException("安全限制: 禁止删除项目根目录");
         }
 
@@ -250,7 +256,17 @@ public class DeleteFileTool implements ToolExecutor {
         }
 
         if (Files.isDirectory(resolved)) {
-            // 递归展开目录下所有文件
+            // 先判断是否是空目录：空目录直接收集，不走递归展开
+            try {
+                if (isDirectoryEmpty(resolved)) {
+                    emptyDirs.add(resolved);
+                    return;
+                }
+            } catch (IOException e) {
+                // 读目录失败，降级按非空目录处理，走递归展开
+                logger.debug("判断目录是否为空失败，降级为非空目录处理: {}", resolved, e);
+            }
+            // 递归展开非空目录下所有文件
             expandDirectory(resolved, allFiles, skippedProtected);
         } else {
             allFiles.add(resolved);
@@ -262,8 +278,8 @@ public class DeleteFileTool implements ToolExecutor {
      */
     private void expandDirectory(Path directory, List<Path> allFiles,
                                  List<String> skippedProtected) throws ToolExecutionException {
-        // 兜底保护：禁止递归删除项目根目录
-        if (directory.equals(PathSecurityUtils.getProjectRoot())) {
+        // 兜底保护：禁止递归删除项目根目录或工作区根目录
+        if (directory.equals(PathSecurityUtils.getProjectRoot()) || directory.equals(PathSecurityUtils.getAllowedRoot())) {
             throw new ToolExecutionException("安全限制: 禁止递归删除项目根目录");
         }
         try (Stream<Path> walk = Files.walk(directory, Integer.MAX_VALUE)) {
@@ -322,7 +338,74 @@ public class DeleteFileTool implements ToolExecutor {
 
     // ====== 工具方法 ======
 
-    private String formatResult(List<String> deleted, List<String> failed,
+    /**
+     * 删除已确认的空目录。
+     * emptyDirs 是 expandPath 阶段就识别出的已知空目录（直接删）；
+     * rawPaths 用于"删除目录下所有文件后目录变空"的兜底重试。
+     * 对非空目录也会尝试递归清理其下所有空子目录树（从最深到最浅）。
+     * deletedDirs 用于收集被删除的目录路径（供结果格式化）。
+     */
+    private void deleteEmptyDirectoriesFromPaths(List<String> rawPaths, List<Path> emptyDirs, List<String> deletedDirs) {
+        // 先删已知空目录（这些不需要再检查是否存在，expandPath 阶段已确认）
+        for (Path dir : emptyDirs) {
+            try {
+                Files.deleteIfExists(dir);
+                deletedDirs.add(PathSecurityUtils.getRelativePath(dir));
+                logger.debug("已删除空目录: {}", dir);
+            } catch (Exception e) {
+                logger.debug("删除空目录失败（可忽略）: {}", dir, e);
+            }
+        }
+        // 兜底检查原始路径中是否有因文件全被删完而变空的目录树
+        for (String raw : rawPaths) {
+            try {
+                Path p = PathSecurityUtils.validateAndResolve(raw);
+                if (Files.isDirectory(p)) {
+                    deleteEmptyTree(p, deletedDirs);
+                }
+            } catch (Exception e) {
+                logger.debug("清理目录失败（可忽略）: {}", raw, e);
+            }
+        }
+    }
+
+    /**
+     * 从指定目录开始，自底向上递归删除空目录树。
+     * 先收集所有目录，关闭 walk 释放句柄，再按深度从最深到最浅依次删除，
+     * 避免在 Windows 上因遍历中修改文件系统导致删除失败。
+     */
+    private void deleteEmptyTree(Path dir, List<String> deletedDirs) {
+        List<Path> dirs;
+        try (Stream<Path> walk = Files.walk(dir)) {
+            dirs = walk.filter(Files::isDirectory)
+                       .sorted(Comparator.comparingInt(p -> -p.getNameCount()))
+                       .collect(Collectors.toList());
+        } catch (IOException e) {
+            logger.debug("遍历目录树失败（可忽略）: {}", dir, e);
+            return;
+        }
+        // walk 已关闭，句柄已释放，从最深到最浅依次尝试删除
+        for (Path d : dirs) {
+            try {
+                if (isDirectoryEmpty(d)) {
+                    Files.deleteIfExists(d);
+                    deletedDirs.add(PathSecurityUtils.getRelativePath(d));
+                    logger.debug("已删除空目录: {}", d);
+                }
+            } catch (IOException e) {
+                logger.debug("删除空目录失败（可忽略）: {}", d, e);
+            }
+        }
+    }
+
+    /** 检查目录是否为空（不含任何文件或子目录） */
+    private boolean isDirectoryEmpty(Path dir) throws IOException {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            return !stream.iterator().hasNext();
+        }
+    }
+
+    private String formatResult(List<String> deleted, List<String> deletedDirs, List<String> failed,
                                 List<String> skippedProtected, List<String> notFound) {
         StringBuilder sb = new StringBuilder();
 
@@ -332,6 +415,18 @@ public class DeleteFileTool implements ToolExecutor {
             sb.append("已删除 ").append(deleted.size()).append(" 个文件:\n");
             for (String f : deleted) {
                 sb.append("  - ").append(f).append("\n");
+            }
+        }
+
+        if (!deletedDirs.isEmpty()) {
+            if (sb.length() > 0) sb.append("\n");
+            if (deletedDirs.size() == 1) {
+                sb.append("已删除空目录: ").append(deletedDirs.get(0)).append("\n");
+            } else {
+                sb.append("已删除 ").append(deletedDirs.size()).append(" 个空目录:\n");
+                for (String d : deletedDirs) {
+                    sb.append("  - ").append(d).append("/\n");
+                }
             }
         }
 
@@ -370,12 +465,13 @@ public class DeleteFileTool implements ToolExecutor {
      */
     public static PreviewResult preview(JsonNode arguments) {
         List<String> allFiles = new ArrayList<>();
+        List<String> allEmptyDirs = new ArrayList<>();
         List<String> skippedProtected = new ArrayList<>();
         List<String> notFound = new ArrayList<>();
         List<String> errors = new ArrayList<>();
 
         if (!arguments.has("paths") || !arguments.get("paths").isArray()) {
-            return new PreviewResult(List.of(), List.of(), List.of(), List.of("缺少必需参数: paths"));
+            return new PreviewResult(List.of(), List.of(), List.of(), List.of(), List.of("缺少必需参数: paths"));
         }
 
         // 临时创建一个实例用于调用非静态方法
@@ -385,16 +481,20 @@ public class DeleteFileTool implements ToolExecutor {
             String raw = p.asText();
             try {
                 List<Path> files = new ArrayList<>();
-                instance.expandPath(raw, files, skippedProtected, notFound);
+                List<Path> emptyDirs = new ArrayList<>();
+                instance.expandPath(raw, files, emptyDirs, skippedProtected, notFound);
                 for (Path f : files) {
                     allFiles.add(PathSecurityUtils.getRelativePath(f));
+                }
+                for (Path d : emptyDirs) {
+                    allEmptyDirs.add(PathSecurityUtils.getRelativePath(d));
                 }
             } catch (ToolExecutionException e) {
                 errors.add(raw + ": " + e.getMessage());
             }
         }
 
-        return new PreviewResult(allFiles, skippedProtected, notFound, errors);
+        return new PreviewResult(allFiles, allEmptyDirs, skippedProtected, notFound, errors);
     }
 
     /**
@@ -402,25 +502,29 @@ public class DeleteFileTool implements ToolExecutor {
      */
     public static class PreviewResult {
         private final List<String> files;
+        private final List<String> emptyDirs;
         private final List<String> skippedProtected;
         private final List<String> notFound;
         private final List<String> errors;
 
-        PreviewResult(List<String> files, List<String> skippedProtected,
+        PreviewResult(List<String> files, List<String> emptyDirs,
+                      List<String> skippedProtected,
                       List<String> notFound, List<String> errors) {
             this.files = Collections.unmodifiableList(files);
+            this.emptyDirs = Collections.unmodifiableList(emptyDirs);
             this.skippedProtected = Collections.unmodifiableList(skippedProtected);
             this.notFound = Collections.unmodifiableList(notFound);
             this.errors = Collections.unmodifiableList(errors);
         }
 
         public List<String> getFiles() { return files; }
+        public List<String> getEmptyDirs() { return emptyDirs; }
         public List<String> getSkippedProtected() { return skippedProtected; }
         public List<String> getNotFound() { return notFound; }
         public List<String> getErrors() { return errors; }
 
         public boolean hasProtectedFiles() { return !skippedProtected.isEmpty(); }
         public boolean hasErrors() { return !errors.isEmpty(); }
-        public int totalCount() { return files.size(); }
+        public int totalCount() { return files.size() + emptyDirs.size(); }
     }
 }

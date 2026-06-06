@@ -378,9 +378,8 @@ class DeleteFileToolTest {
             assertTrue(result.contains("已删除 2 个文件"));
             assertFalse(Files.exists(subdir.resolve("a.java")));
             assertFalse(Files.exists(subdir.resolve("b.java")));
-            // Directory itself should remain if it's not empty (we only delete regular files)
-            // Actually the code tries to delete empty dirs after deleting files
-            assertTrue(Files.notExists(subdir) || Files.isDirectory(subdir));
+            // 目录内文件被删完后目录变空，应被自动清理
+            assertTrue(Files.notExists(subdir));
         }
     }
 
@@ -431,9 +430,164 @@ class DeleteFileToolTest {
             Path emptyDir = tempDir.resolve("emptydir");
             Files.createDirectories(emptyDir);
 
-            // Directory with no regular files → should report nothing to delete
+            // 空目录应被识别并删除
             String result = tool.execute(createArgs("emptydir"));
+            assertTrue(result.contains("空目录"));
+            assertTrue(Files.notExists(emptyDir));
+        }
+    }
+
+    @Test
+    void testExecute_DeleteEmptyDirectoryWithSlash(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            Path emptyDir = tempDir.resolve("data");
+            Files.createDirectories(emptyDir);
+
+            String result = tool.execute(createArgs("data/"));
+            assertTrue(result.contains("空目录"));
+            assertFalse(Files.exists(emptyDir));
+        }
+    }
+
+    @Test
+    void testExecute_RejectEmptyPath(@TempDir Path tempDir) {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            ToolExecutionException ex = assertThrows(ToolExecutionException.class,
+                () -> tool.execute(createArgs("")));
+            assertTrue(ex.getMessage().contains("路径不能为空"));
+        }
+    }
+
+    @Test
+    void testExecute_RejectBlankPath(@TempDir Path tempDir) {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            ToolExecutionException ex = assertThrows(ToolExecutionException.class,
+                () -> tool.execute(createArgs("   ")));
+            assertTrue(ex.getMessage().contains("路径不能为空"));
+        }
+    }
+
+    @Test
+    void testExecute_RejectEmptyPathAmongValidPaths(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            Files.writeString(tempDir.resolve("keep.txt"), "keep", StandardCharsets.UTF_8);
+
+            // 混合传有效路径和空路径，应在空路径处提前拒绝，不要删除任何文件
+            ToolExecutionException ex = assertThrows(ToolExecutionException.class,
+                () -> tool.execute(createArgs("keep.txt", "")));
+            assertTrue(ex.getMessage().contains("路径不能为空"));
+            assertTrue(Files.exists(tempDir.resolve("keep.txt")));
+        }
+    }
+
+    @Test
+    void testExecute_DeleteDirectoryThenAutoCleanDir(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            // 一个只含文件的目录，删完文件后目录自动被清理
+            Path subdir = tempDir.resolve("mymodule");
+            Files.createDirectories(subdir);
+            Files.writeString(subdir.resolve("a.java"), "class A {}", StandardCharsets.UTF_8);
+            Files.writeString(subdir.resolve("b.java"), "class B {}", StandardCharsets.UTF_8);
+
+            String result = tool.execute(createArgs("mymodule"));
+            assertTrue(result.contains("已删除 2 个文件"));
+            // 目录在文件删完后变空，应被自动清理
+            assertTrue(Files.notExists(subdir));
+        }
+    }
+
+    @Test
+    void testExecute_DeleteDirectoryWithSubdirs_RecursiveClean(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            // 创建多层空子目录树，只最深层有文件
+            // mymodule/src/main/java/com/example/App.java
+            Path deepDir = tempDir.resolve("mymodule/src/main/java/com/example");
+            Files.createDirectories(deepDir);
+            Files.writeString(deepDir.resolve("App.java"), "class App {}", StandardCharsets.UTF_8);
+
+            String result = tool.execute(createArgs("mymodule"));
+            assertTrue(result.contains("已删除文件") && result.contains("App.java"), result);
+            // 所有目录都应被递归清理（文件删完后全部变空）
+            assertTrue(Files.notExists(tempDir.resolve("mymodule")));
+        }
+    }
+
+    @Test
+    void testExecute_DeleteDirectoryWithPartialSubdirs(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            // 复杂场景：部分子目录有文件保留，部分变空
+            // mymodule/
+            //   src/main/java/  ← 空
+            //   src/main/resources/config.properties
+            //   target/classes/  ← 空
+            //   README.md
+            Path javaDir = tempDir.resolve("mymodule/src/main/java");
+            Files.createDirectories(javaDir);
+            Path resDir = tempDir.resolve("mymodule/src/main/resources");
+            Files.createDirectories(resDir);
+            Files.writeString(resDir.resolve("config.properties"), "key=val", StandardCharsets.UTF_8);
+            Path targetDir = tempDir.resolve("mymodule/target/classes");
+            Files.createDirectories(targetDir);
+            Files.writeString(tempDir.resolve("mymodule/README.md"), "docs", StandardCharsets.UTF_8);
+
+            String result = tool.execute(createArgs("mymodule"));
+
+            // 2 个文件被删
+            assertTrue(result.contains("已删除 2 个文件"));
+            // 空目录树应被递归清理
+            assertTrue(Files.notExists(javaDir));       // 空 → 被删
+            assertTrue(Files.notExists(targetDir));     // 空 → 被删
+            assertTrue(Files.notExists(tempDir.resolve("mymodule/src/main")));  // 空 → 被删
+            assertTrue(Files.notExists(tempDir.resolve("mymodule/src")));       // 空 → 被删
+            // resources/ 有 config.properties → 没被删，但文件被删后它变空了
+            // 但因为 resources 不是 walk 顶层（是 mymodule 的子树），也会被递归清理
+            assertTrue(Files.notExists(resDir));        // 文件被删后变空 → 被递归清理
+            // 顶层目录也应被递归清理
+            assertTrue(Files.notExists(tempDir.resolve("mymodule")));
+        }
+    }
+
+    @Test
+    void testExecute_MixedFilesAndEmptyDirs(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            // 一次传多个路径：一个文件 + 一个空目录
+            Files.writeString(tempDir.resolve("data.txt"), "data", StandardCharsets.UTF_8);
+            Path emptyDir = tempDir.resolve("storage");
+            Files.createDirectories(emptyDir);
+
+            String result = tool.execute(createArgs("data.txt", "storage"));
+            assertTrue(result.contains("已删除文件"));
+            assertTrue(result.contains("data.txt"));
+            assertTrue(result.contains("storage"));
+            assertFalse(Files.exists(tempDir.resolve("data.txt")));
+            assertFalse(Files.exists(emptyDir));
+        }
+    }
+
+    @Test
+    void testExecute_MixedFilesAndPopulatedDir(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            // 一个文件 + 一个含文件的目录
+            Files.writeString(tempDir.resolve("root.txt"), "root", StandardCharsets.UTF_8);
+            Path subdir = tempDir.resolve("sub");
+            Files.createDirectories(subdir);
+            Files.writeString(subdir.resolve("child.txt"), "child", StandardCharsets.UTF_8);
+
+            String result = tool.execute(createArgs("root.txt", "sub"));
+            assertTrue(result.contains("已删除 2 个文件"));
+            assertFalse(Files.exists(tempDir.resolve("root.txt")));
+            // 目录内文件被删后目录变空 → 自动清理
+            assertTrue(Files.notExists(subdir));
+        }
+    }
+
+    @Test
+    void testExecute_NonExistentDir_StillReported(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            // 不存在的目录，应报告"不存在"
+            String result = tool.execute(createArgs("ghost"));
             assertTrue(result.contains("没有文件需要删除"));
+            assertTrue(result.contains("不存在"));
         }
     }
 
@@ -542,6 +696,80 @@ class DeleteFileToolTest {
             DeleteFileTool.PreviewResult result = DeleteFileTool.preview(createArgs(".git/HEAD"));
             assertEquals(0, result.totalCount());
             assertTrue(result.hasProtectedFiles());
+        }
+    }
+
+    // ====== Preview 空目录测试 ======
+
+    @Test
+    void testPreview_EmptyDirectory(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            Path emptyDir = tempDir.resolve("empty");
+            Files.createDirectories(emptyDir);
+
+            DeleteFileTool.PreviewResult result = DeleteFileTool.preview(createArgs("empty"));
+            assertEquals(1, result.totalCount());
+            assertEquals(1, result.getEmptyDirs().size());
+            assertTrue(result.getEmptyDirs().get(0).contains("empty"));
+            assertEquals(0, result.getFiles().size());
+            assertFalse(result.hasErrors());
+        }
+    }
+
+    @Test
+    void testPreview_MixedFilesAndEmptyDirs(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            Files.writeString(tempDir.resolve("data.txt"), "data", StandardCharsets.UTF_8);
+            Path emptyDir = tempDir.resolve("cache");
+            Files.createDirectories(emptyDir);
+
+            DeleteFileTool.PreviewResult result = DeleteFileTool.preview(createArgs("data.txt", "cache"));
+            assertEquals(2, result.totalCount());  // 1 file + 1 empty dir
+            assertEquals(1, result.getFiles().size());
+            assertEquals(1, result.getEmptyDirs().size());
+            assertTrue(result.getFiles().get(0).contains("data.txt"));
+            assertTrue(result.getEmptyDirs().get(0).contains("cache"));
+        }
+    }
+
+    @Test
+    void testPreview_NonEmptyDirectory_NoEmptyDirs(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            Path dir = tempDir.resolve("src");
+            Files.createDirectories(dir);
+            Files.writeString(dir.resolve("Main.java"), "class Main {}", StandardCharsets.UTF_8);
+
+            DeleteFileTool.PreviewResult result = DeleteFileTool.preview(createArgs("src"));
+            assertEquals(1, result.totalCount());
+            assertEquals(1, result.getFiles().size());
+            assertEquals(0, result.getEmptyDirs().size());
+        }
+    }
+
+    @Test
+    void testPreview_MultipleEmptyDirs(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            Files.createDirectories(tempDir.resolve("a"));
+            Files.createDirectories(tempDir.resolve("b"));
+            Files.createDirectories(tempDir.resolve("c"));
+
+            DeleteFileTool.PreviewResult result = DeleteFileTool.preview(createArgs("a", "b", "c"));
+            assertEquals(3, result.totalCount());
+            assertEquals(3, result.getEmptyDirs().size());
+            assertEquals(0, result.getFiles().size());
+        }
+    }
+
+    @Test
+    void testPreview_EmptyAndNonExistentPaths(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            Files.createDirectories(tempDir.resolve("existing"));
+
+            DeleteFileTool.PreviewResult result = DeleteFileTool.preview(createArgs("existing", "ghost"));
+            assertEquals(1, result.totalCount());
+            assertEquals(1, result.getEmptyDirs().size());
+            assertEquals(1, result.getNotFound().size());
+            assertTrue(result.getNotFound().get(0).contains("ghost"));
         }
     }
 }
