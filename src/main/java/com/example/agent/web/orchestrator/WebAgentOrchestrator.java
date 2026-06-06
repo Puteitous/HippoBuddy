@@ -18,12 +18,14 @@ import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.tools.BashTool;
+import com.example.agent.tools.DeleteFileTool;
 import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.snapshot.FileSnapshotManager;
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.web.logging.SessionLogger;
 import com.example.agent.web.session.PendingBashConfirmation;
+import com.example.agent.web.session.PendingDeleteConfirmation;
 import com.example.agent.web.session.PendingToolCall;
 import com.example.agent.web.session.SessionManager;
 import com.example.agent.web.session.SessionTokenStats;
@@ -102,8 +104,12 @@ public class WebAgentOrchestrator {
             }
 
             // 防御：如果已有挂起的确认弹窗，不进入新一轮 LLM 调用
-            if (sessionManager.hasPendingBashConfirmation(sessionId)) {
-                logger.info("检测到挂起的 bash 确认，暂停当前 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
+            if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
+                if (sessionManager.hasPendingBashConfirmation(sessionId)) {
+                    logger.info("检测到挂起的 bash 确认，暂停当前 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
+                } else {
+                    logger.info("检测到挂起的 delete_file 确认，暂停当前 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
+                }
                 return;
             }
 
@@ -273,6 +279,8 @@ public class WebAgentOrchestrator {
             }
 
             executeToolCalls(toolCalls, conversation, sseWriter, sessionId);
+            logger.info("[delete_file] executeToolCalls 返回后: sessionId={}, turn={}, hasPendingDeleteConfirmation={}",
+                sessionId, turn + 1, sessionManager.hasPendingDeleteConfirmation(sessionId));
 
             toolRegistry.getBlockerChain().onTurnComplete();
 
@@ -303,7 +311,11 @@ public class WebAgentOrchestrator {
                 return;
             }
 
-            if (sessionManager.hasPendingBashConfirmation(sessionId)) {
+            if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
+                logger.info("[delete_file] 检测到挂起确认，停止 Agent 循环: sessionId={}, turn={}, hasBash={}, hasDelete={}",
+                    sessionId, turn + 1,
+                    sessionManager.hasPendingBashConfirmation(sessionId),
+                    sessionManager.hasPendingDeleteConfirmation(sessionId));
                 return;
             }
 
@@ -459,6 +471,75 @@ public class WebAgentOrchestrator {
                     }
                 }
 
+                // delete_file：预览 → 保护文件检查 → 需要用户确认
+                if ("delete_file".equals(toolName)) {
+                    logger.info("[delete_file] 进入 executeToolCalls 处理: toolCallId={}, sessionId={}", toolCall.getId(), sessionId);
+
+                    JsonNode args = objectMapper.readTree(arguments);
+                    DeleteFileTool.PreviewResult preview = DeleteFileTool.preview(args);
+
+                    if (preview.hasErrors()) {
+                        String errorMsg = "预览删除文件失败:\n" + String.join("\n", preview.getErrors());
+                        getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                        sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                            + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
+                            + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
+                            + "\",\"args\":" + arguments + "}");
+                        SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
+                        continue;
+                    }
+
+                    if (preview.hasProtectedFiles()) {
+                        String errorMsg = "删除被拒绝：路径中包含受保护的文件（.git, node_modules, .env 等），已自动跳过。\n"
+                            + "受保护文件 " + preview.getSkippedProtected().size() + " 个:\n"
+                            + preview.getSkippedProtected().stream().map(f -> "  - " + f).collect(java.util.stream.Collectors.joining("\n"));
+                        getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                        sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                            + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
+                            + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
+                            + "\",\"args\":" + arguments + "}");
+                        SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
+                        continue;
+                    }
+
+                    if (preview.totalCount() == 0) {
+                        String errorMsg = "没有找到需要删除的文件。";
+                        getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                        sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                            + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
+                            + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
+                            + "\",\"args\":" + arguments + "}");
+                        SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
+                        continue;
+                    }
+
+                    // 需要用户确认
+                    String confirmId = java.util.UUID.randomUUID().toString();
+
+                    String[] filePaths = preview.getFiles().toArray(new String[0]);
+                    PendingDeleteConfirmation pending = new PendingDeleteConfirmation(
+                        confirmId, toolCall.getId(), toolName,
+                        args, filePaths, preview.totalCount()
+                    );
+                    sessionManager.setPendingDeleteConfirmation(sessionId, pending);
+                    logger.info("[delete_file] 已设置 PendingDeleteConfirmation: confirmId={}, fileCount={}, sessionId={}", confirmId, preview.totalCount(), sessionId);
+                    logger.info("[delete_file] hasPendingDeleteConfirmation 验证: {} (sessionId={})", sessionManager.hasPendingDeleteConfirmation(sessionId), sessionId);
+
+                    // 构建 SSE 确认消息
+                    String confirmJson = buildDeleteConfirmJson(confirmId, filePaths, preview.totalCount());
+                    sseWriter.sendSseEvent("tool_confirmation", confirmJson);
+                    logger.info("发送 delete_file 确认事件: confirmId={}, fileCount={}", confirmId, preview.totalCount());
+
+                    // 保存同一轮中尚未执行的剩余工具
+                    if (i < toolCalls.size() - 1) {
+                        List<ToolCall> remaining = toolCalls.subList(i + 1, toolCalls.size());
+                        remainingToolCalls.put(sessionId, remaining);
+                        logger.info("暂存剩余工具调用: sessionId={}, 数量={}", sessionId, remaining.size());
+                    }
+                    logger.info("[delete_file] executeToolCalls 将 return (sessionId={})", sessionId);
+                    return;
+                }
+
                 String rawResult = toolRegistry.execute(toolName, arguments);
 
                 if ("ask_user".equals(toolName)) {
@@ -532,9 +613,9 @@ public class WebAgentOrchestrator {
             logger.info("确认弹窗关闭，开始执行剩余工具 (sessionId={}, 数量={}, 列表=[{}])",
                 sessionId, remaining.size(), remainingIds);
             executeToolCalls(remaining, conversation, sseWriter, sessionId);
-            // 执行剩余工具时又触发了新的确认弹窗（如第二个 bash 也需确认），
+            // 执行剩余工具时又触发了新的确认弹窗（如第二个 bash/delete_file 也需确认），
             // 等待用户确认，不进入下一轮 Agent 循环
-            if (sessionManager.hasPendingBashConfirmation(sessionId)) {
+            if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
                 logger.info("剩余工具执行中触发了新的确认弹窗，等待用户确认 (sessionId={})", sessionId);
                 return;
             }
@@ -711,5 +792,29 @@ public class WebAgentOrchestrator {
             return cmd.toLowerCase();
         }
         return command.toLowerCase();
+    }
+
+    /**
+     * 构建 delete_file 确认 SSE 事件 JSON。
+     * 文件列表超过 10 个则截断显示。
+     */
+    private static String buildDeleteConfirmJson(String confirmId, String[] filePaths, int totalCount) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"confirmId\":\"").append(SseWriter.escapeJson(confirmId)).append("\"");
+        sb.append(",\"toolType\":\"delete_file\"");
+        sb.append(",\"totalCount\":").append(totalCount);
+
+        sb.append(",\"files\":[");
+        int displayCount = Math.min(filePaths.length, 10);
+        for (int i = 0; i < displayCount; i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(SseWriter.escapeJson(filePaths[i])).append("\"");
+        }
+        sb.append("]");
+
+        sb.append(",\"truncated\":").append(totalCount > 10);
+
+        sb.append("}");
+        return sb.toString();
     }
 }

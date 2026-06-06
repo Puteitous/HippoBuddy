@@ -37,6 +37,18 @@ public interface SessionManager {
 
     // ====================
 
+    // === delete_file 确认相关 ===
+
+    boolean hasPendingDeleteConfirmation(String sessionId);
+
+    PendingDeleteConfirmation pollPendingDeleteConfirmation(String sessionId);
+
+    void setPendingDeleteConfirmation(String sessionId, PendingDeleteConfirmation pending);
+
+    void clearPendingDeleteConfirmation(String sessionId);
+
+    // ============================
+
     // === Session 级 auto-allow ===
 
     void addAutoAllowRule(String sessionId, String commandName);

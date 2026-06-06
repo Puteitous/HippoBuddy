@@ -32,6 +32,7 @@ public class WebSessionManager implements SessionManager {
     private static final Map<String, SessionTokenStats> sessionTokenStats = new ConcurrentHashMap<>();
     private static final Map<String, PendingToolCall> pendingToolCalls = new ConcurrentHashMap<>();
     private static final Map<String, PendingBashConfirmation> pendingBashConfirmations = new ConcurrentHashMap<>();
+    private static final Map<String, PendingDeleteConfirmation> pendingDeleteConfirmations = new ConcurrentHashMap<>();
     private static final Map<String, Set<String>> sessionAutoAllowRules = new ConcurrentHashMap<>();
     private static final Map<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
 
@@ -77,6 +78,7 @@ public class WebSessionManager implements SessionManager {
         sessionTokenStats.clear();
         pendingToolCalls.clear();
         pendingBashConfirmations.clear();
+        pendingDeleteConfirmations.clear();
         sessionAutoAllowRules.clear();
         sessionLocks.clear();
     }
@@ -113,6 +115,28 @@ public class WebSessionManager implements SessionManager {
     @Override
     public void clearPendingBashConfirmation(String sessionId) {
         pendingBashConfirmations.remove(sessionId);
+    }
+
+    // ===== delete_file 确认 =====
+
+    @Override
+    public boolean hasPendingDeleteConfirmation(String sessionId) {
+        return pendingDeleteConfirmations.containsKey(sessionId);
+    }
+
+    @Override
+    public PendingDeleteConfirmation pollPendingDeleteConfirmation(String sessionId) {
+        return pendingDeleteConfirmations.remove(sessionId);
+    }
+
+    @Override
+    public void setPendingDeleteConfirmation(String sessionId, PendingDeleteConfirmation pending) {
+        pendingDeleteConfirmations.put(sessionId, pending);
+    }
+
+    @Override
+    public void clearPendingDeleteConfirmation(String sessionId) {
+        pendingDeleteConfirmations.remove(sessionId);
     }
 
     @Override

@@ -50,7 +50,7 @@
 - 超过最大执行时间将被强制终止，防止无限执行
 - 可通过 list_subagents 查看任务执行时间和剩余时间
 
-❌ 禁止：write_file、edit_file、undo_file、bash 等修改性工具
+❌ 禁止：write_file、edit_file、delete_file、undo_file、bash 等修改性工具
 
 🔄 模式切换提示：
 

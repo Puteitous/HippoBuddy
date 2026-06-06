@@ -8,6 +8,7 @@ import { renderTodoWriteCard } from './todo-write.js';
 import { renderAskUserCard } from './ask-user.js';
 import { renderConfirmationDetail } from './confirmation.js';
 import { renderDefaultToolCard, renderDefaultToolDetail } from './default.js';
+import { renderDeleteFileConfirmCard, renderDeleteFileConfirmationDetail, renderDeleteFileDetail } from './delete-file.js';
 
 export function renderToolCard(tool) {
   if (tool.name === 'todo_write') {
@@ -25,6 +26,13 @@ export function renderToolCard(tool) {
   if (tool.name === 'write_file') {
     return renderWriteFileCard(tool);
   }
+  if (tool.name === 'delete_file') {
+    // 有确认数据时渲染确认卡片，否则渲染默认卡片
+    if (tool.confirmationData) {
+      return renderDeleteFileConfirmCard(tool);
+    }
+    return renderDefaultToolCard(tool);
+  }
   return renderDefaultToolCard(tool);
 }
 
@@ -34,6 +42,9 @@ export function renderToolTimelineDetailContent(tool) {
   const isInterrupted = tool.result === 'interrupted';
 
   if (tool.confirmationData) {
+    if (name === 'delete_file') {
+      return renderDeleteFileConfirmationDetail(tool);
+    }
     return renderConfirmationDetail(tool);
   }
 
@@ -65,6 +76,9 @@ export function renderToolTimelineDetailContent(tool) {
   }
   if (name === 'write_file') {
     return renderWriteFileDetail(tool);
+  }
+  if (name === 'delete_file') {
+    return renderDeleteFileDetail(tool);
   }
   if (name === 'read_file') {
     return renderReadFileDetail(tool);
@@ -116,6 +130,13 @@ export function renderToolTimelineRow(tool) {
   } else if (name === 'web_fetch') {
     const args = parseToolArgs(tool.args);
     summary = args.url || '';
+  } else if (name === 'delete_file') {
+    const args = parseToolArgs(tool.args);
+    if (args.paths && Array.isArray(args.paths)) {
+      summary = args.paths.join(', ');
+    } else {
+      summary = '';
+    }
   } else if (name === 'edit_file' || name === 'write_file') {
     const args = parseToolArgs(tool.args);
     summary = args.path || '';

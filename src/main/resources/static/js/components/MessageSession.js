@@ -216,19 +216,38 @@ export class MessageSession {
 
       tool_confirmation: (parsed) => {
         s._pendingInteraction = true;
-        const bashSegment = s._segments.find(
-          seg => seg.type === 'tool' && seg.name === 'bash' && !seg.result && !seg.confirmationData
-        );
-        if (bashSegment) {
-          bashSegment.confirmationData = {
-            confirmId: parsed.confirmId,
-            command: parsed.command,
-            riskLevel: parsed.riskLevel,
-            riskReason: parsed.riskReason
-          };
-          bashSegment._savedCommand = parsed.command;
-          s._renderPipeline.flush(s._segments, s._currentText);
-          s._renderPipeline.scheduleRender(s._segments, s._currentText);
+
+        if (parsed.toolType === 'delete_file') {
+          // delete_file 确认：查找未完成的 delete_file 工具段
+          const deleteSegment = s._segments.find(
+            seg => seg.type === 'tool' && seg.name === 'delete_file' && !seg.result && !seg.confirmationData
+          );
+          if (deleteSegment) {
+            deleteSegment.confirmationData = {
+              confirmId: parsed.confirmId,
+              files: parsed.files || [],
+              totalCount: parsed.totalCount || 0,
+              truncated: parsed.truncated || false
+            };
+            s._renderPipeline.flush(s._segments, s._currentText);
+            s._renderPipeline.scheduleRender(s._segments, s._currentText);
+          }
+        } else {
+          // bash 确认
+          const bashSegment = s._segments.find(
+            seg => seg.type === 'tool' && seg.name === 'bash' && !seg.result && !seg.confirmationData
+          );
+          if (bashSegment) {
+            bashSegment.confirmationData = {
+              confirmId: parsed.confirmId,
+              command: parsed.command,
+              riskLevel: parsed.riskLevel,
+              riskReason: parsed.riskReason
+            };
+            bashSegment._savedCommand = parsed.command;
+            s._renderPipeline.flush(s._segments, s._currentText);
+            s._renderPipeline.scheduleRender(s._segments, s._currentText);
+          }
         }
       }
     });
@@ -483,17 +502,32 @@ export class MessageSession {
   }
 
   handleToolConfirmation(parsed) {
-    const bashSegment = this._segments.find(s =>
-      s.type === 'tool' && s.name === 'bash' && !s.result && !s.confirmationData
-    );
-    if (bashSegment) {
-      bashSegment.confirmationData = {
-        confirmId: parsed.confirmId,
-        command: parsed.command,
-        riskLevel: parsed.riskLevel,
-        riskReason: parsed.riskReason
-      };
-      bashSegment._savedCommand = parsed.command;
+    if (parsed.toolType === 'delete_file') {
+      const deleteSegment = this._segments.find(s =>
+        s.type === 'tool' && s.name === 'delete_file' && !s.result && !s.confirmationData
+      );
+      if (deleteSegment) {
+        deleteSegment.confirmationData = {
+          confirmId: parsed.confirmId,
+          files: parsed.files || [],
+          totalCount: parsed.totalCount || 0,
+          truncated: parsed.truncated || false
+        };
+      }
+    } else {
+      // bash 确认
+      const bashSegment = this._segments.find(s =>
+        s.type === 'tool' && s.name === 'bash' && !s.result && !s.confirmationData
+      );
+      if (bashSegment) {
+        bashSegment.confirmationData = {
+          confirmId: parsed.confirmId,
+          command: parsed.command,
+          riskLevel: parsed.riskLevel,
+          riskReason: parsed.riskReason
+        };
+        bashSegment._savedCommand = parsed.command;
+      }
     }
   }
 

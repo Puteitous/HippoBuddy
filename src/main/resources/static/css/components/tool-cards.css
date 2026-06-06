@@ -1633,3 +1633,184 @@
 .rollback-inline-loading .loading-spinner {
     animation: toolSpin 0.8s linear infinite;
 }
+
+/* ========== delete_file 确认卡片 ========== */
+.delete-file-card {
+    border-left: 3px solid var(--color-danger, #dc2626);
+}
+
+.delete-file-card .tool-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.delete-file-card .tool-header:hover {
+    background: var(--bg-light);
+}
+
+.delete-file-card .tool-header .arrow {
+    margin-left: auto;
+    transition: transform var(--transition-fast);
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.delete-file-card .tool-header.expanded .arrow {
+    transform: rotate(90deg);
+}
+
+.delete-file-card .tool-status-badge.pending_confirmation {
+    color: var(--color-warning, #d97706);
+    background: rgba(217, 119, 6, 0.08);
+    border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.delete-file-card .tool-call-details {
+    padding: 0 10px 10px;
+}
+
+.delete-file-header {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.delete-file-list {
+    margin: 0 0 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.delete-file-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    line-height: 1.5;
+}
+
+.delete-file-item:last-child {
+    border-bottom: none;
+}
+
+.delete-file-item .delete-file-icon {
+    flex-shrink: 0;
+    color: var(--color-danger, #dc2626);
+    display: flex;
+    align-items: center;
+}
+
+.delete-file-item .delete-file-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.delete-file-truncated {
+    padding: 6px 10px;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.delete-file-hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0 8px;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* delete_file 时间线详情 */
+.timeline-detail-section {
+    margin-bottom: 8px;
+}
+
+.timeline-detail-section .section-title {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.timeline-detail-section.success .section-title {
+    color: var(--color-success, #16a34a);
+}
+
+.timeline-detail-section pre {
+    margin: 0;
+    padding: 6px 10px;
+    background: var(--bg-code);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    overflow-x: auto;
+}
+
+/* delete_file 时间线确认详情（复用 timeline-detail-confirmation 结构，内容不同） */
+.timeline-detail-confirmation .delete-file-header {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.timeline-detail-confirmation .delete-file-list {
+    margin: 0 0 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.timeline-detail-confirmation .delete-file-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    line-height: 1.5;
+}
+
+.timeline-detail-confirmation .delete-file-item:last-child {
+    border-bottom: none;
+}
+
+.timeline-detail-confirmation .delete-file-item .delete-file-icon {
+    flex-shrink: 0;
+    color: var(--color-danger, #dc2626);
+    display: flex;
+    align-items: center;
+}
+
+.timeline-detail-confirmation .delete-file-item .delete-file-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.timeline-detail-confirmation .delete-file-truncated {
+    padding: 6px 10px;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.timeline-detail-confirmation .delete-file-hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0 8px;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    line-height: 1.4;
+}

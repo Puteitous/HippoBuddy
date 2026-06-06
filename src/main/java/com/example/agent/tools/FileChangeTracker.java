@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,9 +129,17 @@ public class FileChangeTracker {
     }
 
     public static void recordChange(String filePath, String originalContent, String newContent, String toolName, boolean newFile) {
+        recordChange(filePath, originalContent, null, newContent, toolName, newFile);
+    }
+
+    /**
+     * 记录文件变更，附带原始字节（用于非 UTF-8 文件的精确回滚）。
+     * @param originalBytes 非 null 时表示原始字节，回滚时直接写回；null 表示回滚时用 originalContent UTF-8 写入。
+     */
+    public static void recordChange(String filePath, String originalContent, byte[] originalBytes, String newContent, String toolName, boolean newFile) {
         ensureInitialized();
         String sessionId = getCurrentSessionId();
-        FileChange change = new FileChange(filePath, originalContent, newContent, toolName, System.currentTimeMillis(), newFile, sessionId);
+        FileChange change = new FileChange(filePath, originalContent, newContent, toolName, System.currentTimeMillis(), newFile, sessionId, originalBytes);
 
         Map<String, List<FileChange>> sessionChanges = getOrCreateSessionChanges(sessionId);
         List<FileChange> list = sessionChanges.computeIfAbsent(filePath, k -> new CopyOnWriteArrayList<>());
@@ -204,6 +213,10 @@ public class FileChangeTracker {
         try {
             if (change.newFile) {
                 Files.deleteIfExists(Path.of(change.filePath));
+            } else if (change.originalBytes != null) {
+                // 非 UTF-8 文件：写回原始字节，确保高字节不被篡改
+                Files.write(Path.of(change.filePath), change.originalBytes,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             } else {
                 Files.writeString(Path.of(change.filePath), change.originalContent, StandardCharsets.UTF_8);
             }
@@ -383,6 +396,7 @@ public class FileChangeTracker {
     public static class FileChange {
         public final String filePath;
         public final String originalContent;
+        public final byte[] originalBytes;  // null = UTF-8 内容，非 null = 原始字节（非 UTF-8 fallback）
         public final String newContent;
         public final String toolName;
         public final long timestamp;
@@ -394,8 +408,13 @@ public class FileChangeTracker {
         }
 
         public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile, String sessionId) {
+            this(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, null);
+        }
+
+        public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile, String sessionId, byte[] originalBytes) {
             this.filePath = filePath;
             this.originalContent = originalContent;
+            this.originalBytes = originalBytes;
             this.newContent = newContent;
             this.toolName = toolName;
             this.timestamp = timestamp;
@@ -404,13 +423,18 @@ public class FileChangeTracker {
         }
 
         public String toJson() {
+            String bytesField = "";
+            if (originalBytes != null) {
+                bytesField = ",\"originalBytes\":\"" + Base64.getEncoder().encodeToString(originalBytes) + "\"";
+            }
             return "{\"filePath\":\"" + escapeJson(filePath) +
                 "\",\"originalContent\":\"" + escapeJson(originalContent) +
                 "\",\"newContent\":\"" + escapeJson(newContent) +
                 "\",\"toolName\":\"" + escapeJson(toolName) +
                 "\",\"timestamp\":" + timestamp +
                 ",\"newFile\":" + newFile +
-                ",\"sessionId\":\"" + escapeJson(sessionId) + "\"}";
+                ",\"sessionId\":\"" + escapeJson(sessionId) + "\""
+                + bytesField + "}";
         }
 
         public static FileChange fromJson(String json) {
@@ -421,7 +445,17 @@ public class FileChangeTracker {
             long timestamp = extractJsonLong(json, "timestamp");
             boolean newFile = extractJsonBoolean(json, "newFile");
             String sessionId = extractJsonString(json, "sessionId");
-            return new FileChange(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId);
+            byte[] originalBytes = null;
+            String bytesStr = extractJsonString(json, "originalBytes");
+            if (bytesStr != null && !bytesStr.isEmpty()) {
+                try {
+                    originalBytes = Base64.getDecoder().decode(bytesStr);
+                } catch (IllegalArgumentException e) {
+                    logger.warn("跳过损坏的 originalBytes: {}", e.getMessage());
+                }
+            }
+            FileChange change = new FileChange(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, originalBytes);
+            return change;
         }
 
         private static String extractJsonString(String json, String key) {
