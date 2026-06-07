@@ -341,7 +341,7 @@ public class FileSnapshotManager {
     public static PreviewResult getPreview(String sessionId, String messageId) {
         Snapshot target = findSnapshot(sessionId, messageId);
         if (target == null) {
-            logger.warn("getPreview: 未找到快照 sessionId={}, messageId={}", sessionId, messageId);
+            logger.debug("getPreview: 未找到快照 sessionId={}, messageId={}", sessionId, messageId);
             return null;
         }
 

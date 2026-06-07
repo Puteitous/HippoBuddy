@@ -572,19 +572,41 @@ public class SessionApiHandler implements HttpHandler {
             snapshotMsgIds.add(s.getMessageId());
         }
         String lastFoundId = null;
+        boolean foundTarget = false;
         for (String line : Files.readAllLines(jsonlPath, StandardCharsets.UTF_8)) {
             if (line.isBlank()) continue;
             try {
                 JsonNode node = objectMapper.readTree(line);
                 String type = node.has("type") ? node.get("type").asText() : "";
                 String uuid = node.has("uuid") ? node.get("uuid").asText() : "";
-                if (uuid.equals(targetMessageId)) break;
+                if (uuid.equals(targetMessageId)) {
+                    foundTarget = true;
+                    break;
+                }
                 if ("user".equals(type) && snapshotMsgIds.contains(uuid)) {
                     lastFoundId = uuid;
                 }
             } catch (Exception ignored) {}
         }
-        return lastFoundId != null ? FileSnapshotManager.findSnapshot(sessionId, lastFoundId) : null;
+        if (lastFoundId != null) {
+            return FileSnapshotManager.findSnapshot(sessionId, lastFoundId);
+        }
+        // 目标消息之前没有快照（如第一轮对话），取第一个快照作为兜底
+        // 回滚到第一轮会撤销所有后续轮次的文件操作
+        String firstFoundId = null;
+        for (String line : Files.readAllLines(jsonlPath, StandardCharsets.UTF_8)) {
+            if (line.isBlank()) continue;
+            try {
+                JsonNode node = objectMapper.readTree(line);
+                String type = node.has("type") ? node.get("type").asText() : "";
+                String uuid = node.has("uuid") ? node.get("uuid").asText() : "";
+                if ("user".equals(type) && snapshotMsgIds.contains(uuid)) {
+                    firstFoundId = uuid;
+                    break;
+                }
+            } catch (Exception ignored) {}
+        }
+        return firstFoundId != null ? FileSnapshotManager.findSnapshot(sessionId, firstFoundId) : null;
     }
 
     private Set<String> extractAllMessageIds(Path jsonlPath) throws IOException {

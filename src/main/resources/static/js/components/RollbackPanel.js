@@ -200,7 +200,7 @@ export class RollbackPanel {
           }
           return `<div class="rollback-inline-file">
             <span class="file-icon">${fileSvg}</span>
-            <span class="file-name" title="${escapeHtml(f.filePath)}">${escapeHtml(f.filePath.replace(/^.*[/\\]/, ''))}</span>
+            <span class="file-name" title="${escapeHtml(f.filePath)}">${escapeHtml(f.filePath)}</span>
             <span class="file-action-badge ${actionClass}">${actionLabel}</span>
           </div>`;
         }).join('')}
@@ -224,7 +224,6 @@ export class RollbackPanel {
       </div>
       ${filesHtml}
       <div class="rollback-inline-footer">
-        <span class="rollback-inline-note">此操作无法撤销</span>
         <span class="rollback-inline-actions">
           <button class="rollback-inline-btn rollback-inline-btn-cancel">取消</button>
           <button class="rollback-inline-btn rollback-inline-btn-confirm">确认</button>
