@@ -123,7 +123,12 @@ public class WebAgentOrchestrator {
             List<Map<String, Object>> streamToolCalls = new ArrayList<>();
             boolean[] hasAskUser = {false};
 
-            cleanupOrphanToolCalls(messages);
+            if (cleanupOrphanToolCalls(messages)) {
+                // 同步修复 conversation 存储中的消息，避免下一轮重复检出同一个孤立 tool_calls
+                List<Message> convMessages = new ArrayList<>(conversation.getMessages());
+                cleanupOrphanToolCalls(convMessages);
+                conversation.getContextWindow().replaceMessages(convMessages);
+            }
 
             sseWriter.sendSseEvent("thinking", "{\"turn\":" + (turn + 1) + "}");
 
@@ -509,6 +514,7 @@ public class WebAgentOrchestrator {
                     String confirmId = java.util.UUID.randomUUID().toString();
 
                     String[] filePaths = preview.getFiles().toArray(new String[0]);
+                    String[] dirPaths = preview.getEmptyDirs().toArray(new String[0]);
                     PendingDeleteConfirmation pending = new PendingDeleteConfirmation(
                         confirmId, toolCall.getId(), toolName,
                         args, filePaths, preview.totalCount()
@@ -516,9 +522,10 @@ public class WebAgentOrchestrator {
                     sessionManager.setPendingDeleteConfirmation(sessionId, pending);
 
                     // 构建 SSE 确认消息
-                    String confirmJson = buildDeleteConfirmJson(confirmId, filePaths, preview.totalCount());
+                    String confirmJson = buildDeleteConfirmJson(confirmId, filePaths, dirPaths, preview.totalCount());
                     sseWriter.sendSseEvent("tool_confirmation", confirmJson);
-                    logger.info("发送 delete_file 确认事件: confirmId={}, fileCount={}", confirmId, preview.totalCount());
+                    logger.info("发送 delete_file 确认事件: confirmId={}, totalCount={} (files={}, dirs={})",
+                        confirmId, preview.totalCount(), preview.getFiles().size(), preview.getEmptyDirs().size());
 
                     // 保存同一轮中尚未执行的剩余工具
                     if (i < toolCalls.size() - 1) {
@@ -643,9 +650,13 @@ public class WebAgentOrchestrator {
         return nonSystemMessages;
     }
 
-    private void cleanupOrphanToolCalls(List<Message> messages) {
+    private boolean cleanupOrphanToolCalls(List<Message> messages) {
+        return cleanupOrphanToolCalls(messages, null);
+    }
+
+    private boolean cleanupOrphanToolCalls(List<Message> messages, Conversation conversation) {
         if (messages == null || messages.isEmpty()) {
-            return;
+            return false;
         }
 
         boolean foundOrphan = false;
@@ -764,7 +775,10 @@ public class WebAgentOrchestrator {
         if (!toRemove.isEmpty()) {
             messages.removeAll(toRemove);
             logger.info("已移除 {} 条孤儿 tool 消息，避免 DeepSeek API 400 错误", toRemove.size());
+            foundOrphan = true;
         }
+
+        return foundOrphan;
     }
 
     private static String extractCommandName(String command) {
@@ -787,7 +801,7 @@ public class WebAgentOrchestrator {
      * 构建 delete_file 确认 SSE 事件 JSON。
      * 文件列表超过 10 个则截断显示。
      */
-    private static String buildDeleteConfirmJson(String confirmId, String[] filePaths, int totalCount) {
+    private static String buildDeleteConfirmJson(String confirmId, String[] filePaths, String[] dirPaths, int totalCount) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"confirmId\":\"").append(SseWriter.escapeJson(confirmId)).append("\"");
         sb.append(",\"toolType\":\"delete_file\"");
@@ -798,6 +812,14 @@ public class WebAgentOrchestrator {
         for (int i = 0; i < displayCount; i++) {
             if (i > 0) sb.append(",");
             sb.append("\"").append(SseWriter.escapeJson(filePaths[i])).append("\"");
+        }
+        sb.append("]");
+
+        sb.append(",\"directories\":[");
+        int dirDisplayCount = Math.min(dirPaths.length, 10);
+        for (int i = 0; i < dirDisplayCount; i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(SseWriter.escapeJson(dirPaths[i])).append("\"");
         }
         sb.append("]");
 
