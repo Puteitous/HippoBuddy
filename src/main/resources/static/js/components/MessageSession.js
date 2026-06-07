@@ -226,6 +226,7 @@ export class MessageSession {
             deleteSegment.confirmationData = {
               confirmId: parsed.confirmId,
               files: parsed.files || [],
+              directories: parsed.directories || [],
               totalCount: parsed.totalCount || 0,
               truncated: parsed.truncated || false
             };
@@ -510,6 +511,7 @@ export class MessageSession {
         deleteSegment.confirmationData = {
           confirmId: parsed.confirmId,
           files: parsed.files || [],
+          directories: parsed.directories || [],
           totalCount: parsed.totalCount || 0,
           truncated: parsed.truncated || false
         };

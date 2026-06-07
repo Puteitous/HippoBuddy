@@ -35,26 +35,38 @@ export class ChatPanel {
         const item = btn.closest('.tool-timeline-item');
         const checkbox = item?.querySelector('.auto-allow-checkbox');
         const autoAllowSimilar = checkbox ? checkbox.checked : false;
-        // 立即清除 segment 的确认状态，UI 从确认弹窗切换到"运行中..."，防止重复点击
         const session = this._activeSession;
-        if (session && confirmId) {
-          const seg = session.getSegments().find(s =>
-            s.type === 'tool' && s.confirmationData && s.confirmationData.confirmId === confirmId
-          );
-          if (seg) {
-            seg.confirmationData = null;
-            // 保留 _savedCommand，用于执行过程中 tool-timeline-summary 的显示
-            this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
-          }
+
+        // 拒绝操作或非删除确认，直接执行
+        if (decision !== 'allow' || !btn.classList.contains('delete-confirm')) {
+          this._doConfirm(confirmId, decision, autoAllowSimilar, session, item);
+          return;
         }
-        this._sendToolConfirmResponse(confirmId, decision, autoAllowSimilar);
-        if (item) {
-          const detail = item.querySelector('.tool-timeline-detail');
-          if (detail) {
-            detail.style.maxHeight = '0';
-          }
-          item.classList.remove('expanded');
-        }
+
+        // 删除文件二次确认弹窗
+        const seg = session?.getSegments().find(s =>
+          s.type === 'tool' && s.confirmationData && s.confirmationData.confirmId === confirmId
+        );
+        const total = seg?.confirmationData?.totalCount || 0;
+        const overlay = document.getElementById('deleteConfirmOverlay');
+        const modalText = document.getElementById('deleteConfirmModalText');
+        modalText.textContent = `确认删除 ${total} 个文件？此操作不可撤销`; 
+        overlay.style.display = 'flex';
+
+        const onConfirm = () => {
+          overlay.style.display = 'none';
+          document.getElementById('deleteConfirmOk').removeEventListener('click', onConfirm);
+          document.getElementById('deleteConfirmCancel').removeEventListener('click', onCancel);
+          this._doConfirm(confirmId, decision, autoAllowSimilar, session, item);
+        };
+        const onCancel = () => {
+          overlay.style.display = 'none';
+          document.getElementById('deleteConfirmOk').removeEventListener('click', onConfirm);
+          document.getElementById('deleteConfirmCancel').removeEventListener('click', onCancel);
+        };
+
+        document.getElementById('deleteConfirmOk').addEventListener('click', onConfirm);
+        document.getElementById('deleteConfirmCancel').addEventListener('click', onCancel);
       },
       afterRender: () => this.smartScroll()
     });
@@ -193,6 +205,16 @@ export class ChatPanel {
     if (this.elements.newMsgHint) {
       this.elements.newMsgHint.addEventListener('click', () => {
         this.chatUI.scrollToBottom();
+      });
+    }
+
+    // 二次确认弹窗 - 点击遮罩关闭
+    const overlay = document.getElementById('deleteConfirmOverlay');
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.style.display = 'none';
+        }
       });
     }
   }
@@ -638,6 +660,27 @@ export class ChatPanel {
       this.currentAbortController = null;
       EventBus.emit('message:sent');
     });
+  }
+
+  _doConfirm(confirmId, decision, autoAllowSimilar, session, item) {
+    // 清除 segment 的确认状态，UI 从确认弹窗切换到"运行中..."，防止重复点击
+    if (session && confirmId) {
+      const seg = session.getSegments().find(s =>
+        s.type === 'tool' && s.confirmationData && s.confirmationData.confirmId === confirmId
+      );
+      if (seg) {
+        seg.confirmationData = null;
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
+      }
+    }
+    this._sendToolConfirmResponse(confirmId, decision, autoAllowSimilar);
+    if (item) {
+      const detail = item.querySelector('.tool-timeline-detail');
+      if (detail) {
+        detail.style.maxHeight = '0';
+      }
+      item.classList.remove('expanded');
+    }
   }
 
   _sendToolConfirmResponse(confirmId, decision, autoAllowSimilar) {

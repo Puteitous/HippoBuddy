@@ -9,63 +9,43 @@ import { escapeHtml } from '../../utils.js';
 function _renderDeleteFileConfirmBody(data) {
   const files = data.files || [];
   const directories = data.directories || [];
-  const totalCount = data.totalCount || files.length + directories.length;
-  const truncated = data.truncated || false;
+  const items = [...files, ...directories.map(d => d + '/')];
 
-  const fileListHtml = files.map(f => `
-    <div class="delete-file-item">
-      <span class="delete-file-icon">
-        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 6h10"/>
-          <path d="M5 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-          <path d="M4 6v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6"/>
-        </svg>
-      </span>
-      <span class="delete-file-path" title="${escapeHtml(f)}">${escapeHtml(f)}</span>
-    </div>
+  const trashIcon = '<svg class="delete-file-icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h10"/><path d="M5 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M4 6v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6"/></svg>';
+
+  if (items.length === 1) {
+    return `
+      <div class="delete-file-simple">
+        ${trashIcon}
+        <span class="delete-file-label">删除:</span>
+        <span class="delete-file-path">${escapeHtml(items[0])}</span>
+      </div>
+      <div class="confirmation-footer">
+        <div class="confirmation-buttons">
+          <button class="confirmation-btn deny" data-confirm-id="${escapeHtml(data.confirmId)}">保留</button>
+          <button class="confirmation-btn allow delete-confirm" data-confirm-id="${escapeHtml(data.confirmId)}">删除</button>
+        </div>
+      </div>`;
+  }
+
+  const fileListHtml = items.map(f => `
+    <div class="delete-file-list-item">${escapeHtml(f)}</div>
   `).join('');
-
-  const dirListHtml = directories.map(d => `
-    <div class="delete-file-item directory">
-      <span class="delete-file-icon">
-        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2 4v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H8L6 4H3a1 1 0 0 0-1 1z"/>
-        </svg>
-      </span>
-      <span class="delete-file-path" title="${escapeHtml(d)}">${escapeHtml(d)}/</span>
-    </div>
-  `).join('');
-
-  const truncateHtml = truncated
-    ? `<div class="delete-file-truncated">... 还有 ${totalCount - files.length - directories.length} 项</div>`
-    : '';
-
-  const itemLabel = totalCount > 0 ? (directories.length > 0 ? '个文件/目录' : '个文件') : '';
-  const restoreHint = totalCount > 0
-    ? `<div class="delete-file-hint">
-        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="8" cy="8" r="6"/>
-          <line x1="8" y1="5" x2="8" y2="9"/>
-          <line x1="8" y1="11" x2="8" y2="11.5"/>
-        </svg>
-        空目录直接删除（无回滚）。已通过快照备份文件，可从文件变更中回滚恢复
-      </div>`
-    : '';
 
   return `
-    <div class="delete-file-header">
-      将删除以下 <strong>${totalCount}</strong> ${itemLabel}：
+    <div class="delete-file-multi">
+      <div class="delete-file-multi-header">
+        ${trashIcon}
+        <span>删除 <strong>${items.length}</strong> 个文件</span>
+      </div>
+      <div class="delete-file-multi-list">
+        ${fileListHtml}
+      </div>
     </div>
-    <div class="delete-file-list">
-      ${fileListHtml}
-      ${dirListHtml}
-      ${truncateHtml}
-    </div>
-    ${restoreHint}
     <div class="confirmation-footer">
       <div class="confirmation-buttons">
-        <button class="confirmation-btn deny" data-confirm-id="${escapeHtml(data.confirmId)}">取消</button>
-        <button class="confirmation-btn allow" data-confirm-id="${escapeHtml(data.confirmId)}">确认删除</button>
+        <button class="confirmation-btn deny" data-confirm-id="${escapeHtml(data.confirmId)}">保留</button>
+        <button class="confirmation-btn allow delete-confirm" data-confirm-id="${escapeHtml(data.confirmId)}">删除</button>
       </div>
     </div>`;
 }
@@ -109,16 +89,6 @@ export function renderDeleteFileConfirmationDetail(tool) {
 
   return `
     <div class="timeline-detail-confirmation">
-      <div class="confirmation-header">
-        <span class="confirmation-header-icon">
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 6h10"/>
-            <path d="M5 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-            <path d="M4 6v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6"/>
-          </svg>
-        </span>
-        <span class="confirmation-header-title">删除文件</span>
-      </div>
       <div class="confirmation-body">
         ${_renderDeleteFileConfirmBody(data)}
       </div>

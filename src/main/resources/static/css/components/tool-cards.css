@@ -1296,6 +1296,7 @@
 
 .confirmation-body {
     padding: 0 0 10px;
+    max-width: 1200px;
 }
 
 .confirmation-command {
@@ -1669,79 +1670,178 @@
     padding: 0 10px 10px;
 }
 
-.delete-file-header {
+/* ===== delete_file 确认 - 单文件（内联） ===== */
+.delete-file-simple {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 4px;
+}
+
+.delete-file-simple .delete-file-icon {
+    flex-shrink: 0;
+    color: #dc2626;
+    margin-top: 2px;
+}
+
+.delete-file-simple .delete-file-label {
+    flex-shrink: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.delete-file-simple .delete-file-path {
+    font-size: var(--font-size-sm);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    word-break: break-all;
+    font-weight: 450;
+}
+
+/* ===== delete_file 确认 - 多文件（列表） ===== */
+.delete-file-multi {
+    padding: 8px 4px;
+}
+
+.delete-file-multi-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: var(--font-size-sm);
     color: var(--text-primary);
     margin-bottom: 8px;
-    line-height: 1.5;
 }
 
-.delete-file-list {
-    margin: 0 0 8px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-}
-
-.delete-file-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    font-size: var(--font-size-xs);
-    font-family: var(--font-mono);
-    color: var(--text-primary);
-    border-bottom: 1px solid var(--border-color);
-    line-height: 1.5;
-}
-
-.delete-file-item:last-child {
-    border-bottom: none;
-}
-
-.delete-file-item .delete-file-icon {
+.delete-file-multi-header .delete-file-icon {
     flex-shrink: 0;
-    color: var(--color-danger, #dc2626);
+    color: #dc2626;
+}
+
+.delete-file-multi-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 20px;
+}
+
+.delete-file-list-item {
+    font-size: var(--font-size-xs);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    word-break: break-all;
+    padding-left: 14px;
+    position: relative;
+}
+
+.delete-file-list-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 9px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.6;
+}
+
+/* ===== delete_file 确认按钮 ===== */
+.delete-confirm {
+    background: rgb(69, 43, 53) !important;
+    color: rgb(210, 130, 130) !important;
+    border-color: rgb(69, 43, 53) !important;
+}
+
+.delete-confirm:hover {
+    background: rgb(90, 55, 65) !important;
+    border-color: rgb(90, 55, 65) !important;
+}
+
+/* ===== delete_file 二次确认弹窗 ===== */
+.delete-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
     display: flex;
     align-items: center;
+    justify-content: center;
+    z-index: 10000;
 }
 
-.delete-file-item .delete-file-path {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.delete-confirm-modal {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    min-width: 300px;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 
-.delete-file-item.directory .delete-file-icon {
-    color: var(--color-warning, #d97706);
+[data-theme="dark"] .delete-confirm-modal {
+    background: #1a1a20;
+    border-color: #37373f;
 }
 
-.delete-file-item.directory .delete-file-path {
-    font-style: italic;
+.delete-confirm-modal-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 20px;
 }
 
-.delete-file-item.directory .delete-file-path::after {
-    content: ' (空目录)';
-    font-style: normal;
-    color: var(--text-tertiary, #9ca3af);
-    font-size: 0.9em;
+.delete-confirm-modal-icon {
+    color: #dc2626;
 }
 
-.delete-file-truncated {
-    padding: 6px 10px;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
+.delete-confirm-modal-text {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
     text-align: center;
+    line-height: 1.5;
 }
 
-.delete-file-hint {
+.delete-confirm-modal-footer {
     display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 0 8px;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
+    justify-content: center;
+    gap: 10px;
+}
+
+.delete-confirm-modal-btn {
+    padding: 7px 20px;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
     line-height: 1.4;
+}
+
+.delete-confirm-modal-btn.cancel {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.delete-confirm-modal-btn.cancel:hover {
+    background: var(--bg-code);
+    color: var(--text-primary);
+}
+
+.delete-confirm-modal-btn.confirm {
+    background: rgb(69, 43, 53);
+    color: rgb(210, 130, 130);
+    border-color: rgb(69, 43, 53);
+}
+
+.delete-confirm-modal-btn.confirm:hover {
+    background: rgb(90, 55, 65);
+    border-color: rgb(90, 55, 65);
 }
 
 /* delete_file 时间线详情 */
@@ -1769,78 +1869,74 @@
     overflow-x: auto;
 }
 
-/* delete_file 时间线确认详情（复用 timeline-detail-confirmation 结构，内容不同） */
-.timeline-detail-confirmation .delete-file-header {
+/* delete_file 时间线确认详情 */
+.timeline-detail-confirmation .delete-file-simple {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 4px;
+}
+
+.timeline-detail-confirmation .delete-file-simple .delete-file-icon {
+    flex-shrink: 0;
+    color: #dc2626;
+    margin-top: 2px;
+}
+
+.timeline-detail-confirmation .delete-file-simple .delete-file-path {
+    font-size: var(--font-size-sm);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    word-break: break-all;
+    font-weight: 450;
+}
+
+.timeline-detail-confirmation .delete-file-multi {
+    padding: 8px 4px;
+}
+
+.timeline-detail-confirmation .delete-file-multi-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: var(--font-size-sm);
     color: var(--text-primary);
     margin-bottom: 8px;
-    line-height: 1.5;
 }
 
-.timeline-detail-confirmation .delete-file-list {
-    margin: 0 0 8px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-}
-
-.timeline-detail-confirmation .delete-file-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    font-size: var(--font-size-xs);
-    font-family: var(--font-mono);
-    color: var(--text-primary);
-    border-bottom: 1px solid var(--border-color);
-    line-height: 1.5;
-}
-
-.timeline-detail-confirmation .delete-file-item:last-child {
-    border-bottom: none;
-}
-
-.timeline-detail-confirmation .delete-file-item .delete-file-icon {
+.timeline-detail-confirmation .delete-file-multi-header .delete-file-icon {
     flex-shrink: 0;
-    color: var(--color-danger, #dc2626);
+    color: #dc2626;
+}
+
+.timeline-detail-confirmation .delete-file-multi-list {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 20px;
 }
 
-.timeline-detail-confirmation .delete-file-item .delete-file-path {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.timeline-detail-confirmation .delete-file-item.directory .delete-file-icon {
-    color: var(--color-warning, #d97706);
-}
-
-.timeline-detail-confirmation .delete-file-item.directory .delete-file-path {
-    font-style: italic;
-}
-
-.timeline-detail-confirmation .delete-file-item.directory .delete-file-path::after {
-    content: ' (空目录)';
-    font-style: normal;
-    color: var(--text-tertiary, #9ca3af);
-    font-size: 0.9em;
-}
-
-.timeline-detail-confirmation .delete-file-truncated {
-    padding: 6px 10px;
+.timeline-detail-confirmation .delete-file-list-item {
     font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    word-break: break-all;
+    padding-left: 14px;
+    position: relative;
 }
 
-.timeline-detail-confirmation .delete-file-hint {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 0 8px;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    line-height: 1.4;
+.timeline-detail-confirmation .delete-file-list-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 9px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.6;
 }
+
+

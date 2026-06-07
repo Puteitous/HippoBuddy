@@ -520,6 +520,22 @@
     <!-- Toast 通知容器 -->
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- 二次确认弹窗 -->
+    <div class="delete-confirm-overlay" id="deleteConfirmOverlay" style="display:none;">
+      <div class="delete-confirm-modal">
+        <div class="delete-confirm-modal-body">
+          <svg class="delete-confirm-modal-icon" viewBox="0 0 16 16" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h10"/><path d="M5 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M4 6v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6"/>
+          </svg>
+          <div class="delete-confirm-modal-text" id="deleteConfirmModalText">确认删除？</div>
+        </div>
+        <div class="delete-confirm-modal-footer">
+          <button class="delete-confirm-modal-btn cancel" id="deleteConfirmCancel">取消</button>
+          <button class="delete-confirm-modal-btn confirm" id="deleteConfirmOk">确认删除</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Desktop Bridge（JCEF JS↔Java 通信） -->
     <script type="module" src="js/desktop-bridge.js"></script>
 
