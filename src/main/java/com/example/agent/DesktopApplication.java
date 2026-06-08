@@ -115,6 +115,15 @@ public final class DesktopApplication {
 
             builder.getCefSettings().windowless_rendering_enabled = false;
 
+            // 设置持久化缓存路径，使 localStorage / IndexedDB 等跨重启保留
+            Path browserCacheDir = WorkspaceManager.getGlobalCacheDir().resolve("jcef");
+            try {
+                Files.createDirectories(browserCacheDir);
+            } catch (IOException e) {
+                logger.warn("创建 JCEF 缓存目录失败，localStorage 可能无法持久化", e);
+            }
+            builder.getCefSettings().cache_path = browserCacheDir.toString();
+
             builder.setAppHandler(new MavenCefAppHandlerAdapter() {
             });
 

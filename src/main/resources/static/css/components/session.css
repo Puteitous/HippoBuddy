@@ -1,7 +1,7 @@
 /* ========== 会话侧栏 ========== */
 
 .session-panel {
-    width: 220px;
+    width: 300px;
     display: flex;
     flex-direction: column;
     background: transparent;

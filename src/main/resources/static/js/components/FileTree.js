@@ -124,11 +124,6 @@ export class FileTree {
 
         parentEl.appendChild(nodeEl);
         parentEl.appendChild(childrenEl);
-
-        // Auto-expand root level
-        if (dirPath === this._rootPath && !isExpanded) {
-          toggleDir();
-        }
       } else {
         // File node — no toggle arrow
         const spacer = document.createElement('span');

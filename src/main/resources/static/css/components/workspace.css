@@ -305,6 +305,7 @@
 }
 
 .file-preview-content code {
+    font-family: inherit !important;
     background: transparent !important;
     padding: 0 !important;
 }
@@ -337,6 +338,16 @@
 /* 文件视图模式下显示 */
 .session-panel.view-files .file-tree-view {
     display: flex !important;
+}
+
+/* 文件视图模式下加宽左侧面板，容纳长路径 */
+.session-panel.view-files {
+    width: 300px !important;
+}
+
+/* 折叠状态优先于视图加宽 */
+.session-panel.collapsed.view-files {
+    width: 52px !important;
 }
 
 /* 折叠状态下隐藏文件树视图（优先级高于 view-files） */
