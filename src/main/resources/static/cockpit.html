@@ -136,8 +136,40 @@
             </div>
         </div>
 
+        <!-- 左侧面板拖拽分隔条 -->
+        <div class="session-resizer" id="sessionResizer"></div>
+
+        <!-- 预览面板（中间，桌面端） -->
+        <div class="preview-panel desktop-only" id="previewPanel" style="display:none;">
+            <div class="file-tab-bar" id="fileTabBar">
+                <div class="file-tabs" id="fileTabs"></div>
+            </div>
+            <div class="file-preview-area" id="filePreviewArea">
+                <div class="file-preview-toolbar" id="filePreviewToolbar">
+                    <span class="file-preview-path" id="filePreviewPath"></span>
+                    <button class="panel-toggle-btn" id="previewCollapseBtn" title="收起预览">
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="12 4 4 8 12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="file-preview-content" id="filePreviewContent"></div>
+            </div>
+        </div>
+
+        <!-- 面板拖拽分隔条 -->
+        <div class="panel-resizer desktop-only" id="chatResizer"></div>
+
         <!-- 聊天面板 -->
         <div class="chat-panel">
+            <div class="chat-panel-header" id="chatPanelHeader" style="display:none;">
+                <span class="chat-panel-title">聊天</span>
+                <button class="panel-toggle-btn" id="chatCollapseBtn" title="收起聊天">
+                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="4 4 12 8 4 12"/>
+                    </svg>
+                </button>
+            </div>
             <div class="chat-container" id="chatContainer">
                 <div class="empty-state">
                     <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
@@ -160,24 +192,6 @@
                         <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- 文件标签栏 + 预览区（桌面端，全屏替换聊天区） -->
-            <div class="file-tab-bar desktop-only" id="fileTabBar" style="display:none;">
-                <div class="file-tabs" id="fileTabs"></div>
-            </div>
-            <div class="file-preview-area desktop-only" id="filePreviewArea">
-                <div class="file-preview-toolbar" id="filePreviewToolbar">
-                    <button class="file-preview-back" id="filePreviewBack" title="返回聊天">
-                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="3" y1="8" x2="13" y2="8"/>
-                            <polyline points="7 4 3 8 7 12"/>
-                        </svg>
-                        <span>返回聊天</span>
-                    </button>
-                    <span class="file-preview-path" id="filePreviewPath"></span>
-                </div>
-                <div class="file-preview-content" id="filePreviewContent"></div>
             </div>
 
             <div class="chat-nav-strip" id="chatNavStrip">
@@ -240,6 +254,13 @@
                 </div>
             </div>
         </div>
+
+        <!-- 展开聊天的浮动按钮（聊天折叠时显示），悬停展开 -->
+        <button class="chat-show-btn" id="chatShowBtn" style="display:none;" title="展开聊天">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="12 4 4 8 12 12"/>
+            </svg>
+        </button>
 
         <!-- 右侧面板（默认隐藏） -->
         <div class="right-panel hidden" id="rightPanel">

@@ -37,11 +37,10 @@ const HippoWorkspace = (() => {
     fileTreeEmpty: document.getElementById('fileTreeEmpty'),
     tabBar: document.getElementById('fileTabBar'),
     tabs: document.getElementById('fileTabs'),
+    previewPanel: document.getElementById('previewPanel'),
     previewArea: document.getElementById('filePreviewArea'),
     previewContent: document.getElementById('filePreviewContent'),
     previewPath: document.getElementById('filePreviewPath'),
-    previewBack: document.getElementById('filePreviewBack'),
-    chatPanel: document.querySelector('.chat-panel'),
     viewSwitcher: document.getElementById('sidebarViewSwitcher'),
     viewBtns: null,
     workspaceIndicator: document.getElementById('workspaceIndicator'),
@@ -197,29 +196,37 @@ const HippoWorkspace = (() => {
   function showPreview(filePath) {
     filePreview.show(filePath);
     if (els.previewPath) {
-      els.previewPath.textContent = filePath;
+      // 显示相对于工作区根目录的路径，IDE 面包屑风格 (xx > xx > xx)
+      const relativePath = _currentRoot && filePath.startsWith(_currentRoot)
+        ? filePath.slice(_currentRoot.length + 1)
+        : filePath;
+      els.previewPath.innerHTML = relativePath.split('/').join(' <span class="sep">›</span> ');
       els.previewPath.title = filePath;
     }
-    if (els.chatPanel) {
-      els.chatPanel.classList.add('has-preview');
+    if (els.previewPanel) {
+      els.previewPanel.classList.remove('hidden');
     }
+    // 显示聊天面板头部
+    const header = document.getElementById('chatPanelHeader');
+    if (header) header.style.display = '';
   }
 
   function hidePreview() {
     filePreview.clear();
-    if (els.chatPanel) {
-      els.chatPanel.classList.remove('has-preview');
+    if (els.previewPanel) {
+      els.previewPanel.classList.add('hidden');
     }
+    // 隐藏聊天面板头部
+    const header = document.getElementById('chatPanelHeader');
+    if (header) header.style.display = 'none';
+    // 恢复聊天面板（如果被折叠了）
+    chatPanel.classList.remove('collapsed');
+    if (resizer) resizer.style.display = '';
+    const showBtn = document.getElementById('chatShowBtn');
+    if (showBtn) showBtn.style.display = 'none';
   }
 
   // ========== 事件绑定 ==========
-
-  // 返回聊天按钮
-  if (els.previewBack) {
-    els.previewBack.addEventListener('click', () => {
-      hidePreview();
-    });
-  }
 
   // 工作区清除按钮
   const clearBtn = document.getElementById('workspaceClear');
@@ -232,6 +239,104 @@ const HippoWorkspace = (() => {
       }
     });
   }
+
+  // ========== 聊天面板宽度拖拽 ==========
+  const resizer = document.getElementById('chatResizer');
+  const chatPanel = document.querySelector('.chat-panel');
+  if (resizer && chatPanel) {
+    // 恢复上次保存的宽度
+    const saved = localStorage.getItem('hippo-chat-width');
+    if (saved) {
+      document.documentElement.style.setProperty('--chat-panel-width', saved + 'px');
+    }
+
+    resizer.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      resizer.classList.add('resizing');
+      const startX = e.clientX;
+      const startWidth = chatPanel.offsetWidth;
+
+      const onMove = (ev) => {
+        const diff = startX - ev.clientX;
+        const w = Math.max(320, Math.min(720, startWidth + diff));
+        document.documentElement.style.setProperty('--chat-panel-width', w + 'px');
+      };
+
+      const onUp = () => {
+        resizer.classList.remove('resizing');
+        const finalW = document.documentElement.style.getPropertyValue('--chat-panel-width').replace('px', '').trim();
+        if (finalW) localStorage.setItem('hippo-chat-width', finalW);
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // ========== 左侧面板宽度拖拽 ==========
+  const sessionResizer = document.getElementById('sessionResizer');
+  const sessionPanel = document.getElementById('sessionPanel');
+  if (sessionResizer && sessionPanel) {
+    const saved = localStorage.getItem('hippo-session-width');
+    if (saved) {
+      document.documentElement.style.setProperty('--session-panel-width', saved + 'px');
+    }
+
+    sessionResizer.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      sessionResizer.classList.add('resizing');
+      sessionPanel.classList.add('resizing');
+      const startX = e.clientX;
+      const startWidth = sessionPanel.offsetWidth;
+
+      const onMove = (ev) => {
+        const diff = ev.clientX - startX; // 拖右为正，拖左为负
+        const w = Math.max(180, Math.min(500, startWidth + diff));
+        sessionPanel.classList.remove('collapsed');
+        document.documentElement.style.setProperty('--session-panel-width', w + 'px');
+      };
+
+      const onUp = () => {
+        sessionResizer.classList.remove('resizing');
+        sessionPanel.classList.remove('resizing');
+        const finalW = document.documentElement.style.getPropertyValue('--session-panel-width').replace('px', '').trim();
+        if (finalW) localStorage.setItem('hippo-session-width', finalW);
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // ========== 面板折叠/展开按钮 ==========
+
+  const chatShowBtn = document.getElementById('chatShowBtn');
+
+  // 预览折叠
+  document.getElementById('previewCollapseBtn')?.addEventListener('click', () => {
+    hidePreview();
+  });
+
+  // 聊天折叠
+  document.getElementById('chatCollapseBtn')?.addEventListener('click', () => {
+    chatPanel.classList.add('collapsed');
+    if (resizer) resizer.style.display = 'none';
+    if (chatShowBtn) chatShowBtn.style.display = '';
+  });
+
+  // 展开聊天
+  chatShowBtn?.addEventListener('click', () => {
+    chatPanel.classList.remove('collapsed');
+    // 预览面板显示时才恢复分隔条
+    if (resizer && els.previewPanel && !els.previewPanel.classList.contains('hidden')) {
+      resizer.style.display = '';
+    }
+    chatShowBtn.style.display = 'none';
+  });
 
   console.log('HippoWorkspace initialized ✅');
   return api;

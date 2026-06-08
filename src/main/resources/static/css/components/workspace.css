@@ -225,12 +225,6 @@
 
 /* ========== 文件预览区 ========== */
 
-/* 默认隐藏（高特异性，对抗桌面端 .desktop-only { display: initial !important } 注入） */
-.chat-panel .file-tab-bar,
-.chat-panel .file-preview-area {
-    display: none !important;
-}
-
 .file-preview-area {
     display: flex;
     flex-direction: column;
@@ -251,32 +245,6 @@
     background: var(--bg-sidebar);
 }
 
-.file-preview-back {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    transition: all var(--transition-fast);
-    white-space: nowrap;
-}
-
-.file-preview-back:hover {
-    background: var(--bg-code);
-    color: var(--text-secondary);
-}
-
-.file-preview-back svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-}
-
 .file-preview-path {
     font-size: var(--font-size-xs);
     color: var(--text-muted);
@@ -284,14 +252,24 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
-    direction: rtl;
-    text-align: right;
+    padding-left: 4px;
+    font-family: var(--font-mono, monospace);
+}
+
+.file-preview-path .sep {
+    color: var(--text-muted);
+    opacity: 0.5;
+    margin: 0 1px;
+    font-family: sans-serif;
 }
 
 .file-preview-content {
     flex: 1;
-    overflow: auto;
+    min-height: 0;
+    height: 0;
     padding: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .file-preview-content pre {
@@ -300,32 +278,21 @@
     font-family: var(--font-mono);
     font-size: var(--font-size-md);
     line-height: 1.7;
-    overflow-x: auto;
     background: transparent !important;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
-.file-preview-content code {
+.file-preview-content pre code {
     font-family: inherit !important;
     background: transparent !important;
     padding: 0 !important;
 }
 
-/* ========== 文件预览全屏替换聊天 ========== */
-
-/* 预览模式下隐藏聊天相关元素 */
-.chat-panel.has-preview .chat-container,
-.chat-panel.has-preview .chat-nav-strip,
-.chat-panel.has-preview .input-container {
-    display: none;
-}
-
-/* 预览模式下的标签栏和预览区可见 */
-.chat-panel.has-preview .file-tab-bar {
-    display: flex !important;
-}
-
-.chat-panel.has-preview .file-preview-area {
-    display: flex !important;
+/* 覆盖 hljs 主题的 overflow-x: auto，避免其劫持垂直滚动 */
+.file-preview-content pre code.hljs {
+    overflow: visible !important;
 }
 
 /* ========== 侧栏视图切换 - 折叠/视图切换 ========== */
@@ -338,16 +305,6 @@
 /* 文件视图模式下显示 */
 .session-panel.view-files .file-tree-view {
     display: flex !important;
-}
-
-/* 文件视图模式下加宽左侧面板，容纳长路径 */
-.session-panel.view-files {
-    width: 300px !important;
-}
-
-/* 折叠状态优先于视图加宽 */
-.session-panel.collapsed.view-files {
-    width: 52px !important;
 }
 
 /* 折叠状态下隐藏文件树视图（优先级高于 view-files） */

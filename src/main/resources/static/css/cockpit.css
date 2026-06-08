@@ -178,13 +178,156 @@ body {
     gap: 0;
 }
 
-/* ========== 聊天面板容器 ========== */
+/* ========== 聊天面板容器（右侧） ========== */
 .chat-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
     position: relative;
+    margin-left: 8px;
+}
+
+/* 预览面板显示时，聊天面板缩到右侧固定宽度 */
+.preview-panel:not(.hidden) + .panel-resizer + .chat-panel {
+    width: var(--chat-panel-width, 480px);
+    flex: none;
+    flex-shrink: 0;
+}
+
+/* 聊天面板折叠时，缩到仅头部高度，让预览区域最大化 */
+.preview-panel:not(.hidden) + .panel-resizer + .chat-panel.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden;
+    margin-left: 0;
+}
+
+.preview-panel:not(.hidden) + .panel-resizer + .chat-panel.collapsed .chat-panel-header {
+    display: none;
+}
+
+/* ========== 面板拖拽分隔条 ========== */
+.panel-resizer {
+    width: 4px;
+    cursor: col-resize;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    margin: 0 2px;
+    background: transparent;
+    transition: background 0.15s;
+    border-radius: 2px;
+}
+
+/* 预览面板隐藏时，分隔条也隐藏 */
+.preview-panel.hidden + .panel-resizer {
+    display: none;
+}
+
+.panel-resizer:hover,
+.panel-resizer.resizing {
+    background: var(--accent);
+}
+
+/* ========== 预览面板（中间） ========== */
+.preview-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    margin-left: 8px;
+}
+
+/* 用双类名提高优先级，对抗桌面端注入的 .desktop-only { display: initial !important } */
+.preview-panel.desktop-only {
+    display: flex !important;
+}
+
+.preview-panel.hidden {
+    display: none !important;
+}
+
+/* ========== 面板折叠按钮 ========== */
+
+.panel-toggle-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+}
+
+.panel-toggle-btn:hover {
+    background: var(--bg-code);
+    color: var(--text-secondary);
+}
+
+/* ========== 聊天面板头部 ========== */
+
+.chat-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 36px;
+    padding: 0 10px 0 14px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-sidebar);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.chat-panel-title {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+/* 聊天折叠时不显示内容 */
+.chat-panel.collapsed .chat-container,
+.chat-panel.collapsed .chat-nav-strip,
+.chat-panel.collapsed .input-container {
+    display: none;
+}
+
+/* 浮动展开聊天按钮 — 悬停时展开 */
+.chat-show-btn {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 48px;
+    border: none;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    background: var(--bg-white);
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    z-index: 1000;
+    transition: all 0.25s ease;
+}
+
+.chat-show-btn:hover {
+    width: 36px;
+    background: var(--bg-code);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-lg);
 }
 
 /* ========== 右侧面板布局 ========== */

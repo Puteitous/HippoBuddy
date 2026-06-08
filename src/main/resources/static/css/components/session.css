@@ -1,7 +1,7 @@
 /* ========== 会话侧栏 ========== */
 
 .session-panel {
-    width: 300px;
+    width: var(--session-panel-width, 300px);
     display: flex;
     flex-direction: column;
     background: transparent;
@@ -12,8 +12,13 @@
     will-change: width;
 }
 
+/* 拖拽时取消过渡，避免拖拽卡顿 */
+.session-panel.resizing {
+    transition: none !important;
+}
+
 .session-panel.collapsed {
-    width: 52px;
+    width: 52px !important;
 }
 
 .session-header {
@@ -349,6 +354,29 @@
 
 .session-panel.collapsed .view-capsule {
     display: none;
+}
+
+/* ========== 左侧面板拖拽分隔条 ========== */
+.session-resizer {
+    width: 4px;
+    cursor: col-resize;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    margin: 0 2px;
+    background: transparent;
+    transition: background 0.15s;
+    border-radius: 2px;
+}
+
+/* 折叠时分隔条隐藏 */
+.session-panel.collapsed ~ .session-resizer {
+    display: none;
+}
+
+.session-resizer:hover,
+.session-resizer.resizing {
+    background: var(--accent);
 }
 
 /* ========== 新增会话按钮 ========== */
