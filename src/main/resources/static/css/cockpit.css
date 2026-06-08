@@ -243,10 +243,8 @@ body {
     margin-left: 8px;
 }
 
-/* 用双类名提高优先级，对抗桌面端注入的 .desktop-only { display: initial !important } */
-.preview-panel.desktop-only {
-    display: flex !important;
-}
+/* 用 common.css 中的 .desktop-only-flex 对抗桌面端注入（双类名防御）
+   故此处无需额外规则，只需在 HTML 上加 class="desktop-only-flex" */
 
 .preview-panel.hidden {
     display: none !important;

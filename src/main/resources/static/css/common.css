@@ -43,8 +43,29 @@ input, textarea {
 }
 
 /* ===== 桌面端专用元素（Web 端隐藏） ===== */
+/* 基础：Web 端隐藏所有桌面端专用元素 */
 .desktop-only {
   display: none;
+}
+
+/*
+ * JCEF 桌面端在运行时注入全局样式覆盖 .desktop-only：
+ *   .desktop-only { display: initial !important }
+ * initial 对 <div> 等价于 block，且 !important 优先级 (0,1,0) 高于单类名。
+ * 因此所有需要 display:flex 的 desktop-only 元素必须用下方工具类双类名防御。
+ *
+ * 使用示例：
+ *   <div class="preview-panel desktop-only desktop-only-flex">...
+ */
+
+/* 桌面端显示为 flex（双类名对抗注入） */
+.desktop-only-flex.desktop-only {
+  display: flex !important;
+}
+
+/* 桌面端显示为 block（双类名对抗注入） */
+.desktop-only-block.desktop-only {
+  display: block !important;
 }
 
 .typing-indicator {
