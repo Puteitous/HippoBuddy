@@ -42,6 +42,11 @@ input, textarea {
   to { transform: rotate(360deg); }
 }
 
+/* ===== 桌面端专用元素（Web 端隐藏） ===== */
+.desktop-only {
+  display: none;
+}
+
 .typing-indicator {
   display: inline-block;
   animation: blink 1s infinite;

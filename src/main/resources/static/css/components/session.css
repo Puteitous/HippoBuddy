@@ -40,6 +40,12 @@
     transition: opacity var(--transition-fast);
 }
 
+.session-header-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
 .session-new-btn {
     width: 28px;
     height: 28px;
@@ -292,6 +298,57 @@
 
 [data-theme="dark"] .session-rename-input:focus {
     border-color: #4b5563;
+}
+
+/* ========== 侧栏视图切换胶囊 ========== */
+
+.view-capsule {
+    display: flex;
+    background: var(--bg-code);
+    border-radius: 20px;
+    padding: 3px;
+    gap: 0;
+}
+
+.capsule-btn {
+    width: 28px;
+    height: 24px;
+    border: none;
+    border-radius: 18px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.capsule-btn:hover {
+    color: var(--text-secondary);
+}
+
+.capsule-btn.active {
+    background: var(--bg-white);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+[data-theme="dark"] .capsule-btn.active {
+    background: var(--bg-app);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.capsule-btn svg {
+    transition: transform 0.15s ease;
+}
+
+.capsule-btn:active svg {
+    transform: scale(0.85);
+}
+
+.session-panel.collapsed .view-capsule {
+    display: none;
 }
 
 /* ========== 新增会话按钮 ========== */

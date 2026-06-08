@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="css/components/right-panel.css?v=20260527-1">
     <link rel="stylesheet" href="css/components/tool-cards.css?v=20260527-2">
     <link rel="stylesheet" href="css/components/modals.css?v=20260527-1">
+    <link rel="stylesheet" href="css/components/workspace.css?v=20260608-1">
     <link id="hljs-light-theme" rel="stylesheet" href="js/vendor/github.min.css">
     <link id="hljs-dark-theme" rel="stylesheet" href="js/vendor/github-dark.min.css" disabled>
     <script src="js/vendor/marked.min.js"></script>
@@ -69,6 +70,11 @@
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                 </svg>
             </button>
+            <button class="header-icon-btn desktop-only" id="devtoolsBtn" title="打开 DevTools" style="display:none;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+            </button>
             <span id="sseStatus" class="sse-status disconnected">SSE 连接中...</span>
         </div>
     </div>
@@ -90,14 +96,41 @@
                     </button>
                     <span class="session-header-title">会话</span>
                 </div>
-                <button class="session-new-btn" id="sessionNewBtn" title="新建会话">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                </button>
+                <div class="session-header-right">
+                    <!-- 侧栏视图切换胶囊（桌面端） -->
+                    <div class="view-capsule" id="sidebarViewSwitcher" style="display:none;">
+                        <button class="capsule-btn active" data-view="sessions" title="会话列表">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="2" y1="4" x2="14" y2="4"/>
+                                <line x1="2" y1="8" x2="14" y2="8"/>
+                                <line x1="2" y1="12" x2="10" y2="12"/>
+                            </svg>
+                        </button>
+                        <button class="capsule-btn" data-view="files" title="文件浏览">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 4h5l2 2h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="session-new-btn" id="sessionNewBtn" title="新建会话">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="session-list" id="sessionList"></div>
+            <!-- 文件树视图（桌面端，替代会话列表） -->
+            <div class="file-tree-view desktop-only" id="fileTreeView">
+                <div class="file-tree-body" id="fileTreeBody"></div>
+                <div class="file-tree-empty" id="fileTreeEmpty">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <p>打开工作区以浏览文件</p>
+                </div>
+            </div>
         </div>
 
         <!-- 聊天面板 -->
@@ -124,6 +157,24 @@
                         <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- 文件标签栏 + 预览区（桌面端，全屏替换聊天区） -->
+            <div class="file-tab-bar desktop-only" id="fileTabBar" style="display:none;">
+                <div class="file-tabs" id="fileTabs"></div>
+            </div>
+            <div class="file-preview-area desktop-only" id="filePreviewArea">
+                <div class="file-preview-toolbar" id="filePreviewToolbar">
+                    <button class="file-preview-back" id="filePreviewBack" title="返回聊天">
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="8" x2="13" y2="8"/>
+                            <polyline points="7 4 3 8 7 12"/>
+                        </svg>
+                        <span>返回聊天</span>
+                    </button>
+                    <span class="file-preview-path" id="filePreviewPath"></span>
+                </div>
+                <div class="file-preview-content" id="filePreviewContent"></div>
             </div>
 
             <div class="chat-nav-strip" id="chatNavStrip">
@@ -536,10 +587,16 @@
       </div>
     </div>
 
+    <!-- 工作区组件（桌面端文件树/标签/预览） -->
+    <script type="module" src="js/components/FileTree.js"></script>
+    <script type="module" src="js/components/FileTabs.js"></script>
+    <script type="module" src="js/components/FilePreview.js"></script>
+    <script type="module" src="js/workspace-manager.js"></script>
+
     <!-- Desktop Bridge（JCEF JS↔Java 通信） -->
     <script type="module" src="js/desktop-bridge.js"></script>
 
     <!-- 应用入口 -->
-    <script type="module" src="js/main.js?v=20260527-6"></script>
+    <script type="module" src="js/main.js?v=20260608-1"></script>
 </body>
 </html>

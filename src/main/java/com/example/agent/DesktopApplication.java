@@ -159,8 +159,9 @@ public final class DesktopApplication {
             mainFrame.setVisible(true);
             logger.info("桌面窗口已打开");
 
+            // 注册 F12 快捷键（通过 JS，前端 DevTools 按钮也可以触发）
             browser.executeJavaScript(
-                "console.log('DesktopBridge available:', typeof window.cefQuery !== 'undefined')",
+                "document.addEventListener('keydown',function(e){if(e.key==='F12'){window.cefQuery({request:JSON.stringify({action:'openDevTools'}),onSuccess:function(r){},onFailure:function(){}});}});",
                 "", 0
             );
 
@@ -188,6 +189,9 @@ public final class DesktopApplication {
                     case "readFile":
                         handleReadFile(json, callback);
                         break;
+                    case "writeFile":
+                        handleWriteFile(json, callback);
+                        break;
                     case "openFileDialog":
                         handleOpenFileDialog(callback);
                         break;
@@ -206,6 +210,20 @@ public final class DesktopApplication {
                         WorkspaceContext.save();
                         callback.success(MAPPER.writeValueAsString(
                                 MAPPER.createObjectNode().put("path", "")));
+                        break;
+                    case "openDevTools":
+                        logger.info("正在打开 DevTools 窗口...");
+                        CefBrowser devTools = browser.getDevTools();
+                        SwingUtilities.invokeLater(() -> {
+                            JFrame devFrame = new JFrame("Hippo Code - DevTools");
+                            devFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                            devFrame.setSize(960, 640);
+                            devFrame.setLocationRelativeTo(mainFrame);
+                            devFrame.add(devTools.getUIComponent(), BorderLayout.CENTER);
+                            devFrame.setVisible(true);
+                            logger.info("DevTools 窗口已打开");
+                        });
+                        callback.success("{}");
                         break;
                     default:
                         callback.failure(404, "Unknown action: " + action);
@@ -269,6 +287,27 @@ public final class DesktopApplication {
             ObjectNode result = MAPPER.createObjectNode();
             result.put("path", path);
             result.put("content", content);
+            callback.success(MAPPER.writeValueAsString(result));
+        }
+
+        private void handleWriteFile(JsonNode json, CefQueryCallback callback) throws Exception {
+            String path = json.has("path") ? json.get("path").asText() : null;
+            String content = json.has("content") ? json.get("content").asText() : null;
+            if (path == null || path.isBlank()) {
+                callback.failure(400, "path is required");
+                return;
+            }
+            if (content == null) {
+                callback.failure(400, "content is required");
+                return;
+            }
+            Path file = Paths.get(path);
+            // 确保父目录存在
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, content);
+            ObjectNode result = MAPPER.createObjectNode();
+            result.put("path", path);
+            result.put("size", Files.size(file));
             callback.success(MAPPER.writeValueAsString(result));
         }
 
