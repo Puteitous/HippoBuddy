@@ -11,6 +11,11 @@ body {
     background: var(--bg-canvas);
 }
 
+body.desktop-window {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
 /* ========== 顶部栏 ========== */
 .header {
     height: 48px;
@@ -605,4 +610,73 @@ body.page-loading .header,
 body.page-loading .main-container {
     opacity: 0;
     transition: none;
+}
+
+/* ==========================================
+   窗口控制按钮（桌面端无标题栏）
+   ========================================== */
+
+.window-controls {
+    display: flex;
+    align-items: center;
+    margin-left: 6px;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+.window-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.15s, color 0.15s;
+    position: relative;
+}
+
+.window-btn svg {
+    display: block;
+}
+
+.window-btn:hover {
+    background: var(--bg-code);
+    color: var(--text-primary);
+}
+
+/* 最大化/还原图标切换 */
+.window-btn-maximize .win-icon-restore {
+    display: none;
+}
+
+.window-btn-maximize.is-maximized .win-icon-maximize {
+    display: none;
+}
+
+.window-btn-maximize.is-maximized .win-icon-restore {
+    display: block;
+}
+
+/* 关闭按钮 hover 变红色 */
+.window-btn-close:hover {
+    background: #e81123;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .window-btn-close:hover {
+    background: #e81123;
+    color: #ffffff;
+}
+
+/* 窗口拖拽区域 — 使用 JS 拖拽，这里只设光标 */
+.header-brand {
+    cursor: grab;
+}
+
+.header-brand:active {
+    cursor: grabbing;
 }

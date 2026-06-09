@@ -79,6 +79,30 @@
                 </svg>
             </button>
             <span id="sseStatus" class="sse-status disconnected">SSE 连接中...</span>
+
+            <!-- 窗口控制按钮组（桌面端无标题栏时显示） -->
+            <div class="window-controls desktop-only desktop-only-flex" id="windowControls">
+                <button class="window-btn window-btn-minimize" id="winMinimize" title="最小化">
+                    <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                        <line x1="2" y1="6" x2="10" y2="6"/>
+                    </svg>
+                </button>
+                <button class="window-btn window-btn-maximize" id="winMaximize" title="最大化">
+                    <svg class="win-icon-maximize" viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="2" width="8" height="8" rx="1"/>
+                    </svg>
+                    <svg class="win-icon-restore" viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="1.5" y="4" width="6.5" height="6.5" rx="1"/>
+                        <path d="M4 4V2.5a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H9.5"/>
+                    </svg>
+                </button>
+                <button class="window-btn window-btn-close" id="winClose" title="关闭">
+                    <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                        <line x1="2.5" y1="2.5" x2="9.5" y2="9.5"/>
+                        <line x1="9.5" y1="2.5" x2="2.5" y2="9.5"/>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
     
