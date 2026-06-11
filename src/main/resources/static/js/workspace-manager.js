@@ -91,7 +91,7 @@ const HippoWorkspace = (() => {
 
     async openWorkspace(path) {
       if (!path) return;
-      _currentRoot = path;
+      _currentRoot = path.replace(/\\/g, '/');
 
       // 显示视图切换器和工作区指示器
       if (els.viewSwitcher) els.viewSwitcher.style.display = '';
@@ -202,7 +202,7 @@ const HippoWorkspace = (() => {
       const relativePath = _currentRoot && filePath.startsWith(_currentRoot)
         ? filePath.slice(_currentRoot.length + 1)
         : filePath;
-      els.previewPath.innerHTML = relativePath.split('/').join(' <span class="sep">›</span> ');
+      els.previewPath.innerHTML = relativePath.split('/').join('<span class="sep">></span>');
       els.previewPath.title = filePath;
     }
     if (els.previewPanel) {

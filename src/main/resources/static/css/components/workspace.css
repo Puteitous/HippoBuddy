@@ -242,7 +242,7 @@
     align-items: center;
     gap: 8px;
     padding: 0 12px;
-    height: 36px;
+    height: 25px;
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
     background: var(--bg-sidebar);
@@ -262,7 +262,7 @@
 .file-preview-path .sep {
     color: var(--text-muted);
     opacity: 0.5;
-    margin: 0 1px;
+    margin: 0 4px;
     font-family: sans-serif;
 }
 
