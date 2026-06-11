@@ -222,6 +222,11 @@ const HippoDesktop = (() => {
       return send('setRecentFolders', { folders });
     },
 
+    // ===== 文件系统工具 =====
+    showItemInFolder(path) {
+      return send('showItemInFolder', { path });
+    },
+
     // ===== 窗口控制 =====
     minimizeWindow() {
       return send('windowMinimize');

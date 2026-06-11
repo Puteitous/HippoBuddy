@@ -29,6 +29,135 @@ export class FileTree {
     this._activeFilePath = null;
     this._gitStatus = null; // { available: boolean, files: { [path]: 'M'|'A'|'D' } }
     this._refreshDebounceTimer = null;
+    this._contextMenuEl = this._createContextMenu();
+    // 全局关闭：点击其他位置或 Escape 关闭菜单
+    this._contextMenuCloseHandler = (e) => {
+      if (e.type === 'keydown' && e.key !== 'Escape') return;
+      // 点击菜单本身不关闭
+      if (e.type === 'mousedown' && this._contextMenuEl.contains(e.target)) return;
+      this._hideContextMenu();
+    };
+    document.addEventListener('mousedown', this._contextMenuCloseHandler);
+    document.addEventListener('keydown', this._contextMenuCloseHandler);
+  }
+
+  /** 销毁，清理资源 */
+  destroy() {
+    document.removeEventListener('mousedown', this._contextMenuCloseHandler);
+    document.removeEventListener('keydown', this._contextMenuCloseHandler);
+    if (this._contextMenuEl && this._contextMenuEl.parentNode) {
+      this._contextMenuEl.parentNode.removeChild(this._contextMenuEl);
+    }
+    if (this._refreshDebounceTimer) {
+      clearTimeout(this._refreshDebounceTimer);
+    }
+  }
+
+  // ========== 右键菜单 ==========
+
+  _createContextMenu() {
+    const el = document.createElement('div');
+    el.className = 'file-tree-context-menu';
+    el.innerHTML = `
+      <div class="file-tree-context-item" data-action="copy-absolute">
+        <span class="ctx-icon"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M6 2V1"/><path d="M10 2V1"/></svg></span>
+        <span class="ctx-label">复制绝对路径</span>
+      </div>
+      <div class="file-tree-context-item" data-action="copy-relative">
+        <span class="ctx-icon"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a2 2 0 0 1 2 2v7"/><path d="M2 5l3-3"/><path d="M2 5l3 3"/></svg></span>
+        <span class="ctx-label">复制相对路径</span>
+      </div>
+      <div class="file-tree-context-separator" data-action="sep1"></div>
+      <div class="file-tree-context-item" data-action="show-in-explorer">
+        <span class="ctx-icon"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg></span>
+        <span class="ctx-label">在资源管理器中显示</span>
+      </div>
+    `;
+
+    el.addEventListener('click', (e) => {
+      const item = e.target.closest('.file-tree-context-item');
+      if (!item) return;
+      const action = item.dataset.action;
+      const targetPath = el._targetPath;
+      if (!targetPath) return;
+
+      if (action === 'copy-absolute') {
+        this._copyToClipboard(targetPath);
+        this._hideContextMenu();
+      } else if (action === 'copy-relative') {
+        const relative = this._rootPath && targetPath.startsWith(this._rootPath + '/')
+          ? targetPath.slice(this._rootPath.length + 1)
+          : targetPath;
+        this._copyToClipboard(relative);
+        this._hideContextMenu();
+      } else if (action === 'show-in-explorer') {
+        if (window.HippoDesktop?.showItemInFolder) {
+          window.HippoDesktop.showItemInFolder(targetPath).catch(() => {});
+        }
+        this._hideContextMenu();
+      }
+    });
+
+    document.body.appendChild(el);
+    return el;
+  }
+
+  _showContextMenu(e, filePath, isDir) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const el = this._contextMenuEl;
+    el._targetPath = filePath;
+
+    // 根据 node 类型调整菜单项可见性
+    const showInExplorer = el.querySelector('[data-action="show-in-explorer"]');
+    if (showInExplorer) {
+      showInExplorer.style.display = window.HippoDesktop?.showItemInFolder ? '' : 'none';
+    }
+    // 目录下分隔线也可能需要调整，这里保持简单
+
+    // 定位：确保菜单不超出视口
+    const menuW = 200;
+    const menuH = el.querySelectorAll('.file-tree-context-item, .file-tree-context-separator').length * 34 + 8;
+    let left = e.clientX;
+    let top = e.clientY;
+    if (left + menuW > window.innerWidth) left = window.innerWidth - menuW - 8;
+    if (top + menuH > window.innerHeight) top = window.innerHeight - menuH - 8;
+    if (left < 4) left = 4;
+    if (top < 4) top = 4;
+
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+    el.classList.add('show');
+  }
+
+  _hideContextMenu() {
+    this._contextMenuEl.classList.remove('show');
+  }
+
+  _copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {
+        this._fallbackCopy(text);
+      });
+    } else {
+      this._fallbackCopy(text);
+    }
+  }
+
+  _fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+    } catch (e) {
+      console.error('复制失败:', e);
+    }
+    document.body.removeChild(textarea);
   }
 
   /** 设置根路径并加载（完整加载，清空展开状态） */
@@ -266,6 +395,10 @@ export class FileTree {
       toggleDir();
     });
 
+    nodeEl.addEventListener('contextmenu', (e) => {
+      this._showContextMenu(e, fullPath, true);
+    });
+
     parentEl.appendChild(nodeEl);
     parentEl.appendChild(childrenEl);
   }
@@ -292,6 +425,10 @@ export class FileTree {
     nodeEl.addEventListener('click', (e) => {
       e.stopPropagation();
       this._onFileSelect(fullPath);
+    });
+
+    nodeEl.addEventListener('contextmenu', (e) => {
+      this._showContextMenu(e, fullPath, false);
     });
 
     if (fullPath === this._activeFilePath) {

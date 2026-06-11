@@ -357,6 +357,9 @@ public final class DesktopApplication {
                     case "setRecentFolders":
                         handleSetRecentFolders(json, callback);
                         break;
+                    case "showItemInFolder":
+                        handleShowItemInFolder(json, callback);
+                        break;
                     // ===== 窗口控制 =====
                     case "windowMinimize":
                         SwingUtilities.invokeLater(DesktopApplication::minimizeWindow);
@@ -492,6 +495,24 @@ public final class DesktopApplication {
                 callback.success("{}");
             } catch (Exception e) {
                 logger.error("保存最近文件夹配置失败", e);
+                callback.failure(500, e.getMessage());
+            }
+        }
+
+        private void handleShowItemInFolder(JsonNode json, CefQueryCallback callback) {
+            try {
+                String path = json.has("path") ? json.get("path").asText() : null;
+                if (path == null || path.isBlank()) {
+                    callback.failure(400, "Missing path parameter");
+                    return;
+                }
+                // Windows: explorer /select 会选中文件并打开所在文件夹
+                // 如果是目录，直接打开目录本身
+                String cmd = "explorer /select,\"" + path.replace("/", "\\") + "\"";
+                Runtime.getRuntime().exec(cmd);
+                callback.success("{}");
+            } catch (Exception e) {
+                logger.error("打开文件所在目录失败", e);
                 callback.failure(500, e.getMessage());
             }
         }
