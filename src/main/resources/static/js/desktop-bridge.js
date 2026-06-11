@@ -353,7 +353,11 @@ const HippoDesktop = (() => {
       // 1. 先从后端加载持久化的最近文件夹列表到 localStorage
       api.getRecentFolders().then((foldersStr) => {
         if (foldersStr && foldersStr !== '[]') {
-          try { localStorage.setItem('hippo-recent-folders', foldersStr); } catch(e) {}
+          try {
+            localStorage.setItem('hippo-recent-folders', foldersStr);
+            // 更新 localStorage 后重新渲染下拉框，否则下拉框仍显示"暂无最近打开的文件夹"
+            ws?.renderRecentFolders?.();
+          } catch(e) {}
         }
       }).catch(() => {});
 

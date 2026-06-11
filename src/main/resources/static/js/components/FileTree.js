@@ -13,6 +13,8 @@
  *   - highlight.js (hljs) — 用于识别文件语言图标
  */
 
+import { getFileIconInfo } from '../utils/file-icons.js';
+
 export class FileTree {
   /**
    * @param {Object} options
@@ -411,10 +413,14 @@ export class FileTree {
     spacer.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 4 10 8 6 12"/></svg>';
     nodeEl.appendChild(spacer);
 
-    // File icon
-    const iconEl = document.createElement('span');
+    // File icon — Material Icon Theme SVG
+    const { iconFile } = getFileIconInfo(entry.name);
+    const iconEl = document.createElement('img');
     iconEl.className = 'file-tree-icon file';
-    iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3.5z"/><path d="M10 1.5V5h3.5"/></svg>';
+    iconEl.src = 'icons/' + iconFile;
+    iconEl.draggable = false;
+    iconEl.alt = '';
+    iconEl.loading = 'lazy';
     nodeEl.appendChild(iconEl);
 
     const nameEl = document.createElement('span');

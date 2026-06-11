@@ -99,12 +99,18 @@
     justify-content: center;
 }
 
+.file-tree-icon.file {
+    color: var(--text-muted);
+}
+
 .file-tree-icon.folder {
     color: var(--accent);
 }
 
-.file-tree-icon.file {
-    color: var(--text-muted);
+/* 当图标为 <img> 时（Material Icon Theme SVG） */
+.file-tree-icon[src] {
+    display: inline-block;
+    object-fit: contain;
 }
 
 .file-tree-name {
