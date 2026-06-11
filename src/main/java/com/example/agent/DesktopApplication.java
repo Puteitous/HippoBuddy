@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -303,7 +304,7 @@ public final class DesktopApplication {
         private static final ObjectMapper MAPPER = new ObjectMapper();
 
         /** 持有异步回调的强引用，防止被 GC 导致 "Unexpected call to finalize" */
-        private static final List<CefQueryCallback> pendingCallbacks = new ArrayList<>();
+        private static final List<CefQueryCallback> pendingCallbacks = new CopyOnWriteArrayList<>();
 
         @Override
         public boolean onQuery(CefBrowser browser, CefFrame frame, long queryId,
@@ -324,7 +325,7 @@ public final class DesktopApplication {
                         handleWriteFile(json, callback);
                         break;
                     case "openFileDialog":
-                        handleOpenFileDialog(callback);
+                        handleOpenFileDialog(browser, callback);
                         break;
                     case "getCurrentFolder":
                         callback.success(MAPPER.writeValueAsString(
@@ -592,34 +593,40 @@ public final class DesktopApplication {
             callback.success(MAPPER.writeValueAsString(result));
         }
 
-        private void handleOpenFileDialog(CefQueryCallback callback) {
-            // 加入列表防止 callback 在异步操作期间被 GC
-            pendingCallbacks.add(callback);
-            Runnable task = () -> {
+        private void handleOpenFileDialog(CefBrowser browser, CefQueryCallback callback) {
+            // 立即确认请求，CEF 不会超时或清理回调
+            callback.success("{\"status\":\"pending\"}");
+            // 在普通工作线程上运行，避免阻塞 CEF 线程
+            new Thread(() -> {
                 try {
-                    String path = NativeFolderPicker.chooseFolder(mainFrame);
-                    if (path != null) {
-                        WorkspaceContext.setCurrentFolder(path);
-                        WorkspaceContext.save();
-                        callback.success(MAPPER.writeValueAsString(
-                                MAPPER.createObjectNode().put("path", path)));
-                    } else {
-                        callback.success(MAPPER.writeValueAsString(
-                                MAPPER.createObjectNode().putNull("path")));
-                    }
-                } catch (Exception e) {
-                    logger.error("DesktopBridge: openFileDialog failed", e);
-                    callback.failure(500, e.getMessage());
-                } finally {
-                    pendingCallbacks.remove(callback);
-                }
-            };
+                    String[] pathHolder = new String[1];
+                    SwingUtilities.invokeAndWait(() -> {
+                        pathHolder[0] = NativeFolderPicker.chooseFolder(mainFrame);
+                    });
+                    String path = pathHolder[0];
 
-            if (SwingUtilities.isEventDispatchThread()) {
-                task.run();
-            } else {
-                SwingUtilities.invokeLater(task);
-            }
+                    final String selectedPath = (path != null && !path.isBlank()) ? path : null;
+                    if (selectedPath != null) {
+                        SwingUtilities.invokeAndWait(() -> {
+                            WorkspaceContext.setCurrentFolder(selectedPath);
+                            WorkspaceContext.save();
+                        });
+                    }
+
+                    ObjectNode result = MAPPER.createObjectNode();
+                    if (selectedPath != null) {
+                        result.put("path", selectedPath);
+                    } else {
+                        result.putNull("path");
+                    }
+                    String js = "window._onOpenFolderResult(" + MAPPER.writeValueAsString(result) + ")";
+                    SwingUtilities.invokeLater(() -> browser.executeJavaScript(js, "", 0));
+                } catch (Exception e) {
+                    logger.error("openFileDialog failed", e);
+                    SwingUtilities.invokeLater(() ->
+                        browser.executeJavaScript("window._onOpenFolderResult({\"path\":null})", "", 0));
+                }
+            }, "open-file-dialog").start();
         }
     }
 }

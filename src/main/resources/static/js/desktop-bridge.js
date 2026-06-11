@@ -18,9 +18,19 @@ const HippoDesktop = (() => {
         reject(new Error('Not running in JCEF environment'));
         return;
       }
+
+      // openFileDialog 使用 executeJavaScript 回调（避免 CEF 异步查询超时问题）
+      if (action === 'openFileDialog') {
+        window._onOpenFolderResult = (result) => {
+          resolve(result);
+        };
+      }
+
       window.cefQuery({
         request: JSON.stringify({ action, ...payload }),
         onSuccess: (response) => {
+          // openFileDialog 会先收到 {"status":"pending"}，忽略它，等待 executeJavaScript 回调
+          if (action === 'openFileDialog') return;
           try {
             resolve(JSON.parse(response));
           } catch {
@@ -28,6 +38,8 @@ const HippoDesktop = (() => {
           }
         },
         onFailure: (errCode, errMsg) => {
+          // openFileDialog 的 onFailure 也忽略（真正的错误由超时处理兜底）
+          if (action === 'openFileDialog') return;
           reject(new Error(errMsg || `Error ${errCode}`));
         }
       });
@@ -287,7 +299,6 @@ const HippoDesktop = (() => {
           showToast('工作区已切换: ' + result.path);
         }
       } catch (err) {
-        console.error('openFolder failed', err);
         showToast('打开文件夹失败: ' + err.message);
       }
     };
