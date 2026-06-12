@@ -71,15 +71,14 @@ const HippoDesktop = (() => {
 
   function initDrag() {
     const header = document.querySelector('.header');
-    const brand = document.querySelector('.header-brand');
-    if (!header || !brand) return;
+    if (!header) return;
 
     // 只有桌面端才启用拖拽
     if (!api.isAvailable) return;
 
-    brand.addEventListener('mousedown', (e) => {
+    header.addEventListener('mousedown', (e) => {
       // 排除对按钮/可交互元素的拖拽
-      if (e.target.closest('button, .header-brand-icon, input, textarea, select')) return;
+      if (e.target.closest('button, .header-brand-icon, .window-controls, input, textarea, select')) return;
 
       dragState = {
         startX: e.screenX,
@@ -232,6 +231,15 @@ const HippoDesktop = (() => {
 
     setRecentFolders(folders) {
       return send('setRecentFolders', { folders });
+    },
+
+    // ===== 工作区会话持久化 =====
+    getWorkspaceSession() {
+      return send('getWorkspaceSession').then(r => r && r.session);
+    },
+
+    setWorkspaceSession(session) {
+      return send('setWorkspaceSession', { session });
     },
 
     // ===== 文件系统工具 =====

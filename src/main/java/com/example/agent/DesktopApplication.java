@@ -286,6 +286,10 @@ public final class DesktopApplication {
         return WorkspaceManager.getGlobalConfigDir().resolve("recent-folders.json");
     }
 
+    private static Path getWorkspaceSessionConfigPath() {
+        return WorkspaceManager.getGlobalConfigDir().resolve("workspace-session.json");
+    }
+
     private static void moveWindow(int x, int y) {
         mainFrame.setLocation(x, y);
     }
@@ -358,6 +362,12 @@ public final class DesktopApplication {
                     case "setRecentFolders":
                         handleSetRecentFolders(json, callback);
                         break;
+                    case "getWorkspaceSession":
+                        handleGetWorkspaceSession(callback);
+                        break;
+                    case "setWorkspaceSession":
+                        handleSetWorkspaceSession(json, callback);
+                        break;
                     case "showItemInFolder":
                         handleShowItemInFolder(json, callback);
                         break;
@@ -396,7 +406,11 @@ public final class DesktopApplication {
                         break;
                     case "windowGetState":
                         ObjectNode state = MAPPER.createObjectNode();
-                        state.put("maximized", maximized);
+                        // 从 JFrame 实际状态读取，避免与 cached maximized 不同步
+                        int actualState = mainFrame.getExtendedState();
+                        boolean actuallyMaximized = (actualState & Frame.MAXIMIZED_BOTH) != 0;
+                        maximized = actuallyMaximized; // 同步缓存
+                        state.put("maximized", actuallyMaximized);
                         state.put("x", mainFrame.getX());
                         state.put("y", mainFrame.getY());
                         state.put("width", mainFrame.getWidth());
@@ -496,6 +510,39 @@ public final class DesktopApplication {
                 callback.success("{}");
             } catch (Exception e) {
                 logger.error("保存最近文件夹配置失败", e);
+                callback.failure(500, e.getMessage());
+            }
+        }
+
+        private void handleGetWorkspaceSession(CefQueryCallback callback) {
+            try {
+                Path file = getWorkspaceSessionConfigPath();
+                String data = "null";
+                if (Files.exists(file)) {
+                    data = Files.readString(file).trim();
+                }
+                callback.success(MAPPER.writeValueAsString(
+                        MAPPER.createObjectNode().put("session", data)));
+            } catch (Exception e) {
+                logger.error("读取工作区会话配置失败", e);
+                callback.success("{\"session\":null}");
+            }
+        }
+
+        private void handleSetWorkspaceSession(JsonNode json, CefQueryCallback callback) {
+            try {
+                String session = json.has("session") ? json.get("session").asText() : "null";
+                Path file = getWorkspaceSessionConfigPath();
+                Files.createDirectories(file.getParent());
+                if ("null".equals(session) || session.isEmpty()) {
+                    Files.deleteIfExists(file);
+                } else {
+                    Files.writeString(file, session);
+                }
+                logger.debug("工作区会话已保存");
+                callback.success("{}");
+            } catch (Exception e) {
+                logger.error("保存工作区会话失败", e);
                 callback.failure(500, e.getMessage());
             }
         }

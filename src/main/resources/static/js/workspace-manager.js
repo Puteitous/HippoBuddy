@@ -126,11 +126,25 @@ const HippoWorkspace = (() => {
 
   // ========== 工作区会话持久化（标签页 + 预览恢复） ==========
 
+  function _loadSessionFromBackend() {
+    if (!window.HippoDesktop?.isAvailable) return Promise.resolve(null);
+    return window.HippoDesktop.getWorkspaceSession().then(raw => {
+      if (!raw || raw === 'null') return null;
+      return JSON.parse(raw);
+    }).catch(() => null);
+  }
+
+  function _saveSessionToBackend(session) {
+    if (!window.HippoDesktop?.isAvailable) return;
+    window.HippoDesktop.setWorkspaceSession(session ? JSON.stringify(session) : null).catch(() => {});
+  }
+
   function _saveWorkspaceSession() {
     if (!_currentRoot) return;
     const openFiles = fileTabs.openPaths;
     if (openFiles.length === 0) {
       try { localStorage.removeItem('hippo-workspace-session'); } catch(e) {}
+      _saveSessionToBackend(null);
       return;
     }
     const session = {
@@ -141,41 +155,64 @@ const HippoWorkspace = (() => {
     try {
       localStorage.setItem('hippo-workspace-session', JSON.stringify(session));
     } catch(e) {}
+    _saveSessionToBackend(session);
   }
 
   function _restoreWorkspaceSession() {
     if (!_currentRoot) return;
+    // 桌面端优先从后端文件加载（localStorage 在 JCEF 中可能不持久）
+    const desktop = window.HippoDesktop?.isAvailable;
+    if (desktop) {
+      _loadSessionFromBackend().then(session => {
+        if (session) _applyRestoredSession(session);
+        else _restoreFromLocalStorage();
+      }).catch(() => _restoreFromLocalStorage());
+    } else {
+      _restoreFromLocalStorage();
+    }
+  }
+
+  function _restoreFromLocalStorage() {
     try {
       const raw = localStorage.getItem('hippo-workspace-session');
       if (!raw) return;
       const session = JSON.parse(raw);
-      // 只恢复同一个工作区的标签页
       if (session.root !== _currentRoot) return;
-
-      const files = session.openFiles || [];
-      if (files.length === 0) return;
-
-      // 临时替换回调，批量打开标签时不逐个触发预览
-      const savedCallback = fileTabs._onTabSelect;
-      fileTabs._onTabSelect = () => {};
-
-      for (const filePath of files) {
-        const displayName = filePath.split('/').pop() || filePath;
-        fileTabs.openTab(filePath, displayName);
-      }
-
-      // 恢复回调
-      fileTabs._onTabSelect = savedCallback;
-
-      // 切换到激活的文件（会通过回调触发预览 + 文件树高亮）
-      if (session.activeFile && files.includes(session.activeFile)) {
-        fileTabs._selectTab(session.activeFile);
-      } else {
-        fileTabs._selectTab(files[files.length - 1]);
-      }
+      _applyRestoredSession(session);
     } catch(e) {
-      console.warn('恢复工作区标签页失败', e);
+      console.warn('从 localStorage 恢复工作区标签页失败', e);
     }
+  }
+
+  function _applyRestoredSession(session) {
+    const files = session.openFiles || [];
+    if (files.length === 0) return;
+
+    // 临时替换回调，批量打开标签时不逐个触发预览
+    const savedCallback = fileTabs._onTabSelect;
+    fileTabs._onTabSelect = () => {};
+
+    for (const filePath of files) {
+      const displayName = filePath.split('/').pop() || filePath;
+      fileTabs.openTab(filePath, displayName);
+    }
+
+    // 恢复回调
+    fileTabs._onTabSelect = savedCallback;
+
+    // 切换到激活的文件
+    if (session.activeFile && files.includes(session.activeFile)) {
+      fileTabs._selectTab(session.activeFile);
+    } else {
+      fileTabs._selectTab(files[files.length - 1]);
+    }
+
+    // 显式触发预览（_selectTab 在目标已是 activePath 时会提前返回，不触发回调）
+    const target = session.activeFile && files.includes(session.activeFile)
+      ? session.activeFile
+      : files[files.length - 1];
+    fileTree.setActiveFile(target);
+    showPreview(target);
   }
 
   function _renderRecentFolders() {
