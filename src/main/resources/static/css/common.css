@@ -380,14 +380,12 @@ input, textarea {
   mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 10px), transparent 100%);
 }
 
-.empty-hero-input::-webkit-scrollbar {
-  display: none;
-}
+
 
 .hero-input-wrapper {
   position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
 }
 
 .hero-send-btn {
@@ -429,11 +427,18 @@ input, textarea {
   transform: translateY(-1px);
 }
 
-/* Hero 输入框为空时隐藏发送按钮 */
+/* Hero 输入框为空时隐藏发送按钮；有引用卡片时强制显示 */
 .hero-input-wrapper:has(.empty-hero-input:placeholder-shown) .hero-send-btn {
   visibility: hidden;
   opacity: 0;
 }
+
+.hero-input-wrapper:has(.empty-hero-input-refs:not(:empty)) .hero-send-btn {
+  visibility: visible;
+  opacity: 1;
+}
+
+
 
 .empty-hero-input:focus {
   border-color: #d1d5db;

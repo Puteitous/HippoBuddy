@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 function setupDOM() {
   document.body.innerHTML = `
-    <div id="chatContainer" style="height:500px;overflow:auto"></div>
+    <div class="chat-panel has-messages">
+      <div id="chatContainer" style="height:500px;overflow:auto"></div>
+    </div>
     <textarea id="messageInput"></textarea>
     <button id="sendBtn">➤</button>
     <button id="stopBtn" style="display:none">⏹</button>

@@ -448,9 +448,14 @@
     border-radius: var(--radius-sm);
     line-height: 1.6;
     cursor: default;
-    white-space: nowrap;
+}
+
+.input-ref-chip-text {
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .input-ref-chip-icon {
@@ -492,13 +497,29 @@
     display: none;
     flex-wrap: wrap;
     gap: 4px;
-    padding: 0 2px;
-    margin-bottom: 6px;
+    padding: 8px 14px 0;
     min-height: 0;
+    background: var(--bg-app);
+    border: 2px solid var(--border);
+    border-bottom: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)) .empty-hero-input {
-    border-color: var(--accent-color, #4d6b99);
+    border-top: none;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+
+.empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)) .empty-hero-input:focus {
+    border-color: var(--border);
+    box-shadow: none;
+}
+
+.empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)) .empty-hero-input-refs {
+    display: flex;
 }
 
 .empty-hero-input-refs .input-ref-chip {

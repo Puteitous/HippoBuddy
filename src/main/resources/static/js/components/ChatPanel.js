@@ -90,75 +90,51 @@ export class ChatPanel {
 
     // 监听文本选中快捷操作 → 插入输入框
     this._unsubscribeSelectionAction = EventBus.on('selection:add-to-input', ({ text, refType, filePath, startLine, endLine }) => {
-      // hero 空态 → 加卡片到 hero 引用栏
-      const heroRefsBar = document.getElementById('heroInputRefs');
-      if (heroRefsBar) {
-        this._addRefChip(heroRefsBar, text, refType, filePath, startLine, endLine);
-        const heroInput = document.getElementById('heroInput');
-        if (heroInput) heroInput.focus();
-        return;
-      }
-
-      // 会话态 → 加卡片到 #inputRefs
-      const refsBar = document.getElementById('inputRefs');
-      if (refsBar) {
-        this._addRefChip(refsBar, text, refType, filePath, startLine, endLine);
-        const messageInput = document.getElementById('messageInput');
-        if (messageInput) messageInput.focus();
+      const bar = this._getActiveRefsBar();
+      if (bar) {
+        this._addRefChip(bar, text, refType, filePath, startLine, endLine);
+        const input = this._getActiveInput();
+        if (input) input.focus();
       }
     });
   }
   
   bindEvents() {
     if (!this.container) return;
-    // 输入框事件
-    if (this.elements.messageInput) {
-      this.elements.messageInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-          e.preventDefault();
-          if (this.isSendingMessage) return;
-          this.sendMessage();
-        }
-      });
-      
-      this.elements.messageInput.addEventListener('input', () => {
-        const el = this.elements.messageInput;
-        const prevHeight = el.style.height;
-        el.style.height = 'auto';
-        const newHeight = Math.min(el.scrollHeight, 300) + 'px';
-        el.style.height = prevHeight || el.offsetHeight + 'px';
-        void el.offsetHeight;
-        el.style.height = newHeight;
-      });
-    }
-    
-    // Hero 输入框事件（事件代理）
+    // 输入框事件：统一事件代理，自动适配 hero / session
     this.container.addEventListener('keydown', (e) => {
-      const heroInput = e.target.closest('#heroInput');
-      if (!heroInput) return;
+      const input = e.target.closest('#messageInput, #heroInput');
+      if (!input) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         if (this.isSendingMessage) return;
-        const content = this._getHeroCombinedInput();
+        const content = this._getCombinedInput();
         if (content) {
-          heroInput.value = '';
-          heroInput.style.height = 'auto';
+          input.value = '';
+          input.style.height = 'auto';
           this._clearRefs();
           this.sendMessage(content);
         }
       }
     });
     
-    this.container.addEventListener('input', (e) => {
-      const heroInput = e.target.closest('#heroInput');
-      if (!heroInput) return;
-      const prevHeight = heroInput.style.height;
-      heroInput.style.height = 'auto';
-      const newHeight = Math.min(heroInput.scrollHeight, 300) + 'px';
-      heroInput.style.height = prevHeight || heroInput.offsetHeight + 'px';
-      void heroInput.offsetHeight;
-      heroInput.style.height = newHeight;
-    });
+    this._inputResizeHandler = (e) => {
+      const input = e.target.closest('#messageInput, #heroInput');
+      if (!input) return;
+      const prev = input.style.height;
+      // 测量时临时禁用过渡，避免干扰 scrollHeight
+      const origTransition = input.style.transition;
+      input.style.transition = 'none';
+      input.style.height = 'auto';
+      const newHeight = Math.min(input.scrollHeight, 300) + 'px';
+      // 恢复旧高度，为过渡动画做准备
+      input.style.height = prev || (input.offsetHeight + 'px');
+      // 恢复 transition，强制 reflow 后让动画生效
+      input.style.transition = origTransition || '';
+      void input.offsetHeight;
+      input.style.height = newHeight;
+    };
+    document.addEventListener('input', this._inputResizeHandler);
     
     // Hero 快捷建议按钮
     this.container.addEventListener('click', (e) => {
@@ -184,12 +160,12 @@ export class ChatPanel {
       // Hero 发送按钮
       const heroSendBtn = e.target.closest('#heroSendBtn');
       if (heroSendBtn) {
-        const heroInput = document.getElementById('heroInput');
-        if (heroInput) {
-          const content = this._getHeroCombinedInput();
+        const input = this._getActiveInput();
+        if (input) {
+          const content = this._getCombinedInput();
           if (content) {
-            heroInput.value = '';
-            heroInput.style.height = 'auto';
+            input.value = '';
+            input.style.height = 'auto';
             this._clearRefs();
             this.sendMessage(content);
           }
@@ -284,11 +260,12 @@ export class ChatPanel {
   
   /**
    * 获取合并后的输入内容：引用卡片（代码块） + textarea 文字
+   * 自动适配 hero / session 态
    */
   _getCombinedInput() {
-    const refsBar = document.getElementById('inputRefs');
-    const textarea = this.elements.messageInput;
-    const typed = textarea?.value.trim() || '';
+    const refsBar = this._getActiveRefsBar();
+    const input = this._getActiveInput();
+    const typed = input?.value.trim() || '';
 
     const chips = refsBar ? [...refsBar.querySelectorAll('.input-ref-chip')] : [];
     const refTexts = chips.map(c => {
@@ -320,14 +297,17 @@ export class ChatPanel {
     if (refType === 'file' && filePath) {
       const fileName = filePath.split('/').pop();
       const { iconFile } = getFileIconInfo(fileName);
-      chip.innerHTML = `<img src="icons/${iconFile}" class="input-ref-chip-icon" draggable="false"> ${fileName}<span class="input-ref-chip-lines">:${startLine}-${endLine}</span>`;
+      chip.innerHTML = `<img src="icons/${iconFile}" class="input-ref-chip-icon" draggable="false"> <span class="input-ref-chip-text">${fileName}<span class="input-ref-chip-lines">:${startLine}-${endLine}</span></span>`;
       chip.title = `${filePath}:${startLine}-${endLine}`;
       chip.dataset.refType = 'file';
       chip.dataset.filePath = filePath;
       chip.dataset.startLine = startLine;
       chip.dataset.endLine = endLine;
     } else {
-      chip.textContent = text.length > 120 ? text.slice(0, 120) + '…' : text;
+      const textSpan = document.createElement('span');
+      textSpan.className = 'input-ref-chip-text';
+      textSpan.textContent = text.length > 120 ? text.slice(0, 120) + '…' : text;
+      chip.appendChild(textSpan);
       chip.title = text;
     }
     const closeBtn = document.createElement('button');
@@ -345,37 +325,34 @@ export class ChatPanel {
   }
 
   /**
-   * 获取 hero 输入合并内容：引用卡片 + heroInput 文字
-   */
-  _getHeroCombinedInput() {
-    const refsBar = document.getElementById('heroInputRefs');
-    const heroInput = document.getElementById('heroInput');
-    const typed = heroInput?.value.trim() || '';
-
-    const chips = refsBar ? [...refsBar.querySelectorAll('.input-ref-chip')] : [];
-    const refTexts = chips.map(c => {
-      if (c.dataset.refType === 'file' && c.dataset.filePath) {
-        return `@${c.dataset.filePath}:${c.dataset.startLine}-${c.dataset.endLine}`;
-      }
-      const full = c.title || c.textContent.replace('×', '').trim();
-      return '```\n' + full + '\n```';
-    });
-
-    if (refTexts.length === 0) return typed;
-    return refTexts.join('\n') + (typed ? '\n\n' + typed : '');
-  }
-
-  /**
-   * 清空引用卡片（会话态 + hero 态）
+   * 清空当前可见的引用卡片栏
    */
   _clearRefs() {
-    const bars = [document.getElementById('inputRefs'), document.getElementById('heroInputRefs')];
-    for (const bar of bars) {
-      if (bar) {
-        bar.innerHTML = '';
-        bar.style.display = 'none';
-      }
+    const bar = this._getActiveRefsBar();
+    if (bar) {
+      bar.innerHTML = '';
+      bar.style.display = 'none';
     }
+  }
+
+  // ── 模式检测辅助方法 ────────────────────────────
+
+  /** 当前是否为会话态（相对于 hero 空态） */
+  _isSession() {
+    return this.container?.closest('.chat-panel')?.classList.contains('has-messages') ?? false;
+  }
+
+  /** 获取当前可见的输入框元素 */
+  _getActiveInput() {
+    // session 态用 #messageInput，hero 态用 #heroInput
+    const id = this._isSession() ? 'messageInput' : 'heroInput';
+    return document.getElementById(id) || document.getElementById('messageInput') || document.getElementById('heroInput');
+  }
+
+  /** 获取当前可见的引用卡片栏 */
+  _getActiveRefsBar() {
+    const id = this._isSession() ? 'inputRefs' : 'heroInputRefs';
+    return document.getElementById(id) || document.getElementById('inputRefs') || document.getElementById('heroInputRefs');
   }
 
   /**
@@ -1605,6 +1582,10 @@ export class ChatPanel {
     }
     if (this._unsubscribeSelectionAction) {
       this._unsubscribeSelectionAction();
+    }
+    if (this._inputResizeHandler) {
+      document.removeEventListener('input', this._inputResizeHandler);
+      this._inputResizeHandler = null;
     }
   }
 }

@@ -481,6 +481,7 @@ async function switchSession(sessionId) {
           <p class="empty-hero-subtitle">你的 AI 编码助手</p>
           <div class="empty-hero-input-area">
             <div class="hero-input-wrapper">
+              <div class="empty-hero-input-refs" id="heroInputRefs"></div>
               <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
               <button class="hero-send-btn" id="heroSendBtn" title="发送">
                 <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -522,21 +523,22 @@ async function switchSession(sessionId) {
         <p class="empty-hero-subtitle">你的 AI 编码助手</p>
         <div class="empty-hero-input-area">
           <div class="hero-input-wrapper">
+            <div class="empty-hero-input-refs" id="heroInputRefs"></div>
             <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
-            <button class="hero-send-btn" id="heroSendBtn" title="发送">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="8" y1="15" x2="8" y2="1"/>
-                <polyline points="2 7 8 1 14 7"/>
-              </svg>
-            </button>
-          </div>
+          <button class="hero-send-btn" id="heroSendBtn" title="发送">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="8" y1="15" x2="8" y2="1"/>
+              <polyline points="2 7 8 1 14 7"/>
+            </svg>
+          </button>
         </div>
-        <div class="empty-hero-suggestions">
-          <button class="empty-hero-suggestion" data-prompt="分析一下这个项目的结构和主要功能">分析项目结构</button>
-          <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
-          <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
-        </div>
-      </div>`;
+      </div>
+      <div class="empty-hero-suggestions">
+        <button class="empty-hero-suggestion" data-prompt="分析一下这个项目的结构和主要功能">分析项目结构</button>
+        <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
+        <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
+      </div>
+    </div>`;
   }
   
   requestAnimationFrame(() => {

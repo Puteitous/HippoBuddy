@@ -153,11 +153,30 @@ export function initSelectionActions() {
     const container = range.commonAncestorContainer;
     if (!isInSelectableArea(container)) return null;
 
-    // 折叠到末尾，取光标精确位置，而非整个选区的边界框
+    // 判断选择方向：从下往上选时，折叠到开头（真正的视觉末尾）
+    const isBackwards = (() => {
+      if (!selection.anchorNode || !selection.focusNode) return false;
+      const pos = selection.anchorNode.compareDocumentPosition(selection.focusNode);
+      if (pos & Node.DOCUMENT_POSITION_PRECEDING) return true;  // focusNode 在 anchorNode 之前 → 反向
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return false; // focusNode 在 anchorNode 之后 → 正向
+      // 同一节点，比较 offset
+      return selection.anchorOffset > selection.focusOffset;
+    })();
+
     const endRange = range.cloneRange();
-    endRange.collapse(false);
+    endRange.collapse(isBackwards); // 反向选择时折叠到开头而非末尾
     const rect = endRange.getBoundingClientRect();
     if (!rect) return null;
+
+    // 检查光标位置是否还在容器的可视区域内
+    const selectableEl = (container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement).closest(SELECTABLE_AREAS.join(','));
+    if (selectableEl) {
+      const containerRect = selectableEl.getBoundingClientRect();
+      const margin = 2; // 允许 2px 容差
+      if (rect.bottom < containerRect.top - margin || rect.top > containerRect.bottom + margin) {
+        return null; // 选区已滚出可视区域
+      }
+    }
 
     return { x: rect.left, y: rect.bottom };
   }
@@ -182,8 +201,18 @@ export function initSelectionActions() {
     }
   });
 
-  // ── 滚动时隐藏 ───────────────────────────────
+  // ── 滚动时重新定位 ───────────────────────────
+  let scrollRafId = null;
   document.addEventListener('scroll', () => {
-    hideBtn();
+    if (scrollRafId) return;
+    scrollRafId = requestAnimationFrame(() => {
+      scrollRafId = null;
+      const pos = getSelectionPosition();
+      if (pos) {
+        showBtn(pos.x, pos.y);
+      } else {
+        hideBtn();
+      }
+    });
   }, true);
 }

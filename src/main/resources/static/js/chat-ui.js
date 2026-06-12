@@ -28,6 +28,7 @@ export class ChatUI {
         <p class="empty-hero-subtitle">你的 AI 编码助手</p>
         <div class="empty-hero-input-area">
           <div class="hero-input-wrapper">
+            <div class="empty-hero-input-refs" id="heroInputRefs"></div>
             <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
             <button class="hero-send-btn" id="heroSendBtn" title="发送">
                     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
