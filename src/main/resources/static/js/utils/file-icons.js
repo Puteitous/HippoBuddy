@@ -117,11 +117,17 @@ function _getBaseName(fileName) {
 /**
  * 获取文件图标信息
  * @param {string} fileName
+ * @param {{ isDirectory?: boolean }} [options]
  * @returns {{ iconFile: string }}
  *   - iconFile: SVG 文件名（如 "javascript.svg"），相对于 /icons/ 目录
  */
-export function getFileIconInfo(fileName) {
+export function getFileIconInfo(fileName, options) {
   if (!fileName) return { iconFile: 'file.svg' };
+
+  // 文件夹
+  if (options?.isDirectory) {
+    return { iconFile: 'folder.svg' };
+  }
 
   const baseName = _getBaseName(fileName);
 

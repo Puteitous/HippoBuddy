@@ -416,12 +416,32 @@
 
 .empty-hero-input-area.drag-over .empty-hero-input {
     border-color: var(--accent-color, #4d6b99);
-    box-shadow: 0 0 0 2px rgba(77, 107, 153, 0.15);
+    box-shadow: 0 0 0 2px rgba(77, 107, 153, 0.15),
+                0 0 24px rgba(77, 107, 153, 0.08);
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+
+.empty-hero-input-area.drag-over .empty-hero-input-refs {
+    border-color: var(--accent-color, #4d6b99);
+    border-bottom: none;
+    box-shadow: 0 0 0 2px rgba(77, 107, 153, 0.15),
+                0 0 24px rgba(77, 107, 153, 0.08);
 }
 
 [data-theme="dark"] .empty-hero-input-area.drag-over .empty-hero-input {
     border-color: var(--accent-color, #7b9fcf);
-    box-shadow: 0 0 0 2px rgba(123, 159, 207, 0.2);
+    box-shadow: 0 0 0 2px rgba(123, 159, 207, 0.2),
+                0 0 24px rgba(123, 159, 207, 0.1);
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+
+[data-theme="dark"] .empty-hero-input-area.drag-over .empty-hero-input-refs {
+    border-color: var(--accent-color, #7b9fcf);
+    border-bottom: none;
+    box-shadow: 0 0 0 2px rgba(123, 159, 207, 0.2),
+                0 0 24px rgba(123, 159, 207, 0.1);
 }
 
 /* ── 引用卡片栏 ──────────────────────────────── */
@@ -503,6 +523,7 @@
     border: 2px solid var(--border);
     border-bottom: none;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transition: border-color var(--transition-fast);
 }
 
 .empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)) .empty-hero-input {
@@ -515,6 +536,14 @@
 
 .empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)) .empty-hero-input:focus {
     border-color: var(--border);
+    box-shadow: none;
+}
+
+.empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)).drag-over .empty-hero-input {
+    box-shadow: none;
+}
+
+[data-theme="dark"] .empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)).drag-over .empty-hero-input {
     box-shadow: none;
 }
 

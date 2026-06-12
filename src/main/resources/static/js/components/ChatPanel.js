@@ -218,15 +218,15 @@ export class ChatPanel {
     }
 
     // ── 拖拽文件到输入框 ─────────────────────────────
-    this.container.addEventListener('dragover', (e) => {
+    this._dragOverHandler = (e) => {
       const inputArea = e.target.closest('#inputContainer, .empty-hero-input-area');
       if (!inputArea) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
       inputArea.classList.add('drag-over');
-    });
+    };
 
-    this.container.addEventListener('dragleave', (e) => {
+    this._dragLeaveHandler = (e) => {
       const inputArea = e.target.closest('#inputContainer, .empty-hero-input-area');
       if (!inputArea) return;
       // 只在真正离开容器时移除高亮
@@ -234,9 +234,9 @@ export class ChatPanel {
       if (!related || !inputArea.contains(related)) {
         inputArea.classList.remove('drag-over');
       }
-    });
+    };
 
-    this.container.addEventListener('drop', (e) => {
+    this._dropHandler = (e) => {
       const inputArea = e.target.closest('#inputContainer, .empty-hero-input-area');
       if (!inputArea) return;
       e.preventDefault();
@@ -245,17 +245,18 @@ export class ChatPanel {
       const path = e.dataTransfer.getData('text/plain');
       if (!path) return;
 
-      const textarea = inputArea.querySelector('#messageInput, #heroInput');
-      if (!textarea) return;
+      const dragType = e.dataTransfer.getData('text/x-hippo-type');
+      const bar = this._getActiveRefsBar();
+      if (bar) {
+        this._addRefChip(bar, path, 'file', path, undefined, undefined, { isDirectory: dragType === 'directory' });
+        const input = this._getActiveInput();
+        if (input) input.focus();
+      }
+    };
 
-      // 在光标位置插入路径
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      textarea.value = textarea.value.substring(0, start) + path + textarea.value.substring(end);
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-      textarea.focus();
-      textarea.selectionStart = textarea.selectionEnd = start + path.length;
-    });
+    document.addEventListener('dragover', this._dragOverHandler);
+    document.addEventListener('dragleave', this._dragLeaveHandler);
+    document.addEventListener('drop', this._dropHandler);
   }
   
   /**
@@ -270,8 +271,11 @@ export class ChatPanel {
     const chips = refsBar ? [...refsBar.querySelectorAll('.input-ref-chip')] : [];
     const refTexts = chips.map(c => {
       if (c.dataset.refType === 'file' && c.dataset.filePath) {
-        // 文件引用 → @path:line 格式
-        return `@${c.dataset.filePath}:${c.dataset.startLine}-${c.dataset.endLine}`;
+        const hasLines = c.dataset.startLine && c.dataset.endLine;
+        // 文件引用 → @path 或 @path:line-line 格式
+        return hasLines
+          ? `@${c.dataset.filePath}:${c.dataset.startLine}-${c.dataset.endLine}`
+          : `@${c.dataset.filePath}`;
       }
       // 纯文本 → 代码块
       const full = c.title || c.textContent.replace('×', '').trim();
@@ -290,15 +294,17 @@ export class ChatPanel {
    * @param {string} [filePath]
    * @param {number} [startLine]
    * @param {number} [endLine]
+   * @param {{ isDirectory?: boolean }} [options]
    */
-  _addRefChip(bar, text, refType, filePath, startLine, endLine) {
+  _addRefChip(bar, text, refType, filePath, startLine, endLine, options) {
     const chip = document.createElement('span');
     chip.className = 'input-ref-chip';
     if (refType === 'file' && filePath) {
       const fileName = filePath.split('/').pop();
-      const { iconFile } = getFileIconInfo(fileName);
-      chip.innerHTML = `<img src="icons/${iconFile}" class="input-ref-chip-icon" draggable="false"> <span class="input-ref-chip-text">${fileName}<span class="input-ref-chip-lines">:${startLine}-${endLine}</span></span>`;
-      chip.title = `${filePath}:${startLine}-${endLine}`;
+      const { iconFile } = getFileIconInfo(fileName, { isDirectory: options?.isDirectory });
+      const hasLines = startLine != null && endLine != null;
+      chip.innerHTML = `<img src="icons/${iconFile}" class="input-ref-chip-icon" draggable="false"> <span class="input-ref-chip-text">${fileName}${hasLines ? `<span class="input-ref-chip-lines">:${startLine}-${endLine}</span>` : ''}</span>`;
+      chip.title = hasLines ? `${filePath}:${startLine}-${endLine}` : filePath;
       chip.dataset.refType = 'file';
       chip.dataset.filePath = filePath;
       chip.dataset.startLine = startLine;
@@ -1586,6 +1592,12 @@ export class ChatPanel {
     if (this._inputResizeHandler) {
       document.removeEventListener('input', this._inputResizeHandler);
       this._inputResizeHandler = null;
+    }
+    if (this._dragOverHandler) {
+      document.removeEventListener('dragover', this._dragOverHandler);
+      document.removeEventListener('dragleave', this._dragLeaveHandler);
+      document.removeEventListener('drop', this._dropHandler);
+      this._dragOverHandler = this._dragLeaveHandler = this._dropHandler = null;
     }
   }
 }

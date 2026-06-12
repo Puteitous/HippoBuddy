@@ -405,6 +405,7 @@ export class FileTree {
     nodeEl.draggable = true;
     nodeEl.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', fullPath);
+      e.dataTransfer.setData('text/x-hippo-type', 'directory');
       e.dataTransfer.effectAllowed = 'copy';
     });
 
@@ -439,6 +440,7 @@ export class FileTree {
     nodeEl.draggable = true;
     nodeEl.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', fullPath);
+      e.dataTransfer.setData('text/x-hippo-type', 'file');
       e.dataTransfer.effectAllowed = 'copy';
       // 小拖拽图标
       const dragImg = document.createElement('span');
