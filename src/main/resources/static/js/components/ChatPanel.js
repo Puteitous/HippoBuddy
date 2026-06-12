@@ -7,6 +7,7 @@ import { EventBus } from '../utils/event-bus.js';
 import { RenderPipeline } from './RenderPipeline.js';
 import { EventRouter } from './EventRouter.js';
 import { MessageSession } from './MessageSession.js';
+import { getFileIconInfo } from '../utils/file-icons.js';
 
 export class ChatPanel {
   constructor(container, chatService, chatUI) {
@@ -88,16 +89,23 @@ export class ChatPanel {
     this.bindEvents();
 
     // 监听文本选中快捷操作 → 插入输入框
-    this._unsubscribeSelectionAction = EventBus.on('selection:add-to-input', ({ text }) => {
-      // 实时查询当前文档中可见的输入框，避免持有已脱离 DOM 的旧引用
-      const input = document.querySelector('#messageInput, #heroInput');
-      if (!input) return;
-      const start = input.selectionStart;
-      const end = input.selectionEnd;
-      input.value = input.value.substring(0, start) + text + input.value.substring(end);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.focus();
-      input.selectionStart = input.selectionEnd = start + text.length;
+    this._unsubscribeSelectionAction = EventBus.on('selection:add-to-input', ({ text, refType, filePath, startLine, endLine }) => {
+      // hero 空态 → 加卡片到 hero 引用栏
+      const heroRefsBar = document.getElementById('heroInputRefs');
+      if (heroRefsBar) {
+        this._addRefChip(heroRefsBar, text, refType, filePath, startLine, endLine);
+        const heroInput = document.getElementById('heroInput');
+        if (heroInput) heroInput.focus();
+        return;
+      }
+
+      // 会话态 → 加卡片到 #inputRefs
+      const refsBar = document.getElementById('inputRefs');
+      if (refsBar) {
+        this._addRefChip(refsBar, text, refType, filePath, startLine, endLine);
+        const messageInput = document.getElementById('messageInput');
+        if (messageInput) messageInput.focus();
+      }
     });
   }
   
@@ -131,10 +139,11 @@ export class ChatPanel {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         if (this.isSendingMessage) return;
-        const content = heroInput.value.trim();
+        const content = this._getHeroCombinedInput();
         if (content) {
           heroInput.value = '';
           heroInput.style.height = 'auto';
+          this._clearRefs();
           this.sendMessage(content);
         }
       }
@@ -177,10 +186,11 @@ export class ChatPanel {
       if (heroSendBtn) {
         const heroInput = document.getElementById('heroInput');
         if (heroInput) {
-          const content = heroInput.value.trim();
+          const content = this._getHeroCombinedInput();
           if (content) {
             heroInput.value = '';
             heroInput.style.height = 'auto';
+            this._clearRefs();
             this.sendMessage(content);
           }
         }
@@ -273,6 +283,102 @@ export class ChatPanel {
   }
   
   /**
+   * 获取合并后的输入内容：引用卡片（代码块） + textarea 文字
+   */
+  _getCombinedInput() {
+    const refsBar = document.getElementById('inputRefs');
+    const textarea = this.elements.messageInput;
+    const typed = textarea?.value.trim() || '';
+
+    const chips = refsBar ? [...refsBar.querySelectorAll('.input-ref-chip')] : [];
+    const refTexts = chips.map(c => {
+      if (c.dataset.refType === 'file' && c.dataset.filePath) {
+        // 文件引用 → @path:line 格式
+        return `@${c.dataset.filePath}:${c.dataset.startLine}-${c.dataset.endLine}`;
+      }
+      // 纯文本 → 代码块
+      const full = c.title || c.textContent.replace('×', '').trim();
+      return '```\n' + full + '\n```';
+    });
+
+    if (refTexts.length === 0) return typed;
+    return refTexts.join('\n') + (typed ? '\n\n' + typed : '');
+  }
+
+  /**
+   * 添加引用卡片到指定栏
+   * @param {HTMLElement} bar - refs 栏容器
+   * @param {string} text - 引用文本
+   * @param {string} refType - 'file' | 'text'
+   * @param {string} [filePath]
+   * @param {number} [startLine]
+   * @param {number} [endLine]
+   */
+  _addRefChip(bar, text, refType, filePath, startLine, endLine) {
+    const chip = document.createElement('span');
+    chip.className = 'input-ref-chip';
+    if (refType === 'file' && filePath) {
+      const fileName = filePath.split('/').pop();
+      const { iconFile } = getFileIconInfo(fileName);
+      chip.innerHTML = `<img src="icons/${iconFile}" class="input-ref-chip-icon" draggable="false"> ${fileName}<span class="input-ref-chip-lines">:${startLine}-${endLine}</span>`;
+      chip.title = `${filePath}:${startLine}-${endLine}`;
+      chip.dataset.refType = 'file';
+      chip.dataset.filePath = filePath;
+      chip.dataset.startLine = startLine;
+      chip.dataset.endLine = endLine;
+    } else {
+      chip.textContent = text.length > 120 ? text.slice(0, 120) + '…' : text;
+      chip.title = text;
+    }
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'input-ref-chip-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.addEventListener('click', () => {
+      chip.remove();
+      // 卡片清空后隐藏栏
+      if (bar.children.length === 0) bar.style.display = 'none';
+    });
+    chip.appendChild(closeBtn);
+    bar.appendChild(chip);
+    bar.style.display = 'flex';
+    bar.dispatchEvent(new Event('refs-changed', { bubbles: true }));
+  }
+
+  /**
+   * 获取 hero 输入合并内容：引用卡片 + heroInput 文字
+   */
+  _getHeroCombinedInput() {
+    const refsBar = document.getElementById('heroInputRefs');
+    const heroInput = document.getElementById('heroInput');
+    const typed = heroInput?.value.trim() || '';
+
+    const chips = refsBar ? [...refsBar.querySelectorAll('.input-ref-chip')] : [];
+    const refTexts = chips.map(c => {
+      if (c.dataset.refType === 'file' && c.dataset.filePath) {
+        return `@${c.dataset.filePath}:${c.dataset.startLine}-${c.dataset.endLine}`;
+      }
+      const full = c.title || c.textContent.replace('×', '').trim();
+      return '```\n' + full + '\n```';
+    });
+
+    if (refTexts.length === 0) return typed;
+    return refTexts.join('\n') + (typed ? '\n\n' + typed : '');
+  }
+
+  /**
+   * 清空引用卡片（会话态 + hero 态）
+   */
+  _clearRefs() {
+    const bars = [document.getElementById('inputRefs'), document.getElementById('heroInputRefs')];
+    for (const bar of bars) {
+      if (bar) {
+        bar.innerHTML = '';
+        bar.style.display = 'none';
+      }
+    }
+  }
+
+  /**
    * 发送消息
    */
   async sendMessage(overrideContent, editMessageId, editMsgDiv) {
@@ -287,7 +393,7 @@ export class ChatPanel {
     
     const content = (typeof overrideContent === 'string' && overrideContent)
       ? overrideContent
-      : this.elements.messageInput?.value.trim() || '';
+      : this._getCombinedInput();
     
     if (!content) {
       console.log('⏭️ sendMessage 跳过：内容为空');
@@ -302,6 +408,11 @@ export class ChatPanel {
     if (!overrideContent && !editMessageId && this.elements.messageInput) {
       this.elements.messageInput.value = '';
       this.elements.messageInput.style.height = 'auto';
+    }
+    
+    // 清空引用卡片
+    if (!overrideContent && !editMessageId) {
+      this._clearRefs();
     }
     
     this.lastUserMessage = content;

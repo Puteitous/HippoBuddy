@@ -424,6 +424,87 @@
     box-shadow: 0 0 0 2px rgba(123, 159, 207, 0.2);
 }
 
+/* ── 引用卡片栏 ──────────────────────────────── */
+.input-refs {
+    display: none;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 12px;
+    margin-bottom: 4px;
+    min-height: 0;
+}
+
+.input-ref-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 260px;
+    padding: 2px 4px 2px 6px;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    line-height: 1.6;
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.input-ref-chip-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.input-ref-chip-lines {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.input-ref-chip-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 2px;
+    font-size: 13px;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+}
+
+.input-ref-chip-close:hover {
+    background: var(--error-bg);
+    color: var(--error-text);
+}
+
+/* ── Hero 输入区引用卡片栏 ────────────────────── */
+.empty-hero-input-refs {
+    display: none;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 2px;
+    margin-bottom: 6px;
+    min-height: 0;
+}
+
+.empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)) .empty-hero-input {
+    border-color: var(--accent-color, #4d6b99);
+}
+
+.empty-hero-input-refs .input-ref-chip {
+    max-width: 220px;
+}
+
 .input-row {
     display: flex;
     align-items: center;

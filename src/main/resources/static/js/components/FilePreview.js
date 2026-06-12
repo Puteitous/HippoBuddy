@@ -85,6 +85,7 @@ export class FilePreview {
         <pre class="file-preview-lines" aria-hidden="true">${lineNums}</pre>
         <pre><code class="hljs">${highlighted}</code></pre>
       </div>`;
+    this._container.dataset.currentPath = filePath;
   }
 
   _detectLanguage(filePath, content) {

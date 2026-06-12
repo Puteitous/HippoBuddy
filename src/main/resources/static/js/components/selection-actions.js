@@ -28,6 +28,31 @@ const SELECTABLE_AREAS = [
   '.timeline-detail-progress'
 ];
 
+/**
+ * 计算选区在代码元素中的起始/结束行号
+ * @param {Selection} selection
+ * @param {HTMLElement} codeEl - <code> 元素
+ * @returns {{ startLine: number, endLine: number }}
+ */
+function calcLineNumbers(selection, codeEl) {
+  const range = selection.getRangeAt(0);
+
+  // 从 codeEl 开头到选区起点 → 数换行
+  const startRange = document.createRange();
+  startRange.selectNodeContents(codeEl);
+  startRange.setEnd(range.startContainer, range.startOffset);
+  const beforeText = startRange.toString();
+  const startLine = beforeText.split('\n').length;
+
+  // 选中文本中的换行数 → 计算结束行
+  const selectedText = range.toString();
+  const lineCount = selectedText.split('\n').length;
+  const endLine = startLine + lineCount - 1;
+
+  startRange.detach();
+  return { startLine, endLine };
+}
+
 export function initSelectionActions() {
   let btn = null;
   let hideTimer = null;
@@ -54,11 +79,34 @@ export function initSelectionActions() {
       btn.addEventListener('click', () => {
         const selection = window.getSelection();
         const text = selection ? selection.toString().trim() : '';
-        if (text) {
-          EventBus.emit('selection:add-to-input', { text });
+        if (!text) return;
+
+        // 判断是否来自文件预览区 → 计算路径+行号引用
+        const anchorEl = selection.anchorNode?.nodeType === Node.ELEMENT_NODE
+          ? selection.anchorNode
+          : selection.anchorNode?.parentElement;
+        const previewContent = anchorEl?.closest?.('.file-preview-content');
+        if (previewContent && selection.rangeCount > 0) {
+          const filePath = previewContent.dataset.currentPath;
+          const codeEl = previewContent.querySelector('code');
+          if (filePath && codeEl) {
+            const { startLine, endLine } = calcLineNumbers(selection, codeEl);
+            EventBus.emit('selection:add-to-input', {
+              text: `${filePath}:${startLine}-${endLine}`,
+              refType: 'file',
+              filePath,
+              startLine,
+              endLine
+            });
+            hideBtn();
+            if (selection) selection.removeAllRanges();
+            return;
+          }
         }
+
+        // 其他区域 → 纯文本引用
+        EventBus.emit('selection:add-to-input', { text, refType: 'text' });
         hideBtn();
-        // 清除选区
         if (selection) selection.removeAllRanges();
       });
     }
@@ -90,8 +138,10 @@ export function initSelectionActions() {
   // 判断选区是否在可选中区域内
   function isInSelectableArea(node) {
     if (!node) return false;
+    const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    if (!el) return false;
     const selectors = SELECTABLE_AREAS.join(',');
-    return !!node.closest(selectors);
+    return !!el.closest(selectors);
   }
 
   // 获取选中文本的末尾光标位置（用于定位按钮）

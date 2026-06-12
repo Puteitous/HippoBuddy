@@ -401,6 +401,13 @@ export class FileTree {
       this._showContextMenu(e, fullPath, true);
     });
 
+    // 拖拽支持：从文件树拖文件夹到聊天输入框
+    nodeEl.draggable = true;
+    nodeEl.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', fullPath);
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+
     parentEl.appendChild(nodeEl);
     parentEl.appendChild(childrenEl);
   }
