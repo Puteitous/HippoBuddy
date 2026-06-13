@@ -65,6 +65,13 @@ export class FileTabs {
     return this._order.length;
   }
 
+  /** 设置/清除 tab 的脏状态（未保存修改） */
+  setDirty(filePath, dirty) {
+    const tabEl = this._tabs.get(filePath);
+    if (!tabEl) return;
+    tabEl.classList.toggle('dirty', dirty);
+  }
+
   /** 销毁，清理副作用 */
   destroy() {
     if (this._ctxMenu && this._ctxMenu.parentNode) {

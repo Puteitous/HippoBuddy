@@ -78,6 +78,9 @@ const HippoWorkspace = (() => {
   const filePreview = new FilePreview({
     container: els.previewContent,
     onError: (err) => console.error('FilePreview:', err),
+    onDirtyChange: (filePath, dirty) => {
+      fileTabs.setDirty(filePath, dirty);
+    },
   });
 
   // ========== 状态 ==========
@@ -521,6 +524,19 @@ const HippoWorkspace = (() => {
   // 预览折叠
   document.getElementById('previewCollapseBtn')?.addEventListener('click', () => {
     hidePreview();
+  });
+
+  // 编辑按钮
+  document.getElementById('previewEditBtn')?.addEventListener('click', () => {
+    filePreview.toggleEdit();
+  });
+
+  // Ctrl+E 切换编辑模式、Ctrl+S 保存（全局兜底）
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+      e.preventDefault();
+      filePreview.toggleEdit();
+    }
   });
 
   // 聊天折叠
