@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="css/components/chat-panel.css?v=20260527-2">
     <link rel="stylesheet" href="css/components/right-panel.css?v=20260527-1">
     <link rel="stylesheet" href="css/components/tool-cards.css?v=20260527-2">
-    <link rel="stylesheet" href="css/components/modals.css?v=20260527-1">
+    <link rel="stylesheet" href="css/components/modals.css?v=20260612-1">
     <link rel="stylesheet" href="css/components/workspace.css?v=20260608-1">
     <link id="hljs-light-theme" rel="stylesheet" href="js/vendor/github.min.css">
     <link id="hljs-dark-theme" rel="stylesheet" href="js/vendor/github-dark.min.css" disabled>
@@ -74,6 +74,12 @@
                 <span class="workspace-path" id="workspacePath"></span>
                 <button class="workspace-clear" id="workspaceClear" title="清除工作区">✕</button>
             </div>
+            <button class="header-icon-btn" id="settingsBtn" title="模型配置">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+            </button>
             <button class="header-icon-btn" id="themeToggle" title="切换主题">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -671,7 +677,55 @@
     <!-- Desktop Bridge（JCEF JS↔Java 通信） -->
     <script type="module" src="js/desktop-bridge.js"></script>
 
+    <!-- ===== 模型配置弹窗 ===== -->
+    <div class="modal" id="configModal" style="display:none;">
+        <div class="modal-content config-modal">
+            <div class="modal-header">
+                <h3>模型配置</h3>
+                <button class="modal-close" id="configModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="config-form">
+                    <div class="config-field">
+                        <label class="config-label" for="configProvider">Provider</label>
+                        <select class="config-input" id="configProvider">
+                            <option value="dashscope">DashScope</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="ollama">Ollama</option>
+                            <option value="local">Local</option>
+                        </select>
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label" for="configModel">Model</label>
+                        <input class="config-input" id="configModel" type="text" placeholder="例如 qwen3.5-plus">
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label" for="configApiKey">API Key</label>
+                        <div class="config-apikey-wrap">
+                            <input class="config-input" id="configApiKey" type="password" placeholder="输入 API Key">
+                            <button class="config-apikey-toggle" id="configApiKeyToggle" title="显示/隐藏">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label" for="configBaseUrl">Base URL</label>
+                        <input class="config-input" id="configBaseUrl" type="text" placeholder="https://dashscope.aliyuncs.com">
+                    </div>
+                </div>
+            </div>
+            <div class="config-modal-footer">
+                <button class="btn btn-secondary" id="configModalCancel">取消</button>
+                <button class="btn btn-primary" id="configModalSave">保存</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 应用入口 -->
-    <script type="module" src="js/main.js?v=20260608-1"></script>
+    <script type="module" src="js/main.js?v=20260612-1"></script>
+
 </body>
 </html>

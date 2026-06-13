@@ -3,6 +3,7 @@ package com.example.agent.config;
 import com.example.agent.context.config.ContextConfig;
 import com.example.agent.lsp.config.LspConfig;
 import com.example.agent.mcp.config.McpConfig;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -145,6 +146,7 @@ public class Config {
         }
     }
 
+    @JsonIgnore
     public boolean isValid() {
         return llm != null && llm.isValid();
     }
@@ -310,6 +312,7 @@ public class Config {
         this.web = web;
     }
 
+    @JsonIgnore
     public String getConfigFilePath() {
         if (configLoader == null) {
             configLoader = new ConfigLoader();

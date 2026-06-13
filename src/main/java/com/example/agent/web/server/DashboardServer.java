@@ -4,6 +4,7 @@ import com.example.agent.application.ConversationService;
 import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.web.handler.ChatApiHandler;
+import com.example.agent.web.handler.ConfigApiHandler;
 import com.example.agent.web.handler.FileApiHandler;
 import com.example.agent.web.handler.GitStatusHandler;
 import com.example.agent.web.handler.MemoryApiHandler;
@@ -79,6 +80,7 @@ public class DashboardServer {
             server.createContext("/api/system-prompts", new SystemPromptApiHandler());
             server.createContext("/api/files", new FileApiHandler());
             server.createContext("/api/git/status", new GitStatusHandler());
+            server.createContext("/api/config", new ConfigApiHandler());
             server.createContext("/chat", new StaticFileHandler("/static"));
             server.createContext("/cockpit", new StaticFileHandler("/static"));
             server.createContext("/", new StaticFileHandler("/static"));

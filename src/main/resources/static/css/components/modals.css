@@ -583,4 +583,147 @@
     background: var(--primary-color);
 }
 
+/* ========== 模型配置弹窗 ========== */
+.config-modal {
+    max-width: 420px;
+}
+
+.config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.config-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.config-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.config-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: var(--font-size-md);
+    background: var(--bg-white);
+    color: var(--text-primary);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color var(--transition-fast);
+}
+
+.config-input:focus {
+    border-color: var(--text-muted);
+    outline: none;
+    box-shadow: none;
+}
+
+.config-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* ===== 现代化 Select ===== */
+select.config-input {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color var(--transition-fast);
+}
+
+select.config-input:hover {
+    border-color: var(--text-muted);
+}
+
+select.config-input:focus {
+    border-color: var(--text-muted);
+    outline: none;
+    box-shadow: none;
+}
+
+select.config-input option {
+    padding: 6px 10px;
+    font-size: var(--font-size-md);
+}
+
+.config-apikey-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.config-apikey-wrap .config-input {
+    padding-right: 36px;
+}
+
+.config-apikey-toggle {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-fast);
+}
+
+.config-apikey-toggle:hover {
+    color: var(--text-primary);
+}
+
+.config-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px 16px;
+}
+
+.config-modal-footer .btn {
+    padding: 7px 20px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+}
+
+.config-modal-footer .btn-secondary {
+    background: var(--bg-white);
+    color: var(--text-secondary);
+}
+
+.config-modal-footer .btn-secondary:hover {
+    background: var(--bg-code);
+}
+
+.config-modal-footer .btn-primary {
+    background: var(--bg-code);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.config-modal-footer .btn-primary:hover {
+    background: var(--border);
+}
+
+.config-modal-footer .btn:active {
+    transform: scale(0.98);
+}
+
 
