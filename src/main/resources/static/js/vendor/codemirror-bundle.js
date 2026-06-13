@@ -54,7 +54,7 @@ import {
 import { closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 
 // 搜索
-import { highlightSelectionMatches, searchKeymap } from '@codemirror/search'
+import { search, highlightSelectionMatches, searchKeymap, openSearchPanel, closeSearchPanel } from '@codemirror/search'
 
 // 主题
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -82,6 +82,9 @@ export {
   keymap,
   EditorState,
   Compartment,
+  search,
+  openSearchPanel,
+  closeSearchPanel,
 }
 
 /** 手动构造 basicSetup，避免元包版本冲突 */
@@ -100,6 +103,7 @@ export const basicSetup = (() => {
     closeBrackets(),
     highlightActiveLine(),
     highlightSelectionMatches(),
+    search(),
     keymap.of([
       ...closeBracketsKeymap,
       ...defaultKeymap,

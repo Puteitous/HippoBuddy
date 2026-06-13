@@ -30,12 +30,17 @@
     "@codemirror/search": "^6.7.0",
     "@codemirror/state": "^6.6.0",
     "@codemirror/theme-one-dark": "^6.1.2",
-    "@codemirror/view": "^6.35.0",
+    "@codemirror/view": "^6.37.0",
     "@playwright/test": "^1.59.1",
     "codemirror": "^6.0.1",
     "esbuild": "^0.28.1",
     "jsdom": "^29.1.1",
     "material-icon-theme": "^5.35.0",
     "vitest": "^3.1.1"
+  },
+  "overrides": {
+    "@codemirror/state": "$@codemirror/state",
+    "@codemirror/view": "$@codemirror/view",
+    "@codemirror/language": "$@codemirror/language"
   }
 }

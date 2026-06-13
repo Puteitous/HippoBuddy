@@ -125,7 +125,7 @@ public final class DesktopApplication {
 
             builder.getCefSettings().windowless_rendering_enabled = false;
 
-            // 设置持久化缓存路径，使 localStorage / IndexedDB 等跨重启保留
+            // 设置持久化缓存路径，使 localStorage / IndexDB 等跨重启保留
             Path browserCacheDir = WorkspaceManager.getGlobalCacheDir().resolve("jcef");
             try {
                 Files.createDirectories(browserCacheDir);

@@ -836,11 +836,11 @@ var ChangeSet = class _ChangeSet extends ChangeDesc {
   Apply the changes to a document, returning the modified
   document.
   */
-  apply(doc3) {
-    if (this.length != doc3.length)
+  apply(doc2) {
+    if (this.length != doc2.length)
       throw new RangeError("Applying change set to a document with the wrong length");
-    iterChanges(this, (fromA, toA, fromB, _toB, text) => doc3 = doc3.replace(fromB, fromB + (toA - fromA), text), false);
-    return doc3;
+    iterChanges(this, (fromA, toA, fromB, _toB, text) => doc2 = doc2.replace(fromB, fromB + (toA - fromA), text), false);
+    return doc2;
   }
   mapDesc(other, before = false) {
     return mapSet(this, other, before, true);
@@ -851,7 +851,7 @@ var ChangeSet = class _ChangeSet extends ChangeDesc {
   be used to go from the document created by the changes back to
   the document as it existed before the changes.
   */
-  invert(doc3) {
+  invert(doc2) {
     let sections = this.sections.slice(), inserted = [];
     for (let i2 = 0, pos = 0; i2 < sections.length; i2 += 2) {
       let len = sections[i2], ins = sections[i2 + 1];
@@ -861,7 +861,7 @@ var ChangeSet = class _ChangeSet extends ChangeDesc {
         let index = i2 >> 1;
         while (inserted.length < index)
           inserted.push(Text.empty);
-        inserted.push(len ? doc3.slice(pos, pos + len) : Text.empty);
+        inserted.push(len ? doc2.slice(pos, pos + len) : Text.empty);
       }
       pos += len;
     }
@@ -2034,13 +2034,13 @@ var StateEffect = class _StateEffect {
 StateEffect.reconfigure = /* @__PURE__ */ StateEffect.define();
 StateEffect.appendConfig = /* @__PURE__ */ StateEffect.define();
 var Transaction = class _Transaction {
-  constructor(startState, changes, selection2, effects, annotations, scrollIntoView4) {
+  constructor(startState, changes, selection2, effects, annotations, scrollIntoView3) {
     this.startState = startState;
     this.changes = changes;
     this.selection = selection2;
     this.effects = effects;
     this.annotations = annotations;
-    this.scrollIntoView = scrollIntoView4;
+    this.scrollIntoView = scrollIntoView3;
     this._doc = null;
     this._state = null;
     if (selection2)
@@ -2051,8 +2051,8 @@ var Transaction = class _Transaction {
   /**
   @internal
   */
-  static create(startState, changes, selection2, effects, annotations, scrollIntoView4) {
-    return new _Transaction(startState, changes, selection2, effects, annotations, scrollIntoView4);
+  static create(startState, changes, selection2, effects, annotations, scrollIntoView3) {
+    return new _Transaction(startState, changes, selection2, effects, annotations, scrollIntoView3);
   }
   /**
   The new document produced by the transaction. Contrary to
@@ -2272,9 +2272,9 @@ function makeCategorizer(wordChars) {
   };
 }
 var EditorState = class _EditorState {
-  constructor(config2, doc3, selection2, values2, computeSlot, tr) {
+  constructor(config2, doc2, selection2, values2, computeSlot, tr) {
     this.config = config2;
-    this.doc = doc3;
+    this.doc = doc2;
     this.selection = selection2;
     this.values = values2;
     this.status = config2.statusTemplate.slice();
@@ -2472,12 +2472,12 @@ var EditorState = class _EditorState {
   */
   static create(config2 = {}) {
     let configuration = Configuration.resolve(config2.extensions || [], /* @__PURE__ */ new Map());
-    let doc3 = config2.doc instanceof Text ? config2.doc : Text.of((config2.doc || "").split(configuration.staticFacet(_EditorState.lineSeparator) || DefaultSplit));
+    let doc2 = config2.doc instanceof Text ? config2.doc : Text.of((config2.doc || "").split(configuration.staticFacet(_EditorState.lineSeparator) || DefaultSplit));
     let selection2 = !config2.selection ? EditorSelection.single(0) : config2.selection instanceof EditorSelection ? config2.selection : EditorSelection.single(config2.selection.anchor, config2.selection.head);
-    checkSelection(selection2, doc3.length);
+    checkSelection(selection2, doc2.length);
     if (!configuration.staticFacet(allowMultipleSelections))
       selection2 = selection2.asSingle();
-    return new _EditorState(configuration, doc3, selection2, configuration.dynamicSlots.map(() => null), (state, slot) => slot.create(state), null);
+    return new _EditorState(configuration, doc2, selection2, configuration.dynamicSlots.map(() => null), (state, slot) => slot.create(state), null);
   }
   /**
   The size (in columns) of a tab in the document, determined by
@@ -3504,14 +3504,14 @@ var StyleModule = class {
 var adoptedSet = /* @__PURE__ */ new Map();
 var StyleSet = class {
   constructor(root, nonce) {
-    let doc3 = root.ownerDocument || root, win = doc3.defaultView;
+    let doc2 = root.ownerDocument || root, win = doc2.defaultView;
     if (!root.head && root.adoptedStyleSheets && win.CSSStyleSheet) {
-      let adopted = adoptedSet.get(doc3);
+      let adopted = adoptedSet.get(doc2);
       if (adopted) return root[SET] = adopted;
       this.sheet = new win.CSSStyleSheet();
-      adoptedSet.set(doc3, this);
+      adoptedSet.set(doc2, this);
     } else {
-      this.styleTag = doc3.createElement("style");
+      this.styleTag = doc2.createElement("style");
       if (nonce) this.styleTag.setAttribute("nonce", nonce);
     }
     this.modules = [];
@@ -3662,7 +3662,405 @@ function keyName(event) {
   return name2;
 }
 
+// node_modules/crelt/index.js
+function crelt() {
+  var elt2 = arguments[0];
+  if (typeof elt2 == "string") elt2 = document.createElement(elt2);
+  var i2 = 1, next = arguments[1];
+  if (next && typeof next == "object" && next.nodeType == null && !Array.isArray(next)) {
+    for (var name2 in next) if (Object.prototype.hasOwnProperty.call(next, name2)) {
+      var value = next[name2];
+      if (typeof value == "string") elt2.setAttribute(name2, value);
+      else if (value != null) elt2[name2] = value;
+    }
+    i2++;
+  }
+  for (; i2 < arguments.length; i2++) add(elt2, arguments[i2]);
+  return elt2;
+}
+function add(elt2, child) {
+  if (typeof child == "string") {
+    elt2.appendChild(document.createTextNode(child));
+  } else if (child == null) {
+  } else if (child.nodeType != null) {
+    elt2.appendChild(child);
+  } else if (Array.isArray(child)) {
+    for (var i2 = 0; i2 < child.length; i2++) add(elt2, child[i2]);
+  } else {
+    throw new RangeError("Unsupported child node: " + child);
+  }
+}
+
 // node_modules/@codemirror/view/dist/index.js
+var nav = typeof navigator != "undefined" ? navigator : { userAgent: "", vendor: "", platform: "" };
+var doc = typeof document != "undefined" ? document : { documentElement: { style: {} } };
+var ie_edge = /* @__PURE__ */ /Edge\/(\d+)/.exec(nav.userAgent);
+var ie_upto10 = /* @__PURE__ */ /MSIE \d/.test(nav.userAgent);
+var ie_11up = /* @__PURE__ */ /Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(nav.userAgent);
+var ie2 = !!(ie_upto10 || ie_11up || ie_edge);
+var gecko = !ie2 && /* @__PURE__ */ /gecko\/(\d+)/i.test(nav.userAgent);
+var chrome = !ie2 && /* @__PURE__ */ /Chrome\/(\d+)/.exec(nav.userAgent);
+var webkit = "webkitFontSmoothing" in doc.documentElement.style;
+var safari = !ie2 && /* @__PURE__ */ /Apple Computer/.test(nav.vendor);
+var ios = safari && (/* @__PURE__ */ /Mobile\/\w+/.test(nav.userAgent) || nav.maxTouchPoints > 2);
+var browser = {
+  mac: ios || /* @__PURE__ */ /Mac/.test(nav.platform),
+  windows: /* @__PURE__ */ /Win/.test(nav.platform),
+  linux: /* @__PURE__ */ /Linux|X11/.test(nav.platform),
+  ie: ie2,
+  ie_version: ie_upto10 ? doc.documentMode || 6 : ie_11up ? +ie_11up[1] : ie_edge ? +ie_edge[1] : 0,
+  gecko,
+  gecko_version: gecko ? +(/* @__PURE__ */ /Firefox\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
+  chrome: !!chrome,
+  chrome_version: chrome ? +chrome[1] : 0,
+  ios,
+  android: /* @__PURE__ */ /Android\b/.test(nav.userAgent),
+  webkit,
+  webkit_version: webkit ? +(/* @__PURE__ */ /\bAppleWebKit\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
+  safari,
+  safari_version: safari ? +(/* @__PURE__ */ /\bVersion\/(\d+(\.\d+)?)/.exec(nav.userAgent) || [0, 0])[1] : 0,
+  tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
+};
+function combineAttrs(source, target) {
+  for (let name2 in source) {
+    if (name2 == "class" && target.class)
+      target.class += " " + source.class;
+    else if (name2 == "style" && target.style)
+      target.style += ";" + source.style;
+    else
+      target[name2] = source[name2];
+  }
+  return target;
+}
+var noAttrs = /* @__PURE__ */ Object.create(null);
+function attrsEq(a, b, ignore) {
+  if (a == b)
+    return true;
+  if (!a)
+    a = noAttrs;
+  if (!b)
+    b = noAttrs;
+  let keysA = Object.keys(a), keysB = Object.keys(b);
+  if (keysA.length - (ignore && keysA.indexOf(ignore) > -1 ? 1 : 0) != keysB.length - (ignore && keysB.indexOf(ignore) > -1 ? 1 : 0))
+    return false;
+  for (let key of keysA) {
+    if (key != ignore && (keysB.indexOf(key) == -1 || a[key] !== b[key]))
+      return false;
+  }
+  return true;
+}
+function setAttrs(dom, attrs) {
+  for (let i2 = dom.attributes.length - 1; i2 >= 0; i2--) {
+    let name2 = dom.attributes[i2].name;
+    if (attrs[name2] == null)
+      dom.removeAttribute(name2);
+  }
+  for (let name2 in attrs) {
+    let value = attrs[name2];
+    if (name2 == "style")
+      dom.style.cssText = value;
+    else if (dom.getAttribute(name2) != value)
+      dom.setAttribute(name2, value);
+  }
+}
+function updateAttrs(dom, prev, attrs) {
+  let changed = false;
+  if (prev) {
+    for (let name2 in prev)
+      if (!(attrs && name2 in attrs)) {
+        changed = true;
+        if (name2 == "style")
+          dom.style.cssText = "";
+        else
+          dom.removeAttribute(name2);
+      }
+  }
+  if (attrs) {
+    for (let name2 in attrs)
+      if (!(prev && prev[name2] == attrs[name2])) {
+        changed = true;
+        if (name2 == "style")
+          dom.style.cssText = attrs[name2];
+        else
+          dom.setAttribute(name2, attrs[name2]);
+      }
+  }
+  return changed;
+}
+function getAttrs(dom) {
+  let attrs = /* @__PURE__ */ Object.create(null);
+  for (let i2 = 0; i2 < dom.attributes.length; i2++) {
+    let attr = dom.attributes[i2];
+    attrs[attr.name] = attr.value;
+  }
+  return attrs;
+}
+var WidgetType = class {
+  /**
+  Compare this instance to another instance of the same type.
+  (TypeScript can't express this, but only instances of the same
+  specific class will be passed to this method.) This is used to
+  avoid redrawing widgets when they are replaced by a new
+  decoration of the same type. The default implementation just
+  returns `false`, which will cause new instances of the widget to
+  always be redrawn.
+  */
+  eq(widget) {
+    return false;
+  }
+  /**
+  Update a DOM element created by a widget of the same type (but
+  different, non-`eq` content) to reflect this widget. May return
+  true to indicate that it could update, false to indicate it
+  couldn't (in which case the widget will be redrawn). The default
+  implementation just returns false.
+  */
+  updateDOM(dom, view, from2) {
+    return false;
+  }
+  /**
+  @internal
+  */
+  compare(other) {
+    return this == other || this.constructor == other.constructor && this.eq(other);
+  }
+  /**
+  The estimated height this widget will have, to be used when
+  estimating the height of content that hasn't been drawn. May
+  return -1 to indicate you don't know. The default implementation
+  returns -1.
+  */
+  get estimatedHeight() {
+    return -1;
+  }
+  /**
+  For inline widgets that are displayed inline (as opposed to
+  `inline-block`) and introduce line breaks (through `<br>` tags
+  or textual newlines), this must indicate the amount of line
+  breaks they introduce. Defaults to 0.
+  */
+  get lineBreaks() {
+    return 0;
+  }
+  /**
+  Can be used to configure which kinds of events inside the widget
+  should be ignored by the editor. The default is to ignore all
+  events.
+  */
+  ignoreEvent(event) {
+    return true;
+  }
+  /**
+  Override the way screen coordinates for positions at/in the
+  widget are found. `pos` will be the offset into the widget, and
+  `side` the side of the position that is being queried—less than
+  zero for before, greater than zero for after, and zero for
+  directly at that position.
+  */
+  coordsAt(dom, pos, side) {
+    return null;
+  }
+  /**
+  @internal
+  */
+  get isHidden() {
+    return false;
+  }
+  /**
+  @internal
+  */
+  get editable() {
+    return false;
+  }
+  /**
+  This is called when the an instance of the widget is removed
+  from the editor view.
+  */
+  destroy(dom) {
+  }
+};
+var BlockType = /* @__PURE__ */ (function(BlockType2) {
+  BlockType2[BlockType2["Text"] = 0] = "Text";
+  BlockType2[BlockType2["WidgetBefore"] = 1] = "WidgetBefore";
+  BlockType2[BlockType2["WidgetAfter"] = 2] = "WidgetAfter";
+  BlockType2[BlockType2["WidgetRange"] = 3] = "WidgetRange";
+  return BlockType2;
+})(BlockType || (BlockType = {}));
+var Decoration = class extends RangeValue {
+  constructor(startSide, endSide, widget, spec) {
+    super();
+    this.startSide = startSide;
+    this.endSide = endSide;
+    this.widget = widget;
+    this.spec = spec;
+  }
+  /**
+  @internal
+  */
+  get heightRelevant() {
+    return false;
+  }
+  /**
+  Create a mark decoration, which influences the styling of the
+  content in its range. Nested mark decorations will cause nested
+  DOM elements to be created. Nesting order is determined by
+  precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), with
+  the higher-precedence decorations creating the inner DOM nodes.
+  Such elements are split on line boundaries and on the boundaries
+  of lower-precedence decorations.
+  */
+  static mark(spec) {
+    return new MarkDecoration(spec);
+  }
+  /**
+  Create a widget decoration, which displays a DOM element at the
+  given position.
+  */
+  static widget(spec) {
+    let side = Math.max(-1e4, Math.min(1e4, spec.side || 0)), block = !!spec.block;
+    side += block && !spec.inlineOrder ? side > 0 ? 3e8 : -4e8 : side > 0 ? 1e8 : -1e8;
+    return new PointDecoration(spec, side, side, block, spec.widget || null, false);
+  }
+  /**
+  Create a replace decoration which replaces the given range with
+  a widget, or simply hides it.
+  */
+  static replace(spec) {
+    let block = !!spec.block, startSide, endSide;
+    if (spec.isBlockGap) {
+      startSide = -5e8;
+      endSide = 4e8;
+    } else {
+      let { start, end } = getInclusive(spec, block);
+      startSide = (start ? block ? -3e8 : -1 : 5e8) - 1;
+      endSide = (end ? block ? 2e8 : 1 : -6e8) + 1;
+    }
+    return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
+  }
+  /**
+  Create a line decoration, which can add DOM attributes to the
+  line starting at the given position.
+  */
+  static line(spec) {
+    return new LineDecoration(spec);
+  }
+  /**
+  Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
+  decorated range or ranges. If the ranges aren't already sorted,
+  pass `true` for `sort` to make the library sort them for you.
+  */
+  static set(of, sort = false) {
+    return RangeSet.of(of, sort);
+  }
+  /**
+  @internal
+  */
+  hasHeight() {
+    return this.widget ? this.widget.estimatedHeight > -1 : false;
+  }
+};
+Decoration.none = RangeSet.empty;
+var MarkDecoration = class _MarkDecoration extends Decoration {
+  constructor(spec) {
+    let { start, end } = getInclusive(spec);
+    super(start ? -1 : 5e8, end ? 1 : -6e8, null, spec);
+    this.tagName = spec.tagName || "span";
+    this.attrs = spec.class && spec.attributes ? combineAttrs(spec.attributes, { class: spec.class }) : spec.class ? { class: spec.class } : spec.attributes || noAttrs;
+  }
+  eq(other) {
+    return this == other || other instanceof _MarkDecoration && this.tagName == other.tagName && attrsEq(this.attrs, other.attrs);
+  }
+  range(from2, to = from2) {
+    if (from2 >= to)
+      throw new RangeError("Mark decorations may not be empty");
+    return super.range(from2, to);
+  }
+};
+MarkDecoration.prototype.point = false;
+var LineDecoration = class _LineDecoration extends Decoration {
+  constructor(spec) {
+    super(-2e8, -2e8, null, spec);
+  }
+  eq(other) {
+    return other instanceof _LineDecoration && this.spec.class == other.spec.class && attrsEq(this.spec.attributes, other.spec.attributes);
+  }
+  range(from2, to = from2) {
+    if (to != from2)
+      throw new RangeError("Line decoration ranges must be zero-length");
+    return super.range(from2, to);
+  }
+};
+LineDecoration.prototype.mapMode = MapMode.TrackBefore;
+LineDecoration.prototype.point = true;
+var PointDecoration = class _PointDecoration extends Decoration {
+  constructor(spec, startSide, endSide, block, widget, isReplace) {
+    super(startSide, endSide, widget, spec);
+    this.block = block;
+    this.isReplace = isReplace;
+    this.mapMode = !block ? MapMode.TrackDel : startSide <= 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
+  }
+  // Only relevant when this.block == true
+  get type() {
+    return this.startSide != this.endSide ? BlockType.WidgetRange : this.startSide <= 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
+  }
+  get heightRelevant() {
+    return this.block || !!this.widget && (this.widget.estimatedHeight >= 5 || this.widget.lineBreaks > 0);
+  }
+  eq(other) {
+    return other instanceof _PointDecoration && widgetsEq(this.widget, other.widget) && this.block == other.block && this.startSide == other.startSide && this.endSide == other.endSide;
+  }
+  range(from2, to = from2) {
+    if (this.isReplace && (from2 > to || from2 == to && this.startSide > 0 && this.endSide <= 0))
+      throw new RangeError("Invalid range for replacement decoration");
+    if (!this.isReplace && to != from2)
+      throw new RangeError("Widget decorations can only have zero-length ranges");
+    return super.range(from2, to);
+  }
+};
+PointDecoration.prototype.point = true;
+function getInclusive(spec, block = false) {
+  let { inclusiveStart: start, inclusiveEnd: end } = spec;
+  if (start == null)
+    start = spec.inclusive;
+  if (end == null)
+    end = spec.inclusive;
+  return { start: start !== null && start !== void 0 ? start : block, end: end !== null && end !== void 0 ? end : block };
+}
+function widgetsEq(a, b) {
+  return a == b || !!(a && b && a.compare(b));
+}
+function addRange(from2, to, ranges, margin = 0) {
+  let last = ranges.length - 1;
+  if (last >= 0 && ranges[last] + margin >= from2)
+    ranges[last] = Math.max(ranges[last], to);
+  else
+    ranges.push(from2, to);
+}
+var BlockWrapper = class _BlockWrapper extends RangeValue {
+  constructor(tagName2, attributes, rank) {
+    super();
+    this.tagName = tagName2;
+    this.attributes = attributes;
+    this.rank = rank;
+  }
+  eq(other) {
+    return other == this || other instanceof _BlockWrapper && this.tagName == other.tagName && attrsEq(this.attributes, other.attributes);
+  }
+  /**
+  Create a block wrapper object with the given tag name and
+  attributes.
+  */
+  static create(spec) {
+    return new _BlockWrapper(spec.tagName, spec.attributes || noAttrs, spec.rank == null ? 50 : Math.max(0, Math.min(spec.rank, 100)));
+  }
+  /**
+  Create a range set from the given block wrapper ranges.
+  */
+  static set(of, sort = false) {
+    return RangeSet.of(of, sort);
+  }
+};
+BlockWrapper.prototype.startSide = BlockWrapper.prototype.endSide = -1;
 function getSelection(root) {
   let target;
   if (root.nodeType == 11) {
@@ -3760,10 +4158,10 @@ function getScale(elt2, rect) {
   return { scaleX, scaleY };
 }
 function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
-  let doc3 = dom.ownerDocument, win = doc3.defaultView || window;
+  let doc2 = dom.ownerDocument, win = doc2.defaultView || window;
   for (let cur2 = dom, stop = false; cur2 && !stop; ) {
     if (cur2.nodeType == 1) {
-      let bounding, top2 = cur2 == doc3.body;
+      let bounding, top2 = cur2 == doc2.body;
       let scaleX = 1, scaleY = 1;
       if (top2) {
         bounding = windowRect(win);
@@ -3785,14 +4183,14 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
       }
       let moveX = 0, moveY = 0;
       if (y == "nearest") {
-        if (rect.top < bounding.top) {
-          moveY = -(bounding.top - rect.top + yMargin);
+        if (rect.top < bounding.top + yMargin) {
+          moveY = rect.top - (bounding.top + yMargin);
           if (side > 0 && rect.bottom > bounding.bottom + moveY)
-            moveY = rect.bottom - bounding.bottom + moveY + yMargin;
-        } else if (rect.bottom > bounding.bottom) {
+            moveY = rect.bottom - bounding.bottom + yMargin;
+        } else if (rect.bottom > bounding.bottom - yMargin) {
           moveY = rect.bottom - bounding.bottom + yMargin;
           if (side < 0 && rect.top - moveY < bounding.top)
-            moveY = -(bounding.top + moveY - rect.top + yMargin);
+            moveY = rect.top - (bounding.top + yMargin);
         }
       } else {
         let rectHeight = rect.bottom - rect.top, boundingHeight = bounding.bottom - bounding.top;
@@ -3800,14 +4198,14 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
         moveY = targetTop - bounding.top;
       }
       if (x == "nearest") {
-        if (rect.left < bounding.left) {
-          moveX = -(bounding.left - rect.left + xMargin);
+        if (rect.left < bounding.left + xMargin) {
+          moveX = rect.left - (bounding.left + xMargin);
           if (side > 0 && rect.right > bounding.right + moveX)
-            moveX = rect.right - bounding.right + moveX + xMargin;
-        } else if (rect.right > bounding.right) {
+            moveX = rect.right - bounding.right + xMargin;
+        } else if (rect.right > bounding.right - xMargin) {
           moveX = rect.right - bounding.right + xMargin;
           if (side < 0 && rect.left < bounding.left + moveX)
-            moveX = -(bounding.left + moveX - rect.left + xMargin);
+            moveX = rect.left - (bounding.left + xMargin);
         }
       } else {
         let targetLeft = x == "center" ? rect.left + (rect.right - rect.left) / 2 - (bounding.right - bounding.left) / 2 : x == "start" == ltr ? rect.left - xMargin : rect.right - (bounding.right - bounding.left) + xMargin;
@@ -3842,6 +4240,13 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
       }
       if (top2)
         break;
+      if (rect.top < bounding.top || rect.bottom > bounding.bottom || rect.left < bounding.left || rect.right > bounding.right)
+        rect = {
+          left: Math.max(rect.left, bounding.left),
+          right: Math.min(rect.right, bounding.right),
+          top: Math.max(rect.top, bounding.top),
+          bottom: Math.min(rect.bottom, bounding.bottom)
+        };
       cur2 = cur2.assignedSlot || cur2.parentNode;
     } else if (cur2.nodeType == 11) {
       cur2 = cur2.host;
@@ -3850,15 +4255,15 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
     }
   }
 }
-function scrollableParents(dom) {
-  let doc3 = dom.ownerDocument, x, y;
+function scrollableParents(dom, getX = true) {
+  let doc2 = dom.ownerDocument, x = null, y = null;
   for (let cur2 = dom.parentNode; cur2; ) {
-    if (cur2 == doc3.body || x && y) {
+    if (cur2 == doc2.body || (!getX || x) && y) {
       break;
     } else if (cur2.nodeType == 1) {
       if (!y && cur2.scrollHeight > cur2.clientHeight)
         y = cur2;
-      if (!x && cur2.scrollWidth > cur2.clientWidth)
+      if (getX && !x && cur2.scrollWidth > cur2.clientWidth)
         x = cur2;
       cur2 = cur2.assignedSlot || cur2.parentNode;
     } else if (cur2.nodeType == 11) {
@@ -3891,6 +4296,8 @@ var DOMSelectionState = class {
   }
 };
 var preventScrollSupported = null;
+if (browser.safari && browser.safari_version >= 26)
+  preventScrollSupported = false;
 function focusPreventScroll(dom) {
   if (dom.setActive)
     return dom.setActive();
@@ -3946,11 +4353,7 @@ function getRoot(node) {
   }
   return null;
 }
-function clearAttributes(node) {
-  while (node.attributes.length)
-    node.removeAttributeNode(node.attributes[0]);
-}
-function atElementStart(doc3, selection2) {
+function atElementStart(doc2, selection2) {
   let node = selection2.focusNode, offset = selection2.focusOffset;
   if (!node || selection2.anchorNode != node || selection2.anchorOffset != offset)
     return false;
@@ -3966,7 +4369,7 @@ function atElementStart(doc3, selection2) {
         node = prev;
         offset = maxOffset(node);
       }
-    } else if (node == doc3) {
+    } else if (node == doc2) {
       return true;
     } else {
       offset = domIndex(node);
@@ -3975,6 +4378,8 @@ function atElementStart(doc3, selection2) {
   }
 }
 function isScrolledToBottom(elt2) {
+  if (elt2 instanceof Window)
+    return elt2.pageYOffset > Math.max(0, elt2.document.documentElement.scrollHeight - elt2.innerHeight - 4);
   return elt2.scrollTop > Math.max(1, elt2.scrollHeight - elt2.clientHeight - 4);
 }
 function textNodeBefore(startNode, startOffset) {
@@ -4024,1471 +4429,10 @@ var DOMPos = class _DOMPos {
     return new _DOMPos(dom.parentNode, domIndex(dom) + 1, precise);
   }
 };
-var noChildren = [];
-var ContentView = class _ContentView {
-  constructor() {
-    this.parent = null;
-    this.dom = null;
-    this.flags = 2;
-  }
-  get overrideDOMText() {
-    return null;
-  }
-  get posAtStart() {
-    return this.parent ? this.parent.posBefore(this) : 0;
-  }
-  get posAtEnd() {
-    return this.posAtStart + this.length;
-  }
-  posBefore(view) {
-    let pos = this.posAtStart;
-    for (let child of this.children) {
-      if (child == view)
-        return pos;
-      pos += child.length + child.breakAfter;
-    }
-    throw new RangeError("Invalid child in posBefore");
-  }
-  posAfter(view) {
-    return this.posBefore(view) + view.length;
-  }
-  sync(view, track) {
-    if (this.flags & 2) {
-      let parent = this.dom;
-      let prev = null, next;
-      for (let child of this.children) {
-        if (child.flags & 7) {
-          if (!child.dom && (next = prev ? prev.nextSibling : parent.firstChild)) {
-            let contentView = _ContentView.get(next);
-            if (!contentView || !contentView.parent && contentView.canReuseDOM(child))
-              child.reuseDOM(next);
-          }
-          child.sync(view, track);
-          child.flags &= ~7;
-        }
-        next = prev ? prev.nextSibling : parent.firstChild;
-        if (track && !track.written && track.node == parent && next != child.dom)
-          track.written = true;
-        if (child.dom.parentNode == parent) {
-          while (next && next != child.dom)
-            next = rm$1(next);
-        } else {
-          parent.insertBefore(child.dom, next);
-        }
-        prev = child.dom;
-      }
-      next = prev ? prev.nextSibling : parent.firstChild;
-      if (next && track && track.node == parent)
-        track.written = true;
-      while (next)
-        next = rm$1(next);
-    } else if (this.flags & 1) {
-      for (let child of this.children)
-        if (child.flags & 7) {
-          child.sync(view, track);
-          child.flags &= ~7;
-        }
-    }
-  }
-  reuseDOM(_dom) {
-  }
-  localPosFromDOM(node, offset) {
-    let after;
-    if (node == this.dom) {
-      after = this.dom.childNodes[offset];
-    } else {
-      let bias = maxOffset(node) == 0 ? 0 : offset == 0 ? -1 : 1;
-      for (; ; ) {
-        let parent = node.parentNode;
-        if (parent == this.dom)
-          break;
-        if (bias == 0 && parent.firstChild != parent.lastChild) {
-          if (node == parent.firstChild)
-            bias = -1;
-          else
-            bias = 1;
-        }
-        node = parent;
-      }
-      if (bias < 0)
-        after = node;
-      else
-        after = node.nextSibling;
-    }
-    if (after == this.dom.firstChild)
-      return 0;
-    while (after && !_ContentView.get(after))
-      after = after.nextSibling;
-    if (!after)
-      return this.length;
-    for (let i2 = 0, pos = 0; ; i2++) {
-      let child = this.children[i2];
-      if (child.dom == after)
-        return pos;
-      pos += child.length + child.breakAfter;
-    }
-  }
-  domBoundsAround(from2, to, offset = 0) {
-    let fromI = -1, fromStart = -1, toI = -1, toEnd = -1;
-    for (let i2 = 0, pos = offset, prevEnd = offset; i2 < this.children.length; i2++) {
-      let child = this.children[i2], end = pos + child.length;
-      if (pos < from2 && end > to)
-        return child.domBoundsAround(from2, to, pos);
-      if (end >= from2 && fromI == -1) {
-        fromI = i2;
-        fromStart = pos;
-      }
-      if (pos > to && child.dom.parentNode == this.dom) {
-        toI = i2;
-        toEnd = prevEnd;
-        break;
-      }
-      prevEnd = end;
-      pos = end + child.breakAfter;
-    }
-    return {
-      from: fromStart,
-      to: toEnd < 0 ? offset + this.length : toEnd,
-      startDOM: (fromI ? this.children[fromI - 1].dom.nextSibling : null) || this.dom.firstChild,
-      endDOM: toI < this.children.length && toI >= 0 ? this.children[toI].dom : null
-    };
-  }
-  markDirty(andParent = false) {
-    this.flags |= 2;
-    this.markParentsDirty(andParent);
-  }
-  markParentsDirty(childList) {
-    for (let parent = this.parent; parent; parent = parent.parent) {
-      if (childList)
-        parent.flags |= 2;
-      if (parent.flags & 1)
-        return;
-      parent.flags |= 1;
-      childList = false;
-    }
-  }
-  setParent(parent) {
-    if (this.parent != parent) {
-      this.parent = parent;
-      if (this.flags & 7)
-        this.markParentsDirty(true);
-    }
-  }
-  setDOM(dom) {
-    if (this.dom == dom)
-      return;
-    if (this.dom)
-      this.dom.cmView = null;
-    this.dom = dom;
-    dom.cmView = this;
-  }
-  get rootView() {
-    for (let v = this; ; ) {
-      let parent = v.parent;
-      if (!parent)
-        return v;
-      v = parent;
-    }
-  }
-  replaceChildren(from2, to, children = noChildren) {
-    this.markDirty();
-    for (let i2 = from2; i2 < to; i2++) {
-      let child = this.children[i2];
-      if (child.parent == this && children.indexOf(child) < 0)
-        child.destroy();
-    }
-    if (children.length < 250)
-      this.children.splice(from2, to - from2, ...children);
-    else
-      this.children = [].concat(this.children.slice(0, from2), children, this.children.slice(to));
-    for (let i2 = 0; i2 < children.length; i2++)
-      children[i2].setParent(this);
-  }
-  ignoreMutation(_rec) {
-    return false;
-  }
-  ignoreEvent(_event) {
-    return false;
-  }
-  childCursor(pos = this.length) {
-    return new ChildCursor(this.children, pos, this.children.length);
-  }
-  childPos(pos, bias = 1) {
-    return this.childCursor().findPos(pos, bias);
-  }
-  toString() {
-    let name2 = this.constructor.name.replace("View", "");
-    return name2 + (this.children.length ? "(" + this.children.join() + ")" : this.length ? "[" + (name2 == "Text" ? this.text : this.length) + "]" : "") + (this.breakAfter ? "#" : "");
-  }
-  static get(node) {
-    return node.cmView;
-  }
-  get isEditable() {
-    return true;
-  }
-  get isWidget() {
-    return false;
-  }
-  get isHidden() {
-    return false;
-  }
-  merge(from2, to, source, hasStart, openStart, openEnd) {
-    return false;
-  }
-  become(other) {
-    return false;
-  }
-  canReuseDOM(other) {
-    return other.constructor == this.constructor && !((this.flags | other.flags) & 8);
-  }
-  // When this is a zero-length view with a side, this should return a
-  // number <= 0 to indicate it is before its position, or a
-  // number > 0 when after its position.
-  getSide() {
-    return 0;
-  }
-  destroy() {
-    for (let child of this.children)
-      if (child.parent == this)
-        child.destroy();
-    this.parent = null;
-  }
-};
-ContentView.prototype.breakAfter = 0;
-function rm$1(dom) {
-  let next = dom.nextSibling;
-  dom.parentNode.removeChild(dom);
-  return next;
-}
-var ChildCursor = class {
-  constructor(children, pos, i2) {
-    this.children = children;
-    this.pos = pos;
-    this.i = i2;
-    this.off = 0;
-  }
-  findPos(pos, bias = 1) {
-    for (; ; ) {
-      if (pos > this.pos || pos == this.pos && (bias > 0 || this.i == 0 || this.children[this.i - 1].breakAfter)) {
-        this.off = pos - this.pos;
-        return this;
-      }
-      let next = this.children[--this.i];
-      this.pos -= next.length + next.breakAfter;
-    }
-  }
-};
-function replaceRange(parent, fromI, fromOff, toI, toOff, insert2, breakAtStart, openStart, openEnd) {
-  let { children } = parent;
-  let before = children.length ? children[fromI] : null;
-  let last = insert2.length ? insert2[insert2.length - 1] : null;
-  let breakAtEnd = last ? last.breakAfter : breakAtStart;
-  if (fromI == toI && before && !breakAtStart && !breakAtEnd && insert2.length < 2 && before.merge(fromOff, toOff, insert2.length ? last : null, fromOff == 0, openStart, openEnd))
-    return;
-  if (toI < children.length) {
-    let after = children[toI];
-    if (after && (toOff < after.length || after.breakAfter && (last === null || last === void 0 ? void 0 : last.breakAfter))) {
-      if (fromI == toI) {
-        after = after.split(toOff);
-        toOff = 0;
-      }
-      if (!breakAtEnd && last && after.merge(0, toOff, last, true, 0, openEnd)) {
-        insert2[insert2.length - 1] = after;
-      } else {
-        if (toOff || after.children.length && !after.children[0].length)
-          after.merge(0, toOff, null, false, 0, openEnd);
-        insert2.push(after);
-      }
-    } else if (after === null || after === void 0 ? void 0 : after.breakAfter) {
-      if (last)
-        last.breakAfter = 1;
-      else
-        breakAtStart = 1;
-    }
-    toI++;
-  }
-  if (before) {
-    before.breakAfter = breakAtStart;
-    if (fromOff > 0) {
-      if (!breakAtStart && insert2.length && before.merge(fromOff, before.length, insert2[0], false, openStart, 0)) {
-        before.breakAfter = insert2.shift().breakAfter;
-      } else if (fromOff < before.length || before.children.length && before.children[before.children.length - 1].length == 0) {
-        before.merge(fromOff, before.length, null, false, openStart, 0);
-      }
-      fromI++;
-    }
-  }
-  while (fromI < toI && insert2.length) {
-    if (children[toI - 1].become(insert2[insert2.length - 1])) {
-      toI--;
-      insert2.pop();
-      openEnd = insert2.length ? 0 : openStart;
-    } else if (children[fromI].become(insert2[0])) {
-      fromI++;
-      insert2.shift();
-      openStart = insert2.length ? 0 : openEnd;
-    } else {
-      break;
-    }
-  }
-  if (!insert2.length && fromI && toI < children.length && !children[fromI - 1].breakAfter && children[toI].merge(0, 0, children[fromI - 1], false, openStart, openEnd))
-    fromI--;
-  if (fromI < toI || insert2.length)
-    parent.replaceChildren(fromI, toI, insert2);
-}
-function mergeChildrenInto(parent, from2, to, insert2, openStart, openEnd) {
-  let cur2 = parent.childCursor();
-  let { i: toI, off: toOff } = cur2.findPos(to, 1);
-  let { i: fromI, off: fromOff } = cur2.findPos(from2, -1);
-  let dLen = from2 - to;
-  for (let view of insert2)
-    dLen += view.length;
-  parent.length += dLen;
-  replaceRange(parent, fromI, fromOff, toI, toOff, insert2, 0, openStart, openEnd);
-}
-var nav = typeof navigator != "undefined" ? navigator : { userAgent: "", vendor: "", platform: "" };
-var doc = typeof document != "undefined" ? document : { documentElement: { style: {} } };
-var ie_edge = /* @__PURE__ */ /Edge\/(\d+)/.exec(nav.userAgent);
-var ie_upto10 = /* @__PURE__ */ /MSIE \d/.test(nav.userAgent);
-var ie_11up = /* @__PURE__ */ /Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(nav.userAgent);
-var ie2 = !!(ie_upto10 || ie_11up || ie_edge);
-var gecko = !ie2 && /* @__PURE__ */ /gecko\/(\d+)/i.test(nav.userAgent);
-var chrome = !ie2 && /* @__PURE__ */ /Chrome\/(\d+)/.exec(nav.userAgent);
-var webkit = "webkitFontSmoothing" in doc.documentElement.style;
-var safari = !ie2 && /* @__PURE__ */ /Apple Computer/.test(nav.vendor);
-var ios = safari && (/* @__PURE__ */ /Mobile\/\w+/.test(nav.userAgent) || nav.maxTouchPoints > 2);
-var browser = {
-  mac: ios || /* @__PURE__ */ /Mac/.test(nav.platform),
-  windows: /* @__PURE__ */ /Win/.test(nav.platform),
-  linux: /* @__PURE__ */ /Linux|X11/.test(nav.platform),
-  ie: ie2,
-  ie_version: ie_upto10 ? doc.documentMode || 6 : ie_11up ? +ie_11up[1] : ie_edge ? +ie_edge[1] : 0,
-  gecko,
-  gecko_version: gecko ? +(/* @__PURE__ */ /Firefox\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
-  chrome: !!chrome,
-  chrome_version: chrome ? +chrome[1] : 0,
-  ios,
-  android: /* @__PURE__ */ /Android\b/.test(nav.userAgent),
-  webkit,
-  safari,
-  webkit_version: webkit ? +(/* @__PURE__ */ /\bAppleWebKit\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
-  tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
-};
-var MaxJoinLen = 256;
-var TextView = class _TextView extends ContentView {
-  constructor(text) {
-    super();
-    this.text = text;
-  }
-  get length() {
-    return this.text.length;
-  }
-  createDOM(textDOM) {
-    this.setDOM(textDOM || document.createTextNode(this.text));
-  }
-  sync(view, track) {
-    if (!this.dom)
-      this.createDOM();
-    if (this.dom.nodeValue != this.text) {
-      if (track && track.node == this.dom)
-        track.written = true;
-      this.dom.nodeValue = this.text;
-    }
-  }
-  reuseDOM(dom) {
-    if (dom.nodeType == 3)
-      this.createDOM(dom);
-  }
-  merge(from2, to, source) {
-    if (this.flags & 8 || source && (!(source instanceof _TextView) || this.length - (to - from2) + source.length > MaxJoinLen || source.flags & 8))
-      return false;
-    this.text = this.text.slice(0, from2) + (source ? source.text : "") + this.text.slice(to);
-    this.markDirty();
-    return true;
-  }
-  split(from2) {
-    let result = new _TextView(this.text.slice(from2));
-    this.text = this.text.slice(0, from2);
-    this.markDirty();
-    result.flags |= this.flags & 8;
-    return result;
-  }
-  localPosFromDOM(node, offset) {
-    return node == this.dom ? offset : offset ? this.text.length : 0;
-  }
-  domAtPos(pos) {
-    return new DOMPos(this.dom, pos);
-  }
-  domBoundsAround(_from, _to, offset) {
-    return { from: offset, to: offset + this.length, startDOM: this.dom, endDOM: this.dom.nextSibling };
-  }
-  coordsAt(pos, side) {
-    return textCoords(this.dom, pos, side);
-  }
-};
-var MarkView = class _MarkView extends ContentView {
-  constructor(mark, children = [], length = 0) {
-    super();
-    this.mark = mark;
-    this.children = children;
-    this.length = length;
-    for (let ch of children)
-      ch.setParent(this);
-  }
-  setAttrs(dom) {
-    clearAttributes(dom);
-    if (this.mark.class)
-      dom.className = this.mark.class;
-    if (this.mark.attrs)
-      for (let name2 in this.mark.attrs)
-        dom.setAttribute(name2, this.mark.attrs[name2]);
-    return dom;
-  }
-  canReuseDOM(other) {
-    return super.canReuseDOM(other) && !((this.flags | other.flags) & 8);
-  }
-  reuseDOM(node) {
-    if (node.nodeName == this.mark.tagName.toUpperCase()) {
-      this.setDOM(node);
-      this.flags |= 4 | 2;
-    }
-  }
-  sync(view, track) {
-    if (!this.dom)
-      this.setDOM(this.setAttrs(document.createElement(this.mark.tagName)));
-    else if (this.flags & 4)
-      this.setAttrs(this.dom);
-    super.sync(view, track);
-  }
-  merge(from2, to, source, _hasStart, openStart, openEnd) {
-    if (source && (!(source instanceof _MarkView && source.mark.eq(this.mark)) || from2 && openStart <= 0 || to < this.length && openEnd <= 0))
-      return false;
-    mergeChildrenInto(this, from2, to, source ? source.children.slice() : [], openStart - 1, openEnd - 1);
-    this.markDirty();
-    return true;
-  }
-  split(from2) {
-    let result = [], off = 0, detachFrom = -1, i2 = 0;
-    for (let elt2 of this.children) {
-      let end = off + elt2.length;
-      if (end > from2)
-        result.push(off < from2 ? elt2.split(from2 - off) : elt2);
-      if (detachFrom < 0 && off >= from2)
-        detachFrom = i2;
-      off = end;
-      i2++;
-    }
-    let length = this.length - from2;
-    this.length = from2;
-    if (detachFrom > -1) {
-      this.children.length = detachFrom;
-      this.markDirty();
-    }
-    return new _MarkView(this.mark, result, length);
-  }
-  domAtPos(pos) {
-    return inlineDOMAtPos(this, pos);
-  }
-  coordsAt(pos, side) {
-    return coordsInChildren(this, pos, side);
-  }
-};
-function textCoords(text, pos, side) {
-  let length = text.nodeValue.length;
-  if (pos > length)
-    pos = length;
-  let from2 = pos, to = pos, flatten2 = 0;
-  if (pos == 0 && side < 0 || pos == length && side >= 0) {
-    if (!(browser.chrome || browser.gecko)) {
-      if (pos) {
-        from2--;
-        flatten2 = 1;
-      } else if (to < length) {
-        to++;
-        flatten2 = -1;
-      }
-    }
-  } else {
-    if (side < 0)
-      from2--;
-    else if (to < length)
-      to++;
-  }
-  let rects = textRange(text, from2, to).getClientRects();
-  if (!rects.length)
-    return null;
-  let rect = rects[(flatten2 ? flatten2 < 0 : side >= 0) ? 0 : rects.length - 1];
-  if (browser.safari && !flatten2 && rect.width == 0)
-    rect = Array.prototype.find.call(rects, (r) => r.width) || rect;
-  return flatten2 ? flattenRect(rect, flatten2 < 0) : rect || null;
-}
-var WidgetView = class _WidgetView extends ContentView {
-  static create(widget, length, side) {
-    return new _WidgetView(widget, length, side);
-  }
-  constructor(widget, length, side) {
-    super();
-    this.widget = widget;
-    this.length = length;
-    this.side = side;
-    this.prevWidget = null;
-  }
-  split(from2) {
-    let result = _WidgetView.create(this.widget, this.length - from2, this.side);
-    this.length -= from2;
-    return result;
-  }
-  sync(view) {
-    if (!this.dom || !this.widget.updateDOM(this.dom, view)) {
-      if (this.dom && this.prevWidget)
-        this.prevWidget.destroy(this.dom);
-      this.prevWidget = null;
-      this.setDOM(this.widget.toDOM(view));
-      if (!this.widget.editable)
-        this.dom.contentEditable = "false";
-    }
-  }
-  getSide() {
-    return this.side;
-  }
-  merge(from2, to, source, hasStart, openStart, openEnd) {
-    if (source && (!(source instanceof _WidgetView) || !this.widget.compare(source.widget) || from2 > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
-      return false;
-    this.length = from2 + (source ? source.length : 0) + (this.length - to);
-    return true;
-  }
-  become(other) {
-    if (other instanceof _WidgetView && other.side == this.side && this.widget.constructor == other.widget.constructor) {
-      if (!this.widget.compare(other.widget))
-        this.markDirty(true);
-      if (this.dom && !this.prevWidget)
-        this.prevWidget = this.widget;
-      this.widget = other.widget;
-      this.length = other.length;
-      return true;
-    }
-    return false;
-  }
-  ignoreMutation() {
-    return true;
-  }
-  ignoreEvent(event) {
-    return this.widget.ignoreEvent(event);
-  }
-  get overrideDOMText() {
-    if (this.length == 0)
-      return Text.empty;
-    let top2 = this;
-    while (top2.parent)
-      top2 = top2.parent;
-    let { view } = top2, text = view && view.state.doc, start = this.posAtStart;
-    return text ? text.slice(start, start + this.length) : Text.empty;
-  }
-  domAtPos(pos) {
-    return (this.length ? pos == 0 : this.side > 0) ? DOMPos.before(this.dom) : DOMPos.after(this.dom, pos == this.length);
-  }
-  domBoundsAround() {
-    return null;
-  }
-  coordsAt(pos, side) {
-    let custom = this.widget.coordsAt(this.dom, pos, side);
-    if (custom)
-      return custom;
-    let rects = this.dom.getClientRects(), rect = null;
-    if (!rects.length)
-      return null;
-    let fromBack = this.side ? this.side < 0 : pos > 0;
-    for (let i2 = fromBack ? rects.length - 1 : 0; ; i2 += fromBack ? -1 : 1) {
-      rect = rects[i2];
-      if (pos > 0 ? i2 == 0 : i2 == rects.length - 1 || rect.top < rect.bottom)
-        break;
-    }
-    return flattenRect(rect, !fromBack);
-  }
-  get isEditable() {
-    return false;
-  }
-  get isWidget() {
-    return true;
-  }
-  get isHidden() {
-    return this.widget.isHidden;
-  }
-  destroy() {
-    super.destroy();
-    if (this.dom)
-      this.widget.destroy(this.dom);
-  }
-};
-var WidgetBufferView = class _WidgetBufferView extends ContentView {
-  constructor(side) {
-    super();
-    this.side = side;
-  }
-  get length() {
-    return 0;
-  }
-  merge() {
-    return false;
-  }
-  become(other) {
-    return other instanceof _WidgetBufferView && other.side == this.side;
-  }
-  split() {
-    return new _WidgetBufferView(this.side);
-  }
-  sync() {
-    if (!this.dom) {
-      let dom = document.createElement("img");
-      dom.className = "cm-widgetBuffer";
-      dom.setAttribute("aria-hidden", "true");
-      this.setDOM(dom);
-    }
-  }
-  getSide() {
-    return this.side;
-  }
-  domAtPos(pos) {
-    return this.side > 0 ? DOMPos.before(this.dom) : DOMPos.after(this.dom);
-  }
-  localPosFromDOM() {
-    return 0;
-  }
-  domBoundsAround() {
-    return null;
-  }
-  coordsAt(pos) {
-    return this.dom.getBoundingClientRect();
-  }
-  get overrideDOMText() {
-    return Text.empty;
-  }
-  get isHidden() {
-    return true;
-  }
-};
-TextView.prototype.children = WidgetView.prototype.children = WidgetBufferView.prototype.children = noChildren;
-function inlineDOMAtPos(parent, pos) {
-  let dom = parent.dom, { children } = parent, i2 = 0;
-  for (let off = 0; i2 < children.length; i2++) {
-    let child = children[i2], end = off + child.length;
-    if (end == off && child.getSide() <= 0)
-      continue;
-    if (pos > off && pos < end && child.dom.parentNode == dom)
-      return child.domAtPos(pos - off);
-    if (pos <= off)
-      break;
-    off = end;
-  }
-  for (let j = i2; j > 0; j--) {
-    let prev = children[j - 1];
-    if (prev.dom.parentNode == dom)
-      return prev.domAtPos(prev.length);
-  }
-  for (let j = i2; j < children.length; j++) {
-    let next = children[j];
-    if (next.dom.parentNode == dom)
-      return next.domAtPos(0);
-  }
-  return new DOMPos(dom, 0);
-}
-function joinInlineInto(parent, view, open) {
-  let last, { children } = parent;
-  if (open > 0 && view instanceof MarkView && children.length && (last = children[children.length - 1]) instanceof MarkView && last.mark.eq(view.mark)) {
-    joinInlineInto(last, view.children[0], open - 1);
-  } else {
-    children.push(view);
-    view.setParent(parent);
-  }
-  parent.length += view.length;
-}
-function coordsInChildren(view, pos, side) {
-  let before = null, beforePos = -1, after = null, afterPos = -1;
-  function scan(view2, pos2) {
-    for (let i2 = 0, off = 0; i2 < view2.children.length && off <= pos2; i2++) {
-      let child = view2.children[i2], end = off + child.length;
-      if (end >= pos2) {
-        if (child.children.length) {
-          scan(child, pos2 - off);
-        } else if ((!after || after.isHidden && side > 0) && (end > pos2 || off == end && child.getSide() > 0)) {
-          after = child;
-          afterPos = pos2 - off;
-        } else if (off < pos2 || off == end && child.getSide() < 0 && !child.isHidden) {
-          before = child;
-          beforePos = pos2 - off;
-        }
-      }
-      off = end;
-    }
-  }
-  scan(view, pos);
-  let target = (side < 0 ? before : after) || before || after;
-  if (target)
-    return target.coordsAt(Math.max(0, target == before ? beforePos : afterPos), side);
-  return fallbackRect(view);
-}
-function fallbackRect(view) {
-  let last = view.dom.lastChild;
-  if (!last)
-    return view.dom.getBoundingClientRect();
-  let rects = clientRectsFor(last);
-  return rects[rects.length - 1] || null;
-}
-function combineAttrs(source, target) {
-  for (let name2 in source) {
-    if (name2 == "class" && target.class)
-      target.class += " " + source.class;
-    else if (name2 == "style" && target.style)
-      target.style += ";" + source.style;
-    else
-      target[name2] = source[name2];
-  }
-  return target;
-}
-var noAttrs = /* @__PURE__ */ Object.create(null);
-function attrsEq(a, b, ignore) {
-  if (a == b)
-    return true;
-  if (!a)
-    a = noAttrs;
-  if (!b)
-    b = noAttrs;
-  let keysA = Object.keys(a), keysB = Object.keys(b);
-  if (keysA.length - (ignore && keysA.indexOf(ignore) > -1 ? 1 : 0) != keysB.length - (ignore && keysB.indexOf(ignore) > -1 ? 1 : 0))
-    return false;
-  for (let key of keysA) {
-    if (key != ignore && (keysB.indexOf(key) == -1 || a[key] !== b[key]))
-      return false;
-  }
-  return true;
-}
-function updateAttrs(dom, prev, attrs) {
-  let changed = false;
-  if (prev) {
-    for (let name2 in prev)
-      if (!(attrs && name2 in attrs)) {
-        changed = true;
-        if (name2 == "style")
-          dom.style.cssText = "";
-        else
-          dom.removeAttribute(name2);
-      }
-  }
-  if (attrs) {
-    for (let name2 in attrs)
-      if (!(prev && prev[name2] == attrs[name2])) {
-        changed = true;
-        if (name2 == "style")
-          dom.style.cssText = attrs[name2];
-        else
-          dom.setAttribute(name2, attrs[name2]);
-      }
-  }
-  return changed;
-}
-function getAttrs(dom) {
-  let attrs = /* @__PURE__ */ Object.create(null);
-  for (let i2 = 0; i2 < dom.attributes.length; i2++) {
-    let attr = dom.attributes[i2];
-    attrs[attr.name] = attr.value;
-  }
-  return attrs;
-}
-var WidgetType = class {
-  /**
-  Compare this instance to another instance of the same type.
-  (TypeScript can't express this, but only instances of the same
-  specific class will be passed to this method.) This is used to
-  avoid redrawing widgets when they are replaced by a new
-  decoration of the same type. The default implementation just
-  returns `false`, which will cause new instances of the widget to
-  always be redrawn.
-  */
-  eq(widget) {
-    return false;
-  }
-  /**
-  Update a DOM element created by a widget of the same type (but
-  different, non-`eq` content) to reflect this widget. May return
-  true to indicate that it could update, false to indicate it
-  couldn't (in which case the widget will be redrawn). The default
-  implementation just returns false.
-  */
-  updateDOM(dom, view) {
-    return false;
-  }
-  /**
-  @internal
-  */
-  compare(other) {
-    return this == other || this.constructor == other.constructor && this.eq(other);
-  }
-  /**
-  The estimated height this widget will have, to be used when
-  estimating the height of content that hasn't been drawn. May
-  return -1 to indicate you don't know. The default implementation
-  returns -1.
-  */
-  get estimatedHeight() {
-    return -1;
-  }
-  /**
-  For inline widgets that are displayed inline (as opposed to
-  `inline-block`) and introduce line breaks (through `<br>` tags
-  or textual newlines), this must indicate the amount of line
-  breaks they introduce. Defaults to 0.
-  */
-  get lineBreaks() {
-    return 0;
-  }
-  /**
-  Can be used to configure which kinds of events inside the widget
-  should be ignored by the editor. The default is to ignore all
-  events.
-  */
-  ignoreEvent(event) {
-    return true;
-  }
-  /**
-  Override the way screen coordinates for positions at/in the
-  widget are found. `pos` will be the offset into the widget, and
-  `side` the side of the position that is being queried—less than
-  zero for before, greater than zero for after, and zero for
-  directly at that position.
-  */
-  coordsAt(dom, pos, side) {
-    return null;
-  }
-  /**
-  @internal
-  */
-  get isHidden() {
-    return false;
-  }
-  /**
-  @internal
-  */
-  get editable() {
-    return false;
-  }
-  /**
-  This is called when the an instance of the widget is removed
-  from the editor view.
-  */
-  destroy(dom) {
-  }
-};
-var BlockType = /* @__PURE__ */ (function(BlockType3) {
-  BlockType3[BlockType3["Text"] = 0] = "Text";
-  BlockType3[BlockType3["WidgetBefore"] = 1] = "WidgetBefore";
-  BlockType3[BlockType3["WidgetAfter"] = 2] = "WidgetAfter";
-  BlockType3[BlockType3["WidgetRange"] = 3] = "WidgetRange";
-  return BlockType3;
-})(BlockType || (BlockType = {}));
-var Decoration = class extends RangeValue {
-  constructor(startSide, endSide, widget, spec) {
-    super();
-    this.startSide = startSide;
-    this.endSide = endSide;
-    this.widget = widget;
-    this.spec = spec;
-  }
-  /**
-  @internal
-  */
-  get heightRelevant() {
-    return false;
-  }
-  /**
-  Create a mark decoration, which influences the styling of the
-  content in its range. Nested mark decorations will cause nested
-  DOM elements to be created. Nesting order is determined by
-  precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), with
-  the higher-precedence decorations creating the inner DOM nodes.
-  Such elements are split on line boundaries and on the boundaries
-  of lower-precedence decorations.
-  */
-  static mark(spec) {
-    return new MarkDecoration(spec);
-  }
-  /**
-  Create a widget decoration, which displays a DOM element at the
-  given position.
-  */
-  static widget(spec) {
-    let side = Math.max(-1e4, Math.min(1e4, spec.side || 0)), block = !!spec.block;
-    side += block && !spec.inlineOrder ? side > 0 ? 3e8 : -4e8 : side > 0 ? 1e8 : -1e8;
-    return new PointDecoration(spec, side, side, block, spec.widget || null, false);
-  }
-  /**
-  Create a replace decoration which replaces the given range with
-  a widget, or simply hides it.
-  */
-  static replace(spec) {
-    let block = !!spec.block, startSide, endSide;
-    if (spec.isBlockGap) {
-      startSide = -5e8;
-      endSide = 4e8;
-    } else {
-      let { start, end } = getInclusive(spec, block);
-      startSide = (start ? block ? -3e8 : -1 : 5e8) - 1;
-      endSide = (end ? block ? 2e8 : 1 : -6e8) + 1;
-    }
-    return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
-  }
-  /**
-  Create a line decoration, which can add DOM attributes to the
-  line starting at the given position.
-  */
-  static line(spec) {
-    return new LineDecoration(spec);
-  }
-  /**
-  Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
-  decorated range or ranges. If the ranges aren't already sorted,
-  pass `true` for `sort` to make the library sort them for you.
-  */
-  static set(of, sort = false) {
-    return RangeSet.of(of, sort);
-  }
-  /**
-  @internal
-  */
-  hasHeight() {
-    return this.widget ? this.widget.estimatedHeight > -1 : false;
-  }
-};
-Decoration.none = RangeSet.empty;
-var MarkDecoration = class _MarkDecoration extends Decoration {
-  constructor(spec) {
-    let { start, end } = getInclusive(spec);
-    super(start ? -1 : 5e8, end ? 1 : -6e8, null, spec);
-    this.tagName = spec.tagName || "span";
-    this.class = spec.class || "";
-    this.attrs = spec.attributes || null;
-  }
-  eq(other) {
-    var _a2, _b2;
-    return this == other || other instanceof _MarkDecoration && this.tagName == other.tagName && (this.class || ((_a2 = this.attrs) === null || _a2 === void 0 ? void 0 : _a2.class)) == (other.class || ((_b2 = other.attrs) === null || _b2 === void 0 ? void 0 : _b2.class)) && attrsEq(this.attrs, other.attrs, "class");
-  }
-  range(from2, to = from2) {
-    if (from2 >= to)
-      throw new RangeError("Mark decorations may not be empty");
-    return super.range(from2, to);
-  }
-};
-MarkDecoration.prototype.point = false;
-var LineDecoration = class _LineDecoration extends Decoration {
-  constructor(spec) {
-    super(-2e8, -2e8, null, spec);
-  }
-  eq(other) {
-    return other instanceof _LineDecoration && this.spec.class == other.spec.class && attrsEq(this.spec.attributes, other.spec.attributes);
-  }
-  range(from2, to = from2) {
-    if (to != from2)
-      throw new RangeError("Line decoration ranges must be zero-length");
-    return super.range(from2, to);
-  }
-};
-LineDecoration.prototype.mapMode = MapMode.TrackBefore;
-LineDecoration.prototype.point = true;
-var PointDecoration = class _PointDecoration extends Decoration {
-  constructor(spec, startSide, endSide, block, widget, isReplace) {
-    super(startSide, endSide, widget, spec);
-    this.block = block;
-    this.isReplace = isReplace;
-    this.mapMode = !block ? MapMode.TrackDel : startSide <= 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
-  }
-  // Only relevant when this.block == true
-  get type() {
-    return this.startSide != this.endSide ? BlockType.WidgetRange : this.startSide <= 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
-  }
-  get heightRelevant() {
-    return this.block || !!this.widget && (this.widget.estimatedHeight >= 5 || this.widget.lineBreaks > 0);
-  }
-  eq(other) {
-    return other instanceof _PointDecoration && widgetsEq(this.widget, other.widget) && this.block == other.block && this.startSide == other.startSide && this.endSide == other.endSide;
-  }
-  range(from2, to = from2) {
-    if (this.isReplace && (from2 > to || from2 == to && this.startSide > 0 && this.endSide <= 0))
-      throw new RangeError("Invalid range for replacement decoration");
-    if (!this.isReplace && to != from2)
-      throw new RangeError("Widget decorations can only have zero-length ranges");
-    return super.range(from2, to);
-  }
-};
-PointDecoration.prototype.point = true;
-function getInclusive(spec, block = false) {
-  let { inclusiveStart: start, inclusiveEnd: end } = spec;
-  if (start == null)
-    start = spec.inclusive;
-  if (end == null)
-    end = spec.inclusive;
-  return { start: start !== null && start !== void 0 ? start : block, end: end !== null && end !== void 0 ? end : block };
-}
-function widgetsEq(a, b) {
-  return a == b || !!(a && b && a.compare(b));
-}
-function addRange(from2, to, ranges, margin = 0) {
-  let last = ranges.length - 1;
-  if (last >= 0 && ranges[last] + margin >= from2)
-    ranges[last] = Math.max(ranges[last], to);
-  else
-    ranges.push(from2, to);
-}
-var LineView = class _LineView extends ContentView {
-  constructor() {
-    super(...arguments);
-    this.children = [];
-    this.length = 0;
-    this.prevAttrs = void 0;
-    this.attrs = null;
-    this.breakAfter = 0;
-  }
-  // Consumes source
-  merge(from2, to, source, hasStart, openStart, openEnd) {
-    if (source) {
-      if (!(source instanceof _LineView))
-        return false;
-      if (!this.dom)
-        source.transferDOM(this);
-    }
-    if (hasStart)
-      this.setDeco(source ? source.attrs : null);
-    mergeChildrenInto(this, from2, to, source ? source.children.slice() : [], openStart, openEnd);
-    return true;
-  }
-  split(at) {
-    let end = new _LineView();
-    end.breakAfter = this.breakAfter;
-    if (this.length == 0)
-      return end;
-    let { i: i2, off } = this.childPos(at);
-    if (off) {
-      end.append(this.children[i2].split(off), 0);
-      this.children[i2].merge(off, this.children[i2].length, null, false, 0, 0);
-      i2++;
-    }
-    for (let j = i2; j < this.children.length; j++)
-      end.append(this.children[j], 0);
-    while (i2 > 0 && this.children[i2 - 1].length == 0)
-      this.children[--i2].destroy();
-    this.children.length = i2;
-    this.markDirty();
-    this.length = at;
-    return end;
-  }
-  transferDOM(other) {
-    if (!this.dom)
-      return;
-    this.markDirty();
-    other.setDOM(this.dom);
-    other.prevAttrs = this.prevAttrs === void 0 ? this.attrs : this.prevAttrs;
-    this.prevAttrs = void 0;
-    this.dom = null;
-  }
-  setDeco(attrs) {
-    if (!attrsEq(this.attrs, attrs)) {
-      if (this.dom) {
-        this.prevAttrs = this.attrs;
-        this.markDirty();
-      }
-      this.attrs = attrs;
-    }
-  }
-  append(child, openStart) {
-    joinInlineInto(this, child, openStart);
-  }
-  // Only called when building a line view in ContentBuilder
-  addLineDeco(deco) {
-    let attrs = deco.spec.attributes, cls = deco.spec.class;
-    if (attrs)
-      this.attrs = combineAttrs(attrs, this.attrs || {});
-    if (cls)
-      this.attrs = combineAttrs({ class: cls }, this.attrs || {});
-  }
-  domAtPos(pos) {
-    return inlineDOMAtPos(this, pos);
-  }
-  reuseDOM(node) {
-    if (node.nodeName == "DIV") {
-      this.setDOM(node);
-      this.flags |= 4 | 2;
-    }
-  }
-  sync(view, track) {
-    var _a2;
-    if (!this.dom) {
-      this.setDOM(document.createElement("div"));
-      this.dom.className = "cm-line";
-      this.prevAttrs = this.attrs ? null : void 0;
-    } else if (this.flags & 4) {
-      clearAttributes(this.dom);
-      this.dom.className = "cm-line";
-      this.prevAttrs = this.attrs ? null : void 0;
-    }
-    if (this.prevAttrs !== void 0) {
-      updateAttrs(this.dom, this.prevAttrs, this.attrs);
-      this.dom.classList.add("cm-line");
-      this.prevAttrs = void 0;
-    }
-    super.sync(view, track);
-    let last = this.dom.lastChild;
-    while (last && ContentView.get(last) instanceof MarkView)
-      last = last.lastChild;
-    if (!last || !this.length || last.nodeName != "BR" && ((_a2 = ContentView.get(last)) === null || _a2 === void 0 ? void 0 : _a2.isEditable) == false && (!browser.ios || !this.children.some((ch) => ch instanceof TextView))) {
-      let hack = document.createElement("BR");
-      hack.cmIgnore = true;
-      this.dom.appendChild(hack);
-    }
-  }
-  measureTextSize() {
-    if (this.children.length == 0 || this.length > 20)
-      return null;
-    let totalWidth = 0, textHeight;
-    for (let child of this.children) {
-      if (!(child instanceof TextView) || /[^ -~]/.test(child.text))
-        return null;
-      let rects = clientRectsFor(child.dom);
-      if (rects.length != 1)
-        return null;
-      totalWidth += rects[0].width;
-      textHeight = rects[0].height;
-    }
-    return !totalWidth ? null : {
-      lineHeight: this.dom.getBoundingClientRect().height,
-      charWidth: totalWidth / this.length,
-      textHeight
-    };
-  }
-  coordsAt(pos, side) {
-    let rect = coordsInChildren(this, pos, side);
-    if (!this.children.length && rect && this.parent) {
-      let { heightOracle } = this.parent.view.viewState, height = rect.bottom - rect.top;
-      if (Math.abs(height - heightOracle.lineHeight) < 2 && heightOracle.textHeight < height) {
-        let dist3 = (height - heightOracle.textHeight) / 2;
-        return { top: rect.top + dist3, bottom: rect.bottom - dist3, left: rect.left, right: rect.left };
-      }
-    }
-    return rect;
-  }
-  become(other) {
-    return other instanceof _LineView && this.children.length == 0 && other.children.length == 0 && attrsEq(this.attrs, other.attrs) && this.breakAfter == other.breakAfter;
-  }
-  covers() {
-    return true;
-  }
-  static find(docView, pos) {
-    for (let i2 = 0, off = 0; i2 < docView.children.length; i2++) {
-      let block = docView.children[i2], end = off + block.length;
-      if (end >= pos) {
-        if (block instanceof _LineView)
-          return block;
-        if (end > pos)
-          break;
-      }
-      off = end + block.breakAfter;
-    }
-    return null;
-  }
-};
-var BlockWidgetView = class _BlockWidgetView extends ContentView {
-  constructor(widget, length, deco) {
-    super();
-    this.widget = widget;
-    this.length = length;
-    this.deco = deco;
-    this.breakAfter = 0;
-    this.prevWidget = null;
-  }
-  merge(from2, to, source, _takeDeco, openStart, openEnd) {
-    if (source && (!(source instanceof _BlockWidgetView) || !this.widget.compare(source.widget) || from2 > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
-      return false;
-    this.length = from2 + (source ? source.length : 0) + (this.length - to);
-    return true;
-  }
-  domAtPos(pos) {
-    return pos == 0 ? DOMPos.before(this.dom) : DOMPos.after(this.dom, pos == this.length);
-  }
-  split(at) {
-    let len = this.length - at;
-    this.length = at;
-    let end = new _BlockWidgetView(this.widget, len, this.deco);
-    end.breakAfter = this.breakAfter;
-    return end;
-  }
-  get children() {
-    return noChildren;
-  }
-  sync(view) {
-    if (!this.dom || !this.widget.updateDOM(this.dom, view)) {
-      if (this.dom && this.prevWidget)
-        this.prevWidget.destroy(this.dom);
-      this.prevWidget = null;
-      this.setDOM(this.widget.toDOM(view));
-      if (!this.widget.editable)
-        this.dom.contentEditable = "false";
-    }
-  }
-  get overrideDOMText() {
-    return this.parent ? this.parent.view.state.doc.slice(this.posAtStart, this.posAtEnd) : Text.empty;
-  }
-  domBoundsAround() {
-    return null;
-  }
-  become(other) {
-    if (other instanceof _BlockWidgetView && other.widget.constructor == this.widget.constructor) {
-      if (!other.widget.compare(this.widget))
-        this.markDirty(true);
-      if (this.dom && !this.prevWidget)
-        this.prevWidget = this.widget;
-      this.widget = other.widget;
-      this.length = other.length;
-      this.deco = other.deco;
-      this.breakAfter = other.breakAfter;
-      return true;
-    }
-    return false;
-  }
-  ignoreMutation() {
-    return true;
-  }
-  ignoreEvent(event) {
-    return this.widget.ignoreEvent(event);
-  }
-  get isEditable() {
-    return false;
-  }
-  get isWidget() {
-    return true;
-  }
-  coordsAt(pos, side) {
-    let custom = this.widget.coordsAt(this.dom, pos, side);
-    if (custom)
-      return custom;
-    if (this.widget instanceof BlockGapWidget)
-      return null;
-    return flattenRect(this.dom.getBoundingClientRect(), this.length ? pos == 0 : side <= 0);
-  }
-  destroy() {
-    super.destroy();
-    if (this.dom)
-      this.widget.destroy(this.dom);
-  }
-  covers(side) {
-    let { startSide, endSide } = this.deco;
-    return startSide == endSide ? false : side < 0 ? startSide < 0 : endSide > 0;
-  }
-};
-var BlockGapWidget = class extends WidgetType {
-  constructor(height) {
-    super();
-    this.height = height;
-  }
-  toDOM() {
-    let elt2 = document.createElement("div");
-    elt2.className = "cm-gap";
-    this.updateDOM(elt2);
-    return elt2;
-  }
-  eq(other) {
-    return other.height == this.height;
-  }
-  updateDOM(elt2) {
-    elt2.style.height = this.height + "px";
-    return true;
-  }
-  get editable() {
-    return true;
-  }
-  get estimatedHeight() {
-    return this.height;
-  }
-  ignoreEvent() {
-    return false;
-  }
-};
-var ContentBuilder = class _ContentBuilder {
-  constructor(doc3, pos, end, disallowBlockEffectsFor) {
-    this.doc = doc3;
-    this.pos = pos;
-    this.end = end;
-    this.disallowBlockEffectsFor = disallowBlockEffectsFor;
-    this.content = [];
-    this.curLine = null;
-    this.breakAtStart = 0;
-    this.pendingBuffer = 0;
-    this.bufferMarks = [];
-    this.atCursorPos = true;
-    this.openStart = -1;
-    this.openEnd = -1;
-    this.text = "";
-    this.textOff = 0;
-    this.cursor = doc3.iter();
-    this.skip = pos;
-  }
-  posCovered() {
-    if (this.content.length == 0)
-      return !this.breakAtStart && this.doc.lineAt(this.pos).from != this.pos;
-    let last = this.content[this.content.length - 1];
-    return !(last.breakAfter || last instanceof BlockWidgetView && last.deco.endSide < 0);
-  }
-  getLine() {
-    if (!this.curLine) {
-      this.content.push(this.curLine = new LineView());
-      this.atCursorPos = true;
-    }
-    return this.curLine;
-  }
-  flushBuffer(active = this.bufferMarks) {
-    if (this.pendingBuffer) {
-      this.curLine.append(wrapMarks(new WidgetBufferView(-1), active), active.length);
-      this.pendingBuffer = 0;
-    }
-  }
-  addBlockWidget(view) {
-    this.flushBuffer();
-    this.curLine = null;
-    this.content.push(view);
-  }
-  finish(openEnd) {
-    if (this.pendingBuffer && openEnd <= this.bufferMarks.length)
-      this.flushBuffer();
-    else
-      this.pendingBuffer = 0;
-    if (!this.posCovered() && !(openEnd && this.content.length && this.content[this.content.length - 1] instanceof BlockWidgetView))
-      this.getLine();
-  }
-  buildText(length, active, openStart) {
-    while (length > 0) {
-      if (this.textOff == this.text.length) {
-        let { value, lineBreak, done } = this.cursor.next(this.skip);
-        this.skip = 0;
-        if (done)
-          throw new Error("Ran out of text content when drawing inline views");
-        if (lineBreak) {
-          if (!this.posCovered())
-            this.getLine();
-          if (this.content.length)
-            this.content[this.content.length - 1].breakAfter = 1;
-          else
-            this.breakAtStart = 1;
-          this.flushBuffer();
-          this.curLine = null;
-          this.atCursorPos = true;
-          length--;
-          continue;
-        } else {
-          this.text = value;
-          this.textOff = 0;
-        }
-      }
-      let take = Math.min(
-        this.text.length - this.textOff,
-        length,
-        512
-        /* T.Chunk */
-      );
-      this.flushBuffer(active.slice(active.length - openStart));
-      this.getLine().append(wrapMarks(new TextView(this.text.slice(this.textOff, this.textOff + take)), active), openStart);
-      this.atCursorPos = true;
-      this.textOff += take;
-      length -= take;
-      openStart = 0;
-    }
-  }
-  span(from2, to, active, openStart) {
-    this.buildText(to - from2, active, openStart);
-    this.pos = to;
-    if (this.openStart < 0)
-      this.openStart = openStart;
-  }
-  point(from2, to, deco, active, openStart, index) {
-    if (this.disallowBlockEffectsFor[index] && deco instanceof PointDecoration) {
-      if (deco.block)
-        throw new RangeError("Block decorations may not be specified via plugins");
-      if (to > this.doc.lineAt(this.pos).to)
-        throw new RangeError("Decorations that replace line breaks may not be specified via plugins");
-    }
-    let len = to - from2;
-    if (deco instanceof PointDecoration) {
-      if (deco.block) {
-        if (deco.startSide > 0 && !this.posCovered())
-          this.getLine();
-        this.addBlockWidget(new BlockWidgetView(deco.widget || NullWidget.block, len, deco));
-      } else {
-        let view = WidgetView.create(deco.widget || NullWidget.inline, len, len ? 0 : deco.startSide);
-        let cursorBefore = this.atCursorPos && !view.isEditable && openStart <= active.length && (from2 < to || deco.startSide > 0);
-        let cursorAfter = !view.isEditable && (from2 < to || openStart > active.length || deco.startSide <= 0);
-        let line = this.getLine();
-        if (this.pendingBuffer == 2 && !cursorBefore && !view.isEditable)
-          this.pendingBuffer = 0;
-        this.flushBuffer(active);
-        if (cursorBefore) {
-          line.append(wrapMarks(new WidgetBufferView(1), active), openStart);
-          openStart = active.length + Math.max(0, openStart - active.length);
-        }
-        line.append(wrapMarks(view, active), openStart);
-        this.atCursorPos = cursorAfter;
-        this.pendingBuffer = !cursorAfter ? 0 : from2 < to || openStart > active.length ? 1 : 2;
-        if (this.pendingBuffer)
-          this.bufferMarks = active.slice();
-      }
-    } else if (this.doc.lineAt(this.pos).from == this.pos) {
-      this.getLine().addLineDeco(deco);
-    }
-    if (len) {
-      if (this.textOff + len <= this.text.length) {
-        this.textOff += len;
-      } else {
-        this.skip += len - (this.text.length - this.textOff);
-        this.text = "";
-        this.textOff = 0;
-      }
-      this.pos = to;
-    }
-    if (this.openStart < 0)
-      this.openStart = openStart;
-  }
-  static build(text, from2, to, decorations3, dynamicDecorationMap) {
-    let builder = new _ContentBuilder(text, from2, to, dynamicDecorationMap);
-    builder.openEnd = RangeSet.spans(decorations3, from2, to, builder);
-    if (builder.openStart < 0)
-      builder.openStart = builder.openEnd;
-    builder.finish(builder.openEnd);
-    return builder;
-  }
-};
-function wrapMarks(view, active) {
-  for (let mark of active)
-    view = new MarkView(mark, [view], view.length);
-  return view;
-}
-var NullWidget = class extends WidgetType {
-  constructor(tag) {
-    super();
-    this.tag = tag;
-  }
-  eq(other) {
-    return other.tag == this.tag;
-  }
-  toDOM() {
-    return document.createElement(this.tag);
-  }
-  updateDOM(elt2) {
-    return elt2.nodeName.toLowerCase() == this.tag;
-  }
-  get isHidden() {
-    return true;
-  }
-};
-NullWidget.inline = /* @__PURE__ */ new NullWidget("span");
-NullWidget.block = /* @__PURE__ */ new NullWidget("div");
-var Direction = /* @__PURE__ */ (function(Direction3) {
-  Direction3[Direction3["LTR"] = 0] = "LTR";
-  Direction3[Direction3["RTL"] = 1] = "RTL";
-  return Direction3;
+var Direction = /* @__PURE__ */ (function(Direction2) {
+  Direction2[Direction2["LTR"] = 0] = "LTR";
+  Direction2[Direction2["RTL"] = 1] = "RTL";
+  return Direction2;
 })(Direction || (Direction = {}));
 var LTR = Direction.LTR;
 var RTL = Direction.RTL;
@@ -5594,9 +4538,9 @@ function computeCharTypes(line, rFrom, rTo, isolates, outerType) {
         let end = i2 + 1;
         while (end < to && types[end] == 64)
           end++;
-        let replace3 = i2 && prev == 8 || end < rTo && types[end] == 8 ? prevStrong == 1 ? 1 : 8 : 256;
+        let replace2 = i2 && prev == 8 || end < rTo && types[end] == 8 ? prevStrong == 1 ? 1 : 8 : 256;
         for (let j = i2; j < end; j++)
-          types[j] = replace3;
+          types[j] = replace2;
         i2 = end - 1;
       } else if (type == 8 && prevStrong == 1) {
         types[i2] = 1;
@@ -5671,13 +4615,13 @@ function processNeutrals(rFrom, rTo, isolates, outerType) {
         }
         let beforeL = prev == 1;
         let afterL = (end < rTo ? types[end] : outerType) == 1;
-        let replace3 = beforeL == afterL ? beforeL ? 1 : 2 : outerType;
+        let replace2 = beforeL == afterL ? beforeL ? 1 : 2 : outerType;
         for (let j = end, jI = iI, fromJ = jI ? isolates[jI - 1].to : rFrom; j > i2; ) {
           if (j == fromJ) {
             j = isolates[--jI].from;
             fromJ = jI ? isolates[jI - 1].to : rFrom;
           }
-          types[--j] = replace3;
+          types[--j] = replace2;
         }
         i2 = end;
       } else {
@@ -5866,7 +4810,7 @@ var nativeSelectionHidden = /* @__PURE__ */ Facet.define({
 });
 var scrollHandler = /* @__PURE__ */ Facet.define();
 var ScrollTarget = class _ScrollTarget {
-  constructor(range, y = "nearest", x = "nearest", yMargin = 5, xMargin = 5, isSnapshot = false) {
+  constructor(range, y, x, yMargin, xMargin, isSnapshot = false) {
     this.range = range;
     this.y = y;
     this.x = x;
@@ -5887,8 +4831,7 @@ function logException(state, exception, context) {
   let handler = state.facet(exceptionSink);
   if (handler.length)
     handler[0](exception);
-  else if (window.onerror)
-    window.onerror(String(exception), context, void 0, void 0, exception);
+  else if (window.onerror && window.onerror(String(exception), context, void 0, void 0, exception)) ;
   else if (context)
     console.error(context + ":", exception);
   else
@@ -5896,14 +4839,30 @@ function logException(state, exception, context) {
 }
 var editable = /* @__PURE__ */ Facet.define({ combine: (values2) => values2.length ? values2[0] : true });
 var nextPluginID = 0;
-var viewPlugin = /* @__PURE__ */ Facet.define();
+var viewPlugin = /* @__PURE__ */ Facet.define({
+  combine(plugins) {
+    return plugins.filter((p, i2) => {
+      for (let j = 0; j < i2; j++)
+        if (plugins[j].plugin == p.plugin)
+          return false;
+      return true;
+    });
+  }
+});
 var ViewPlugin = class _ViewPlugin {
   constructor(id2, create, domEventHandlers, domEventObservers, buildExtensions) {
     this.id = id2;
     this.create = create;
     this.domEventHandlers = domEventHandlers;
     this.domEventObservers = domEventObservers;
-    this.extension = buildExtensions(this);
+    this.baseExtensions = buildExtensions(this);
+    this.extension = this.baseExtensions.concat(viewPlugin.of({ plugin: this, arg: void 0 }));
+  }
+  /**
+  Create an extension for this plugin with the given argument.
+  */
+  of(arg) {
+    return this.baseExtensions.concat(viewPlugin.of({ plugin: this, arg }));
   }
   /**
   Define a plugin from a constructor function that creates the
@@ -5912,7 +4871,7 @@ var ViewPlugin = class _ViewPlugin {
   static define(create, spec) {
     const { eventHandlers, eventObservers, provide, decorations: deco } = spec || {};
     return new _ViewPlugin(nextPluginID++, create, eventHandlers, eventObservers, (plugin) => {
-      let ext = [viewPlugin.of(plugin)];
+      let ext = [];
       if (deco)
         ext.push(decorations.of((view) => {
           let pluginInst = view.plugin(plugin);
@@ -5928,7 +4887,7 @@ var ViewPlugin = class _ViewPlugin {
   editor view as argument.
   */
   static fromClass(cls, spec) {
-    return _ViewPlugin.define((view) => new cls(view), spec);
+    return _ViewPlugin.define((view, arg) => new cls(view, arg), spec);
   }
 };
 var PluginInstance = class {
@@ -5937,11 +4896,14 @@ var PluginInstance = class {
     this.mustUpdate = null;
     this.value = null;
   }
+  get plugin() {
+    return this.spec && this.spec.plugin;
+  }
   update(view) {
     if (!this.value) {
       if (this.spec) {
         try {
-          this.value = this.spec.create(view);
+          this.value = this.spec.plugin.create(view, this.spec.arg);
         } catch (e) {
           logException(view.state, e, "CodeMirror plugin crashed");
           this.deactivate();
@@ -5983,6 +4945,7 @@ var PluginInstance = class {
 var editorAttributes = /* @__PURE__ */ Facet.define();
 var contentAttributes = /* @__PURE__ */ Facet.define();
 var decorations = /* @__PURE__ */ Facet.define();
+var blockWrappers = /* @__PURE__ */ Facet.define();
 var outerDecorations = /* @__PURE__ */ Facet.define();
 var atomicRanges = /* @__PURE__ */ Facet.define();
 var bidiIsolatedRanges = /* @__PURE__ */ Facet.define();
@@ -6058,29 +5021,42 @@ var ChangedRange = class _ChangedRange {
     set.splice(i2, 0, me);
     return set;
   }
+  // Extend a set to cover all the content in `ranges`, which is a
+  // flat array with each pair of numbers representing fromB/toB
+  // positions. These pairs are generated in unchanged ranges, so the
+  // offset between doc A and doc B is the same for their start and
+  // end points.
   static extendWithRanges(diff, ranges) {
     if (ranges.length == 0)
       return diff;
     let result = [];
-    for (let dI = 0, rI = 0, posA = 0, posB = 0; ; dI++) {
-      let next = dI == diff.length ? null : diff[dI], off = posA - posB;
-      let end = next ? next.fromB : 1e9;
-      while (rI < ranges.length && ranges[rI] < end) {
-        let from2 = ranges[rI], to = ranges[rI + 1];
-        let fromB = Math.max(posB, from2), toB = Math.min(end, to);
-        if (fromB <= toB)
-          new _ChangedRange(fromB + off, toB + off, fromB, toB).addToSet(result);
-        if (to > end)
-          break;
-        else
+    for (let dI = 0, rI = 0, off = 0; ; ) {
+      let nextD = dI < diff.length ? diff[dI].fromB : 1e9;
+      let nextR = rI < ranges.length ? ranges[rI] : 1e9;
+      let fromB = Math.min(nextD, nextR);
+      if (fromB == 1e9)
+        break;
+      let fromA = fromB + off, toB = fromB, toA = fromA;
+      for (; ; ) {
+        if (rI < ranges.length && ranges[rI] <= toB) {
+          let end = ranges[rI + 1];
           rI += 2;
+          toB = Math.max(toB, end);
+          for (let i2 = dI; i2 < diff.length && diff[i2].fromB <= toB; i2++)
+            off = diff[i2].toA - diff[i2].toB;
+          toA = Math.max(toA, end + off);
+        } else if (dI < diff.length && diff[dI].fromB <= toB) {
+          let next = diff[dI++];
+          toB = Math.max(toB, next.toB);
+          toA = Math.max(toA, next.toA);
+          off = next.toA - next.toB;
+        } else {
+          break;
+        }
       }
-      if (!next)
-        return result;
-      new _ChangedRange(next.fromA, next.toA, next.fromB, next.toB).addToSet(result);
-      posA = next.toA;
-      posB = next.toB;
+      result.push(new _ChangedRange(fromA, toA, fromB, toB));
     }
+    return result;
   }
 };
 var ViewUpdate = class _ViewUpdate {
@@ -6112,6 +5088,15 @@ var ViewUpdate = class _ViewUpdate {
     return (this.flags & 4) > 0;
   }
   /**
+  Returns true when
+  [`viewportChanged`](https://codemirror.net/6/docs/ref/#view.ViewUpdate.viewportChanged) is true
+  and the viewport change is not just the result of mapping it in
+  response to document changes.
+  */
+  get viewportMoved() {
+    return (this.flags & 8) > 0;
+  }
+  /**
   Indicates whether the height of a block element in the editor
   changed in this update.
   */
@@ -6123,7 +5108,7 @@ var ViewUpdate = class _ViewUpdate {
   editor, or elements within the editor, changed.
   */
   get geometryChanged() {
-    return this.docChanged || (this.flags & (8 | 2)) > 0;
+    return this.docChanged || (this.flags & (16 | 2)) > 0;
   }
   /**
   True when this update indicates a focus change.
@@ -6150,18 +5135,1217 @@ var ViewUpdate = class _ViewUpdate {
     return this.flags == 0 && this.transactions.length == 0;
   }
 };
-var DocView = class extends ContentView {
-  get length() {
-    return this.view.state.doc.length;
+var noChildren = [];
+var Tile = class {
+  constructor(dom, length, flags = 0) {
+    this.dom = dom;
+    this.length = length;
+    this.flags = flags;
+    this.parent = null;
+    dom.cmTile = this;
   }
+  get breakAfter() {
+    return this.flags & 1;
+  }
+  get children() {
+    return noChildren;
+  }
+  isWidget() {
+    return false;
+  }
+  get isHidden() {
+    return false;
+  }
+  isComposite() {
+    return false;
+  }
+  isLine() {
+    return false;
+  }
+  isText() {
+    return false;
+  }
+  isBlock() {
+    return false;
+  }
+  get domAttrs() {
+    return null;
+  }
+  sync(track) {
+    this.flags |= 2;
+    if (this.flags & 4) {
+      this.flags &= ~4;
+      let attrs = this.domAttrs;
+      if (attrs)
+        setAttrs(this.dom, attrs);
+    }
+  }
+  toString() {
+    return this.constructor.name + (this.children.length ? `(${this.children})` : "") + (this.breakAfter ? "#" : "");
+  }
+  destroy() {
+    this.parent = null;
+  }
+  setDOM(dom) {
+    this.dom = dom;
+    dom.cmTile = this;
+  }
+  get posAtStart() {
+    return this.parent ? this.parent.posBefore(this) : 0;
+  }
+  get posAtEnd() {
+    return this.posAtStart + this.length;
+  }
+  posBefore(tile, start = this.posAtStart) {
+    let pos = start;
+    for (let child of this.children) {
+      if (child == tile)
+        return pos;
+      pos += child.length + child.breakAfter;
+    }
+    throw new RangeError("Invalid child in posBefore");
+  }
+  posAfter(tile) {
+    return this.posBefore(tile) + tile.length;
+  }
+  covers(side) {
+    return true;
+  }
+  coordsIn(pos, side) {
+    return null;
+  }
+  domPosFor(off, side) {
+    let index = domIndex(this.dom);
+    let after = this.length ? off > 0 : side > 0;
+    return new DOMPos(this.parent.dom, index + (after ? 1 : 0), off == 0 || off == this.length);
+  }
+  markDirty(attrs) {
+    this.flags &= ~2;
+    if (attrs)
+      this.flags |= 4;
+    if (this.parent && this.parent.flags & 2)
+      this.parent.markDirty(false);
+  }
+  get overrideDOMText() {
+    return null;
+  }
+  get root() {
+    for (let t2 = this; t2; t2 = t2.parent)
+      if (t2 instanceof DocTile)
+        return t2;
+    return null;
+  }
+  static get(dom) {
+    return dom.cmTile;
+  }
+};
+var CompositeTile = class extends Tile {
+  constructor(dom) {
+    super(dom, 0);
+    this._children = [];
+  }
+  isComposite() {
+    return true;
+  }
+  get children() {
+    return this._children;
+  }
+  get lastChild() {
+    return this.children.length ? this.children[this.children.length - 1] : null;
+  }
+  append(child) {
+    this.children.push(child);
+    child.parent = this;
+  }
+  sync(track) {
+    if (this.flags & 2)
+      return;
+    super.sync(track);
+    let parent = this.dom, prev = null, next;
+    let tracking = (track === null || track === void 0 ? void 0 : track.node) == parent ? track : null;
+    let length = 0;
+    for (let child of this.children) {
+      child.sync(track);
+      length += child.length + child.breakAfter;
+      next = prev ? prev.nextSibling : parent.firstChild;
+      if (tracking && next != child.dom)
+        tracking.written = true;
+      if (child.dom.parentNode == parent) {
+        while (next && next != child.dom)
+          next = rm$1(next);
+      } else {
+        parent.insertBefore(child.dom, next);
+      }
+      prev = child.dom;
+    }
+    next = prev ? prev.nextSibling : parent.firstChild;
+    if (tracking && next)
+      tracking.written = true;
+    while (next)
+      next = rm$1(next);
+    this.length = length;
+  }
+};
+function rm$1(dom) {
+  let next = dom.nextSibling;
+  dom.parentNode.removeChild(dom);
+  return next;
+}
+var DocTile = class extends CompositeTile {
+  constructor(view, dom) {
+    super(dom);
+    this.view = view;
+  }
+  owns(tile) {
+    for (; tile; tile = tile.parent)
+      if (tile == this)
+        return true;
+    return false;
+  }
+  isBlock() {
+    return true;
+  }
+  nearest(dom) {
+    for (; ; ) {
+      if (!dom)
+        return null;
+      let tile = Tile.get(dom);
+      if (tile && this.owns(tile))
+        return tile;
+      dom = dom.parentNode;
+    }
+  }
+  blockTiles(f) {
+    for (let stack = [], cur2 = this, i2 = 0, pos = 0; ; ) {
+      if (i2 == cur2.children.length) {
+        if (!stack.length)
+          return;
+        cur2 = cur2.parent;
+        if (cur2.breakAfter)
+          pos++;
+        i2 = stack.pop();
+      } else {
+        let next = cur2.children[i2++];
+        if (next instanceof BlockWrapperTile) {
+          stack.push(i2);
+          cur2 = next;
+          i2 = 0;
+        } else {
+          let end = pos + next.length;
+          let result = f(next, pos);
+          if (result !== void 0)
+            return result;
+          pos = end + next.breakAfter;
+        }
+      }
+    }
+  }
+  // Find the block at the given position. If side < -1, make sure to
+  // stay before block widgets at that position, if side > 1, after
+  // such widgets (used for selection drawing, which needs to be able
+  // to get coordinates for positions that aren't valid cursor positions).
+  resolveBlock(pos, side) {
+    let before, beforeOff = -1, after, afterOff = -1;
+    this.blockTiles((tile, off) => {
+      let end = off + tile.length;
+      if (pos >= off && pos <= end) {
+        if (tile.isWidget() && side >= -1 && side <= 1) {
+          if (tile.flags & 32)
+            return true;
+          if (tile.flags & 16)
+            before = void 0;
+        }
+        if ((off < pos || pos == end && (side < -1 ? tile.length : tile.covers(1))) && (!before || !tile.isWidget() && before.isWidget())) {
+          before = tile;
+          beforeOff = pos - off;
+        }
+        if ((end > pos || pos == off && (side > 1 ? tile.length : tile.covers(-1))) && (!after || !tile.isWidget() && after.isWidget())) {
+          after = tile;
+          afterOff = pos - off;
+        }
+      }
+    });
+    if (!before && !after)
+      throw new Error("No tile at position " + pos);
+    return before && side < 0 || !after ? { tile: before, offset: beforeOff } : { tile: after, offset: afterOff };
+  }
+};
+var BlockWrapperTile = class _BlockWrapperTile extends CompositeTile {
+  constructor(dom, wrapper) {
+    super(dom);
+    this.wrapper = wrapper;
+  }
+  isBlock() {
+    return true;
+  }
+  covers(side) {
+    if (!this.children.length)
+      return false;
+    return side < 0 ? this.children[0].covers(-1) : this.lastChild.covers(1);
+  }
+  get domAttrs() {
+    return this.wrapper.attributes;
+  }
+  static of(wrapper, dom) {
+    let tile = new _BlockWrapperTile(dom || document.createElement(wrapper.tagName), wrapper);
+    if (!dom)
+      tile.flags |= 4;
+    return tile;
+  }
+};
+var LineTile = class _LineTile extends CompositeTile {
+  constructor(dom, attrs) {
+    super(dom);
+    this.attrs = attrs;
+  }
+  isLine() {
+    return true;
+  }
+  static start(attrs, dom, keepAttrs) {
+    let line = new _LineTile(dom || document.createElement("div"), attrs);
+    if (!dom || !keepAttrs)
+      line.flags |= 4;
+    return line;
+  }
+  get domAttrs() {
+    return this.attrs;
+  }
+  // Find the tile associated with a given position in this line.
+  resolveInline(pos, side, forCoords) {
+    let before = null, beforeOff = -1, after = null, afterOff = -1;
+    function scan(tile, pos2) {
+      for (let i2 = 0, off = 0; i2 < tile.children.length && off <= pos2; i2++) {
+        let child = tile.children[i2], end = off + child.length;
+        if (end >= pos2) {
+          if (child.isComposite()) {
+            scan(child, pos2 - off);
+          } else if ((!after || after.isHidden && (side > 0 || forCoords && onSameLine(after, child))) && (end > pos2 || child.flags & 32)) {
+            after = child;
+            afterOff = pos2 - off;
+          } else if (off < pos2 || child.flags & 16 && !child.isHidden) {
+            before = child;
+            beforeOff = pos2 - off;
+          }
+        }
+        off = end;
+      }
+    }
+    scan(this, pos);
+    let target = (side < 0 ? before : after) || before || after;
+    return target ? { tile: target, offset: target == before ? beforeOff : afterOff } : null;
+  }
+  coordsIn(pos, side) {
+    let found = this.resolveInline(pos, side, true);
+    if (!found)
+      return fallbackRect(this);
+    return found.tile.coordsIn(Math.max(0, found.offset), side);
+  }
+  domIn(pos, side) {
+    let found = this.resolveInline(pos, side);
+    if (found) {
+      let { tile, offset } = found;
+      if (this.dom.contains(tile.dom)) {
+        if (tile.isText())
+          return new DOMPos(tile.dom, Math.min(tile.dom.nodeValue.length, offset));
+        return tile.domPosFor(offset, tile.flags & 16 ? 1 : tile.flags & 32 ? -1 : side);
+      }
+      let parent = found.tile.parent, saw = false;
+      for (let ch of parent.children) {
+        if (saw)
+          return new DOMPos(ch.dom, 0);
+        if (ch == found.tile) {
+          saw = true;
+        }
+      }
+    }
+    return new DOMPos(this.dom, 0);
+  }
+};
+function fallbackRect(tile) {
+  let last = tile.dom.lastChild;
+  if (!last)
+    return tile.dom.getBoundingClientRect();
+  let rects = clientRectsFor(last);
+  return rects[rects.length - 1] || null;
+}
+function onSameLine(a, b) {
+  let posA = a.coordsIn(0, 1), posB = b.coordsIn(0, 1);
+  return posA && posB && posB.top < posA.bottom;
+}
+var MarkTile = class _MarkTile extends CompositeTile {
+  constructor(dom, mark) {
+    super(dom);
+    this.mark = mark;
+  }
+  get domAttrs() {
+    return this.mark.attrs;
+  }
+  static of(mark, dom) {
+    let tile = new _MarkTile(dom || document.createElement(mark.tagName), mark);
+    if (!dom)
+      tile.flags |= 4;
+    return tile;
+  }
+};
+var TextTile = class _TextTile extends Tile {
+  constructor(dom, text) {
+    super(dom, text.length);
+    this.text = text;
+  }
+  sync(track) {
+    if (this.flags & 2)
+      return;
+    super.sync(track);
+    if (this.dom.nodeValue != this.text) {
+      if (track && track.node == this.dom)
+        track.written = true;
+      this.dom.nodeValue = this.text;
+    }
+  }
+  isText() {
+    return true;
+  }
+  toString() {
+    return JSON.stringify(this.text);
+  }
+  coordsIn(pos, side) {
+    let length = this.dom.nodeValue.length;
+    if (pos > length)
+      pos = length;
+    let from2 = pos, to = pos, flatten2 = 0;
+    if (pos == 0 && side < 0 || pos == length && side >= 0) {
+      if (!(browser.chrome || browser.gecko)) {
+        if (pos) {
+          from2--;
+          flatten2 = 1;
+        } else if (to < length) {
+          to++;
+          flatten2 = -1;
+        }
+      }
+    } else {
+      if (side < 0)
+        from2--;
+      else if (to < length)
+        to++;
+    }
+    let rects = textRange(this.dom, from2, to).getClientRects();
+    if (!rects.length)
+      return null;
+    let rect = rects[(flatten2 ? flatten2 < 0 : side >= 0) ? 0 : rects.length - 1];
+    if (browser.safari && !flatten2 && rect.width == 0)
+      rect = Array.prototype.find.call(rects, (r) => r.width) || rect;
+    return flatten2 ? flattenRect(rect, flatten2 < 0) : rect || null;
+  }
+  static of(text, dom) {
+    let tile = new _TextTile(dom || document.createTextNode(text), text);
+    if (!dom)
+      tile.flags |= 2;
+    return tile;
+  }
+};
+var WidgetTile = class _WidgetTile extends Tile {
+  constructor(dom, length, widget, flags) {
+    super(dom, length, flags);
+    this.widget = widget;
+  }
+  isWidget() {
+    return true;
+  }
+  get isHidden() {
+    return this.widget.isHidden;
+  }
+  covers(side) {
+    if (this.flags & 48)
+      return false;
+    return (this.flags & (side < 0 ? 64 : 128)) > 0;
+  }
+  coordsIn(pos, side) {
+    return this.coordsInWidget(pos, side, false);
+  }
+  coordsInWidget(pos, side, block) {
+    let custom = this.widget.coordsAt(this.dom, pos, side);
+    if (custom)
+      return custom;
+    if (block) {
+      return flattenRect(this.dom.getBoundingClientRect(), this.length ? pos == 0 : side <= 0);
+    } else {
+      let rects = this.dom.getClientRects(), rect = null;
+      if (!rects.length)
+        return null;
+      let fromBack = this.flags & 16 ? true : this.flags & 32 ? false : pos > 0;
+      for (let i2 = fromBack ? rects.length - 1 : 0; ; i2 += fromBack ? -1 : 1) {
+        rect = rects[i2];
+        if (pos > 0 ? i2 == 0 : i2 == rects.length - 1 || rect.top < rect.bottom)
+          break;
+      }
+      return flattenRect(rect, !fromBack);
+    }
+  }
+  get overrideDOMText() {
+    if (!this.length)
+      return Text.empty;
+    let { root } = this;
+    if (!root)
+      return Text.empty;
+    let start = this.posAtStart;
+    return root.view.state.doc.slice(start, start + this.length);
+  }
+  destroy() {
+    super.destroy();
+    this.widget.destroy(this.dom);
+  }
+  static of(widget, view, length, flags, dom) {
+    if (!dom) {
+      dom = widget.toDOM(view);
+      if (!widget.editable)
+        dom.contentEditable = "false";
+    }
+    return new _WidgetTile(dom, length, widget, flags);
+  }
+};
+var WidgetBufferTile = class extends Tile {
+  constructor(flags) {
+    let img = document.createElement("img");
+    img.className = "cm-widgetBuffer";
+    img.setAttribute("aria-hidden", "true");
+    super(img, 0, flags);
+  }
+  get isHidden() {
+    return true;
+  }
+  get overrideDOMText() {
+    return Text.empty;
+  }
+  coordsIn(pos) {
+    return this.dom.getBoundingClientRect();
+  }
+};
+var TilePointer = class {
+  constructor(top2) {
+    this.index = 0;
+    this.beforeBreak = false;
+    this.parents = [];
+    this.tile = top2;
+  }
+  // Advance by the given distance. If side is -1, stop leaving or
+  // entering tiles, or skipping zero-length tiles, once the distance
+  // has been traversed. When side is 1, leave, enter, or skip
+  // everything at the end position.
+  advance(dist2, side, walker) {
+    let { tile, index, beforeBreak, parents } = this;
+    while (dist2 || side > 0) {
+      if (!tile.isComposite()) {
+        if (index == tile.length) {
+          beforeBreak = !!tile.breakAfter;
+          ({ tile, index } = parents.pop());
+          index++;
+        } else if (!dist2) {
+          break;
+        } else {
+          let take = Math.min(dist2, tile.length - index);
+          if (walker)
+            walker.skip(tile, index, index + take);
+          dist2 -= take;
+          index += take;
+        }
+      } else if (beforeBreak) {
+        if (!dist2)
+          break;
+        if (walker)
+          walker.break();
+        dist2--;
+        beforeBreak = false;
+      } else if (index == tile.children.length) {
+        if (!dist2 && !parents.length)
+          break;
+        if (walker)
+          walker.leave(tile);
+        beforeBreak = !!tile.breakAfter;
+        ({ tile, index } = parents.pop());
+        index++;
+      } else {
+        let next = tile.children[index], brk = next.breakAfter;
+        if ((side > 0 ? next.length <= dist2 : next.length < dist2) && (!walker || walker.skip(next, 0, next.length) !== false || !next.isComposite)) {
+          beforeBreak = !!brk;
+          index++;
+          dist2 -= next.length;
+        } else {
+          parents.push({ tile, index });
+          tile = next;
+          index = 0;
+          if (walker && next.isComposite())
+            walker.enter(next);
+        }
+      }
+    }
+    this.tile = tile;
+    this.index = index;
+    this.beforeBreak = beforeBreak;
+    return this;
+  }
+  get root() {
+    return this.parents.length ? this.parents[0].tile : this.tile;
+  }
+};
+var OpenWrapper = class {
+  constructor(from2, to, wrapper, rank) {
+    this.from = from2;
+    this.to = to;
+    this.wrapper = wrapper;
+    this.rank = rank;
+  }
+};
+var TileBuilder = class {
+  constructor(cache4, root, blockWrappers2) {
+    this.cache = cache4;
+    this.root = root;
+    this.blockWrappers = blockWrappers2;
+    this.curLine = null;
+    this.lastBlock = null;
+    this.afterWidget = null;
+    this.pos = 0;
+    this.wrappers = [];
+    this.wrapperPos = 0;
+  }
+  addText(text, marks2, openStart, tile) {
+    var _a2;
+    this.flushBuffer();
+    let parent = this.ensureMarks(marks2, openStart);
+    let prev = parent.lastChild;
+    if (prev && prev.isText() && !(prev.flags & 8) && prev.length + text.length < 512) {
+      this.cache.reused.set(
+        prev,
+        2
+        /* Reused.DOM */
+      );
+      let tile2 = parent.children[parent.children.length - 1] = new TextTile(prev.dom, prev.text + text);
+      tile2.parent = parent;
+    } else {
+      parent.append(tile || TextTile.of(text, (_a2 = this.cache.find(TextTile)) === null || _a2 === void 0 ? void 0 : _a2.dom));
+    }
+    this.pos += text.length;
+    this.afterWidget = null;
+  }
+  addComposition(composition, context) {
+    let line = this.curLine;
+    if (line.dom != context.line.dom) {
+      line.setDOM(this.cache.reused.has(context.line) ? freeNode(context.line.dom) : context.line.dom);
+      this.cache.reused.set(
+        context.line,
+        2
+        /* Reused.DOM */
+      );
+    }
+    let head = line;
+    for (let i2 = context.marks.length - 1; i2 >= 0; i2--) {
+      let mark = context.marks[i2];
+      let last = head.lastChild;
+      if (last instanceof MarkTile && last.mark.eq(mark.mark)) {
+        if (last.dom != mark.dom)
+          last.setDOM(freeNode(mark.dom));
+        head = last;
+      } else {
+        if (this.cache.reused.get(mark)) {
+          let tile = Tile.get(mark.dom);
+          if (tile)
+            tile.setDOM(freeNode(mark.dom));
+        }
+        let nw = MarkTile.of(mark.mark, mark.dom);
+        head.append(nw);
+        head = nw;
+      }
+      this.cache.reused.set(
+        mark,
+        2
+        /* Reused.DOM */
+      );
+    }
+    let oldTile = Tile.get(composition.text);
+    if (oldTile)
+      this.cache.reused.set(
+        oldTile,
+        2
+        /* Reused.DOM */
+      );
+    let text = new TextTile(composition.text, composition.text.nodeValue);
+    text.flags |= 8;
+    this.pos = composition.range.toB;
+    head.append(text);
+  }
+  addInlineWidget(widget, marks2, openStart) {
+    let noSpace = this.afterWidget && widget.flags & 48 && (this.afterWidget.flags & 48) == (widget.flags & 48);
+    if (!noSpace)
+      this.flushBuffer();
+    let parent = this.ensureMarks(marks2, openStart);
+    if (!noSpace && !(widget.flags & 16))
+      parent.append(this.getBuffer(1));
+    parent.append(widget);
+    this.pos += widget.length;
+    this.afterWidget = widget;
+  }
+  addMark(tile, marks2, openStart) {
+    this.flushBuffer();
+    let parent = this.ensureMarks(marks2, openStart);
+    parent.append(tile);
+    this.pos += tile.length;
+    this.afterWidget = null;
+  }
+  addBlockWidget(widget) {
+    this.getBlockPos().append(widget);
+    this.pos += widget.length;
+    this.lastBlock = widget;
+    this.endLine();
+  }
+  continueWidget(length) {
+    let widget = this.afterWidget || this.lastBlock;
+    widget.length += length;
+    this.pos += length;
+  }
+  addLineStart(attrs, dom) {
+    var _a2;
+    if (!attrs)
+      attrs = lineBaseAttrs;
+    let tile = LineTile.start(attrs, dom || ((_a2 = this.cache.find(LineTile)) === null || _a2 === void 0 ? void 0 : _a2.dom), !!dom);
+    this.getBlockPos().append(this.lastBlock = this.curLine = tile);
+  }
+  addLine(tile) {
+    this.getBlockPos().append(tile);
+    this.pos += tile.length;
+    this.lastBlock = tile;
+    this.endLine();
+  }
+  addBreak() {
+    this.lastBlock.flags |= 1;
+    this.endLine();
+    this.pos++;
+  }
+  addLineStartIfNotCovered(attrs) {
+    if (!this.blockPosCovered())
+      this.addLineStart(attrs);
+  }
+  ensureLine(attrs) {
+    if (!this.curLine)
+      this.addLineStart(attrs);
+  }
+  ensureMarks(marks2, openStart) {
+    var _a2;
+    let parent = this.curLine;
+    for (let i2 = marks2.length - 1; i2 >= 0; i2--) {
+      let mark = marks2[i2], last;
+      if (openStart > 0 && (last = parent.lastChild) && last instanceof MarkTile && last.mark.eq(mark)) {
+        parent = last;
+        openStart--;
+      } else {
+        let tile = MarkTile.of(mark, (_a2 = this.cache.find(MarkTile, (m) => m.mark.eq(mark))) === null || _a2 === void 0 ? void 0 : _a2.dom);
+        parent.append(tile);
+        parent = tile;
+        openStart = 0;
+      }
+    }
+    return parent;
+  }
+  endLine() {
+    if (this.curLine) {
+      this.flushBuffer();
+      let last = this.curLine.lastChild;
+      if (!last || !hasContent(this.curLine, false) || last.dom.nodeName != "BR" && last.isWidget() && !(browser.ios && hasContent(this.curLine, true)))
+        this.curLine.append(this.cache.findWidget(
+          BreakWidget,
+          0,
+          32
+          /* TileFlag.After */
+        ) || new WidgetTile(
+          BreakWidget.toDOM(),
+          0,
+          BreakWidget,
+          32
+          /* TileFlag.After */
+        ));
+      this.curLine = this.afterWidget = null;
+    }
+  }
+  updateBlockWrappers() {
+    if (this.wrapperPos > this.pos + 1e4) {
+      this.blockWrappers.goto(this.pos);
+      this.wrappers.length = 0;
+    }
+    for (let i2 = this.wrappers.length - 1; i2 >= 0; i2--)
+      if (this.wrappers[i2].to < this.pos)
+        this.wrappers.splice(i2, 1);
+    for (let cur2 = this.blockWrappers; cur2.value && cur2.from <= this.pos; cur2.next())
+      if (cur2.to >= this.pos) {
+        let rank = cur2.rank * 102 + cur2.value.rank;
+        let wrap = new OpenWrapper(cur2.from, cur2.to, cur2.value, rank), i2 = this.wrappers.length;
+        while (i2 > 0 && (this.wrappers[i2 - 1].rank - wrap.rank || this.wrappers[i2 - 1].to - wrap.to) < 0)
+          i2--;
+        this.wrappers.splice(i2, 0, wrap);
+      }
+    this.wrapperPos = this.pos;
+  }
+  getBlockPos() {
+    var _a2;
+    this.updateBlockWrappers();
+    let parent = this.root;
+    for (let wrap of this.wrappers) {
+      let last = parent.lastChild;
+      if (wrap.from < this.pos && last instanceof BlockWrapperTile && last.wrapper.eq(wrap.wrapper)) {
+        parent = last;
+      } else {
+        let tile = BlockWrapperTile.of(wrap.wrapper, (_a2 = this.cache.find(BlockWrapperTile, (t2) => t2.wrapper.eq(wrap.wrapper))) === null || _a2 === void 0 ? void 0 : _a2.dom);
+        parent.append(tile);
+        parent = tile;
+      }
+    }
+    return parent;
+  }
+  blockPosCovered() {
+    let last = this.lastBlock;
+    return last != null && !last.breakAfter && (!last.isWidget() || (last.flags & (32 | 128)) > 0);
+  }
+  getBuffer(side) {
+    let flags = 2 | (side < 0 ? 16 : 32);
+    let found = this.cache.find(
+      WidgetBufferTile,
+      void 0,
+      1
+      /* Reused.Full */
+    );
+    if (found)
+      found.flags = flags;
+    return found || new WidgetBufferTile(flags);
+  }
+  flushBuffer() {
+    if (this.afterWidget && !(this.afterWidget.flags & 32)) {
+      this.afterWidget.parent.append(this.getBuffer(-1));
+      this.afterWidget = null;
+    }
+  }
+};
+var TextStream = class {
+  constructor(doc2) {
+    this.skipCount = 0;
+    this.text = "";
+    this.textOff = 0;
+    this.cursor = doc2.iter();
+  }
+  skip(len) {
+    if (this.textOff + len <= this.text.length) {
+      this.textOff += len;
+    } else {
+      this.skipCount += len - (this.text.length - this.textOff);
+      this.text = "";
+      this.textOff = 0;
+    }
+  }
+  next(maxLen) {
+    if (this.textOff == this.text.length) {
+      let { value, lineBreak, done } = this.cursor.next(this.skipCount);
+      this.skipCount = 0;
+      if (done)
+        throw new Error("Ran out of text content when drawing inline views");
+      this.text = value;
+      let len = this.textOff = Math.min(maxLen, value.length);
+      return lineBreak ? null : value.slice(0, len);
+    }
+    let end = Math.min(this.text.length, this.textOff + maxLen);
+    let chars = this.text.slice(this.textOff, end);
+    this.textOff = end;
+    return chars;
+  }
+};
+var buckets = [WidgetTile, LineTile, TextTile, MarkTile, WidgetBufferTile, BlockWrapperTile, DocTile];
+for (let i2 = 0; i2 < buckets.length; i2++)
+  buckets[i2].bucket = i2;
+var TileCache = class {
   constructor(view) {
+    this.view = view;
+    this.buckets = buckets.map(() => []);
+    this.index = buckets.map(() => 0);
+    this.reused = /* @__PURE__ */ new Map();
+  }
+  // Put a tile in the cache.
+  add(tile) {
+    let i2 = tile.constructor.bucket, bucket = this.buckets[i2];
+    if (bucket.length < 6)
+      bucket.push(tile);
+    else
+      bucket[
+        this.index[i2] = (this.index[i2] + 1) % 6
+        /* C.Bucket */
+      ] = tile;
+  }
+  find(cls, test, type = 2) {
+    let i2 = cls.bucket;
+    let bucket = this.buckets[i2], off = this.index[i2];
+    for (let j = bucket.length - 1; j >= 0; j--) {
+      let index = (j + off) % bucket.length, tile = bucket[index];
+      if ((!test || test(tile)) && !this.reused.has(tile)) {
+        bucket.splice(index, 1);
+        if (index < off)
+          this.index[i2]--;
+        this.reused.set(tile, type);
+        return tile;
+      }
+    }
+    return null;
+  }
+  findWidget(widget, length, flags) {
+    let widgets = this.buckets[0];
+    if (widgets.length)
+      for (let i2 = 0, pass = 0; ; i2++) {
+        if (i2 == widgets.length) {
+          if (pass)
+            return null;
+          pass = 1;
+          i2 = 0;
+        }
+        let tile = widgets[i2];
+        if (!this.reused.has(tile) && (pass == 0 ? tile.widget.compare(widget) : tile.widget.constructor == widget.constructor && widget.updateDOM(tile.dom, this.view, tile.widget))) {
+          widgets.splice(i2, 1);
+          if (i2 < this.index[0])
+            this.index[0]--;
+          if (tile.widget == widget && tile.length == length && (tile.flags & (496 | 1)) == flags) {
+            this.reused.set(
+              tile,
+              1
+              /* Reused.Full */
+            );
+            return tile;
+          } else {
+            this.reused.set(
+              tile,
+              2
+              /* Reused.DOM */
+            );
+            return new WidgetTile(tile.dom, length, widget, tile.flags & ~(496 | 1) | flags);
+          }
+        }
+      }
+  }
+  reuse(tile) {
+    this.reused.set(
+      tile,
+      1
+      /* Reused.Full */
+    );
+    return tile;
+  }
+  maybeReuse(tile, type = 2) {
+    if (this.reused.has(tile))
+      return void 0;
+    this.reused.set(tile, type);
+    return tile.dom;
+  }
+  clear() {
+    for (let i2 = 0; i2 < this.buckets.length; i2++)
+      this.buckets[i2].length = this.index[i2] = 0;
+  }
+};
+var TileUpdate = class {
+  constructor(view, old, blockWrappers2, decorations2, disallowBlockEffectsFor) {
+    this.view = view;
+    this.decorations = decorations2;
+    this.disallowBlockEffectsFor = disallowBlockEffectsFor;
+    this.openWidget = false;
+    this.openMarks = 0;
+    this.cache = new TileCache(view);
+    this.text = new TextStream(view.state.doc);
+    this.builder = new TileBuilder(this.cache, new DocTile(view, view.contentDOM), RangeSet.iter(blockWrappers2));
+    this.cache.reused.set(
+      old,
+      2
+      /* Reused.DOM */
+    );
+    this.old = new TilePointer(old);
+    this.reuseWalker = {
+      skip: (tile, from2, to) => {
+        this.cache.add(tile);
+        if (tile.isComposite())
+          return false;
+      },
+      enter: (tile) => this.cache.add(tile),
+      leave: () => {
+      },
+      break: () => {
+      }
+    };
+  }
+  run(changes, composition) {
+    let compositionContext = composition && this.getCompositionContext(composition.text);
+    for (let posA = 0, posB = 0, i2 = 0; ; ) {
+      let next = i2 < changes.length ? changes[i2++] : null;
+      let skipA = next ? next.fromA : this.old.root.length;
+      if (skipA > posA) {
+        let len = skipA - posA;
+        this.preserve(len, !i2, !next);
+        posA = skipA;
+        posB += len;
+      }
+      if (!next)
+        break;
+      if (composition && next.fromA <= composition.range.fromA && next.toA >= composition.range.toA) {
+        this.forward(next.fromA, composition.range.fromA, composition.range.fromA < composition.range.toA ? 1 : -1);
+        this.emit(posB, composition.range.fromB);
+        this.builder.flushBuffer();
+        this.cache.clear();
+        this.builder.addComposition(composition, compositionContext);
+        this.text.skip(composition.range.toB - composition.range.fromB);
+        this.forward(composition.range.fromA, next.toA);
+        this.emit(composition.range.toB, next.toB);
+      } else {
+        this.forward(next.fromA, next.toA);
+        this.emit(posB, next.toB);
+      }
+      posB = next.toB;
+      posA = next.toA;
+    }
+    if (this.builder.curLine)
+      this.builder.endLine();
+    return this.builder.root;
+  }
+  preserve(length, incStart, incEnd) {
+    let activeMarks = getMarks(this.old), openMarks = this.openMarks;
+    this.old.advance(length, incEnd ? 1 : -1, {
+      skip: (tile, from2, to) => {
+        if (tile.isWidget()) {
+          if (this.openWidget) {
+            this.builder.continueWidget(to - from2);
+          } else {
+            let widget = to > 0 || from2 < tile.length ? WidgetTile.of(tile.widget, this.view, to - from2, tile.flags & 496, this.cache.maybeReuse(tile)) : this.cache.reuse(tile);
+            if (widget.flags & 256) {
+              widget.flags &= ~1;
+              this.builder.addBlockWidget(widget);
+            } else {
+              this.builder.ensureLine(null);
+              this.builder.addInlineWidget(widget, activeMarks, openMarks);
+              openMarks = activeMarks.length;
+            }
+          }
+        } else if (tile.isText()) {
+          this.builder.ensureLine(null);
+          if (!from2 && to == tile.length && !this.cache.reused.has(tile)) {
+            this.builder.addText(tile.text, activeMarks, openMarks, this.cache.reuse(tile));
+          } else {
+            this.cache.add(tile);
+            this.builder.addText(tile.text.slice(from2, to), activeMarks, openMarks);
+          }
+          openMarks = activeMarks.length;
+        } else if (tile.isLine()) {
+          tile.flags &= ~1;
+          this.cache.reused.set(
+            tile,
+            1
+            /* Reused.Full */
+          );
+          this.builder.addLine(tile);
+        } else if (tile instanceof WidgetBufferTile) {
+          this.cache.add(tile);
+        } else if (tile instanceof MarkTile) {
+          this.builder.ensureLine(null);
+          this.builder.addMark(tile, activeMarks, openMarks);
+          this.cache.reused.set(
+            tile,
+            1
+            /* Reused.Full */
+          );
+          openMarks = activeMarks.length;
+        } else {
+          return false;
+        }
+        this.openWidget = false;
+      },
+      enter: (tile) => {
+        if (tile.isLine()) {
+          this.builder.addLineStart(tile.attrs, this.cache.maybeReuse(tile));
+        } else {
+          this.cache.add(tile);
+          if (tile instanceof MarkTile)
+            activeMarks.unshift(tile.mark);
+        }
+        this.openWidget = false;
+      },
+      leave: (tile) => {
+        if (tile.isLine()) {
+          if (activeMarks.length)
+            activeMarks.length = openMarks = 0;
+        } else if (tile instanceof MarkTile) {
+          activeMarks.shift();
+          openMarks = Math.min(openMarks, activeMarks.length);
+        }
+      },
+      break: () => {
+        this.builder.addBreak();
+        this.openWidget = false;
+      }
+    });
+    this.text.skip(length);
+  }
+  emit(from2, to) {
+    let pendingLineAttrs = null;
+    let b = this.builder, markCount = 0;
+    let openEnd = RangeSet.spans(this.decorations, from2, to, {
+      point: (from3, to2, deco, active, openStart, index) => {
+        if (deco instanceof PointDecoration) {
+          if (this.disallowBlockEffectsFor[index]) {
+            if (deco.block)
+              throw new RangeError("Block decorations may not be specified via plugins");
+            if (to2 > this.view.state.doc.lineAt(from3).to)
+              throw new RangeError("Decorations that replace line breaks may not be specified via plugins");
+          }
+          markCount = active.length;
+          if (openStart > active.length) {
+            b.continueWidget(to2 - from3);
+          } else {
+            let widget = deco.widget || (deco.block ? NullWidget.block : NullWidget.inline);
+            let flags = widgetFlags(deco);
+            let tile = this.cache.findWidget(widget, to2 - from3, flags) || WidgetTile.of(widget, this.view, to2 - from3, flags);
+            if (deco.block) {
+              if (deco.startSide > 0)
+                b.addLineStartIfNotCovered(pendingLineAttrs);
+              b.addBlockWidget(tile);
+            } else {
+              b.ensureLine(pendingLineAttrs);
+              b.addInlineWidget(tile, active, openStart);
+            }
+          }
+          pendingLineAttrs = null;
+        } else {
+          pendingLineAttrs = addLineDeco(pendingLineAttrs, deco);
+        }
+        if (to2 > from3)
+          this.text.skip(to2 - from3);
+      },
+      span: (from3, to2, active, openStart) => {
+        for (let pos = from3; pos < to2; ) {
+          let chars = this.text.next(Math.min(512, to2 - pos));
+          if (chars == null) {
+            b.addLineStartIfNotCovered(pendingLineAttrs);
+            b.addBreak();
+            pos++;
+          } else {
+            b.ensureLine(pendingLineAttrs);
+            b.addText(chars, active, pos == from3 ? openStart : active.length);
+            pos += chars.length;
+          }
+          pendingLineAttrs = null;
+        }
+      }
+    });
+    b.addLineStartIfNotCovered(pendingLineAttrs);
+    this.openWidget = openEnd > markCount;
+    this.openMarks = openEnd;
+  }
+  forward(from2, to, side = 1) {
+    if (to - from2 <= 10) {
+      this.old.advance(to - from2, side, this.reuseWalker);
+    } else {
+      this.old.advance(5, -1, this.reuseWalker);
+      this.old.advance(to - from2 - 10, -1);
+      this.old.advance(5, side, this.reuseWalker);
+    }
+  }
+  getCompositionContext(text) {
+    let marks2 = [], line = null;
+    for (let parent = text.parentNode; ; parent = parent.parentNode) {
+      let tile = Tile.get(parent);
+      if (parent == this.view.contentDOM)
+        break;
+      if (tile instanceof MarkTile)
+        marks2.push(tile);
+      else if (tile === null || tile === void 0 ? void 0 : tile.isLine())
+        line = tile;
+      else if (tile instanceof BlockWrapperTile) ;
+      else if (parent.nodeName == "DIV" && !line && parent != this.view.contentDOM)
+        line = new LineTile(parent, lineBaseAttrs);
+      else if (!line)
+        marks2.push(MarkTile.of(new MarkDecoration({ tagName: parent.nodeName.toLowerCase(), attributes: getAttrs(parent) }), parent));
+    }
+    return { line, marks: marks2 };
+  }
+};
+function hasContent(tile, requireText) {
+  let scan = (tile2) => {
+    for (let ch of tile2.children)
+      if ((requireText ? ch.isText() : ch.length) || scan(ch))
+        return true;
+    return false;
+  };
+  return scan(tile);
+}
+function widgetFlags(deco) {
+  let flags = deco.isReplace ? (deco.startSide < 0 ? 64 : 0) | (deco.endSide > 0 ? 128 : 0) : deco.startSide > 0 ? 32 : 16;
+  if (deco.block)
+    flags |= 256;
+  return flags;
+}
+var lineBaseAttrs = { class: "cm-line" };
+function addLineDeco(value, deco) {
+  let attrs = deco.spec.attributes, cls = deco.spec.class;
+  if (!attrs && !cls)
+    return value;
+  if (!value)
+    value = { class: "cm-line" };
+  if (attrs)
+    combineAttrs(attrs, value);
+  if (cls)
+    value.class += " " + cls;
+  return value;
+}
+function getMarks(ptr) {
+  let found = [];
+  for (let i2 = ptr.parents.length; i2 > 1; i2--) {
+    let tile = i2 == ptr.parents.length ? ptr.tile : ptr.parents[i2].tile;
+    if (tile instanceof MarkTile)
+      found.push(tile.mark);
+  }
+  return found;
+}
+function freeNode(node) {
+  let tile = Tile.get(node);
+  if (tile)
+    tile.setDOM(node.cloneNode());
+  return node;
+}
+var NullWidget = class extends WidgetType {
+  constructor(tag) {
     super();
+    this.tag = tag;
+  }
+  eq(other) {
+    return other.tag == this.tag;
+  }
+  toDOM() {
+    return document.createElement(this.tag);
+  }
+  updateDOM(elt2) {
+    return elt2.nodeName.toLowerCase() == this.tag;
+  }
+  get isHidden() {
+    return true;
+  }
+};
+NullWidget.inline = /* @__PURE__ */ new NullWidget("span");
+NullWidget.block = /* @__PURE__ */ new NullWidget("div");
+var BreakWidget = /* @__PURE__ */ new class extends WidgetType {
+  toDOM() {
+    return document.createElement("br");
+  }
+  get isHidden() {
+    return true;
+  }
+  get editable() {
+    return true;
+  }
+}();
+var DocView = class {
+  constructor(view) {
     this.view = view;
     this.decorations = [];
+    this.blockWrappers = [];
     this.dynamicDecorationMap = [false];
     this.domChanged = null;
     this.hasComposition = null;
-    this.markedForComposition = /* @__PURE__ */ new Set();
     this.editContextFormatting = Decoration.none;
     this.lastCompositionAfterCursor = false;
     this.minWidth = 0;
@@ -6171,11 +6355,9 @@ var DocView = class extends ContentView {
     this.impreciseHead = null;
     this.forceSelection = false;
     this.lastUpdate = Date.now();
-    this.setDOM(view.contentDOM);
-    this.children = [new LineView()];
-    this.children[0].setParent(this);
     this.updateDeco();
-    this.updateInner([new ChangedRange(0, 0, 0, view.state.doc.length)], 0, null);
+    this.tile = new DocTile(view, view.contentDOM);
+    this.updateInner([new ChangedRange(0, 0, 0, view.state.doc.length)], null);
   }
   // Update the document view to a given state.
   update(update) {
@@ -6200,20 +6382,26 @@ var DocView = class extends ContentView {
     let composition = readCompositionAt > -1 ? findCompositionRange(this.view, update.changes, readCompositionAt) : null;
     this.domChanged = null;
     if (this.hasComposition) {
-      this.markedForComposition.clear();
       let { from: from2, to } = this.hasComposition;
       changedRanges = new ChangedRange(from2, to, update.changes.mapPos(from2, -1), update.changes.mapPos(to, 1)).addToSet(changedRanges.slice());
     }
     this.hasComposition = composition ? { from: composition.range.fromB, to: composition.range.toB } : null;
     if ((browser.ie || browser.chrome) && !composition && update && update.state.doc.lines != update.startState.doc.lines)
       this.forceSelection = true;
-    let prevDeco = this.decorations, deco = this.updateDeco();
-    let decoDiff = findChangedDeco(prevDeco, deco, update.changes);
-    changedRanges = ChangedRange.extendWithRanges(changedRanges, decoDiff);
-    if (!(this.flags & 7) && changedRanges.length == 0) {
+    let prevDeco = this.decorations, prevWrappers = this.blockWrappers;
+    this.updateDeco();
+    let decoDiff = findChangedDeco(prevDeco, this.decorations, update.changes);
+    if (decoDiff.length)
+      changedRanges = ChangedRange.extendWithRanges(changedRanges, decoDiff);
+    let blockDiff = findChangedWrappers(prevWrappers, this.blockWrappers, update.changes);
+    if (blockDiff.length)
+      changedRanges = ChangedRange.extendWithRanges(changedRanges, blockDiff);
+    if (composition && !changedRanges.some((r) => r.fromA <= composition.range.fromA && r.toA >= composition.range.toA))
+      changedRanges = composition.range.addToSet(changedRanges.slice());
+    if (this.tile.flags & 2 && changedRanges.length == 0) {
       return false;
     } else {
-      this.updateInner(changedRanges, update.startState.doc.length, composition);
+      this.updateInner(changedRanges, composition);
       if (update.transactions.length)
         this.lastUpdate = Date.now();
       return true;
@@ -6221,66 +6409,37 @@ var DocView = class extends ContentView {
   }
   // Used by update and the constructor do perform the actual DOM
   // update
-  updateInner(changes, oldLength, composition) {
+  updateInner(changes, composition) {
     this.view.viewState.mustMeasureContent = true;
-    this.updateChildren(changes, oldLength, composition);
     let { observer } = this.view;
     observer.ignore(() => {
-      this.dom.style.height = this.view.viewState.contentHeight / this.view.scaleY + "px";
-      this.dom.style.flexBasis = this.minWidth ? this.minWidth + "px" : "";
+      if (composition || changes.length) {
+        let oldTile = this.tile;
+        let builder = new TileUpdate(this.view, oldTile, this.blockWrappers, this.decorations, this.dynamicDecorationMap);
+        if (composition && Tile.get(composition.text))
+          builder.cache.reused.set(
+            Tile.get(composition.text),
+            2
+            /* Reused.DOM */
+          );
+        this.tile = builder.run(changes, composition);
+        destroyDropped(oldTile, builder.cache.reused);
+      }
+      this.tile.dom.style.height = this.view.viewState.contentHeight / this.view.scaleY + "px";
+      this.tile.dom.style.flexBasis = this.minWidth ? this.minWidth + "px" : "";
       let track = browser.chrome || browser.ios ? { node: observer.selectionRange.focusNode, written: false } : void 0;
-      this.sync(this.view, track);
-      this.flags &= ~7;
-      if (track && (track.written || observer.selectionRange.focusNode != track.node))
+      this.tile.sync(track);
+      if (track && (track.written || observer.selectionRange.focusNode != track.node || !this.tile.dom.contains(track.node)))
         this.forceSelection = true;
-      this.dom.style.height = "";
+      this.tile.dom.style.height = "";
     });
-    this.markedForComposition.forEach(
-      (cView) => cView.flags &= ~8
-      /* ViewFlag.Composition */
-    );
     let gaps = [];
     if (this.view.viewport.from || this.view.viewport.to < this.view.state.doc.length) {
-      for (let child of this.children)
-        if (child instanceof BlockWidgetView && child.widget instanceof BlockGapWidget)
+      for (let child of this.tile.children)
+        if (child.isWidget() && child.widget instanceof BlockGapWidget)
           gaps.push(child.dom);
     }
     observer.updateGaps(gaps);
-  }
-  updateChildren(changes, oldLength, composition) {
-    let ranges = composition ? composition.range.addToSet(changes.slice()) : changes;
-    let cursor2 = this.childCursor(oldLength);
-    for (let i2 = ranges.length - 1; ; i2--) {
-      let next = i2 >= 0 ? ranges[i2] : null;
-      if (!next)
-        break;
-      let { fromA, toA, fromB, toB } = next, content2, breakAtStart, openStart, openEnd;
-      if (composition && composition.range.fromB < toB && composition.range.toB > fromB) {
-        let before = ContentBuilder.build(this.view.state.doc, fromB, composition.range.fromB, this.decorations, this.dynamicDecorationMap);
-        let after = ContentBuilder.build(this.view.state.doc, composition.range.toB, toB, this.decorations, this.dynamicDecorationMap);
-        breakAtStart = before.breakAtStart;
-        openStart = before.openStart;
-        openEnd = after.openEnd;
-        let compLine = this.compositionView(composition);
-        if (after.breakAtStart) {
-          compLine.breakAfter = 1;
-        } else if (after.content.length && compLine.merge(compLine.length, compLine.length, after.content[0], false, after.openStart, 0)) {
-          compLine.breakAfter = after.content[0].breakAfter;
-          after.content.shift();
-        }
-        if (before.content.length && compLine.merge(0, 0, before.content[before.content.length - 1], true, 0, before.openEnd)) {
-          before.content.pop();
-        }
-        content2 = before.content.concat(compLine).concat(after.content);
-      } else {
-        ({ content: content2, breakAtStart, openStart, openEnd } = ContentBuilder.build(this.view.state.doc, fromB, toB, this.decorations, this.dynamicDecorationMap));
-      }
-      let { i: toI, off: toOff } = cursor2.findPos(toA, 1);
-      let { i: fromI, off: fromOff } = cursor2.findPos(fromA, -1);
-      replaceRange(this, fromI, fromOff, toI, toOff, content2, breakAtStart, openStart, openEnd);
-    }
-    if (composition)
-      this.fixCompositionDOM(composition);
   }
   updateEditContextFormatting(update) {
     this.editContextFormatting = this.editContextFormatting.map(update.changes);
@@ -6290,49 +6449,24 @@ var DocView = class extends ContentView {
           this.editContextFormatting = effect.value;
         }
   }
-  compositionView(composition) {
-    let cur2 = new TextView(composition.text.nodeValue);
-    cur2.flags |= 8;
-    for (let { deco } of composition.marks)
-      cur2 = new MarkView(deco, [cur2], cur2.length);
-    let line = new LineView();
-    line.append(cur2, 0);
-    return line;
-  }
-  fixCompositionDOM(composition) {
-    let fix = (dom, cView2) => {
-      cView2.flags |= 8 | (cView2.children.some(
-        (c) => c.flags & 7
-        /* ViewFlag.Dirty */
-      ) ? 1 : 0);
-      this.markedForComposition.add(cView2);
-      let prev = ContentView.get(dom);
-      if (prev && prev != cView2)
-        prev.dom = null;
-      cView2.setDOM(dom);
-    };
-    let pos = this.childPos(composition.range.fromB, 1);
-    let cView = this.children[pos.i];
-    fix(composition.line, cView);
-    for (let i2 = composition.marks.length - 1; i2 >= -1; i2--) {
-      pos = cView.childPos(pos.off, 1);
-      cView = cView.children[pos.i];
-      fix(i2 >= 0 ? composition.marks[i2].node : composition.text, cView);
-    }
-  }
   // Sync the DOM selection to this.state.selection
   updateSelection(mustRead = false, fromPointer = false) {
     if (mustRead || !this.view.observer.selectionRange.focusNode)
       this.view.observer.readSelectionRange();
-    let activeElt = this.view.root.activeElement, focused = activeElt == this.dom;
-    let selectionNotFocus = !focused && hasSelection(this.dom, this.view.observer.selectionRange) && !(activeElt && this.dom.contains(activeElt));
+    let { dom } = this.tile;
+    let activeElt = this.view.root.activeElement, focused = activeElt == dom;
+    let selectionNotFocus = !focused && !(this.view.state.facet(editable) || dom.tabIndex > -1) && hasSelection(dom, this.view.observer.selectionRange) && !(activeElt && dom.contains(activeElt));
     if (!(focused || fromPointer || selectionNotFocus))
       return;
     let force = this.forceSelection;
     this.forceSelection = false;
-    let main = this.view.state.selection.main;
-    let anchor = this.moveToLine(this.domAtPos(main.anchor));
-    let head = main.empty ? anchor : this.moveToLine(this.domAtPos(main.head));
+    let main = this.view.state.selection.main, anchor, head;
+    if (main.empty) {
+      head = anchor = this.inlineDOMNearPos(main.anchor, main.assoc || 1);
+    } else {
+      head = this.inlineDOMNearPos(main.head, main.head == main.from ? 1 : -1);
+      anchor = this.inlineDOMNearPos(main.anchor, main.anchor == main.from ? 1 : -1);
+    }
     if (browser.gecko && main.empty && !this.hasComposition && betweenUneditable(anchor)) {
       let dummy = document.createTextNode("");
       this.view.observer.ignore(() => anchor.node.insertBefore(dummy, anchor.node.childNodes[anchor.offset] || null));
@@ -6342,9 +6476,9 @@ var DocView = class extends ContentView {
     let domSel = this.view.observer.selectionRange;
     if (force || !domSel.focusNode || (!isEquivalentPosition(anchor.node, anchor.offset, domSel.anchorNode, domSel.anchorOffset) || !isEquivalentPosition(head.node, head.offset, domSel.focusNode, domSel.focusOffset)) && !this.suppressWidgetCursorChange(domSel, main)) {
       this.view.observer.ignore(() => {
-        if (browser.android && browser.chrome && this.dom.contains(domSel.focusNode) && inUneditable(domSel.focusNode, this.dom)) {
-          this.dom.blur();
-          this.dom.focus({ preventScroll: true });
+        if (browser.android && browser.chrome && dom.contains(domSel.focusNode) && inUneditable(domSel.focusNode, dom)) {
+          dom.blur();
+          dom.focus({ preventScroll: true });
         }
         let rawSel = getSelection(this.view.root);
         if (!rawSel) ;
@@ -6375,8 +6509,8 @@ var DocView = class extends ContentView {
           rawSel.removeAllRanges();
           rawSel.addRange(range);
         }
-        if (selectionNotFocus && this.view.root.activeElement == this.dom) {
-          this.dom.blur();
+        if (selectionNotFocus && this.view.root.activeElement == dom) {
+          dom.blur();
           if (activeElt)
             activeElt.focus();
         }
@@ -6400,7 +6534,7 @@ var DocView = class extends ContentView {
     let { anchorNode, anchorOffset } = view.observer.selectionRange;
     if (!sel || !cursor2.empty || !cursor2.assoc || !sel.modify)
       return;
-    let line = LineView.find(this, cursor2.head);
+    let line = this.lineAt(cursor2.head, cursor2.assoc);
     if (!line)
       return;
     let lineStart = line.posAtStart;
@@ -6409,7 +6543,7 @@ var DocView = class extends ContentView {
     let before = this.coordsAt(cursor2.head, -1), after = this.coordsAt(cursor2.head, 1);
     if (!before || !after || before.bottom > after.top)
       return;
-    let dom = this.domAtPos(cursor2.head + cursor2.assoc);
+    let dom = this.domAtPos(cursor2.head + cursor2.assoc, cursor2.assoc);
     sel.collapse(dom.node, dom.offset);
     sel.modify("move", cursor2.assoc < 0 ? "forward" : "backward", "lineboundary");
     view.observer.readSelectionRange();
@@ -6417,165 +6551,227 @@ var DocView = class extends ContentView {
     if (view.docView.posFromDOM(newRange.anchorNode, newRange.anchorOffset) != cursor2.from)
       sel.collapse(anchorNode, anchorOffset);
   }
-  // If a position is in/near a block widget, move it to a nearby text
-  // line, since we don't want the cursor inside a block widget.
-  moveToLine(pos) {
-    let dom = this.dom, newPos;
-    if (pos.node != dom)
-      return pos;
-    for (let i2 = pos.offset; !newPos && i2 < dom.childNodes.length; i2++) {
-      let view = ContentView.get(dom.childNodes[i2]);
-      if (view instanceof LineView)
-        newPos = view.domAtPos(0);
-    }
-    for (let i2 = pos.offset - 1; !newPos && i2 >= 0; i2--) {
-      let view = ContentView.get(dom.childNodes[i2]);
-      if (view instanceof LineView)
-        newPos = view.domAtPos(view.length);
-    }
-    return newPos ? new DOMPos(newPos.node, newPos.offset, true) : pos;
-  }
-  nearest(dom) {
-    for (let cur2 = dom; cur2; ) {
-      let domView = ContentView.get(cur2);
-      if (domView && domView.rootView == this)
-        return domView;
-      cur2 = cur2.parentNode;
-    }
-    return null;
-  }
   posFromDOM(node, offset) {
-    let view = this.nearest(node);
-    if (!view)
-      throw new RangeError("Trying to find position for a DOM position outside of the document");
-    return view.localPosFromDOM(node, offset) + view.posAtStart;
-  }
-  domAtPos(pos) {
-    let { i: i2, off } = this.childCursor().findPos(pos, -1);
-    for (; i2 < this.children.length - 1; ) {
-      let child = this.children[i2];
-      if (off < child.length || child instanceof LineView)
-        break;
-      i2++;
-      off = 0;
+    let tile = this.tile.nearest(node);
+    if (!tile)
+      return this.tile.dom.compareDocumentPosition(node) & 2 ? 0 : this.view.state.doc.length;
+    let start = tile.posAtStart;
+    if (tile.isComposite()) {
+      let after;
+      if (node == tile.dom) {
+        after = tile.dom.childNodes[offset];
+      } else {
+        let bias = maxOffset(node) == 0 ? 0 : offset == 0 ? -1 : 1;
+        for (; ; ) {
+          let parent = node.parentNode;
+          if (parent == tile.dom)
+            break;
+          if (bias == 0 && parent.firstChild != parent.lastChild) {
+            if (node == parent.firstChild)
+              bias = -1;
+            else
+              bias = 1;
+          }
+          node = parent;
+        }
+        if (bias < 0)
+          after = node;
+        else
+          after = node.nextSibling;
+      }
+      if (after == tile.dom.firstChild)
+        return start;
+      while (after && !Tile.get(after))
+        after = after.nextSibling;
+      if (!after)
+        return start + tile.length;
+      for (let i2 = 0, pos = start; ; i2++) {
+        let child = tile.children[i2];
+        if (child.dom == after)
+          return pos;
+        pos += child.length + child.breakAfter;
+      }
+    } else if (tile.isText()) {
+      return node == tile.dom ? start + offset : start + (offset ? tile.length : 0);
+    } else {
+      return start;
     }
-    return this.children[i2].domAtPos(off);
+  }
+  domAtPos(pos, side) {
+    let { tile, offset } = this.tile.resolveBlock(pos, side);
+    if (tile.isWidget())
+      return tile.domPosFor(pos, side);
+    return tile.domIn(offset, side);
+  }
+  inlineDOMNearPos(pos, side) {
+    let before, beforeOff = -1, beforeBad = false;
+    let after, afterOff = -1, afterBad = false;
+    this.tile.blockTiles((tile, off) => {
+      if (tile.isWidget()) {
+        if (tile.flags & 32 && off >= pos)
+          return true;
+        if (tile.flags & 16)
+          beforeBad = true;
+      } else {
+        let end = off + tile.length;
+        if (off <= pos) {
+          before = tile;
+          beforeOff = pos - off;
+          beforeBad = end < pos;
+        }
+        if (end >= pos && !after) {
+          after = tile;
+          afterOff = pos - off;
+          afterBad = off > pos;
+        }
+        if (off > pos && after)
+          return true;
+      }
+    });
+    if (!before && !after)
+      return this.domAtPos(pos, side);
+    if (beforeBad && after)
+      before = null;
+    else if (afterBad && before)
+      after = null;
+    return before && side < 0 || !after ? before.domIn(beforeOff, side) : after.domIn(afterOff, side);
   }
   coordsAt(pos, side) {
-    let best = null, bestPos = 0;
-    for (let off = this.length, i2 = this.children.length - 1; i2 >= 0; i2--) {
-      let child = this.children[i2], end = off - child.breakAfter, start = end - child.length;
-      if (end < pos)
-        break;
-      if (start <= pos && (start < pos || child.covers(-1)) && (end > pos || child.covers(1)) && (!best || child instanceof LineView && !(best instanceof LineView && side >= 0))) {
-        best = child;
-        bestPos = start;
-      } else if (best && start == pos && end == pos && child instanceof BlockWidgetView && Math.abs(side) < 2) {
-        if (child.deco.startSide < 0)
-          break;
-        else if (i2)
-          best = null;
-      }
-      off = start;
+    let { tile, offset } = this.tile.resolveBlock(pos, side);
+    if (tile.isWidget()) {
+      if (tile.widget instanceof BlockGapWidget)
+        return null;
+      return tile.coordsInWidget(offset, side, true);
     }
-    return best ? best.coordsAt(pos - bestPos, side) : null;
+    return tile.coordsIn(offset, side);
+  }
+  lineAt(pos, side) {
+    let { tile } = this.tile.resolveBlock(pos, side);
+    return tile.isLine() ? tile : null;
   }
   coordsForChar(pos) {
-    let { i: i2, off } = this.childPos(pos, 1), child = this.children[i2];
-    if (!(child instanceof LineView))
+    let { tile, offset } = this.tile.resolveBlock(pos, 1);
+    if (!tile.isLine())
       return null;
-    while (child.children.length) {
-      let { i: i3, off: childOff } = child.childPos(off, 1);
-      for (; ; i3++) {
-        if (i3 == child.children.length)
+    function scan(tile2, offset2) {
+      if (tile2.isComposite()) {
+        for (let ch of tile2.children) {
+          if (ch.length >= offset2) {
+            let found = scan(ch, offset2);
+            if (found)
+              return found;
+          }
+          offset2 -= ch.length;
+          if (offset2 < 0)
+            break;
+        }
+      } else if (tile2.isText() && offset2 < tile2.length) {
+        let end = findClusterBreak2(tile2.text, offset2);
+        if (end == offset2)
           return null;
-        if ((child = child.children[i3]).length)
-          break;
+        let rects = textRange(tile2.dom, offset2, end).getClientRects();
+        for (let i2 = 0; i2 < rects.length; i2++) {
+          let rect = rects[i2];
+          if (i2 == rects.length - 1 || rect.top < rect.bottom && rect.left < rect.right)
+            return rect;
+        }
       }
-      off = childOff;
-    }
-    if (!(child instanceof TextView))
       return null;
-    let end = findClusterBreak2(child.text, off);
-    if (end == off)
-      return null;
-    let rects = textRange(child.dom, off, end).getClientRects();
-    for (let i3 = 0; i3 < rects.length; i3++) {
-      let rect = rects[i3];
-      if (i3 == rects.length - 1 || rect.top < rect.bottom && rect.left < rect.right)
-        return rect;
     }
-    return null;
+    return scan(tile, offset);
   }
   measureVisibleLineHeights(viewport) {
     let result = [], { from: from2, to } = viewport;
     let contentWidth = this.view.contentDOM.clientWidth;
     let isWider = contentWidth > Math.max(this.view.scrollDOM.clientWidth, this.minWidth) + 1;
     let widest = -1, ltr = this.view.textDirection == Direction.LTR;
-    for (let pos = 0, i2 = 0; i2 < this.children.length; i2++) {
-      let child = this.children[i2], end = pos + child.length;
-      if (end > to)
-        break;
-      if (pos >= from2) {
-        let childRect = child.dom.getBoundingClientRect();
-        result.push(childRect.height);
-        if (isWider) {
-          let last = child.dom.lastChild;
-          let rects = last ? clientRectsFor(last) : [];
-          if (rects.length) {
-            let rect = rects[rects.length - 1];
-            let width = ltr ? rect.right - childRect.left : childRect.right - rect.left;
-            if (width > widest) {
-              widest = width;
-              this.minWidth = contentWidth;
-              this.minWidthFrom = pos;
-              this.minWidthTo = end;
+    let spaceAbove = 0;
+    let scan = (tile, pos, measureBounds) => {
+      for (let i2 = 0; i2 < tile.children.length; i2++) {
+        if (pos > to)
+          break;
+        let child = tile.children[i2], end = pos + child.length;
+        let childRect = child.dom.getBoundingClientRect(), { height } = childRect;
+        if (measureBounds && !i2)
+          spaceAbove += childRect.top - measureBounds.top;
+        if (child instanceof BlockWrapperTile) {
+          if (end > from2)
+            scan(child, pos, childRect);
+        } else if (pos >= from2) {
+          if (spaceAbove > 0)
+            result.push(-spaceAbove);
+          result.push(height + spaceAbove);
+          spaceAbove = 0;
+          if (isWider) {
+            let last = child.dom.lastChild;
+            let rects = last ? clientRectsFor(last) : [];
+            if (rects.length) {
+              let rect = rects[rects.length - 1];
+              let width = ltr ? rect.right - childRect.left : childRect.right - rect.left;
+              if (width > widest) {
+                widest = width;
+                this.minWidth = contentWidth;
+                this.minWidthFrom = pos;
+                this.minWidthTo = end;
+              }
             }
           }
         }
+        if (measureBounds && i2 == tile.children.length - 1)
+          spaceAbove += measureBounds.bottom - childRect.bottom;
+        pos = end + child.breakAfter;
       }
-      pos = end + child.breakAfter;
-    }
+    };
+    scan(this.tile, 0, null);
     return result;
   }
   textDirectionAt(pos) {
-    let { i: i2 } = this.childPos(pos, 1);
-    return getComputedStyle(this.children[i2].dom).direction == "rtl" ? Direction.RTL : Direction.LTR;
+    let { tile } = this.tile.resolveBlock(pos, 1);
+    return getComputedStyle(tile.dom).direction == "rtl" ? Direction.RTL : Direction.LTR;
   }
   measureTextSize() {
-    for (let child of this.children) {
-      if (child instanceof LineView) {
-        let measure = child.measureTextSize();
-        if (measure)
-          return measure;
+    let lineMeasure = this.tile.blockTiles((tile) => {
+      if (tile.isLine() && tile.children.length && tile.length <= 20) {
+        let totalWidth = 0, textHeight2;
+        for (let child of tile.children) {
+          if (!child.isText() || /[^ -~]/.test(child.text))
+            return void 0;
+          let rects = clientRectsFor(child.dom);
+          if (rects.length != 1)
+            return void 0;
+          totalWidth += rects[0].width;
+          textHeight2 = rects[0].height;
+        }
+        if (totalWidth)
+          return {
+            lineHeight: tile.dom.getBoundingClientRect().height,
+            charWidth: totalWidth / tile.length,
+            textHeight: textHeight2
+          };
       }
-    }
+    });
+    if (lineMeasure)
+      return lineMeasure;
     let dummy = document.createElement("div"), lineHeight, charWidth, textHeight;
     dummy.className = "cm-line";
     dummy.style.width = "99999px";
     dummy.style.position = "absolute";
     dummy.textContent = "abc def ghi jkl mno pqr stu";
     this.view.observer.ignore(() => {
-      this.dom.appendChild(dummy);
+      this.tile.dom.appendChild(dummy);
       let rect = clientRectsFor(dummy.firstChild)[0];
       lineHeight = dummy.getBoundingClientRect().height;
-      charWidth = rect ? rect.width / 27 : 7;
-      textHeight = rect ? rect.height : lineHeight;
+      charWidth = rect && rect.width ? rect.width / 27 : 7;
+      textHeight = rect && rect.height ? rect.height : lineHeight;
       dummy.remove();
     });
     return { lineHeight, charWidth, textHeight };
-  }
-  childCursor(pos = this.length) {
-    let i2 = this.children.length;
-    if (i2)
-      pos -= this.children[--i2].length;
-    return new ChildCursor(this.children, pos, i2);
   }
   computeBlockGapDeco() {
     let deco = [], vs = this.view.viewState;
     for (let pos = 0, i2 = 0; ; i2++) {
       let next = i2 == vs.viewports.length ? null : vs.viewports[i2];
-      let end = next ? next.from - 1 : this.length;
+      let end = next ? next.from - 1 : this.view.state.doc.length;
       if (end > pos) {
         let height = (vs.lineBlockAt(end).bottom - vs.lineBlockAt(pos).top) / this.view.scaleY;
         deco.push(Decoration.replace({
@@ -6615,9 +6811,10 @@ var DocView = class extends ContentView {
     ];
     while (i2 < this.decorations.length)
       this.dynamicDecorationMap[i2++] = false;
-    return this.decorations;
+    this.blockWrappers = this.view.state.facet(blockWrappers).map((v) => typeof v == "function" ? v(this.view) : v);
   }
   scrollIntoView(target) {
+    var _a2;
     if (target.isSnapshot) {
       let ref = this.view.viewState.lineBlockAt(target.range.head);
       this.view.scrollDOM.scrollTop = ref.top - target.yMargin;
@@ -6633,7 +6830,7 @@ var DocView = class extends ContentView {
       }
     }
     let { range } = target;
-    let rect = this.coordsAt(range.head, range.empty ? range.assoc : range.head > range.anchor ? -1 : 1), other;
+    let rect = this.coordsAt(range.head, (_a2 = range.assoc) !== null && _a2 !== void 0 ? _a2 : range.empty ? 0 : range.head > range.anchor ? -1 : 1), other;
     if (!rect)
       return;
     if (!range.empty && (other = this.coordsAt(range.anchor, range.anchor > range.head ? -1 : 1)))
@@ -6652,8 +6849,29 @@ var DocView = class extends ContentView {
     };
     let { offsetWidth, offsetHeight } = this.view.scrollDOM;
     scrollRectIntoView(this.view.scrollDOM, targetRect, range.head < range.anchor ? -1 : 1, target.x, target.y, Math.max(Math.min(target.xMargin, offsetWidth), -offsetWidth), Math.max(Math.min(target.yMargin, offsetHeight), -offsetHeight), this.view.textDirection == Direction.LTR);
+    if (window.visualViewport && window.innerHeight - window.visualViewport.height > 1 && (rect.top > window.pageYOffset + window.visualViewport.offsetTop + window.visualViewport.height || rect.bottom < window.pageYOffset + window.visualViewport.offsetTop)) {
+      let line = this.view.docView.lineAt(range.head, 1);
+      if (line)
+        line.dom.scrollIntoView({ block: "nearest" });
+    }
+  }
+  lineHasWidget(pos) {
+    let scan = (child) => child.isWidget() || child.children.some(scan);
+    return scan(this.tile.resolveBlock(pos, 1).tile);
+  }
+  destroy() {
+    destroyDropped(this.tile);
   }
 };
+function destroyDropped(tile, reused) {
+  let r = reused === null || reused === void 0 ? void 0 : reused.get(tile);
+  if (r != 1) {
+    if (r == null)
+      tile.destroy();
+    for (let ch of tile.children)
+      destroyDropped(ch, reused);
+  }
+}
 function betweenUneditable(pos) {
   return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset == pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
 }
@@ -6665,12 +6883,12 @@ function findCompositionNode(view, headPos) {
   let textAfter = textNodeAfter(sel.focusNode, sel.focusOffset);
   let textNode = textBefore || textAfter;
   if (textAfter && textBefore && textAfter.node != textBefore.node) {
-    let descAfter = ContentView.get(textAfter.node);
-    if (!descAfter || descAfter instanceof TextView && descAfter.text != textAfter.node.nodeValue) {
+    let tileAfter = Tile.get(textAfter.node);
+    if (!tileAfter || tileAfter.isText() && tileAfter.text != textAfter.node.nodeValue) {
       textNode = textAfter;
     } else if (view.docView.lastCompositionAfterCursor) {
-      let descBefore = ContentView.get(textBefore.node);
-      if (!(!descBefore || descBefore instanceof TextView && descBefore.text != textBefore.node.nodeValue))
+      let tileBefore = Tile.get(textBefore.node);
+      if (!(!tileBefore || tileBefore.isText() && tileBefore.text != textBefore.node.nodeValue))
         textNode = textAfter;
     }
   }
@@ -6690,23 +6908,7 @@ function findCompositionRange(view, changes, headPos) {
   if (view.state.doc.sliceString(found.from, found.to) != text)
     return null;
   let inv = changes.invertedDesc;
-  let range = new ChangedRange(inv.mapPos(from2), inv.mapPos(to), from2, to);
-  let marks2 = [];
-  for (let parent = textNode.parentNode; ; parent = parent.parentNode) {
-    let parentView = ContentView.get(parent);
-    if (parentView instanceof MarkView)
-      marks2.push({ node: parent, deco: parentView.mark });
-    else if (parentView instanceof LineView || parent.nodeName == "DIV" && parent.parentNode == view.contentDOM)
-      return { range, text: textNode, marks: marks2, line: parent };
-    else if (parent != view.contentDOM)
-      marks2.push({ node: parent, deco: new MarkDecoration({
-        inclusive: true,
-        attributes: getAttrs(parent),
-        tagName: parent.tagName.toLowerCase()
-      }) });
-    else
-      return null;
-  }
+  return { range: new ChangedRange(inv.mapPos(from2), inv.mapPos(to), from2, to), text: textNode };
 }
 function nextToUneditable(node, offset) {
   if (node.nodeType != 1)
@@ -6723,14 +6925,35 @@ var DecorationComparator$1 = class DecorationComparator {
   comparePoint(from2, to) {
     addRange(from2, to, this.changes);
   }
+  boundChange(pos) {
+    addRange(pos, pos, this.changes);
+  }
 };
 function findChangedDeco(a, b, diff) {
   let comp = new DecorationComparator$1();
   RangeSet.compare(a, b, diff, comp);
   return comp.changes;
 }
-function inUneditable(node, inside2) {
-  for (let cur2 = node; cur2 && cur2 != inside2; cur2 = cur2.assignedSlot || cur2.parentNode) {
+var WrapperComparator = class {
+  constructor() {
+    this.changes = [];
+  }
+  compareRange(from2, to) {
+    addRange(from2, to, this.changes);
+  }
+  comparePoint() {
+  }
+  boundChange(pos) {
+    addRange(pos, pos, this.changes);
+  }
+};
+function findChangedWrappers(a, b, diff) {
+  let comp = new WrapperComparator();
+  RangeSet.compare(a, b, diff, comp);
+  return comp.changes;
+}
+function inUneditable(node, inside) {
+  for (let cur2 = node; cur2 && cur2 != inside; cur2 = cur2.assignedSlot || cur2.parentNode) {
     if (cur2.nodeType == 1 && cur2.contentEditable == "false") {
       return true;
     }
@@ -6746,6 +6969,34 @@ function touchesComposition(changes, composition) {
     });
   return touched;
 }
+var BlockGapWidget = class extends WidgetType {
+  constructor(height) {
+    super();
+    this.height = height;
+  }
+  toDOM() {
+    let elt2 = document.createElement("div");
+    elt2.className = "cm-gap";
+    this.updateDOM(elt2);
+    return elt2;
+  }
+  eq(other) {
+    return other.height == this.height;
+  }
+  updateDOM(elt2) {
+    elt2.style.height = this.height + "px";
+    return true;
+  }
+  get editable() {
+    return true;
+  }
+  get estimatedHeight() {
+    return this.height;
+  }
+  ignoreEvent() {
+    return false;
+  }
+};
 function groupAt(state, pos, bias = 1) {
   let categorize = state.charCategorizer(pos);
   let line = state.doc.lineAt(pos), linePos = pos - line.from;
@@ -6775,174 +7026,6 @@ function groupAt(state, pos, bias = 1) {
   }
   return EditorSelection.range(from2 + line.from, to + line.from);
 }
-function getdx(x, rect) {
-  return rect.left > x ? rect.left - x : Math.max(0, x - rect.right);
-}
-function getdy(y, rect) {
-  return rect.top > y ? rect.top - y : Math.max(0, y - rect.bottom);
-}
-function yOverlap(a, b) {
-  return a.top < b.bottom - 1 && a.bottom > b.top + 1;
-}
-function upTop(rect, top2) {
-  return top2 < rect.top ? { top: top2, left: rect.left, right: rect.right, bottom: rect.bottom } : rect;
-}
-function upBot(rect, bottom) {
-  return bottom > rect.bottom ? { top: rect.top, left: rect.left, right: rect.right, bottom } : rect;
-}
-function domPosAtCoords(parent, x, y) {
-  let closest, closestRect, closestX, closestY, closestOverlap = false;
-  let above, below, aboveRect, belowRect;
-  for (let child = parent.firstChild; child; child = child.nextSibling) {
-    let rects = clientRectsFor(child);
-    for (let i2 = 0; i2 < rects.length; i2++) {
-      let rect = rects[i2];
-      if (closestRect && yOverlap(closestRect, rect))
-        rect = upTop(upBot(rect, closestRect.bottom), closestRect.top);
-      let dx = getdx(x, rect), dy = getdy(y, rect);
-      if (dx == 0 && dy == 0)
-        return child.nodeType == 3 ? domPosInText(child, x, y) : domPosAtCoords(child, x, y);
-      if (!closest || closestY > dy || closestY == dy && closestX > dx) {
-        closest = child;
-        closestRect = rect;
-        closestX = dx;
-        closestY = dy;
-        let side = dy ? y < rect.top ? -1 : 1 : dx ? x < rect.left ? -1 : 1 : 0;
-        closestOverlap = !side || (side > 0 ? i2 < rects.length - 1 : i2 > 0);
-      }
-      if (dx == 0) {
-        if (y > rect.bottom && (!aboveRect || aboveRect.bottom < rect.bottom)) {
-          above = child;
-          aboveRect = rect;
-        } else if (y < rect.top && (!belowRect || belowRect.top > rect.top)) {
-          below = child;
-          belowRect = rect;
-        }
-      } else if (aboveRect && yOverlap(aboveRect, rect)) {
-        aboveRect = upBot(aboveRect, rect.bottom);
-      } else if (belowRect && yOverlap(belowRect, rect)) {
-        belowRect = upTop(belowRect, rect.top);
-      }
-    }
-  }
-  if (aboveRect && aboveRect.bottom >= y) {
-    closest = above;
-    closestRect = aboveRect;
-  } else if (belowRect && belowRect.top <= y) {
-    closest = below;
-    closestRect = belowRect;
-  }
-  if (!closest)
-    return { node: parent, offset: 0 };
-  let clipX = Math.max(closestRect.left, Math.min(closestRect.right, x));
-  if (closest.nodeType == 3)
-    return domPosInText(closest, clipX, y);
-  if (closestOverlap && closest.contentEditable != "false")
-    return domPosAtCoords(closest, clipX, y);
-  let offset = Array.prototype.indexOf.call(parent.childNodes, closest) + (x >= (closestRect.left + closestRect.right) / 2 ? 1 : 0);
-  return { node: parent, offset };
-}
-function domPosInText(node, x, y) {
-  let len = node.nodeValue.length;
-  let closestOffset = -1, closestDY = 1e9, generalSide = 0;
-  for (let i2 = 0; i2 < len; i2++) {
-    let rects = textRange(node, i2, i2 + 1).getClientRects();
-    for (let j = 0; j < rects.length; j++) {
-      let rect = rects[j];
-      if (rect.top == rect.bottom)
-        continue;
-      if (!generalSide)
-        generalSide = x - rect.left;
-      let dy = (rect.top > y ? rect.top - y : y - rect.bottom) - 1;
-      if (rect.left - 1 <= x && rect.right + 1 >= x && dy < closestDY) {
-        let right = x >= (rect.left + rect.right) / 2, after = right;
-        if (browser.chrome || browser.gecko) {
-          let rectBefore = textRange(node, i2).getBoundingClientRect();
-          if (rectBefore.left == rect.right)
-            after = !right;
-        }
-        if (dy <= 0)
-          return { node, offset: i2 + (after ? 1 : 0) };
-        closestOffset = i2 + (after ? 1 : 0);
-        closestDY = dy;
-      }
-    }
-  }
-  return { node, offset: closestOffset > -1 ? closestOffset : generalSide > 0 ? node.nodeValue.length : 0 };
-}
-function posAtCoords(view, coords, precise, bias = -1) {
-  var _a2, _b2;
-  let content2 = view.contentDOM.getBoundingClientRect(), docTop = content2.top + view.viewState.paddingTop;
-  let block, { docHeight } = view.viewState;
-  let { x, y } = coords, yOffset = y - docTop;
-  if (yOffset < 0)
-    return 0;
-  if (yOffset > docHeight)
-    return view.state.doc.length;
-  for (let halfLine = view.viewState.heightOracle.textHeight / 2, bounced = false; ; ) {
-    block = view.elementAtHeight(yOffset);
-    if (block.type == BlockType.Text)
-      break;
-    for (; ; ) {
-      yOffset = bias > 0 ? block.bottom + halfLine : block.top - halfLine;
-      if (yOffset >= 0 && yOffset <= docHeight)
-        break;
-      if (bounced)
-        return precise ? null : 0;
-      bounced = true;
-      bias = -bias;
-    }
-  }
-  y = docTop + yOffset;
-  let lineStart = block.from;
-  if (lineStart < view.viewport.from)
-    return view.viewport.from == 0 ? 0 : precise ? null : posAtCoordsImprecise(view, content2, block, x, y);
-  if (lineStart > view.viewport.to)
-    return view.viewport.to == view.state.doc.length ? view.state.doc.length : precise ? null : posAtCoordsImprecise(view, content2, block, x, y);
-  let doc3 = view.dom.ownerDocument;
-  let root = view.root.elementFromPoint ? view.root : doc3;
-  let element = root.elementFromPoint(x, y);
-  if (element && !view.contentDOM.contains(element))
-    element = null;
-  if (!element) {
-    x = Math.max(content2.left + 1, Math.min(content2.right - 1, x));
-    element = root.elementFromPoint(x, y);
-    if (element && !view.contentDOM.contains(element))
-      element = null;
-  }
-  let node, offset = -1;
-  if (element && ((_a2 = view.docView.nearest(element)) === null || _a2 === void 0 ? void 0 : _a2.isEditable) != false) {
-    if (doc3.caretPositionFromPoint) {
-      let pos = doc3.caretPositionFromPoint(x, y);
-      if (pos)
-        ({ offsetNode: node, offset } = pos);
-    } else if (doc3.caretRangeFromPoint) {
-      let range = doc3.caretRangeFromPoint(x, y);
-      if (range) {
-        ({ startContainer: node, startOffset: offset } = range);
-        if (!view.contentDOM.contains(node) || browser.safari && isSuspiciousSafariCaretResult(node, offset, x) || browser.chrome && isSuspiciousChromeCaretResult(node, offset, x))
-          node = void 0;
-      }
-    }
-    if (node)
-      offset = Math.min(maxOffset(node), offset);
-  }
-  if (!node || !view.docView.dom.contains(node)) {
-    let line = LineView.find(view.docView, lineStart);
-    if (!line)
-      return yOffset > block.top + block.height / 2 ? block.to : block.from;
-    ({ node, offset } = domPosAtCoords(line.dom, x, y));
-  }
-  let nearest = view.docView.nearest(node);
-  if (!nearest)
-    return null;
-  if (nearest.isWidget && ((_b2 = nearest.dom) === null || _b2 === void 0 ? void 0 : _b2.nodeType) == 1) {
-    let rect = nearest.dom.getBoundingClientRect();
-    return coords.y < rect.top || coords.y <= rect.bottom && coords.x <= (rect.left + rect.right) / 2 ? nearest.posAtStart : nearest.posAtEnd;
-  } else {
-    return nearest.localPosFromDOM(node, offset) + nearest.posAtStart;
-  }
-}
 function posAtCoordsImprecise(view, contentRect, block, x, y) {
   let into = Math.round((x - contentRect.left) * view.defaultCharacterWidth);
   if (view.lineWrapping && block.height > view.defaultLineHeight * 1.5) {
@@ -6953,40 +7036,26 @@ function posAtCoordsImprecise(view, contentRect, block, x, y) {
   let content2 = view.state.sliceDoc(block.from, block.to);
   return block.from + findColumn(content2, into, view.state.tabSize);
 }
-function isSuspiciousSafariCaretResult(node, offset, x) {
-  let len;
-  if (node.nodeType != 3 || offset != (len = node.nodeValue.length))
-    return false;
-  for (let next = node.nextSibling; next; next = next.nextSibling)
-    if (next.nodeType != 1 || next.nodeName != "BR")
-      return false;
-  return textRange(node, len - 1, len).getBoundingClientRect().left > x;
-}
-function isSuspiciousChromeCaretResult(node, offset, x) {
-  if (offset != 0)
-    return false;
-  for (let cur2 = node; ; ) {
-    let parent = cur2.parentNode;
-    if (!parent || parent.nodeType != 1 || parent.firstChild != cur2)
-      return false;
-    if (parent.classList.contains("cm-line"))
-      break;
-    cur2 = parent;
-  }
-  let rect = node.nodeType == 1 ? node.getBoundingClientRect() : textRange(node, 0, Math.max(node.nodeValue.length, 1)).getBoundingClientRect();
-  return x - rect.left > 5;
-}
-function blockAt(view, pos) {
+function blockAt(view, pos, side) {
   let line = view.lineBlockAt(pos);
-  if (Array.isArray(line.type))
+  if (Array.isArray(line.type)) {
+    let best;
     for (let l of line.type) {
-      if (l.to > pos || l.to == pos && (l.to == line.to || l.type == BlockType.Text))
+      if (l.from > pos)
+        break;
+      if (l.to < pos)
+        continue;
+      if (l.from < pos && l.to > pos)
         return l;
+      if (!best || l.type == BlockType.Text && (best.type != l.type || (side < 0 ? l.from < pos : l.to > pos)))
+        best = l;
     }
+    return best || line;
+  }
   return line;
 }
 function moveToLineBoundary(view, start, forward, includeWrap) {
-  let line = blockAt(view, start.head);
+  let line = blockAt(view, start.head, start.assoc || -1);
   let coords = !includeWrap || line.type != BlockType.Text || !(view.lineWrapping || line.widgetLineBreaks) ? null : view.coordsAtPos(start.assoc < 0 && start.head > line.from ? start.head - 1 : start.head);
   if (coords) {
     let editorRect = view.dom.getBoundingClientRect();
@@ -7039,7 +7108,8 @@ function moveVertically(view, start, forward, distance) {
     return EditorSelection.cursor(startPos, start.assoc);
   let goal = start.goalColumn, startY;
   let rect = view.contentDOM.getBoundingClientRect();
-  let startCoords = view.coordsAtPos(startPos, start.assoc || -1), docTop = view.documentTop;
+  let startCoords = view.coordsAtPos(startPos, start.assoc || ((start.empty ? forward : start.head == start.from) ? 1 : -1));
+  let docTop = view.documentTop;
   if (startCoords) {
     if (goal == null)
       goal = startCoords.left - rect.left;
@@ -7051,15 +7121,15 @@ function moveVertically(view, start, forward, distance) {
     startY = (dir < 0 ? line.top : line.bottom) + docTop;
   }
   let resolvedGoal = rect.left + goal;
-  let dist3 = distance !== null && distance !== void 0 ? distance : view.viewState.heightOracle.textHeight >> 1;
-  for (let extra = 0; ; extra += 10) {
-    let curY = startY + (dist3 + extra) * dir;
-    let pos = posAtCoords(view, { x: resolvedGoal, y: curY }, false, dir);
-    if (curY < rect.top || curY > rect.bottom || (dir < 0 ? pos < startPos : pos > startPos)) {
-      let charRect = view.docView.coordsForChar(pos);
-      let assoc = !charRect || curY < charRect.top ? -1 : 1;
-      return EditorSelection.cursor(pos, assoc, void 0, goal);
-    }
+  let halfText = view.viewState.heightOracle.textHeight >> 1, dist2 = distance !== null && distance !== void 0 ? distance : halfText;
+  for (let scan = 0; ; scan += halfText) {
+    let y = startY + (dist2 + scan) * dir;
+    let pos = posAtCoords(view, { x: resolvedGoal, y }, false, dir);
+    if (forward ? y > rect.bottom : y < rect.top)
+      return EditorSelection.cursor(pos.pos, pos.assoc);
+    let posCoords = view.coordsAtPos(pos.pos, pos.assoc), mid = posCoords ? (posCoords.top + posCoords.bottom) / 2 : 0;
+    if (!posCoords || (forward ? mid > startY : mid < startY))
+      return EditorSelection.cursor(pos.pos, pos.assoc, void 0, goal);
   }
 }
 function skipAtomicRanges(atoms, pos, bias) {
@@ -7078,16 +7148,233 @@ function skipAtomicRanges(atoms, pos, bias) {
       return pos;
   }
 }
+function skipAtomsForSelection(atoms, sel) {
+  let ranges = null;
+  for (let i2 = 0; i2 < sel.ranges.length; i2++) {
+    let range = sel.ranges[i2], updated = null;
+    if (range.empty) {
+      let pos = skipAtomicRanges(atoms, range.from, 0);
+      if (pos != range.from)
+        updated = EditorSelection.cursor(pos, -1);
+    } else {
+      let from2 = skipAtomicRanges(atoms, range.from, -1);
+      let to = skipAtomicRanges(atoms, range.to, 1);
+      if (from2 != range.from || to != range.to)
+        updated = EditorSelection.range(range.from == range.anchor ? from2 : to, range.from == range.head ? from2 : to);
+    }
+    if (updated) {
+      if (!ranges)
+        ranges = sel.ranges.slice();
+      ranges[i2] = updated;
+    }
+  }
+  return ranges ? EditorSelection.create(ranges, sel.mainIndex) : sel;
+}
 function skipAtoms(view, oldPos, pos) {
   let newPos = skipAtomicRanges(view.state.facet(atomicRanges).map((f) => f(view)), pos.from, oldPos.head > pos.from ? -1 : 1);
   return newPos == pos.from ? pos : EditorSelection.cursor(newPos, newPos < pos.from ? 1 : -1);
 }
+var PosAssoc = class {
+  constructor(pos, assoc) {
+    this.pos = pos;
+    this.assoc = assoc;
+  }
+};
+function posAtCoords(view, coords, precise, scanY) {
+  let content2 = view.contentDOM.getBoundingClientRect(), docTop = content2.top + view.viewState.paddingTop;
+  let { x, y } = coords, yOffset = y - docTop, block;
+  for (; ; ) {
+    if (yOffset < 0)
+      return new PosAssoc(0, 1);
+    if (yOffset > view.viewState.docHeight)
+      return new PosAssoc(view.state.doc.length, -1);
+    block = view.elementAtHeight(yOffset);
+    if (scanY == null)
+      break;
+    if (block.type == BlockType.Text) {
+      if (scanY < 0 ? block.to < view.viewport.from : block.from > view.viewport.to)
+        break;
+      let rect = view.docView.coordsAt(scanY < 0 ? block.from : block.to, scanY > 0 ? -1 : 1);
+      if (rect && (scanY < 0 ? rect.top <= yOffset + docTop : rect.bottom >= yOffset + docTop))
+        break;
+    }
+    let halfLine = view.viewState.heightOracle.textHeight / 2;
+    yOffset = scanY > 0 ? block.bottom + halfLine : block.top - halfLine;
+  }
+  if (view.viewport.from >= block.to || view.viewport.to <= block.from) {
+    if (precise)
+      return null;
+    if (block.type == BlockType.Text) {
+      let pos = posAtCoordsImprecise(view, content2, block, x, y);
+      return new PosAssoc(pos, pos == block.from ? 1 : -1);
+    }
+  }
+  if (block.type != BlockType.Text)
+    return yOffset < (block.top + block.bottom) / 2 ? new PosAssoc(block.from, 1) : new PosAssoc(block.to, -1);
+  let line = view.docView.lineAt(block.from, 2);
+  if (!line || line.length != block.length)
+    line = view.docView.lineAt(block.from, -2);
+  return new InlineCoordsScan(view, x, y, view.textDirectionAt(block.from)).scanTile(line, block.from);
+}
+var InlineCoordsScan = class {
+  constructor(view, x, y, baseDir) {
+    this.view = view;
+    this.x = x;
+    this.y = y;
+    this.baseDir = baseDir;
+    this.line = null;
+    this.spans = null;
+  }
+  bidiSpansAt(pos) {
+    if (!this.line || this.line.from > pos || this.line.to < pos) {
+      this.line = this.view.state.doc.lineAt(pos);
+      this.spans = this.view.bidiSpans(this.line);
+    }
+    return this;
+  }
+  baseDirAt(pos, side) {
+    let { line, spans } = this.bidiSpansAt(pos);
+    let level = spans[BidiSpan.find(spans, pos - line.from, -1, side)].level;
+    return level == this.baseDir;
+  }
+  dirAt(pos, side) {
+    let { line, spans } = this.bidiSpansAt(pos);
+    return spans[BidiSpan.find(spans, pos - line.from, -1, side)].dir;
+  }
+  // Used to short-circuit bidi tests for content with a uniform direction
+  bidiIn(from2, to) {
+    let { spans, line } = this.bidiSpansAt(from2);
+    return spans.length > 1 || spans.length && (spans[0].level != this.baseDir || spans[0].to + line.from < to);
+  }
+  // Scan through the rectangles for the content of a tile with inline
+  // content, looking for one that overlaps the queried position
+  // vertically and is closest horizontally. The caller is responsible
+  // for dividing its content into N pieces, and pass an array with
+  // N+1 positions (including the position after the last piece). For
+  // a text tile, these will be character clusters, for a composite
+  // tile, these will be child tiles.
+  scan(positions, getRects, recursed = false) {
+    let lo = 0, hi = positions.length - 1, seen = /* @__PURE__ */ new Set();
+    let bidi = this.bidiIn(positions[0], positions[hi]);
+    let above, below;
+    let closestI = -1, closestDx = 1e9, closestRect;
+    search: while (lo < hi) {
+      let dist2 = hi - lo, mid = lo + hi >> 1;
+      adjust: if (seen.has(mid)) {
+        let scan = lo + Math.floor(Math.random() * dist2);
+        for (let i2 = 0; i2 < dist2; i2++) {
+          if (!seen.has(scan)) {
+            mid = scan;
+            break adjust;
+          }
+          scan++;
+          if (scan == hi)
+            scan = lo;
+        }
+        break search;
+      }
+      seen.add(mid);
+      let rects = getRects(mid);
+      if (rects)
+        for (let i2 = 0; i2 < rects.length; i2++) {
+          let rect = rects[i2], side = 0;
+          if (rect.width == 0 && rects.length > 1)
+            continue;
+          if (rect.bottom < this.y) {
+            if (!above || above.bottom < rect.bottom)
+              above = rect;
+            side = 1;
+          } else if (rect.top > this.y) {
+            if (!below || below.top > rect.top)
+              below = rect;
+            side = -1;
+          } else {
+            let off = rect.left > this.x ? this.x - rect.left : rect.right < this.x ? this.x - rect.right : 0;
+            let dx = Math.abs(off);
+            if (dx < closestDx) {
+              closestI = mid;
+              closestDx = dx;
+              closestRect = rect;
+            }
+            if (off)
+              side = off < 0 == (this.baseDir == Direction.LTR) ? -1 : 1;
+          }
+          if (side == -1 && (!bidi || this.baseDirAt(positions[mid], 1)))
+            hi = mid;
+          else if (side == 1 && (!bidi || this.baseDirAt(positions[mid + 1], -1)))
+            lo = mid + 1;
+        }
+    }
+    if (!closestRect) {
+      if (!below && !above)
+        return { i: positions[0], after: false };
+      let side = above && (!below || this.y - above.bottom < below.top - this.y) ? above : below;
+      this.y = (side.top + side.bottom) / 2;
+      return this.scan(positions, getRects, true);
+    }
+    if (closestDx && !recursed) {
+      let { top: top2, bottom } = closestRect;
+      if (above && above.bottom > (top2 + top2 + bottom) / 3) {
+        this.y = above.bottom - 1;
+        return this.scan(positions, getRects, true);
+      }
+      if (below && below.top < (top2 + bottom + bottom) / 3) {
+        this.y = below.top + 1;
+        return this.scan(positions, getRects, true);
+      }
+    }
+    let ltr = (bidi ? this.dirAt(positions[closestI], 1) : this.baseDir) == Direction.LTR;
+    return {
+      i: closestI,
+      // Test whether x is closes to the start or end of this element
+      after: this.x > (closestRect.left + closestRect.right) / 2 == ltr
+    };
+  }
+  scanText(tile, offset) {
+    let positions = [];
+    for (let i2 = 0; i2 < tile.length; i2 = findClusterBreak2(tile.text, i2))
+      positions.push(offset + i2);
+    positions.push(offset + tile.length);
+    let scan = this.scan(positions, (i2) => {
+      let off = positions[i2] - offset, end = positions[i2 + 1] - offset;
+      return textRange(tile.dom, off, end).getClientRects();
+    });
+    return scan.after ? new PosAssoc(positions[scan.i + 1], -1) : new PosAssoc(positions[scan.i], 1);
+  }
+  scanTile(tile, offset) {
+    if (!tile.length)
+      return new PosAssoc(offset, 1);
+    if (tile.children.length == 1) {
+      let child2 = tile.children[0];
+      if (child2.isText())
+        return this.scanText(child2, offset);
+      else if (child2.isComposite())
+        return this.scanTile(child2, offset);
+    }
+    let positions = [offset];
+    for (let i2 = 0, pos2 = offset; i2 < tile.children.length; i2++)
+      positions.push(pos2 += tile.children[i2].length);
+    let scan = this.scan(positions, (i2) => {
+      let child2 = tile.children[i2];
+      if (child2.flags & 48)
+        return null;
+      return (child2.dom.nodeType == 1 ? child2.dom : textRange(child2.dom, 0, child2.length)).getClientRects();
+    });
+    let child = tile.children[scan.i], pos = positions[scan.i];
+    if (child.isText())
+      return this.scanText(child, pos);
+    if (child.isComposite())
+      return this.scanTile(child, pos);
+    return scan.after ? new PosAssoc(positions[scan.i + 1], -1) : new PosAssoc(pos, 1);
+  }
+};
 var LineBreakPlaceholder = "\uFFFF";
 var DOMReader = class {
-  constructor(points, state) {
+  constructor(points, view) {
     this.points = points;
+    this.view = view;
     this.text = "";
-    this.lineSeparator = state.facet(EditorState.lineSeparator);
+    this.lineSeparator = view.state.facet(EditorState.lineSeparator);
   }
   append(text) {
     this.text += text;
@@ -7103,11 +7390,14 @@ var DOMReader = class {
       this.findPointBefore(parent, cur2);
       let oldLen = this.text.length;
       this.readNode(cur2);
-      let next = cur2.nextSibling;
-      if (next == end)
+      let tile = Tile.get(cur2), next = cur2.nextSibling;
+      if (next == end) {
+        if ((tile === null || tile === void 0 ? void 0 : tile.breakAfter) && !next && parent != this.view.contentDOM)
+          this.lineBreak();
         break;
-      let view = ContentView.get(cur2), nextView = ContentView.get(next);
-      if (view && nextView ? view.breakAfter : (view ? view.breakAfter : isBlockElement(cur2)) || isBlockElement(next) && (cur2.nodeName != "BR" || cur2.cmIgnore) && this.text.length > oldLen)
+      }
+      let nextTile = Tile.get(next);
+      if ((tile && nextTile ? tile.breakAfter : (tile ? tile.breakAfter : isBlockElement(cur2)) || isBlockElement(next) && (cur2.nodeName != "BR" || (tile === null || tile === void 0 ? void 0 : tile.isWidget())) && this.text.length > oldLen) && !isEmptyToEnd(next, end))
         this.lineBreak();
       cur2 = next;
     }
@@ -7141,10 +7431,8 @@ var DOMReader = class {
     }
   }
   readNode(node) {
-    if (node.cmIgnore)
-      return;
-    let view = ContentView.get(node);
-    let fromView = view && view.overrideDOMText;
+    let tile = Tile.get(node);
+    let fromView = tile && tile.overrideDOMText;
     if (fromView != null) {
       this.findPointInside(node, fromView.length);
       for (let i2 = fromView.iter(); !i2.next().done; ) {
@@ -7183,6 +7471,25 @@ function isAtEnd(parent, node, offset) {
     node = node.parentNode;
   }
 }
+function isEmptyToEnd(node, end) {
+  let widgets;
+  for (; ; node = node.nextSibling) {
+    if (node == end || !node)
+      break;
+    let view = Tile.get(node);
+    if (!(view === null || view === void 0 ? void 0 : view.isWidget()))
+      return false;
+    if (view)
+      (widgets || (widgets = [])).push(view);
+  }
+  if (widgets)
+    for (let w of widgets) {
+      let override = w.overrideDOMText;
+      if (override === null || override === void 0 ? void 0 : override.length)
+        return false;
+    }
+  return true;
+}
 var DOMPoint = class {
   constructor(node, offset) {
     this.node = node;
@@ -7196,21 +7503,21 @@ var DOMChange = class {
     this.bounds = null;
     this.text = "";
     this.domChanged = start > -1;
-    let { impreciseHead: iHead, impreciseAnchor: iAnchor } = view.docView;
+    let { impreciseHead: iHead, impreciseAnchor: iAnchor } = view.docView, curSel = view.state.selection;
     if (view.state.readOnly && start > -1) {
       this.newSel = null;
-    } else if (start > -1 && (this.bounds = view.docView.domBoundsAround(start, end, 0))) {
+    } else if (start > -1 && (this.bounds = domBoundsAround(view.docView.tile, start, end, 0))) {
       let selPoints = iHead || iAnchor ? [] : selectionPoints(view);
-      let reader = new DOMReader(selPoints, view.state);
+      let reader = new DOMReader(selPoints, view);
       reader.readRange(this.bounds.startDOM, this.bounds.endDOM);
       this.text = reader.text;
       this.newSel = selectionFromPoints(selPoints, this.bounds.from);
     } else {
       let domSel = view.observer.selectionRange;
-      let head = iHead && iHead.node == domSel.focusNode && iHead.offset == domSel.focusOffset || !contains(view.contentDOM, domSel.focusNode) ? view.state.selection.main.head : view.docView.posFromDOM(domSel.focusNode, domSel.focusOffset);
-      let anchor = iAnchor && iAnchor.node == domSel.anchorNode && iAnchor.offset == domSel.anchorOffset || !contains(view.contentDOM, domSel.anchorNode) ? view.state.selection.main.anchor : view.docView.posFromDOM(domSel.anchorNode, domSel.anchorOffset);
+      let head = iHead && iHead.node == domSel.focusNode && iHead.offset == domSel.focusOffset || !contains(view.contentDOM, domSel.focusNode) ? curSel.main.head : view.docView.posFromDOM(domSel.focusNode, domSel.focusOffset);
+      let anchor = iAnchor && iAnchor.node == domSel.anchorNode && iAnchor.offset == domSel.anchorOffset || !contains(view.contentDOM, domSel.anchorNode) ? curSel.main.anchor : view.docView.posFromDOM(domSel.anchorNode, domSel.anchorOffset);
       let vp = view.viewport;
-      if ((browser.ios || browser.chrome) && view.state.selection.main.empty && head != anchor && (vp.from > 0 || vp.to < view.state.doc.length)) {
+      if ((browser.ios || browser.chrome) && curSel.main.empty && head != anchor && (vp.from > 0 || vp.to < view.state.doc.length)) {
         let from2 = Math.min(head, anchor), to = Math.max(head, anchor);
         let offFrom = vp.from - from2, offTo = vp.to - to;
         if ((offFrom == 0 || offFrom == 1 || from2 == 0) && (offTo == 0 || offTo == -1 || to == view.state.doc.length)) {
@@ -7218,13 +7525,53 @@ var DOMChange = class {
           anchor = view.state.doc.length;
         }
       }
-      this.newSel = EditorSelection.single(anchor, head);
+      if (view.inputState.composing > -1 && curSel.ranges.length > 1) {
+        this.newSel = curSel.replaceRange(EditorSelection.range(anchor, head));
+      } else if (view.lineWrapping && anchor == head && !(curSel.main.empty && curSel.main.head == head) && view.inputState.lastTouchTime > Date.now() - 100) {
+        let before = view.coordsAtPos(head, -1), assoc = 0;
+        if (before)
+          assoc = view.inputState.lastTouchY <= before.bottom ? -1 : 1;
+        this.newSel = EditorSelection.create([EditorSelection.cursor(head, assoc)]);
+      } else {
+        this.newSel = EditorSelection.single(anchor, head);
+      }
     }
   }
 };
+function domBoundsAround(tile, from2, to, offset) {
+  if (tile.isComposite()) {
+    let fromI = -1, fromStart = -1, toI = -1, toEnd = -1;
+    for (let i2 = 0, pos = offset, prevEnd = offset; i2 < tile.children.length; i2++) {
+      let child = tile.children[i2], end = pos + child.length;
+      if (pos < from2 && end > to)
+        return domBoundsAround(child, from2, to, pos);
+      if (end >= from2 && fromI == -1) {
+        fromI = i2;
+        fromStart = pos;
+      }
+      if (pos > to && child.dom.parentNode == tile.dom) {
+        toI = i2;
+        toEnd = prevEnd;
+        break;
+      }
+      prevEnd = end;
+      pos = end + child.breakAfter;
+    }
+    return {
+      from: fromStart,
+      to: toEnd < 0 ? offset + tile.length : toEnd,
+      startDOM: (fromI ? tile.children[fromI - 1].dom.nextSibling : null) || tile.dom.firstChild,
+      endDOM: toI < tile.children.length && toI >= 0 ? tile.children[toI].dom : null
+    };
+  } else if (tile.isText()) {
+    return { from: offset, to: offset + tile.length, startDOM: tile.dom, endDOM: tile.dom.nextSibling };
+  } else {
+    return null;
+  }
+}
 function applyDOMChange(view, domChange) {
   let change;
-  let { newSel } = domChange, sel = view.state.selection.main;
+  let { newSel } = domChange, { state } = view, sel = state.selection.main;
   let lastKey = view.inputState.lastKeyTime > Date.now() - 100 ? view.inputState.lastKeyCode : -1;
   if (domChange.bounds) {
     let { from: from2, to } = domChange.bounds;
@@ -7233,8 +7580,14 @@ function applyDOMChange(view, domChange) {
       preferredPos = sel.to;
       preferredSide = "end";
     }
-    let diff = findDiff(view.state.doc.sliceString(from2, to, LineBreakPlaceholder), domChange.text, preferredPos - from2, preferredSide);
-    if (diff) {
+    let cmp = state.doc.sliceString(from2, to, LineBreakPlaceholder), selEnd, diff;
+    if (!sel.empty && sel.from >= from2 && sel.to <= to && (domChange.typeOver || cmp != domChange.text) && cmp.slice(0, sel.from - from2) == domChange.text.slice(0, sel.from - from2) && cmp.slice(sel.to - from2) == domChange.text.slice(selEnd = domChange.text.length - (cmp.length - (sel.to - from2)))) {
+      change = {
+        from: sel.from,
+        to: sel.to,
+        insert: Text.of(domChange.text.slice(sel.from - from2, selEnd).split(LineBreakPlaceholder))
+      };
+    } else if (diff = findDiff(cmp, domChange.text, preferredPos - from2, preferredSide)) {
       if (browser.chrome && lastKey == 13 && diff.toB == diff.from + 2 && domChange.text.slice(diff.from, diff.toB) == LineBreakPlaceholder + LineBreakPlaceholder)
         diff.toB--;
       change = {
@@ -7243,23 +7596,21 @@ function applyDOMChange(view, domChange) {
         insert: Text.of(domChange.text.slice(diff.from, diff.toB).split(LineBreakPlaceholder))
       };
     }
-  } else if (newSel && (!view.hasFocus && view.state.facet(editable) || newSel.main.eq(sel))) {
+  } else if (newSel && (!view.hasFocus && state.facet(editable) || sameSelPos(newSel, sel))) {
     newSel = null;
   }
   if (!change && !newSel)
     return false;
-  if (!change && domChange.typeOver && !sel.empty && newSel && newSel.main.empty) {
-    change = { from: sel.from, to: sel.to, insert: view.state.doc.slice(sel.from, sel.to) };
-  } else if (change && change.from >= sel.from && change.to <= sel.to && (change.from != sel.from || change.to != sel.to) && sel.to - sel.from - (change.to - change.from) <= 4) {
+  if ((browser.mac || browser.android) && change && change.from == change.to && change.from == sel.head - 1 && /^\. ?$/.test(change.insert.toString()) && view.contentDOM.getAttribute("autocorrect") == "off") {
+    if (newSel && change.insert.length == 2)
+      newSel = EditorSelection.single(newSel.main.anchor - 1, newSel.main.head - 1);
+    change = { from: change.from, to: change.to, insert: Text.of([change.insert.toString().replace(".", " ")]) };
+  } else if (state.doc.lineAt(sel.from).to < sel.to && view.docView.lineHasWidget(sel.to) && view.inputState.insertingTextAt > Date.now() - 50) {
     change = {
       from: sel.from,
       to: sel.to,
-      insert: view.state.doc.slice(sel.from, change.from).append(change.insert).append(view.state.doc.slice(change.to, sel.to))
+      insert: state.toText(view.inputState.insertingText)
     };
-  } else if ((browser.mac || browser.android) && change && change.from == change.to && change.from == sel.head - 1 && /^\. ?$/.test(change.insert.toString()) && view.contentDOM.getAttribute("autocorrect") == "off") {
-    if (newSel && change.insert.length == 2)
-      newSel = EditorSelection.single(newSel.main.anchor - 1, newSel.main.head - 1);
-    change = { from: sel.from, to: sel.to, insert: Text.of([" "]) };
   } else if (browser.chrome && change && change.from == change.to && change.from == sel.head && change.insert.toString() == "\n " && view.lineWrapping) {
     if (newSel)
       newSel = EditorSelection.single(newSel.main.anchor - 1, newSel.main.head - 1);
@@ -7267,14 +7618,16 @@ function applyDOMChange(view, domChange) {
   }
   if (change) {
     return applyDOMChangeInner(view, change, newSel, lastKey);
-  } else if (newSel && !newSel.main.eq(sel)) {
-    let scrollIntoView4 = false, userEvent = "select";
+  } else if (newSel && !sameSelPos(newSel, sel)) {
+    let scrollIntoView3 = false, userEvent = "select";
     if (view.inputState.lastSelectionTime > Date.now() - 50) {
       if (view.inputState.lastSelectionOrigin == "select")
-        scrollIntoView4 = true;
+        scrollIntoView3 = true;
       userEvent = view.inputState.lastSelectionOrigin;
+      if (userEvent == "select.pointer")
+        newSel = skipAtomsForSelection(state.facet(atomicRanges).map((f) => f(view)), newSel);
     }
-    view.dispatch({ selection: newSel, scrollIntoView: scrollIntoView4, userEvent });
+    view.dispatch({ selection: newSel, scrollIntoView: scrollIntoView3, userEvent });
     return true;
   } else {
     return false;
@@ -7298,15 +7651,26 @@ function applyDOMChangeInner(view, change, newSel, lastKey = -1) {
   return true;
 }
 function applyDefaultInsert(view, change, newSel) {
-  let tr, startState = view.state, sel = startState.selection.main;
-  if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 && (!newSel || newSel.main.empty && newSel.main.from == change.from + change.insert.length) && view.inputState.composing < 0) {
+  let tr, startState = view.state, sel = startState.selection.main, inAtomic = -1;
+  if (change.from == change.to && change.from < sel.from || change.from > sel.to) {
+    let side = change.from < sel.from ? -1 : 1, pos = side < 0 ? sel.from : sel.to;
+    let moved = skipAtomicRanges(startState.facet(atomicRanges).map((f) => f(view)), pos, side);
+    if (change.from == moved)
+      inAtomic = moved;
+  }
+  if (inAtomic > -1) {
+    tr = {
+      changes: change,
+      selection: EditorSelection.cursor(change.from + change.insert.length, -1)
+    };
+  } else if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 && (!newSel || newSel.main.empty && newSel.main.from == change.from + change.insert.length) && view.inputState.composing < 0) {
     let before = sel.from < change.from ? startState.sliceDoc(sel.from, change.from) : "";
     let after = sel.to > change.to ? startState.sliceDoc(change.to, sel.to) : "";
     tr = startState.replaceSelection(view.state.toText(before + change.insert.sliceString(0, void 0, view.state.lineBreak) + after));
   } else {
     let changes = startState.changes(change);
     let mainSel = newSel && newSel.main.to <= changes.newLength ? newSel.main : void 0;
-    if (startState.selection.ranges.length > 1 && view.inputState.composing >= 0 && change.to <= sel.to && change.to >= sel.to - 10) {
+    if (startState.selection.ranges.length > 1 && (view.inputState.composing >= 0 || view.inputState.compositionPendingChange) && change.to <= sel.to + 10 && change.to >= sel.to - 10) {
       let replaced = view.state.sliceDoc(change.from, change.to);
       let compositionRange, composition = newSel && findCompositionNode(view, newSel.main.head);
       if (composition) {
@@ -7315,16 +7679,16 @@ function applyDefaultInsert(view, change, newSel) {
       } else {
         compositionRange = view.state.doc.lineAt(sel.head);
       }
-      let offset = sel.to - change.to, size = sel.to - sel.from;
+      let offset = sel.to - change.to;
       tr = startState.changeByRange((range) => {
         if (range.from == sel.from && range.to == sel.to)
           return { changes, range: mainSel || range.map(changes) };
         let to = range.to - offset, from2 = to - replaced.length;
-        if (range.to - range.from != size || view.state.sliceDoc(from2, to) != replaced || // Unfortunately, there's no way to make multiple
+        if (view.state.sliceDoc(from2, to) != replaced || // Unfortunately, there's no way to make multiple
         // changes in the same node work without aborting
         // composition, so cursors in the composition range are
         // ignored.
-        range.to >= compositionRange.from && range.from <= compositionRange.to)
+        to >= compositionRange.from && from2 <= compositionRange.to)
           return { range };
         let rangeChanges = startState.changes({ from: from2, to, insert: change.insert }), selOff = range.to - sel.to;
         return {
@@ -7397,6 +7761,9 @@ function selectionFromPoints(points, base2) {
   let anchor = points[0].pos, head = points.length == 2 ? points[1].pos : anchor;
   return anchor > -1 && head > -1 ? EditorSelection.single(anchor + base2, head + base2) : null;
 }
+function sameSelPos(selection2, range) {
+  return range.head == selection2.main.head && range.anchor == selection2.main.anchor;
+}
 var InputState = class {
   setSelectionOrigin(origin) {
     this.lastSelectionOrigin = origin;
@@ -7407,9 +7774,12 @@ var InputState = class {
     this.lastKeyCode = 0;
     this.lastKeyTime = 0;
     this.lastTouchTime = 0;
+    this.lastTouchX = 0;
+    this.lastTouchY = 0;
     this.lastFocusTime = 0;
     this.lastScrollTop = 0;
     this.lastScrollLeft = 0;
+    this.lastWheelEvent = 0;
     this.pendingIOSKey = void 0;
     this.tabFocusMode = -1;
     this.lastSelectionOrigin = null;
@@ -7422,6 +7792,8 @@ var InputState = class {
     this.compositionEndedAt = 0;
     this.compositionPendingKey = false;
     this.compositionPendingChange = false;
+    this.insertingText = "";
+    this.insertingTextAt = 0;
     this.mouseSelection = null;
     this.draggedContent = null;
     this.handleEvent = this.handleEvent.bind(this);
@@ -7436,14 +7808,17 @@ var InputState = class {
       return;
     if (event.type == "keydown" && this.keydown(event))
       return;
-    this.runHandlers(event.type, event);
+    if (this.view.updateState != 0)
+      Promise.resolve().then(() => this.runHandlers(event.type, event));
+    else
+      this.runHandlers(event.type, event);
   }
   runHandlers(type, event) {
-    let handlers3 = this.handlers[type];
-    if (handlers3) {
-      for (let observer of handlers3.observers)
+    let handlers2 = this.handlers[type];
+    if (handlers2) {
+      for (let observer of handlers2.observers)
         observer(this.view, event);
-      for (let handler of handlers3.handlers) {
+      for (let handler of handlers2.handlers) {
         if (event.defaultPrevented)
           break;
         if (handler(this.view, event)) {
@@ -7454,10 +7829,10 @@ var InputState = class {
     }
   }
   ensureHandlers(plugins) {
-    let handlers3 = computeHandlers(plugins), prev = this.handlers, dom = this.view.contentDOM;
-    for (let type in handlers3)
+    let handlers2 = computeHandlers(plugins), prev = this.handlers, dom = this.view.contentDOM;
+    for (let type in handlers2)
       if (type != "scroll") {
-        let passive = !handlers3[type].handlers.length;
+        let passive = !handlers2[type].handlers.length;
         let exists = prev[type];
         if (exists && passive != !exists.handlers.length) {
           dom.removeEventListener(type, this.handleEvent);
@@ -7467,9 +7842,9 @@ var InputState = class {
           dom.addEventListener(type, this.handleEvent, { passive });
       }
     for (let type in prev)
-      if (type != "scroll" && !handlers3[type])
+      if (type != "scroll" && !handlers2[type])
         dom.removeEventListener(type, this.handleEvent);
-    this.handlers = handlers3;
+    this.handlers = handlers2;
   }
   keydown(event) {
     this.lastKeyCode = event.keyCode;
@@ -7483,7 +7858,7 @@ var InputState = class {
       return true;
     }
     let pending;
-    if (browser.ios && !event.synthetic && !event.altKey && !event.metaKey && ((pending = PendingKeys.find((key) => key.keyCode == event.keyCode)) && !event.ctrlKey || EmacsyPendingKeys.indexOf(event.key) > -1 && event.ctrlKey && !event.shiftKey)) {
+    if (browser.ios && !event.synthetic && !event.altKey && !event.metaKey && !event.shiftKey && ((pending = PendingKeys.find((key) => key.keyCode == event.keyCode)) && !event.ctrlKey || EmacsyPendingKeys.indexOf(event.key) > -1 && event.ctrlKey)) {
       this.pendingIOSKey = pending || event;
       setTimeout(() => this.flushIOSKey(), 250);
       return true;
@@ -7502,7 +7877,7 @@ var InputState = class {
     return dispatchKey(this.view.contentDOM, key.key, key.keyCode, key instanceof KeyboardEvent ? key : void 0);
   }
   ignoreDuringComposition(event) {
-    if (!/^key/.test(event.type))
+    if (!/^key/.test(event.type) || event.synthetic)
       return false;
     if (this.composing > 0)
       return true;
@@ -7546,16 +7921,16 @@ function computeHandlers(plugins) {
     return result[type] || (result[type] = { observers: [], handlers: [] });
   }
   for (let plugin of plugins) {
-    let spec = plugin.spec;
-    if (spec && spec.domEventHandlers)
-      for (let type in spec.domEventHandlers) {
-        let f = spec.domEventHandlers[type];
+    let spec = plugin.spec, handlers2 = spec && spec.plugin.domEventHandlers, observers2 = spec && spec.plugin.domEventObservers;
+    if (handlers2)
+      for (let type in handlers2) {
+        let f = handlers2[type];
         if (f)
           record(type).handlers.push(bindHandler(plugin.value, f));
       }
-    if (spec && spec.domEventObservers)
-      for (let type in spec.domEventObservers) {
-        let f = spec.domEventObservers[type];
+    if (observers2)
+      for (let type in observers2) {
+        let f = observers2[type];
         if (f)
           record(type).observers.push(bindHandler(plugin.value, f));
       }
@@ -7575,8 +7950,8 @@ var PendingKeys = [
 var EmacsyPendingKeys = "dthko";
 var modifierCodes = [16, 17, 18, 20, 91, 92, 224, 225];
 var dragScrollMargin = 6;
-function dragScrollSpeed(dist3) {
-  return Math.max(0, dist3) * 0.7 + 8;
+function dragScrollSpeed(dist2) {
+  return Math.max(0, dist2) * 0.7 + 8;
 }
 function dist(a, b) {
   return Math.max(Math.abs(a.clientX - b.clientX), Math.abs(a.clientY - b.clientY));
@@ -7592,9 +7967,9 @@ var MouseSelection = class {
     this.lastEvent = startEvent;
     this.scrollParents = scrollableParents(view.contentDOM);
     this.atoms = view.state.facet(atomicRanges).map((f) => f(view));
-    let doc3 = view.contentDOM.ownerDocument;
-    doc3.addEventListener("mousemove", this.move = this.move.bind(this));
-    doc3.addEventListener("mouseup", this.up = this.up.bind(this));
+    let doc2 = view.contentDOM.ownerDocument;
+    doc2.addEventListener("mousemove", this.move = this.move.bind(this));
+    doc2.addEventListener("mouseup", this.up = this.up.bind(this));
     this.extend = startEvent.shiftKey;
     this.multiple = view.state.facet(EditorState.allowMultipleSelections) && addsSelectionRange(view, startEvent);
     this.dragging = isInPrimarySelection(view, startEvent) && getClickType(startEvent) == 1 ? null : false;
@@ -7635,9 +8010,9 @@ var MouseSelection = class {
   }
   destroy() {
     this.setScrollSpeed(0, 0);
-    let doc3 = this.view.contentDOM.ownerDocument;
-    doc3.removeEventListener("mousemove", this.move);
-    doc3.removeEventListener("mouseup", this.up);
+    let doc2 = this.view.contentDOM.ownerDocument;
+    doc2.removeEventListener("mousemove", this.move);
+    doc2.removeEventListener("mouseup", this.up);
     this.view.inputState.mouseSelection = this.view.inputState.draggedContent = null;
   }
   setScrollSpeed(sx, sy) {
@@ -7665,30 +8040,8 @@ var MouseSelection = class {
     if (this.dragging === false)
       this.select(this.lastEvent);
   }
-  skipAtoms(sel) {
-    let ranges = null;
-    for (let i2 = 0; i2 < sel.ranges.length; i2++) {
-      let range = sel.ranges[i2], updated = null;
-      if (range.empty) {
-        let pos = skipAtomicRanges(this.atoms, range.from, 0);
-        if (pos != range.from)
-          updated = EditorSelection.cursor(pos, -1);
-      } else {
-        let from2 = skipAtomicRanges(this.atoms, range.from, -1);
-        let to = skipAtomicRanges(this.atoms, range.to, 1);
-        if (from2 != range.from || to != range.to)
-          updated = EditorSelection.range(range.from == range.anchor ? from2 : to, range.from == range.head ? from2 : to);
-      }
-      if (updated) {
-        if (!ranges)
-          ranges = sel.ranges.slice();
-        ranges[i2] = updated;
-      }
-    }
-    return ranges ? EditorSelection.create(ranges, sel.mainIndex) : sel;
-  }
   select(event) {
-    let { view } = this, selection2 = this.skipAtoms(this.style.get(event, this.extend, this.multiple));
+    let { view } = this, selection2 = skipAtomsForSelection(this.atoms, this.style.get(event, this.extend, this.multiple));
     if (this.mustSelect || !selection2.eq(view.state.selection, this.dragging === false))
       this.view.dispatch({
         selection: selection2,
@@ -7731,8 +8084,8 @@ function eventBelongsToEditor(view, event) {
     return true;
   if (event.defaultPrevented)
     return false;
-  for (let node = event.target, cView; node != view.contentDOM; node = node.parentNode)
-    if (!node || node.nodeType == 11 || (cView = ContentView.get(node)) && cView.ignoreEvent(event))
+  for (let node = event.target, tile; node != view.contentDOM; node = node.parentNode)
+    if (!node || node.nodeType == 11 || (tile = Tile.get(node)) && tile.isWidget() && !tile.isHidden && tile.widget.ignoreEvent(event))
       return false;
   return true;
 }
@@ -7795,6 +8148,9 @@ observers.scroll = (view) => {
   view.inputState.lastScrollTop = view.scrollDOM.scrollTop;
   view.inputState.lastScrollLeft = view.scrollDOM.scrollLeft;
 };
+observers.wheel = observers.mousewheel = (view) => {
+  view.inputState.lastWheelEvent = Date.now();
+};
 handlers.keydown = (view, event) => {
   view.inputState.setSelectionOrigin("select");
   if (event.keyCode == 27 && view.inputState.tabFocusMode != 0)
@@ -7802,8 +8158,13 @@ handlers.keydown = (view, event) => {
   return false;
 };
 observers.touchstart = (view, e) => {
-  view.inputState.lastTouchTime = Date.now();
-  view.inputState.setSelectionOrigin("select.pointer");
+  let iState = view.inputState, touch = e.targetTouches[0];
+  iState.lastTouchTime = Date.now();
+  if (touch) {
+    iState.lastTouchX = touch.clientX;
+    iState.lastTouchY = touch.clientY;
+  }
+  iState.setSelectionOrigin("select.pointer");
 };
 observers.touchmove = (view) => {
   view.inputState.setSelectionOrigin("select.pointer");
@@ -7835,6 +8196,8 @@ handlers.mousedown = (view, event) => {
       mouseSel.start(event);
       return mouseSel.dragging === false;
     }
+  } else {
+    view.inputState.setSelectionOrigin("select.pointer");
   }
   return false;
 };
@@ -7844,34 +8207,12 @@ function rangeForClick(view, pos, bias, type) {
   } else if (type == 2) {
     return groupAt(view.state, pos, bias);
   } else {
-    let visual = LineView.find(view.docView, pos), line = view.state.doc.lineAt(visual ? visual.posAtEnd : pos);
+    let visual = view.docView.lineAt(pos, bias), line = view.state.doc.lineAt(visual ? visual.posAtEnd : pos);
     let from2 = visual ? visual.posAtStart : line.from, to = visual ? visual.posAtEnd : line.to;
     if (to < view.state.doc.length && to == line.to)
       to++;
     return EditorSelection.range(from2, to);
   }
-}
-var inside = (x, y, rect) => y >= rect.top && y <= rect.bottom && x >= rect.left && x <= rect.right;
-function findPositionSide(view, pos, x, y) {
-  let line = LineView.find(view.docView, pos);
-  if (!line)
-    return 1;
-  let off = pos - line.posAtStart;
-  if (off == 0)
-    return 1;
-  if (off == line.length)
-    return -1;
-  let before = line.coordsAt(off, -1);
-  if (before && inside(x, y, before))
-    return -1;
-  let after = line.coordsAt(off, 1);
-  if (after && inside(x, y, after))
-    return 1;
-  return before && before.bottom >= y ? -1 : 1;
-}
-function queryPos(view, event) {
-  let pos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
-  return { pos, bias: findPositionSide(view, pos, event.clientX, event.clientY) };
 }
 var BadMouseDetail = browser.ie && browser.ie_version <= 11;
 var lastMouseDown = null;
@@ -7886,7 +8227,7 @@ function getClickType(event) {
   return lastMouseDownCount = !last || lastTime > Date.now() - 400 && Math.abs(last.clientX - event.clientX) < 2 && Math.abs(last.clientY - event.clientY) < 2 ? (lastMouseDownCount + 1) % 3 : 1;
 }
 function basicMouseSelection(view, event) {
-  let start = queryPos(view, event), type = getClickType(event);
+  let start = view.posAndSideAtCoords({ x: event.clientX, y: event.clientY }, false), type = getClickType(event);
   let startSel = view.state.selection;
   return {
     update(update) {
@@ -7896,15 +8237,15 @@ function basicMouseSelection(view, event) {
       }
     },
     get(event2, extend, multiple) {
-      let cur2 = queryPos(view, event2), removed;
-      let range = rangeForClick(view, cur2.pos, cur2.bias, type);
+      let cur2 = view.posAndSideAtCoords({ x: event2.clientX, y: event2.clientY }, false), removed;
+      let range = rangeForClick(view, cur2.pos, cur2.assoc, type);
       if (start.pos != cur2.pos && !extend) {
-        let startRange = rangeForClick(view, start.pos, start.bias, type);
+        let startRange = rangeForClick(view, start.pos, start.assoc, type);
         let from2 = Math.min(startRange.from, range.from), to = Math.max(startRange.to, range.to);
-        range = from2 < range.from ? EditorSelection.range(from2, to) : EditorSelection.range(to, from2);
+        range = from2 < range.from ? EditorSelection.range(from2, to, range.assoc) : EditorSelection.range(to, from2, range.assoc);
       }
       if (extend)
-        return startSel.replaceRange(startSel.main.extend(range.from, range.to));
+        return startSel.replaceRange(startSel.main.extend(range.from, range.to, range.assoc));
       else if (multiple && type == 1 && startSel.ranges.length > 1 && (removed = removeRangeAround(startSel, cur2.pos)))
         return removed;
       else if (multiple)
@@ -7925,9 +8266,9 @@ function removeRangeAround(sel, pos) {
 handlers.dragstart = (view, event) => {
   let { selection: { main: range } } = view.state;
   if (event.target.draggable) {
-    let cView = view.docView.nearest(event.target);
-    if (cView && cView.isWidget) {
-      let from2 = cView.posAtStart, to = from2 + cView.length;
+    let tile = view.docView.tile.nearest(event.target);
+    if (tile && tile.isWidget()) {
+      let from2 = tile.posAtStart, to = from2 + tile.length;
       if (from2 >= range.to || to <= range.from)
         range = EditorSelection.range(from2, to);
     }
@@ -8046,6 +8387,8 @@ function copiedRange(state) {
 }
 var lastLinewiseCopy = null;
 handlers.copy = handlers.cut = (view, event) => {
+  if (!hasSelection(view.contentDOM, view.observer.selectionRange))
+    return false;
   let { text, ranges, linewise } = copiedRange(view.state);
   if (!text && !linewise)
     return false;
@@ -8074,7 +8417,7 @@ function focusChangeTransaction(state, focus) {
     if (effect)
       effects.push(effect);
   }
-  return effects ? state.update({ effects, annotations: isFocusChange.of(true) }) : null;
+  return effects.length ? state.update({ effects, annotations: isFocusChange.of(true) }) : null;
 }
 function updateForFocusChange(view) {
   setTimeout(() => {
@@ -8133,6 +8476,10 @@ observers.contextmenu = (view) => {
 };
 handlers.beforeinput = (view, event) => {
   var _a2, _b2;
+  if (event.inputType == "insertText" || event.inputType == "insertCompositionText") {
+    view.inputState.insertingText = event.data;
+    view.inputState.insertingTextAt = Date.now();
+  }
   if (event.inputType == "insertReplacementText" && view.observer.editContext) {
     let text = (_a2 = event.dataTransfer) === null || _a2 === void 0 ? void 0 : _a2.getData("text/plain"), ranges = event.getTargetRanges();
     if (text && ranges.length) {
@@ -8165,12 +8512,12 @@ handlers.beforeinput = (view, event) => {
   return false;
 };
 var appliedFirefoxHack = /* @__PURE__ */ new Set();
-function firefoxCopyCutHack(doc3) {
-  if (!appliedFirefoxHack.has(doc3)) {
-    appliedFirefoxHack.add(doc3);
-    doc3.addEventListener("copy", () => {
+function firefoxCopyCutHack(doc2) {
+  if (!appliedFirefoxHack.has(doc2)) {
+    appliedFirefoxHack.add(doc2);
+    doc2.addEventListener("copy", () => {
     });
-    doc3.addEventListener("cut", () => {
+    doc2.addEventListener("cut", () => {
     });
   }
 }
@@ -8198,11 +8545,11 @@ var HeightOracle = class {
   heightForLine(length) {
     if (!this.lineWrapping)
       return this.lineHeight;
-    let lines = 1 + Math.max(0, Math.ceil((length - this.lineLength) / (this.lineLength - 5)));
+    let lines = 1 + Math.max(0, Math.ceil((length - this.lineLength) / Math.max(1, this.lineLength - 5)));
     return lines * this.lineHeight;
   }
-  setDoc(doc3) {
-    this.doc = doc3;
+  setDoc(doc2) {
+    this.doc = doc2;
     return this;
   }
   mustRefreshForWrapping(whiteSpace) {
@@ -8223,7 +8570,7 @@ var HeightOracle = class {
   }
   refresh(whiteSpace, lineHeight, charWidth, textHeight, lineLength, knownHeights) {
     let lineWrapping = wrappingWhiteSpace.indexOf(whiteSpace) > -1;
-    let changed = Math.round(lineHeight) != Math.round(this.lineHeight) || this.lineWrapping != lineWrapping;
+    let changed = Math.abs(lineHeight - this.lineHeight) > 0.3 || this.lineWrapping != lineWrapping;
     this.lineWrapping = lineWrapping;
     this.lineHeight = lineHeight;
     this.charWidth = charWidth;
@@ -8304,11 +8651,11 @@ var BlockInfo = class _BlockInfo {
     return new _BlockInfo(this.from, this.length + other.length, this.top, this.height + other.height, content2);
   }
 };
-var QueryType = /* @__PURE__ */ (function(QueryType4) {
-  QueryType4[QueryType4["ByPos"] = 0] = "ByPos";
-  QueryType4[QueryType4["ByHeight"] = 1] = "ByHeight";
-  QueryType4[QueryType4["ByPosNoHeight"] = 2] = "ByPosNoHeight";
-  return QueryType4;
+var QueryType = /* @__PURE__ */ (function(QueryType3) {
+  QueryType3[QueryType3["ByPos"] = 0] = "ByPos";
+  QueryType3[QueryType3["ByHeight"] = 1] = "ByHeight";
+  QueryType3[QueryType3["ByPosNoHeight"] = 2] = "ByPosNoHeight";
+  return QueryType3;
 })(QueryType || (QueryType = {}));
 var Epsilon = 1e-3;
 var HeightMap = class _HeightMap {
@@ -8343,8 +8690,8 @@ var HeightMap = class _HeightMap {
   decomposeRight(_from, result) {
     result.push(this);
   }
-  applyChanges(decorations3, oldDoc, oracle, changes) {
-    let me = this, doc3 = oracle.doc;
+  applyChanges(decorations2, oldDoc, oracle, changes) {
+    let me = this, doc2 = oracle.doc;
     for (let i2 = changes.length - 1; i2 >= 0; i2--) {
       let { fromA, toA, fromB, toB } = changes[i2];
       let start = me.lineAt(fromA, QueryType.ByPosNoHeight, oracle.setDoc(oldDoc), 0, 0);
@@ -8360,13 +8707,13 @@ var HeightMap = class _HeightMap {
       }
       fromB += start.from - fromA;
       fromA = start.from;
-      let nodes = NodeBuilder.build(oracle.setDoc(doc3), decorations3, fromB, toB);
+      let nodes = NodeBuilder.build(oracle.setDoc(doc2), decorations2, fromB, toB);
       me = replace(me, me.replace(fromA, toA, nodes));
     }
     return me.updateHeight(oracle, 0);
   }
   static empty() {
-    return new HeightMapText(0, 0);
+    return new HeightMapText(0, 0, 0);
   }
   // nodes uses null values to indicate the position of line breaks.
   // There are never line breaks at the start or end of the array, or
@@ -8426,24 +8773,40 @@ function replace(old, val) {
   return val;
 }
 HeightMap.prototype.size = 1;
+var SpaceDeco = /* @__PURE__ */ Decoration.replace({});
 var HeightMapBlock = class extends HeightMap {
   constructor(length, height, deco) {
     super(length, height);
     this.deco = deco;
+    this.spaceAbove = 0;
   }
-  blockAt(_height, _oracle, top2, offset) {
-    return new BlockInfo(offset, this.length, top2, this.height, this.deco || 0);
+  mainBlock(top2, offset) {
+    return new BlockInfo(offset, this.length, top2 + this.spaceAbove, this.height - this.spaceAbove, this.deco || 0);
+  }
+  blockAt(height, _oracle, top2, offset) {
+    return this.spaceAbove && height < top2 + this.spaceAbove ? new BlockInfo(offset, 0, top2, this.spaceAbove, SpaceDeco) : this.mainBlock(top2, offset);
   }
   lineAt(_value, _type, oracle, top2, offset) {
-    return this.blockAt(0, oracle, top2, offset);
+    let main = this.mainBlock(top2, offset);
+    return this.spaceAbove ? this.blockAt(0, oracle, top2, offset).join(main) : main;
   }
   forEachLine(from2, to, oracle, top2, offset, f) {
     if (from2 <= offset + this.length && to >= offset)
-      f(this.blockAt(0, oracle, top2, offset));
+      f(this.lineAt(0, QueryType.ByPos, oracle, top2, offset));
+  }
+  setMeasuredHeight(measured) {
+    let next = measured.heights[measured.index++];
+    if (next < 0) {
+      this.spaceAbove = -next;
+      next = measured.heights[measured.index++];
+    } else {
+      this.spaceAbove = 0;
+    }
+    this.setHeight(next);
   }
   updateHeight(oracle, offset = 0, _force = false, measured) {
     if (measured && measured.from <= offset && measured.more)
-      this.setHeight(measured.heights[measured.index++]);
+      this.setMeasuredHeight(measured);
     this.outdated = false;
     return this;
   }
@@ -8452,20 +8815,21 @@ var HeightMapBlock = class extends HeightMap {
   }
 };
 var HeightMapText = class _HeightMapText extends HeightMapBlock {
-  constructor(length, height) {
+  constructor(length, height, above) {
     super(length, height, null);
     this.collapsed = 0;
     this.widgetHeight = 0;
     this.breaks = 0;
+    this.spaceAbove = above;
   }
-  blockAt(_height, _oracle, top2, offset) {
-    return new BlockInfo(offset, this.length, top2, this.height, this.breaks);
+  mainBlock(top2, offset) {
+    return new BlockInfo(offset, this.length, top2 + this.spaceAbove, this.height - this.spaceAbove, this.breaks);
   }
   replace(_from, _to, nodes) {
     let node = nodes[0];
     if (nodes.length == 1 && (node instanceof _HeightMapText || node instanceof HeightMapGap && node.flags & 4) && Math.abs(this.length - node.length) < 10) {
       if (node instanceof HeightMapGap)
-        node = new _HeightMapText(node.length, this.height);
+        node = new _HeightMapText(node.length, this.height, this.spaceAbove);
       else
         node.height = this.height;
       if (!this.outdated)
@@ -8476,10 +8840,12 @@ var HeightMapText = class _HeightMapText extends HeightMapBlock {
     }
   }
   updateHeight(oracle, offset = 0, force = false, measured) {
-    if (measured && measured.from <= offset && measured.more)
-      this.setHeight(measured.heights[measured.index++]);
-    else if (force || this.outdated)
+    if (measured && measured.from <= offset && measured.more) {
+      this.setMeasuredHeight(measured);
+    } else if (force || this.outdated) {
+      this.spaceAbove = 0;
       this.setHeight(Math.max(this.widgetHeight, oracle.heightForLine(this.length - this.collapsed)) + this.breaks * oracle.lineHeight);
+    }
     this.outdated = false;
     return this;
   }
@@ -8581,12 +8947,16 @@ var HeightMapGap = class _HeightMapGap extends HeightMap {
         let len = oracle.doc.lineAt(pos).length;
         if (nodes.length)
           nodes.push(null);
-        let height = measured.heights[measured.index++];
+        let height = measured.heights[measured.index++], above = 0;
+        if (height < 0) {
+          above = -height;
+          height = measured.heights[measured.index++];
+        }
         if (singleHeight == -1)
           singleHeight = height;
         else if (Math.abs(height - singleHeight) >= Epsilon)
           singleHeight = -2;
-        let line = new HeightMapText(len, height);
+        let line = new HeightMapText(len, height, above);
         line.outdated = false;
         nodes.push(line);
         pos += len + 1;
@@ -8750,7 +9120,7 @@ var NodeBuilder = class _NodeBuilder {
       if (last instanceof HeightMapText)
         last.length += end - this.pos;
       else if (end > this.pos || !this.isCovered)
-        this.nodes.push(new HeightMapText(end - this.pos, -1));
+        this.nodes.push(new HeightMapText(end - this.pos, -1, 0));
       this.writtenTo = end;
       if (to > end) {
         this.nodes.push(null);
@@ -8790,7 +9160,7 @@ var NodeBuilder = class _NodeBuilder {
       this.nodes.push(null);
     }
     if (this.pos > from2)
-      this.nodes.push(new HeightMapText(this.pos - from2, -1));
+      this.nodes.push(new HeightMapText(this.pos - from2, -1, 0));
     this.writtenTo = this.pos;
   }
   blankContent(from2, to) {
@@ -8804,7 +9174,7 @@ var NodeBuilder = class _NodeBuilder {
     let last = this.nodes.length ? this.nodes[this.nodes.length - 1] : null;
     if (last instanceof HeightMapText)
       return last;
-    let line = new HeightMapText(0, -1);
+    let line = new HeightMapText(0, -1, 0);
     this.nodes.push(line);
     return line;
   }
@@ -8829,7 +9199,7 @@ var NodeBuilder = class _NodeBuilder {
   finish(from2) {
     let last = this.nodes.length == 0 ? null : this.nodes[this.nodes.length - 1];
     if (this.lineStart > -1 && !(last instanceof HeightMapText) && !this.isCovered)
-      this.nodes.push(new HeightMapText(0, -1));
+      this.nodes.push(new HeightMapText(0, -1, 0));
     else if (this.writtenTo < this.pos || last == null)
       this.nodes.push(this.blankContent(this.writtenTo, this.pos));
     let pos = from2;
@@ -8845,9 +9215,9 @@ var NodeBuilder = class _NodeBuilder {
   // The returned array uses null to indicate line breaks, but never
   // starts or ends in a line break, or has multiple line breaks next
   // to each other.
-  static build(oracle, decorations3, from2, to) {
+  static build(oracle, decorations2, from2, to) {
     let builder = new _NodeBuilder(from2, oracle);
-    RangeSet.spans(decorations3, from2, to, builder, 0);
+    RangeSet.spans(decorations2, from2, to, builder, 0);
     return builder.finish(from2);
   }
 };
@@ -8869,10 +9239,10 @@ var DecorationComparator2 = class {
 };
 function visiblePixelRange(dom, paddingTop) {
   let rect = dom.getBoundingClientRect();
-  let doc3 = dom.ownerDocument, win = doc3.defaultView || window;
+  let doc2 = dom.ownerDocument, win = doc2.defaultView || window;
   let left = Math.max(0, rect.left), right = Math.min(win.innerWidth, rect.right);
   let top2 = Math.max(0, rect.top), bottom = Math.min(win.innerHeight, rect.bottom);
-  for (let parent = dom.parentNode; parent && parent != doc3.body; ) {
+  for (let parent = dom.parentNode; parent && parent != doc2.body; ) {
     if (parent.nodeType == 1) {
       let elt2 = parent;
       let style = window.getComputedStyle(elt2);
@@ -8896,6 +9266,10 @@ function visiblePixelRange(dom, paddingTop) {
     top: top2 - (rect.top + paddingTop),
     bottom: Math.max(top2, bottom) - (rect.top + paddingTop)
   };
+}
+function inWindow(elt2) {
+  let rect = elt2.getBoundingClientRect(), win = elt2.ownerDocument.defaultView || window;
+  return rect.left < win.innerWidth && rect.right > 0 && rect.top < win.innerHeight && rect.bottom > 0;
 }
 function fullPixelRange(dom, paddingTop) {
   let rect = dom.getBoundingClientRect();
@@ -8954,7 +9328,8 @@ var LineGapWidget = class extends WidgetType {
   }
 };
 var ViewState = class {
-  constructor(state) {
+  constructor(view, state) {
+    this.view = view;
     this.state = state;
     this.pixelViewport = { left: 0, right: window.innerWidth, top: 0, bottom: 0 };
     this.inView = true;
@@ -8964,10 +9339,10 @@ var ViewState = class {
     this.contentDOMHeight = 0;
     this.editorHeight = 0;
     this.editorWidth = 0;
-    this.scrollTop = 0;
-    this.scrolledToBottom = false;
     this.scaleX = 1;
     this.scaleY = 1;
+    this.scrollOffset = 0;
+    this.scrolledToBottom = false;
     this.scrollAnchorPos = 0;
     this.scrollAnchorHeight = -1;
     this.scaler = IdScaler;
@@ -8979,7 +9354,7 @@ var ViewState = class {
     this.mustEnforceCursorAssoc = false;
     let guessWrapping = state.facet(contentAttributes).some((v) => typeof v != "function" && v.class == "cm-lineWrapping");
     this.heightOracle = new HeightOracle(guessWrapping);
-    this.stateDeco = state.facet(decorations).filter((d) => typeof d != "function");
+    this.stateDeco = staticDeco(state);
     this.heightMap = HeightMap.empty().applyChanges(this.stateDeco, Text.empty, this.heightOracle.setDoc(state.doc), [new ChangedRange(0, 0, 0, state.doc.length)]);
     for (let i2 = 0; i2 < 2; i2++) {
       this.viewport = this.getViewport(0, null);
@@ -8989,6 +9364,7 @@ var ViewState = class {
     this.updateViewportLines();
     this.lineGaps = this.ensureLineGaps([]);
     this.lineGapDeco = Decoration.set(this.lineGaps.map((gap) => gap.draw(this, false)));
+    this.scrollParent = view.scrollDOM;
     this.computeVisibleRanges();
   }
   updateForViewport() {
@@ -9017,11 +9393,11 @@ var ViewState = class {
   update(update, scrollTarget = null) {
     this.state = update.state;
     let prevDeco = this.stateDeco;
-    this.stateDeco = this.state.facet(decorations).filter((d) => typeof d != "function");
+    this.stateDeco = staticDeco(this.state);
     let contentChanges = update.changedRanges;
     let heightChanges = ChangedRange.extendWithRanges(contentChanges, heightRelevantDecoChanges(prevDeco, this.stateDeco, update ? update.changes : ChangeSet.empty(this.state.doc.length)));
     let prevHeight = this.heightMap.height;
-    let scrollAnchor = this.scrolledToBottom ? null : this.scrollAnchorAt(this.scrollTop);
+    let scrollAnchor = this.scrolledToBottom ? null : this.scrollAnchorAt(this.scrollOffset);
     clearHeightChangeFlag();
     this.heightMap = this.heightMap.applyChanges(this.stateDeco, update.startState.doc, this.heightOracle.setDoc(this.state.doc), heightChanges);
     if (this.heightMap.height != prevHeight || heightChangeFlag)
@@ -9031,7 +9407,7 @@ var ViewState = class {
       this.scrollAnchorHeight = scrollAnchor.top;
     } else {
       this.scrollAnchorPos = -1;
-      this.scrollAnchorHeight = this.heightMap.height;
+      this.scrollAnchorHeight = prevHeight;
     }
     let viewport = heightChanges.length ? this.mapViewport(this.viewport, update.changes) : this.viewport;
     if (scrollTarget && (scrollTarget.range.head < viewport.from || scrollTarget.range.head > viewport.to) || !this.viewportIsAppropriate(viewport))
@@ -9043,18 +9419,18 @@ var ViewState = class {
       this.updateViewportLines();
     if (this.lineGaps.length || this.viewport.to - this.viewport.from > 2e3 << 1)
       this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, update.changes)));
-    update.flags |= this.computeVisibleRanges();
+    update.flags |= this.computeVisibleRanges(update.changes);
     if (scrollTarget)
       this.scrollTarget = scrollTarget;
-    if (!this.mustEnforceCursorAssoc && update.selectionSet && update.view.lineWrapping && update.state.selection.main.empty && update.state.selection.main.assoc && !update.state.facet(nativeSelectionHidden))
+    if (!this.mustEnforceCursorAssoc && (update.selectionSet || update.focusChanged) && update.view.lineWrapping && update.state.selection.main.empty && update.state.selection.main.assoc && !update.state.facet(nativeSelectionHidden))
       this.mustEnforceCursorAssoc = true;
   }
-  measure(view) {
-    let dom = view.contentDOM, style = window.getComputedStyle(dom);
+  measure() {
+    let { view } = this, dom = view.contentDOM, style = window.getComputedStyle(dom);
     let oracle = this.heightOracle;
     let whiteSpace = style.whiteSpace;
     this.defaultTextDirection = style.direction == "rtl" ? Direction.RTL : Direction.LTR;
-    let refresh = this.heightOracle.mustRefreshForWrapping(whiteSpace);
+    let refresh = this.heightOracle.mustRefreshForWrapping(whiteSpace) || this.mustMeasureContent === "refresh";
     let domRect = dom.getBoundingClientRect();
     let measureContent = refresh || this.mustMeasureContent || this.contentDOMHeight != domRect.height;
     this.contentDOMHeight = domRect.height;
@@ -9065,7 +9441,7 @@ var ViewState = class {
       if (scaleX > 5e-3 && Math.abs(this.scaleX - scaleX) > 5e-3 || scaleY > 5e-3 && Math.abs(this.scaleY - scaleY) > 5e-3) {
         this.scaleX = scaleX;
         this.scaleY = scaleY;
-        result |= 8;
+        result |= 16;
         refresh = measureContent = true;
       }
     }
@@ -9074,20 +9450,26 @@ var ViewState = class {
     if (this.paddingTop != paddingTop || this.paddingBottom != paddingBottom) {
       this.paddingTop = paddingTop;
       this.paddingBottom = paddingBottom;
-      result |= 8 | 2;
+      result |= 16 | 2;
     }
     if (this.editorWidth != view.scrollDOM.clientWidth) {
       if (oracle.lineWrapping)
         measureContent = true;
       this.editorWidth = view.scrollDOM.clientWidth;
-      result |= 8;
+      result |= 16;
     }
-    let scrollTop = view.scrollDOM.scrollTop * this.scaleY;
-    if (this.scrollTop != scrollTop) {
+    let scrollParent = scrollableParents(this.view.contentDOM, false).y;
+    if (scrollParent != this.scrollParent) {
+      this.scrollParent = scrollParent;
       this.scrollAnchorHeight = -1;
-      this.scrollTop = scrollTop;
+      this.scrollOffset = 0;
     }
-    this.scrolledToBottom = isScrolledToBottom(view.scrollDOM);
+    let scrollOffset = this.getScrollOffset();
+    if (this.scrollOffset != scrollOffset) {
+      this.scrollAnchorHeight = -1;
+      this.scrollOffset = scrollOffset;
+    }
+    this.scrolledToBottom = isScrolledToBottom(this.scrollParent || view.win);
     let pixelViewport = (this.printing ? fullPixelRange : visiblePixelRange)(dom, this.paddingTop);
     let dTop = pixelViewport.top - this.pixelViewport.top, dBottom = pixelViewport.bottom - this.pixelViewport.bottom;
     this.pixelViewport = pixelViewport;
@@ -9097,13 +9479,13 @@ var ViewState = class {
       if (inView)
         measureContent = true;
     }
-    if (!this.inView && !this.scrollTarget)
+    if (!this.inView && !this.scrollTarget && !inWindow(view.dom))
       return 0;
     let contentWidth = domRect.width;
     if (this.contentDOMWidth != contentWidth || this.editorHeight != view.scrollDOM.clientHeight) {
       this.contentDOMWidth = domRect.width;
       this.editorHeight = view.scrollDOM.clientHeight;
-      result |= 8;
+      result |= 16;
     }
     if (measureContent) {
       let lineHeights = view.docView.measureVisibleLineHeights(this.viewport);
@@ -9111,10 +9493,10 @@ var ViewState = class {
         refresh = true;
       if (refresh || oracle.lineWrapping && Math.abs(contentWidth - this.contentDOMWidth) > oracle.charWidth) {
         let { lineHeight, charWidth, textHeight } = view.docView.measureTextSize();
-        refresh = lineHeight > 0 && oracle.refresh(whiteSpace, lineHeight, charWidth, textHeight, contentWidth / charWidth, lineHeights);
+        refresh = lineHeight > 0 && oracle.refresh(whiteSpace, lineHeight, charWidth, textHeight, Math.max(5, contentWidth / charWidth), lineHeights);
         if (refresh) {
           view.docView.minWidth = 0;
-          result |= 8;
+          result |= 16;
         }
       }
       if (dTop > 0 && dBottom > 0)
@@ -9316,7 +9698,7 @@ var ViewState = class {
       this.lineGapDeco = Decoration.set(gaps.map((gap) => gap.draw(this, this.heightOracle.lineWrapping)));
     }
   }
-  computeVisibleRanges() {
+  computeVisibleRanges(changes) {
     let deco = this.stateDeco;
     if (this.lineGaps.length)
       deco = deco.concat(this.lineGapDeco);
@@ -9328,9 +9710,21 @@ var ViewState = class {
       point() {
       }
     }, 20);
-    let changed = ranges.length != this.visibleRanges.length || this.visibleRanges.some((r, i2) => r.from != ranges[i2].from || r.to != ranges[i2].to);
+    let changed = 0;
+    if (ranges.length != this.visibleRanges.length) {
+      changed = 8 | 4;
+    } else {
+      for (let i2 = 0; i2 < ranges.length && !(changed & 8); i2++) {
+        let old = this.visibleRanges[i2], nw = ranges[i2];
+        if (old.from != nw.from || old.to != nw.to) {
+          changed |= 4;
+          if (!(changes && changes.mapPos(old.from, -1) == nw.from && changes.mapPos(old.to, 1) == nw.to))
+            changed |= 8;
+        }
+      }
+    }
     this.visibleRanges = ranges;
-    return changed ? 4 : 0;
+    return changed;
   }
   lineBlockAt(pos) {
     return pos >= this.viewport.from && pos <= this.viewport.to && this.viewportLines.find((b) => b.from <= pos && b.to >= pos) || scaleBlock(this.heightMap.lineAt(pos, QueryType.ByPos, this.heightOracle, 0, 0), this.scaler);
@@ -9338,9 +9732,13 @@ var ViewState = class {
   lineBlockAtHeight(height) {
     return height >= this.viewportLines[0].top && height <= this.viewportLines[this.viewportLines.length - 1].bottom && this.viewportLines.find((l) => l.top <= height && l.bottom >= height) || scaleBlock(this.heightMap.lineAt(this.scaler.fromDOM(height), QueryType.ByHeight, this.heightOracle, 0, 0), this.scaler);
   }
-  scrollAnchorAt(scrollTop) {
-    let block = this.lineBlockAtHeight(scrollTop + 8);
-    return block.from >= this.viewport.from || this.viewportLines[0].top - scrollTop > 200 ? block : this.viewportLines[0];
+  getScrollOffset() {
+    let base2 = this.scrollParent == this.view.scrollDOM ? this.scrollParent.scrollTop : (this.scrollParent ? this.scrollParent.getBoundingClientRect().top : 0) - this.view.contentDOM.getBoundingClientRect().top;
+    return base2 * this.scaleY;
+  }
+  scrollAnchorAt(scrollOffset) {
+    let block = this.lineBlockAtHeight(scrollOffset + 8);
+    return block.from >= this.viewport.from || this.viewportLines[0].top - scrollOffset > 200 ? block : this.viewportLines[0];
   }
   elementAtHeight(height) {
     return scaleBlock(this.heightMap.blockAt(this.scaler.fromDOM(height), this.heightOracle, 0, 0), this.scaler);
@@ -9382,12 +9780,12 @@ function findPosition({ total, ranges }, ratio) {
     return ranges[0].from;
   if (ratio >= 1)
     return ranges[ranges.length - 1].to;
-  let dist3 = Math.floor(total * ratio);
+  let dist2 = Math.floor(total * ratio);
   for (let i2 = 0; ; i2++) {
     let { from: from2, to } = ranges[i2], size = to - from2;
-    if (dist3 <= size)
-      return from2 + dist3;
-    dist3 -= size;
+    if (dist2 <= size)
+      return from2 + dist2;
+    dist2 -= size;
   }
 }
 function findFraction(structure, pos) {
@@ -9419,6 +9817,13 @@ var IdScaler = {
     return other == this;
   }
 };
+function staticDeco(state) {
+  let deco = state.facet(decorations).filter((d) => typeof d != "function");
+  let outer = state.facet(outerDecorations).filter((d) => typeof d != "function");
+  if (outer.length)
+    deco.push(RangeSet.join(outer));
+  return deco;
+}
 var BigScaler = class _BigScaler {
   constructor(oracle, heightMap, viewports) {
     let vpHeight = 0, base2 = 0, domBase = 0;
@@ -9524,7 +9929,7 @@ var baseTheme$1 = /* @__PURE__ */ buildTheme("." + baseThemeID, {
     display: "block",
     whiteSpace: "pre",
     wordWrap: "normal",
-    // https://github.com/codemirror/dev/issues/456
+    // Issue #456
     boxSizing: "border-box",
     minHeight: "100%",
     padding: "4px 0",
@@ -9549,6 +9954,8 @@ var baseTheme$1 = /* @__PURE__ */ buildTheme("." + baseThemeID, {
     padding: "0 2px 0 6px"
   },
   ".cm-layer": {
+    userSelect: "none",
+    // #1708
     position: "absolute",
     left: 0,
     top: 0,
@@ -9591,6 +9998,21 @@ var baseTheme$1 = /* @__PURE__ */ buildTheme("." + baseThemeID, {
   "&dark .cm-cursor": {
     borderLeftColor: "#ddd"
   },
+  ".cm-selectionHandle": {
+    backgroundColor: "currentColor",
+    width: "1.5px"
+  },
+  ".cm-selectionHandle-start::before, .cm-selectionHandle-end::before": {
+    content: '""',
+    backgroundColor: "inherit",
+    borderRadius: "50%",
+    width: "8px",
+    height: "8px",
+    position: "absolute",
+    left: "-3.25px"
+  },
+  ".cm-selectionHandle-start::before": { top: "-8px" },
+  ".cm-selectionHandle-end::before": { bottom: "-8px" },
   ".cm-dropCursor": {
     position: "absolute"
   },
@@ -9616,13 +10038,16 @@ var baseTheme$1 = /* @__PURE__ */ buildTheme("." + baseThemeID, {
     display: "flex",
     height: "100%",
     boxSizing: "border-box",
-    insetInlineStart: 0,
     zIndex: 200
   },
+  ".cm-gutters-before": { insetInlineStart: 0 },
+  ".cm-gutters-after": { insetInlineEnd: 0 },
   "&light .cm-gutters": {
     backgroundColor: "#f5f5f5",
     color: "#6c6c6c",
-    borderRight: "1px solid #ddd"
+    border: "0px solid #ddd",
+    "&.cm-gutters-before": { borderRightWidth: "1px" },
+    "&.cm-gutters-after": { borderLeftWidth: "1px" }
   },
   "&dark .cm-gutters": {
     backgroundColor: "#333338",
@@ -9673,6 +10098,21 @@ var baseTheme$1 = /* @__PURE__ */ buildTheme("." + baseThemeID, {
     backgroundColor: "#333338",
     color: "white"
   },
+  ".cm-dialog": {
+    padding: "2px 19px 4px 6px",
+    position: "relative",
+    "& label": { fontSize: "80%" }
+  },
+  ".cm-dialog-close": {
+    position: "absolute",
+    top: "3px",
+    right: "4px",
+    backgroundColor: "inherit",
+    border: "none",
+    font: "inherit",
+    fontSize: "14px",
+    padding: "0"
+  },
   ".cm-tab": {
     display: "inline-block",
     overflow: "hidden",
@@ -9687,7 +10127,8 @@ var baseTheme$1 = /* @__PURE__ */ buildTheme("." + baseThemeID, {
   ".cm-placeholder": {
     color: "#888",
     display: "inline-block",
-    verticalAlign: "top"
+    verticalAlign: "top",
+    userSelect: "none"
   },
   ".cm-highlightSpace": {
     backgroundImage: "radial-gradient(circle at 50% 55%, #aaa 20%, transparent 5%)",
@@ -9776,7 +10217,7 @@ var DOMObserver = class {
       else
         this.flush();
     });
-    if (window.EditContext && view.constructor.EDIT_CONTEXT !== false && // Chrome <126 doesn't support inverted selections in edit context (#1392)
+    if (window.EditContext && browser.android && view.constructor.EDIT_CONTEXT !== false && // Chrome <126 doesn't support inverted selections in edit context (#1392)
     !(browser.chrome && browser.chrome_version < 126)) {
       this.editContext = new EditContextManager(view);
       if (view.state.facet(editable))
@@ -9870,8 +10311,8 @@ var DOMObserver = class {
     let { view } = this, sel = this.selectionRange;
     if (view.state.facet(editable) ? view.root.activeElement != this.dom : !hasSelection(this.dom, sel))
       return;
-    let context = sel.anchorNode && view.docView.nearest(sel.anchorNode);
-    if (context && context.ignoreEvent(event)) {
+    let context = sel.anchorNode && view.docView.tile.nearest(sel.anchorNode);
+    if (context && context.isWidget() && context.widget.ignoreEvent(event)) {
       if (!wasChanged)
         this.selectionChanged = false;
       return;
@@ -10073,27 +10514,25 @@ var DOMObserver = class {
     }
     let startState = this.view.state;
     let handled = applyDOMChange(this.view, domChange);
-    if (this.view.state == startState && (domChange.domChanged || domChange.newSel && !domChange.newSel.main.eq(this.view.state.selection.main)))
+    if (this.view.state == startState && (domChange.domChanged || domChange.newSel && !sameSelPos(this.view.state.selection, domChange.newSel.main)))
       this.view.update([]);
     return handled;
   }
   readMutation(rec) {
-    let cView = this.view.docView.nearest(rec.target);
-    if (!cView || cView.ignoreMutation(rec))
+    let tile = this.view.docView.tile.nearest(rec.target);
+    if (!tile || tile.isWidget())
       return null;
-    cView.markDirty(rec.type == "attributes");
-    if (rec.type == "attributes")
-      cView.flags |= 4;
+    tile.markDirty(rec.type == "attributes");
     if (rec.type == "childList") {
-      let childBefore = findChild(cView, rec.previousSibling || rec.target.previousSibling, -1);
-      let childAfter = findChild(cView, rec.nextSibling || rec.target.nextSibling, 1);
+      let childBefore = findChild(tile, rec.previousSibling || rec.target.previousSibling, -1);
+      let childAfter = findChild(tile, rec.nextSibling || rec.target.nextSibling, 1);
       return {
-        from: childBefore ? cView.posAfter(childBefore) : cView.posAtStart,
-        to: childAfter ? cView.posBefore(childAfter) : cView.posAtEnd,
+        from: childBefore ? tile.posAfter(childBefore) : tile.posAtStart,
+        to: childAfter ? tile.posBefore(childAfter) : tile.posAtEnd,
         typeOver: false
       };
     } else if (rec.type == "characterData") {
-      return { from: cView.posAtStart, to: cView.posAtEnd, typeOver: rec.target.nodeValue == rec.oldValue };
+      return { from: tile.posAtStart, to: tile.posAtEnd, typeOver: rec.target.nodeValue == rec.oldValue };
     } else {
       return null;
     }
@@ -10155,20 +10594,20 @@ var DOMObserver = class {
     }
   }
 };
-function findChild(cView, dom, dir) {
+function findChild(tile, dom, dir) {
   while (dom) {
-    let curView = ContentView.get(dom);
-    if (curView && curView.parent == cView)
-      return curView;
+    let curTile = Tile.get(dom);
+    if (curTile && curTile.parent == tile)
+      return curTile;
     let parent = dom.parentNode;
-    dom = parent != cView.dom ? parent : dir > 0 ? dom.nextSibling : dom.previousSibling;
+    dom = parent != tile.dom ? parent : dir > 0 ? dom.nextSibling : dom.previousSibling;
   }
   return null;
 }
 function buildSelectionRangeFromRange(view, range) {
   let anchorNode = range.startContainer, anchorOffset = range.startOffset;
   let focusNode = range.endContainer, focusOffset = range.endOffset;
-  let curAnchor = view.docView.domAtPos(view.state.selection.main.anchor);
+  let curAnchor = view.docView.domAtPos(view.state.selection.main.anchor, 1);
   if (isEquivalentPosition(curAnchor.node, curAnchor.offset, focusNode, focusOffset))
     [anchorNode, anchorOffset, focusNode, focusOffset] = [focusNode, focusOffset, anchorNode, anchorOffset];
   return { anchorNode, anchorOffset, focusNode, focusOffset };
@@ -10204,24 +10643,40 @@ var EditContextManager = class {
       selectionEnd: this.toContextPos(view.state.selection.main.head)
     });
     this.handlers.textupdate = (e) => {
-      let { anchor } = view.state.selection.main;
+      let main = view.state.selection.main, { anchor, head } = main;
       let from2 = this.toEditorPos(e.updateRangeStart), to = this.toEditorPos(e.updateRangeEnd);
       if (view.inputState.composing >= 0 && !this.composing)
         this.composing = { contextBase: e.updateRangeStart, editorBase: from2, drifted: false };
-      let change = { from: from2, to, insert: Text.of(e.text.split("\n")) };
-      if (change.from == this.from && anchor < this.from)
-        change.from = anchor;
-      else if (change.to == this.to && anchor > this.to)
-        change.to = anchor;
-      if (change.from == change.to && !change.insert.length)
+      let deletes = to - from2 > e.text.length;
+      if (from2 == this.from && anchor < this.from)
+        from2 = anchor;
+      else if (to == this.to && anchor > this.to)
+        to = anchor;
+      let diff = findDiff(view.state.sliceDoc(from2, to), e.text, (deletes ? main.from : main.to) - from2, deletes ? "end" : null);
+      if (!diff) {
+        let newSel = EditorSelection.single(this.toEditorPos(e.selectionStart), this.toEditorPos(e.selectionEnd));
+        if (!sameSelPos(newSel, main))
+          view.dispatch({ selection: newSel, userEvent: "select" });
         return;
+      }
+      let change = {
+        from: diff.from + from2,
+        to: diff.toA + from2,
+        insert: Text.of(e.text.slice(diff.from, diff.toB).split("\n"))
+      };
+      if ((browser.mac || browser.android) && change.from == head - 1 && /^\. ?$/.test(e.text) && view.contentDOM.getAttribute("autocorrect") == "off")
+        change = { from: from2, to, insert: Text.of([e.text.replace(".", " ")]) };
       this.pendingContextChange = change;
-      if (!view.state.readOnly)
-        applyDOMChangeInner(view, change, EditorSelection.single(this.toEditorPos(e.selectionStart), this.toEditorPos(e.selectionEnd)));
+      if (!view.state.readOnly) {
+        let newLen = this.to - this.from + (change.to - change.from + change.insert.length);
+        applyDOMChangeInner(view, change, EditorSelection.single(this.toEditorPos(e.selectionStart, newLen), this.toEditorPos(e.selectionEnd, newLen)));
+      }
       if (this.pendingContextChange) {
         this.revertPending(view.state);
         this.setSelection(view.state);
       }
+      if (change.from < change.to && !change.insert.length && view.inputState.composing >= 0 && !/[\\p{Alphabetic}\\p{Number}_]/.test(context.text.slice(Math.max(0, e.updateRangeStart - 1), Math.min(context.text.length, e.updateRangeStart + 1))))
+        this.handlers.compositionend(e);
     };
     this.handlers.characterboundsupdate = (e) => {
       let rects = [], prev = null;
@@ -10236,9 +10691,12 @@ var EditContextManager = class {
       let deco = [];
       for (let format of e.getTextFormats()) {
         let lineStyle = format.underlineStyle, thickness = format.underlineThickness;
-        if (lineStyle != "None" && thickness != "None") {
-          let style = `text-decoration: underline ${lineStyle == "Dashed" ? "dashed " : lineStyle == "Squiggle" ? "wavy " : ""}${thickness == "Thin" ? 1 : 2}px`;
-          deco.push(Decoration.mark({ attributes: { style } }).range(this.toEditorPos(format.rangeStart), this.toEditorPos(format.rangeEnd)));
+        if (!/none/i.test(lineStyle) && !/none/i.test(thickness)) {
+          let from2 = this.toEditorPos(format.rangeStart), to = this.toEditorPos(format.rangeEnd);
+          if (from2 < to) {
+            let style = `text-decoration: underline ${/^[a-z]/.test(lineStyle) ? lineStyle + " " : lineStyle == "Dashed" ? "dashed " : lineStyle == "Squiggle" ? "wavy " : ""}${/thin/i.test(thickness) ? 1 : 2}px`;
+            deco.push(Decoration.mark({ attributes: { style } }).range(from2, to));
+          }
         }
       }
       view.dispatch({ effects: setEditContextFormatting.of(Decoration.set(deco)) });
@@ -10305,8 +10763,8 @@ var EditContextManager = class {
     return !abort;
   }
   update(update) {
-    let reverted = this.pendingContextChange;
-    if (this.composing && (this.composing.drifted || update.transactions.some((tr) => !tr.isUserEvent("input.type") && tr.changes.touchesRange(this.from, this.to)))) {
+    let reverted = this.pendingContextChange, startSel = update.startState.selection.main;
+    if (this.composing && (this.composing.drifted || !update.changes.touchesRange(startSel.from, startSel.to) && update.transactions.some((tr) => !tr.isUserEvent("input.type") && tr.changes.touchesRange(this.from, this.to)))) {
       this.composing.drifted = true;
       this.composing.editorBase = update.changes.mapPos(this.composing.editorBase);
     } else if (!this.applyEdits(update) || !this.rangeIsValid(update.state)) {
@@ -10352,7 +10810,8 @@ var EditContextManager = class {
     let { head } = state.selection.main;
     return !(this.from > 0 && head - this.from < 500 || this.to < state.doc.length && this.to - head < 500 || this.to - this.from > 1e4 * 3);
   }
-  toEditorPos(contextPos) {
+  toEditorPos(contextPos, clipLen = this.to - this.from) {
+    contextPos = Math.min(contextPos, clipLen);
     let c = this.composing;
     return c && c.drifted ? c.editorBase + (contextPos - c.contextBase) : contextPos + this.from;
   }
@@ -10406,7 +10865,7 @@ var EditorView = class _EditorView {
   one change has been made in the current composition.
   */
   get composing() {
-    return this.inputState.composing > 0;
+    return !!this.inputState && this.inputState.composing > 0;
   }
   /**
   Indicates whether the user is currently in composing state. Note
@@ -10415,7 +10874,7 @@ var EditorView = class _EditorView {
   composition there.
   */
   get compositionStarted() {
-    return this.inputState.composing >= 0;
+    return !!this.inputState && this.inputState.composing >= 0;
   }
   /**
   The document or shadow root that the view lives in.
@@ -10462,7 +10921,7 @@ var EditorView = class _EditorView {
     this.dispatchTransactions = config2.dispatchTransactions || dispatch && ((trs) => trs.forEach((tr) => dispatch(tr, this))) || ((trs) => this.update(trs));
     this.dispatch = this.dispatch.bind(this);
     this._root = config2.root || getRoot(config2.parent) || document;
-    this.viewState = new ViewState(config2.state || EditorState.create(config2));
+    this.viewState = new ViewState(this, config2.state || EditorState.create(config2));
     if (config2.scrollTo && config2.scrollTo.is(scrollIntoView))
       this.viewState.scrollTarget = config2.scrollTo.value.clip(this.viewState.state);
     this.plugins = this.state.facet(viewPlugin).map((spec) => new PluginInstance(spec));
@@ -10477,7 +10936,10 @@ var EditorView = class _EditorView {
     this.updateState = 0;
     this.requestMeasure();
     if ((_a2 = document.fonts) === null || _a2 === void 0 ? void 0 : _a2.ready)
-      document.fonts.ready.then(() => this.requestMeasure());
+      document.fonts.ready.then(() => {
+        this.viewState.mustMeasureContent = "refresh";
+        this.requestMeasure();
+      });
   }
   dispatch(...input) {
     let trs = input.length == 1 && input[0] instanceof Transaction ? input : input.length == 1 && Array.isArray(input[0]) ? input[0] : [this.state.update(...input)];
@@ -10536,7 +10998,8 @@ var EditorView = class _EditorView {
           scrollTarget = scrollTarget.map(tr.changes);
         if (tr.scrollIntoView) {
           let { main } = tr.state.selection;
-          scrollTarget = new ScrollTarget(main.empty ? main : EditorSelection.cursor(main.head, main.head > main.anchor ? -1 : 1));
+          let { x, y } = this.state.facet(_EditorView.cursorScrollMargin);
+          scrollTarget = new ScrollTarget(main.empty ? main : EditorSelection.cursor(main.head, main.head > main.anchor ? -1 : 1), "nearest", "nearest", y, x);
         }
         for (let e of tr.effects)
           if (e.is(scrollIntoView))
@@ -10600,7 +11063,7 @@ var EditorView = class _EditorView {
     try {
       for (let plugin of this.plugins)
         plugin.destroy(this);
-      this.viewState = new ViewState(newState);
+      this.viewState = new ViewState(this, newState);
       this.plugins = newState.facet(viewPlugin).map((spec) => new PluginInstance(spec));
       this.pluginMap.clear();
       for (let plugin of this.plugins)
@@ -10675,25 +11138,25 @@ var EditorView = class _EditorView {
     if (flush)
       this.observer.forceFlush();
     let updated = null;
-    let sDOM = this.scrollDOM, scrollTop = sDOM.scrollTop * this.scaleY;
+    let scroll = this.viewState.scrollParent, scrollOffset = this.viewState.getScrollOffset();
     let { scrollAnchorPos, scrollAnchorHeight } = this.viewState;
-    if (Math.abs(scrollTop - this.viewState.scrollTop) > 1)
+    if (Math.abs(scrollOffset - this.viewState.scrollOffset) > 1)
       scrollAnchorHeight = -1;
     this.viewState.scrollAnchorHeight = -1;
     try {
       for (let i2 = 0; ; i2++) {
         if (scrollAnchorHeight < 0) {
-          if (isScrolledToBottom(sDOM)) {
+          if (isScrolledToBottom(scroll || this.win)) {
             scrollAnchorPos = -1;
             scrollAnchorHeight = this.viewState.heightMap.height;
           } else {
-            let block = this.viewState.scrollAnchorAt(scrollTop);
+            let block = this.viewState.scrollAnchorAt(scrollOffset);
             scrollAnchorPos = block.from;
             scrollAnchorHeight = block.top;
           }
         }
         this.updateState = 1;
-        let changed = this.viewState.measure(this);
+        let changed = this.viewState.measure();
         if (!changed && !this.measureRequests.length && this.viewState.scrollTarget == null)
           break;
         if (i2 > 5) {
@@ -10747,10 +11210,13 @@ var EditorView = class _EditorView {
               continue;
             } else {
               let newAnchorHeight = scrollAnchorPos < 0 ? this.viewState.heightMap.height : this.viewState.lineBlockAt(scrollAnchorPos).top;
-              let diff = newAnchorHeight - scrollAnchorHeight;
-              if (diff > 1 || diff < -1) {
-                scrollTop = scrollTop + diff;
-                sDOM.scrollTop = scrollTop / this.scaleY;
+              let diff = (newAnchorHeight - scrollAnchorHeight) / this.scaleY;
+              if ((diff > 1 || diff < -1) && (scroll == this.scrollDOM || this.hasFocus || Math.max(this.inputState.lastWheelEvent, this.inputState.lastTouchTime) > Date.now() - 100)) {
+                scrollOffset = scrollOffset + diff;
+                if (scroll)
+                  scroll.scrollTop += diff;
+                else
+                  this.win.scrollBy(0, diff);
                 scrollAnchorHeight = -1;
                 continue;
               }
@@ -10781,6 +11247,7 @@ var EditorView = class _EditorView {
       spellcheck: "false",
       autocorrect: "off",
       autocapitalize: "off",
+      writingsuggestions: "false",
       translate: "no",
       contenteditable: !this.state.facet(editable) ? "false" : "true",
       class: "cm-content",
@@ -10855,8 +11322,8 @@ var EditorView = class _EditorView {
   */
   plugin(plugin) {
     let known = this.pluginMap.get(plugin);
-    if (known === void 0 || known && known.spec != plugin)
-      this.pluginMap.set(plugin, known = this.plugins.find((p) => p.spec == plugin) || null);
+    if (known === void 0 || known && known.plugin != plugin)
+      this.pluginMap.set(plugin, known = this.plugins.find((p) => p.plugin == plugin) || null);
     return known && known.update(this).value;
   }
   /**
@@ -10898,7 +11365,7 @@ var EditorView = class _EditorView {
   }
   /**
   Find the line block (see
-  [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) at the given
+  [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt)) at the given
   height, again interpreted relative to the [top of the
   document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop).
   */
@@ -11006,8 +11473,8 @@ var EditorView = class _EditorView {
   meaningful (it may just point before or after a placeholder
   element).
   */
-  domAtPos(pos) {
-    return this.docView.domAtPos(pos);
+  domAtPos(pos, side = 1) {
+    return this.docView.domAtPos(pos, side);
   }
   /**
   Find the document position at the given DOM node. Can be useful
@@ -11018,6 +11485,11 @@ var EditorView = class _EditorView {
     return this.docView.posFromDOM(node, offset);
   }
   posAtCoords(coords, precise = true) {
+    this.readMeasured();
+    let found = posAtCoords(this, coords, precise);
+    return found && found.pos;
+  }
+  posAndSideAtCoords(coords, precise = true) {
     this.readMeasured();
     return posAtCoords(this, coords, precise);
   }
@@ -11171,7 +11643,8 @@ var EditorView = class _EditorView {
   cause it to scroll the given position or range into view.
   */
   static scrollIntoView(pos, options = {}) {
-    return scrollIntoView.of(new ScrollTarget(typeof pos == "number" ? EditorSelection.cursor(pos) : pos, options.y, options.x, options.yMargin, options.xMargin));
+    var _a2, _b2, _c, _d;
+    return scrollIntoView.of(new ScrollTarget(typeof pos == "number" ? EditorSelection.cursor(pos) : pos, (_a2 = options.y) !== null && _a2 !== void 0 ? _a2 : "nearest", (_b2 = options.x) !== null && _b2 !== void 0 ? _b2 : "nearest", (_c = options.yMargin) !== null && _c !== void 0 ? _c : 5, (_d = options.xMargin) !== null && _d !== void 0 ? _d : 5));
   }
   /**
   Return an effect that resets the editor to its current (at the
@@ -11221,8 +11694,8 @@ var EditorView = class _EditorView {
   editor's [scroll element](https://codemirror.net/6/docs/ref/#view.EditorView.scrollDOM) or one of
   its parent nodes is scrolled.
   */
-  static domEventHandlers(handlers3) {
-    return ViewPlugin.define(() => ({}), { eventHandlers: handlers3 });
+  static domEventHandlers(handlers2) {
+    return ViewPlugin.define(() => ({}), { eventHandlers: handlers2 });
   }
   /**
   Create an extension that registers DOM event observers. Contrary
@@ -11232,12 +11705,12 @@ var EditorView = class _EditorView {
   and observers from running when they return true, and should not
   call `preventDefault`.
   */
-  static domEventObservers(observers3) {
-    return ViewPlugin.define(() => ({}), { eventObservers: observers3 });
+  static domEventObservers(observers2) {
+    return ViewPlugin.define(() => ({}), { eventObservers: observers2 });
   }
   /**
   Create a theme extension. The first argument can be a
-  [`style-mod`](https://github.com/marijnh/style-mod#documentation)
+  [`style-mod`](https://code.haverbeke.berlin/marijn/style-mod#documentation)
   style spec providing the styles for the theme. These will be
   prefixed with a generated class for the style.
   
@@ -11277,8 +11750,8 @@ var EditorView = class _EditorView {
   static findFromDOM(dom) {
     var _a2;
     let content2 = dom.querySelector(".cm-content");
-    let cView = content2 && ContentView.get(content2) || ContentView.get(dom);
-    return ((_a2 = cView === null || cView === void 0 ? void 0 : cView.rootView) === null || _a2 === void 0 ? void 0 : _a2.view) || null;
+    let tile = content2 && Tile.get(content2) || Tile.get(dom);
+    return ((_a2 = tile === null || tile === void 0 ? void 0 : tile.root) === null || _a2 === void 0 ? void 0 : _a2.view) || null;
   }
 };
 EditorView.styleModule = styleModule;
@@ -11295,9 +11768,22 @@ EditorView.mouseSelectionStyle = mouseSelectionStyle;
 EditorView.dragMovesSelection = dragMovesSelection$1;
 EditorView.clickAddsSelectionRange = clickAddsSelectionRange;
 EditorView.decorations = decorations;
+EditorView.blockWrappers = blockWrappers;
 EditorView.outerDecorations = outerDecorations;
 EditorView.atomicRanges = atomicRanges;
 EditorView.bidiIsolatedRanges = bidiIsolatedRanges;
+EditorView.cursorScrollMargin = /* @__PURE__ */ Facet.define({
+  combine: (inputs) => {
+    let x = 5, y = 5;
+    for (let i2 of inputs) {
+      if (typeof i2 == "number")
+        x = y = i2;
+      else
+        ({ x, y } = i2);
+    }
+    return { x, y };
+  }
+});
 EditorView.scrollMargins = scrollMargins;
 EditorView.darkTheme = darkTheme;
 EditorView.cspNonce = /* @__PURE__ */ Facet.define({ combine: (values2) => values2.length ? values2[0] : "" });
@@ -11395,6 +11881,9 @@ function getKeymap(state) {
   if (!map)
     Keymaps.set(bindings, map = buildKeymap(bindings.reduce((a, b) => a.concat(b), [])));
   return map;
+}
+function runScopeHandlers(view, event, scope) {
+  return runHandlers(getKeymap(view.state), event, view, scope);
 }
 var storedPrefix = null;
 var PrefixTimeout = 4e3;
@@ -11503,7 +11992,8 @@ function runHandlers(map, event, view, scope) {
     if (runFor(scopeObj[prefix + modifiers(name2, event, !isChar)])) {
       handled = true;
     } else if (isChar && (event.altKey || event.metaKey || event.ctrlKey) && // Ctrl-Alt may be used for AltGr on Windows
-    !(browser.windows && event.ctrlKey && event.altKey) && (baseName = base[event.keyCode]) && baseName != name2) {
+    !(browser.windows && event.ctrlKey && event.altKey) && // Alt-combinations on macOS tend to be typed characters
+    !(browser.mac && event.altKey && !(event.ctrlKey || event.metaKey)) && (baseName = base[event.keyCode]) && baseName != name2) {
       if (runFor(scopeObj[prefix + modifiers(baseName, event, true)])) {
         handled = true;
       } else if (event.shiftKey && (shiftName = shift[event.keyCode]) != name2 && shiftName != baseName && runFor(scopeObj[prefix + modifiers(shiftName, event, false)])) {
@@ -11580,17 +12070,17 @@ function getBase(view) {
   let left = view.textDirection == Direction.LTR ? rect.left : rect.right - view.scrollDOM.clientWidth * view.scaleX;
   return { left: left - view.scrollDOM.scrollLeft * view.scaleX, top: rect.top - view.scrollDOM.scrollTop * view.scaleY };
 }
-function wrappedLine(view, pos, side, inside2) {
+function wrappedLine(view, pos, side, inside) {
   let coords = view.coordsAtPos(pos, side * 2);
   if (!coords)
-    return inside2;
+    return inside;
   let editorRect = view.dom.getBoundingClientRect();
   let y = (coords.top + coords.bottom) / 2;
   let left = view.posAtCoords({ x: editorRect.left + 1, y });
   let right = view.posAtCoords({ x: editorRect.right - 1, y });
   if (left == null || right == null)
-    return inside2;
-  return { from: Math.max(inside2.from, Math.min(left, right)), to: Math.min(inside2.to, Math.max(left, right)) };
+    return inside;
+  return { from: Math.max(inside.from, Math.min(left, right)), to: Math.min(inside.to, Math.max(left, right)) };
 }
 function rectanglesForRange(view, className, range) {
   if (range.to <= view.viewport.from || range.from >= view.viewport.to)
@@ -11601,7 +12091,7 @@ function rectanglesForRange(view, className, range) {
   let lineElt = content2.querySelector(".cm-line"), lineStyle = lineElt && window.getComputedStyle(lineElt);
   let leftSide = contentRect.left + (lineStyle ? parseInt(lineStyle.paddingLeft) + Math.min(0, parseInt(lineStyle.textIndent)) : 0);
   let rightSide = contentRect.right - (lineStyle ? parseInt(lineStyle.paddingRight) : 0);
-  let startBlock = blockAt(view, from2), endBlock = blockAt(view, to);
+  let startBlock = blockAt(view, from2, 1), endBlock = blockAt(view, to, -1);
   let visualStart = startBlock.type == BlockType.Text ? startBlock : null;
   let visualEnd = endBlock.type == BlockType.Text ? endBlock : null;
   if (visualStart && (view.lineWrapping || startBlock.widgetLineBreaks))
@@ -11621,14 +12111,7 @@ function rectanglesForRange(view, className, range) {
     return pieces(top2).concat(between).concat(pieces(bottom));
   }
   function piece(left, top2, right, bottom) {
-    return new RectangleMarker(
-      className,
-      left - base2.left,
-      top2 - base2.top - 0.01,
-      right - left,
-      bottom - top2 + 0.01
-      /* C.Epsilon */
-    );
+    return new RectangleMarker(className, left - base2.left, top2 - base2.top, Math.max(0, right - left), bottom - top2);
   }
   function pieces({ top: top2, bottom, horizontal }) {
     let pieces2 = [];
@@ -11746,6 +12229,8 @@ var LayerView = class {
         old = next;
       }
       this.drawn = markers;
+      if (browser.webkit)
+        this.dom.style.display = this.dom.firstChild ? "" : "none";
     }
   }
   destroy() {
@@ -11761,12 +12246,12 @@ function layer(config2) {
     layerOrder.of(config2)
   ];
 }
-var CanHidePrimary = !browser.ios;
 var selectionConfig = /* @__PURE__ */ Facet.define({
   combine(configs) {
     return combineConfig(configs, {
       cursorBlinkRate: 1200,
-      drawRangeCursor: true
+      drawRangeCursor: true,
+      iosSelectionHandles: true
     }, {
       cursorBlinkRate: (a, b) => Math.min(a, b),
       drawRangeCursor: (a, b) => a || b
@@ -11792,9 +12277,9 @@ var cursorLayer = /* @__PURE__ */ layer({
     let cursors = [];
     for (let r of state.selection.ranges) {
       let prim = r == state.selection.main;
-      if (r.empty ? !prim || CanHidePrimary : conf.drawRangeCursor) {
+      if (r.empty || conf.drawRangeCursor && !(prim && browser.ios && conf.iosSelectionHandles)) {
         let className = prim ? "cm-cursor cm-cursor-primary" : "cm-cursor cm-cursor-secondary";
-        let cursor2 = r.empty ? r : EditorSelection.cursor(r.head, r.head > r.anchor ? -1 : 1);
+        let cursor2 = r.empty ? r : EditorSelection.cursor(r.head, r.assoc);
         for (let piece of RectangleMarker.forRange(view, className, cursor2))
           cursors.push(piece);
       }
@@ -11820,18 +12305,32 @@ function setBlinkRate(state, dom) {
 var selectionLayer = /* @__PURE__ */ layer({
   above: false,
   markers(view) {
-    return view.state.selection.ranges.map((r) => r.empty ? [] : RectangleMarker.forRange(view, "cm-selectionBackground", r)).reduce((a, b) => a.concat(b));
+    let markers = [], { main, ranges } = view.state.selection;
+    for (let r of ranges)
+      if (!r.empty) {
+        for (let marker of RectangleMarker.forRange(view, "cm-selectionBackground", r))
+          markers.push(marker);
+      }
+    if (browser.ios && !main.empty && view.state.facet(selectionConfig).iosSelectionHandles) {
+      for (let piece of RectangleMarker.forRange(view, "cm-selectionHandle cm-selectionHandle-start", EditorSelection.cursor(main.from, 1)))
+        markers.push(piece);
+      for (let piece of RectangleMarker.forRange(view, "cm-selectionHandle cm-selectionHandle-end", EditorSelection.cursor(main.to, 1)))
+        markers.push(piece);
+    }
+    return markers;
   },
   update(update, dom) {
     return update.docChanged || update.selectionSet || update.viewportChanged || configChanged(update);
   },
   class: "cm-selectionLayer"
 });
-var themeSpec = {
+var hideNativeSelection = /* @__PURE__ */ Prec.highest(/* @__PURE__ */ EditorView.theme({
   ".cm-line": {
-    "& ::selection, &::selection": { backgroundColor: "transparent !important" }
+    "& ::selection, &::selection": { backgroundColor: "transparent !important" },
+    caretColor: "transparent !important"
   },
   ".cm-content": {
+    caretColor: "transparent !important",
     "& :focus": {
       caretColor: "initial !important",
       "&::selection, & ::selection": {
@@ -11839,13 +12338,10 @@ var themeSpec = {
       }
     }
   }
-};
-if (CanHidePrimary)
-  themeSpec[".cm-line"].caretColor = themeSpec[".cm-content"].caretColor = "transparent !important";
-var hideNativeSelection = /* @__PURE__ */ Prec.highest(/* @__PURE__ */ EditorView.theme(themeSpec));
-function iterMatches(doc3, re, from2, to, f) {
+}));
+function iterMatches(doc2, re, from2, to, f) {
   re.lastIndex = 0;
-  for (let cursor2 = doc3.iterRange(from2, to), pos = from2, m; !cursor2.next().done; pos += cursor2.value.length) {
+  for (let cursor2 = doc2.iterRange(from2, to), pos = from2, m; !cursor2.next().done; pos += cursor2.value.length) {
     if (!cursor2.lineBreak)
       while (m = re.exec(cursor2.value))
         f(pos + m.index, m);
@@ -11911,12 +12407,12 @@ var MatchDecorator = class {
     let changeFrom = 1e9, changeTo = -1;
     if (update.docChanged)
       update.changes.iterChanges((_f2, _t, from2, to) => {
-        if (to > update.view.viewport.from && from2 < update.view.viewport.to) {
+        if (to >= update.view.viewport.from && from2 <= update.view.viewport.to) {
           changeFrom = Math.min(from2, changeFrom);
           changeTo = Math.max(to, changeTo);
         }
       });
-    if (update.viewportChanged || changeTo - changeFrom > 1e3)
+    if (update.viewportMoved || changeTo - changeFrom > 1e3)
       return this.createDeco(update.view);
     if (changeTo > -1)
       return this.updateRange(update.view, deco.map(update.changes), changeFrom, changeTo);
@@ -11925,7 +12421,7 @@ var MatchDecorator = class {
   updateRange(view, deco, updateFrom, updateTo) {
     for (let r of view.visibleRanges) {
       let from2 = Math.max(r.from, updateFrom), to = Math.min(r.to, updateTo);
-      if (to > from2) {
+      if (to >= from2) {
         let fromLine = view.state.doc.lineAt(from2), toLine = fromLine.to < to ? view.state.doc.lineAt(to) : fromLine;
         let start = Math.max(r.from, fromLine.from), end = Math.min(r.to, toLine.to);
         if (this.boundary) {
@@ -12020,10 +12516,10 @@ function specialCharPlugin() {
       return new MatchDecorator({
         regexp: conf.specialChars,
         decoration: (m, view, pos) => {
-          let { doc: doc3 } = view.state;
+          let { doc: doc2 } = view.state;
           let code2 = codePointAt2(m[0], 0);
           if (code2 == 9) {
-            let line = doc3.lineAt(pos);
+            let line = doc2.lineAt(pos);
             let size = view.state.tabSize, col = countColumn(line.text, size, pos - line.from);
             return Decoration.replace({
               widget: new TabWidget((size - col % size) * this.view.defaultCharacterWidth / this.view.scaleX)
@@ -12185,8 +12681,8 @@ var TooltipViewManager = class {
   }
 };
 function windowSpace(view) {
-  let { win } = view;
-  return { top: 0, left: 0, bottom: win.innerHeight, right: win.innerWidth };
+  let docElt = view.dom.ownerDocument.documentElement;
+  return { top: 0, left: 0, bottom: docElt.clientHeight, right: docElt.clientWidth };
 }
 var tooltipConfig = /* @__PURE__ */ Facet.define({
   combine: (values2) => {
@@ -12316,11 +12812,11 @@ var tooltipPlugin = /* @__PURE__ */ ViewPlugin.fromClass(class {
     let scaleX = 1, scaleY = 1, makeAbsolute = false;
     if (this.position == "fixed" && this.manager.tooltipViews.length) {
       let { dom } = this.manager.tooltipViews[0];
-      if (browser.gecko) {
-        makeAbsolute = dom.offsetParent != this.container.ownerDocument.body;
-      } else if (dom.style.top == Outside && dom.style.left == "0px") {
+      if (browser.safari) {
         let rect = dom.getBoundingClientRect();
         makeAbsolute = Math.abs(rect.top + 1e4) > 1 || Math.abs(rect.left) > 1;
+      } else {
+        makeAbsolute = !!dom.offsetParent && dom.offsetParent != this.container.ownerDocument.body;
       }
     }
     if (makeAbsolute || this.position == "absolute") {
@@ -12399,10 +12895,10 @@ var tooltipPlugin = /* @__PURE__ */ ViewPlugin.fromClass(class {
       }
       if (this.position == "absolute") {
         dom.style.top = (top2 - measured.parent.top) / scaleY + "px";
-        dom.style.left = (left - measured.parent.left) / scaleX + "px";
+        setLeftStyle(dom, (left - measured.parent.left) / scaleX);
       } else {
         dom.style.top = top2 / scaleY + "px";
-        dom.style.left = left / scaleX + "px";
+        setLeftStyle(dom, left / scaleX);
       }
       if (arrow) {
         let arrowLeft = pos.left + (ltr ? offset.x : -offset.x) - (left + 14 - 7);
@@ -12435,6 +12931,11 @@ var tooltipPlugin = /* @__PURE__ */ ViewPlugin.fromClass(class {
     }
   }
 });
+function setLeftStyle(elt2, value) {
+  let current = parseInt(elt2.style.left, 10);
+  if (isNaN(current) || Math.abs(value - current) > 1)
+    elt2.style.left = value + "px";
+}
 var baseTheme = /* @__PURE__ */ EditorView.baseTheme({
   ".cm-tooltip": {
     zIndex: 500,
@@ -12508,6 +13009,260 @@ function getTooltip(view, tooltip) {
   let found = plugin.manager.tooltips.indexOf(tooltip);
   return found < 0 ? null : plugin.manager.tooltipViews[found];
 }
+var panelConfig = /* @__PURE__ */ Facet.define({
+  combine(configs) {
+    let topContainer, bottomContainer;
+    for (let c of configs) {
+      topContainer = topContainer || c.topContainer;
+      bottomContainer = bottomContainer || c.bottomContainer;
+    }
+    return { topContainer, bottomContainer };
+  }
+});
+function getPanel(view, panel) {
+  let plugin = view.plugin(panelPlugin);
+  let index = plugin ? plugin.specs.indexOf(panel) : -1;
+  return index > -1 ? plugin.panels[index] : null;
+}
+var panelPlugin = /* @__PURE__ */ ViewPlugin.fromClass(class {
+  constructor(view) {
+    this.input = view.state.facet(showPanel);
+    this.specs = this.input.filter((s) => s);
+    this.panels = this.specs.map((spec) => spec(view));
+    let conf = view.state.facet(panelConfig);
+    this.top = new PanelGroup(view, true, conf.topContainer);
+    this.bottom = new PanelGroup(view, false, conf.bottomContainer);
+    this.top.sync(this.panels.filter((p) => p.top));
+    this.bottom.sync(this.panels.filter((p) => !p.top));
+    for (let p of this.panels) {
+      p.dom.classList.add("cm-panel");
+      if (p.mount)
+        p.mount();
+    }
+  }
+  update(update) {
+    let conf = update.state.facet(panelConfig);
+    if (this.top.container != conf.topContainer) {
+      this.top.sync([]);
+      this.top = new PanelGroup(update.view, true, conf.topContainer);
+    }
+    if (this.bottom.container != conf.bottomContainer) {
+      this.bottom.sync([]);
+      this.bottom = new PanelGroup(update.view, false, conf.bottomContainer);
+    }
+    this.top.syncClasses();
+    this.bottom.syncClasses();
+    let input = update.state.facet(showPanel);
+    if (input != this.input) {
+      let specs = input.filter((x) => x);
+      let panels = [], top2 = [], bottom = [], mount = [];
+      for (let spec of specs) {
+        let known = this.specs.indexOf(spec), panel;
+        if (known < 0) {
+          panel = spec(update.view);
+          mount.push(panel);
+        } else {
+          panel = this.panels[known];
+          if (panel.update)
+            panel.update(update);
+        }
+        panels.push(panel);
+        (panel.top ? top2 : bottom).push(panel);
+      }
+      this.specs = specs;
+      this.panels = panels;
+      this.top.sync(top2);
+      this.bottom.sync(bottom);
+      for (let p of mount) {
+        p.dom.classList.add("cm-panel");
+        if (p.mount)
+          p.mount();
+      }
+    } else {
+      for (let p of this.panels)
+        if (p.update)
+          p.update(update);
+    }
+  }
+  destroy() {
+    this.top.sync([]);
+    this.bottom.sync([]);
+  }
+}, {
+  provide: (plugin) => EditorView.scrollMargins.of((view) => {
+    let value = view.plugin(plugin);
+    return value && { top: value.top.scrollMargin(), bottom: value.bottom.scrollMargin() };
+  })
+});
+var PanelGroup = class {
+  constructor(view, top2, container) {
+    this.view = view;
+    this.top = top2;
+    this.container = container;
+    this.dom = void 0;
+    this.classes = "";
+    this.panels = [];
+    this.syncClasses();
+  }
+  sync(panels) {
+    for (let p of this.panels)
+      if (p.destroy && panels.indexOf(p) < 0)
+        p.destroy();
+    this.panels = panels;
+    this.syncDOM();
+  }
+  syncDOM() {
+    if (this.panels.length == 0) {
+      if (this.dom) {
+        this.dom.remove();
+        this.dom = void 0;
+      }
+      return;
+    }
+    if (!this.dom) {
+      this.dom = document.createElement("div");
+      this.dom.className = this.top ? "cm-panels cm-panels-top" : "cm-panels cm-panels-bottom";
+      this.dom.style[this.top ? "top" : "bottom"] = "0";
+      let parent = this.container || this.view.dom;
+      parent.insertBefore(this.dom, this.top ? parent.firstChild : null);
+    }
+    let curDOM = this.dom.firstChild;
+    for (let panel of this.panels) {
+      if (panel.dom.parentNode == this.dom) {
+        while (curDOM != panel.dom)
+          curDOM = rm(curDOM);
+        curDOM = curDOM.nextSibling;
+      } else {
+        this.dom.insertBefore(panel.dom, curDOM);
+      }
+    }
+    while (curDOM)
+      curDOM = rm(curDOM);
+  }
+  scrollMargin() {
+    return !this.dom || this.container ? 0 : Math.max(0, this.top ? this.dom.getBoundingClientRect().bottom - Math.max(0, this.view.scrollDOM.getBoundingClientRect().top) : Math.min(innerHeight, this.view.scrollDOM.getBoundingClientRect().bottom) - this.dom.getBoundingClientRect().top);
+  }
+  syncClasses() {
+    if (!this.container || this.classes == this.view.themeClasses)
+      return;
+    for (let cls of this.classes.split(" "))
+      if (cls)
+        this.container.classList.remove(cls);
+    for (let cls of (this.classes = this.view.themeClasses).split(" "))
+      if (cls)
+        this.container.classList.add(cls);
+  }
+};
+function rm(node) {
+  let next = node.nextSibling;
+  node.remove();
+  return next;
+}
+var showPanel = /* @__PURE__ */ Facet.define({
+  enables: panelPlugin
+});
+function showDialog(view, config2) {
+  let resolve;
+  let promise = new Promise((r) => resolve = r);
+  let panelCtor = (view2) => createDialog(view2, config2, resolve);
+  if (view.state.field(dialogField, false)) {
+    view.dispatch({ effects: openDialogEffect.of(panelCtor) });
+  } else {
+    view.dispatch({ effects: StateEffect.appendConfig.of(dialogField.init(() => [panelCtor])) });
+  }
+  let close = closeDialogEffect.of(panelCtor);
+  return { close, result: promise.then((form) => {
+    let queue = view.win.queueMicrotask || ((f) => view.win.setTimeout(f, 10));
+    queue(() => {
+      if (view.state.field(dialogField).indexOf(panelCtor) > -1)
+        view.dispatch({ effects: close });
+    });
+    return form;
+  }) };
+}
+var dialogField = /* @__PURE__ */ StateField.define({
+  create() {
+    return [];
+  },
+  update(dialogs, tr) {
+    for (let e of tr.effects) {
+      if (e.is(openDialogEffect))
+        dialogs = [e.value].concat(dialogs);
+      else if (e.is(closeDialogEffect))
+        dialogs = dialogs.filter((d) => d != e.value);
+    }
+    return dialogs;
+  },
+  provide: (f) => showPanel.computeN([f], (state) => state.field(f))
+});
+var openDialogEffect = /* @__PURE__ */ StateEffect.define();
+var closeDialogEffect = /* @__PURE__ */ StateEffect.define();
+function createDialog(view, config2, result) {
+  let content2 = config2.content ? config2.content(view, () => done(null)) : null;
+  if (!content2) {
+    content2 = crelt("form");
+    if (config2.input) {
+      let input = crelt("input", config2.input);
+      if (/^(text|password|number|email|tel|url)$/.test(input.type))
+        input.classList.add("cm-textfield");
+      if (!input.name)
+        input.name = "input";
+      content2.appendChild(crelt("label", (config2.label || "") + ": ", input));
+    } else {
+      content2.appendChild(document.createTextNode(config2.label || ""));
+    }
+    content2.appendChild(document.createTextNode(" "));
+    content2.appendChild(crelt("button", { class: "cm-button", type: "submit" }, config2.submitLabel || "OK"));
+  }
+  let forms = content2.nodeName == "FORM" ? [content2] : content2.querySelectorAll("form");
+  for (let i2 = 0; i2 < forms.length; i2++) {
+    let form = forms[i2];
+    form.addEventListener("keydown", (event) => {
+      if (event.keyCode == 27) {
+        event.preventDefault();
+        done(null);
+      } else if (event.keyCode == 13) {
+        event.preventDefault();
+        done(form);
+      }
+    });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      done(form);
+    });
+  }
+  let panel = crelt("div", content2, crelt("button", {
+    onclick: () => done(null),
+    "aria-label": view.state.phrase("close"),
+    class: "cm-dialog-close",
+    type: "button"
+  }, ["\xD7"]));
+  if (config2.class)
+    panel.className = config2.class;
+  panel.classList.add("cm-dialog");
+  function done(form) {
+    if (panel.contains(panel.ownerDocument.activeElement))
+      view.focus();
+    result(form);
+  }
+  return {
+    dom: panel,
+    top: config2.top,
+    mount: () => {
+      if (config2.focus) {
+        let focus;
+        if (typeof config2.focus == "string")
+          focus = content2.querySelector(config2.focus);
+        else
+          focus = content2.querySelector("input") || content2.querySelector("button");
+        if (focus && "select" in focus)
+          focus.select();
+        else if (focus && "focus" in focus)
+          focus.focus();
+      }
+    }
+  };
+}
 var GutterMarker = class extends RangeValue {
   /**
   @internal
@@ -12545,11 +13300,12 @@ var defaults = {
   lineMarkerChange: null,
   initialSpacer: null,
   updateSpacer: null,
-  domEventHandlers: {}
+  domEventHandlers: {},
+  side: "before"
 };
 var activeGutters = /* @__PURE__ */ Facet.define();
 function gutter(config2) {
-  return [gutters(), activeGutters.of(Object.assign(Object.assign({}, defaults), config2))];
+  return [gutters(), activeGutters.of({ ...defaults, ...config2 })];
 }
 var unfixGutters = /* @__PURE__ */ Facet.define({
   combine: (values2) => values2.some((x) => x)
@@ -12565,20 +13321,36 @@ function gutters(config2) {
 var gutterView = /* @__PURE__ */ ViewPlugin.fromClass(class {
   constructor(view) {
     this.view = view;
+    this.domAfter = null;
     this.prevViewport = view.viewport;
     this.dom = document.createElement("div");
-    this.dom.className = "cm-gutters";
+    this.dom.className = "cm-gutters cm-gutters-before";
     this.dom.setAttribute("aria-hidden", "true");
     this.dom.style.minHeight = this.view.contentHeight / this.view.scaleY + "px";
     this.gutters = view.state.facet(activeGutters).map((conf) => new SingleGutterView(view, conf));
-    for (let gutter2 of this.gutters)
-      this.dom.appendChild(gutter2.dom);
     this.fixed = !view.state.facet(unfixGutters);
+    for (let gutter2 of this.gutters) {
+      if (gutter2.config.side == "after")
+        this.getDOMAfter().appendChild(gutter2.dom);
+      else
+        this.dom.appendChild(gutter2.dom);
+    }
     if (this.fixed) {
       this.dom.style.position = "sticky";
     }
     this.syncGutters(false);
     view.scrollDOM.insertBefore(this.dom, view.contentDOM);
+  }
+  getDOMAfter() {
+    if (!this.domAfter) {
+      this.domAfter = document.createElement("div");
+      this.domAfter.className = "cm-gutters cm-gutters-after";
+      this.domAfter.setAttribute("aria-hidden", "true");
+      this.domAfter.style.minHeight = this.view.contentHeight / this.view.scaleY + "px";
+      this.domAfter.style.position = this.fixed ? "sticky" : "";
+      this.view.scrollDOM.appendChild(this.domAfter);
+    }
+    return this.domAfter;
   }
   update(update) {
     if (this.updateGutters(update)) {
@@ -12587,18 +13359,26 @@ var gutterView = /* @__PURE__ */ ViewPlugin.fromClass(class {
       this.syncGutters(vpOverlap < (vpB.to - vpB.from) * 0.8);
     }
     if (update.geometryChanged) {
-      this.dom.style.minHeight = this.view.contentHeight / this.view.scaleY + "px";
+      let min = this.view.contentHeight / this.view.scaleY + "px";
+      this.dom.style.minHeight = min;
+      if (this.domAfter)
+        this.domAfter.style.minHeight = min;
     }
     if (this.view.state.facet(unfixGutters) != !this.fixed) {
       this.fixed = !this.fixed;
       this.dom.style.position = this.fixed ? "sticky" : "";
+      if (this.domAfter)
+        this.domAfter.style.position = this.fixed ? "sticky" : "";
     }
     this.prevViewport = update.view.viewport;
   }
   syncGutters(detach) {
     let after = this.dom.nextSibling;
-    if (detach)
+    if (detach) {
       this.dom.remove();
+      if (this.domAfter)
+        this.domAfter.remove();
+    }
     let lineClasses = RangeSet.iter(this.view.state.facet(gutterLineClass), this.view.viewport.from);
     let classSet = [];
     let contexts = this.gutters.map((gutter2) => new UpdateContext(gutter2, this.view.viewport, -this.view.documentPadding.top));
@@ -12629,8 +13409,11 @@ var gutterView = /* @__PURE__ */ ViewPlugin.fromClass(class {
     }
     for (let cx of contexts)
       cx.finish();
-    if (detach)
+    if (detach) {
       this.view.scrollDOM.insertBefore(this.dom, after);
+      if (this.domAfter)
+        this.view.scrollDOM.appendChild(this.domAfter);
+    }
   }
   updateGutters(update) {
     let prev = update.startState.facet(activeGutters), cur2 = update.state.facet(activeGutters);
@@ -12656,8 +13439,12 @@ var gutterView = /* @__PURE__ */ ViewPlugin.fromClass(class {
         if (gutters2.indexOf(g) < 0)
           g.destroy();
       }
-      for (let g of gutters2)
-        this.dom.appendChild(g.dom);
+      for (let g of gutters2) {
+        if (g.config.side == "after")
+          this.getDOMAfter().appendChild(g.dom);
+        else
+          this.dom.appendChild(g.dom);
+      }
       this.gutters = gutters2;
     }
     return change;
@@ -12666,13 +13453,16 @@ var gutterView = /* @__PURE__ */ ViewPlugin.fromClass(class {
     for (let view of this.gutters)
       view.destroy();
     this.dom.remove();
+    if (this.domAfter)
+      this.domAfter.remove();
   }
 }, {
   provide: (plugin) => EditorView.scrollMargins.of((view) => {
     let value = view.plugin(plugin);
     if (!value || value.gutters.length == 0 || !value.fixed)
       return null;
-    return view.textDirection == Direction.LTR ? { left: value.dom.offsetWidth * view.scaleX } : { right: value.dom.offsetWidth * view.scaleX };
+    let before = value.dom.offsetWidth * view.scaleX, after = value.domAfter ? value.domAfter.offsetWidth * view.scaleX : 0;
+    return view.textDirection == Direction.LTR ? { left: before, right: after } : { right: before, left: after };
   })
 });
 function asArray2(val) {
@@ -12912,7 +13702,8 @@ var lineNumberGutter = /* @__PURE__ */ activeGutters.compute([lineNumberConfig],
     let max = formatNumber(update.view, maxLineNumber(update.view.state.doc.lines));
     return max == spacer.number ? spacer : new NumberMarker(max);
   },
-  domEventHandlers: state.facet(lineNumberConfig).domEventHandlers
+  domEventHandlers: state.facet(lineNumberConfig).domEventHandlers,
+  side: "before"
 }));
 function lineNumbers(config2 = {}) {
   return [
@@ -13123,10 +13914,10 @@ var NodeSet = class _NodeSet {
   Create a set with the given types. The `id` property of each
   type should correspond to its position within the array.
   */
-  constructor(types3) {
-    this.types = types3;
-    for (let i2 = 0; i2 < types3.length; i2++)
-      if (types3[i2].id != i2)
+  constructor(types2) {
+    this.types = types2;
+    for (let i2 = 0; i2 < types2.length; i2++)
+      if (types2[i2].id != i2)
         throw new RangeError("Node type ids should correspond to array positions when creating a node set");
   }
   /**
@@ -14173,11 +14964,11 @@ var TreeCursor = class {
   matchContext(context) {
     if (!this.buffer)
       return matchNodeContext(this.node.parent, context);
-    let { buffer } = this.buffer, { types: types3 } = buffer.set;
+    let { buffer } = this.buffer, { types: types2 } = buffer.set;
     for (let i2 = context.length - 1, d = this.stack.length - 1; i2 >= 0; d--) {
       if (d < 0)
         return matchNodeContext(this._tree, context, i2);
-      let type = types3[buffer.buffer[this.stack[d]]];
+      let type = types2[buffer.buffer[this.stack[d]]];
       if (!type.isAnonymous) {
         if (context[i2] && context[i2] != type.name)
           return false;
@@ -14194,7 +14985,7 @@ function buildTree(data2) {
   var _a2;
   let { buffer, nodeSet, maxBufferLength = DefaultBufferLength, reused = [], minRepeatType = nodeSet.types.length } = data2;
   let cursor2 = Array.isArray(buffer) ? new FlatBufferCursor(buffer, buffer.length) : buffer;
-  let types3 = nodeSet.types;
+  let types2 = nodeSet.types;
   let contextHash = 0, lookAhead = 0;
   function takeNode(parentStart, minPos, children2, positions2, inRepeat, depth) {
     let { id: id2, start, end, size } = cursor2;
@@ -14216,7 +15007,7 @@ function buildTree(data2) {
         throw new RangeError(`Unrecognized record size: ${size}`);
       }
     }
-    let type = types3[id2], node, buffer2;
+    let type = types2[id2], node, buffer2;
     let startPos = start - parentStart;
     if (end - start <= maxBufferLength && (buffer2 = findBufferSize(cursor2.pos - minPos, inRepeat))) {
       let data3 = new Uint16Array(buffer2.size - buffer2.skip);
@@ -14389,7 +15180,7 @@ function buildTree(data2) {
   while (cursor2.pos > 0)
     takeNode(data2.start || 0, data2.bufferStart || 0, children, positions, -1, 0);
   let length = (_a2 = data2.length) !== null && _a2 !== void 0 ? _a2 : children.length ? positions[0] + children[0].length : 0;
-  return new Tree(types3[data2.topID], children.reverse(), positions.reverse(), length);
+  return new Tree(types2[data2.topID], children.reverse(), positions.reverse(), length);
 }
 var nodeSizeCache = /* @__PURE__ */ new WeakMap();
 function nodeSize(balanceType, node) {
@@ -15866,11 +16657,11 @@ var DocInput = class {
   /**
   Create an input object for the given document.
   */
-  constructor(doc3) {
-    this.doc = doc3;
+  constructor(doc2) {
+    this.doc = doc2;
     this.cursorPos = 0;
     this.string = "";
-    this.cursor = doc3.iter();
+    this.cursor = doc2.iter();
   }
   get length() {
     return this.doc.length;
@@ -16601,10 +17392,10 @@ function indentOnInput() {
     let rules = tr.startState.languageDataAt("indentOnInput", tr.startState.selection.main.head);
     if (!rules.length)
       return tr;
-    let doc3 = tr.newDoc, { head } = tr.newSelection.main, line = doc3.lineAt(head);
+    let doc2 = tr.newDoc, { head } = tr.newSelection.main, line = doc2.lineAt(head);
     if (head > line.from + DontIndentBeyond)
       return tr;
-    let lineStart = doc3.sliceString(line.from, head);
+    let lineStart = doc2.sliceString(line.from, head);
     if (!rules.some((r) => r.test(lineStart)))
       return tr;
     let { state } = tr, last = -1, changes = [];
@@ -17160,24 +17951,24 @@ var bracketMatchingConfig = /* @__PURE__ */ Facet.define({
 var matchingMark = /* @__PURE__ */ Decoration.mark({ class: "cm-matchingBracket" });
 var nonmatchingMark = /* @__PURE__ */ Decoration.mark({ class: "cm-nonmatchingBracket" });
 function defaultRenderMatch(match2) {
-  let decorations3 = [];
+  let decorations2 = [];
   let mark = match2.matched ? matchingMark : nonmatchingMark;
-  decorations3.push(mark.range(match2.start.from, match2.start.to));
+  decorations2.push(mark.range(match2.start.from, match2.start.to));
   if (match2.end)
-    decorations3.push(mark.range(match2.end.from, match2.end.to));
-  return decorations3;
+    decorations2.push(mark.range(match2.end.from, match2.end.to));
+  return decorations2;
 }
 function bracketDeco(state) {
-  let decorations3 = [];
+  let decorations2 = [];
   let config2 = state.facet(bracketMatchingConfig);
   for (let range of state.selection.ranges) {
     if (!range.empty)
       continue;
     let match2 = matchBrackets(state, range.head, -1, config2) || range.head > 0 && matchBrackets(state, range.head - 1, 1, config2) || config2.afterCursor && (matchBrackets(state, range.head, 1, config2) || range.head < state.doc.length && matchBrackets(state, range.head + 1, -1, config2));
     if (match2)
-      decorations3 = decorations3.concat(config2.renderMatch(match2, state));
+      decorations2 = decorations2.concat(config2.renderMatch(match2, state));
   }
-  return Decoration.set(decorations3, true);
+  return Decoration.set(decorations2, true);
 }
 var bracketMatcher = /* @__PURE__ */ ViewPlugin.fromClass(class {
   constructor(view) {
@@ -18250,13 +19041,13 @@ var deleteLine = (view) => {
     return { from: from2, to };
   }));
   let selection2 = updateSel(state.selection, (range) => {
-    let dist3 = void 0;
+    let dist2 = void 0;
     if (view.lineWrapping) {
       let block = view.lineBlockAt(range.head), pos = view.coordsAtPos(range.head, range.assoc || 1);
       if (pos)
-        dist3 = block.bottom + view.documentTop - pos.bottom + view.defaultLineHeight / 2;
+        dist2 = block.bottom + view.documentTop - pos.bottom + view.defaultLineHeight / 2;
     }
-    return view.moveVertically(range, true, dist3);
+    return view.moveVertically(range, true, dist2);
   }).map(changes);
   view.dispatch({ changes, selection: selection2, scrollIntoView: true, userEvent: "delete.line" });
   return true;
@@ -18460,9 +19251,9 @@ var CompletionContext = class {
   Get the extent, content, and (if there is a token) type of the
   token before `this.pos`.
   */
-  tokenBefore(types3) {
+  tokenBefore(types2) {
     let token = syntaxTree(this.state).resolveInner(this.pos, -1);
-    while (token && types3.indexOf(token.name) < 0)
+    while (token && types2.indexOf(token.name) < 0)
       token = token.parent;
     return token ? {
       from: token.from,
@@ -19935,12 +20726,12 @@ function closedBracketAt(state, pos) {
   });
   return found;
 }
-function nextChar(doc3, pos) {
-  let next = doc3.sliceString(pos, pos + 2);
+function nextChar(doc2, pos) {
+  let next = doc2.sliceString(pos, pos + 2);
   return next.slice(0, codePointSize2(codePointAt2(next, 0)));
 }
-function prevChar(doc3, pos) {
-  let prev = doc3.sliceString(pos - 2, pos);
+function prevChar(doc2, pos) {
+  let prev = doc2.sliceString(pos - 2, pos);
   return codePointSize2(codePointAt2(prev, 0)) == prev.length ? prev : prev.slice(1);
 }
 function handleOpen(state, open, close, closeBefore) {
@@ -20073,8699 +20864,6 @@ var completionKeymap = [
   { key: "PageUp", run: /* @__PURE__ */ moveCompletionSelection(false, "page") },
   { key: "Enter", run: acceptCompletion }
 ];
-
-// node_modules/crelt/index.js
-function crelt() {
-  var elt2 = arguments[0];
-  if (typeof elt2 == "string") elt2 = document.createElement(elt2);
-  var i2 = 1, next = arguments[1];
-  if (next && typeof next == "object" && next.nodeType == null && !Array.isArray(next)) {
-    for (var name2 in next) if (Object.prototype.hasOwnProperty.call(next, name2)) {
-      var value = next[name2];
-      if (typeof value == "string") elt2.setAttribute(name2, value);
-      else if (value != null) elt2[name2] = value;
-    }
-    i2++;
-  }
-  for (; i2 < arguments.length; i2++) add(elt2, arguments[i2]);
-  return elt2;
-}
-function add(elt2, child) {
-  if (typeof child == "string") {
-    elt2.appendChild(document.createTextNode(child));
-  } else if (child == null) {
-  } else if (child.nodeType != null) {
-    elt2.appendChild(child);
-  } else if (Array.isArray(child)) {
-    for (var i2 = 0; i2 < child.length; i2++) add(elt2, child[i2]);
-  } else {
-    throw new RangeError("Unsupported child node: " + child);
-  }
-}
-
-// node_modules/@codemirror/search/node_modules/@codemirror/view/dist/index.js
-var nav2 = typeof navigator != "undefined" ? navigator : { userAgent: "", vendor: "", platform: "" };
-var doc2 = typeof document != "undefined" ? document : { documentElement: { style: {} } };
-var ie_edge2 = /* @__PURE__ */ /Edge\/(\d+)/.exec(nav2.userAgent);
-var ie_upto102 = /* @__PURE__ */ /MSIE \d/.test(nav2.userAgent);
-var ie_11up2 = /* @__PURE__ */ /Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(nav2.userAgent);
-var ie3 = !!(ie_upto102 || ie_11up2 || ie_edge2);
-var gecko2 = !ie3 && /* @__PURE__ */ /gecko\/(\d+)/i.test(nav2.userAgent);
-var chrome2 = !ie3 && /* @__PURE__ */ /Chrome\/(\d+)/.exec(nav2.userAgent);
-var webkit2 = "webkitFontSmoothing" in doc2.documentElement.style;
-var safari2 = !ie3 && /* @__PURE__ */ /Apple Computer/.test(nav2.vendor);
-var ios2 = safari2 && (/* @__PURE__ */ /Mobile\/\w+/.test(nav2.userAgent) || nav2.maxTouchPoints > 2);
-var browser2 = {
-  mac: ios2 || /* @__PURE__ */ /Mac/.test(nav2.platform),
-  windows: /* @__PURE__ */ /Win/.test(nav2.platform),
-  linux: /* @__PURE__ */ /Linux|X11/.test(nav2.platform),
-  ie: ie3,
-  ie_version: ie_upto102 ? doc2.documentMode || 6 : ie_11up2 ? +ie_11up2[1] : ie_edge2 ? +ie_edge2[1] : 0,
-  gecko: gecko2,
-  gecko_version: gecko2 ? +(/* @__PURE__ */ /Firefox\/(\d+)/.exec(nav2.userAgent) || [0, 0])[1] : 0,
-  chrome: !!chrome2,
-  chrome_version: chrome2 ? +chrome2[1] : 0,
-  ios: ios2,
-  android: /* @__PURE__ */ /Android\b/.test(nav2.userAgent),
-  webkit: webkit2,
-  webkit_version: webkit2 ? +(/* @__PURE__ */ /\bAppleWebKit\/(\d+)/.exec(nav2.userAgent) || [0, 0])[1] : 0,
-  safari: safari2,
-  safari_version: safari2 ? +(/* @__PURE__ */ /\bVersion\/(\d+(\.\d+)?)/.exec(nav2.userAgent) || [0, 0])[1] : 0,
-  tabSize: doc2.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
-};
-function combineAttrs2(source, target) {
-  for (let name2 in source) {
-    if (name2 == "class" && target.class)
-      target.class += " " + source.class;
-    else if (name2 == "style" && target.style)
-      target.style += ";" + source.style;
-    else
-      target[name2] = source[name2];
-  }
-  return target;
-}
-var noAttrs3 = /* @__PURE__ */ Object.create(null);
-function attrsEq2(a, b, ignore) {
-  if (a == b)
-    return true;
-  if (!a)
-    a = noAttrs3;
-  if (!b)
-    b = noAttrs3;
-  let keysA = Object.keys(a), keysB = Object.keys(b);
-  if (keysA.length - (ignore && keysA.indexOf(ignore) > -1 ? 1 : 0) != keysB.length - (ignore && keysB.indexOf(ignore) > -1 ? 1 : 0))
-    return false;
-  for (let key of keysA) {
-    if (key != ignore && (keysB.indexOf(key) == -1 || a[key] !== b[key]))
-      return false;
-  }
-  return true;
-}
-function setAttrs(dom, attrs) {
-  for (let i2 = dom.attributes.length - 1; i2 >= 0; i2--) {
-    let name2 = dom.attributes[i2].name;
-    if (attrs[name2] == null)
-      dom.removeAttribute(name2);
-  }
-  for (let name2 in attrs) {
-    let value = attrs[name2];
-    if (name2 == "style")
-      dom.style.cssText = value;
-    else if (dom.getAttribute(name2) != value)
-      dom.setAttribute(name2, value);
-  }
-}
-function updateAttrs2(dom, prev, attrs) {
-  let changed = false;
-  if (prev) {
-    for (let name2 in prev)
-      if (!(attrs && name2 in attrs)) {
-        changed = true;
-        if (name2 == "style")
-          dom.style.cssText = "";
-        else
-          dom.removeAttribute(name2);
-      }
-  }
-  if (attrs) {
-    for (let name2 in attrs)
-      if (!(prev && prev[name2] == attrs[name2])) {
-        changed = true;
-        if (name2 == "style")
-          dom.style.cssText = attrs[name2];
-        else
-          dom.setAttribute(name2, attrs[name2]);
-      }
-  }
-  return changed;
-}
-function getAttrs2(dom) {
-  let attrs = /* @__PURE__ */ Object.create(null);
-  for (let i2 = 0; i2 < dom.attributes.length; i2++) {
-    let attr = dom.attributes[i2];
-    attrs[attr.name] = attr.value;
-  }
-  return attrs;
-}
-var WidgetType2 = class {
-  /**
-  Compare this instance to another instance of the same type.
-  (TypeScript can't express this, but only instances of the same
-  specific class will be passed to this method.) This is used to
-  avoid redrawing widgets when they are replaced by a new
-  decoration of the same type. The default implementation just
-  returns `false`, which will cause new instances of the widget to
-  always be redrawn.
-  */
-  eq(widget) {
-    return false;
-  }
-  /**
-  Update a DOM element created by a widget of the same type (but
-  different, non-`eq` content) to reflect this widget. May return
-  true to indicate that it could update, false to indicate it
-  couldn't (in which case the widget will be redrawn). The default
-  implementation just returns false.
-  */
-  updateDOM(dom, view, from2) {
-    return false;
-  }
-  /**
-  @internal
-  */
-  compare(other) {
-    return this == other || this.constructor == other.constructor && this.eq(other);
-  }
-  /**
-  The estimated height this widget will have, to be used when
-  estimating the height of content that hasn't been drawn. May
-  return -1 to indicate you don't know. The default implementation
-  returns -1.
-  */
-  get estimatedHeight() {
-    return -1;
-  }
-  /**
-  For inline widgets that are displayed inline (as opposed to
-  `inline-block`) and introduce line breaks (through `<br>` tags
-  or textual newlines), this must indicate the amount of line
-  breaks they introduce. Defaults to 0.
-  */
-  get lineBreaks() {
-    return 0;
-  }
-  /**
-  Can be used to configure which kinds of events inside the widget
-  should be ignored by the editor. The default is to ignore all
-  events.
-  */
-  ignoreEvent(event) {
-    return true;
-  }
-  /**
-  Override the way screen coordinates for positions at/in the
-  widget are found. `pos` will be the offset into the widget, and
-  `side` the side of the position that is being queried—less than
-  zero for before, greater than zero for after, and zero for
-  directly at that position.
-  */
-  coordsAt(dom, pos, side) {
-    return null;
-  }
-  /**
-  @internal
-  */
-  get isHidden() {
-    return false;
-  }
-  /**
-  @internal
-  */
-  get editable() {
-    return false;
-  }
-  /**
-  This is called when the an instance of the widget is removed
-  from the editor view.
-  */
-  destroy(dom) {
-  }
-};
-var BlockType2 = /* @__PURE__ */ (function(BlockType3) {
-  BlockType3[BlockType3["Text"] = 0] = "Text";
-  BlockType3[BlockType3["WidgetBefore"] = 1] = "WidgetBefore";
-  BlockType3[BlockType3["WidgetAfter"] = 2] = "WidgetAfter";
-  BlockType3[BlockType3["WidgetRange"] = 3] = "WidgetRange";
-  return BlockType3;
-})(BlockType2 || (BlockType2 = {}));
-var Decoration2 = class extends RangeValue {
-  constructor(startSide, endSide, widget, spec) {
-    super();
-    this.startSide = startSide;
-    this.endSide = endSide;
-    this.widget = widget;
-    this.spec = spec;
-  }
-  /**
-  @internal
-  */
-  get heightRelevant() {
-    return false;
-  }
-  /**
-  Create a mark decoration, which influences the styling of the
-  content in its range. Nested mark decorations will cause nested
-  DOM elements to be created. Nesting order is determined by
-  precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), with
-  the higher-precedence decorations creating the inner DOM nodes.
-  Such elements are split on line boundaries and on the boundaries
-  of lower-precedence decorations.
-  */
-  static mark(spec) {
-    return new MarkDecoration2(spec);
-  }
-  /**
-  Create a widget decoration, which displays a DOM element at the
-  given position.
-  */
-  static widget(spec) {
-    let side = Math.max(-1e4, Math.min(1e4, spec.side || 0)), block = !!spec.block;
-    side += block && !spec.inlineOrder ? side > 0 ? 3e8 : -4e8 : side > 0 ? 1e8 : -1e8;
-    return new PointDecoration2(spec, side, side, block, spec.widget || null, false);
-  }
-  /**
-  Create a replace decoration which replaces the given range with
-  a widget, or simply hides it.
-  */
-  static replace(spec) {
-    let block = !!spec.block, startSide, endSide;
-    if (spec.isBlockGap) {
-      startSide = -5e8;
-      endSide = 4e8;
-    } else {
-      let { start, end } = getInclusive2(spec, block);
-      startSide = (start ? block ? -3e8 : -1 : 5e8) - 1;
-      endSide = (end ? block ? 2e8 : 1 : -6e8) + 1;
-    }
-    return new PointDecoration2(spec, startSide, endSide, block, spec.widget || null, true);
-  }
-  /**
-  Create a line decoration, which can add DOM attributes to the
-  line starting at the given position.
-  */
-  static line(spec) {
-    return new LineDecoration2(spec);
-  }
-  /**
-  Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
-  decorated range or ranges. If the ranges aren't already sorted,
-  pass `true` for `sort` to make the library sort them for you.
-  */
-  static set(of, sort = false) {
-    return RangeSet.of(of, sort);
-  }
-  /**
-  @internal
-  */
-  hasHeight() {
-    return this.widget ? this.widget.estimatedHeight > -1 : false;
-  }
-};
-Decoration2.none = RangeSet.empty;
-var MarkDecoration2 = class _MarkDecoration extends Decoration2 {
-  constructor(spec) {
-    let { start, end } = getInclusive2(spec);
-    super(start ? -1 : 5e8, end ? 1 : -6e8, null, spec);
-    this.tagName = spec.tagName || "span";
-    this.attrs = spec.class && spec.attributes ? combineAttrs2(spec.attributes, { class: spec.class }) : spec.class ? { class: spec.class } : spec.attributes || noAttrs3;
-  }
-  eq(other) {
-    return this == other || other instanceof _MarkDecoration && this.tagName == other.tagName && attrsEq2(this.attrs, other.attrs);
-  }
-  range(from2, to = from2) {
-    if (from2 >= to)
-      throw new RangeError("Mark decorations may not be empty");
-    return super.range(from2, to);
-  }
-};
-MarkDecoration2.prototype.point = false;
-var LineDecoration2 = class _LineDecoration extends Decoration2 {
-  constructor(spec) {
-    super(-2e8, -2e8, null, spec);
-  }
-  eq(other) {
-    return other instanceof _LineDecoration && this.spec.class == other.spec.class && attrsEq2(this.spec.attributes, other.spec.attributes);
-  }
-  range(from2, to = from2) {
-    if (to != from2)
-      throw new RangeError("Line decoration ranges must be zero-length");
-    return super.range(from2, to);
-  }
-};
-LineDecoration2.prototype.mapMode = MapMode.TrackBefore;
-LineDecoration2.prototype.point = true;
-var PointDecoration2 = class _PointDecoration extends Decoration2 {
-  constructor(spec, startSide, endSide, block, widget, isReplace) {
-    super(startSide, endSide, widget, spec);
-    this.block = block;
-    this.isReplace = isReplace;
-    this.mapMode = !block ? MapMode.TrackDel : startSide <= 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
-  }
-  // Only relevant when this.block == true
-  get type() {
-    return this.startSide != this.endSide ? BlockType2.WidgetRange : this.startSide <= 0 ? BlockType2.WidgetBefore : BlockType2.WidgetAfter;
-  }
-  get heightRelevant() {
-    return this.block || !!this.widget && (this.widget.estimatedHeight >= 5 || this.widget.lineBreaks > 0);
-  }
-  eq(other) {
-    return other instanceof _PointDecoration && widgetsEq2(this.widget, other.widget) && this.block == other.block && this.startSide == other.startSide && this.endSide == other.endSide;
-  }
-  range(from2, to = from2) {
-    if (this.isReplace && (from2 > to || from2 == to && this.startSide > 0 && this.endSide <= 0))
-      throw new RangeError("Invalid range for replacement decoration");
-    if (!this.isReplace && to != from2)
-      throw new RangeError("Widget decorations can only have zero-length ranges");
-    return super.range(from2, to);
-  }
-};
-PointDecoration2.prototype.point = true;
-function getInclusive2(spec, block = false) {
-  let { inclusiveStart: start, inclusiveEnd: end } = spec;
-  if (start == null)
-    start = spec.inclusive;
-  if (end == null)
-    end = spec.inclusive;
-  return { start: start !== null && start !== void 0 ? start : block, end: end !== null && end !== void 0 ? end : block };
-}
-function widgetsEq2(a, b) {
-  return a == b || !!(a && b && a.compare(b));
-}
-function addRange2(from2, to, ranges, margin = 0) {
-  let last = ranges.length - 1;
-  if (last >= 0 && ranges[last] + margin >= from2)
-    ranges[last] = Math.max(ranges[last], to);
-  else
-    ranges.push(from2, to);
-}
-var BlockWrapper = class _BlockWrapper extends RangeValue {
-  constructor(tagName2, attributes, rank) {
-    super();
-    this.tagName = tagName2;
-    this.attributes = attributes;
-    this.rank = rank;
-  }
-  eq(other) {
-    return other == this || other instanceof _BlockWrapper && this.tagName == other.tagName && attrsEq2(this.attributes, other.attributes);
-  }
-  /**
-  Create a block wrapper object with the given tag name and
-  attributes.
-  */
-  static create(spec) {
-    return new _BlockWrapper(spec.tagName, spec.attributes || noAttrs3, spec.rank == null ? 50 : Math.max(0, Math.min(spec.rank, 100)));
-  }
-  /**
-  Create a range set from the given block wrapper ranges.
-  */
-  static set(of, sort = false) {
-    return RangeSet.of(of, sort);
-  }
-};
-BlockWrapper.prototype.startSide = BlockWrapper.prototype.endSide = -1;
-function getSelection2(root) {
-  let target;
-  if (root.nodeType == 11) {
-    target = root.getSelection ? root : root.ownerDocument;
-  } else {
-    target = root;
-  }
-  return target.getSelection();
-}
-function contains2(dom, node) {
-  return node ? dom == node || dom.contains(node.nodeType != 1 ? node.parentNode : node) : false;
-}
-function hasSelection2(dom, selection2) {
-  if (!selection2.anchorNode)
-    return false;
-  try {
-    return contains2(dom, selection2.anchorNode);
-  } catch (_) {
-    return false;
-  }
-}
-function clientRectsFor2(dom) {
-  if (dom.nodeType == 3)
-    return textRange2(dom, 0, dom.nodeValue.length).getClientRects();
-  else if (dom.nodeType == 1)
-    return dom.getClientRects();
-  else
-    return [];
-}
-function isEquivalentPosition2(node, off, targetNode, targetOff) {
-  return targetNode ? scanFor2(node, off, targetNode, targetOff, -1) || scanFor2(node, off, targetNode, targetOff, 1) : false;
-}
-function domIndex2(node) {
-  for (var index = 0; ; index++) {
-    node = node.previousSibling;
-    if (!node)
-      return index;
-  }
-}
-function isBlockElement2(node) {
-  return node.nodeType == 1 && /^(DIV|P|LI|UL|OL|BLOCKQUOTE|DD|DT|H\d|SECTION|PRE)$/.test(node.nodeName);
-}
-function scanFor2(node, off, targetNode, targetOff, dir) {
-  for (; ; ) {
-    if (node == targetNode && off == targetOff)
-      return true;
-    if (off == (dir < 0 ? 0 : maxOffset2(node))) {
-      if (node.nodeName == "DIV")
-        return false;
-      let parent = node.parentNode;
-      if (!parent || parent.nodeType != 1)
-        return false;
-      off = domIndex2(node) + (dir < 0 ? 0 : 1);
-      node = parent;
-    } else if (node.nodeType == 1) {
-      node = node.childNodes[off + (dir < 0 ? -1 : 0)];
-      if (node.nodeType == 1 && node.contentEditable == "false")
-        return false;
-      off = dir < 0 ? maxOffset2(node) : 0;
-    } else {
-      return false;
-    }
-  }
-}
-function maxOffset2(node) {
-  return node.nodeType == 3 ? node.nodeValue.length : node.childNodes.length;
-}
-function flattenRect2(rect, left) {
-  let x = left ? rect.left : rect.right;
-  return { left: x, right: x, top: rect.top, bottom: rect.bottom };
-}
-function windowRect2(win) {
-  let vp = win.visualViewport;
-  if (vp)
-    return {
-      left: 0,
-      right: vp.width,
-      top: 0,
-      bottom: vp.height
-    };
-  return {
-    left: 0,
-    right: win.innerWidth,
-    top: 0,
-    bottom: win.innerHeight
-  };
-}
-function getScale2(elt2, rect) {
-  let scaleX = rect.width / elt2.offsetWidth;
-  let scaleY = rect.height / elt2.offsetHeight;
-  if (scaleX > 0.995 && scaleX < 1.005 || !isFinite(scaleX) || Math.abs(rect.width - elt2.offsetWidth) < 1)
-    scaleX = 1;
-  if (scaleY > 0.995 && scaleY < 1.005 || !isFinite(scaleY) || Math.abs(rect.height - elt2.offsetHeight) < 1)
-    scaleY = 1;
-  return { scaleX, scaleY };
-}
-function scrollRectIntoView2(dom, rect, side, x, y, xMargin, yMargin, ltr) {
-  let doc3 = dom.ownerDocument, win = doc3.defaultView || window;
-  for (let cur2 = dom, stop = false; cur2 && !stop; ) {
-    if (cur2.nodeType == 1) {
-      let bounding, top2 = cur2 == doc3.body;
-      let scaleX = 1, scaleY = 1;
-      if (top2) {
-        bounding = windowRect2(win);
-      } else {
-        if (/^(fixed|sticky)$/.test(getComputedStyle(cur2).position))
-          stop = true;
-        if (cur2.scrollHeight <= cur2.clientHeight && cur2.scrollWidth <= cur2.clientWidth) {
-          cur2 = cur2.assignedSlot || cur2.parentNode;
-          continue;
-        }
-        let rect2 = cur2.getBoundingClientRect();
-        ({ scaleX, scaleY } = getScale2(cur2, rect2));
-        bounding = {
-          left: rect2.left,
-          right: rect2.left + cur2.clientWidth * scaleX,
-          top: rect2.top,
-          bottom: rect2.top + cur2.clientHeight * scaleY
-        };
-      }
-      let moveX = 0, moveY = 0;
-      if (y == "nearest") {
-        if (rect.top < bounding.top + yMargin) {
-          moveY = rect.top - (bounding.top + yMargin);
-          if (side > 0 && rect.bottom > bounding.bottom + moveY)
-            moveY = rect.bottom - bounding.bottom + yMargin;
-        } else if (rect.bottom > bounding.bottom - yMargin) {
-          moveY = rect.bottom - bounding.bottom + yMargin;
-          if (side < 0 && rect.top - moveY < bounding.top)
-            moveY = rect.top - (bounding.top + yMargin);
-        }
-      } else {
-        let rectHeight = rect.bottom - rect.top, boundingHeight = bounding.bottom - bounding.top;
-        let targetTop = y == "center" && rectHeight <= boundingHeight ? rect.top + rectHeight / 2 - boundingHeight / 2 : y == "start" || y == "center" && side < 0 ? rect.top - yMargin : rect.bottom - boundingHeight + yMargin;
-        moveY = targetTop - bounding.top;
-      }
-      if (x == "nearest") {
-        if (rect.left < bounding.left + xMargin) {
-          moveX = rect.left - (bounding.left + xMargin);
-          if (side > 0 && rect.right > bounding.right + moveX)
-            moveX = rect.right - bounding.right + xMargin;
-        } else if (rect.right > bounding.right - xMargin) {
-          moveX = rect.right - bounding.right + xMargin;
-          if (side < 0 && rect.left < bounding.left + moveX)
-            moveX = rect.left - (bounding.left + xMargin);
-        }
-      } else {
-        let targetLeft = x == "center" ? rect.left + (rect.right - rect.left) / 2 - (bounding.right - bounding.left) / 2 : x == "start" == ltr ? rect.left - xMargin : rect.right - (bounding.right - bounding.left) + xMargin;
-        moveX = targetLeft - bounding.left;
-      }
-      if (moveX || moveY) {
-        if (top2) {
-          win.scrollBy(moveX, moveY);
-        } else {
-          let movedX = 0, movedY = 0;
-          if (moveY) {
-            let start = cur2.scrollTop;
-            cur2.scrollTop += moveY / scaleY;
-            movedY = (cur2.scrollTop - start) * scaleY;
-          }
-          if (moveX) {
-            let start = cur2.scrollLeft;
-            cur2.scrollLeft += moveX / scaleX;
-            movedX = (cur2.scrollLeft - start) * scaleX;
-          }
-          rect = {
-            left: rect.left - movedX,
-            top: rect.top - movedY,
-            right: rect.right - movedX,
-            bottom: rect.bottom - movedY
-          };
-          if (movedX && Math.abs(movedX - moveX) < 1)
-            x = "nearest";
-          if (movedY && Math.abs(movedY - moveY) < 1)
-            y = "nearest";
-        }
-      }
-      if (top2)
-        break;
-      if (rect.top < bounding.top || rect.bottom > bounding.bottom || rect.left < bounding.left || rect.right > bounding.right)
-        rect = {
-          left: Math.max(rect.left, bounding.left),
-          right: Math.min(rect.right, bounding.right),
-          top: Math.max(rect.top, bounding.top),
-          bottom: Math.min(rect.bottom, bounding.bottom)
-        };
-      cur2 = cur2.assignedSlot || cur2.parentNode;
-    } else if (cur2.nodeType == 11) {
-      cur2 = cur2.host;
-    } else {
-      break;
-    }
-  }
-}
-function scrollableParents2(dom, getX = true) {
-  let doc3 = dom.ownerDocument, x = null, y = null;
-  for (let cur2 = dom.parentNode; cur2; ) {
-    if (cur2 == doc3.body || (!getX || x) && y) {
-      break;
-    } else if (cur2.nodeType == 1) {
-      if (!y && cur2.scrollHeight > cur2.clientHeight)
-        y = cur2;
-      if (getX && !x && cur2.scrollWidth > cur2.clientWidth)
-        x = cur2;
-      cur2 = cur2.assignedSlot || cur2.parentNode;
-    } else if (cur2.nodeType == 11) {
-      cur2 = cur2.host;
-    } else {
-      break;
-    }
-  }
-  return { x, y };
-}
-var DOMSelectionState2 = class {
-  constructor() {
-    this.anchorNode = null;
-    this.anchorOffset = 0;
-    this.focusNode = null;
-    this.focusOffset = 0;
-  }
-  eq(domSel) {
-    return this.anchorNode == domSel.anchorNode && this.anchorOffset == domSel.anchorOffset && this.focusNode == domSel.focusNode && this.focusOffset == domSel.focusOffset;
-  }
-  setRange(range) {
-    let { anchorNode, focusNode } = range;
-    this.set(anchorNode, Math.min(range.anchorOffset, anchorNode ? maxOffset2(anchorNode) : 0), focusNode, Math.min(range.focusOffset, focusNode ? maxOffset2(focusNode) : 0));
-  }
-  set(anchorNode, anchorOffset, focusNode, focusOffset) {
-    this.anchorNode = anchorNode;
-    this.anchorOffset = anchorOffset;
-    this.focusNode = focusNode;
-    this.focusOffset = focusOffset;
-  }
-};
-var preventScrollSupported2 = null;
-if (browser2.safari && browser2.safari_version >= 26)
-  preventScrollSupported2 = false;
-function focusPreventScroll2(dom) {
-  if (dom.setActive)
-    return dom.setActive();
-  if (preventScrollSupported2)
-    return dom.focus(preventScrollSupported2);
-  let stack = [];
-  for (let cur2 = dom; cur2; cur2 = cur2.parentNode) {
-    stack.push(cur2, cur2.scrollTop, cur2.scrollLeft);
-    if (cur2 == cur2.ownerDocument)
-      break;
-  }
-  dom.focus(preventScrollSupported2 == null ? {
-    get preventScroll() {
-      preventScrollSupported2 = { preventScroll: true };
-      return true;
-    }
-  } : void 0);
-  if (!preventScrollSupported2) {
-    preventScrollSupported2 = false;
-    for (let i2 = 0; i2 < stack.length; ) {
-      let elt2 = stack[i2++], top2 = stack[i2++], left = stack[i2++];
-      if (elt2.scrollTop != top2)
-        elt2.scrollTop = top2;
-      if (elt2.scrollLeft != left)
-        elt2.scrollLeft = left;
-    }
-  }
-}
-var scratchRange2;
-function textRange2(node, from2, to = from2) {
-  let range = scratchRange2 || (scratchRange2 = document.createRange());
-  range.setEnd(node, to);
-  range.setStart(node, from2);
-  return range;
-}
-function dispatchKey2(elt2, name2, code2, mods) {
-  let options = { key: name2, code: name2, keyCode: code2, which: code2, cancelable: true };
-  if (mods)
-    ({ altKey: options.altKey, ctrlKey: options.ctrlKey, shiftKey: options.shiftKey, metaKey: options.metaKey } = mods);
-  let down = new KeyboardEvent("keydown", options);
-  down.synthetic = true;
-  elt2.dispatchEvent(down);
-  let up = new KeyboardEvent("keyup", options);
-  up.synthetic = true;
-  elt2.dispatchEvent(up);
-  return down.defaultPrevented || up.defaultPrevented;
-}
-function getRoot2(node) {
-  while (node) {
-    if (node && (node.nodeType == 9 || node.nodeType == 11 && node.host))
-      return node;
-    node = node.assignedSlot || node.parentNode;
-  }
-  return null;
-}
-function atElementStart2(doc3, selection2) {
-  let node = selection2.focusNode, offset = selection2.focusOffset;
-  if (!node || selection2.anchorNode != node || selection2.anchorOffset != offset)
-    return false;
-  offset = Math.min(offset, maxOffset2(node));
-  for (; ; ) {
-    if (offset) {
-      if (node.nodeType != 1)
-        return false;
-      let prev = node.childNodes[offset - 1];
-      if (prev.contentEditable == "false")
-        offset--;
-      else {
-        node = prev;
-        offset = maxOffset2(node);
-      }
-    } else if (node == doc3) {
-      return true;
-    } else {
-      offset = domIndex2(node);
-      node = node.parentNode;
-    }
-  }
-}
-function isScrolledToBottom2(elt2) {
-  if (elt2 instanceof Window)
-    return elt2.pageYOffset > Math.max(0, elt2.document.documentElement.scrollHeight - elt2.innerHeight - 4);
-  return elt2.scrollTop > Math.max(1, elt2.scrollHeight - elt2.clientHeight - 4);
-}
-function textNodeBefore2(startNode, startOffset) {
-  for (let node = startNode, offset = startOffset; ; ) {
-    if (node.nodeType == 3 && offset > 0) {
-      return { node, offset };
-    } else if (node.nodeType == 1 && offset > 0) {
-      if (node.contentEditable == "false")
-        return null;
-      node = node.childNodes[offset - 1];
-      offset = maxOffset2(node);
-    } else if (node.parentNode && !isBlockElement2(node)) {
-      offset = domIndex2(node);
-      node = node.parentNode;
-    } else {
-      return null;
-    }
-  }
-}
-function textNodeAfter2(startNode, startOffset) {
-  for (let node = startNode, offset = startOffset; ; ) {
-    if (node.nodeType == 3 && offset < node.nodeValue.length) {
-      return { node, offset };
-    } else if (node.nodeType == 1 && offset < node.childNodes.length) {
-      if (node.contentEditable == "false")
-        return null;
-      node = node.childNodes[offset];
-      offset = 0;
-    } else if (node.parentNode && !isBlockElement2(node)) {
-      offset = domIndex2(node) + 1;
-      node = node.parentNode;
-    } else {
-      return null;
-    }
-  }
-}
-var DOMPos2 = class _DOMPos {
-  constructor(node, offset, precise = true) {
-    this.node = node;
-    this.offset = offset;
-    this.precise = precise;
-  }
-  static before(dom, precise) {
-    return new _DOMPos(dom.parentNode, domIndex2(dom), precise);
-  }
-  static after(dom, precise) {
-    return new _DOMPos(dom.parentNode, domIndex2(dom) + 1, precise);
-  }
-};
-var Direction2 = /* @__PURE__ */ (function(Direction3) {
-  Direction3[Direction3["LTR"] = 0] = "LTR";
-  Direction3[Direction3["RTL"] = 1] = "RTL";
-  return Direction3;
-})(Direction2 || (Direction2 = {}));
-var LTR2 = Direction2.LTR;
-var RTL2 = Direction2.RTL;
-function dec2(str) {
-  let result = [];
-  for (let i2 = 0; i2 < str.length; i2++)
-    result.push(1 << +str[i2]);
-  return result;
-}
-var LowTypes2 = /* @__PURE__ */ dec2("88888888888888888888888888888888888666888888787833333333337888888000000000000000000000000008888880000000000000000000000000088888888888888888888888888888888888887866668888088888663380888308888800000000000000000000000800000000000000000000000000000008");
-var ArabicTypes2 = /* @__PURE__ */ dec2("4444448826627288999999999992222222222222222222222222222222222222222222222229999999999999999999994444444444644222822222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222999999949999999229989999223333333333");
-var Brackets2 = /* @__PURE__ */ Object.create(null);
-var BracketStack2 = [];
-for (let p of ["()", "[]", "{}"]) {
-  let l = /* @__PURE__ */ p.charCodeAt(0), r = /* @__PURE__ */ p.charCodeAt(1);
-  Brackets2[l] = r;
-  Brackets2[r] = -l;
-}
-function charType2(ch) {
-  return ch <= 247 ? LowTypes2[ch] : 1424 <= ch && ch <= 1524 ? 2 : 1536 <= ch && ch <= 1785 ? ArabicTypes2[ch - 1536] : 1774 <= ch && ch <= 2220 ? 4 : 8192 <= ch && ch <= 8204 ? 256 : 64336 <= ch && ch <= 65023 ? 4 : 1;
-}
-var BidiRE2 = /[\u0590-\u05f4\u0600-\u06ff\u0700-\u08ac\ufb50-\ufdff]/;
-var BidiSpan2 = class {
-  /**
-  The direction of this span.
-  */
-  get dir() {
-    return this.level % 2 ? RTL2 : LTR2;
-  }
-  /**
-  @internal
-  */
-  constructor(from2, to, level) {
-    this.from = from2;
-    this.to = to;
-    this.level = level;
-  }
-  /**
-  @internal
-  */
-  side(end, dir) {
-    return this.dir == dir == end ? this.to : this.from;
-  }
-  /**
-  @internal
-  */
-  forward(forward, dir) {
-    return forward == (this.dir == dir);
-  }
-  /**
-  @internal
-  */
-  static find(order, index, level, assoc) {
-    let maybe = -1;
-    for (let i2 = 0; i2 < order.length; i2++) {
-      let span = order[i2];
-      if (span.from <= index && span.to >= index) {
-        if (span.level == level)
-          return i2;
-        if (maybe < 0 || (assoc != 0 ? assoc < 0 ? span.from < index : span.to > index : order[maybe].level > span.level))
-          maybe = i2;
-      }
-    }
-    if (maybe < 0)
-      throw new RangeError("Index out of range");
-    return maybe;
-  }
-};
-function isolatesEq2(a, b) {
-  if (a.length != b.length)
-    return false;
-  for (let i2 = 0; i2 < a.length; i2++) {
-    let iA = a[i2], iB = b[i2];
-    if (iA.from != iB.from || iA.to != iB.to || iA.direction != iB.direction || !isolatesEq2(iA.inner, iB.inner))
-      return false;
-  }
-  return true;
-}
-var types2 = [];
-function computeCharTypes2(line, rFrom, rTo, isolates, outerType) {
-  for (let iI = 0; iI <= isolates.length; iI++) {
-    let from2 = iI ? isolates[iI - 1].to : rFrom, to = iI < isolates.length ? isolates[iI].from : rTo;
-    let prevType = iI ? 256 : outerType;
-    for (let i2 = from2, prev = prevType, prevStrong = prevType; i2 < to; i2++) {
-      let type = charType2(line.charCodeAt(i2));
-      if (type == 512)
-        type = prev;
-      else if (type == 8 && prevStrong == 4)
-        type = 16;
-      types2[i2] = type == 4 ? 2 : type;
-      if (type & 7)
-        prevStrong = type;
-      prev = type;
-    }
-    for (let i2 = from2, prev = prevType, prevStrong = prevType; i2 < to; i2++) {
-      let type = types2[i2];
-      if (type == 128) {
-        if (i2 < to - 1 && prev == types2[i2 + 1] && prev & 24)
-          type = types2[i2] = prev;
-        else
-          types2[i2] = 256;
-      } else if (type == 64) {
-        let end = i2 + 1;
-        while (end < to && types2[end] == 64)
-          end++;
-        let replace3 = i2 && prev == 8 || end < rTo && types2[end] == 8 ? prevStrong == 1 ? 1 : 8 : 256;
-        for (let j = i2; j < end; j++)
-          types2[j] = replace3;
-        i2 = end - 1;
-      } else if (type == 8 && prevStrong == 1) {
-        types2[i2] = 1;
-      }
-      prev = type;
-      if (type & 7)
-        prevStrong = type;
-    }
-  }
-}
-function processBracketPairs2(line, rFrom, rTo, isolates, outerType) {
-  let oppositeType = outerType == 1 ? 2 : 1;
-  for (let iI = 0, sI = 0, context = 0; iI <= isolates.length; iI++) {
-    let from2 = iI ? isolates[iI - 1].to : rFrom, to = iI < isolates.length ? isolates[iI].from : rTo;
-    for (let i2 = from2, ch, br, type; i2 < to; i2++) {
-      if (br = Brackets2[ch = line.charCodeAt(i2)]) {
-        if (br < 0) {
-          for (let sJ = sI - 3; sJ >= 0; sJ -= 3) {
-            if (BracketStack2[sJ + 1] == -br) {
-              let flags = BracketStack2[sJ + 2];
-              let type2 = flags & 2 ? outerType : !(flags & 4) ? 0 : flags & 1 ? oppositeType : outerType;
-              if (type2)
-                types2[i2] = types2[BracketStack2[sJ]] = type2;
-              sI = sJ;
-              break;
-            }
-          }
-        } else if (BracketStack2.length == 189) {
-          break;
-        } else {
-          BracketStack2[sI++] = i2;
-          BracketStack2[sI++] = ch;
-          BracketStack2[sI++] = context;
-        }
-      } else if ((type = types2[i2]) == 2 || type == 1) {
-        let embed = type == outerType;
-        context = embed ? 0 : 1;
-        for (let sJ = sI - 3; sJ >= 0; sJ -= 3) {
-          let cur2 = BracketStack2[sJ + 2];
-          if (cur2 & 2)
-            break;
-          if (embed) {
-            BracketStack2[sJ + 2] |= 2;
-          } else {
-            if (cur2 & 4)
-              break;
-            BracketStack2[sJ + 2] |= 4;
-          }
-        }
-      }
-    }
-  }
-}
-function processNeutrals2(rFrom, rTo, isolates, outerType) {
-  for (let iI = 0, prev = outerType; iI <= isolates.length; iI++) {
-    let from2 = iI ? isolates[iI - 1].to : rFrom, to = iI < isolates.length ? isolates[iI].from : rTo;
-    for (let i2 = from2; i2 < to; ) {
-      let type = types2[i2];
-      if (type == 256) {
-        let end = i2 + 1;
-        for (; ; ) {
-          if (end == to) {
-            if (iI == isolates.length)
-              break;
-            end = isolates[iI++].to;
-            to = iI < isolates.length ? isolates[iI].from : rTo;
-          } else if (types2[end] == 256) {
-            end++;
-          } else {
-            break;
-          }
-        }
-        let beforeL = prev == 1;
-        let afterL = (end < rTo ? types2[end] : outerType) == 1;
-        let replace3 = beforeL == afterL ? beforeL ? 1 : 2 : outerType;
-        for (let j = end, jI = iI, fromJ = jI ? isolates[jI - 1].to : rFrom; j > i2; ) {
-          if (j == fromJ) {
-            j = isolates[--jI].from;
-            fromJ = jI ? isolates[jI - 1].to : rFrom;
-          }
-          types2[--j] = replace3;
-        }
-        i2 = end;
-      } else {
-        prev = type;
-        i2++;
-      }
-    }
-  }
-}
-function emitSpans2(line, from2, to, level, baseLevel, isolates, order) {
-  let ourType = level % 2 ? 2 : 1;
-  if (level % 2 == baseLevel % 2) {
-    for (let iCh = from2, iI = 0; iCh < to; ) {
-      let sameDir = true, isNum2 = false;
-      if (iI == isolates.length || iCh < isolates[iI].from) {
-        let next = types2[iCh];
-        if (next != ourType) {
-          sameDir = false;
-          isNum2 = next == 16;
-        }
-      }
-      let recurse = !sameDir && ourType == 1 ? [] : null;
-      let localLevel = sameDir ? level : level + 1;
-      let iScan = iCh;
-      run: for (; ; ) {
-        if (iI < isolates.length && iScan == isolates[iI].from) {
-          if (isNum2)
-            break run;
-          let iso = isolates[iI];
-          if (!sameDir)
-            for (let upto = iso.to, jI = iI + 1; ; ) {
-              if (upto == to)
-                break run;
-              if (jI < isolates.length && isolates[jI].from == upto)
-                upto = isolates[jI++].to;
-              else if (types2[upto] == ourType)
-                break run;
-              else
-                break;
-            }
-          iI++;
-          if (recurse) {
-            recurse.push(iso);
-          } else {
-            if (iso.from > iCh)
-              order.push(new BidiSpan2(iCh, iso.from, localLevel));
-            let dirSwap = iso.direction == LTR2 != !(localLevel % 2);
-            computeSectionOrder2(line, dirSwap ? level + 1 : level, baseLevel, iso.inner, iso.from, iso.to, order);
-            iCh = iso.to;
-          }
-          iScan = iso.to;
-        } else if (iScan == to || (sameDir ? types2[iScan] != ourType : types2[iScan] == ourType)) {
-          break;
-        } else {
-          iScan++;
-        }
-      }
-      if (recurse)
-        emitSpans2(line, iCh, iScan, level + 1, baseLevel, recurse, order);
-      else if (iCh < iScan)
-        order.push(new BidiSpan2(iCh, iScan, localLevel));
-      iCh = iScan;
-    }
-  } else {
-    for (let iCh = to, iI = isolates.length; iCh > from2; ) {
-      let sameDir = true, isNum2 = false;
-      if (!iI || iCh > isolates[iI - 1].to) {
-        let next = types2[iCh - 1];
-        if (next != ourType) {
-          sameDir = false;
-          isNum2 = next == 16;
-        }
-      }
-      let recurse = !sameDir && ourType == 1 ? [] : null;
-      let localLevel = sameDir ? level : level + 1;
-      let iScan = iCh;
-      run: for (; ; ) {
-        if (iI && iScan == isolates[iI - 1].to) {
-          if (isNum2)
-            break run;
-          let iso = isolates[--iI];
-          if (!sameDir)
-            for (let upto = iso.from, jI = iI; ; ) {
-              if (upto == from2)
-                break run;
-              if (jI && isolates[jI - 1].to == upto)
-                upto = isolates[--jI].from;
-              else if (types2[upto - 1] == ourType)
-                break run;
-              else
-                break;
-            }
-          if (recurse) {
-            recurse.push(iso);
-          } else {
-            if (iso.to < iCh)
-              order.push(new BidiSpan2(iso.to, iCh, localLevel));
-            let dirSwap = iso.direction == LTR2 != !(localLevel % 2);
-            computeSectionOrder2(line, dirSwap ? level + 1 : level, baseLevel, iso.inner, iso.from, iso.to, order);
-            iCh = iso.from;
-          }
-          iScan = iso.from;
-        } else if (iScan == from2 || (sameDir ? types2[iScan - 1] != ourType : types2[iScan - 1] == ourType)) {
-          break;
-        } else {
-          iScan--;
-        }
-      }
-      if (recurse)
-        emitSpans2(line, iScan, iCh, level + 1, baseLevel, recurse, order);
-      else if (iScan < iCh)
-        order.push(new BidiSpan2(iScan, iCh, localLevel));
-      iCh = iScan;
-    }
-  }
-}
-function computeSectionOrder2(line, level, baseLevel, isolates, from2, to, order) {
-  let outerType = level % 2 ? 2 : 1;
-  computeCharTypes2(line, from2, to, isolates, outerType);
-  processBracketPairs2(line, from2, to, isolates, outerType);
-  processNeutrals2(from2, to, isolates, outerType);
-  emitSpans2(line, from2, to, level, baseLevel, isolates, order);
-}
-function computeOrder2(line, direction, isolates) {
-  if (!line)
-    return [new BidiSpan2(0, 0, direction == RTL2 ? 1 : 0)];
-  if (direction == LTR2 && !isolates.length && !BidiRE2.test(line))
-    return trivialOrder2(line.length);
-  if (isolates.length)
-    while (line.length > types2.length)
-      types2[types2.length] = 256;
-  let order = [], level = direction == LTR2 ? 0 : 1;
-  computeSectionOrder2(line, level, level, isolates, 0, line.length, order);
-  return order;
-}
-function trivialOrder2(length) {
-  return [new BidiSpan2(0, length, 0)];
-}
-var movedOver2 = "";
-function moveVisually2(line, order, dir, start, forward) {
-  var _a2;
-  let startIndex = start.head - line.from;
-  let spanI = BidiSpan2.find(order, startIndex, (_a2 = start.bidiLevel) !== null && _a2 !== void 0 ? _a2 : -1, start.assoc);
-  let span = order[spanI], spanEnd = span.side(forward, dir);
-  if (startIndex == spanEnd) {
-    let nextI = spanI += forward ? 1 : -1;
-    if (nextI < 0 || nextI >= order.length)
-      return null;
-    span = order[spanI = nextI];
-    startIndex = span.side(!forward, dir);
-    spanEnd = span.side(forward, dir);
-  }
-  let nextIndex = findClusterBreak2(line.text, startIndex, span.forward(forward, dir));
-  if (nextIndex < span.from || nextIndex > span.to)
-    nextIndex = spanEnd;
-  movedOver2 = line.text.slice(Math.min(startIndex, nextIndex), Math.max(startIndex, nextIndex));
-  let nextSpan = spanI == (forward ? order.length - 1 : 0) ? null : order[spanI + (forward ? 1 : -1)];
-  if (nextSpan && nextIndex == spanEnd && nextSpan.level + (forward ? 0 : 1) < span.level)
-    return EditorSelection.cursor(nextSpan.side(!forward, dir) + line.from, nextSpan.forward(forward, dir) ? 1 : -1, nextSpan.level);
-  return EditorSelection.cursor(nextIndex + line.from, span.forward(forward, dir) ? -1 : 1, span.level);
-}
-function autoDirection2(text, from2, to) {
-  for (let i2 = from2; i2 < to; i2++) {
-    let type = charType2(text.charCodeAt(i2));
-    if (type == 1)
-      return LTR2;
-    if (type == 2 || type == 4)
-      return RTL2;
-  }
-  return LTR2;
-}
-var clickAddsSelectionRange2 = /* @__PURE__ */ Facet.define();
-var dragMovesSelection$12 = /* @__PURE__ */ Facet.define();
-var mouseSelectionStyle2 = /* @__PURE__ */ Facet.define();
-var exceptionSink2 = /* @__PURE__ */ Facet.define();
-var updateListener2 = /* @__PURE__ */ Facet.define();
-var inputHandler3 = /* @__PURE__ */ Facet.define();
-var focusChangeEffect2 = /* @__PURE__ */ Facet.define();
-var clipboardInputFilter2 = /* @__PURE__ */ Facet.define();
-var clipboardOutputFilter2 = /* @__PURE__ */ Facet.define();
-var perLineTextDirection2 = /* @__PURE__ */ Facet.define({
-  combine: (values2) => values2.some((x) => x)
-});
-var nativeSelectionHidden2 = /* @__PURE__ */ Facet.define({
-  combine: (values2) => values2.some((x) => x)
-});
-var scrollHandler2 = /* @__PURE__ */ Facet.define();
-var ScrollTarget2 = class _ScrollTarget {
-  constructor(range, y, x, yMargin, xMargin, isSnapshot = false) {
-    this.range = range;
-    this.y = y;
-    this.x = x;
-    this.yMargin = yMargin;
-    this.xMargin = xMargin;
-    this.isSnapshot = isSnapshot;
-  }
-  map(changes) {
-    return changes.empty ? this : new _ScrollTarget(this.range.map(changes), this.y, this.x, this.yMargin, this.xMargin, this.isSnapshot);
-  }
-  clip(state) {
-    return this.range.to <= state.doc.length ? this : new _ScrollTarget(EditorSelection.cursor(state.doc.length), this.y, this.x, this.yMargin, this.xMargin, this.isSnapshot);
-  }
-};
-var scrollIntoView3 = /* @__PURE__ */ StateEffect.define({ map: (t2, ch) => t2.map(ch) });
-var setEditContextFormatting2 = /* @__PURE__ */ StateEffect.define();
-function logException2(state, exception, context) {
-  let handler = state.facet(exceptionSink2);
-  if (handler.length)
-    handler[0](exception);
-  else if (window.onerror && window.onerror(String(exception), context, void 0, void 0, exception)) ;
-  else if (context)
-    console.error(context + ":", exception);
-  else
-    console.error(exception);
-}
-var editable2 = /* @__PURE__ */ Facet.define({ combine: (values2) => values2.length ? values2[0] : true });
-var nextPluginID2 = 0;
-var viewPlugin2 = /* @__PURE__ */ Facet.define({
-  combine(plugins) {
-    return plugins.filter((p, i2) => {
-      for (let j = 0; j < i2; j++)
-        if (plugins[j].plugin == p.plugin)
-          return false;
-      return true;
-    });
-  }
-});
-var ViewPlugin2 = class _ViewPlugin {
-  constructor(id2, create, domEventHandlers, domEventObservers, buildExtensions) {
-    this.id = id2;
-    this.create = create;
-    this.domEventHandlers = domEventHandlers;
-    this.domEventObservers = domEventObservers;
-    this.baseExtensions = buildExtensions(this);
-    this.extension = this.baseExtensions.concat(viewPlugin2.of({ plugin: this, arg: void 0 }));
-  }
-  /**
-  Create an extension for this plugin with the given argument.
-  */
-  of(arg) {
-    return this.baseExtensions.concat(viewPlugin2.of({ plugin: this, arg }));
-  }
-  /**
-  Define a plugin from a constructor function that creates the
-  plugin's value, given an editor view.
-  */
-  static define(create, spec) {
-    const { eventHandlers, eventObservers, provide, decorations: deco } = spec || {};
-    return new _ViewPlugin(nextPluginID2++, create, eventHandlers, eventObservers, (plugin) => {
-      let ext = [];
-      if (deco)
-        ext.push(decorations2.of((view) => {
-          let pluginInst = view.plugin(plugin);
-          return pluginInst ? deco(pluginInst) : Decoration2.none;
-        }));
-      if (provide)
-        ext.push(provide(plugin));
-      return ext;
-    });
-  }
-  /**
-  Create a plugin for a class whose constructor takes a single
-  editor view as argument.
-  */
-  static fromClass(cls, spec) {
-    return _ViewPlugin.define((view, arg) => new cls(view, arg), spec);
-  }
-};
-var PluginInstance2 = class {
-  constructor(spec) {
-    this.spec = spec;
-    this.mustUpdate = null;
-    this.value = null;
-  }
-  get plugin() {
-    return this.spec && this.spec.plugin;
-  }
-  update(view) {
-    if (!this.value) {
-      if (this.spec) {
-        try {
-          this.value = this.spec.plugin.create(view, this.spec.arg);
-        } catch (e) {
-          logException2(view.state, e, "CodeMirror plugin crashed");
-          this.deactivate();
-        }
-      }
-    } else if (this.mustUpdate) {
-      let update = this.mustUpdate;
-      this.mustUpdate = null;
-      if (this.value.update) {
-        try {
-          this.value.update(update);
-        } catch (e) {
-          logException2(update.state, e, "CodeMirror plugin crashed");
-          if (this.value.destroy)
-            try {
-              this.value.destroy();
-            } catch (_) {
-            }
-          this.deactivate();
-        }
-      }
-    }
-    return this;
-  }
-  destroy(view) {
-    var _a2;
-    if ((_a2 = this.value) === null || _a2 === void 0 ? void 0 : _a2.destroy) {
-      try {
-        this.value.destroy();
-      } catch (e) {
-        logException2(view.state, e, "CodeMirror plugin crashed");
-      }
-    }
-  }
-  deactivate() {
-    this.spec = this.value = null;
-  }
-};
-var editorAttributes2 = /* @__PURE__ */ Facet.define();
-var contentAttributes2 = /* @__PURE__ */ Facet.define();
-var decorations2 = /* @__PURE__ */ Facet.define();
-var blockWrappers = /* @__PURE__ */ Facet.define();
-var outerDecorations2 = /* @__PURE__ */ Facet.define();
-var atomicRanges2 = /* @__PURE__ */ Facet.define();
-var bidiIsolatedRanges2 = /* @__PURE__ */ Facet.define();
-function getIsolatedRanges2(view, line) {
-  let isolates = view.state.facet(bidiIsolatedRanges2);
-  if (!isolates.length)
-    return isolates;
-  let sets = isolates.map((i2) => i2 instanceof Function ? i2(view) : i2);
-  let result = [];
-  RangeSet.spans(sets, line.from, line.to, {
-    point() {
-    },
-    span(fromDoc, toDoc, active, open) {
-      let from2 = fromDoc - line.from, to = toDoc - line.from;
-      let level = result;
-      for (let i2 = active.length - 1; i2 >= 0; i2--, open--) {
-        let direction = active[i2].spec.bidiIsolate, update;
-        if (direction == null)
-          direction = autoDirection2(line.text, from2, to);
-        if (open > 0 && level.length && (update = level[level.length - 1]).to == from2 && update.direction == direction) {
-          update.to = to;
-          level = update.inner;
-        } else {
-          let add2 = { from: from2, to, direction, inner: [] };
-          level.push(add2);
-          level = add2.inner;
-        }
-      }
-    }
-  });
-  return result;
-}
-var scrollMargins2 = /* @__PURE__ */ Facet.define();
-function getScrollMargins2(view) {
-  let left = 0, right = 0, top2 = 0, bottom = 0;
-  for (let source of view.state.facet(scrollMargins2)) {
-    let m = source(view);
-    if (m) {
-      if (m.left != null)
-        left = Math.max(left, m.left);
-      if (m.right != null)
-        right = Math.max(right, m.right);
-      if (m.top != null)
-        top2 = Math.max(top2, m.top);
-      if (m.bottom != null)
-        bottom = Math.max(bottom, m.bottom);
-    }
-  }
-  return { left, right, top: top2, bottom };
-}
-var styleModule2 = /* @__PURE__ */ Facet.define();
-var ChangedRange2 = class _ChangedRange {
-  constructor(fromA, toA, fromB, toB) {
-    this.fromA = fromA;
-    this.toA = toA;
-    this.fromB = fromB;
-    this.toB = toB;
-  }
-  join(other) {
-    return new _ChangedRange(Math.min(this.fromA, other.fromA), Math.max(this.toA, other.toA), Math.min(this.fromB, other.fromB), Math.max(this.toB, other.toB));
-  }
-  addToSet(set) {
-    let i2 = set.length, me = this;
-    for (; i2 > 0; i2--) {
-      let range = set[i2 - 1];
-      if (range.fromA > me.toA)
-        continue;
-      if (range.toA < me.fromA)
-        break;
-      me = me.join(range);
-      set.splice(i2 - 1, 1);
-    }
-    set.splice(i2, 0, me);
-    return set;
-  }
-  // Extend a set to cover all the content in `ranges`, which is a
-  // flat array with each pair of numbers representing fromB/toB
-  // positions. These pairs are generated in unchanged ranges, so the
-  // offset between doc A and doc B is the same for their start and
-  // end points.
-  static extendWithRanges(diff, ranges) {
-    if (ranges.length == 0)
-      return diff;
-    let result = [];
-    for (let dI = 0, rI = 0, off = 0; ; ) {
-      let nextD = dI < diff.length ? diff[dI].fromB : 1e9;
-      let nextR = rI < ranges.length ? ranges[rI] : 1e9;
-      let fromB = Math.min(nextD, nextR);
-      if (fromB == 1e9)
-        break;
-      let fromA = fromB + off, toB = fromB, toA = fromA;
-      for (; ; ) {
-        if (rI < ranges.length && ranges[rI] <= toB) {
-          let end = ranges[rI + 1];
-          rI += 2;
-          toB = Math.max(toB, end);
-          for (let i2 = dI; i2 < diff.length && diff[i2].fromB <= toB; i2++)
-            off = diff[i2].toA - diff[i2].toB;
-          toA = Math.max(toA, end + off);
-        } else if (dI < diff.length && diff[dI].fromB <= toB) {
-          let next = diff[dI++];
-          toB = Math.max(toB, next.toB);
-          toA = Math.max(toA, next.toA);
-          off = next.toA - next.toB;
-        } else {
-          break;
-        }
-      }
-      result.push(new _ChangedRange(fromA, toA, fromB, toB));
-    }
-    return result;
-  }
-};
-var ViewUpdate2 = class _ViewUpdate {
-  constructor(view, state, transactions) {
-    this.view = view;
-    this.state = state;
-    this.transactions = transactions;
-    this.flags = 0;
-    this.startState = view.state;
-    this.changes = ChangeSet.empty(this.startState.doc.length);
-    for (let tr of transactions)
-      this.changes = this.changes.compose(tr.changes);
-    let changedRanges = [];
-    this.changes.iterChangedRanges((fromA, toA, fromB, toB) => changedRanges.push(new ChangedRange2(fromA, toA, fromB, toB)));
-    this.changedRanges = changedRanges;
-  }
-  /**
-  @internal
-  */
-  static create(view, state, transactions) {
-    return new _ViewUpdate(view, state, transactions);
-  }
-  /**
-  Tells you whether the [viewport](https://codemirror.net/6/docs/ref/#view.EditorView.viewport) or
-  [visible ranges](https://codemirror.net/6/docs/ref/#view.EditorView.visibleRanges) changed in this
-  update.
-  */
-  get viewportChanged() {
-    return (this.flags & 4) > 0;
-  }
-  /**
-  Returns true when
-  [`viewportChanged`](https://codemirror.net/6/docs/ref/#view.ViewUpdate.viewportChanged) is true
-  and the viewport change is not just the result of mapping it in
-  response to document changes.
-  */
-  get viewportMoved() {
-    return (this.flags & 8) > 0;
-  }
-  /**
-  Indicates whether the height of a block element in the editor
-  changed in this update.
-  */
-  get heightChanged() {
-    return (this.flags & 2) > 0;
-  }
-  /**
-  Returns true when the document was modified or the size of the
-  editor, or elements within the editor, changed.
-  */
-  get geometryChanged() {
-    return this.docChanged || (this.flags & (16 | 2)) > 0;
-  }
-  /**
-  True when this update indicates a focus change.
-  */
-  get focusChanged() {
-    return (this.flags & 1) > 0;
-  }
-  /**
-  Whether the document changed in this update.
-  */
-  get docChanged() {
-    return !this.changes.empty;
-  }
-  /**
-  Whether the selection was explicitly set in this update.
-  */
-  get selectionSet() {
-    return this.transactions.some((tr) => tr.selection);
-  }
-  /**
-  @internal
-  */
-  get empty() {
-    return this.flags == 0 && this.transactions.length == 0;
-  }
-};
-var noChildren2 = [];
-var Tile = class {
-  constructor(dom, length, flags = 0) {
-    this.dom = dom;
-    this.length = length;
-    this.flags = flags;
-    this.parent = null;
-    dom.cmTile = this;
-  }
-  get breakAfter() {
-    return this.flags & 1;
-  }
-  get children() {
-    return noChildren2;
-  }
-  isWidget() {
-    return false;
-  }
-  get isHidden() {
-    return false;
-  }
-  isComposite() {
-    return false;
-  }
-  isLine() {
-    return false;
-  }
-  isText() {
-    return false;
-  }
-  isBlock() {
-    return false;
-  }
-  get domAttrs() {
-    return null;
-  }
-  sync(track) {
-    this.flags |= 2;
-    if (this.flags & 4) {
-      this.flags &= ~4;
-      let attrs = this.domAttrs;
-      if (attrs)
-        setAttrs(this.dom, attrs);
-    }
-  }
-  toString() {
-    return this.constructor.name + (this.children.length ? `(${this.children})` : "") + (this.breakAfter ? "#" : "");
-  }
-  destroy() {
-    this.parent = null;
-  }
-  setDOM(dom) {
-    this.dom = dom;
-    dom.cmTile = this;
-  }
-  get posAtStart() {
-    return this.parent ? this.parent.posBefore(this) : 0;
-  }
-  get posAtEnd() {
-    return this.posAtStart + this.length;
-  }
-  posBefore(tile, start = this.posAtStart) {
-    let pos = start;
-    for (let child of this.children) {
-      if (child == tile)
-        return pos;
-      pos += child.length + child.breakAfter;
-    }
-    throw new RangeError("Invalid child in posBefore");
-  }
-  posAfter(tile) {
-    return this.posBefore(tile) + tile.length;
-  }
-  covers(side) {
-    return true;
-  }
-  coordsIn(pos, side) {
-    return null;
-  }
-  domPosFor(off, side) {
-    let index = domIndex2(this.dom);
-    let after = this.length ? off > 0 : side > 0;
-    return new DOMPos2(this.parent.dom, index + (after ? 1 : 0), off == 0 || off == this.length);
-  }
-  markDirty(attrs) {
-    this.flags &= ~2;
-    if (attrs)
-      this.flags |= 4;
-    if (this.parent && this.parent.flags & 2)
-      this.parent.markDirty(false);
-  }
-  get overrideDOMText() {
-    return null;
-  }
-  get root() {
-    for (let t2 = this; t2; t2 = t2.parent)
-      if (t2 instanceof DocTile)
-        return t2;
-    return null;
-  }
-  static get(dom) {
-    return dom.cmTile;
-  }
-};
-var CompositeTile = class extends Tile {
-  constructor(dom) {
-    super(dom, 0);
-    this._children = [];
-  }
-  isComposite() {
-    return true;
-  }
-  get children() {
-    return this._children;
-  }
-  get lastChild() {
-    return this.children.length ? this.children[this.children.length - 1] : null;
-  }
-  append(child) {
-    this.children.push(child);
-    child.parent = this;
-  }
-  sync(track) {
-    if (this.flags & 2)
-      return;
-    super.sync(track);
-    let parent = this.dom, prev = null, next;
-    let tracking = (track === null || track === void 0 ? void 0 : track.node) == parent ? track : null;
-    let length = 0;
-    for (let child of this.children) {
-      child.sync(track);
-      length += child.length + child.breakAfter;
-      next = prev ? prev.nextSibling : parent.firstChild;
-      if (tracking && next != child.dom)
-        tracking.written = true;
-      if (child.dom.parentNode == parent) {
-        while (next && next != child.dom)
-          next = rm$12(next);
-      } else {
-        parent.insertBefore(child.dom, next);
-      }
-      prev = child.dom;
-    }
-    next = prev ? prev.nextSibling : parent.firstChild;
-    if (tracking && next)
-      tracking.written = true;
-    while (next)
-      next = rm$12(next);
-    this.length = length;
-  }
-};
-function rm$12(dom) {
-  let next = dom.nextSibling;
-  dom.parentNode.removeChild(dom);
-  return next;
-}
-var DocTile = class extends CompositeTile {
-  constructor(view, dom) {
-    super(dom);
-    this.view = view;
-  }
-  owns(tile) {
-    for (; tile; tile = tile.parent)
-      if (tile == this)
-        return true;
-    return false;
-  }
-  isBlock() {
-    return true;
-  }
-  nearest(dom) {
-    for (; ; ) {
-      if (!dom)
-        return null;
-      let tile = Tile.get(dom);
-      if (tile && this.owns(tile))
-        return tile;
-      dom = dom.parentNode;
-    }
-  }
-  blockTiles(f) {
-    for (let stack = [], cur2 = this, i2 = 0, pos = 0; ; ) {
-      if (i2 == cur2.children.length) {
-        if (!stack.length)
-          return;
-        cur2 = cur2.parent;
-        if (cur2.breakAfter)
-          pos++;
-        i2 = stack.pop();
-      } else {
-        let next = cur2.children[i2++];
-        if (next instanceof BlockWrapperTile) {
-          stack.push(i2);
-          cur2 = next;
-          i2 = 0;
-        } else {
-          let end = pos + next.length;
-          let result = f(next, pos);
-          if (result !== void 0)
-            return result;
-          pos = end + next.breakAfter;
-        }
-      }
-    }
-  }
-  // Find the block at the given position. If side < -1, make sure to
-  // stay before block widgets at that position, if side > 1, after
-  // such widgets (used for selection drawing, which needs to be able
-  // to get coordinates for positions that aren't valid cursor positions).
-  resolveBlock(pos, side) {
-    let before, beforeOff = -1, after, afterOff = -1;
-    this.blockTiles((tile, off) => {
-      let end = off + tile.length;
-      if (pos >= off && pos <= end) {
-        if (tile.isWidget() && side >= -1 && side <= 1) {
-          if (tile.flags & 32)
-            return true;
-          if (tile.flags & 16)
-            before = void 0;
-        }
-        if ((off < pos || pos == end && (side < -1 ? tile.length : tile.covers(1))) && (!before || !tile.isWidget() && before.isWidget())) {
-          before = tile;
-          beforeOff = pos - off;
-        }
-        if ((end > pos || pos == off && (side > 1 ? tile.length : tile.covers(-1))) && (!after || !tile.isWidget() && after.isWidget())) {
-          after = tile;
-          afterOff = pos - off;
-        }
-      }
-    });
-    if (!before && !after)
-      throw new Error("No tile at position " + pos);
-    return before && side < 0 || !after ? { tile: before, offset: beforeOff } : { tile: after, offset: afterOff };
-  }
-};
-var BlockWrapperTile = class _BlockWrapperTile extends CompositeTile {
-  constructor(dom, wrapper) {
-    super(dom);
-    this.wrapper = wrapper;
-  }
-  isBlock() {
-    return true;
-  }
-  covers(side) {
-    if (!this.children.length)
-      return false;
-    return side < 0 ? this.children[0].covers(-1) : this.lastChild.covers(1);
-  }
-  get domAttrs() {
-    return this.wrapper.attributes;
-  }
-  static of(wrapper, dom) {
-    let tile = new _BlockWrapperTile(dom || document.createElement(wrapper.tagName), wrapper);
-    if (!dom)
-      tile.flags |= 4;
-    return tile;
-  }
-};
-var LineTile = class _LineTile extends CompositeTile {
-  constructor(dom, attrs) {
-    super(dom);
-    this.attrs = attrs;
-  }
-  isLine() {
-    return true;
-  }
-  static start(attrs, dom, keepAttrs) {
-    let line = new _LineTile(dom || document.createElement("div"), attrs);
-    if (!dom || !keepAttrs)
-      line.flags |= 4;
-    return line;
-  }
-  get domAttrs() {
-    return this.attrs;
-  }
-  // Find the tile associated with a given position in this line.
-  resolveInline(pos, side, forCoords) {
-    let before = null, beforeOff = -1, after = null, afterOff = -1;
-    function scan(tile, pos2) {
-      for (let i2 = 0, off = 0; i2 < tile.children.length && off <= pos2; i2++) {
-        let child = tile.children[i2], end = off + child.length;
-        if (end >= pos2) {
-          if (child.isComposite()) {
-            scan(child, pos2 - off);
-          } else if ((!after || after.isHidden && (side > 0 || forCoords && onSameLine(after, child))) && (end > pos2 || child.flags & 32)) {
-            after = child;
-            afterOff = pos2 - off;
-          } else if (off < pos2 || child.flags & 16 && !child.isHidden) {
-            before = child;
-            beforeOff = pos2 - off;
-          }
-        }
-        off = end;
-      }
-    }
-    scan(this, pos);
-    let target = (side < 0 ? before : after) || before || after;
-    return target ? { tile: target, offset: target == before ? beforeOff : afterOff } : null;
-  }
-  coordsIn(pos, side) {
-    let found = this.resolveInline(pos, side, true);
-    if (!found)
-      return fallbackRect2(this);
-    return found.tile.coordsIn(Math.max(0, found.offset), side);
-  }
-  domIn(pos, side) {
-    let found = this.resolveInline(pos, side);
-    if (found) {
-      let { tile, offset } = found;
-      if (this.dom.contains(tile.dom)) {
-        if (tile.isText())
-          return new DOMPos2(tile.dom, Math.min(tile.dom.nodeValue.length, offset));
-        return tile.domPosFor(offset, tile.flags & 16 ? 1 : tile.flags & 32 ? -1 : side);
-      }
-      let parent = found.tile.parent, saw = false;
-      for (let ch of parent.children) {
-        if (saw)
-          return new DOMPos2(ch.dom, 0);
-        if (ch == found.tile) {
-          saw = true;
-        }
-      }
-    }
-    return new DOMPos2(this.dom, 0);
-  }
-};
-function fallbackRect2(tile) {
-  let last = tile.dom.lastChild;
-  if (!last)
-    return tile.dom.getBoundingClientRect();
-  let rects = clientRectsFor2(last);
-  return rects[rects.length - 1] || null;
-}
-function onSameLine(a, b) {
-  let posA = a.coordsIn(0, 1), posB = b.coordsIn(0, 1);
-  return posA && posB && posB.top < posA.bottom;
-}
-var MarkTile = class _MarkTile extends CompositeTile {
-  constructor(dom, mark) {
-    super(dom);
-    this.mark = mark;
-  }
-  get domAttrs() {
-    return this.mark.attrs;
-  }
-  static of(mark, dom) {
-    let tile = new _MarkTile(dom || document.createElement(mark.tagName), mark);
-    if (!dom)
-      tile.flags |= 4;
-    return tile;
-  }
-};
-var TextTile = class _TextTile extends Tile {
-  constructor(dom, text) {
-    super(dom, text.length);
-    this.text = text;
-  }
-  sync(track) {
-    if (this.flags & 2)
-      return;
-    super.sync(track);
-    if (this.dom.nodeValue != this.text) {
-      if (track && track.node == this.dom)
-        track.written = true;
-      this.dom.nodeValue = this.text;
-    }
-  }
-  isText() {
-    return true;
-  }
-  toString() {
-    return JSON.stringify(this.text);
-  }
-  coordsIn(pos, side) {
-    let length = this.dom.nodeValue.length;
-    if (pos > length)
-      pos = length;
-    let from2 = pos, to = pos, flatten2 = 0;
-    if (pos == 0 && side < 0 || pos == length && side >= 0) {
-      if (!(browser2.chrome || browser2.gecko)) {
-        if (pos) {
-          from2--;
-          flatten2 = 1;
-        } else if (to < length) {
-          to++;
-          flatten2 = -1;
-        }
-      }
-    } else {
-      if (side < 0)
-        from2--;
-      else if (to < length)
-        to++;
-    }
-    let rects = textRange2(this.dom, from2, to).getClientRects();
-    if (!rects.length)
-      return null;
-    let rect = rects[(flatten2 ? flatten2 < 0 : side >= 0) ? 0 : rects.length - 1];
-    if (browser2.safari && !flatten2 && rect.width == 0)
-      rect = Array.prototype.find.call(rects, (r) => r.width) || rect;
-    return flatten2 ? flattenRect2(rect, flatten2 < 0) : rect || null;
-  }
-  static of(text, dom) {
-    let tile = new _TextTile(dom || document.createTextNode(text), text);
-    if (!dom)
-      tile.flags |= 2;
-    return tile;
-  }
-};
-var WidgetTile = class _WidgetTile extends Tile {
-  constructor(dom, length, widget, flags) {
-    super(dom, length, flags);
-    this.widget = widget;
-  }
-  isWidget() {
-    return true;
-  }
-  get isHidden() {
-    return this.widget.isHidden;
-  }
-  covers(side) {
-    if (this.flags & 48)
-      return false;
-    return (this.flags & (side < 0 ? 64 : 128)) > 0;
-  }
-  coordsIn(pos, side) {
-    return this.coordsInWidget(pos, side, false);
-  }
-  coordsInWidget(pos, side, block) {
-    let custom = this.widget.coordsAt(this.dom, pos, side);
-    if (custom)
-      return custom;
-    if (block) {
-      return flattenRect2(this.dom.getBoundingClientRect(), this.length ? pos == 0 : side <= 0);
-    } else {
-      let rects = this.dom.getClientRects(), rect = null;
-      if (!rects.length)
-        return null;
-      let fromBack = this.flags & 16 ? true : this.flags & 32 ? false : pos > 0;
-      for (let i2 = fromBack ? rects.length - 1 : 0; ; i2 += fromBack ? -1 : 1) {
-        rect = rects[i2];
-        if (pos > 0 ? i2 == 0 : i2 == rects.length - 1 || rect.top < rect.bottom)
-          break;
-      }
-      return flattenRect2(rect, !fromBack);
-    }
-  }
-  get overrideDOMText() {
-    if (!this.length)
-      return Text.empty;
-    let { root } = this;
-    if (!root)
-      return Text.empty;
-    let start = this.posAtStart;
-    return root.view.state.doc.slice(start, start + this.length);
-  }
-  destroy() {
-    super.destroy();
-    this.widget.destroy(this.dom);
-  }
-  static of(widget, view, length, flags, dom) {
-    if (!dom) {
-      dom = widget.toDOM(view);
-      if (!widget.editable)
-        dom.contentEditable = "false";
-    }
-    return new _WidgetTile(dom, length, widget, flags);
-  }
-};
-var WidgetBufferTile = class extends Tile {
-  constructor(flags) {
-    let img = document.createElement("img");
-    img.className = "cm-widgetBuffer";
-    img.setAttribute("aria-hidden", "true");
-    super(img, 0, flags);
-  }
-  get isHidden() {
-    return true;
-  }
-  get overrideDOMText() {
-    return Text.empty;
-  }
-  coordsIn(pos) {
-    return this.dom.getBoundingClientRect();
-  }
-};
-var TilePointer = class {
-  constructor(top2) {
-    this.index = 0;
-    this.beforeBreak = false;
-    this.parents = [];
-    this.tile = top2;
-  }
-  // Advance by the given distance. If side is -1, stop leaving or
-  // entering tiles, or skipping zero-length tiles, once the distance
-  // has been traversed. When side is 1, leave, enter, or skip
-  // everything at the end position.
-  advance(dist3, side, walker) {
-    let { tile, index, beforeBreak, parents } = this;
-    while (dist3 || side > 0) {
-      if (!tile.isComposite()) {
-        if (index == tile.length) {
-          beforeBreak = !!tile.breakAfter;
-          ({ tile, index } = parents.pop());
-          index++;
-        } else if (!dist3) {
-          break;
-        } else {
-          let take = Math.min(dist3, tile.length - index);
-          if (walker)
-            walker.skip(tile, index, index + take);
-          dist3 -= take;
-          index += take;
-        }
-      } else if (beforeBreak) {
-        if (!dist3)
-          break;
-        if (walker)
-          walker.break();
-        dist3--;
-        beforeBreak = false;
-      } else if (index == tile.children.length) {
-        if (!dist3 && !parents.length)
-          break;
-        if (walker)
-          walker.leave(tile);
-        beforeBreak = !!tile.breakAfter;
-        ({ tile, index } = parents.pop());
-        index++;
-      } else {
-        let next = tile.children[index], brk = next.breakAfter;
-        if ((side > 0 ? next.length <= dist3 : next.length < dist3) && (!walker || walker.skip(next, 0, next.length) !== false || !next.isComposite)) {
-          beforeBreak = !!brk;
-          index++;
-          dist3 -= next.length;
-        } else {
-          parents.push({ tile, index });
-          tile = next;
-          index = 0;
-          if (walker && next.isComposite())
-            walker.enter(next);
-        }
-      }
-    }
-    this.tile = tile;
-    this.index = index;
-    this.beforeBreak = beforeBreak;
-    return this;
-  }
-  get root() {
-    return this.parents.length ? this.parents[0].tile : this.tile;
-  }
-};
-var OpenWrapper = class {
-  constructor(from2, to, wrapper, rank) {
-    this.from = from2;
-    this.to = to;
-    this.wrapper = wrapper;
-    this.rank = rank;
-  }
-};
-var TileBuilder = class {
-  constructor(cache4, root, blockWrappers2) {
-    this.cache = cache4;
-    this.root = root;
-    this.blockWrappers = blockWrappers2;
-    this.curLine = null;
-    this.lastBlock = null;
-    this.afterWidget = null;
-    this.pos = 0;
-    this.wrappers = [];
-    this.wrapperPos = 0;
-  }
-  addText(text, marks2, openStart, tile) {
-    var _a2;
-    this.flushBuffer();
-    let parent = this.ensureMarks(marks2, openStart);
-    let prev = parent.lastChild;
-    if (prev && prev.isText() && !(prev.flags & 8) && prev.length + text.length < 512) {
-      this.cache.reused.set(
-        prev,
-        2
-        /* Reused.DOM */
-      );
-      let tile2 = parent.children[parent.children.length - 1] = new TextTile(prev.dom, prev.text + text);
-      tile2.parent = parent;
-    } else {
-      parent.append(tile || TextTile.of(text, (_a2 = this.cache.find(TextTile)) === null || _a2 === void 0 ? void 0 : _a2.dom));
-    }
-    this.pos += text.length;
-    this.afterWidget = null;
-  }
-  addComposition(composition, context) {
-    let line = this.curLine;
-    if (line.dom != context.line.dom) {
-      line.setDOM(this.cache.reused.has(context.line) ? freeNode(context.line.dom) : context.line.dom);
-      this.cache.reused.set(
-        context.line,
-        2
-        /* Reused.DOM */
-      );
-    }
-    let head = line;
-    for (let i2 = context.marks.length - 1; i2 >= 0; i2--) {
-      let mark = context.marks[i2];
-      let last = head.lastChild;
-      if (last instanceof MarkTile && last.mark.eq(mark.mark)) {
-        if (last.dom != mark.dom)
-          last.setDOM(freeNode(mark.dom));
-        head = last;
-      } else {
-        if (this.cache.reused.get(mark)) {
-          let tile = Tile.get(mark.dom);
-          if (tile)
-            tile.setDOM(freeNode(mark.dom));
-        }
-        let nw = MarkTile.of(mark.mark, mark.dom);
-        head.append(nw);
-        head = nw;
-      }
-      this.cache.reused.set(
-        mark,
-        2
-        /* Reused.DOM */
-      );
-    }
-    let oldTile = Tile.get(composition.text);
-    if (oldTile)
-      this.cache.reused.set(
-        oldTile,
-        2
-        /* Reused.DOM */
-      );
-    let text = new TextTile(composition.text, composition.text.nodeValue);
-    text.flags |= 8;
-    this.pos = composition.range.toB;
-    head.append(text);
-  }
-  addInlineWidget(widget, marks2, openStart) {
-    let noSpace = this.afterWidget && widget.flags & 48 && (this.afterWidget.flags & 48) == (widget.flags & 48);
-    if (!noSpace)
-      this.flushBuffer();
-    let parent = this.ensureMarks(marks2, openStart);
-    if (!noSpace && !(widget.flags & 16))
-      parent.append(this.getBuffer(1));
-    parent.append(widget);
-    this.pos += widget.length;
-    this.afterWidget = widget;
-  }
-  addMark(tile, marks2, openStart) {
-    this.flushBuffer();
-    let parent = this.ensureMarks(marks2, openStart);
-    parent.append(tile);
-    this.pos += tile.length;
-    this.afterWidget = null;
-  }
-  addBlockWidget(widget) {
-    this.getBlockPos().append(widget);
-    this.pos += widget.length;
-    this.lastBlock = widget;
-    this.endLine();
-  }
-  continueWidget(length) {
-    let widget = this.afterWidget || this.lastBlock;
-    widget.length += length;
-    this.pos += length;
-  }
-  addLineStart(attrs, dom) {
-    var _a2;
-    if (!attrs)
-      attrs = lineBaseAttrs;
-    let tile = LineTile.start(attrs, dom || ((_a2 = this.cache.find(LineTile)) === null || _a2 === void 0 ? void 0 : _a2.dom), !!dom);
-    this.getBlockPos().append(this.lastBlock = this.curLine = tile);
-  }
-  addLine(tile) {
-    this.getBlockPos().append(tile);
-    this.pos += tile.length;
-    this.lastBlock = tile;
-    this.endLine();
-  }
-  addBreak() {
-    this.lastBlock.flags |= 1;
-    this.endLine();
-    this.pos++;
-  }
-  addLineStartIfNotCovered(attrs) {
-    if (!this.blockPosCovered())
-      this.addLineStart(attrs);
-  }
-  ensureLine(attrs) {
-    if (!this.curLine)
-      this.addLineStart(attrs);
-  }
-  ensureMarks(marks2, openStart) {
-    var _a2;
-    let parent = this.curLine;
-    for (let i2 = marks2.length - 1; i2 >= 0; i2--) {
-      let mark = marks2[i2], last;
-      if (openStart > 0 && (last = parent.lastChild) && last instanceof MarkTile && last.mark.eq(mark)) {
-        parent = last;
-        openStart--;
-      } else {
-        let tile = MarkTile.of(mark, (_a2 = this.cache.find(MarkTile, (m) => m.mark.eq(mark))) === null || _a2 === void 0 ? void 0 : _a2.dom);
-        parent.append(tile);
-        parent = tile;
-        openStart = 0;
-      }
-    }
-    return parent;
-  }
-  endLine() {
-    if (this.curLine) {
-      this.flushBuffer();
-      let last = this.curLine.lastChild;
-      if (!last || !hasContent(this.curLine, false) || last.dom.nodeName != "BR" && last.isWidget() && !(browser2.ios && hasContent(this.curLine, true)))
-        this.curLine.append(this.cache.findWidget(
-          BreakWidget,
-          0,
-          32
-          /* TileFlag.After */
-        ) || new WidgetTile(
-          BreakWidget.toDOM(),
-          0,
-          BreakWidget,
-          32
-          /* TileFlag.After */
-        ));
-      this.curLine = this.afterWidget = null;
-    }
-  }
-  updateBlockWrappers() {
-    if (this.wrapperPos > this.pos + 1e4) {
-      this.blockWrappers.goto(this.pos);
-      this.wrappers.length = 0;
-    }
-    for (let i2 = this.wrappers.length - 1; i2 >= 0; i2--)
-      if (this.wrappers[i2].to < this.pos)
-        this.wrappers.splice(i2, 1);
-    for (let cur2 = this.blockWrappers; cur2.value && cur2.from <= this.pos; cur2.next())
-      if (cur2.to >= this.pos) {
-        let rank = cur2.rank * 102 + cur2.value.rank;
-        let wrap = new OpenWrapper(cur2.from, cur2.to, cur2.value, rank), i2 = this.wrappers.length;
-        while (i2 > 0 && (this.wrappers[i2 - 1].rank - wrap.rank || this.wrappers[i2 - 1].to - wrap.to) < 0)
-          i2--;
-        this.wrappers.splice(i2, 0, wrap);
-      }
-    this.wrapperPos = this.pos;
-  }
-  getBlockPos() {
-    var _a2;
-    this.updateBlockWrappers();
-    let parent = this.root;
-    for (let wrap of this.wrappers) {
-      let last = parent.lastChild;
-      if (wrap.from < this.pos && last instanceof BlockWrapperTile && last.wrapper.eq(wrap.wrapper)) {
-        parent = last;
-      } else {
-        let tile = BlockWrapperTile.of(wrap.wrapper, (_a2 = this.cache.find(BlockWrapperTile, (t2) => t2.wrapper.eq(wrap.wrapper))) === null || _a2 === void 0 ? void 0 : _a2.dom);
-        parent.append(tile);
-        parent = tile;
-      }
-    }
-    return parent;
-  }
-  blockPosCovered() {
-    let last = this.lastBlock;
-    return last != null && !last.breakAfter && (!last.isWidget() || (last.flags & (32 | 128)) > 0);
-  }
-  getBuffer(side) {
-    let flags = 2 | (side < 0 ? 16 : 32);
-    let found = this.cache.find(
-      WidgetBufferTile,
-      void 0,
-      1
-      /* Reused.Full */
-    );
-    if (found)
-      found.flags = flags;
-    return found || new WidgetBufferTile(flags);
-  }
-  flushBuffer() {
-    if (this.afterWidget && !(this.afterWidget.flags & 32)) {
-      this.afterWidget.parent.append(this.getBuffer(-1));
-      this.afterWidget = null;
-    }
-  }
-};
-var TextStream = class {
-  constructor(doc3) {
-    this.skipCount = 0;
-    this.text = "";
-    this.textOff = 0;
-    this.cursor = doc3.iter();
-  }
-  skip(len) {
-    if (this.textOff + len <= this.text.length) {
-      this.textOff += len;
-    } else {
-      this.skipCount += len - (this.text.length - this.textOff);
-      this.text = "";
-      this.textOff = 0;
-    }
-  }
-  next(maxLen) {
-    if (this.textOff == this.text.length) {
-      let { value, lineBreak, done } = this.cursor.next(this.skipCount);
-      this.skipCount = 0;
-      if (done)
-        throw new Error("Ran out of text content when drawing inline views");
-      this.text = value;
-      let len = this.textOff = Math.min(maxLen, value.length);
-      return lineBreak ? null : value.slice(0, len);
-    }
-    let end = Math.min(this.text.length, this.textOff + maxLen);
-    let chars = this.text.slice(this.textOff, end);
-    this.textOff = end;
-    return chars;
-  }
-};
-var buckets = [WidgetTile, LineTile, TextTile, MarkTile, WidgetBufferTile, BlockWrapperTile, DocTile];
-for (let i2 = 0; i2 < buckets.length; i2++)
-  buckets[i2].bucket = i2;
-var TileCache = class {
-  constructor(view) {
-    this.view = view;
-    this.buckets = buckets.map(() => []);
-    this.index = buckets.map(() => 0);
-    this.reused = /* @__PURE__ */ new Map();
-  }
-  // Put a tile in the cache.
-  add(tile) {
-    let i2 = tile.constructor.bucket, bucket = this.buckets[i2];
-    if (bucket.length < 6)
-      bucket.push(tile);
-    else
-      bucket[
-        this.index[i2] = (this.index[i2] + 1) % 6
-        /* C.Bucket */
-      ] = tile;
-  }
-  find(cls, test, type = 2) {
-    let i2 = cls.bucket;
-    let bucket = this.buckets[i2], off = this.index[i2];
-    for (let j = bucket.length - 1; j >= 0; j--) {
-      let index = (j + off) % bucket.length, tile = bucket[index];
-      if ((!test || test(tile)) && !this.reused.has(tile)) {
-        bucket.splice(index, 1);
-        if (index < off)
-          this.index[i2]--;
-        this.reused.set(tile, type);
-        return tile;
-      }
-    }
-    return null;
-  }
-  findWidget(widget, length, flags) {
-    let widgets = this.buckets[0];
-    if (widgets.length)
-      for (let i2 = 0, pass = 0; ; i2++) {
-        if (i2 == widgets.length) {
-          if (pass)
-            return null;
-          pass = 1;
-          i2 = 0;
-        }
-        let tile = widgets[i2];
-        if (!this.reused.has(tile) && (pass == 0 ? tile.widget.compare(widget) : tile.widget.constructor == widget.constructor && widget.updateDOM(tile.dom, this.view, tile.widget))) {
-          widgets.splice(i2, 1);
-          if (i2 < this.index[0])
-            this.index[0]--;
-          if (tile.widget == widget && tile.length == length && (tile.flags & (496 | 1)) == flags) {
-            this.reused.set(
-              tile,
-              1
-              /* Reused.Full */
-            );
-            return tile;
-          } else {
-            this.reused.set(
-              tile,
-              2
-              /* Reused.DOM */
-            );
-            return new WidgetTile(tile.dom, length, widget, tile.flags & ~(496 | 1) | flags);
-          }
-        }
-      }
-  }
-  reuse(tile) {
-    this.reused.set(
-      tile,
-      1
-      /* Reused.Full */
-    );
-    return tile;
-  }
-  maybeReuse(tile, type = 2) {
-    if (this.reused.has(tile))
-      return void 0;
-    this.reused.set(tile, type);
-    return tile.dom;
-  }
-  clear() {
-    for (let i2 = 0; i2 < this.buckets.length; i2++)
-      this.buckets[i2].length = this.index[i2] = 0;
-  }
-};
-var TileUpdate = class {
-  constructor(view, old, blockWrappers2, decorations3, disallowBlockEffectsFor) {
-    this.view = view;
-    this.decorations = decorations3;
-    this.disallowBlockEffectsFor = disallowBlockEffectsFor;
-    this.openWidget = false;
-    this.openMarks = 0;
-    this.cache = new TileCache(view);
-    this.text = new TextStream(view.state.doc);
-    this.builder = new TileBuilder(this.cache, new DocTile(view, view.contentDOM), RangeSet.iter(blockWrappers2));
-    this.cache.reused.set(
-      old,
-      2
-      /* Reused.DOM */
-    );
-    this.old = new TilePointer(old);
-    this.reuseWalker = {
-      skip: (tile, from2, to) => {
-        this.cache.add(tile);
-        if (tile.isComposite())
-          return false;
-      },
-      enter: (tile) => this.cache.add(tile),
-      leave: () => {
-      },
-      break: () => {
-      }
-    };
-  }
-  run(changes, composition) {
-    let compositionContext = composition && this.getCompositionContext(composition.text);
-    for (let posA = 0, posB = 0, i2 = 0; ; ) {
-      let next = i2 < changes.length ? changes[i2++] : null;
-      let skipA = next ? next.fromA : this.old.root.length;
-      if (skipA > posA) {
-        let len = skipA - posA;
-        this.preserve(len, !i2, !next);
-        posA = skipA;
-        posB += len;
-      }
-      if (!next)
-        break;
-      if (composition && next.fromA <= composition.range.fromA && next.toA >= composition.range.toA) {
-        this.forward(next.fromA, composition.range.fromA, composition.range.fromA < composition.range.toA ? 1 : -1);
-        this.emit(posB, composition.range.fromB);
-        this.builder.flushBuffer();
-        this.cache.clear();
-        this.builder.addComposition(composition, compositionContext);
-        this.text.skip(composition.range.toB - composition.range.fromB);
-        this.forward(composition.range.fromA, next.toA);
-        this.emit(composition.range.toB, next.toB);
-      } else {
-        this.forward(next.fromA, next.toA);
-        this.emit(posB, next.toB);
-      }
-      posB = next.toB;
-      posA = next.toA;
-    }
-    if (this.builder.curLine)
-      this.builder.endLine();
-    return this.builder.root;
-  }
-  preserve(length, incStart, incEnd) {
-    let activeMarks = getMarks(this.old), openMarks = this.openMarks;
-    this.old.advance(length, incEnd ? 1 : -1, {
-      skip: (tile, from2, to) => {
-        if (tile.isWidget()) {
-          if (this.openWidget) {
-            this.builder.continueWidget(to - from2);
-          } else {
-            let widget = to > 0 || from2 < tile.length ? WidgetTile.of(tile.widget, this.view, to - from2, tile.flags & 496, this.cache.maybeReuse(tile)) : this.cache.reuse(tile);
-            if (widget.flags & 256) {
-              widget.flags &= ~1;
-              this.builder.addBlockWidget(widget);
-            } else {
-              this.builder.ensureLine(null);
-              this.builder.addInlineWidget(widget, activeMarks, openMarks);
-              openMarks = activeMarks.length;
-            }
-          }
-        } else if (tile.isText()) {
-          this.builder.ensureLine(null);
-          if (!from2 && to == tile.length && !this.cache.reused.has(tile)) {
-            this.builder.addText(tile.text, activeMarks, openMarks, this.cache.reuse(tile));
-          } else {
-            this.cache.add(tile);
-            this.builder.addText(tile.text.slice(from2, to), activeMarks, openMarks);
-          }
-          openMarks = activeMarks.length;
-        } else if (tile.isLine()) {
-          tile.flags &= ~1;
-          this.cache.reused.set(
-            tile,
-            1
-            /* Reused.Full */
-          );
-          this.builder.addLine(tile);
-        } else if (tile instanceof WidgetBufferTile) {
-          this.cache.add(tile);
-        } else if (tile instanceof MarkTile) {
-          this.builder.ensureLine(null);
-          this.builder.addMark(tile, activeMarks, openMarks);
-          this.cache.reused.set(
-            tile,
-            1
-            /* Reused.Full */
-          );
-          openMarks = activeMarks.length;
-        } else {
-          return false;
-        }
-        this.openWidget = false;
-      },
-      enter: (tile) => {
-        if (tile.isLine()) {
-          this.builder.addLineStart(tile.attrs, this.cache.maybeReuse(tile));
-        } else {
-          this.cache.add(tile);
-          if (tile instanceof MarkTile)
-            activeMarks.unshift(tile.mark);
-        }
-        this.openWidget = false;
-      },
-      leave: (tile) => {
-        if (tile.isLine()) {
-          if (activeMarks.length)
-            activeMarks.length = openMarks = 0;
-        } else if (tile instanceof MarkTile) {
-          activeMarks.shift();
-          openMarks = Math.min(openMarks, activeMarks.length);
-        }
-      },
-      break: () => {
-        this.builder.addBreak();
-        this.openWidget = false;
-      }
-    });
-    this.text.skip(length);
-  }
-  emit(from2, to) {
-    let pendingLineAttrs = null;
-    let b = this.builder, markCount = 0;
-    let openEnd = RangeSet.spans(this.decorations, from2, to, {
-      point: (from3, to2, deco, active, openStart, index) => {
-        if (deco instanceof PointDecoration2) {
-          if (this.disallowBlockEffectsFor[index]) {
-            if (deco.block)
-              throw new RangeError("Block decorations may not be specified via plugins");
-            if (to2 > this.view.state.doc.lineAt(from3).to)
-              throw new RangeError("Decorations that replace line breaks may not be specified via plugins");
-          }
-          markCount = active.length;
-          if (openStart > active.length) {
-            b.continueWidget(to2 - from3);
-          } else {
-            let widget = deco.widget || (deco.block ? NullWidget2.block : NullWidget2.inline);
-            let flags = widgetFlags(deco);
-            let tile = this.cache.findWidget(widget, to2 - from3, flags) || WidgetTile.of(widget, this.view, to2 - from3, flags);
-            if (deco.block) {
-              if (deco.startSide > 0)
-                b.addLineStartIfNotCovered(pendingLineAttrs);
-              b.addBlockWidget(tile);
-            } else {
-              b.ensureLine(pendingLineAttrs);
-              b.addInlineWidget(tile, active, openStart);
-            }
-          }
-          pendingLineAttrs = null;
-        } else {
-          pendingLineAttrs = addLineDeco(pendingLineAttrs, deco);
-        }
-        if (to2 > from3)
-          this.text.skip(to2 - from3);
-      },
-      span: (from3, to2, active, openStart) => {
-        for (let pos = from3; pos < to2; ) {
-          let chars = this.text.next(Math.min(512, to2 - pos));
-          if (chars == null) {
-            b.addLineStartIfNotCovered(pendingLineAttrs);
-            b.addBreak();
-            pos++;
-          } else {
-            b.ensureLine(pendingLineAttrs);
-            b.addText(chars, active, pos == from3 ? openStart : active.length);
-            pos += chars.length;
-          }
-          pendingLineAttrs = null;
-        }
-      }
-    });
-    b.addLineStartIfNotCovered(pendingLineAttrs);
-    this.openWidget = openEnd > markCount;
-    this.openMarks = openEnd;
-  }
-  forward(from2, to, side = 1) {
-    if (to - from2 <= 10) {
-      this.old.advance(to - from2, side, this.reuseWalker);
-    } else {
-      this.old.advance(5, -1, this.reuseWalker);
-      this.old.advance(to - from2 - 10, -1);
-      this.old.advance(5, side, this.reuseWalker);
-    }
-  }
-  getCompositionContext(text) {
-    let marks2 = [], line = null;
-    for (let parent = text.parentNode; ; parent = parent.parentNode) {
-      let tile = Tile.get(parent);
-      if (parent == this.view.contentDOM)
-        break;
-      if (tile instanceof MarkTile)
-        marks2.push(tile);
-      else if (tile === null || tile === void 0 ? void 0 : tile.isLine())
-        line = tile;
-      else if (tile instanceof BlockWrapperTile) ;
-      else if (parent.nodeName == "DIV" && !line && parent != this.view.contentDOM)
-        line = new LineTile(parent, lineBaseAttrs);
-      else if (!line)
-        marks2.push(MarkTile.of(new MarkDecoration2({ tagName: parent.nodeName.toLowerCase(), attributes: getAttrs2(parent) }), parent));
-    }
-    return { line, marks: marks2 };
-  }
-};
-function hasContent(tile, requireText) {
-  let scan = (tile2) => {
-    for (let ch of tile2.children)
-      if ((requireText ? ch.isText() : ch.length) || scan(ch))
-        return true;
-    return false;
-  };
-  return scan(tile);
-}
-function widgetFlags(deco) {
-  let flags = deco.isReplace ? (deco.startSide < 0 ? 64 : 0) | (deco.endSide > 0 ? 128 : 0) : deco.startSide > 0 ? 32 : 16;
-  if (deco.block)
-    flags |= 256;
-  return flags;
-}
-var lineBaseAttrs = { class: "cm-line" };
-function addLineDeco(value, deco) {
-  let attrs = deco.spec.attributes, cls = deco.spec.class;
-  if (!attrs && !cls)
-    return value;
-  if (!value)
-    value = { class: "cm-line" };
-  if (attrs)
-    combineAttrs2(attrs, value);
-  if (cls)
-    value.class += " " + cls;
-  return value;
-}
-function getMarks(ptr) {
-  let found = [];
-  for (let i2 = ptr.parents.length; i2 > 1; i2--) {
-    let tile = i2 == ptr.parents.length ? ptr.tile : ptr.parents[i2].tile;
-    if (tile instanceof MarkTile)
-      found.push(tile.mark);
-  }
-  return found;
-}
-function freeNode(node) {
-  let tile = Tile.get(node);
-  if (tile)
-    tile.setDOM(node.cloneNode());
-  return node;
-}
-var NullWidget2 = class extends WidgetType2 {
-  constructor(tag) {
-    super();
-    this.tag = tag;
-  }
-  eq(other) {
-    return other.tag == this.tag;
-  }
-  toDOM() {
-    return document.createElement(this.tag);
-  }
-  updateDOM(elt2) {
-    return elt2.nodeName.toLowerCase() == this.tag;
-  }
-  get isHidden() {
-    return true;
-  }
-};
-NullWidget2.inline = /* @__PURE__ */ new NullWidget2("span");
-NullWidget2.block = /* @__PURE__ */ new NullWidget2("div");
-var BreakWidget = /* @__PURE__ */ new class extends WidgetType2 {
-  toDOM() {
-    return document.createElement("br");
-  }
-  get isHidden() {
-    return true;
-  }
-  get editable() {
-    return true;
-  }
-}();
-var DocView2 = class {
-  constructor(view) {
-    this.view = view;
-    this.decorations = [];
-    this.blockWrappers = [];
-    this.dynamicDecorationMap = [false];
-    this.domChanged = null;
-    this.hasComposition = null;
-    this.editContextFormatting = Decoration2.none;
-    this.lastCompositionAfterCursor = false;
-    this.minWidth = 0;
-    this.minWidthFrom = 0;
-    this.minWidthTo = 0;
-    this.impreciseAnchor = null;
-    this.impreciseHead = null;
-    this.forceSelection = false;
-    this.lastUpdate = Date.now();
-    this.updateDeco();
-    this.tile = new DocTile(view, view.contentDOM);
-    this.updateInner([new ChangedRange2(0, 0, 0, view.state.doc.length)], null);
-  }
-  // Update the document view to a given state.
-  update(update) {
-    var _a2;
-    let changedRanges = update.changedRanges;
-    if (this.minWidth > 0 && changedRanges.length) {
-      if (!changedRanges.every(({ fromA, toA }) => toA < this.minWidthFrom || fromA > this.minWidthTo)) {
-        this.minWidth = this.minWidthFrom = this.minWidthTo = 0;
-      } else {
-        this.minWidthFrom = update.changes.mapPos(this.minWidthFrom, 1);
-        this.minWidthTo = update.changes.mapPos(this.minWidthTo, 1);
-      }
-    }
-    this.updateEditContextFormatting(update);
-    let readCompositionAt = -1;
-    if (this.view.inputState.composing >= 0 && !this.view.observer.editContext) {
-      if ((_a2 = this.domChanged) === null || _a2 === void 0 ? void 0 : _a2.newSel)
-        readCompositionAt = this.domChanged.newSel.head;
-      else if (!touchesComposition2(update.changes, this.hasComposition) && !update.selectionSet)
-        readCompositionAt = update.state.selection.main.head;
-    }
-    let composition = readCompositionAt > -1 ? findCompositionRange2(this.view, update.changes, readCompositionAt) : null;
-    this.domChanged = null;
-    if (this.hasComposition) {
-      let { from: from2, to } = this.hasComposition;
-      changedRanges = new ChangedRange2(from2, to, update.changes.mapPos(from2, -1), update.changes.mapPos(to, 1)).addToSet(changedRanges.slice());
-    }
-    this.hasComposition = composition ? { from: composition.range.fromB, to: composition.range.toB } : null;
-    if ((browser2.ie || browser2.chrome) && !composition && update && update.state.doc.lines != update.startState.doc.lines)
-      this.forceSelection = true;
-    let prevDeco = this.decorations, prevWrappers = this.blockWrappers;
-    this.updateDeco();
-    let decoDiff = findChangedDeco2(prevDeco, this.decorations, update.changes);
-    if (decoDiff.length)
-      changedRanges = ChangedRange2.extendWithRanges(changedRanges, decoDiff);
-    let blockDiff = findChangedWrappers(prevWrappers, this.blockWrappers, update.changes);
-    if (blockDiff.length)
-      changedRanges = ChangedRange2.extendWithRanges(changedRanges, blockDiff);
-    if (composition && !changedRanges.some((r) => r.fromA <= composition.range.fromA && r.toA >= composition.range.toA))
-      changedRanges = composition.range.addToSet(changedRanges.slice());
-    if (this.tile.flags & 2 && changedRanges.length == 0) {
-      return false;
-    } else {
-      this.updateInner(changedRanges, composition);
-      if (update.transactions.length)
-        this.lastUpdate = Date.now();
-      return true;
-    }
-  }
-  // Used by update and the constructor do perform the actual DOM
-  // update
-  updateInner(changes, composition) {
-    this.view.viewState.mustMeasureContent = true;
-    let { observer } = this.view;
-    observer.ignore(() => {
-      if (composition || changes.length) {
-        let oldTile = this.tile;
-        let builder = new TileUpdate(this.view, oldTile, this.blockWrappers, this.decorations, this.dynamicDecorationMap);
-        if (composition && Tile.get(composition.text))
-          builder.cache.reused.set(
-            Tile.get(composition.text),
-            2
-            /* Reused.DOM */
-          );
-        this.tile = builder.run(changes, composition);
-        destroyDropped(oldTile, builder.cache.reused);
-      }
-      this.tile.dom.style.height = this.view.viewState.contentHeight / this.view.scaleY + "px";
-      this.tile.dom.style.flexBasis = this.minWidth ? this.minWidth + "px" : "";
-      let track = browser2.chrome || browser2.ios ? { node: observer.selectionRange.focusNode, written: false } : void 0;
-      this.tile.sync(track);
-      if (track && (track.written || observer.selectionRange.focusNode != track.node || !this.tile.dom.contains(track.node)))
-        this.forceSelection = true;
-      this.tile.dom.style.height = "";
-    });
-    let gaps = [];
-    if (this.view.viewport.from || this.view.viewport.to < this.view.state.doc.length) {
-      for (let child of this.tile.children)
-        if (child.isWidget() && child.widget instanceof BlockGapWidget2)
-          gaps.push(child.dom);
-    }
-    observer.updateGaps(gaps);
-  }
-  updateEditContextFormatting(update) {
-    this.editContextFormatting = this.editContextFormatting.map(update.changes);
-    for (let tr of update.transactions)
-      for (let effect of tr.effects)
-        if (effect.is(setEditContextFormatting2)) {
-          this.editContextFormatting = effect.value;
-        }
-  }
-  // Sync the DOM selection to this.state.selection
-  updateSelection(mustRead = false, fromPointer = false) {
-    if (mustRead || !this.view.observer.selectionRange.focusNode)
-      this.view.observer.readSelectionRange();
-    let { dom } = this.tile;
-    let activeElt = this.view.root.activeElement, focused = activeElt == dom;
-    let selectionNotFocus = !focused && !(this.view.state.facet(editable2) || dom.tabIndex > -1) && hasSelection2(dom, this.view.observer.selectionRange) && !(activeElt && dom.contains(activeElt));
-    if (!(focused || fromPointer || selectionNotFocus))
-      return;
-    let force = this.forceSelection;
-    this.forceSelection = false;
-    let main = this.view.state.selection.main, anchor, head;
-    if (main.empty) {
-      head = anchor = this.inlineDOMNearPos(main.anchor, main.assoc || 1);
-    } else {
-      head = this.inlineDOMNearPos(main.head, main.head == main.from ? 1 : -1);
-      anchor = this.inlineDOMNearPos(main.anchor, main.anchor == main.from ? 1 : -1);
-    }
-    if (browser2.gecko && main.empty && !this.hasComposition && betweenUneditable2(anchor)) {
-      let dummy = document.createTextNode("");
-      this.view.observer.ignore(() => anchor.node.insertBefore(dummy, anchor.node.childNodes[anchor.offset] || null));
-      anchor = head = new DOMPos2(dummy, 0);
-      force = true;
-    }
-    let domSel = this.view.observer.selectionRange;
-    if (force || !domSel.focusNode || (!isEquivalentPosition2(anchor.node, anchor.offset, domSel.anchorNode, domSel.anchorOffset) || !isEquivalentPosition2(head.node, head.offset, domSel.focusNode, domSel.focusOffset)) && !this.suppressWidgetCursorChange(domSel, main)) {
-      this.view.observer.ignore(() => {
-        if (browser2.android && browser2.chrome && dom.contains(domSel.focusNode) && inUneditable2(domSel.focusNode, dom)) {
-          dom.blur();
-          dom.focus({ preventScroll: true });
-        }
-        let rawSel = getSelection2(this.view.root);
-        if (!rawSel) ;
-        else if (main.empty) {
-          if (browser2.gecko) {
-            let nextTo = nextToUneditable2(anchor.node, anchor.offset);
-            if (nextTo && nextTo != (1 | 2)) {
-              let text = (nextTo == 1 ? textNodeBefore2 : textNodeAfter2)(anchor.node, anchor.offset);
-              if (text)
-                anchor = new DOMPos2(text.node, text.offset);
-            }
-          }
-          rawSel.collapse(anchor.node, anchor.offset);
-          if (main.bidiLevel != null && rawSel.caretBidiLevel !== void 0)
-            rawSel.caretBidiLevel = main.bidiLevel;
-        } else if (rawSel.extend) {
-          rawSel.collapse(anchor.node, anchor.offset);
-          try {
-            rawSel.extend(head.node, head.offset);
-          } catch (_) {
-          }
-        } else {
-          let range = document.createRange();
-          if (main.anchor > main.head)
-            [anchor, head] = [head, anchor];
-          range.setEnd(head.node, head.offset);
-          range.setStart(anchor.node, anchor.offset);
-          rawSel.removeAllRanges();
-          rawSel.addRange(range);
-        }
-        if (selectionNotFocus && this.view.root.activeElement == dom) {
-          dom.blur();
-          if (activeElt)
-            activeElt.focus();
-        }
-      });
-      this.view.observer.setSelectionRange(anchor, head);
-    }
-    this.impreciseAnchor = anchor.precise ? null : new DOMPos2(domSel.anchorNode, domSel.anchorOffset);
-    this.impreciseHead = head.precise ? null : new DOMPos2(domSel.focusNode, domSel.focusOffset);
-  }
-  // If a zero-length widget is inserted next to the cursor during
-  // composition, avoid moving it across it and disrupting the
-  // composition.
-  suppressWidgetCursorChange(sel, cursor2) {
-    return this.hasComposition && cursor2.empty && isEquivalentPosition2(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset) && this.posFromDOM(sel.focusNode, sel.focusOffset) == cursor2.head;
-  }
-  enforceCursorAssoc() {
-    if (this.hasComposition)
-      return;
-    let { view } = this, cursor2 = view.state.selection.main;
-    let sel = getSelection2(view.root);
-    let { anchorNode, anchorOffset } = view.observer.selectionRange;
-    if (!sel || !cursor2.empty || !cursor2.assoc || !sel.modify)
-      return;
-    let line = this.lineAt(cursor2.head, cursor2.assoc);
-    if (!line)
-      return;
-    let lineStart = line.posAtStart;
-    if (cursor2.head == lineStart || cursor2.head == lineStart + line.length)
-      return;
-    let before = this.coordsAt(cursor2.head, -1), after = this.coordsAt(cursor2.head, 1);
-    if (!before || !after || before.bottom > after.top)
-      return;
-    let dom = this.domAtPos(cursor2.head + cursor2.assoc, cursor2.assoc);
-    sel.collapse(dom.node, dom.offset);
-    sel.modify("move", cursor2.assoc < 0 ? "forward" : "backward", "lineboundary");
-    view.observer.readSelectionRange();
-    let newRange = view.observer.selectionRange;
-    if (view.docView.posFromDOM(newRange.anchorNode, newRange.anchorOffset) != cursor2.from)
-      sel.collapse(anchorNode, anchorOffset);
-  }
-  posFromDOM(node, offset) {
-    let tile = this.tile.nearest(node);
-    if (!tile)
-      return this.tile.dom.compareDocumentPosition(node) & 2 ? 0 : this.view.state.doc.length;
-    let start = tile.posAtStart;
-    if (tile.isComposite()) {
-      let after;
-      if (node == tile.dom) {
-        after = tile.dom.childNodes[offset];
-      } else {
-        let bias = maxOffset2(node) == 0 ? 0 : offset == 0 ? -1 : 1;
-        for (; ; ) {
-          let parent = node.parentNode;
-          if (parent == tile.dom)
-            break;
-          if (bias == 0 && parent.firstChild != parent.lastChild) {
-            if (node == parent.firstChild)
-              bias = -1;
-            else
-              bias = 1;
-          }
-          node = parent;
-        }
-        if (bias < 0)
-          after = node;
-        else
-          after = node.nextSibling;
-      }
-      if (after == tile.dom.firstChild)
-        return start;
-      while (after && !Tile.get(after))
-        after = after.nextSibling;
-      if (!after)
-        return start + tile.length;
-      for (let i2 = 0, pos = start; ; i2++) {
-        let child = tile.children[i2];
-        if (child.dom == after)
-          return pos;
-        pos += child.length + child.breakAfter;
-      }
-    } else if (tile.isText()) {
-      return node == tile.dom ? start + offset : start + (offset ? tile.length : 0);
-    } else {
-      return start;
-    }
-  }
-  domAtPos(pos, side) {
-    let { tile, offset } = this.tile.resolveBlock(pos, side);
-    if (tile.isWidget())
-      return tile.domPosFor(pos, side);
-    return tile.domIn(offset, side);
-  }
-  inlineDOMNearPos(pos, side) {
-    let before, beforeOff = -1, beforeBad = false;
-    let after, afterOff = -1, afterBad = false;
-    this.tile.blockTiles((tile, off) => {
-      if (tile.isWidget()) {
-        if (tile.flags & 32 && off >= pos)
-          return true;
-        if (tile.flags & 16)
-          beforeBad = true;
-      } else {
-        let end = off + tile.length;
-        if (off <= pos) {
-          before = tile;
-          beforeOff = pos - off;
-          beforeBad = end < pos;
-        }
-        if (end >= pos && !after) {
-          after = tile;
-          afterOff = pos - off;
-          afterBad = off > pos;
-        }
-        if (off > pos && after)
-          return true;
-      }
-    });
-    if (!before && !after)
-      return this.domAtPos(pos, side);
-    if (beforeBad && after)
-      before = null;
-    else if (afterBad && before)
-      after = null;
-    return before && side < 0 || !after ? before.domIn(beforeOff, side) : after.domIn(afterOff, side);
-  }
-  coordsAt(pos, side) {
-    let { tile, offset } = this.tile.resolveBlock(pos, side);
-    if (tile.isWidget()) {
-      if (tile.widget instanceof BlockGapWidget2)
-        return null;
-      return tile.coordsInWidget(offset, side, true);
-    }
-    return tile.coordsIn(offset, side);
-  }
-  lineAt(pos, side) {
-    let { tile } = this.tile.resolveBlock(pos, side);
-    return tile.isLine() ? tile : null;
-  }
-  coordsForChar(pos) {
-    let { tile, offset } = this.tile.resolveBlock(pos, 1);
-    if (!tile.isLine())
-      return null;
-    function scan(tile2, offset2) {
-      if (tile2.isComposite()) {
-        for (let ch of tile2.children) {
-          if (ch.length >= offset2) {
-            let found = scan(ch, offset2);
-            if (found)
-              return found;
-          }
-          offset2 -= ch.length;
-          if (offset2 < 0)
-            break;
-        }
-      } else if (tile2.isText() && offset2 < tile2.length) {
-        let end = findClusterBreak2(tile2.text, offset2);
-        if (end == offset2)
-          return null;
-        let rects = textRange2(tile2.dom, offset2, end).getClientRects();
-        for (let i2 = 0; i2 < rects.length; i2++) {
-          let rect = rects[i2];
-          if (i2 == rects.length - 1 || rect.top < rect.bottom && rect.left < rect.right)
-            return rect;
-        }
-      }
-      return null;
-    }
-    return scan(tile, offset);
-  }
-  measureVisibleLineHeights(viewport) {
-    let result = [], { from: from2, to } = viewport;
-    let contentWidth = this.view.contentDOM.clientWidth;
-    let isWider = contentWidth > Math.max(this.view.scrollDOM.clientWidth, this.minWidth) + 1;
-    let widest = -1, ltr = this.view.textDirection == Direction2.LTR;
-    let spaceAbove = 0;
-    let scan = (tile, pos, measureBounds) => {
-      for (let i2 = 0; i2 < tile.children.length; i2++) {
-        if (pos > to)
-          break;
-        let child = tile.children[i2], end = pos + child.length;
-        let childRect = child.dom.getBoundingClientRect(), { height } = childRect;
-        if (measureBounds && !i2)
-          spaceAbove += childRect.top - measureBounds.top;
-        if (child instanceof BlockWrapperTile) {
-          if (end > from2)
-            scan(child, pos, childRect);
-        } else if (pos >= from2) {
-          if (spaceAbove > 0)
-            result.push(-spaceAbove);
-          result.push(height + spaceAbove);
-          spaceAbove = 0;
-          if (isWider) {
-            let last = child.dom.lastChild;
-            let rects = last ? clientRectsFor2(last) : [];
-            if (rects.length) {
-              let rect = rects[rects.length - 1];
-              let width = ltr ? rect.right - childRect.left : childRect.right - rect.left;
-              if (width > widest) {
-                widest = width;
-                this.minWidth = contentWidth;
-                this.minWidthFrom = pos;
-                this.minWidthTo = end;
-              }
-            }
-          }
-        }
-        if (measureBounds && i2 == tile.children.length - 1)
-          spaceAbove += measureBounds.bottom - childRect.bottom;
-        pos = end + child.breakAfter;
-      }
-    };
-    scan(this.tile, 0, null);
-    return result;
-  }
-  textDirectionAt(pos) {
-    let { tile } = this.tile.resolveBlock(pos, 1);
-    return getComputedStyle(tile.dom).direction == "rtl" ? Direction2.RTL : Direction2.LTR;
-  }
-  measureTextSize() {
-    let lineMeasure = this.tile.blockTiles((tile) => {
-      if (tile.isLine() && tile.children.length && tile.length <= 20) {
-        let totalWidth = 0, textHeight2;
-        for (let child of tile.children) {
-          if (!child.isText() || /[^ -~]/.test(child.text))
-            return void 0;
-          let rects = clientRectsFor2(child.dom);
-          if (rects.length != 1)
-            return void 0;
-          totalWidth += rects[0].width;
-          textHeight2 = rects[0].height;
-        }
-        if (totalWidth)
-          return {
-            lineHeight: tile.dom.getBoundingClientRect().height,
-            charWidth: totalWidth / tile.length,
-            textHeight: textHeight2
-          };
-      }
-    });
-    if (lineMeasure)
-      return lineMeasure;
-    let dummy = document.createElement("div"), lineHeight, charWidth, textHeight;
-    dummy.className = "cm-line";
-    dummy.style.width = "99999px";
-    dummy.style.position = "absolute";
-    dummy.textContent = "abc def ghi jkl mno pqr stu";
-    this.view.observer.ignore(() => {
-      this.tile.dom.appendChild(dummy);
-      let rect = clientRectsFor2(dummy.firstChild)[0];
-      lineHeight = dummy.getBoundingClientRect().height;
-      charWidth = rect && rect.width ? rect.width / 27 : 7;
-      textHeight = rect && rect.height ? rect.height : lineHeight;
-      dummy.remove();
-    });
-    return { lineHeight, charWidth, textHeight };
-  }
-  computeBlockGapDeco() {
-    let deco = [], vs = this.view.viewState;
-    for (let pos = 0, i2 = 0; ; i2++) {
-      let next = i2 == vs.viewports.length ? null : vs.viewports[i2];
-      let end = next ? next.from - 1 : this.view.state.doc.length;
-      if (end > pos) {
-        let height = (vs.lineBlockAt(end).bottom - vs.lineBlockAt(pos).top) / this.view.scaleY;
-        deco.push(Decoration2.replace({
-          widget: new BlockGapWidget2(height),
-          block: true,
-          inclusive: true,
-          isBlockGap: true
-        }).range(pos, end));
-      }
-      if (!next)
-        break;
-      pos = next.to + 1;
-    }
-    return Decoration2.set(deco);
-  }
-  updateDeco() {
-    let i2 = 1;
-    let allDeco = this.view.state.facet(decorations2).map((d) => {
-      let dynamic = this.dynamicDecorationMap[i2++] = typeof d == "function";
-      return dynamic ? d(this.view) : d;
-    });
-    let dynamicOuter = false, outerDeco = this.view.state.facet(outerDecorations2).map((d, i3) => {
-      let dynamic = typeof d == "function";
-      if (dynamic)
-        dynamicOuter = true;
-      return dynamic ? d(this.view) : d;
-    });
-    if (outerDeco.length) {
-      this.dynamicDecorationMap[i2++] = dynamicOuter;
-      allDeco.push(RangeSet.join(outerDeco));
-    }
-    this.decorations = [
-      this.editContextFormatting,
-      ...allDeco,
-      this.computeBlockGapDeco(),
-      this.view.viewState.lineGapDeco
-    ];
-    while (i2 < this.decorations.length)
-      this.dynamicDecorationMap[i2++] = false;
-    this.blockWrappers = this.view.state.facet(blockWrappers).map((v) => typeof v == "function" ? v(this.view) : v);
-  }
-  scrollIntoView(target) {
-    var _a2;
-    if (target.isSnapshot) {
-      let ref = this.view.viewState.lineBlockAt(target.range.head);
-      this.view.scrollDOM.scrollTop = ref.top - target.yMargin;
-      this.view.scrollDOM.scrollLeft = target.xMargin;
-      return;
-    }
-    for (let handler of this.view.state.facet(scrollHandler2)) {
-      try {
-        if (handler(this.view, target.range, target))
-          return true;
-      } catch (e) {
-        logException2(this.view.state, e, "scroll handler");
-      }
-    }
-    let { range } = target;
-    let rect = this.coordsAt(range.head, (_a2 = range.assoc) !== null && _a2 !== void 0 ? _a2 : range.empty ? 0 : range.head > range.anchor ? -1 : 1), other;
-    if (!rect)
-      return;
-    if (!range.empty && (other = this.coordsAt(range.anchor, range.anchor > range.head ? -1 : 1)))
-      rect = {
-        left: Math.min(rect.left, other.left),
-        top: Math.min(rect.top, other.top),
-        right: Math.max(rect.right, other.right),
-        bottom: Math.max(rect.bottom, other.bottom)
-      };
-    let margins = getScrollMargins2(this.view);
-    let targetRect = {
-      left: rect.left - margins.left,
-      top: rect.top - margins.top,
-      right: rect.right + margins.right,
-      bottom: rect.bottom + margins.bottom
-    };
-    let { offsetWidth, offsetHeight } = this.view.scrollDOM;
-    scrollRectIntoView2(this.view.scrollDOM, targetRect, range.head < range.anchor ? -1 : 1, target.x, target.y, Math.max(Math.min(target.xMargin, offsetWidth), -offsetWidth), Math.max(Math.min(target.yMargin, offsetHeight), -offsetHeight), this.view.textDirection == Direction2.LTR);
-    if (window.visualViewport && window.innerHeight - window.visualViewport.height > 1 && (rect.top > window.pageYOffset + window.visualViewport.offsetTop + window.visualViewport.height || rect.bottom < window.pageYOffset + window.visualViewport.offsetTop)) {
-      let line = this.view.docView.lineAt(range.head, 1);
-      if (line)
-        line.dom.scrollIntoView({ block: "nearest" });
-    }
-  }
-  lineHasWidget(pos) {
-    let scan = (child) => child.isWidget() || child.children.some(scan);
-    return scan(this.tile.resolveBlock(pos, 1).tile);
-  }
-  destroy() {
-    destroyDropped(this.tile);
-  }
-};
-function destroyDropped(tile, reused) {
-  let r = reused === null || reused === void 0 ? void 0 : reused.get(tile);
-  if (r != 1) {
-    if (r == null)
-      tile.destroy();
-    for (let ch of tile.children)
-      destroyDropped(ch, reused);
-  }
-}
-function betweenUneditable2(pos) {
-  return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset == pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
-}
-function findCompositionNode2(view, headPos) {
-  let sel = view.observer.selectionRange;
-  if (!sel.focusNode)
-    return null;
-  let textBefore = textNodeBefore2(sel.focusNode, sel.focusOffset);
-  let textAfter = textNodeAfter2(sel.focusNode, sel.focusOffset);
-  let textNode = textBefore || textAfter;
-  if (textAfter && textBefore && textAfter.node != textBefore.node) {
-    let tileAfter = Tile.get(textAfter.node);
-    if (!tileAfter || tileAfter.isText() && tileAfter.text != textAfter.node.nodeValue) {
-      textNode = textAfter;
-    } else if (view.docView.lastCompositionAfterCursor) {
-      let tileBefore = Tile.get(textBefore.node);
-      if (!(!tileBefore || tileBefore.isText() && tileBefore.text != textBefore.node.nodeValue))
-        textNode = textAfter;
-    }
-  }
-  view.docView.lastCompositionAfterCursor = textNode != textBefore;
-  if (!textNode)
-    return null;
-  let from2 = headPos - textNode.offset;
-  return { from: from2, to: from2 + textNode.node.nodeValue.length, node: textNode.node };
-}
-function findCompositionRange2(view, changes, headPos) {
-  let found = findCompositionNode2(view, headPos);
-  if (!found)
-    return null;
-  let { node: textNode, from: from2, to } = found, text = textNode.nodeValue;
-  if (/[\n\r]/.test(text))
-    return null;
-  if (view.state.doc.sliceString(found.from, found.to) != text)
-    return null;
-  let inv = changes.invertedDesc;
-  return { range: new ChangedRange2(inv.mapPos(from2), inv.mapPos(to), from2, to), text: textNode };
-}
-function nextToUneditable2(node, offset) {
-  if (node.nodeType != 1)
-    return 0;
-  return (offset && node.childNodes[offset - 1].contentEditable == "false" ? 1 : 0) | (offset < node.childNodes.length && node.childNodes[offset].contentEditable == "false" ? 2 : 0);
-}
-var DecorationComparator$12 = class DecorationComparator3 {
-  constructor() {
-    this.changes = [];
-  }
-  compareRange(from2, to) {
-    addRange2(from2, to, this.changes);
-  }
-  comparePoint(from2, to) {
-    addRange2(from2, to, this.changes);
-  }
-  boundChange(pos) {
-    addRange2(pos, pos, this.changes);
-  }
-};
-function findChangedDeco2(a, b, diff) {
-  let comp = new DecorationComparator$12();
-  RangeSet.compare(a, b, diff, comp);
-  return comp.changes;
-}
-var WrapperComparator = class {
-  constructor() {
-    this.changes = [];
-  }
-  compareRange(from2, to) {
-    addRange2(from2, to, this.changes);
-  }
-  comparePoint() {
-  }
-  boundChange(pos) {
-    addRange2(pos, pos, this.changes);
-  }
-};
-function findChangedWrappers(a, b, diff) {
-  let comp = new WrapperComparator();
-  RangeSet.compare(a, b, diff, comp);
-  return comp.changes;
-}
-function inUneditable2(node, inside2) {
-  for (let cur2 = node; cur2 && cur2 != inside2; cur2 = cur2.assignedSlot || cur2.parentNode) {
-    if (cur2.nodeType == 1 && cur2.contentEditable == "false") {
-      return true;
-    }
-  }
-  return false;
-}
-function touchesComposition2(changes, composition) {
-  let touched = false;
-  if (composition)
-    changes.iterChangedRanges((from2, to) => {
-      if (from2 < composition.to && to > composition.from)
-        touched = true;
-    });
-  return touched;
-}
-var BlockGapWidget2 = class extends WidgetType2 {
-  constructor(height) {
-    super();
-    this.height = height;
-  }
-  toDOM() {
-    let elt2 = document.createElement("div");
-    elt2.className = "cm-gap";
-    this.updateDOM(elt2);
-    return elt2;
-  }
-  eq(other) {
-    return other.height == this.height;
-  }
-  updateDOM(elt2) {
-    elt2.style.height = this.height + "px";
-    return true;
-  }
-  get editable() {
-    return true;
-  }
-  get estimatedHeight() {
-    return this.height;
-  }
-  ignoreEvent() {
-    return false;
-  }
-};
-function groupAt2(state, pos, bias = 1) {
-  let categorize = state.charCategorizer(pos);
-  let line = state.doc.lineAt(pos), linePos = pos - line.from;
-  if (line.length == 0)
-    return EditorSelection.cursor(pos);
-  if (linePos == 0)
-    bias = 1;
-  else if (linePos == line.length)
-    bias = -1;
-  let from2 = linePos, to = linePos;
-  if (bias < 0)
-    from2 = findClusterBreak2(line.text, linePos, false);
-  else
-    to = findClusterBreak2(line.text, linePos);
-  let cat = categorize(line.text.slice(from2, to));
-  while (from2 > 0) {
-    let prev = findClusterBreak2(line.text, from2, false);
-    if (categorize(line.text.slice(prev, from2)) != cat)
-      break;
-    from2 = prev;
-  }
-  while (to < line.length) {
-    let next = findClusterBreak2(line.text, to);
-    if (categorize(line.text.slice(to, next)) != cat)
-      break;
-    to = next;
-  }
-  return EditorSelection.range(from2 + line.from, to + line.from);
-}
-function posAtCoordsImprecise2(view, contentRect, block, x, y) {
-  let into = Math.round((x - contentRect.left) * view.defaultCharacterWidth);
-  if (view.lineWrapping && block.height > view.defaultLineHeight * 1.5) {
-    let textHeight = view.viewState.heightOracle.textHeight;
-    let line = Math.floor((y - block.top - (view.defaultLineHeight - textHeight) * 0.5) / textHeight);
-    into += line * view.viewState.heightOracle.lineLength;
-  }
-  let content2 = view.state.sliceDoc(block.from, block.to);
-  return block.from + findColumn(content2, into, view.state.tabSize);
-}
-function blockAt2(view, pos, side) {
-  let line = view.lineBlockAt(pos);
-  if (Array.isArray(line.type)) {
-    let best;
-    for (let l of line.type) {
-      if (l.from > pos)
-        break;
-      if (l.to < pos)
-        continue;
-      if (l.from < pos && l.to > pos)
-        return l;
-      if (!best || l.type == BlockType2.Text && (best.type != l.type || (side < 0 ? l.from < pos : l.to > pos)))
-        best = l;
-    }
-    return best || line;
-  }
-  return line;
-}
-function moveToLineBoundary2(view, start, forward, includeWrap) {
-  let line = blockAt2(view, start.head, start.assoc || -1);
-  let coords = !includeWrap || line.type != BlockType2.Text || !(view.lineWrapping || line.widgetLineBreaks) ? null : view.coordsAtPos(start.assoc < 0 && start.head > line.from ? start.head - 1 : start.head);
-  if (coords) {
-    let editorRect = view.dom.getBoundingClientRect();
-    let direction = view.textDirectionAt(line.from);
-    let pos = view.posAtCoords({
-      x: forward == (direction == Direction2.LTR) ? editorRect.right - 1 : editorRect.left + 1,
-      y: (coords.top + coords.bottom) / 2
-    });
-    if (pos != null)
-      return EditorSelection.cursor(pos, forward ? -1 : 1);
-  }
-  return EditorSelection.cursor(forward ? line.to : line.from, forward ? -1 : 1);
-}
-function moveByChar2(view, start, forward, by) {
-  let line = view.state.doc.lineAt(start.head), spans = view.bidiSpans(line);
-  let direction = view.textDirectionAt(line.from);
-  for (let cur2 = start, check = null; ; ) {
-    let next = moveVisually2(line, spans, direction, cur2, forward), char = movedOver2;
-    if (!next) {
-      if (line.number == (forward ? view.state.doc.lines : 1))
-        return cur2;
-      char = "\n";
-      line = view.state.doc.line(line.number + (forward ? 1 : -1));
-      spans = view.bidiSpans(line);
-      next = view.visualLineSide(line, !forward);
-    }
-    if (!check) {
-      if (!by)
-        return next;
-      check = by(char);
-    } else if (!check(char)) {
-      return cur2;
-    }
-    cur2 = next;
-  }
-}
-function byGroup2(view, pos, start) {
-  let categorize = view.state.charCategorizer(pos);
-  let cat = categorize(start);
-  return (next) => {
-    let nextCat = categorize(next);
-    if (cat == CharCategory.Space)
-      cat = nextCat;
-    return cat == nextCat;
-  };
-}
-function moveVertically2(view, start, forward, distance) {
-  let startPos = start.head, dir = forward ? 1 : -1;
-  if (startPos == (forward ? view.state.doc.length : 0))
-    return EditorSelection.cursor(startPos, start.assoc);
-  let goal = start.goalColumn, startY;
-  let rect = view.contentDOM.getBoundingClientRect();
-  let startCoords = view.coordsAtPos(startPos, start.assoc || ((start.empty ? forward : start.head == start.from) ? 1 : -1));
-  let docTop = view.documentTop;
-  if (startCoords) {
-    if (goal == null)
-      goal = startCoords.left - rect.left;
-    startY = dir < 0 ? startCoords.top : startCoords.bottom;
-  } else {
-    let line = view.viewState.lineBlockAt(startPos);
-    if (goal == null)
-      goal = Math.min(rect.right - rect.left, view.defaultCharacterWidth * (startPos - line.from));
-    startY = (dir < 0 ? line.top : line.bottom) + docTop;
-  }
-  let resolvedGoal = rect.left + goal;
-  let halfText = view.viewState.heightOracle.textHeight >> 1, dist3 = distance !== null && distance !== void 0 ? distance : halfText;
-  for (let scan = 0; ; scan += halfText) {
-    let y = startY + (dist3 + scan) * dir;
-    let pos = posAtCoords2(view, { x: resolvedGoal, y }, false, dir);
-    if (forward ? y > rect.bottom : y < rect.top)
-      return EditorSelection.cursor(pos.pos, pos.assoc);
-    let posCoords = view.coordsAtPos(pos.pos, pos.assoc), mid = posCoords ? (posCoords.top + posCoords.bottom) / 2 : 0;
-    if (!posCoords || (forward ? mid > startY : mid < startY))
-      return EditorSelection.cursor(pos.pos, pos.assoc, void 0, goal);
-  }
-}
-function skipAtomicRanges2(atoms, pos, bias) {
-  for (; ; ) {
-    let moved = 0;
-    for (let set of atoms) {
-      set.between(pos - 1, pos + 1, (from2, to, value) => {
-        if (pos > from2 && pos < to) {
-          let side = moved || bias || (pos - from2 < to - pos ? -1 : 1);
-          pos = side < 0 ? from2 : to;
-          moved = side;
-        }
-      });
-    }
-    if (!moved)
-      return pos;
-  }
-}
-function skipAtomsForSelection(atoms, sel) {
-  let ranges = null;
-  for (let i2 = 0; i2 < sel.ranges.length; i2++) {
-    let range = sel.ranges[i2], updated = null;
-    if (range.empty) {
-      let pos = skipAtomicRanges2(atoms, range.from, 0);
-      if (pos != range.from)
-        updated = EditorSelection.cursor(pos, -1);
-    } else {
-      let from2 = skipAtomicRanges2(atoms, range.from, -1);
-      let to = skipAtomicRanges2(atoms, range.to, 1);
-      if (from2 != range.from || to != range.to)
-        updated = EditorSelection.range(range.from == range.anchor ? from2 : to, range.from == range.head ? from2 : to);
-    }
-    if (updated) {
-      if (!ranges)
-        ranges = sel.ranges.slice();
-      ranges[i2] = updated;
-    }
-  }
-  return ranges ? EditorSelection.create(ranges, sel.mainIndex) : sel;
-}
-function skipAtoms2(view, oldPos, pos) {
-  let newPos = skipAtomicRanges2(view.state.facet(atomicRanges2).map((f) => f(view)), pos.from, oldPos.head > pos.from ? -1 : 1);
-  return newPos == pos.from ? pos : EditorSelection.cursor(newPos, newPos < pos.from ? 1 : -1);
-}
-var PosAssoc = class {
-  constructor(pos, assoc) {
-    this.pos = pos;
-    this.assoc = assoc;
-  }
-};
-function posAtCoords2(view, coords, precise, scanY) {
-  let content2 = view.contentDOM.getBoundingClientRect(), docTop = content2.top + view.viewState.paddingTop;
-  let { x, y } = coords, yOffset = y - docTop, block;
-  for (; ; ) {
-    if (yOffset < 0)
-      return new PosAssoc(0, 1);
-    if (yOffset > view.viewState.docHeight)
-      return new PosAssoc(view.state.doc.length, -1);
-    block = view.elementAtHeight(yOffset);
-    if (scanY == null)
-      break;
-    if (block.type == BlockType2.Text) {
-      if (scanY < 0 ? block.to < view.viewport.from : block.from > view.viewport.to)
-        break;
-      let rect = view.docView.coordsAt(scanY < 0 ? block.from : block.to, scanY > 0 ? -1 : 1);
-      if (rect && (scanY < 0 ? rect.top <= yOffset + docTop : rect.bottom >= yOffset + docTop))
-        break;
-    }
-    let halfLine = view.viewState.heightOracle.textHeight / 2;
-    yOffset = scanY > 0 ? block.bottom + halfLine : block.top - halfLine;
-  }
-  if (view.viewport.from >= block.to || view.viewport.to <= block.from) {
-    if (precise)
-      return null;
-    if (block.type == BlockType2.Text) {
-      let pos = posAtCoordsImprecise2(view, content2, block, x, y);
-      return new PosAssoc(pos, pos == block.from ? 1 : -1);
-    }
-  }
-  if (block.type != BlockType2.Text)
-    return yOffset < (block.top + block.bottom) / 2 ? new PosAssoc(block.from, 1) : new PosAssoc(block.to, -1);
-  let line = view.docView.lineAt(block.from, 2);
-  if (!line || line.length != block.length)
-    line = view.docView.lineAt(block.from, -2);
-  return new InlineCoordsScan(view, x, y, view.textDirectionAt(block.from)).scanTile(line, block.from);
-}
-var InlineCoordsScan = class {
-  constructor(view, x, y, baseDir) {
-    this.view = view;
-    this.x = x;
-    this.y = y;
-    this.baseDir = baseDir;
-    this.line = null;
-    this.spans = null;
-  }
-  bidiSpansAt(pos) {
-    if (!this.line || this.line.from > pos || this.line.to < pos) {
-      this.line = this.view.state.doc.lineAt(pos);
-      this.spans = this.view.bidiSpans(this.line);
-    }
-    return this;
-  }
-  baseDirAt(pos, side) {
-    let { line, spans } = this.bidiSpansAt(pos);
-    let level = spans[BidiSpan2.find(spans, pos - line.from, -1, side)].level;
-    return level == this.baseDir;
-  }
-  dirAt(pos, side) {
-    let { line, spans } = this.bidiSpansAt(pos);
-    return spans[BidiSpan2.find(spans, pos - line.from, -1, side)].dir;
-  }
-  // Used to short-circuit bidi tests for content with a uniform direction
-  bidiIn(from2, to) {
-    let { spans, line } = this.bidiSpansAt(from2);
-    return spans.length > 1 || spans.length && (spans[0].level != this.baseDir || spans[0].to + line.from < to);
-  }
-  // Scan through the rectangles for the content of a tile with inline
-  // content, looking for one that overlaps the queried position
-  // vertically and is closest horizontally. The caller is responsible
-  // for dividing its content into N pieces, and pass an array with
-  // N+1 positions (including the position after the last piece). For
-  // a text tile, these will be character clusters, for a composite
-  // tile, these will be child tiles.
-  scan(positions, getRects, recursed = false) {
-    let lo = 0, hi = positions.length - 1, seen = /* @__PURE__ */ new Set();
-    let bidi = this.bidiIn(positions[0], positions[hi]);
-    let above, below;
-    let closestI = -1, closestDx = 1e9, closestRect;
-    search: while (lo < hi) {
-      let dist3 = hi - lo, mid = lo + hi >> 1;
-      adjust: if (seen.has(mid)) {
-        let scan = lo + Math.floor(Math.random() * dist3);
-        for (let i2 = 0; i2 < dist3; i2++) {
-          if (!seen.has(scan)) {
-            mid = scan;
-            break adjust;
-          }
-          scan++;
-          if (scan == hi)
-            scan = lo;
-        }
-        break search;
-      }
-      seen.add(mid);
-      let rects = getRects(mid);
-      if (rects)
-        for (let i2 = 0; i2 < rects.length; i2++) {
-          let rect = rects[i2], side = 0;
-          if (rect.width == 0 && rects.length > 1)
-            continue;
-          if (rect.bottom < this.y) {
-            if (!above || above.bottom < rect.bottom)
-              above = rect;
-            side = 1;
-          } else if (rect.top > this.y) {
-            if (!below || below.top > rect.top)
-              below = rect;
-            side = -1;
-          } else {
-            let off = rect.left > this.x ? this.x - rect.left : rect.right < this.x ? this.x - rect.right : 0;
-            let dx = Math.abs(off);
-            if (dx < closestDx) {
-              closestI = mid;
-              closestDx = dx;
-              closestRect = rect;
-            }
-            if (off)
-              side = off < 0 == (this.baseDir == Direction2.LTR) ? -1 : 1;
-          }
-          if (side == -1 && (!bidi || this.baseDirAt(positions[mid], 1)))
-            hi = mid;
-          else if (side == 1 && (!bidi || this.baseDirAt(positions[mid + 1], -1)))
-            lo = mid + 1;
-        }
-    }
-    if (!closestRect) {
-      if (!below && !above)
-        return { i: positions[0], after: false };
-      let side = above && (!below || this.y - above.bottom < below.top - this.y) ? above : below;
-      this.y = (side.top + side.bottom) / 2;
-      return this.scan(positions, getRects, true);
-    }
-    if (closestDx && !recursed) {
-      let { top: top2, bottom } = closestRect;
-      if (above && above.bottom > (top2 + top2 + bottom) / 3) {
-        this.y = above.bottom - 1;
-        return this.scan(positions, getRects, true);
-      }
-      if (below && below.top < (top2 + bottom + bottom) / 3) {
-        this.y = below.top + 1;
-        return this.scan(positions, getRects, true);
-      }
-    }
-    let ltr = (bidi ? this.dirAt(positions[closestI], 1) : this.baseDir) == Direction2.LTR;
-    return {
-      i: closestI,
-      // Test whether x is closes to the start or end of this element
-      after: this.x > (closestRect.left + closestRect.right) / 2 == ltr
-    };
-  }
-  scanText(tile, offset) {
-    let positions = [];
-    for (let i2 = 0; i2 < tile.length; i2 = findClusterBreak2(tile.text, i2))
-      positions.push(offset + i2);
-    positions.push(offset + tile.length);
-    let scan = this.scan(positions, (i2) => {
-      let off = positions[i2] - offset, end = positions[i2 + 1] - offset;
-      return textRange2(tile.dom, off, end).getClientRects();
-    });
-    return scan.after ? new PosAssoc(positions[scan.i + 1], -1) : new PosAssoc(positions[scan.i], 1);
-  }
-  scanTile(tile, offset) {
-    if (!tile.length)
-      return new PosAssoc(offset, 1);
-    if (tile.children.length == 1) {
-      let child2 = tile.children[0];
-      if (child2.isText())
-        return this.scanText(child2, offset);
-      else if (child2.isComposite())
-        return this.scanTile(child2, offset);
-    }
-    let positions = [offset];
-    for (let i2 = 0, pos2 = offset; i2 < tile.children.length; i2++)
-      positions.push(pos2 += tile.children[i2].length);
-    let scan = this.scan(positions, (i2) => {
-      let child2 = tile.children[i2];
-      if (child2.flags & 48)
-        return null;
-      return (child2.dom.nodeType == 1 ? child2.dom : textRange2(child2.dom, 0, child2.length)).getClientRects();
-    });
-    let child = tile.children[scan.i], pos = positions[scan.i];
-    if (child.isText())
-      return this.scanText(child, pos);
-    if (child.isComposite())
-      return this.scanTile(child, pos);
-    return scan.after ? new PosAssoc(positions[scan.i + 1], -1) : new PosAssoc(pos, 1);
-  }
-};
-var LineBreakPlaceholder2 = "\uFFFF";
-var DOMReader2 = class {
-  constructor(points, view) {
-    this.points = points;
-    this.view = view;
-    this.text = "";
-    this.lineSeparator = view.state.facet(EditorState.lineSeparator);
-  }
-  append(text) {
-    this.text += text;
-  }
-  lineBreak() {
-    this.text += LineBreakPlaceholder2;
-  }
-  readRange(start, end) {
-    if (!start)
-      return this;
-    let parent = start.parentNode;
-    for (let cur2 = start; ; ) {
-      this.findPointBefore(parent, cur2);
-      let oldLen = this.text.length;
-      this.readNode(cur2);
-      let tile = Tile.get(cur2), next = cur2.nextSibling;
-      if (next == end) {
-        if ((tile === null || tile === void 0 ? void 0 : tile.breakAfter) && !next && parent != this.view.contentDOM)
-          this.lineBreak();
-        break;
-      }
-      let nextTile = Tile.get(next);
-      if ((tile && nextTile ? tile.breakAfter : (tile ? tile.breakAfter : isBlockElement2(cur2)) || isBlockElement2(next) && (cur2.nodeName != "BR" || (tile === null || tile === void 0 ? void 0 : tile.isWidget())) && this.text.length > oldLen) && !isEmptyToEnd(next, end))
-        this.lineBreak();
-      cur2 = next;
-    }
-    this.findPointBefore(parent, end);
-    return this;
-  }
-  readTextNode(node) {
-    let text = node.nodeValue;
-    for (let point of this.points)
-      if (point.node == node)
-        point.pos = this.text.length + Math.min(point.offset, text.length);
-    for (let off = 0, re = this.lineSeparator ? null : /\r\n?|\n/g; ; ) {
-      let nextBreak = -1, breakSize = 1, m;
-      if (this.lineSeparator) {
-        nextBreak = text.indexOf(this.lineSeparator, off);
-        breakSize = this.lineSeparator.length;
-      } else if (m = re.exec(text)) {
-        nextBreak = m.index;
-        breakSize = m[0].length;
-      }
-      this.append(text.slice(off, nextBreak < 0 ? text.length : nextBreak));
-      if (nextBreak < 0)
-        break;
-      this.lineBreak();
-      if (breakSize > 1) {
-        for (let point of this.points)
-          if (point.node == node && point.pos > this.text.length)
-            point.pos -= breakSize - 1;
-      }
-      off = nextBreak + breakSize;
-    }
-  }
-  readNode(node) {
-    let tile = Tile.get(node);
-    let fromView = tile && tile.overrideDOMText;
-    if (fromView != null) {
-      this.findPointInside(node, fromView.length);
-      for (let i2 = fromView.iter(); !i2.next().done; ) {
-        if (i2.lineBreak)
-          this.lineBreak();
-        else
-          this.append(i2.value);
-      }
-    } else if (node.nodeType == 3) {
-      this.readTextNode(node);
-    } else if (node.nodeName == "BR") {
-      if (node.nextSibling)
-        this.lineBreak();
-    } else if (node.nodeType == 1) {
-      this.readRange(node.firstChild, null);
-    }
-  }
-  findPointBefore(node, next) {
-    for (let point of this.points)
-      if (point.node == node && node.childNodes[point.offset] == next)
-        point.pos = this.text.length;
-  }
-  findPointInside(node, length) {
-    for (let point of this.points)
-      if (node.nodeType == 3 ? point.node == node : node.contains(point.node))
-        point.pos = this.text.length + (isAtEnd2(node, point.node, point.offset) ? length : 0);
-  }
-};
-function isAtEnd2(parent, node, offset) {
-  for (; ; ) {
-    if (!node || offset < maxOffset2(node))
-      return false;
-    if (node == parent)
-      return true;
-    offset = domIndex2(node) + 1;
-    node = node.parentNode;
-  }
-}
-function isEmptyToEnd(node, end) {
-  let widgets;
-  for (; ; node = node.nextSibling) {
-    if (node == end || !node)
-      break;
-    let view = Tile.get(node);
-    if (!(view === null || view === void 0 ? void 0 : view.isWidget()))
-      return false;
-    if (view)
-      (widgets || (widgets = [])).push(view);
-  }
-  if (widgets)
-    for (let w of widgets) {
-      let override = w.overrideDOMText;
-      if (override === null || override === void 0 ? void 0 : override.length)
-        return false;
-    }
-  return true;
-}
-var DOMPoint2 = class {
-  constructor(node, offset) {
-    this.node = node;
-    this.offset = offset;
-    this.pos = -1;
-  }
-};
-var DOMChange2 = class {
-  constructor(view, start, end, typeOver) {
-    this.typeOver = typeOver;
-    this.bounds = null;
-    this.text = "";
-    this.domChanged = start > -1;
-    let { impreciseHead: iHead, impreciseAnchor: iAnchor } = view.docView, curSel = view.state.selection;
-    if (view.state.readOnly && start > -1) {
-      this.newSel = null;
-    } else if (start > -1 && (this.bounds = domBoundsAround(view.docView.tile, start, end, 0))) {
-      let selPoints = iHead || iAnchor ? [] : selectionPoints2(view);
-      let reader = new DOMReader2(selPoints, view);
-      reader.readRange(this.bounds.startDOM, this.bounds.endDOM);
-      this.text = reader.text;
-      this.newSel = selectionFromPoints2(selPoints, this.bounds.from);
-    } else {
-      let domSel = view.observer.selectionRange;
-      let head = iHead && iHead.node == domSel.focusNode && iHead.offset == domSel.focusOffset || !contains2(view.contentDOM, domSel.focusNode) ? curSel.main.head : view.docView.posFromDOM(domSel.focusNode, domSel.focusOffset);
-      let anchor = iAnchor && iAnchor.node == domSel.anchorNode && iAnchor.offset == domSel.anchorOffset || !contains2(view.contentDOM, domSel.anchorNode) ? curSel.main.anchor : view.docView.posFromDOM(domSel.anchorNode, domSel.anchorOffset);
-      let vp = view.viewport;
-      if ((browser2.ios || browser2.chrome) && curSel.main.empty && head != anchor && (vp.from > 0 || vp.to < view.state.doc.length)) {
-        let from2 = Math.min(head, anchor), to = Math.max(head, anchor);
-        let offFrom = vp.from - from2, offTo = vp.to - to;
-        if ((offFrom == 0 || offFrom == 1 || from2 == 0) && (offTo == 0 || offTo == -1 || to == view.state.doc.length)) {
-          head = 0;
-          anchor = view.state.doc.length;
-        }
-      }
-      if (view.inputState.composing > -1 && curSel.ranges.length > 1) {
-        this.newSel = curSel.replaceRange(EditorSelection.range(anchor, head));
-      } else if (view.lineWrapping && anchor == head && !(curSel.main.empty && curSel.main.head == head) && view.inputState.lastTouchTime > Date.now() - 100) {
-        let before = view.coordsAtPos(head, -1), assoc = 0;
-        if (before)
-          assoc = view.inputState.lastTouchY <= before.bottom ? -1 : 1;
-        this.newSel = EditorSelection.create([EditorSelection.cursor(head, assoc)]);
-      } else {
-        this.newSel = EditorSelection.single(anchor, head);
-      }
-    }
-  }
-};
-function domBoundsAround(tile, from2, to, offset) {
-  if (tile.isComposite()) {
-    let fromI = -1, fromStart = -1, toI = -1, toEnd = -1;
-    for (let i2 = 0, pos = offset, prevEnd = offset; i2 < tile.children.length; i2++) {
-      let child = tile.children[i2], end = pos + child.length;
-      if (pos < from2 && end > to)
-        return domBoundsAround(child, from2, to, pos);
-      if (end >= from2 && fromI == -1) {
-        fromI = i2;
-        fromStart = pos;
-      }
-      if (pos > to && child.dom.parentNode == tile.dom) {
-        toI = i2;
-        toEnd = prevEnd;
-        break;
-      }
-      prevEnd = end;
-      pos = end + child.breakAfter;
-    }
-    return {
-      from: fromStart,
-      to: toEnd < 0 ? offset + tile.length : toEnd,
-      startDOM: (fromI ? tile.children[fromI - 1].dom.nextSibling : null) || tile.dom.firstChild,
-      endDOM: toI < tile.children.length && toI >= 0 ? tile.children[toI].dom : null
-    };
-  } else if (tile.isText()) {
-    return { from: offset, to: offset + tile.length, startDOM: tile.dom, endDOM: tile.dom.nextSibling };
-  } else {
-    return null;
-  }
-}
-function applyDOMChange2(view, domChange) {
-  let change;
-  let { newSel } = domChange, { state } = view, sel = state.selection.main;
-  let lastKey = view.inputState.lastKeyTime > Date.now() - 100 ? view.inputState.lastKeyCode : -1;
-  if (domChange.bounds) {
-    let { from: from2, to } = domChange.bounds;
-    let preferredPos = sel.from, preferredSide = null;
-    if (lastKey === 8 || browser2.android && domChange.text.length < to - from2) {
-      preferredPos = sel.to;
-      preferredSide = "end";
-    }
-    let cmp = state.doc.sliceString(from2, to, LineBreakPlaceholder2), selEnd, diff;
-    if (!sel.empty && sel.from >= from2 && sel.to <= to && (domChange.typeOver || cmp != domChange.text) && cmp.slice(0, sel.from - from2) == domChange.text.slice(0, sel.from - from2) && cmp.slice(sel.to - from2) == domChange.text.slice(selEnd = domChange.text.length - (cmp.length - (sel.to - from2)))) {
-      change = {
-        from: sel.from,
-        to: sel.to,
-        insert: Text.of(domChange.text.slice(sel.from - from2, selEnd).split(LineBreakPlaceholder2))
-      };
-    } else if (diff = findDiff2(cmp, domChange.text, preferredPos - from2, preferredSide)) {
-      if (browser2.chrome && lastKey == 13 && diff.toB == diff.from + 2 && domChange.text.slice(diff.from, diff.toB) == LineBreakPlaceholder2 + LineBreakPlaceholder2)
-        diff.toB--;
-      change = {
-        from: from2 + diff.from,
-        to: from2 + diff.toA,
-        insert: Text.of(domChange.text.slice(diff.from, diff.toB).split(LineBreakPlaceholder2))
-      };
-    }
-  } else if (newSel && (!view.hasFocus && state.facet(editable2) || sameSelPos(newSel, sel))) {
-    newSel = null;
-  }
-  if (!change && !newSel)
-    return false;
-  if ((browser2.mac || browser2.android) && change && change.from == change.to && change.from == sel.head - 1 && /^\. ?$/.test(change.insert.toString()) && view.contentDOM.getAttribute("autocorrect") == "off") {
-    if (newSel && change.insert.length == 2)
-      newSel = EditorSelection.single(newSel.main.anchor - 1, newSel.main.head - 1);
-    change = { from: change.from, to: change.to, insert: Text.of([change.insert.toString().replace(".", " ")]) };
-  } else if (state.doc.lineAt(sel.from).to < sel.to && view.docView.lineHasWidget(sel.to) && view.inputState.insertingTextAt > Date.now() - 50) {
-    change = {
-      from: sel.from,
-      to: sel.to,
-      insert: state.toText(view.inputState.insertingText)
-    };
-  } else if (browser2.chrome && change && change.from == change.to && change.from == sel.head && change.insert.toString() == "\n " && view.lineWrapping) {
-    if (newSel)
-      newSel = EditorSelection.single(newSel.main.anchor - 1, newSel.main.head - 1);
-    change = { from: sel.from, to: sel.to, insert: Text.of([" "]) };
-  }
-  if (change) {
-    return applyDOMChangeInner2(view, change, newSel, lastKey);
-  } else if (newSel && !sameSelPos(newSel, sel)) {
-    let scrollIntoView4 = false, userEvent = "select";
-    if (view.inputState.lastSelectionTime > Date.now() - 50) {
-      if (view.inputState.lastSelectionOrigin == "select")
-        scrollIntoView4 = true;
-      userEvent = view.inputState.lastSelectionOrigin;
-      if (userEvent == "select.pointer")
-        newSel = skipAtomsForSelection(state.facet(atomicRanges2).map((f) => f(view)), newSel);
-    }
-    view.dispatch({ selection: newSel, scrollIntoView: scrollIntoView4, userEvent });
-    return true;
-  } else {
-    return false;
-  }
-}
-function applyDOMChangeInner2(view, change, newSel, lastKey = -1) {
-  if (browser2.ios && view.inputState.flushIOSKey(change))
-    return true;
-  let sel = view.state.selection.main;
-  if (browser2.android && (change.to == sel.to && // GBoard will sometimes remove a space it just inserted
-  // after a completion when you press enter
-  (change.from == sel.from || change.from == sel.from - 1 && view.state.sliceDoc(change.from, sel.from) == " ") && change.insert.length == 1 && change.insert.lines == 2 && dispatchKey2(view.contentDOM, "Enter", 13) || (change.from == sel.from - 1 && change.to == sel.to && change.insert.length == 0 || lastKey == 8 && change.insert.length < change.to - change.from && change.to > sel.head) && dispatchKey2(view.contentDOM, "Backspace", 8) || change.from == sel.from && change.to == sel.to + 1 && change.insert.length == 0 && dispatchKey2(view.contentDOM, "Delete", 46)))
-    return true;
-  let text = change.insert.toString();
-  if (view.inputState.composing >= 0)
-    view.inputState.composing++;
-  let defaultTr;
-  let defaultInsert = () => defaultTr || (defaultTr = applyDefaultInsert2(view, change, newSel));
-  if (!view.state.facet(inputHandler3).some((h) => h(view, change.from, change.to, text, defaultInsert)))
-    view.dispatch(defaultInsert());
-  return true;
-}
-function applyDefaultInsert2(view, change, newSel) {
-  let tr, startState = view.state, sel = startState.selection.main, inAtomic = -1;
-  if (change.from == change.to && change.from < sel.from || change.from > sel.to) {
-    let side = change.from < sel.from ? -1 : 1, pos = side < 0 ? sel.from : sel.to;
-    let moved = skipAtomicRanges2(startState.facet(atomicRanges2).map((f) => f(view)), pos, side);
-    if (change.from == moved)
-      inAtomic = moved;
-  }
-  if (inAtomic > -1) {
-    tr = {
-      changes: change,
-      selection: EditorSelection.cursor(change.from + change.insert.length, -1)
-    };
-  } else if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 && (!newSel || newSel.main.empty && newSel.main.from == change.from + change.insert.length) && view.inputState.composing < 0) {
-    let before = sel.from < change.from ? startState.sliceDoc(sel.from, change.from) : "";
-    let after = sel.to > change.to ? startState.sliceDoc(change.to, sel.to) : "";
-    tr = startState.replaceSelection(view.state.toText(before + change.insert.sliceString(0, void 0, view.state.lineBreak) + after));
-  } else {
-    let changes = startState.changes(change);
-    let mainSel = newSel && newSel.main.to <= changes.newLength ? newSel.main : void 0;
-    if (startState.selection.ranges.length > 1 && (view.inputState.composing >= 0 || view.inputState.compositionPendingChange) && change.to <= sel.to + 10 && change.to >= sel.to - 10) {
-      let replaced = view.state.sliceDoc(change.from, change.to);
-      let compositionRange, composition = newSel && findCompositionNode2(view, newSel.main.head);
-      if (composition) {
-        let dLen = change.insert.length - (change.to - change.from);
-        compositionRange = { from: composition.from, to: composition.to - dLen };
-      } else {
-        compositionRange = view.state.doc.lineAt(sel.head);
-      }
-      let offset = sel.to - change.to;
-      tr = startState.changeByRange((range) => {
-        if (range.from == sel.from && range.to == sel.to)
-          return { changes, range: mainSel || range.map(changes) };
-        let to = range.to - offset, from2 = to - replaced.length;
-        if (view.state.sliceDoc(from2, to) != replaced || // Unfortunately, there's no way to make multiple
-        // changes in the same node work without aborting
-        // composition, so cursors in the composition range are
-        // ignored.
-        to >= compositionRange.from && from2 <= compositionRange.to)
-          return { range };
-        let rangeChanges = startState.changes({ from: from2, to, insert: change.insert }), selOff = range.to - sel.to;
-        return {
-          changes: rangeChanges,
-          range: !mainSel ? range.map(rangeChanges) : EditorSelection.range(Math.max(0, mainSel.anchor + selOff), Math.max(0, mainSel.head + selOff))
-        };
-      });
-    } else {
-      tr = {
-        changes,
-        selection: mainSel && startState.selection.replaceRange(mainSel)
-      };
-    }
-  }
-  let userEvent = "input.type";
-  if (view.composing || view.inputState.compositionPendingChange && view.inputState.compositionEndedAt > Date.now() - 50) {
-    view.inputState.compositionPendingChange = false;
-    userEvent += ".compose";
-    if (view.inputState.compositionFirstChange) {
-      userEvent += ".start";
-      view.inputState.compositionFirstChange = false;
-    }
-  }
-  return startState.update(tr, { userEvent, scrollIntoView: true });
-}
-function findDiff2(a, b, preferredPos, preferredSide) {
-  let minLen = Math.min(a.length, b.length);
-  let from2 = 0;
-  while (from2 < minLen && a.charCodeAt(from2) == b.charCodeAt(from2))
-    from2++;
-  if (from2 == minLen && a.length == b.length)
-    return null;
-  let toA = a.length, toB = b.length;
-  while (toA > 0 && toB > 0 && a.charCodeAt(toA - 1) == b.charCodeAt(toB - 1)) {
-    toA--;
-    toB--;
-  }
-  if (preferredSide == "end") {
-    let adjust = Math.max(0, from2 - Math.min(toA, toB));
-    preferredPos -= toA + adjust - from2;
-  }
-  if (toA < from2 && a.length < b.length) {
-    let move = preferredPos <= from2 && preferredPos >= toA ? from2 - preferredPos : 0;
-    from2 -= move;
-    toB = from2 + (toB - toA);
-    toA = from2;
-  } else if (toB < from2) {
-    let move = preferredPos <= from2 && preferredPos >= toB ? from2 - preferredPos : 0;
-    from2 -= move;
-    toA = from2 + (toA - toB);
-    toB = from2;
-  }
-  return { from: from2, toA, toB };
-}
-function selectionPoints2(view) {
-  let result = [];
-  if (view.root.activeElement != view.contentDOM)
-    return result;
-  let { anchorNode, anchorOffset, focusNode, focusOffset } = view.observer.selectionRange;
-  if (anchorNode) {
-    result.push(new DOMPoint2(anchorNode, anchorOffset));
-    if (focusNode != anchorNode || focusOffset != anchorOffset)
-      result.push(new DOMPoint2(focusNode, focusOffset));
-  }
-  return result;
-}
-function selectionFromPoints2(points, base2) {
-  if (points.length == 0)
-    return null;
-  let anchor = points[0].pos, head = points.length == 2 ? points[1].pos : anchor;
-  return anchor > -1 && head > -1 ? EditorSelection.single(anchor + base2, head + base2) : null;
-}
-function sameSelPos(selection2, range) {
-  return range.head == selection2.main.head && range.anchor == selection2.main.anchor;
-}
-var InputState2 = class {
-  setSelectionOrigin(origin) {
-    this.lastSelectionOrigin = origin;
-    this.lastSelectionTime = Date.now();
-  }
-  constructor(view) {
-    this.view = view;
-    this.lastKeyCode = 0;
-    this.lastKeyTime = 0;
-    this.lastTouchTime = 0;
-    this.lastTouchX = 0;
-    this.lastTouchY = 0;
-    this.lastFocusTime = 0;
-    this.lastScrollTop = 0;
-    this.lastScrollLeft = 0;
-    this.lastWheelEvent = 0;
-    this.pendingIOSKey = void 0;
-    this.tabFocusMode = -1;
-    this.lastSelectionOrigin = null;
-    this.lastSelectionTime = 0;
-    this.lastContextMenu = 0;
-    this.scrollHandlers = [];
-    this.handlers = /* @__PURE__ */ Object.create(null);
-    this.composing = -1;
-    this.compositionFirstChange = null;
-    this.compositionEndedAt = 0;
-    this.compositionPendingKey = false;
-    this.compositionPendingChange = false;
-    this.insertingText = "";
-    this.insertingTextAt = 0;
-    this.mouseSelection = null;
-    this.draggedContent = null;
-    this.handleEvent = this.handleEvent.bind(this);
-    this.notifiedFocused = view.hasFocus;
-    if (browser2.safari)
-      view.contentDOM.addEventListener("input", () => null);
-    if (browser2.gecko)
-      firefoxCopyCutHack2(view.contentDOM.ownerDocument);
-  }
-  handleEvent(event) {
-    if (!eventBelongsToEditor2(this.view, event) || this.ignoreDuringComposition(event))
-      return;
-    if (event.type == "keydown" && this.keydown(event))
-      return;
-    if (this.view.updateState != 0)
-      Promise.resolve().then(() => this.runHandlers(event.type, event));
-    else
-      this.runHandlers(event.type, event);
-  }
-  runHandlers(type, event) {
-    let handlers3 = this.handlers[type];
-    if (handlers3) {
-      for (let observer of handlers3.observers)
-        observer(this.view, event);
-      for (let handler of handlers3.handlers) {
-        if (event.defaultPrevented)
-          break;
-        if (handler(this.view, event)) {
-          event.preventDefault();
-          break;
-        }
-      }
-    }
-  }
-  ensureHandlers(plugins) {
-    let handlers3 = computeHandlers2(plugins), prev = this.handlers, dom = this.view.contentDOM;
-    for (let type in handlers3)
-      if (type != "scroll") {
-        let passive = !handlers3[type].handlers.length;
-        let exists = prev[type];
-        if (exists && passive != !exists.handlers.length) {
-          dom.removeEventListener(type, this.handleEvent);
-          exists = null;
-        }
-        if (!exists)
-          dom.addEventListener(type, this.handleEvent, { passive });
-      }
-    for (let type in prev)
-      if (type != "scroll" && !handlers3[type])
-        dom.removeEventListener(type, this.handleEvent);
-    this.handlers = handlers3;
-  }
-  keydown(event) {
-    this.lastKeyCode = event.keyCode;
-    this.lastKeyTime = Date.now();
-    if (event.keyCode == 9 && this.tabFocusMode > -1 && (!this.tabFocusMode || Date.now() <= this.tabFocusMode))
-      return true;
-    if (this.tabFocusMode > 0 && event.keyCode != 27 && modifierCodes2.indexOf(event.keyCode) < 0)
-      this.tabFocusMode = -1;
-    if (browser2.android && browser2.chrome && !event.synthetic && (event.keyCode == 13 || event.keyCode == 8)) {
-      this.view.observer.delayAndroidKey(event.key, event.keyCode);
-      return true;
-    }
-    let pending;
-    if (browser2.ios && !event.synthetic && !event.altKey && !event.metaKey && !event.shiftKey && ((pending = PendingKeys2.find((key) => key.keyCode == event.keyCode)) && !event.ctrlKey || EmacsyPendingKeys2.indexOf(event.key) > -1 && event.ctrlKey)) {
-      this.pendingIOSKey = pending || event;
-      setTimeout(() => this.flushIOSKey(), 250);
-      return true;
-    }
-    if (event.keyCode != 229)
-      this.view.observer.forceFlush();
-    return false;
-  }
-  flushIOSKey(change) {
-    let key = this.pendingIOSKey;
-    if (!key)
-      return false;
-    if (key.key == "Enter" && change && change.from < change.to && /^\S+$/.test(change.insert.toString()))
-      return false;
-    this.pendingIOSKey = void 0;
-    return dispatchKey2(this.view.contentDOM, key.key, key.keyCode, key instanceof KeyboardEvent ? key : void 0);
-  }
-  ignoreDuringComposition(event) {
-    if (!/^key/.test(event.type) || event.synthetic)
-      return false;
-    if (this.composing > 0)
-      return true;
-    if (browser2.safari && !browser2.ios && this.compositionPendingKey && Date.now() - this.compositionEndedAt < 100) {
-      this.compositionPendingKey = false;
-      return true;
-    }
-    return false;
-  }
-  startMouseSelection(mouseSelection) {
-    if (this.mouseSelection)
-      this.mouseSelection.destroy();
-    this.mouseSelection = mouseSelection;
-  }
-  update(update) {
-    this.view.observer.update(update);
-    if (this.mouseSelection)
-      this.mouseSelection.update(update);
-    if (this.draggedContent && update.docChanged)
-      this.draggedContent = this.draggedContent.map(update.changes);
-    if (update.transactions.length)
-      this.lastKeyCode = this.lastSelectionTime = 0;
-  }
-  destroy() {
-    if (this.mouseSelection)
-      this.mouseSelection.destroy();
-  }
-};
-function bindHandler2(plugin, handler) {
-  return (view, event) => {
-    try {
-      return handler.call(plugin, event, view);
-    } catch (e) {
-      logException2(view.state, e);
-    }
-  };
-}
-function computeHandlers2(plugins) {
-  let result = /* @__PURE__ */ Object.create(null);
-  function record(type) {
-    return result[type] || (result[type] = { observers: [], handlers: [] });
-  }
-  for (let plugin of plugins) {
-    let spec = plugin.spec, handlers3 = spec && spec.plugin.domEventHandlers, observers3 = spec && spec.plugin.domEventObservers;
-    if (handlers3)
-      for (let type in handlers3) {
-        let f = handlers3[type];
-        if (f)
-          record(type).handlers.push(bindHandler2(plugin.value, f));
-      }
-    if (observers3)
-      for (let type in observers3) {
-        let f = observers3[type];
-        if (f)
-          record(type).observers.push(bindHandler2(plugin.value, f));
-      }
-  }
-  for (let type in handlers2)
-    record(type).handlers.push(handlers2[type]);
-  for (let type in observers2)
-    record(type).observers.push(observers2[type]);
-  return result;
-}
-var PendingKeys2 = [
-  { key: "Backspace", keyCode: 8, inputType: "deleteContentBackward" },
-  { key: "Enter", keyCode: 13, inputType: "insertParagraph" },
-  { key: "Enter", keyCode: 13, inputType: "insertLineBreak" },
-  { key: "Delete", keyCode: 46, inputType: "deleteContentForward" }
-];
-var EmacsyPendingKeys2 = "dthko";
-var modifierCodes2 = [16, 17, 18, 20, 91, 92, 224, 225];
-var dragScrollMargin2 = 6;
-function dragScrollSpeed2(dist3) {
-  return Math.max(0, dist3) * 0.7 + 8;
-}
-function dist2(a, b) {
-  return Math.max(Math.abs(a.clientX - b.clientX), Math.abs(a.clientY - b.clientY));
-}
-var MouseSelection2 = class {
-  constructor(view, startEvent, style, mustSelect) {
-    this.view = view;
-    this.startEvent = startEvent;
-    this.style = style;
-    this.mustSelect = mustSelect;
-    this.scrollSpeed = { x: 0, y: 0 };
-    this.scrolling = -1;
-    this.lastEvent = startEvent;
-    this.scrollParents = scrollableParents2(view.contentDOM);
-    this.atoms = view.state.facet(atomicRanges2).map((f) => f(view));
-    let doc3 = view.contentDOM.ownerDocument;
-    doc3.addEventListener("mousemove", this.move = this.move.bind(this));
-    doc3.addEventListener("mouseup", this.up = this.up.bind(this));
-    this.extend = startEvent.shiftKey;
-    this.multiple = view.state.facet(EditorState.allowMultipleSelections) && addsSelectionRange2(view, startEvent);
-    this.dragging = isInPrimarySelection2(view, startEvent) && getClickType2(startEvent) == 1 ? null : false;
-  }
-  start(event) {
-    if (this.dragging === false)
-      this.select(event);
-  }
-  move(event) {
-    if (event.buttons == 0)
-      return this.destroy();
-    if (this.dragging || this.dragging == null && dist2(this.startEvent, event) < 10)
-      return;
-    this.select(this.lastEvent = event);
-    let sx = 0, sy = 0;
-    let left = 0, top2 = 0, right = this.view.win.innerWidth, bottom = this.view.win.innerHeight;
-    if (this.scrollParents.x)
-      ({ left, right } = this.scrollParents.x.getBoundingClientRect());
-    if (this.scrollParents.y)
-      ({ top: top2, bottom } = this.scrollParents.y.getBoundingClientRect());
-    let margins = getScrollMargins2(this.view);
-    if (event.clientX - margins.left <= left + dragScrollMargin2)
-      sx = -dragScrollSpeed2(left - event.clientX);
-    else if (event.clientX + margins.right >= right - dragScrollMargin2)
-      sx = dragScrollSpeed2(event.clientX - right);
-    if (event.clientY - margins.top <= top2 + dragScrollMargin2)
-      sy = -dragScrollSpeed2(top2 - event.clientY);
-    else if (event.clientY + margins.bottom >= bottom - dragScrollMargin2)
-      sy = dragScrollSpeed2(event.clientY - bottom);
-    this.setScrollSpeed(sx, sy);
-  }
-  up(event) {
-    if (this.dragging == null)
-      this.select(this.lastEvent);
-    if (!this.dragging)
-      event.preventDefault();
-    this.destroy();
-  }
-  destroy() {
-    this.setScrollSpeed(0, 0);
-    let doc3 = this.view.contentDOM.ownerDocument;
-    doc3.removeEventListener("mousemove", this.move);
-    doc3.removeEventListener("mouseup", this.up);
-    this.view.inputState.mouseSelection = this.view.inputState.draggedContent = null;
-  }
-  setScrollSpeed(sx, sy) {
-    this.scrollSpeed = { x: sx, y: sy };
-    if (sx || sy) {
-      if (this.scrolling < 0)
-        this.scrolling = setInterval(() => this.scroll(), 50);
-    } else if (this.scrolling > -1) {
-      clearInterval(this.scrolling);
-      this.scrolling = -1;
-    }
-  }
-  scroll() {
-    let { x, y } = this.scrollSpeed;
-    if (x && this.scrollParents.x) {
-      this.scrollParents.x.scrollLeft += x;
-      x = 0;
-    }
-    if (y && this.scrollParents.y) {
-      this.scrollParents.y.scrollTop += y;
-      y = 0;
-    }
-    if (x || y)
-      this.view.win.scrollBy(x, y);
-    if (this.dragging === false)
-      this.select(this.lastEvent);
-  }
-  select(event) {
-    let { view } = this, selection2 = skipAtomsForSelection(this.atoms, this.style.get(event, this.extend, this.multiple));
-    if (this.mustSelect || !selection2.eq(view.state.selection, this.dragging === false))
-      this.view.dispatch({
-        selection: selection2,
-        userEvent: "select.pointer"
-      });
-    this.mustSelect = false;
-  }
-  update(update) {
-    if (update.transactions.some((tr) => tr.isUserEvent("input.type")))
-      this.destroy();
-    else if (this.style.update(update))
-      setTimeout(() => this.select(this.lastEvent), 20);
-  }
-};
-function addsSelectionRange2(view, event) {
-  let facet = view.state.facet(clickAddsSelectionRange2);
-  return facet.length ? facet[0](event) : browser2.mac ? event.metaKey : event.ctrlKey;
-}
-function dragMovesSelection2(view, event) {
-  let facet = view.state.facet(dragMovesSelection$12);
-  return facet.length ? facet[0](event) : browser2.mac ? !event.altKey : !event.ctrlKey;
-}
-function isInPrimarySelection2(view, event) {
-  let { main } = view.state.selection;
-  if (main.empty)
-    return false;
-  let sel = getSelection2(view.root);
-  if (!sel || sel.rangeCount == 0)
-    return true;
-  let rects = sel.getRangeAt(0).getClientRects();
-  for (let i2 = 0; i2 < rects.length; i2++) {
-    let rect = rects[i2];
-    if (rect.left <= event.clientX && rect.right >= event.clientX && rect.top <= event.clientY && rect.bottom >= event.clientY)
-      return true;
-  }
-  return false;
-}
-function eventBelongsToEditor2(view, event) {
-  if (!event.bubbles)
-    return true;
-  if (event.defaultPrevented)
-    return false;
-  for (let node = event.target, tile; node != view.contentDOM; node = node.parentNode)
-    if (!node || node.nodeType == 11 || (tile = Tile.get(node)) && tile.isWidget() && !tile.isHidden && tile.widget.ignoreEvent(event))
-      return false;
-  return true;
-}
-var handlers2 = /* @__PURE__ */ Object.create(null);
-var observers2 = /* @__PURE__ */ Object.create(null);
-var brokenClipboardAPI2 = browser2.ie && browser2.ie_version < 15 || browser2.ios && browser2.webkit_version < 604;
-function capturePaste2(view) {
-  let parent = view.dom.parentNode;
-  if (!parent)
-    return;
-  let target = parent.appendChild(document.createElement("textarea"));
-  target.style.cssText = "position: fixed; left: -10000px; top: 10px";
-  target.focus();
-  setTimeout(() => {
-    view.focus();
-    target.remove();
-    doPaste2(view, target.value);
-  }, 50);
-}
-function textFilter2(state, facet, text) {
-  for (let filter of state.facet(facet))
-    text = filter(text, state);
-  return text;
-}
-function doPaste2(view, input) {
-  input = textFilter2(view.state, clipboardInputFilter2, input);
-  let { state } = view, changes, i2 = 1, text = state.toText(input);
-  let byLine = text.lines == state.selection.ranges.length;
-  let linewise = lastLinewiseCopy2 != null && state.selection.ranges.every((r) => r.empty) && lastLinewiseCopy2 == text.toString();
-  if (linewise) {
-    let lastLine = -1;
-    changes = state.changeByRange((range) => {
-      let line = state.doc.lineAt(range.from);
-      if (line.from == lastLine)
-        return { range };
-      lastLine = line.from;
-      let insert2 = state.toText((byLine ? text.line(i2++).text : input) + state.lineBreak);
-      return {
-        changes: { from: line.from, insert: insert2 },
-        range: EditorSelection.cursor(range.from + insert2.length)
-      };
-    });
-  } else if (byLine) {
-    changes = state.changeByRange((range) => {
-      let line = text.line(i2++);
-      return {
-        changes: { from: range.from, to: range.to, insert: line.text },
-        range: EditorSelection.cursor(range.from + line.length)
-      };
-    });
-  } else {
-    changes = state.replaceSelection(text);
-  }
-  view.dispatch(changes, {
-    userEvent: "input.paste",
-    scrollIntoView: true
-  });
-}
-observers2.scroll = (view) => {
-  view.inputState.lastScrollTop = view.scrollDOM.scrollTop;
-  view.inputState.lastScrollLeft = view.scrollDOM.scrollLeft;
-};
-observers2.wheel = observers2.mousewheel = (view) => {
-  view.inputState.lastWheelEvent = Date.now();
-};
-handlers2.keydown = (view, event) => {
-  view.inputState.setSelectionOrigin("select");
-  if (event.keyCode == 27 && view.inputState.tabFocusMode != 0)
-    view.inputState.tabFocusMode = Date.now() + 2e3;
-  return false;
-};
-observers2.touchstart = (view, e) => {
-  let iState = view.inputState, touch = e.targetTouches[0];
-  iState.lastTouchTime = Date.now();
-  if (touch) {
-    iState.lastTouchX = touch.clientX;
-    iState.lastTouchY = touch.clientY;
-  }
-  iState.setSelectionOrigin("select.pointer");
-};
-observers2.touchmove = (view) => {
-  view.inputState.setSelectionOrigin("select.pointer");
-};
-handlers2.mousedown = (view, event) => {
-  view.observer.flush();
-  if (view.inputState.lastTouchTime > Date.now() - 2e3)
-    return false;
-  let style = null;
-  for (let makeStyle of view.state.facet(mouseSelectionStyle2)) {
-    style = makeStyle(view, event);
-    if (style)
-      break;
-  }
-  if (!style && event.button == 0)
-    style = basicMouseSelection2(view, event);
-  if (style) {
-    let mustFocus = !view.hasFocus;
-    view.inputState.startMouseSelection(new MouseSelection2(view, event, style, mustFocus));
-    if (mustFocus)
-      view.observer.ignore(() => {
-        focusPreventScroll2(view.contentDOM);
-        let active = view.root.activeElement;
-        if (active && !active.contains(view.contentDOM))
-          active.blur();
-      });
-    let mouseSel = view.inputState.mouseSelection;
-    if (mouseSel) {
-      mouseSel.start(event);
-      return mouseSel.dragging === false;
-    }
-  } else {
-    view.inputState.setSelectionOrigin("select.pointer");
-  }
-  return false;
-};
-function rangeForClick2(view, pos, bias, type) {
-  if (type == 1) {
-    return EditorSelection.cursor(pos, bias);
-  } else if (type == 2) {
-    return groupAt2(view.state, pos, bias);
-  } else {
-    let visual = view.docView.lineAt(pos, bias), line = view.state.doc.lineAt(visual ? visual.posAtEnd : pos);
-    let from2 = visual ? visual.posAtStart : line.from, to = visual ? visual.posAtEnd : line.to;
-    if (to < view.state.doc.length && to == line.to)
-      to++;
-    return EditorSelection.range(from2, to);
-  }
-}
-var BadMouseDetail2 = browser2.ie && browser2.ie_version <= 11;
-var lastMouseDown2 = null;
-var lastMouseDownCount2 = 0;
-var lastMouseDownTime2 = 0;
-function getClickType2(event) {
-  if (!BadMouseDetail2)
-    return event.detail;
-  let last = lastMouseDown2, lastTime = lastMouseDownTime2;
-  lastMouseDown2 = event;
-  lastMouseDownTime2 = Date.now();
-  return lastMouseDownCount2 = !last || lastTime > Date.now() - 400 && Math.abs(last.clientX - event.clientX) < 2 && Math.abs(last.clientY - event.clientY) < 2 ? (lastMouseDownCount2 + 1) % 3 : 1;
-}
-function basicMouseSelection2(view, event) {
-  let start = view.posAndSideAtCoords({ x: event.clientX, y: event.clientY }, false), type = getClickType2(event);
-  let startSel = view.state.selection;
-  return {
-    update(update) {
-      if (update.docChanged) {
-        start.pos = update.changes.mapPos(start.pos);
-        startSel = startSel.map(update.changes);
-      }
-    },
-    get(event2, extend, multiple) {
-      let cur2 = view.posAndSideAtCoords({ x: event2.clientX, y: event2.clientY }, false), removed;
-      let range = rangeForClick2(view, cur2.pos, cur2.assoc, type);
-      if (start.pos != cur2.pos && !extend) {
-        let startRange = rangeForClick2(view, start.pos, start.assoc, type);
-        let from2 = Math.min(startRange.from, range.from), to = Math.max(startRange.to, range.to);
-        range = from2 < range.from ? EditorSelection.range(from2, to, range.assoc) : EditorSelection.range(to, from2, range.assoc);
-      }
-      if (extend)
-        return startSel.replaceRange(startSel.main.extend(range.from, range.to, range.assoc));
-      else if (multiple && type == 1 && startSel.ranges.length > 1 && (removed = removeRangeAround2(startSel, cur2.pos)))
-        return removed;
-      else if (multiple)
-        return startSel.addRange(range);
-      else
-        return EditorSelection.create([range]);
-    }
-  };
-}
-function removeRangeAround2(sel, pos) {
-  for (let i2 = 0; i2 < sel.ranges.length; i2++) {
-    let { from: from2, to } = sel.ranges[i2];
-    if (from2 <= pos && to >= pos)
-      return EditorSelection.create(sel.ranges.slice(0, i2).concat(sel.ranges.slice(i2 + 1)), sel.mainIndex == i2 ? 0 : sel.mainIndex - (sel.mainIndex > i2 ? 1 : 0));
-  }
-  return null;
-}
-handlers2.dragstart = (view, event) => {
-  let { selection: { main: range } } = view.state;
-  if (event.target.draggable) {
-    let tile = view.docView.tile.nearest(event.target);
-    if (tile && tile.isWidget()) {
-      let from2 = tile.posAtStart, to = from2 + tile.length;
-      if (from2 >= range.to || to <= range.from)
-        range = EditorSelection.range(from2, to);
-    }
-  }
-  let { inputState } = view;
-  if (inputState.mouseSelection)
-    inputState.mouseSelection.dragging = true;
-  inputState.draggedContent = range;
-  if (event.dataTransfer) {
-    event.dataTransfer.setData("Text", textFilter2(view.state, clipboardOutputFilter2, view.state.sliceDoc(range.from, range.to)));
-    event.dataTransfer.effectAllowed = "copyMove";
-  }
-  return false;
-};
-handlers2.dragend = (view) => {
-  view.inputState.draggedContent = null;
-  return false;
-};
-function dropText2(view, event, text, direct) {
-  text = textFilter2(view.state, clipboardInputFilter2, text);
-  if (!text)
-    return;
-  let dropPos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
-  let { draggedContent } = view.inputState;
-  let del = direct && draggedContent && dragMovesSelection2(view, event) ? { from: draggedContent.from, to: draggedContent.to } : null;
-  let ins = { from: dropPos, insert: text };
-  let changes = view.state.changes(del ? [del, ins] : ins);
-  view.focus();
-  view.dispatch({
-    changes,
-    selection: { anchor: changes.mapPos(dropPos, -1), head: changes.mapPos(dropPos, 1) },
-    userEvent: del ? "move.drop" : "input.drop"
-  });
-  view.inputState.draggedContent = null;
-}
-handlers2.drop = (view, event) => {
-  if (!event.dataTransfer)
-    return false;
-  if (view.state.readOnly)
-    return true;
-  let files = event.dataTransfer.files;
-  if (files && files.length) {
-    let text = Array(files.length), read = 0;
-    let finishFile = () => {
-      if (++read == files.length)
-        dropText2(view, event, text.filter((s) => s != null).join(view.state.lineBreak), false);
-    };
-    for (let i2 = 0; i2 < files.length; i2++) {
-      let reader = new FileReader();
-      reader.onerror = finishFile;
-      reader.onload = () => {
-        if (!/[\x00-\x08\x0e-\x1f]{2}/.test(reader.result))
-          text[i2] = reader.result;
-        finishFile();
-      };
-      reader.readAsText(files[i2]);
-    }
-    return true;
-  } else {
-    let text = event.dataTransfer.getData("Text");
-    if (text) {
-      dropText2(view, event, text, true);
-      return true;
-    }
-  }
-  return false;
-};
-handlers2.paste = (view, event) => {
-  if (view.state.readOnly)
-    return true;
-  view.observer.flush();
-  let data2 = brokenClipboardAPI2 ? null : event.clipboardData;
-  if (data2) {
-    doPaste2(view, data2.getData("text/plain") || data2.getData("text/uri-list"));
-    return true;
-  } else {
-    capturePaste2(view);
-    return false;
-  }
-};
-function captureCopy2(view, text) {
-  let parent = view.dom.parentNode;
-  if (!parent)
-    return;
-  let target = parent.appendChild(document.createElement("textarea"));
-  target.style.cssText = "position: fixed; left: -10000px; top: 10px";
-  target.value = text;
-  target.focus();
-  target.selectionEnd = text.length;
-  target.selectionStart = 0;
-  setTimeout(() => {
-    target.remove();
-    view.focus();
-  }, 50);
-}
-function copiedRange2(state) {
-  let content2 = [], ranges = [], linewise = false;
-  for (let range of state.selection.ranges)
-    if (!range.empty) {
-      content2.push(state.sliceDoc(range.from, range.to));
-      ranges.push(range);
-    }
-  if (!content2.length) {
-    let upto = -1;
-    for (let { from: from2 } of state.selection.ranges) {
-      let line = state.doc.lineAt(from2);
-      if (line.number > upto) {
-        content2.push(line.text);
-        ranges.push({ from: line.from, to: Math.min(state.doc.length, line.to + 1) });
-      }
-      upto = line.number;
-    }
-    linewise = true;
-  }
-  return { text: textFilter2(state, clipboardOutputFilter2, content2.join(state.lineBreak)), ranges, linewise };
-}
-var lastLinewiseCopy2 = null;
-handlers2.copy = handlers2.cut = (view, event) => {
-  if (!hasSelection2(view.contentDOM, view.observer.selectionRange))
-    return false;
-  let { text, ranges, linewise } = copiedRange2(view.state);
-  if (!text && !linewise)
-    return false;
-  lastLinewiseCopy2 = linewise ? text : null;
-  if (event.type == "cut" && !view.state.readOnly)
-    view.dispatch({
-      changes: ranges,
-      scrollIntoView: true,
-      userEvent: "delete.cut"
-    });
-  let data2 = brokenClipboardAPI2 ? null : event.clipboardData;
-  if (data2) {
-    data2.clearData();
-    data2.setData("text/plain", text);
-    return true;
-  } else {
-    captureCopy2(view, text);
-    return false;
-  }
-};
-var isFocusChange2 = /* @__PURE__ */ Annotation.define();
-function focusChangeTransaction2(state, focus) {
-  let effects = [];
-  for (let getEffect of state.facet(focusChangeEffect2)) {
-    let effect = getEffect(state, focus);
-    if (effect)
-      effects.push(effect);
-  }
-  return effects.length ? state.update({ effects, annotations: isFocusChange2.of(true) }) : null;
-}
-function updateForFocusChange2(view) {
-  setTimeout(() => {
-    let focus = view.hasFocus;
-    if (focus != view.inputState.notifiedFocused) {
-      let tr = focusChangeTransaction2(view.state, focus);
-      if (tr)
-        view.dispatch(tr);
-      else
-        view.update([]);
-    }
-  }, 10);
-}
-observers2.focus = (view) => {
-  view.inputState.lastFocusTime = Date.now();
-  if (!view.scrollDOM.scrollTop && (view.inputState.lastScrollTop || view.inputState.lastScrollLeft)) {
-    view.scrollDOM.scrollTop = view.inputState.lastScrollTop;
-    view.scrollDOM.scrollLeft = view.inputState.lastScrollLeft;
-  }
-  updateForFocusChange2(view);
-};
-observers2.blur = (view) => {
-  view.observer.clearSelectionRange();
-  updateForFocusChange2(view);
-};
-observers2.compositionstart = observers2.compositionupdate = (view) => {
-  if (view.observer.editContext)
-    return;
-  if (view.inputState.compositionFirstChange == null)
-    view.inputState.compositionFirstChange = true;
-  if (view.inputState.composing < 0) {
-    view.inputState.composing = 0;
-  }
-};
-observers2.compositionend = (view) => {
-  if (view.observer.editContext)
-    return;
-  view.inputState.composing = -1;
-  view.inputState.compositionEndedAt = Date.now();
-  view.inputState.compositionPendingKey = true;
-  view.inputState.compositionPendingChange = view.observer.pendingRecords().length > 0;
-  view.inputState.compositionFirstChange = null;
-  if (browser2.chrome && browser2.android) {
-    view.observer.flushSoon();
-  } else if (view.inputState.compositionPendingChange) {
-    Promise.resolve().then(() => view.observer.flush());
-  } else {
-    setTimeout(() => {
-      if (view.inputState.composing < 0 && view.docView.hasComposition)
-        view.update([]);
-    }, 50);
-  }
-};
-observers2.contextmenu = (view) => {
-  view.inputState.lastContextMenu = Date.now();
-};
-handlers2.beforeinput = (view, event) => {
-  var _a2, _b2;
-  if (event.inputType == "insertText" || event.inputType == "insertCompositionText") {
-    view.inputState.insertingText = event.data;
-    view.inputState.insertingTextAt = Date.now();
-  }
-  if (event.inputType == "insertReplacementText" && view.observer.editContext) {
-    let text = (_a2 = event.dataTransfer) === null || _a2 === void 0 ? void 0 : _a2.getData("text/plain"), ranges = event.getTargetRanges();
-    if (text && ranges.length) {
-      let r = ranges[0];
-      let from2 = view.posAtDOM(r.startContainer, r.startOffset), to = view.posAtDOM(r.endContainer, r.endOffset);
-      applyDOMChangeInner2(view, { from: from2, to, insert: view.state.toText(text) }, null);
-      return true;
-    }
-  }
-  let pending;
-  if (browser2.chrome && browser2.android && (pending = PendingKeys2.find((key) => key.inputType == event.inputType))) {
-    view.observer.delayAndroidKey(pending.key, pending.keyCode);
-    if (pending.key == "Backspace" || pending.key == "Delete") {
-      let startViewHeight = ((_b2 = window.visualViewport) === null || _b2 === void 0 ? void 0 : _b2.height) || 0;
-      setTimeout(() => {
-        var _a3;
-        if ((((_a3 = window.visualViewport) === null || _a3 === void 0 ? void 0 : _a3.height) || 0) > startViewHeight + 10 && view.hasFocus) {
-          view.contentDOM.blur();
-          view.focus();
-        }
-      }, 100);
-    }
-  }
-  if (browser2.ios && event.inputType == "deleteContentForward") {
-    view.observer.flushSoon();
-  }
-  if (browser2.safari && event.inputType == "insertText" && view.inputState.composing >= 0) {
-    setTimeout(() => observers2.compositionend(view, event), 20);
-  }
-  return false;
-};
-var appliedFirefoxHack2 = /* @__PURE__ */ new Set();
-function firefoxCopyCutHack2(doc3) {
-  if (!appliedFirefoxHack2.has(doc3)) {
-    appliedFirefoxHack2.add(doc3);
-    doc3.addEventListener("copy", () => {
-    });
-    doc3.addEventListener("cut", () => {
-    });
-  }
-}
-var wrappingWhiteSpace2 = ["pre-wrap", "normal", "pre-line", "break-spaces"];
-var heightChangeFlag2 = false;
-function clearHeightChangeFlag2() {
-  heightChangeFlag2 = false;
-}
-var HeightOracle2 = class {
-  constructor(lineWrapping) {
-    this.lineWrapping = lineWrapping;
-    this.doc = Text.empty;
-    this.heightSamples = {};
-    this.lineHeight = 14;
-    this.charWidth = 7;
-    this.textHeight = 14;
-    this.lineLength = 30;
-  }
-  heightForGap(from2, to) {
-    let lines = this.doc.lineAt(to).number - this.doc.lineAt(from2).number + 1;
-    if (this.lineWrapping)
-      lines += Math.max(0, Math.ceil((to - from2 - lines * this.lineLength * 0.5) / this.lineLength));
-    return this.lineHeight * lines;
-  }
-  heightForLine(length) {
-    if (!this.lineWrapping)
-      return this.lineHeight;
-    let lines = 1 + Math.max(0, Math.ceil((length - this.lineLength) / Math.max(1, this.lineLength - 5)));
-    return lines * this.lineHeight;
-  }
-  setDoc(doc3) {
-    this.doc = doc3;
-    return this;
-  }
-  mustRefreshForWrapping(whiteSpace) {
-    return wrappingWhiteSpace2.indexOf(whiteSpace) > -1 != this.lineWrapping;
-  }
-  mustRefreshForHeights(lineHeights) {
-    let newHeight = false;
-    for (let i2 = 0; i2 < lineHeights.length; i2++) {
-      let h = lineHeights[i2];
-      if (h < 0) {
-        i2++;
-      } else if (!this.heightSamples[Math.floor(h * 10)]) {
-        newHeight = true;
-        this.heightSamples[Math.floor(h * 10)] = true;
-      }
-    }
-    return newHeight;
-  }
-  refresh(whiteSpace, lineHeight, charWidth, textHeight, lineLength, knownHeights) {
-    let lineWrapping = wrappingWhiteSpace2.indexOf(whiteSpace) > -1;
-    let changed = Math.abs(lineHeight - this.lineHeight) > 0.3 || this.lineWrapping != lineWrapping;
-    this.lineWrapping = lineWrapping;
-    this.lineHeight = lineHeight;
-    this.charWidth = charWidth;
-    this.textHeight = textHeight;
-    this.lineLength = lineLength;
-    if (changed) {
-      this.heightSamples = {};
-      for (let i2 = 0; i2 < knownHeights.length; i2++) {
-        let h = knownHeights[i2];
-        if (h < 0)
-          i2++;
-        else
-          this.heightSamples[Math.floor(h * 10)] = true;
-      }
-    }
-    return changed;
-  }
-};
-var MeasuredHeights2 = class {
-  constructor(from2, heights) {
-    this.from = from2;
-    this.heights = heights;
-    this.index = 0;
-  }
-  get more() {
-    return this.index < this.heights.length;
-  }
-};
-var BlockInfo2 = class _BlockInfo {
-  /**
-  @internal
-  */
-  constructor(from2, length, top2, height, _content) {
-    this.from = from2;
-    this.length = length;
-    this.top = top2;
-    this.height = height;
-    this._content = _content;
-  }
-  /**
-  The type of element this is. When querying lines, this may be
-  an array of all the blocks that make up the line.
-  */
-  get type() {
-    return typeof this._content == "number" ? BlockType2.Text : Array.isArray(this._content) ? this._content : this._content.type;
-  }
-  /**
-  The end of the element as a document position.
-  */
-  get to() {
-    return this.from + this.length;
-  }
-  /**
-  The bottom position of the element.
-  */
-  get bottom() {
-    return this.top + this.height;
-  }
-  /**
-  If this is a widget block, this will return the widget
-  associated with it.
-  */
-  get widget() {
-    return this._content instanceof PointDecoration2 ? this._content.widget : null;
-  }
-  /**
-  If this is a textblock, this holds the number of line breaks
-  that appear in widgets inside the block.
-  */
-  get widgetLineBreaks() {
-    return typeof this._content == "number" ? this._content : 0;
-  }
-  /**
-  @internal
-  */
-  join(other) {
-    let content2 = (Array.isArray(this._content) ? this._content : [this]).concat(Array.isArray(other._content) ? other._content : [other]);
-    return new _BlockInfo(this.from, this.length + other.length, this.top, this.height + other.height, content2);
-  }
-};
-var QueryType2 = /* @__PURE__ */ (function(QueryType4) {
-  QueryType4[QueryType4["ByPos"] = 0] = "ByPos";
-  QueryType4[QueryType4["ByHeight"] = 1] = "ByHeight";
-  QueryType4[QueryType4["ByPosNoHeight"] = 2] = "ByPosNoHeight";
-  return QueryType4;
-})(QueryType2 || (QueryType2 = {}));
-var Epsilon2 = 1e-3;
-var HeightMap2 = class _HeightMap {
-  constructor(length, height, flags = 2) {
-    this.length = length;
-    this.height = height;
-    this.flags = flags;
-  }
-  get outdated() {
-    return (this.flags & 2) > 0;
-  }
-  set outdated(value) {
-    this.flags = (value ? 2 : 0) | this.flags & ~2;
-  }
-  setHeight(height) {
-    if (this.height != height) {
-      if (Math.abs(this.height - height) > Epsilon2)
-        heightChangeFlag2 = true;
-      this.height = height;
-    }
-  }
-  // Base case is to replace a leaf node, which simply builds a tree
-  // from the new nodes and returns that (HeightMapBranch and
-  // HeightMapGap override this to actually use from/to)
-  replace(_from, _to, nodes) {
-    return _HeightMap.of(nodes);
-  }
-  // Again, these are base cases, and are overridden for branch and gap nodes.
-  decomposeLeft(_to, result) {
-    result.push(this);
-  }
-  decomposeRight(_from, result) {
-    result.push(this);
-  }
-  applyChanges(decorations3, oldDoc, oracle, changes) {
-    let me = this, doc3 = oracle.doc;
-    for (let i2 = changes.length - 1; i2 >= 0; i2--) {
-      let { fromA, toA, fromB, toB } = changes[i2];
-      let start = me.lineAt(fromA, QueryType2.ByPosNoHeight, oracle.setDoc(oldDoc), 0, 0);
-      let end = start.to >= toA ? start : me.lineAt(toA, QueryType2.ByPosNoHeight, oracle, 0, 0);
-      toB += end.to - toA;
-      toA = end.to;
-      while (i2 > 0 && start.from <= changes[i2 - 1].toA) {
-        fromA = changes[i2 - 1].fromA;
-        fromB = changes[i2 - 1].fromB;
-        i2--;
-        if (fromA < start.from)
-          start = me.lineAt(fromA, QueryType2.ByPosNoHeight, oracle, 0, 0);
-      }
-      fromB += start.from - fromA;
-      fromA = start.from;
-      let nodes = NodeBuilder2.build(oracle.setDoc(doc3), decorations3, fromB, toB);
-      me = replace2(me, me.replace(fromA, toA, nodes));
-    }
-    return me.updateHeight(oracle, 0);
-  }
-  static empty() {
-    return new HeightMapText2(0, 0, 0);
-  }
-  // nodes uses null values to indicate the position of line breaks.
-  // There are never line breaks at the start or end of the array, or
-  // two line breaks next to each other, and the array isn't allowed
-  // to be empty (same restrictions as return value from the builder).
-  static of(nodes) {
-    if (nodes.length == 1)
-      return nodes[0];
-    let i2 = 0, j = nodes.length, before = 0, after = 0;
-    for (; ; ) {
-      if (i2 == j) {
-        if (before > after * 2) {
-          let split = nodes[i2 - 1];
-          if (split.break)
-            nodes.splice(--i2, 1, split.left, null, split.right);
-          else
-            nodes.splice(--i2, 1, split.left, split.right);
-          j += 1 + split.break;
-          before -= split.size;
-        } else if (after > before * 2) {
-          let split = nodes[j];
-          if (split.break)
-            nodes.splice(j, 1, split.left, null, split.right);
-          else
-            nodes.splice(j, 1, split.left, split.right);
-          j += 2 + split.break;
-          after -= split.size;
-        } else {
-          break;
-        }
-      } else if (before < after) {
-        let next = nodes[i2++];
-        if (next)
-          before += next.size;
-      } else {
-        let next = nodes[--j];
-        if (next)
-          after += next.size;
-      }
-    }
-    let brk = 0;
-    if (nodes[i2 - 1] == null) {
-      brk = 1;
-      i2--;
-    } else if (nodes[i2] == null) {
-      brk = 1;
-      j++;
-    }
-    return new HeightMapBranch2(_HeightMap.of(nodes.slice(0, i2)), brk, _HeightMap.of(nodes.slice(j)));
-  }
-};
-function replace2(old, val) {
-  if (old == val)
-    return old;
-  if (old.constructor != val.constructor)
-    heightChangeFlag2 = true;
-  return val;
-}
-HeightMap2.prototype.size = 1;
-var SpaceDeco = /* @__PURE__ */ Decoration2.replace({});
-var HeightMapBlock2 = class extends HeightMap2 {
-  constructor(length, height, deco) {
-    super(length, height);
-    this.deco = deco;
-    this.spaceAbove = 0;
-  }
-  mainBlock(top2, offset) {
-    return new BlockInfo2(offset, this.length, top2 + this.spaceAbove, this.height - this.spaceAbove, this.deco || 0);
-  }
-  blockAt(height, _oracle, top2, offset) {
-    return this.spaceAbove && height < top2 + this.spaceAbove ? new BlockInfo2(offset, 0, top2, this.spaceAbove, SpaceDeco) : this.mainBlock(top2, offset);
-  }
-  lineAt(_value, _type, oracle, top2, offset) {
-    let main = this.mainBlock(top2, offset);
-    return this.spaceAbove ? this.blockAt(0, oracle, top2, offset).join(main) : main;
-  }
-  forEachLine(from2, to, oracle, top2, offset, f) {
-    if (from2 <= offset + this.length && to >= offset)
-      f(this.lineAt(0, QueryType2.ByPos, oracle, top2, offset));
-  }
-  setMeasuredHeight(measured) {
-    let next = measured.heights[measured.index++];
-    if (next < 0) {
-      this.spaceAbove = -next;
-      next = measured.heights[measured.index++];
-    } else {
-      this.spaceAbove = 0;
-    }
-    this.setHeight(next);
-  }
-  updateHeight(oracle, offset = 0, _force = false, measured) {
-    if (measured && measured.from <= offset && measured.more)
-      this.setMeasuredHeight(measured);
-    this.outdated = false;
-    return this;
-  }
-  toString() {
-    return `block(${this.length})`;
-  }
-};
-var HeightMapText2 = class _HeightMapText extends HeightMapBlock2 {
-  constructor(length, height, above) {
-    super(length, height, null);
-    this.collapsed = 0;
-    this.widgetHeight = 0;
-    this.breaks = 0;
-    this.spaceAbove = above;
-  }
-  mainBlock(top2, offset) {
-    return new BlockInfo2(offset, this.length, top2 + this.spaceAbove, this.height - this.spaceAbove, this.breaks);
-  }
-  replace(_from, _to, nodes) {
-    let node = nodes[0];
-    if (nodes.length == 1 && (node instanceof _HeightMapText || node instanceof HeightMapGap2 && node.flags & 4) && Math.abs(this.length - node.length) < 10) {
-      if (node instanceof HeightMapGap2)
-        node = new _HeightMapText(node.length, this.height, this.spaceAbove);
-      else
-        node.height = this.height;
-      if (!this.outdated)
-        node.outdated = false;
-      return node;
-    } else {
-      return HeightMap2.of(nodes);
-    }
-  }
-  updateHeight(oracle, offset = 0, force = false, measured) {
-    if (measured && measured.from <= offset && measured.more) {
-      this.setMeasuredHeight(measured);
-    } else if (force || this.outdated) {
-      this.spaceAbove = 0;
-      this.setHeight(Math.max(this.widgetHeight, oracle.heightForLine(this.length - this.collapsed)) + this.breaks * oracle.lineHeight);
-    }
-    this.outdated = false;
-    return this;
-  }
-  toString() {
-    return `line(${this.length}${this.collapsed ? -this.collapsed : ""}${this.widgetHeight ? ":" + this.widgetHeight : ""})`;
-  }
-};
-var HeightMapGap2 = class _HeightMapGap extends HeightMap2 {
-  constructor(length) {
-    super(length, 0);
-  }
-  heightMetrics(oracle, offset) {
-    let firstLine = oracle.doc.lineAt(offset).number, lastLine = oracle.doc.lineAt(offset + this.length).number;
-    let lines = lastLine - firstLine + 1;
-    let perLine, perChar = 0;
-    if (oracle.lineWrapping) {
-      let totalPerLine = Math.min(this.height, oracle.lineHeight * lines);
-      perLine = totalPerLine / lines;
-      if (this.length > lines + 1)
-        perChar = (this.height - totalPerLine) / (this.length - lines - 1);
-    } else {
-      perLine = this.height / lines;
-    }
-    return { firstLine, lastLine, perLine, perChar };
-  }
-  blockAt(height, oracle, top2, offset) {
-    let { firstLine, lastLine, perLine, perChar } = this.heightMetrics(oracle, offset);
-    if (oracle.lineWrapping) {
-      let guess = offset + (height < oracle.lineHeight ? 0 : Math.round(Math.max(0, Math.min(1, (height - top2) / this.height)) * this.length));
-      let line = oracle.doc.lineAt(guess), lineHeight = perLine + line.length * perChar;
-      let lineTop = Math.max(top2, height - lineHeight / 2);
-      return new BlockInfo2(line.from, line.length, lineTop, lineHeight, 0);
-    } else {
-      let line = Math.max(0, Math.min(lastLine - firstLine, Math.floor((height - top2) / perLine)));
-      let { from: from2, length } = oracle.doc.line(firstLine + line);
-      return new BlockInfo2(from2, length, top2 + perLine * line, perLine, 0);
-    }
-  }
-  lineAt(value, type, oracle, top2, offset) {
-    if (type == QueryType2.ByHeight)
-      return this.blockAt(value, oracle, top2, offset);
-    if (type == QueryType2.ByPosNoHeight) {
-      let { from: from2, to } = oracle.doc.lineAt(value);
-      return new BlockInfo2(from2, to - from2, 0, 0, 0);
-    }
-    let { firstLine, perLine, perChar } = this.heightMetrics(oracle, offset);
-    let line = oracle.doc.lineAt(value), lineHeight = perLine + line.length * perChar;
-    let linesAbove = line.number - firstLine;
-    let lineTop = top2 + perLine * linesAbove + perChar * (line.from - offset - linesAbove);
-    return new BlockInfo2(line.from, line.length, Math.max(top2, Math.min(lineTop, top2 + this.height - lineHeight)), lineHeight, 0);
-  }
-  forEachLine(from2, to, oracle, top2, offset, f) {
-    from2 = Math.max(from2, offset);
-    to = Math.min(to, offset + this.length);
-    let { firstLine, perLine, perChar } = this.heightMetrics(oracle, offset);
-    for (let pos = from2, lineTop = top2; pos <= to; ) {
-      let line = oracle.doc.lineAt(pos);
-      if (pos == from2) {
-        let linesAbove = line.number - firstLine;
-        lineTop += perLine * linesAbove + perChar * (from2 - offset - linesAbove);
-      }
-      let lineHeight = perLine + perChar * line.length;
-      f(new BlockInfo2(line.from, line.length, lineTop, lineHeight, 0));
-      lineTop += lineHeight;
-      pos = line.to + 1;
-    }
-  }
-  replace(from2, to, nodes) {
-    let after = this.length - to;
-    if (after > 0) {
-      let last = nodes[nodes.length - 1];
-      if (last instanceof _HeightMapGap)
-        nodes[nodes.length - 1] = new _HeightMapGap(last.length + after);
-      else
-        nodes.push(null, new _HeightMapGap(after - 1));
-    }
-    if (from2 > 0) {
-      let first = nodes[0];
-      if (first instanceof _HeightMapGap)
-        nodes[0] = new _HeightMapGap(from2 + first.length);
-      else
-        nodes.unshift(new _HeightMapGap(from2 - 1), null);
-    }
-    return HeightMap2.of(nodes);
-  }
-  decomposeLeft(to, result) {
-    result.push(new _HeightMapGap(to - 1), null);
-  }
-  decomposeRight(from2, result) {
-    result.push(null, new _HeightMapGap(this.length - from2 - 1));
-  }
-  updateHeight(oracle, offset = 0, force = false, measured) {
-    let end = offset + this.length;
-    if (measured && measured.from <= offset + this.length && measured.more) {
-      let nodes = [], pos = Math.max(offset, measured.from), singleHeight = -1;
-      if (measured.from > offset)
-        nodes.push(new _HeightMapGap(measured.from - offset - 1).updateHeight(oracle, offset));
-      while (pos <= end && measured.more) {
-        let len = oracle.doc.lineAt(pos).length;
-        if (nodes.length)
-          nodes.push(null);
-        let height = measured.heights[measured.index++], above = 0;
-        if (height < 0) {
-          above = -height;
-          height = measured.heights[measured.index++];
-        }
-        if (singleHeight == -1)
-          singleHeight = height;
-        else if (Math.abs(height - singleHeight) >= Epsilon2)
-          singleHeight = -2;
-        let line = new HeightMapText2(len, height, above);
-        line.outdated = false;
-        nodes.push(line);
-        pos += len + 1;
-      }
-      if (pos <= end)
-        nodes.push(null, new _HeightMapGap(end - pos).updateHeight(oracle, pos));
-      let result = HeightMap2.of(nodes);
-      if (singleHeight < 0 || Math.abs(result.height - this.height) >= Epsilon2 || Math.abs(singleHeight - this.heightMetrics(oracle, offset).perLine) >= Epsilon2)
-        heightChangeFlag2 = true;
-      return replace2(this, result);
-    } else if (force || this.outdated) {
-      this.setHeight(oracle.heightForGap(offset, offset + this.length));
-      this.outdated = false;
-    }
-    return this;
-  }
-  toString() {
-    return `gap(${this.length})`;
-  }
-};
-var HeightMapBranch2 = class extends HeightMap2 {
-  constructor(left, brk, right) {
-    super(left.length + brk + right.length, left.height + right.height, brk | (left.outdated || right.outdated ? 2 : 0));
-    this.left = left;
-    this.right = right;
-    this.size = left.size + right.size;
-  }
-  get break() {
-    return this.flags & 1;
-  }
-  blockAt(height, oracle, top2, offset) {
-    let mid = top2 + this.left.height;
-    return height < mid ? this.left.blockAt(height, oracle, top2, offset) : this.right.blockAt(height, oracle, mid, offset + this.left.length + this.break);
-  }
-  lineAt(value, type, oracle, top2, offset) {
-    let rightTop = top2 + this.left.height, rightOffset = offset + this.left.length + this.break;
-    let left = type == QueryType2.ByHeight ? value < rightTop : value < rightOffset;
-    let base2 = left ? this.left.lineAt(value, type, oracle, top2, offset) : this.right.lineAt(value, type, oracle, rightTop, rightOffset);
-    if (this.break || (left ? base2.to < rightOffset : base2.from > rightOffset))
-      return base2;
-    let subQuery = type == QueryType2.ByPosNoHeight ? QueryType2.ByPosNoHeight : QueryType2.ByPos;
-    if (left)
-      return base2.join(this.right.lineAt(rightOffset, subQuery, oracle, rightTop, rightOffset));
-    else
-      return this.left.lineAt(rightOffset, subQuery, oracle, top2, offset).join(base2);
-  }
-  forEachLine(from2, to, oracle, top2, offset, f) {
-    let rightTop = top2 + this.left.height, rightOffset = offset + this.left.length + this.break;
-    if (this.break) {
-      if (from2 < rightOffset)
-        this.left.forEachLine(from2, to, oracle, top2, offset, f);
-      if (to >= rightOffset)
-        this.right.forEachLine(from2, to, oracle, rightTop, rightOffset, f);
-    } else {
-      let mid = this.lineAt(rightOffset, QueryType2.ByPos, oracle, top2, offset);
-      if (from2 < mid.from)
-        this.left.forEachLine(from2, mid.from - 1, oracle, top2, offset, f);
-      if (mid.to >= from2 && mid.from <= to)
-        f(mid);
-      if (to > mid.to)
-        this.right.forEachLine(mid.to + 1, to, oracle, rightTop, rightOffset, f);
-    }
-  }
-  replace(from2, to, nodes) {
-    let rightStart = this.left.length + this.break;
-    if (to < rightStart)
-      return this.balanced(this.left.replace(from2, to, nodes), this.right);
-    if (from2 > this.left.length)
-      return this.balanced(this.left, this.right.replace(from2 - rightStart, to - rightStart, nodes));
-    let result = [];
-    if (from2 > 0)
-      this.decomposeLeft(from2, result);
-    let left = result.length;
-    for (let node of nodes)
-      result.push(node);
-    if (from2 > 0)
-      mergeGaps2(result, left - 1);
-    if (to < this.length) {
-      let right = result.length;
-      this.decomposeRight(to, result);
-      mergeGaps2(result, right);
-    }
-    return HeightMap2.of(result);
-  }
-  decomposeLeft(to, result) {
-    let left = this.left.length;
-    if (to <= left)
-      return this.left.decomposeLeft(to, result);
-    result.push(this.left);
-    if (this.break) {
-      left++;
-      if (to >= left)
-        result.push(null);
-    }
-    if (to > left)
-      this.right.decomposeLeft(to - left, result);
-  }
-  decomposeRight(from2, result) {
-    let left = this.left.length, right = left + this.break;
-    if (from2 >= right)
-      return this.right.decomposeRight(from2 - right, result);
-    if (from2 < left)
-      this.left.decomposeRight(from2, result);
-    if (this.break && from2 < right)
-      result.push(null);
-    result.push(this.right);
-  }
-  balanced(left, right) {
-    if (left.size > 2 * right.size || right.size > 2 * left.size)
-      return HeightMap2.of(this.break ? [left, null, right] : [left, right]);
-    this.left = replace2(this.left, left);
-    this.right = replace2(this.right, right);
-    this.setHeight(left.height + right.height);
-    this.outdated = left.outdated || right.outdated;
-    this.size = left.size + right.size;
-    this.length = left.length + this.break + right.length;
-    return this;
-  }
-  updateHeight(oracle, offset = 0, force = false, measured) {
-    let { left, right } = this, rightStart = offset + left.length + this.break, rebalance = null;
-    if (measured && measured.from <= offset + left.length && measured.more)
-      rebalance = left = left.updateHeight(oracle, offset, force, measured);
-    else
-      left.updateHeight(oracle, offset, force);
-    if (measured && measured.from <= rightStart + right.length && measured.more)
-      rebalance = right = right.updateHeight(oracle, rightStart, force, measured);
-    else
-      right.updateHeight(oracle, rightStart, force);
-    if (rebalance)
-      return this.balanced(left, right);
-    this.height = this.left.height + this.right.height;
-    this.outdated = false;
-    return this;
-  }
-  toString() {
-    return this.left + (this.break ? " " : "-") + this.right;
-  }
-};
-function mergeGaps2(nodes, around) {
-  let before, after;
-  if (nodes[around] == null && (before = nodes[around - 1]) instanceof HeightMapGap2 && (after = nodes[around + 1]) instanceof HeightMapGap2)
-    nodes.splice(around - 1, 3, new HeightMapGap2(before.length + 1 + after.length));
-}
-var relevantWidgetHeight2 = 5;
-var NodeBuilder2 = class _NodeBuilder {
-  constructor(pos, oracle) {
-    this.pos = pos;
-    this.oracle = oracle;
-    this.nodes = [];
-    this.lineStart = -1;
-    this.lineEnd = -1;
-    this.covering = null;
-    this.writtenTo = pos;
-  }
-  get isCovered() {
-    return this.covering && this.nodes[this.nodes.length - 1] == this.covering;
-  }
-  span(_from, to) {
-    if (this.lineStart > -1) {
-      let end = Math.min(to, this.lineEnd), last = this.nodes[this.nodes.length - 1];
-      if (last instanceof HeightMapText2)
-        last.length += end - this.pos;
-      else if (end > this.pos || !this.isCovered)
-        this.nodes.push(new HeightMapText2(end - this.pos, -1, 0));
-      this.writtenTo = end;
-      if (to > end) {
-        this.nodes.push(null);
-        this.writtenTo++;
-        this.lineStart = -1;
-      }
-    }
-    this.pos = to;
-  }
-  point(from2, to, deco) {
-    if (from2 < to || deco.heightRelevant) {
-      let height = deco.widget ? deco.widget.estimatedHeight : 0;
-      let breaks = deco.widget ? deco.widget.lineBreaks : 0;
-      if (height < 0)
-        height = this.oracle.lineHeight;
-      let len = to - from2;
-      if (deco.block) {
-        this.addBlock(new HeightMapBlock2(len, height, deco));
-      } else if (len || breaks || height >= relevantWidgetHeight2) {
-        this.addLineDeco(height, breaks, len);
-      }
-    } else if (to > from2) {
-      this.span(from2, to);
-    }
-    if (this.lineEnd > -1 && this.lineEnd < this.pos)
-      this.lineEnd = this.oracle.doc.lineAt(this.pos).to;
-  }
-  enterLine() {
-    if (this.lineStart > -1)
-      return;
-    let { from: from2, to } = this.oracle.doc.lineAt(this.pos);
-    this.lineStart = from2;
-    this.lineEnd = to;
-    if (this.writtenTo < from2) {
-      if (this.writtenTo < from2 - 1 || this.nodes[this.nodes.length - 1] == null)
-        this.nodes.push(this.blankContent(this.writtenTo, from2 - 1));
-      this.nodes.push(null);
-    }
-    if (this.pos > from2)
-      this.nodes.push(new HeightMapText2(this.pos - from2, -1, 0));
-    this.writtenTo = this.pos;
-  }
-  blankContent(from2, to) {
-    let gap = new HeightMapGap2(to - from2);
-    if (this.oracle.doc.lineAt(from2).to == to)
-      gap.flags |= 4;
-    return gap;
-  }
-  ensureLine() {
-    this.enterLine();
-    let last = this.nodes.length ? this.nodes[this.nodes.length - 1] : null;
-    if (last instanceof HeightMapText2)
-      return last;
-    let line = new HeightMapText2(0, -1, 0);
-    this.nodes.push(line);
-    return line;
-  }
-  addBlock(block) {
-    this.enterLine();
-    let deco = block.deco;
-    if (deco && deco.startSide > 0 && !this.isCovered)
-      this.ensureLine();
-    this.nodes.push(block);
-    this.writtenTo = this.pos = this.pos + block.length;
-    if (deco && deco.endSide > 0)
-      this.covering = block;
-  }
-  addLineDeco(height, breaks, length) {
-    let line = this.ensureLine();
-    line.length += length;
-    line.collapsed += length;
-    line.widgetHeight = Math.max(line.widgetHeight, height);
-    line.breaks += breaks;
-    this.writtenTo = this.pos = this.pos + length;
-  }
-  finish(from2) {
-    let last = this.nodes.length == 0 ? null : this.nodes[this.nodes.length - 1];
-    if (this.lineStart > -1 && !(last instanceof HeightMapText2) && !this.isCovered)
-      this.nodes.push(new HeightMapText2(0, -1, 0));
-    else if (this.writtenTo < this.pos || last == null)
-      this.nodes.push(this.blankContent(this.writtenTo, this.pos));
-    let pos = from2;
-    for (let node of this.nodes) {
-      if (node instanceof HeightMapText2)
-        node.updateHeight(this.oracle, pos);
-      pos += node ? node.length : 1;
-    }
-    return this.nodes;
-  }
-  // Always called with a region that on both sides either stretches
-  // to a line break or the end of the document.
-  // The returned array uses null to indicate line breaks, but never
-  // starts or ends in a line break, or has multiple line breaks next
-  // to each other.
-  static build(oracle, decorations3, from2, to) {
-    let builder = new _NodeBuilder(from2, oracle);
-    RangeSet.spans(decorations3, from2, to, builder, 0);
-    return builder.finish(from2);
-  }
-};
-function heightRelevantDecoChanges2(a, b, diff) {
-  let comp = new DecorationComparator4();
-  RangeSet.compare(a, b, diff, comp, 0);
-  return comp.changes;
-}
-var DecorationComparator4 = class {
-  constructor() {
-    this.changes = [];
-  }
-  compareRange() {
-  }
-  comparePoint(from2, to, a, b) {
-    if (from2 < to || a && a.heightRelevant || b && b.heightRelevant)
-      addRange2(from2, to, this.changes, 5);
-  }
-};
-function visiblePixelRange2(dom, paddingTop) {
-  let rect = dom.getBoundingClientRect();
-  let doc3 = dom.ownerDocument, win = doc3.defaultView || window;
-  let left = Math.max(0, rect.left), right = Math.min(win.innerWidth, rect.right);
-  let top2 = Math.max(0, rect.top), bottom = Math.min(win.innerHeight, rect.bottom);
-  for (let parent = dom.parentNode; parent && parent != doc3.body; ) {
-    if (parent.nodeType == 1) {
-      let elt2 = parent;
-      let style = window.getComputedStyle(elt2);
-      if ((elt2.scrollHeight > elt2.clientHeight || elt2.scrollWidth > elt2.clientWidth) && style.overflow != "visible") {
-        let parentRect = elt2.getBoundingClientRect();
-        left = Math.max(left, parentRect.left);
-        right = Math.min(right, parentRect.right);
-        top2 = Math.max(top2, parentRect.top);
-        bottom = Math.min(parent == dom.parentNode ? win.innerHeight : bottom, parentRect.bottom);
-      }
-      parent = style.position == "absolute" || style.position == "fixed" ? elt2.offsetParent : elt2.parentNode;
-    } else if (parent.nodeType == 11) {
-      parent = parent.host;
-    } else {
-      break;
-    }
-  }
-  return {
-    left: left - rect.left,
-    right: Math.max(left, right) - rect.left,
-    top: top2 - (rect.top + paddingTop),
-    bottom: Math.max(top2, bottom) - (rect.top + paddingTop)
-  };
-}
-function inWindow(elt2) {
-  let rect = elt2.getBoundingClientRect(), win = elt2.ownerDocument.defaultView || window;
-  return rect.left < win.innerWidth && rect.right > 0 && rect.top < win.innerHeight && rect.bottom > 0;
-}
-function fullPixelRange2(dom, paddingTop) {
-  let rect = dom.getBoundingClientRect();
-  return {
-    left: 0,
-    right: rect.right - rect.left,
-    top: paddingTop,
-    bottom: rect.bottom - (rect.top + paddingTop)
-  };
-}
-var LineGap2 = class {
-  constructor(from2, to, size, displaySize) {
-    this.from = from2;
-    this.to = to;
-    this.size = size;
-    this.displaySize = displaySize;
-  }
-  static same(a, b) {
-    if (a.length != b.length)
-      return false;
-    for (let i2 = 0; i2 < a.length; i2++) {
-      let gA = a[i2], gB = b[i2];
-      if (gA.from != gB.from || gA.to != gB.to || gA.size != gB.size)
-        return false;
-    }
-    return true;
-  }
-  draw(viewState, wrapping) {
-    return Decoration2.replace({
-      widget: new LineGapWidget2(this.displaySize * (wrapping ? viewState.scaleY : viewState.scaleX), wrapping)
-    }).range(this.from, this.to);
-  }
-};
-var LineGapWidget2 = class extends WidgetType2 {
-  constructor(size, vertical) {
-    super();
-    this.size = size;
-    this.vertical = vertical;
-  }
-  eq(other) {
-    return other.size == this.size && other.vertical == this.vertical;
-  }
-  toDOM() {
-    let elt2 = document.createElement("div");
-    if (this.vertical) {
-      elt2.style.height = this.size + "px";
-    } else {
-      elt2.style.width = this.size + "px";
-      elt2.style.height = "2px";
-      elt2.style.display = "inline-block";
-    }
-    return elt2;
-  }
-  get estimatedHeight() {
-    return this.vertical ? this.size : -1;
-  }
-};
-var ViewState2 = class {
-  constructor(view, state) {
-    this.view = view;
-    this.state = state;
-    this.pixelViewport = { left: 0, right: window.innerWidth, top: 0, bottom: 0 };
-    this.inView = true;
-    this.paddingTop = 0;
-    this.paddingBottom = 0;
-    this.contentDOMWidth = 0;
-    this.contentDOMHeight = 0;
-    this.editorHeight = 0;
-    this.editorWidth = 0;
-    this.scaleX = 1;
-    this.scaleY = 1;
-    this.scrollOffset = 0;
-    this.scrolledToBottom = false;
-    this.scrollAnchorPos = 0;
-    this.scrollAnchorHeight = -1;
-    this.scaler = IdScaler2;
-    this.scrollTarget = null;
-    this.printing = false;
-    this.mustMeasureContent = true;
-    this.defaultTextDirection = Direction2.LTR;
-    this.visibleRanges = [];
-    this.mustEnforceCursorAssoc = false;
-    let guessWrapping = state.facet(contentAttributes2).some((v) => typeof v != "function" && v.class == "cm-lineWrapping");
-    this.heightOracle = new HeightOracle2(guessWrapping);
-    this.stateDeco = staticDeco(state);
-    this.heightMap = HeightMap2.empty().applyChanges(this.stateDeco, Text.empty, this.heightOracle.setDoc(state.doc), [new ChangedRange2(0, 0, 0, state.doc.length)]);
-    for (let i2 = 0; i2 < 2; i2++) {
-      this.viewport = this.getViewport(0, null);
-      if (!this.updateForViewport())
-        break;
-    }
-    this.updateViewportLines();
-    this.lineGaps = this.ensureLineGaps([]);
-    this.lineGapDeco = Decoration2.set(this.lineGaps.map((gap) => gap.draw(this, false)));
-    this.scrollParent = view.scrollDOM;
-    this.computeVisibleRanges();
-  }
-  updateForViewport() {
-    let viewports = [this.viewport], { main } = this.state.selection;
-    for (let i2 = 0; i2 <= 1; i2++) {
-      let pos = i2 ? main.head : main.anchor;
-      if (!viewports.some(({ from: from2, to }) => pos >= from2 && pos <= to)) {
-        let { from: from2, to } = this.lineBlockAt(pos);
-        viewports.push(new Viewport2(from2, to));
-      }
-    }
-    this.viewports = viewports.sort((a, b) => a.from - b.from);
-    return this.updateScaler();
-  }
-  updateScaler() {
-    let scaler = this.scaler;
-    this.scaler = this.heightMap.height <= 7e6 ? IdScaler2 : new BigScaler2(this.heightOracle, this.heightMap, this.viewports);
-    return scaler.eq(this.scaler) ? 0 : 2;
-  }
-  updateViewportLines() {
-    this.viewportLines = [];
-    this.heightMap.forEachLine(this.viewport.from, this.viewport.to, this.heightOracle.setDoc(this.state.doc), 0, 0, (block) => {
-      this.viewportLines.push(scaleBlock2(block, this.scaler));
-    });
-  }
-  update(update, scrollTarget = null) {
-    this.state = update.state;
-    let prevDeco = this.stateDeco;
-    this.stateDeco = staticDeco(this.state);
-    let contentChanges = update.changedRanges;
-    let heightChanges = ChangedRange2.extendWithRanges(contentChanges, heightRelevantDecoChanges2(prevDeco, this.stateDeco, update ? update.changes : ChangeSet.empty(this.state.doc.length)));
-    let prevHeight = this.heightMap.height;
-    let scrollAnchor = this.scrolledToBottom ? null : this.scrollAnchorAt(this.scrollOffset);
-    clearHeightChangeFlag2();
-    this.heightMap = this.heightMap.applyChanges(this.stateDeco, update.startState.doc, this.heightOracle.setDoc(this.state.doc), heightChanges);
-    if (this.heightMap.height != prevHeight || heightChangeFlag2)
-      update.flags |= 2;
-    if (scrollAnchor) {
-      this.scrollAnchorPos = update.changes.mapPos(scrollAnchor.from, -1);
-      this.scrollAnchorHeight = scrollAnchor.top;
-    } else {
-      this.scrollAnchorPos = -1;
-      this.scrollAnchorHeight = prevHeight;
-    }
-    let viewport = heightChanges.length ? this.mapViewport(this.viewport, update.changes) : this.viewport;
-    if (scrollTarget && (scrollTarget.range.head < viewport.from || scrollTarget.range.head > viewport.to) || !this.viewportIsAppropriate(viewport))
-      viewport = this.getViewport(0, scrollTarget);
-    let viewportChange = viewport.from != this.viewport.from || viewport.to != this.viewport.to;
-    this.viewport = viewport;
-    update.flags |= this.updateForViewport();
-    if (viewportChange || !update.changes.empty || update.flags & 2)
-      this.updateViewportLines();
-    if (this.lineGaps.length || this.viewport.to - this.viewport.from > 2e3 << 1)
-      this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, update.changes)));
-    update.flags |= this.computeVisibleRanges(update.changes);
-    if (scrollTarget)
-      this.scrollTarget = scrollTarget;
-    if (!this.mustEnforceCursorAssoc && (update.selectionSet || update.focusChanged) && update.view.lineWrapping && update.state.selection.main.empty && update.state.selection.main.assoc && !update.state.facet(nativeSelectionHidden2))
-      this.mustEnforceCursorAssoc = true;
-  }
-  measure() {
-    let { view } = this, dom = view.contentDOM, style = window.getComputedStyle(dom);
-    let oracle = this.heightOracle;
-    let whiteSpace = style.whiteSpace;
-    this.defaultTextDirection = style.direction == "rtl" ? Direction2.RTL : Direction2.LTR;
-    let refresh = this.heightOracle.mustRefreshForWrapping(whiteSpace) || this.mustMeasureContent === "refresh";
-    let domRect = dom.getBoundingClientRect();
-    let measureContent = refresh || this.mustMeasureContent || this.contentDOMHeight != domRect.height;
-    this.contentDOMHeight = domRect.height;
-    this.mustMeasureContent = false;
-    let result = 0, bias = 0;
-    if (domRect.width && domRect.height) {
-      let { scaleX, scaleY } = getScale2(dom, domRect);
-      if (scaleX > 5e-3 && Math.abs(this.scaleX - scaleX) > 5e-3 || scaleY > 5e-3 && Math.abs(this.scaleY - scaleY) > 5e-3) {
-        this.scaleX = scaleX;
-        this.scaleY = scaleY;
-        result |= 16;
-        refresh = measureContent = true;
-      }
-    }
-    let paddingTop = (parseInt(style.paddingTop) || 0) * this.scaleY;
-    let paddingBottom = (parseInt(style.paddingBottom) || 0) * this.scaleY;
-    if (this.paddingTop != paddingTop || this.paddingBottom != paddingBottom) {
-      this.paddingTop = paddingTop;
-      this.paddingBottom = paddingBottom;
-      result |= 16 | 2;
-    }
-    if (this.editorWidth != view.scrollDOM.clientWidth) {
-      if (oracle.lineWrapping)
-        measureContent = true;
-      this.editorWidth = view.scrollDOM.clientWidth;
-      result |= 16;
-    }
-    let scrollParent = scrollableParents2(this.view.contentDOM, false).y;
-    if (scrollParent != this.scrollParent) {
-      this.scrollParent = scrollParent;
-      this.scrollAnchorHeight = -1;
-      this.scrollOffset = 0;
-    }
-    let scrollOffset = this.getScrollOffset();
-    if (this.scrollOffset != scrollOffset) {
-      this.scrollAnchorHeight = -1;
-      this.scrollOffset = scrollOffset;
-    }
-    this.scrolledToBottom = isScrolledToBottom2(this.scrollParent || view.win);
-    let pixelViewport = (this.printing ? fullPixelRange2 : visiblePixelRange2)(dom, this.paddingTop);
-    let dTop = pixelViewport.top - this.pixelViewport.top, dBottom = pixelViewport.bottom - this.pixelViewport.bottom;
-    this.pixelViewport = pixelViewport;
-    let inView = this.pixelViewport.bottom > this.pixelViewport.top && this.pixelViewport.right > this.pixelViewport.left;
-    if (inView != this.inView) {
-      this.inView = inView;
-      if (inView)
-        measureContent = true;
-    }
-    if (!this.inView && !this.scrollTarget && !inWindow(view.dom))
-      return 0;
-    let contentWidth = domRect.width;
-    if (this.contentDOMWidth != contentWidth || this.editorHeight != view.scrollDOM.clientHeight) {
-      this.contentDOMWidth = domRect.width;
-      this.editorHeight = view.scrollDOM.clientHeight;
-      result |= 16;
-    }
-    if (measureContent) {
-      let lineHeights = view.docView.measureVisibleLineHeights(this.viewport);
-      if (oracle.mustRefreshForHeights(lineHeights))
-        refresh = true;
-      if (refresh || oracle.lineWrapping && Math.abs(contentWidth - this.contentDOMWidth) > oracle.charWidth) {
-        let { lineHeight, charWidth, textHeight } = view.docView.measureTextSize();
-        refresh = lineHeight > 0 && oracle.refresh(whiteSpace, lineHeight, charWidth, textHeight, Math.max(5, contentWidth / charWidth), lineHeights);
-        if (refresh) {
-          view.docView.minWidth = 0;
-          result |= 16;
-        }
-      }
-      if (dTop > 0 && dBottom > 0)
-        bias = Math.max(dTop, dBottom);
-      else if (dTop < 0 && dBottom < 0)
-        bias = Math.min(dTop, dBottom);
-      clearHeightChangeFlag2();
-      for (let vp of this.viewports) {
-        let heights = vp.from == this.viewport.from ? lineHeights : view.docView.measureVisibleLineHeights(vp);
-        this.heightMap = (refresh ? HeightMap2.empty().applyChanges(this.stateDeco, Text.empty, this.heightOracle, [new ChangedRange2(0, 0, 0, view.state.doc.length)]) : this.heightMap).updateHeight(oracle, 0, refresh, new MeasuredHeights2(vp.from, heights));
-      }
-      if (heightChangeFlag2)
-        result |= 2;
-    }
-    let viewportChange = !this.viewportIsAppropriate(this.viewport, bias) || this.scrollTarget && (this.scrollTarget.range.head < this.viewport.from || this.scrollTarget.range.head > this.viewport.to);
-    if (viewportChange) {
-      if (result & 2)
-        result |= this.updateScaler();
-      this.viewport = this.getViewport(bias, this.scrollTarget);
-      result |= this.updateForViewport();
-    }
-    if (result & 2 || viewportChange)
-      this.updateViewportLines();
-    if (this.lineGaps.length || this.viewport.to - this.viewport.from > 2e3 << 1)
-      this.updateLineGaps(this.ensureLineGaps(refresh ? [] : this.lineGaps, view));
-    result |= this.computeVisibleRanges();
-    if (this.mustEnforceCursorAssoc) {
-      this.mustEnforceCursorAssoc = false;
-      view.docView.enforceCursorAssoc();
-    }
-    return result;
-  }
-  get visibleTop() {
-    return this.scaler.fromDOM(this.pixelViewport.top);
-  }
-  get visibleBottom() {
-    return this.scaler.fromDOM(this.pixelViewport.bottom);
-  }
-  getViewport(bias, scrollTarget) {
-    let marginTop = 0.5 - Math.max(-0.5, Math.min(0.5, bias / 1e3 / 2));
-    let map = this.heightMap, oracle = this.heightOracle;
-    let { visibleTop, visibleBottom } = this;
-    let viewport = new Viewport2(map.lineAt(visibleTop - marginTop * 1e3, QueryType2.ByHeight, oracle, 0, 0).from, map.lineAt(visibleBottom + (1 - marginTop) * 1e3, QueryType2.ByHeight, oracle, 0, 0).to);
-    if (scrollTarget) {
-      let { head } = scrollTarget.range;
-      if (head < viewport.from || head > viewport.to) {
-        let viewHeight = Math.min(this.editorHeight, this.pixelViewport.bottom - this.pixelViewport.top);
-        let block = map.lineAt(head, QueryType2.ByPos, oracle, 0, 0), topPos;
-        if (scrollTarget.y == "center")
-          topPos = (block.top + block.bottom) / 2 - viewHeight / 2;
-        else if (scrollTarget.y == "start" || scrollTarget.y == "nearest" && head < viewport.from)
-          topPos = block.top;
-        else
-          topPos = block.bottom - viewHeight;
-        viewport = new Viewport2(map.lineAt(topPos - 1e3 / 2, QueryType2.ByHeight, oracle, 0, 0).from, map.lineAt(topPos + viewHeight + 1e3 / 2, QueryType2.ByHeight, oracle, 0, 0).to);
-      }
-    }
-    return viewport;
-  }
-  mapViewport(viewport, changes) {
-    let from2 = changes.mapPos(viewport.from, -1), to = changes.mapPos(viewport.to, 1);
-    return new Viewport2(this.heightMap.lineAt(from2, QueryType2.ByPos, this.heightOracle, 0, 0).from, this.heightMap.lineAt(to, QueryType2.ByPos, this.heightOracle, 0, 0).to);
-  }
-  // Checks if a given viewport covers the visible part of the
-  // document and not too much beyond that.
-  viewportIsAppropriate({ from: from2, to }, bias = 0) {
-    if (!this.inView)
-      return true;
-    let { top: top2 } = this.heightMap.lineAt(from2, QueryType2.ByPos, this.heightOracle, 0, 0);
-    let { bottom } = this.heightMap.lineAt(to, QueryType2.ByPos, this.heightOracle, 0, 0);
-    let { visibleTop, visibleBottom } = this;
-    return (from2 == 0 || top2 <= visibleTop - Math.max(10, Math.min(
-      -bias,
-      250
-      /* VP.MaxCoverMargin */
-    ))) && (to == this.state.doc.length || bottom >= visibleBottom + Math.max(10, Math.min(
-      bias,
-      250
-      /* VP.MaxCoverMargin */
-    ))) && (top2 > visibleTop - 2 * 1e3 && bottom < visibleBottom + 2 * 1e3);
-  }
-  mapLineGaps(gaps, changes) {
-    if (!gaps.length || changes.empty)
-      return gaps;
-    let mapped = [];
-    for (let gap of gaps)
-      if (!changes.touchesRange(gap.from, gap.to))
-        mapped.push(new LineGap2(changes.mapPos(gap.from), changes.mapPos(gap.to), gap.size, gap.displaySize));
-    return mapped;
-  }
-  // Computes positions in the viewport where the start or end of a
-  // line should be hidden, trying to reuse existing line gaps when
-  // appropriate to avoid unneccesary redraws.
-  // Uses crude character-counting for the positioning and sizing,
-  // since actual DOM coordinates aren't always available and
-  // predictable. Relies on generous margins (see LG.Margin) to hide
-  // the artifacts this might produce from the user.
-  ensureLineGaps(current, mayMeasure) {
-    let wrapping = this.heightOracle.lineWrapping;
-    let margin = wrapping ? 1e4 : 2e3, halfMargin = margin >> 1, doubleMargin = margin << 1;
-    if (this.defaultTextDirection != Direction2.LTR && !wrapping)
-      return [];
-    let gaps = [];
-    let addGap = (from2, to, line, structure) => {
-      if (to - from2 < halfMargin)
-        return;
-      let sel = this.state.selection.main, avoid = [sel.from];
-      if (!sel.empty)
-        avoid.push(sel.to);
-      for (let pos of avoid) {
-        if (pos > from2 && pos < to) {
-          addGap(from2, pos - 10, line, structure);
-          addGap(pos + 10, to, line, structure);
-          return;
-        }
-      }
-      let gap = find2(current, (gap2) => gap2.from >= line.from && gap2.to <= line.to && Math.abs(gap2.from - from2) < halfMargin && Math.abs(gap2.to - to) < halfMargin && !avoid.some((pos) => gap2.from < pos && gap2.to > pos));
-      if (!gap) {
-        if (to < line.to && mayMeasure && wrapping && mayMeasure.visibleRanges.some((r) => r.from <= to && r.to >= to)) {
-          let lineStart = mayMeasure.moveToLineBoundary(EditorSelection.cursor(to), false, true).head;
-          if (lineStart > from2)
-            to = lineStart;
-        }
-        let size = this.gapSize(line, from2, to, structure);
-        let displaySize = wrapping || size < 2e6 ? size : 2e6;
-        gap = new LineGap2(from2, to, size, displaySize);
-      }
-      gaps.push(gap);
-    };
-    let checkLine = (line) => {
-      if (line.length < doubleMargin || line.type != BlockType2.Text)
-        return;
-      let structure = lineStructure2(line.from, line.to, this.stateDeco);
-      if (structure.total < doubleMargin)
-        return;
-      let target = this.scrollTarget ? this.scrollTarget.range.head : null;
-      let viewFrom, viewTo;
-      if (wrapping) {
-        let marginHeight = margin / this.heightOracle.lineLength * this.heightOracle.lineHeight;
-        let top2, bot;
-        if (target != null) {
-          let targetFrac = findFraction2(structure, target);
-          let spaceFrac = ((this.visibleBottom - this.visibleTop) / 2 + marginHeight) / line.height;
-          top2 = targetFrac - spaceFrac;
-          bot = targetFrac + spaceFrac;
-        } else {
-          top2 = (this.visibleTop - line.top - marginHeight) / line.height;
-          bot = (this.visibleBottom - line.top + marginHeight) / line.height;
-        }
-        viewFrom = findPosition2(structure, top2);
-        viewTo = findPosition2(structure, bot);
-      } else {
-        let totalWidth = structure.total * this.heightOracle.charWidth;
-        let marginWidth = margin * this.heightOracle.charWidth;
-        let horizOffset = 0;
-        if (totalWidth > 2e6)
-          for (let old of current) {
-            if (old.from >= line.from && old.from < line.to && old.size != old.displaySize && old.from * this.heightOracle.charWidth + horizOffset < this.pixelViewport.left)
-              horizOffset = old.size - old.displaySize;
-          }
-        let pxLeft = this.pixelViewport.left + horizOffset, pxRight = this.pixelViewport.right + horizOffset;
-        let left, right;
-        if (target != null) {
-          let targetFrac = findFraction2(structure, target);
-          let spaceFrac = ((pxRight - pxLeft) / 2 + marginWidth) / totalWidth;
-          left = targetFrac - spaceFrac;
-          right = targetFrac + spaceFrac;
-        } else {
-          left = (pxLeft - marginWidth) / totalWidth;
-          right = (pxRight + marginWidth) / totalWidth;
-        }
-        viewFrom = findPosition2(structure, left);
-        viewTo = findPosition2(structure, right);
-      }
-      if (viewFrom > line.from)
-        addGap(line.from, viewFrom, line, structure);
-      if (viewTo < line.to)
-        addGap(viewTo, line.to, line, structure);
-    };
-    for (let line of this.viewportLines) {
-      if (Array.isArray(line.type))
-        line.type.forEach(checkLine);
-      else
-        checkLine(line);
-    }
-    return gaps;
-  }
-  gapSize(line, from2, to, structure) {
-    let fraction = findFraction2(structure, to) - findFraction2(structure, from2);
-    if (this.heightOracle.lineWrapping) {
-      return line.height * fraction;
-    } else {
-      return structure.total * this.heightOracle.charWidth * fraction;
-    }
-  }
-  updateLineGaps(gaps) {
-    if (!LineGap2.same(gaps, this.lineGaps)) {
-      this.lineGaps = gaps;
-      this.lineGapDeco = Decoration2.set(gaps.map((gap) => gap.draw(this, this.heightOracle.lineWrapping)));
-    }
-  }
-  computeVisibleRanges(changes) {
-    let deco = this.stateDeco;
-    if (this.lineGaps.length)
-      deco = deco.concat(this.lineGapDeco);
-    let ranges = [];
-    RangeSet.spans(deco, this.viewport.from, this.viewport.to, {
-      span(from2, to) {
-        ranges.push({ from: from2, to });
-      },
-      point() {
-      }
-    }, 20);
-    let changed = 0;
-    if (ranges.length != this.visibleRanges.length) {
-      changed = 8 | 4;
-    } else {
-      for (let i2 = 0; i2 < ranges.length && !(changed & 8); i2++) {
-        let old = this.visibleRanges[i2], nw = ranges[i2];
-        if (old.from != nw.from || old.to != nw.to) {
-          changed |= 4;
-          if (!(changes && changes.mapPos(old.from, -1) == nw.from && changes.mapPos(old.to, 1) == nw.to))
-            changed |= 8;
-        }
-      }
-    }
-    this.visibleRanges = ranges;
-    return changed;
-  }
-  lineBlockAt(pos) {
-    return pos >= this.viewport.from && pos <= this.viewport.to && this.viewportLines.find((b) => b.from <= pos && b.to >= pos) || scaleBlock2(this.heightMap.lineAt(pos, QueryType2.ByPos, this.heightOracle, 0, 0), this.scaler);
-  }
-  lineBlockAtHeight(height) {
-    return height >= this.viewportLines[0].top && height <= this.viewportLines[this.viewportLines.length - 1].bottom && this.viewportLines.find((l) => l.top <= height && l.bottom >= height) || scaleBlock2(this.heightMap.lineAt(this.scaler.fromDOM(height), QueryType2.ByHeight, this.heightOracle, 0, 0), this.scaler);
-  }
-  getScrollOffset() {
-    let base2 = this.scrollParent == this.view.scrollDOM ? this.scrollParent.scrollTop : (this.scrollParent ? this.scrollParent.getBoundingClientRect().top : 0) - this.view.contentDOM.getBoundingClientRect().top;
-    return base2 * this.scaleY;
-  }
-  scrollAnchorAt(scrollOffset) {
-    let block = this.lineBlockAtHeight(scrollOffset + 8);
-    return block.from >= this.viewport.from || this.viewportLines[0].top - scrollOffset > 200 ? block : this.viewportLines[0];
-  }
-  elementAtHeight(height) {
-    return scaleBlock2(this.heightMap.blockAt(this.scaler.fromDOM(height), this.heightOracle, 0, 0), this.scaler);
-  }
-  get docHeight() {
-    return this.scaler.toDOM(this.heightMap.height);
-  }
-  get contentHeight() {
-    return this.docHeight + this.paddingTop + this.paddingBottom;
-  }
-};
-var Viewport2 = class {
-  constructor(from2, to) {
-    this.from = from2;
-    this.to = to;
-  }
-};
-function lineStructure2(from2, to, stateDeco) {
-  let ranges = [], pos = from2, total = 0;
-  RangeSet.spans(stateDeco, from2, to, {
-    span() {
-    },
-    point(from3, to2) {
-      if (from3 > pos) {
-        ranges.push({ from: pos, to: from3 });
-        total += from3 - pos;
-      }
-      pos = to2;
-    }
-  }, 20);
-  if (pos < to) {
-    ranges.push({ from: pos, to });
-    total += to - pos;
-  }
-  return { total, ranges };
-}
-function findPosition2({ total, ranges }, ratio) {
-  if (ratio <= 0)
-    return ranges[0].from;
-  if (ratio >= 1)
-    return ranges[ranges.length - 1].to;
-  let dist3 = Math.floor(total * ratio);
-  for (let i2 = 0; ; i2++) {
-    let { from: from2, to } = ranges[i2], size = to - from2;
-    if (dist3 <= size)
-      return from2 + dist3;
-    dist3 -= size;
-  }
-}
-function findFraction2(structure, pos) {
-  let counted = 0;
-  for (let { from: from2, to } of structure.ranges) {
-    if (pos <= to) {
-      counted += pos - from2;
-      break;
-    }
-    counted += to - from2;
-  }
-  return counted / structure.total;
-}
-function find2(array2, f) {
-  for (let val of array2)
-    if (f(val))
-      return val;
-  return void 0;
-}
-var IdScaler2 = {
-  toDOM(n) {
-    return n;
-  },
-  fromDOM(n) {
-    return n;
-  },
-  scale: 1,
-  eq(other) {
-    return other == this;
-  }
-};
-function staticDeco(state) {
-  let deco = state.facet(decorations2).filter((d) => typeof d != "function");
-  let outer = state.facet(outerDecorations2).filter((d) => typeof d != "function");
-  if (outer.length)
-    deco.push(RangeSet.join(outer));
-  return deco;
-}
-var BigScaler2 = class _BigScaler {
-  constructor(oracle, heightMap, viewports) {
-    let vpHeight = 0, base2 = 0, domBase = 0;
-    this.viewports = viewports.map(({ from: from2, to }) => {
-      let top2 = heightMap.lineAt(from2, QueryType2.ByPos, oracle, 0, 0).top;
-      let bottom = heightMap.lineAt(to, QueryType2.ByPos, oracle, 0, 0).bottom;
-      vpHeight += bottom - top2;
-      return { from: from2, to, top: top2, bottom, domTop: 0, domBottom: 0 };
-    });
-    this.scale = (7e6 - vpHeight) / (heightMap.height - vpHeight);
-    for (let obj of this.viewports) {
-      obj.domTop = domBase + (obj.top - base2) * this.scale;
-      domBase = obj.domBottom = obj.domTop + (obj.bottom - obj.top);
-      base2 = obj.bottom;
-    }
-  }
-  toDOM(n) {
-    for (let i2 = 0, base2 = 0, domBase = 0; ; i2++) {
-      let vp = i2 < this.viewports.length ? this.viewports[i2] : null;
-      if (!vp || n < vp.top)
-        return domBase + (n - base2) * this.scale;
-      if (n <= vp.bottom)
-        return vp.domTop + (n - vp.top);
-      base2 = vp.bottom;
-      domBase = vp.domBottom;
-    }
-  }
-  fromDOM(n) {
-    for (let i2 = 0, base2 = 0, domBase = 0; ; i2++) {
-      let vp = i2 < this.viewports.length ? this.viewports[i2] : null;
-      if (!vp || n < vp.domTop)
-        return base2 + (n - domBase) / this.scale;
-      if (n <= vp.domBottom)
-        return vp.top + (n - vp.domTop);
-      base2 = vp.bottom;
-      domBase = vp.domBottom;
-    }
-  }
-  eq(other) {
-    if (!(other instanceof _BigScaler))
-      return false;
-    return this.scale == other.scale && this.viewports.length == other.viewports.length && this.viewports.every((vp, i2) => vp.from == other.viewports[i2].from && vp.to == other.viewports[i2].to);
-  }
-};
-function scaleBlock2(block, scaler) {
-  if (scaler.scale == 1)
-    return block;
-  let bTop = scaler.toDOM(block.top), bBottom = scaler.toDOM(block.bottom);
-  return new BlockInfo2(block.from, block.length, bTop, bBottom - bTop, Array.isArray(block._content) ? block._content.map((b) => scaleBlock2(b, scaler)) : block._content);
-}
-var theme2 = /* @__PURE__ */ Facet.define({ combine: (strs) => strs.join(" ") });
-var darkTheme2 = /* @__PURE__ */ Facet.define({ combine: (values2) => values2.indexOf(true) > -1 });
-var baseThemeID2 = /* @__PURE__ */ StyleModule.newName();
-var baseLightID2 = /* @__PURE__ */ StyleModule.newName();
-var baseDarkID2 = /* @__PURE__ */ StyleModule.newName();
-var lightDarkIDs2 = { "&light": "." + baseLightID2, "&dark": "." + baseDarkID2 };
-function buildTheme2(main, spec, scopes) {
-  return new StyleModule(spec, {
-    finish(sel) {
-      return /&/.test(sel) ? sel.replace(/&\w*/, (m) => {
-        if (m == "&")
-          return main;
-        if (!scopes || !scopes[m])
-          throw new RangeError(`Unsupported selector: ${m}`);
-        return scopes[m];
-      }) : main + " " + sel;
-    }
-  });
-}
-var baseTheme$13 = /* @__PURE__ */ buildTheme2("." + baseThemeID2, {
-  "&": {
-    position: "relative !important",
-    boxSizing: "border-box",
-    "&.cm-focused": {
-      // Provide a simple default outline to make sure a focused
-      // editor is visually distinct. Can't leave the default behavior
-      // because that will apply to the content element, which is
-      // inside the scrollable container and doesn't include the
-      // gutters. We also can't use an 'auto' outline, since those
-      // are, for some reason, drawn behind the element content, which
-      // will cause things like the active line background to cover
-      // the outline (#297).
-      outline: "1px dotted #212121"
-    },
-    display: "flex !important",
-    flexDirection: "column"
-  },
-  ".cm-scroller": {
-    display: "flex !important",
-    alignItems: "flex-start !important",
-    fontFamily: "monospace",
-    lineHeight: 1.4,
-    height: "100%",
-    overflowX: "auto",
-    position: "relative",
-    zIndex: 0,
-    overflowAnchor: "none"
-  },
-  ".cm-content": {
-    margin: 0,
-    flexGrow: 2,
-    flexShrink: 0,
-    display: "block",
-    whiteSpace: "pre",
-    wordWrap: "normal",
-    // Issue #456
-    boxSizing: "border-box",
-    minHeight: "100%",
-    padding: "4px 0",
-    outline: "none",
-    "&[contenteditable=true]": {
-      WebkitUserModify: "read-write-plaintext-only"
-    }
-  },
-  ".cm-lineWrapping": {
-    whiteSpace_fallback: "pre-wrap",
-    // For IE
-    whiteSpace: "break-spaces",
-    wordBreak: "break-word",
-    // For Safari, which doesn't support overflow-wrap: anywhere
-    overflowWrap: "anywhere",
-    flexShrink: 1
-  },
-  "&light .cm-content": { caretColor: "black" },
-  "&dark .cm-content": { caretColor: "white" },
-  ".cm-line": {
-    display: "block",
-    padding: "0 2px 0 6px"
-  },
-  ".cm-layer": {
-    userSelect: "none",
-    // #1708
-    position: "absolute",
-    left: 0,
-    top: 0,
-    contain: "size style",
-    "& > *": {
-      position: "absolute"
-    }
-  },
-  "&light .cm-selectionBackground": {
-    background: "#d9d9d9"
-  },
-  "&dark .cm-selectionBackground": {
-    background: "#222"
-  },
-  "&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    background: "#d7d4f0"
-  },
-  "&dark.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    background: "#233"
-  },
-  ".cm-cursorLayer": {
-    pointerEvents: "none"
-  },
-  "&.cm-focused > .cm-scroller > .cm-cursorLayer": {
-    animation: "steps(1) cm-blink 1.2s infinite"
-  },
-  // Two animations defined so that we can switch between them to
-  // restart the animation without forcing another style
-  // recomputation.
-  "@keyframes cm-blink": { "0%": {}, "50%": { opacity: 0 }, "100%": {} },
-  "@keyframes cm-blink2": { "0%": {}, "50%": { opacity: 0 }, "100%": {} },
-  ".cm-cursor, .cm-dropCursor": {
-    borderLeft: "1.2px solid black",
-    marginLeft: "-0.6px",
-    pointerEvents: "none"
-  },
-  ".cm-cursor": {
-    display: "none"
-  },
-  "&dark .cm-cursor": {
-    borderLeftColor: "#ddd"
-  },
-  ".cm-selectionHandle": {
-    backgroundColor: "currentColor",
-    width: "1.5px"
-  },
-  ".cm-selectionHandle-start::before, .cm-selectionHandle-end::before": {
-    content: '""',
-    backgroundColor: "inherit",
-    borderRadius: "50%",
-    width: "8px",
-    height: "8px",
-    position: "absolute",
-    left: "-3.25px"
-  },
-  ".cm-selectionHandle-start::before": { top: "-8px" },
-  ".cm-selectionHandle-end::before": { bottom: "-8px" },
-  ".cm-dropCursor": {
-    position: "absolute"
-  },
-  "&.cm-focused > .cm-scroller > .cm-cursorLayer .cm-cursor": {
-    display: "block"
-  },
-  ".cm-iso": {
-    unicodeBidi: "isolate"
-  },
-  ".cm-announced": {
-    position: "fixed",
-    top: "-10000px"
-  },
-  "@media print": {
-    ".cm-announced": { display: "none" }
-  },
-  "&light .cm-activeLine": { backgroundColor: "#cceeff44" },
-  "&dark .cm-activeLine": { backgroundColor: "#99eeff33" },
-  "&light .cm-specialChar": { color: "red" },
-  "&dark .cm-specialChar": { color: "#f78" },
-  ".cm-gutters": {
-    flexShrink: 0,
-    display: "flex",
-    height: "100%",
-    boxSizing: "border-box",
-    zIndex: 200
-  },
-  ".cm-gutters-before": { insetInlineStart: 0 },
-  ".cm-gutters-after": { insetInlineEnd: 0 },
-  "&light .cm-gutters": {
-    backgroundColor: "#f5f5f5",
-    color: "#6c6c6c",
-    border: "0px solid #ddd",
-    "&.cm-gutters-before": { borderRightWidth: "1px" },
-    "&.cm-gutters-after": { borderLeftWidth: "1px" }
-  },
-  "&dark .cm-gutters": {
-    backgroundColor: "#333338",
-    color: "#ccc"
-  },
-  ".cm-gutter": {
-    display: "flex !important",
-    // Necessary -- prevents margin collapsing
-    flexDirection: "column",
-    flexShrink: 0,
-    boxSizing: "border-box",
-    minHeight: "100%",
-    overflow: "hidden"
-  },
-  ".cm-gutterElement": {
-    boxSizing: "border-box"
-  },
-  ".cm-lineNumbers .cm-gutterElement": {
-    padding: "0 3px 0 5px",
-    minWidth: "20px",
-    textAlign: "right",
-    whiteSpace: "nowrap"
-  },
-  "&light .cm-activeLineGutter": {
-    backgroundColor: "#e2f2ff"
-  },
-  "&dark .cm-activeLineGutter": {
-    backgroundColor: "#222227"
-  },
-  ".cm-panels": {
-    boxSizing: "border-box",
-    position: "sticky",
-    left: 0,
-    right: 0,
-    zIndex: 300
-  },
-  "&light .cm-panels": {
-    backgroundColor: "#f5f5f5",
-    color: "black"
-  },
-  "&light .cm-panels-top": {
-    borderBottom: "1px solid #ddd"
-  },
-  "&light .cm-panels-bottom": {
-    borderTop: "1px solid #ddd"
-  },
-  "&dark .cm-panels": {
-    backgroundColor: "#333338",
-    color: "white"
-  },
-  ".cm-dialog": {
-    padding: "2px 19px 4px 6px",
-    position: "relative",
-    "& label": { fontSize: "80%" }
-  },
-  ".cm-dialog-close": {
-    position: "absolute",
-    top: "3px",
-    right: "4px",
-    backgroundColor: "inherit",
-    border: "none",
-    font: "inherit",
-    fontSize: "14px",
-    padding: "0"
-  },
-  ".cm-tab": {
-    display: "inline-block",
-    overflow: "hidden",
-    verticalAlign: "bottom"
-  },
-  ".cm-widgetBuffer": {
-    verticalAlign: "text-top",
-    height: "1em",
-    width: 0,
-    display: "inline"
-  },
-  ".cm-placeholder": {
-    color: "#888",
-    display: "inline-block",
-    verticalAlign: "top",
-    userSelect: "none"
-  },
-  ".cm-highlightSpace": {
-    backgroundImage: "radial-gradient(circle at 50% 55%, #aaa 20%, transparent 5%)",
-    backgroundPosition: "center"
-  },
-  ".cm-highlightTab": {
-    backgroundImage: `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20"><path stroke="%23888" stroke-width="1" fill="none" d="M1 10H196L190 5M190 15L196 10M197 4L197 16"/></svg>')`,
-    backgroundSize: "auto 100%",
-    backgroundPosition: "right 90%",
-    backgroundRepeat: "no-repeat"
-  },
-  ".cm-trailingSpace": {
-    backgroundColor: "#ff332255"
-  },
-  ".cm-button": {
-    verticalAlign: "middle",
-    color: "inherit",
-    fontSize: "70%",
-    padding: ".2em 1em",
-    borderRadius: "1px"
-  },
-  "&light .cm-button": {
-    backgroundImage: "linear-gradient(#eff1f5, #d9d9df)",
-    border: "1px solid #888",
-    "&:active": {
-      backgroundImage: "linear-gradient(#b4b4b4, #d0d3d6)"
-    }
-  },
-  "&dark .cm-button": {
-    backgroundImage: "linear-gradient(#393939, #111)",
-    border: "1px solid #888",
-    "&:active": {
-      backgroundImage: "linear-gradient(#111, #333)"
-    }
-  },
-  ".cm-textfield": {
-    verticalAlign: "middle",
-    color: "inherit",
-    fontSize: "70%",
-    border: "1px solid silver",
-    padding: ".2em .5em"
-  },
-  "&light .cm-textfield": {
-    backgroundColor: "white"
-  },
-  "&dark .cm-textfield": {
-    border: "1px solid #555",
-    backgroundColor: "inherit"
-  }
-}, lightDarkIDs2);
-var observeOptions2 = {
-  childList: true,
-  characterData: true,
-  subtree: true,
-  attributes: true,
-  characterDataOldValue: true
-};
-var useCharData2 = browser2.ie && browser2.ie_version <= 11;
-var DOMObserver2 = class {
-  constructor(view) {
-    this.view = view;
-    this.active = false;
-    this.editContext = null;
-    this.selectionRange = new DOMSelectionState2();
-    this.selectionChanged = false;
-    this.delayedFlush = -1;
-    this.resizeTimeout = -1;
-    this.queue = [];
-    this.delayedAndroidKey = null;
-    this.flushingAndroidKey = -1;
-    this.lastChange = 0;
-    this.scrollTargets = [];
-    this.intersection = null;
-    this.resizeScroll = null;
-    this.intersecting = false;
-    this.gapIntersection = null;
-    this.gaps = [];
-    this.printQuery = null;
-    this.parentCheck = -1;
-    this.dom = view.contentDOM;
-    this.observer = new MutationObserver((mutations) => {
-      for (let mut of mutations)
-        this.queue.push(mut);
-      if ((browser2.ie && browser2.ie_version <= 11 || browser2.ios && view.composing) && mutations.some((m) => m.type == "childList" && m.removedNodes.length || m.type == "characterData" && m.oldValue.length > m.target.nodeValue.length))
-        this.flushSoon();
-      else
-        this.flush();
-    });
-    if (window.EditContext && browser2.android && view.constructor.EDIT_CONTEXT !== false && // Chrome <126 doesn't support inverted selections in edit context (#1392)
-    !(browser2.chrome && browser2.chrome_version < 126)) {
-      this.editContext = new EditContextManager2(view);
-      if (view.state.facet(editable2))
-        view.contentDOM.editContext = this.editContext.editContext;
-    }
-    if (useCharData2)
-      this.onCharData = (event) => {
-        this.queue.push({
-          target: event.target,
-          type: "characterData",
-          oldValue: event.prevValue
-        });
-        this.flushSoon();
-      };
-    this.onSelectionChange = this.onSelectionChange.bind(this);
-    this.onResize = this.onResize.bind(this);
-    this.onPrint = this.onPrint.bind(this);
-    this.onScroll = this.onScroll.bind(this);
-    if (window.matchMedia)
-      this.printQuery = window.matchMedia("print");
-    if (typeof ResizeObserver == "function") {
-      this.resizeScroll = new ResizeObserver(() => {
-        var _a2;
-        if (((_a2 = this.view.docView) === null || _a2 === void 0 ? void 0 : _a2.lastUpdate) < Date.now() - 75)
-          this.onResize();
-      });
-      this.resizeScroll.observe(view.scrollDOM);
-    }
-    this.addWindowListeners(this.win = view.win);
-    this.start();
-    if (typeof IntersectionObserver == "function") {
-      this.intersection = new IntersectionObserver((entries) => {
-        if (this.parentCheck < 0)
-          this.parentCheck = setTimeout(this.listenForScroll.bind(this), 1e3);
-        if (entries.length > 0 && entries[entries.length - 1].intersectionRatio > 0 != this.intersecting) {
-          this.intersecting = !this.intersecting;
-          if (this.intersecting != this.view.inView)
-            this.onScrollChanged(document.createEvent("Event"));
-        }
-      }, { threshold: [0, 1e-3] });
-      this.intersection.observe(this.dom);
-      this.gapIntersection = new IntersectionObserver((entries) => {
-        if (entries.length > 0 && entries[entries.length - 1].intersectionRatio > 0)
-          this.onScrollChanged(document.createEvent("Event"));
-      }, {});
-    }
-    this.listenForScroll();
-    this.readSelectionRange();
-  }
-  onScrollChanged(e) {
-    this.view.inputState.runHandlers("scroll", e);
-    if (this.intersecting)
-      this.view.measure();
-  }
-  onScroll(e) {
-    if (this.intersecting)
-      this.flush(false);
-    if (this.editContext)
-      this.view.requestMeasure(this.editContext.measureReq);
-    this.onScrollChanged(e);
-  }
-  onResize() {
-    if (this.resizeTimeout < 0)
-      this.resizeTimeout = setTimeout(() => {
-        this.resizeTimeout = -1;
-        this.view.requestMeasure();
-      }, 50);
-  }
-  onPrint(event) {
-    if ((event.type == "change" || !event.type) && !event.matches)
-      return;
-    this.view.viewState.printing = true;
-    this.view.measure();
-    setTimeout(() => {
-      this.view.viewState.printing = false;
-      this.view.requestMeasure();
-    }, 500);
-  }
-  updateGaps(gaps) {
-    if (this.gapIntersection && (gaps.length != this.gaps.length || this.gaps.some((g, i2) => g != gaps[i2]))) {
-      this.gapIntersection.disconnect();
-      for (let gap of gaps)
-        this.gapIntersection.observe(gap);
-      this.gaps = gaps;
-    }
-  }
-  onSelectionChange(event) {
-    let wasChanged = this.selectionChanged;
-    if (!this.readSelectionRange() || this.delayedAndroidKey)
-      return;
-    let { view } = this, sel = this.selectionRange;
-    if (view.state.facet(editable2) ? view.root.activeElement != this.dom : !hasSelection2(this.dom, sel))
-      return;
-    let context = sel.anchorNode && view.docView.tile.nearest(sel.anchorNode);
-    if (context && context.isWidget() && context.widget.ignoreEvent(event)) {
-      if (!wasChanged)
-        this.selectionChanged = false;
-      return;
-    }
-    if ((browser2.ie && browser2.ie_version <= 11 || browser2.android && browser2.chrome) && !view.state.selection.main.empty && // (Selection.isCollapsed isn't reliable on IE)
-    sel.focusNode && isEquivalentPosition2(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset))
-      this.flushSoon();
-    else
-      this.flush(false);
-  }
-  readSelectionRange() {
-    let { view } = this;
-    let selection2 = getSelection2(view.root);
-    if (!selection2)
-      return false;
-    let range = browser2.safari && view.root.nodeType == 11 && view.root.activeElement == this.dom && safariSelectionRangeHack2(this.view, selection2) || selection2;
-    if (!range || this.selectionRange.eq(range))
-      return false;
-    let local = hasSelection2(this.dom, range);
-    if (local && !this.selectionChanged && view.inputState.lastFocusTime > Date.now() - 200 && view.inputState.lastTouchTime < Date.now() - 300 && atElementStart2(this.dom, range)) {
-      this.view.inputState.lastFocusTime = 0;
-      view.docView.updateSelection();
-      return false;
-    }
-    this.selectionRange.setRange(range);
-    if (local)
-      this.selectionChanged = true;
-    return true;
-  }
-  setSelectionRange(anchor, head) {
-    this.selectionRange.set(anchor.node, anchor.offset, head.node, head.offset);
-    this.selectionChanged = false;
-  }
-  clearSelectionRange() {
-    this.selectionRange.set(null, 0, null, 0);
-  }
-  listenForScroll() {
-    this.parentCheck = -1;
-    let i2 = 0, changed = null;
-    for (let dom = this.dom; dom; ) {
-      if (dom.nodeType == 1) {
-        if (!changed && i2 < this.scrollTargets.length && this.scrollTargets[i2] == dom)
-          i2++;
-        else if (!changed)
-          changed = this.scrollTargets.slice(0, i2);
-        if (changed)
-          changed.push(dom);
-        dom = dom.assignedSlot || dom.parentNode;
-      } else if (dom.nodeType == 11) {
-        dom = dom.host;
-      } else {
-        break;
-      }
-    }
-    if (i2 < this.scrollTargets.length && !changed)
-      changed = this.scrollTargets.slice(0, i2);
-    if (changed) {
-      for (let dom of this.scrollTargets)
-        dom.removeEventListener("scroll", this.onScroll);
-      for (let dom of this.scrollTargets = changed)
-        dom.addEventListener("scroll", this.onScroll);
-    }
-  }
-  ignore(f) {
-    if (!this.active)
-      return f();
-    try {
-      this.stop();
-      return f();
-    } finally {
-      this.start();
-      this.clear();
-    }
-  }
-  start() {
-    if (this.active)
-      return;
-    this.observer.observe(this.dom, observeOptions2);
-    if (useCharData2)
-      this.dom.addEventListener("DOMCharacterDataModified", this.onCharData);
-    this.active = true;
-  }
-  stop() {
-    if (!this.active)
-      return;
-    this.active = false;
-    this.observer.disconnect();
-    if (useCharData2)
-      this.dom.removeEventListener("DOMCharacterDataModified", this.onCharData);
-  }
-  // Throw away any pending changes
-  clear() {
-    this.processRecords();
-    this.queue.length = 0;
-    this.selectionChanged = false;
-  }
-  // Chrome Android, especially in combination with GBoard, not only
-  // doesn't reliably fire regular key events, but also often
-  // surrounds the effect of enter or backspace with a bunch of
-  // composition events that, when interrupted, cause text duplication
-  // or other kinds of corruption. This hack makes the editor back off
-  // from handling DOM changes for a moment when such a key is
-  // detected (via beforeinput or keydown), and then tries to flush
-  // them or, if that has no effect, dispatches the given key.
-  delayAndroidKey(key, keyCode) {
-    var _a2;
-    if (!this.delayedAndroidKey) {
-      let flush = () => {
-        let key2 = this.delayedAndroidKey;
-        if (key2) {
-          this.clearDelayedAndroidKey();
-          this.view.inputState.lastKeyCode = key2.keyCode;
-          this.view.inputState.lastKeyTime = Date.now();
-          let flushed = this.flush();
-          if (!flushed && key2.force)
-            dispatchKey2(this.dom, key2.key, key2.keyCode);
-        }
-      };
-      this.flushingAndroidKey = this.view.win.requestAnimationFrame(flush);
-    }
-    if (!this.delayedAndroidKey || key == "Enter")
-      this.delayedAndroidKey = {
-        key,
-        keyCode,
-        // Only run the key handler when no changes are detected if
-        // this isn't coming right after another change, in which case
-        // it is probably part of a weird chain of updates, and should
-        // be ignored if it returns the DOM to its previous state.
-        force: this.lastChange < Date.now() - 50 || !!((_a2 = this.delayedAndroidKey) === null || _a2 === void 0 ? void 0 : _a2.force)
-      };
-  }
-  clearDelayedAndroidKey() {
-    this.win.cancelAnimationFrame(this.flushingAndroidKey);
-    this.delayedAndroidKey = null;
-    this.flushingAndroidKey = -1;
-  }
-  flushSoon() {
-    if (this.delayedFlush < 0)
-      this.delayedFlush = this.view.win.requestAnimationFrame(() => {
-        this.delayedFlush = -1;
-        this.flush();
-      });
-  }
-  forceFlush() {
-    if (this.delayedFlush >= 0) {
-      this.view.win.cancelAnimationFrame(this.delayedFlush);
-      this.delayedFlush = -1;
-    }
-    this.flush();
-  }
-  pendingRecords() {
-    for (let mut of this.observer.takeRecords())
-      this.queue.push(mut);
-    return this.queue;
-  }
-  processRecords() {
-    let records = this.pendingRecords();
-    if (records.length)
-      this.queue = [];
-    let from2 = -1, to = -1, typeOver = false;
-    for (let record of records) {
-      let range = this.readMutation(record);
-      if (!range)
-        continue;
-      if (range.typeOver)
-        typeOver = true;
-      if (from2 == -1) {
-        ({ from: from2, to } = range);
-      } else {
-        from2 = Math.min(range.from, from2);
-        to = Math.max(range.to, to);
-      }
-    }
-    return { from: from2, to, typeOver };
-  }
-  readChange() {
-    let { from: from2, to, typeOver } = this.processRecords();
-    let newSel = this.selectionChanged && hasSelection2(this.dom, this.selectionRange);
-    if (from2 < 0 && !newSel)
-      return null;
-    if (from2 > -1)
-      this.lastChange = Date.now();
-    this.view.inputState.lastFocusTime = 0;
-    this.selectionChanged = false;
-    let change = new DOMChange2(this.view, from2, to, typeOver);
-    this.view.docView.domChanged = { newSel: change.newSel ? change.newSel.main : null };
-    return change;
-  }
-  // Apply pending changes, if any
-  flush(readSelection = true) {
-    if (this.delayedFlush >= 0 || this.delayedAndroidKey)
-      return false;
-    if (readSelection)
-      this.readSelectionRange();
-    let domChange = this.readChange();
-    if (!domChange) {
-      this.view.requestMeasure();
-      return false;
-    }
-    let startState = this.view.state;
-    let handled = applyDOMChange2(this.view, domChange);
-    if (this.view.state == startState && (domChange.domChanged || domChange.newSel && !sameSelPos(this.view.state.selection, domChange.newSel.main)))
-      this.view.update([]);
-    return handled;
-  }
-  readMutation(rec) {
-    let tile = this.view.docView.tile.nearest(rec.target);
-    if (!tile || tile.isWidget())
-      return null;
-    tile.markDirty(rec.type == "attributes");
-    if (rec.type == "childList") {
-      let childBefore = findChild2(tile, rec.previousSibling || rec.target.previousSibling, -1);
-      let childAfter = findChild2(tile, rec.nextSibling || rec.target.nextSibling, 1);
-      return {
-        from: childBefore ? tile.posAfter(childBefore) : tile.posAtStart,
-        to: childAfter ? tile.posBefore(childAfter) : tile.posAtEnd,
-        typeOver: false
-      };
-    } else if (rec.type == "characterData") {
-      return { from: tile.posAtStart, to: tile.posAtEnd, typeOver: rec.target.nodeValue == rec.oldValue };
-    } else {
-      return null;
-    }
-  }
-  setWindow(win) {
-    if (win != this.win) {
-      this.removeWindowListeners(this.win);
-      this.win = win;
-      this.addWindowListeners(this.win);
-    }
-  }
-  addWindowListeners(win) {
-    win.addEventListener("resize", this.onResize);
-    if (this.printQuery) {
-      if (this.printQuery.addEventListener)
-        this.printQuery.addEventListener("change", this.onPrint);
-      else
-        this.printQuery.addListener(this.onPrint);
-    } else
-      win.addEventListener("beforeprint", this.onPrint);
-    win.addEventListener("scroll", this.onScroll);
-    win.document.addEventListener("selectionchange", this.onSelectionChange);
-  }
-  removeWindowListeners(win) {
-    win.removeEventListener("scroll", this.onScroll);
-    win.removeEventListener("resize", this.onResize);
-    if (this.printQuery) {
-      if (this.printQuery.removeEventListener)
-        this.printQuery.removeEventListener("change", this.onPrint);
-      else
-        this.printQuery.removeListener(this.onPrint);
-    } else
-      win.removeEventListener("beforeprint", this.onPrint);
-    win.document.removeEventListener("selectionchange", this.onSelectionChange);
-  }
-  update(update) {
-    if (this.editContext) {
-      this.editContext.update(update);
-      if (update.startState.facet(editable2) != update.state.facet(editable2))
-        update.view.contentDOM.editContext = update.state.facet(editable2) ? this.editContext.editContext : null;
-    }
-  }
-  destroy() {
-    var _a2, _b2, _c;
-    this.stop();
-    (_a2 = this.intersection) === null || _a2 === void 0 ? void 0 : _a2.disconnect();
-    (_b2 = this.gapIntersection) === null || _b2 === void 0 ? void 0 : _b2.disconnect();
-    (_c = this.resizeScroll) === null || _c === void 0 ? void 0 : _c.disconnect();
-    for (let dom of this.scrollTargets)
-      dom.removeEventListener("scroll", this.onScroll);
-    this.removeWindowListeners(this.win);
-    clearTimeout(this.parentCheck);
-    clearTimeout(this.resizeTimeout);
-    this.win.cancelAnimationFrame(this.delayedFlush);
-    this.win.cancelAnimationFrame(this.flushingAndroidKey);
-    if (this.editContext) {
-      this.view.contentDOM.editContext = null;
-      this.editContext.destroy();
-    }
-  }
-};
-function findChild2(tile, dom, dir) {
-  while (dom) {
-    let curTile = Tile.get(dom);
-    if (curTile && curTile.parent == tile)
-      return curTile;
-    let parent = dom.parentNode;
-    dom = parent != tile.dom ? parent : dir > 0 ? dom.nextSibling : dom.previousSibling;
-  }
-  return null;
-}
-function buildSelectionRangeFromRange2(view, range) {
-  let anchorNode = range.startContainer, anchorOffset = range.startOffset;
-  let focusNode = range.endContainer, focusOffset = range.endOffset;
-  let curAnchor = view.docView.domAtPos(view.state.selection.main.anchor, 1);
-  if (isEquivalentPosition2(curAnchor.node, curAnchor.offset, focusNode, focusOffset))
-    [anchorNode, anchorOffset, focusNode, focusOffset] = [focusNode, focusOffset, anchorNode, anchorOffset];
-  return { anchorNode, anchorOffset, focusNode, focusOffset };
-}
-function safariSelectionRangeHack2(view, selection2) {
-  if (selection2.getComposedRanges) {
-    let range = selection2.getComposedRanges(view.root)[0];
-    if (range)
-      return buildSelectionRangeFromRange2(view, range);
-  }
-  let found = null;
-  function read(event) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    found = event.getTargetRanges()[0];
-  }
-  view.contentDOM.addEventListener("beforeinput", read, true);
-  view.dom.ownerDocument.execCommand("indent");
-  view.contentDOM.removeEventListener("beforeinput", read, true);
-  return found ? buildSelectionRangeFromRange2(view, found) : null;
-}
-var EditContextManager2 = class {
-  constructor(view) {
-    this.from = 0;
-    this.to = 0;
-    this.pendingContextChange = null;
-    this.handlers = /* @__PURE__ */ Object.create(null);
-    this.composing = null;
-    this.resetRange(view.state);
-    let context = this.editContext = new window.EditContext({
-      text: view.state.doc.sliceString(this.from, this.to),
-      selectionStart: this.toContextPos(Math.max(this.from, Math.min(this.to, view.state.selection.main.anchor))),
-      selectionEnd: this.toContextPos(view.state.selection.main.head)
-    });
-    this.handlers.textupdate = (e) => {
-      let main = view.state.selection.main, { anchor, head } = main;
-      let from2 = this.toEditorPos(e.updateRangeStart), to = this.toEditorPos(e.updateRangeEnd);
-      if (view.inputState.composing >= 0 && !this.composing)
-        this.composing = { contextBase: e.updateRangeStart, editorBase: from2, drifted: false };
-      let deletes = to - from2 > e.text.length;
-      if (from2 == this.from && anchor < this.from)
-        from2 = anchor;
-      else if (to == this.to && anchor > this.to)
-        to = anchor;
-      let diff = findDiff2(view.state.sliceDoc(from2, to), e.text, (deletes ? main.from : main.to) - from2, deletes ? "end" : null);
-      if (!diff) {
-        let newSel = EditorSelection.single(this.toEditorPos(e.selectionStart), this.toEditorPos(e.selectionEnd));
-        if (!sameSelPos(newSel, main))
-          view.dispatch({ selection: newSel, userEvent: "select" });
-        return;
-      }
-      let change = {
-        from: diff.from + from2,
-        to: diff.toA + from2,
-        insert: Text.of(e.text.slice(diff.from, diff.toB).split("\n"))
-      };
-      if ((browser2.mac || browser2.android) && change.from == head - 1 && /^\. ?$/.test(e.text) && view.contentDOM.getAttribute("autocorrect") == "off")
-        change = { from: from2, to, insert: Text.of([e.text.replace(".", " ")]) };
-      this.pendingContextChange = change;
-      if (!view.state.readOnly) {
-        let newLen = this.to - this.from + (change.to - change.from + change.insert.length);
-        applyDOMChangeInner2(view, change, EditorSelection.single(this.toEditorPos(e.selectionStart, newLen), this.toEditorPos(e.selectionEnd, newLen)));
-      }
-      if (this.pendingContextChange) {
-        this.revertPending(view.state);
-        this.setSelection(view.state);
-      }
-      if (change.from < change.to && !change.insert.length && view.inputState.composing >= 0 && !/[\\p{Alphabetic}\\p{Number}_]/.test(context.text.slice(Math.max(0, e.updateRangeStart - 1), Math.min(context.text.length, e.updateRangeStart + 1))))
-        this.handlers.compositionend(e);
-    };
-    this.handlers.characterboundsupdate = (e) => {
-      let rects = [], prev = null;
-      for (let i2 = this.toEditorPos(e.rangeStart), end = this.toEditorPos(e.rangeEnd); i2 < end; i2++) {
-        let rect = view.coordsForChar(i2);
-        prev = rect && new DOMRect(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top) || prev || new DOMRect();
-        rects.push(prev);
-      }
-      context.updateCharacterBounds(e.rangeStart, rects);
-    };
-    this.handlers.textformatupdate = (e) => {
-      let deco = [];
-      for (let format of e.getTextFormats()) {
-        let lineStyle = format.underlineStyle, thickness = format.underlineThickness;
-        if (!/none/i.test(lineStyle) && !/none/i.test(thickness)) {
-          let from2 = this.toEditorPos(format.rangeStart), to = this.toEditorPos(format.rangeEnd);
-          if (from2 < to) {
-            let style = `text-decoration: underline ${/^[a-z]/.test(lineStyle) ? lineStyle + " " : lineStyle == "Dashed" ? "dashed " : lineStyle == "Squiggle" ? "wavy " : ""}${/thin/i.test(thickness) ? 1 : 2}px`;
-            deco.push(Decoration2.mark({ attributes: { style } }).range(from2, to));
-          }
-        }
-      }
-      view.dispatch({ effects: setEditContextFormatting2.of(Decoration2.set(deco)) });
-    };
-    this.handlers.compositionstart = () => {
-      if (view.inputState.composing < 0) {
-        view.inputState.composing = 0;
-        view.inputState.compositionFirstChange = true;
-      }
-    };
-    this.handlers.compositionend = () => {
-      view.inputState.composing = -1;
-      view.inputState.compositionFirstChange = null;
-      if (this.composing) {
-        let { drifted } = this.composing;
-        this.composing = null;
-        if (drifted)
-          this.reset(view.state);
-      }
-    };
-    for (let event in this.handlers)
-      context.addEventListener(event, this.handlers[event]);
-    this.measureReq = { read: (view2) => {
-      this.editContext.updateControlBounds(view2.contentDOM.getBoundingClientRect());
-      let sel = getSelection2(view2.root);
-      if (sel && sel.rangeCount)
-        this.editContext.updateSelectionBounds(sel.getRangeAt(0).getBoundingClientRect());
-    } };
-  }
-  applyEdits(update) {
-    let off = 0, abort = false, pending = this.pendingContextChange;
-    update.changes.iterChanges((fromA, toA, _fromB, _toB, insert2) => {
-      if (abort)
-        return;
-      let dLen = insert2.length - (toA - fromA);
-      if (pending && toA >= pending.to) {
-        if (pending.from == fromA && pending.to == toA && pending.insert.eq(insert2)) {
-          pending = this.pendingContextChange = null;
-          off += dLen;
-          this.to += dLen;
-          return;
-        } else {
-          pending = null;
-          this.revertPending(update.state);
-        }
-      }
-      fromA += off;
-      toA += off;
-      if (toA <= this.from) {
-        this.from += dLen;
-        this.to += dLen;
-      } else if (fromA < this.to) {
-        if (fromA < this.from || toA > this.to || this.to - this.from + insert2.length > 3e4) {
-          abort = true;
-          return;
-        }
-        this.editContext.updateText(this.toContextPos(fromA), this.toContextPos(toA), insert2.toString());
-        this.to += dLen;
-      }
-      off += dLen;
-    });
-    if (pending && !abort)
-      this.revertPending(update.state);
-    return !abort;
-  }
-  update(update) {
-    let reverted = this.pendingContextChange, startSel = update.startState.selection.main;
-    if (this.composing && (this.composing.drifted || !update.changes.touchesRange(startSel.from, startSel.to) && update.transactions.some((tr) => !tr.isUserEvent("input.type") && tr.changes.touchesRange(this.from, this.to)))) {
-      this.composing.drifted = true;
-      this.composing.editorBase = update.changes.mapPos(this.composing.editorBase);
-    } else if (!this.applyEdits(update) || !this.rangeIsValid(update.state)) {
-      this.pendingContextChange = null;
-      this.reset(update.state);
-    } else if (update.docChanged || update.selectionSet || reverted) {
-      this.setSelection(update.state);
-    }
-    if (update.geometryChanged || update.docChanged || update.selectionSet)
-      update.view.requestMeasure(this.measureReq);
-  }
-  resetRange(state) {
-    let { head } = state.selection.main;
-    this.from = Math.max(
-      0,
-      head - 1e4
-      /* CxVp.Margin */
-    );
-    this.to = Math.min(
-      state.doc.length,
-      head + 1e4
-      /* CxVp.Margin */
-    );
-  }
-  reset(state) {
-    this.resetRange(state);
-    this.editContext.updateText(0, this.editContext.text.length, state.doc.sliceString(this.from, this.to));
-    this.setSelection(state);
-  }
-  revertPending(state) {
-    let pending = this.pendingContextChange;
-    this.pendingContextChange = null;
-    this.editContext.updateText(this.toContextPos(pending.from), this.toContextPos(pending.from + pending.insert.length), state.doc.sliceString(pending.from, pending.to));
-  }
-  setSelection(state) {
-    let { main } = state.selection;
-    let start = this.toContextPos(Math.max(this.from, Math.min(this.to, main.anchor)));
-    let end = this.toContextPos(main.head);
-    if (this.editContext.selectionStart != start || this.editContext.selectionEnd != end)
-      this.editContext.updateSelection(start, end);
-  }
-  rangeIsValid(state) {
-    let { head } = state.selection.main;
-    return !(this.from > 0 && head - this.from < 500 || this.to < state.doc.length && this.to - head < 500 || this.to - this.from > 1e4 * 3);
-  }
-  toEditorPos(contextPos, clipLen = this.to - this.from) {
-    contextPos = Math.min(contextPos, clipLen);
-    let c = this.composing;
-    return c && c.drifted ? c.editorBase + (contextPos - c.contextBase) : contextPos + this.from;
-  }
-  toContextPos(editorPos) {
-    let c = this.composing;
-    return c && c.drifted ? c.contextBase + (editorPos - c.editorBase) : editorPos - this.from;
-  }
-  destroy() {
-    for (let event in this.handlers)
-      this.editContext.removeEventListener(event, this.handlers[event]);
-  }
-};
-var EditorView2 = class _EditorView {
-  /**
-  The current editor state.
-  */
-  get state() {
-    return this.viewState.state;
-  }
-  /**
-  To be able to display large documents without consuming too much
-  memory or overloading the browser, CodeMirror only draws the
-  code that is visible (plus a margin around it) to the DOM. This
-  property tells you the extent of the current drawn viewport, in
-  document positions.
-  */
-  get viewport() {
-    return this.viewState.viewport;
-  }
-  /**
-  When there are, for example, large collapsed ranges in the
-  viewport, its size can be a lot bigger than the actual visible
-  content. Thus, if you are doing something like styling the
-  content in the viewport, it is preferable to only do so for
-  these ranges, which are the subset of the viewport that is
-  actually drawn.
-  */
-  get visibleRanges() {
-    return this.viewState.visibleRanges;
-  }
-  /**
-  Returns false when the editor is entirely scrolled out of view
-  or otherwise hidden.
-  */
-  get inView() {
-    return this.viewState.inView;
-  }
-  /**
-  Indicates whether the user is currently composing text via
-  [IME](https://en.wikipedia.org/wiki/Input_method), and at least
-  one change has been made in the current composition.
-  */
-  get composing() {
-    return !!this.inputState && this.inputState.composing > 0;
-  }
-  /**
-  Indicates whether the user is currently in composing state. Note
-  that on some platforms, like Android, this will be the case a
-  lot, since just putting the cursor on a word starts a
-  composition there.
-  */
-  get compositionStarted() {
-    return !!this.inputState && this.inputState.composing >= 0;
-  }
-  /**
-  The document or shadow root that the view lives in.
-  */
-  get root() {
-    return this._root;
-  }
-  /**
-  @internal
-  */
-  get win() {
-    return this.dom.ownerDocument.defaultView || window;
-  }
-  /**
-  Construct a new view. You'll want to either provide a `parent`
-  option, or put `view.dom` into your document after creating a
-  view, so that the user can see the editor.
-  */
-  constructor(config2 = {}) {
-    var _a2;
-    this.plugins = [];
-    this.pluginMap = /* @__PURE__ */ new Map();
-    this.editorAttrs = {};
-    this.contentAttrs = {};
-    this.bidiCache = [];
-    this.destroyed = false;
-    this.updateState = 2;
-    this.measureScheduled = -1;
-    this.measureRequests = [];
-    this.contentDOM = document.createElement("div");
-    this.scrollDOM = document.createElement("div");
-    this.scrollDOM.tabIndex = -1;
-    this.scrollDOM.className = "cm-scroller";
-    this.scrollDOM.appendChild(this.contentDOM);
-    this.announceDOM = document.createElement("div");
-    this.announceDOM.className = "cm-announced";
-    this.announceDOM.setAttribute("aria-live", "polite");
-    this.dom = document.createElement("div");
-    this.dom.appendChild(this.announceDOM);
-    this.dom.appendChild(this.scrollDOM);
-    if (config2.parent)
-      config2.parent.appendChild(this.dom);
-    let { dispatch } = config2;
-    this.dispatchTransactions = config2.dispatchTransactions || dispatch && ((trs) => trs.forEach((tr) => dispatch(tr, this))) || ((trs) => this.update(trs));
-    this.dispatch = this.dispatch.bind(this);
-    this._root = config2.root || getRoot2(config2.parent) || document;
-    this.viewState = new ViewState2(this, config2.state || EditorState.create(config2));
-    if (config2.scrollTo && config2.scrollTo.is(scrollIntoView3))
-      this.viewState.scrollTarget = config2.scrollTo.value.clip(this.viewState.state);
-    this.plugins = this.state.facet(viewPlugin2).map((spec) => new PluginInstance2(spec));
-    for (let plugin of this.plugins)
-      plugin.update(this);
-    this.observer = new DOMObserver2(this);
-    this.inputState = new InputState2(this);
-    this.inputState.ensureHandlers(this.plugins);
-    this.docView = new DocView2(this);
-    this.mountStyles();
-    this.updateAttrs();
-    this.updateState = 0;
-    this.requestMeasure();
-    if ((_a2 = document.fonts) === null || _a2 === void 0 ? void 0 : _a2.ready)
-      document.fonts.ready.then(() => {
-        this.viewState.mustMeasureContent = "refresh";
-        this.requestMeasure();
-      });
-  }
-  dispatch(...input) {
-    let trs = input.length == 1 && input[0] instanceof Transaction ? input : input.length == 1 && Array.isArray(input[0]) ? input[0] : [this.state.update(...input)];
-    this.dispatchTransactions(trs, this);
-  }
-  /**
-  Update the view for the given array of transactions. This will
-  update the visible document and selection to match the state
-  produced by the transactions, and notify view plugins of the
-  change. You should usually call
-  [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead, which uses this
-  as a primitive.
-  */
-  update(transactions) {
-    if (this.updateState != 0)
-      throw new Error("Calls to EditorView.update are not allowed while an update is in progress");
-    let redrawn = false, attrsChanged = false, update;
-    let state = this.state;
-    for (let tr of transactions) {
-      if (tr.startState != state)
-        throw new RangeError("Trying to update state with a transaction that doesn't start from the previous state.");
-      state = tr.state;
-    }
-    if (this.destroyed) {
-      this.viewState.state = state;
-      return;
-    }
-    let focus = this.hasFocus, focusFlag = 0, dispatchFocus = null;
-    if (transactions.some((tr) => tr.annotation(isFocusChange2))) {
-      this.inputState.notifiedFocused = focus;
-      focusFlag = 1;
-    } else if (focus != this.inputState.notifiedFocused) {
-      this.inputState.notifiedFocused = focus;
-      dispatchFocus = focusChangeTransaction2(state, focus);
-      if (!dispatchFocus)
-        focusFlag = 1;
-    }
-    let pendingKey = this.observer.delayedAndroidKey, domChange = null;
-    if (pendingKey) {
-      this.observer.clearDelayedAndroidKey();
-      domChange = this.observer.readChange();
-      if (domChange && !this.state.doc.eq(state.doc) || !this.state.selection.eq(state.selection))
-        domChange = null;
-    } else {
-      this.observer.clear();
-    }
-    if (state.facet(EditorState.phrases) != this.state.facet(EditorState.phrases))
-      return this.setState(state);
-    update = ViewUpdate2.create(this, state, transactions);
-    update.flags |= focusFlag;
-    let scrollTarget = this.viewState.scrollTarget;
-    try {
-      this.updateState = 2;
-      for (let tr of transactions) {
-        if (scrollTarget)
-          scrollTarget = scrollTarget.map(tr.changes);
-        if (tr.scrollIntoView) {
-          let { main } = tr.state.selection;
-          let { x, y } = this.state.facet(_EditorView.cursorScrollMargin);
-          scrollTarget = new ScrollTarget2(main.empty ? main : EditorSelection.cursor(main.head, main.head > main.anchor ? -1 : 1), "nearest", "nearest", y, x);
-        }
-        for (let e of tr.effects)
-          if (e.is(scrollIntoView3))
-            scrollTarget = e.value.clip(this.state);
-      }
-      this.viewState.update(update, scrollTarget);
-      this.bidiCache = CachedOrder2.update(this.bidiCache, update.changes);
-      if (!update.empty) {
-        this.updatePlugins(update);
-        this.inputState.update(update);
-      }
-      redrawn = this.docView.update(update);
-      if (this.state.facet(styleModule2) != this.styleModules)
-        this.mountStyles();
-      attrsChanged = this.updateAttrs();
-      this.showAnnouncements(transactions);
-      this.docView.updateSelection(redrawn, transactions.some((tr) => tr.isUserEvent("select.pointer")));
-    } finally {
-      this.updateState = 0;
-    }
-    if (update.startState.facet(theme2) != update.state.facet(theme2))
-      this.viewState.mustMeasureContent = true;
-    if (redrawn || attrsChanged || scrollTarget || this.viewState.mustEnforceCursorAssoc || this.viewState.mustMeasureContent)
-      this.requestMeasure();
-    if (redrawn)
-      this.docViewUpdate();
-    if (!update.empty)
-      for (let listener of this.state.facet(updateListener2)) {
-        try {
-          listener(update);
-        } catch (e) {
-          logException2(this.state, e, "update listener");
-        }
-      }
-    if (dispatchFocus || domChange)
-      Promise.resolve().then(() => {
-        if (dispatchFocus && this.state == dispatchFocus.startState)
-          this.dispatch(dispatchFocus);
-        if (domChange) {
-          if (!applyDOMChange2(this, domChange) && pendingKey.force)
-            dispatchKey2(this.contentDOM, pendingKey.key, pendingKey.keyCode);
-        }
-      });
-  }
-  /**
-  Reset the view to the given state. (This will cause the entire
-  document to be redrawn and all view plugins to be reinitialized,
-  so you should probably only use it when the new state isn't
-  derived from the old state. Otherwise, use
-  [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead.)
-  */
-  setState(newState) {
-    if (this.updateState != 0)
-      throw new Error("Calls to EditorView.setState are not allowed while an update is in progress");
-    if (this.destroyed) {
-      this.viewState.state = newState;
-      return;
-    }
-    this.updateState = 2;
-    let hadFocus = this.hasFocus;
-    try {
-      for (let plugin of this.plugins)
-        plugin.destroy(this);
-      this.viewState = new ViewState2(this, newState);
-      this.plugins = newState.facet(viewPlugin2).map((spec) => new PluginInstance2(spec));
-      this.pluginMap.clear();
-      for (let plugin of this.plugins)
-        plugin.update(this);
-      this.docView.destroy();
-      this.docView = new DocView2(this);
-      this.inputState.ensureHandlers(this.plugins);
-      this.mountStyles();
-      this.updateAttrs();
-      this.bidiCache = [];
-    } finally {
-      this.updateState = 0;
-    }
-    if (hadFocus)
-      this.focus();
-    this.requestMeasure();
-  }
-  updatePlugins(update) {
-    let prevSpecs = update.startState.facet(viewPlugin2), specs = update.state.facet(viewPlugin2);
-    if (prevSpecs != specs) {
-      let newPlugins = [];
-      for (let spec of specs) {
-        let found = prevSpecs.indexOf(spec);
-        if (found < 0) {
-          newPlugins.push(new PluginInstance2(spec));
-        } else {
-          let plugin = this.plugins[found];
-          plugin.mustUpdate = update;
-          newPlugins.push(plugin);
-        }
-      }
-      for (let plugin of this.plugins)
-        if (plugin.mustUpdate != update)
-          plugin.destroy(this);
-      this.plugins = newPlugins;
-      this.pluginMap.clear();
-    } else {
-      for (let p of this.plugins)
-        p.mustUpdate = update;
-    }
-    for (let i2 = 0; i2 < this.plugins.length; i2++)
-      this.plugins[i2].update(this);
-    if (prevSpecs != specs)
-      this.inputState.ensureHandlers(this.plugins);
-  }
-  docViewUpdate() {
-    for (let plugin of this.plugins) {
-      let val = plugin.value;
-      if (val && val.docViewUpdate) {
-        try {
-          val.docViewUpdate(this);
-        } catch (e) {
-          logException2(this.state, e, "doc view update listener");
-        }
-      }
-    }
-  }
-  /**
-  @internal
-  */
-  measure(flush = true) {
-    if (this.destroyed)
-      return;
-    if (this.measureScheduled > -1)
-      this.win.cancelAnimationFrame(this.measureScheduled);
-    if (this.observer.delayedAndroidKey) {
-      this.measureScheduled = -1;
-      this.requestMeasure();
-      return;
-    }
-    this.measureScheduled = 0;
-    if (flush)
-      this.observer.forceFlush();
-    let updated = null;
-    let scroll = this.viewState.scrollParent, scrollOffset = this.viewState.getScrollOffset();
-    let { scrollAnchorPos, scrollAnchorHeight } = this.viewState;
-    if (Math.abs(scrollOffset - this.viewState.scrollOffset) > 1)
-      scrollAnchorHeight = -1;
-    this.viewState.scrollAnchorHeight = -1;
-    try {
-      for (let i2 = 0; ; i2++) {
-        if (scrollAnchorHeight < 0) {
-          if (isScrolledToBottom2(scroll || this.win)) {
-            scrollAnchorPos = -1;
-            scrollAnchorHeight = this.viewState.heightMap.height;
-          } else {
-            let block = this.viewState.scrollAnchorAt(scrollOffset);
-            scrollAnchorPos = block.from;
-            scrollAnchorHeight = block.top;
-          }
-        }
-        this.updateState = 1;
-        let changed = this.viewState.measure();
-        if (!changed && !this.measureRequests.length && this.viewState.scrollTarget == null)
-          break;
-        if (i2 > 5) {
-          console.warn(this.measureRequests.length ? "Measure loop restarted more than 5 times" : "Viewport failed to stabilize");
-          break;
-        }
-        let measuring = [];
-        if (!(changed & 4))
-          [this.measureRequests, measuring] = [measuring, this.measureRequests];
-        let measured = measuring.map((m) => {
-          try {
-            return m.read(this);
-          } catch (e) {
-            logException2(this.state, e);
-            return BadMeasure2;
-          }
-        });
-        let update = ViewUpdate2.create(this, this.state, []), redrawn = false;
-        update.flags |= changed;
-        if (!updated)
-          updated = update;
-        else
-          updated.flags |= changed;
-        this.updateState = 2;
-        if (!update.empty) {
-          this.updatePlugins(update);
-          this.inputState.update(update);
-          this.updateAttrs();
-          redrawn = this.docView.update(update);
-          if (redrawn)
-            this.docViewUpdate();
-        }
-        for (let i3 = 0; i3 < measuring.length; i3++)
-          if (measured[i3] != BadMeasure2) {
-            try {
-              let m = measuring[i3];
-              if (m.write)
-                m.write(measured[i3], this);
-            } catch (e) {
-              logException2(this.state, e);
-            }
-          }
-        if (redrawn)
-          this.docView.updateSelection(true);
-        if (!update.viewportChanged && this.measureRequests.length == 0) {
-          if (this.viewState.editorHeight) {
-            if (this.viewState.scrollTarget) {
-              this.docView.scrollIntoView(this.viewState.scrollTarget);
-              this.viewState.scrollTarget = null;
-              scrollAnchorHeight = -1;
-              continue;
-            } else {
-              let newAnchorHeight = scrollAnchorPos < 0 ? this.viewState.heightMap.height : this.viewState.lineBlockAt(scrollAnchorPos).top;
-              let diff = (newAnchorHeight - scrollAnchorHeight) / this.scaleY;
-              if ((diff > 1 || diff < -1) && (scroll == this.scrollDOM || this.hasFocus || Math.max(this.inputState.lastWheelEvent, this.inputState.lastTouchTime) > Date.now() - 100)) {
-                scrollOffset = scrollOffset + diff;
-                if (scroll)
-                  scroll.scrollTop += diff;
-                else
-                  this.win.scrollBy(0, diff);
-                scrollAnchorHeight = -1;
-                continue;
-              }
-            }
-          }
-          break;
-        }
-      }
-    } finally {
-      this.updateState = 0;
-      this.measureScheduled = -1;
-    }
-    if (updated && !updated.empty)
-      for (let listener of this.state.facet(updateListener2))
-        listener(updated);
-  }
-  /**
-  Get the CSS classes for the currently active editor themes.
-  */
-  get themeClasses() {
-    return baseThemeID2 + " " + (this.state.facet(darkTheme2) ? baseDarkID2 : baseLightID2) + " " + this.state.facet(theme2);
-  }
-  updateAttrs() {
-    let editorAttrs = attrsFromFacet2(this, editorAttributes2, {
-      class: "cm-editor" + (this.hasFocus ? " cm-focused " : " ") + this.themeClasses
-    });
-    let contentAttrs = {
-      spellcheck: "false",
-      autocorrect: "off",
-      autocapitalize: "off",
-      writingsuggestions: "false",
-      translate: "no",
-      contenteditable: !this.state.facet(editable2) ? "false" : "true",
-      class: "cm-content",
-      style: `${browser2.tabSize}: ${this.state.tabSize}`,
-      role: "textbox",
-      "aria-multiline": "true"
-    };
-    if (this.state.readOnly)
-      contentAttrs["aria-readonly"] = "true";
-    attrsFromFacet2(this, contentAttributes2, contentAttrs);
-    let changed = this.observer.ignore(() => {
-      let changedContent = updateAttrs2(this.contentDOM, this.contentAttrs, contentAttrs);
-      let changedEditor = updateAttrs2(this.dom, this.editorAttrs, editorAttrs);
-      return changedContent || changedEditor;
-    });
-    this.editorAttrs = editorAttrs;
-    this.contentAttrs = contentAttrs;
-    return changed;
-  }
-  showAnnouncements(trs) {
-    let first = true;
-    for (let tr of trs)
-      for (let effect of tr.effects)
-        if (effect.is(_EditorView.announce)) {
-          if (first)
-            this.announceDOM.textContent = "";
-          first = false;
-          let div = this.announceDOM.appendChild(document.createElement("div"));
-          div.textContent = effect.value;
-        }
-  }
-  mountStyles() {
-    this.styleModules = this.state.facet(styleModule2);
-    let nonce = this.state.facet(_EditorView.cspNonce);
-    StyleModule.mount(this.root, this.styleModules.concat(baseTheme$13).reverse(), nonce ? { nonce } : void 0);
-  }
-  readMeasured() {
-    if (this.updateState == 2)
-      throw new Error("Reading the editor layout isn't allowed during an update");
-    if (this.updateState == 0 && this.measureScheduled > -1)
-      this.measure(false);
-  }
-  /**
-  Schedule a layout measurement, optionally providing callbacks to
-  do custom DOM measuring followed by a DOM write phase. Using
-  this is preferable reading DOM layout directly from, for
-  example, an event handler, because it'll make sure measuring and
-  drawing done by other components is synchronized, avoiding
-  unnecessary DOM layout computations.
-  */
-  requestMeasure(request) {
-    if (this.measureScheduled < 0)
-      this.measureScheduled = this.win.requestAnimationFrame(() => this.measure());
-    if (request) {
-      if (this.measureRequests.indexOf(request) > -1)
-        return;
-      if (request.key != null)
-        for (let i2 = 0; i2 < this.measureRequests.length; i2++) {
-          if (this.measureRequests[i2].key === request.key) {
-            this.measureRequests[i2] = request;
-            return;
-          }
-        }
-      this.measureRequests.push(request);
-    }
-  }
-  /**
-  Get the value of a specific plugin, if present. Note that
-  plugins that crash can be dropped from a view, so even when you
-  know you registered a given plugin, it is recommended to check
-  the return value of this method.
-  */
-  plugin(plugin) {
-    let known = this.pluginMap.get(plugin);
-    if (known === void 0 || known && known.plugin != plugin)
-      this.pluginMap.set(plugin, known = this.plugins.find((p) => p.plugin == plugin) || null);
-    return known && known.update(this).value;
-  }
-  /**
-  The top position of the document, in screen coordinates. This
-  may be negative when the editor is scrolled down. Points
-  directly to the top of the first line, not above the padding.
-  */
-  get documentTop() {
-    return this.contentDOM.getBoundingClientRect().top + this.viewState.paddingTop;
-  }
-  /**
-  Reports the padding above and below the document.
-  */
-  get documentPadding() {
-    return { top: this.viewState.paddingTop, bottom: this.viewState.paddingBottom };
-  }
-  /**
-  If the editor is transformed with CSS, this provides the scale
-  along the X axis. Otherwise, it will just be 1. Note that
-  transforms other than translation and scaling are not supported.
-  */
-  get scaleX() {
-    return this.viewState.scaleX;
-  }
-  /**
-  Provide the CSS transformed scale along the Y axis.
-  */
-  get scaleY() {
-    return this.viewState.scaleY;
-  }
-  /**
-  Find the text line or block widget at the given vertical
-  position (which is interpreted as relative to the [top of the
-  document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop)).
-  */
-  elementAtHeight(height) {
-    this.readMeasured();
-    return this.viewState.elementAtHeight(height);
-  }
-  /**
-  Find the line block (see
-  [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt)) at the given
-  height, again interpreted relative to the [top of the
-  document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop).
-  */
-  lineBlockAtHeight(height) {
-    this.readMeasured();
-    return this.viewState.lineBlockAtHeight(height);
-  }
-  /**
-  Get the extent and vertical position of all [line
-  blocks](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) in the viewport. Positions
-  are relative to the [top of the
-  document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop);
-  */
-  get viewportLineBlocks() {
-    return this.viewState.viewportLines;
-  }
-  /**
-  Find the line block around the given document position. A line
-  block is a range delimited on both sides by either a
-  non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^replace) line break, or the
-  start/end of the document. It will usually just hold a line of
-  text, but may be broken into multiple textblocks by block
-  widgets.
-  */
-  lineBlockAt(pos) {
-    return this.viewState.lineBlockAt(pos);
-  }
-  /**
-  The editor's total content height.
-  */
-  get contentHeight() {
-    return this.viewState.contentHeight;
-  }
-  /**
-  Move a cursor position by [grapheme
-  cluster](https://codemirror.net/6/docs/ref/#state.findClusterBreak). `forward` determines whether
-  the motion is away from the line start, or towards it. In
-  bidirectional text, the line is traversed in visual order, using
-  the editor's [text direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection).
-  When the start position was the last one on the line, the
-  returned position will be across the line break. If there is no
-  further line, the original position is returned.
-  
-  By default, this method moves over a single cluster. The
-  optional `by` argument can be used to move across more. It will
-  be called with the first cluster as argument, and should return
-  a predicate that determines, for each subsequent cluster,
-  whether it should also be moved over.
-  */
-  moveByChar(start, forward, by) {
-    return skipAtoms2(this, start, moveByChar2(this, start, forward, by));
-  }
-  /**
-  Move a cursor position across the next group of either
-  [letters](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer) or non-letter
-  non-whitespace characters.
-  */
-  moveByGroup(start, forward) {
-    return skipAtoms2(this, start, moveByChar2(this, start, forward, (initial) => byGroup2(this, start.head, initial)));
-  }
-  /**
-  Get the cursor position visually at the start or end of a line.
-  Note that this may differ from the _logical_ position at its
-  start or end (which is simply at `line.from`/`line.to`) if text
-  at the start or end goes against the line's base text direction.
-  */
-  visualLineSide(line, end) {
-    let order = this.bidiSpans(line), dir = this.textDirectionAt(line.from);
-    let span = order[end ? order.length - 1 : 0];
-    return EditorSelection.cursor(span.side(end, dir) + line.from, span.forward(!end, dir) ? 1 : -1);
-  }
-  /**
-  Move to the next line boundary in the given direction. If
-  `includeWrap` is true, line wrapping is on, and there is a
-  further wrap point on the current line, the wrap point will be
-  returned. Otherwise this function will return the start or end
-  of the line.
-  */
-  moveToLineBoundary(start, forward, includeWrap = true) {
-    return moveToLineBoundary2(this, start, forward, includeWrap);
-  }
-  /**
-  Move a cursor position vertically. When `distance` isn't given,
-  it defaults to moving to the next line (including wrapped
-  lines). Otherwise, `distance` should provide a positive distance
-  in pixels.
-  
-  When `start` has a
-  [`goalColumn`](https://codemirror.net/6/docs/ref/#state.SelectionRange.goalColumn), the vertical
-  motion will use that as a target horizontal position. Otherwise,
-  the cursor's own horizontal position is used. The returned
-  cursor will have its goal column set to whichever column was
-  used.
-  */
-  moveVertically(start, forward, distance) {
-    return skipAtoms2(this, start, moveVertically2(this, start, forward, distance));
-  }
-  /**
-  Find the DOM parent node and offset (child offset if `node` is
-  an element, character offset when it is a text node) at the
-  given document position.
-  
-  Note that for positions that aren't currently in
-  `visibleRanges`, the resulting DOM position isn't necessarily
-  meaningful (it may just point before or after a placeholder
-  element).
-  */
-  domAtPos(pos, side = 1) {
-    return this.docView.domAtPos(pos, side);
-  }
-  /**
-  Find the document position at the given DOM node. Can be useful
-  for associating positions with DOM events. Will raise an error
-  when `node` isn't part of the editor content.
-  */
-  posAtDOM(node, offset = 0) {
-    return this.docView.posFromDOM(node, offset);
-  }
-  posAtCoords(coords, precise = true) {
-    this.readMeasured();
-    let found = posAtCoords2(this, coords, precise);
-    return found && found.pos;
-  }
-  posAndSideAtCoords(coords, precise = true) {
-    this.readMeasured();
-    return posAtCoords2(this, coords, precise);
-  }
-  /**
-  Get the screen coordinates at the given document position.
-  `side` determines whether the coordinates are based on the
-  element before (-1) or after (1) the position (if no element is
-  available on the given side, the method will transparently use
-  another strategy to get reasonable coordinates).
-  */
-  coordsAtPos(pos, side = 1) {
-    this.readMeasured();
-    let rect = this.docView.coordsAt(pos, side);
-    if (!rect || rect.left == rect.right)
-      return rect;
-    let line = this.state.doc.lineAt(pos), order = this.bidiSpans(line);
-    let span = order[BidiSpan2.find(order, pos - line.from, -1, side)];
-    return flattenRect2(rect, span.dir == Direction2.LTR == side > 0);
-  }
-  /**
-  Return the rectangle around a given character. If `pos` does not
-  point in front of a character that is in the viewport and
-  rendered (i.e. not replaced, not a line break), this will return
-  null. For space characters that are a line wrap point, this will
-  return the position before the line break.
-  */
-  coordsForChar(pos) {
-    this.readMeasured();
-    return this.docView.coordsForChar(pos);
-  }
-  /**
-  The default width of a character in the editor. May not
-  accurately reflect the width of all characters (given variable
-  width fonts or styling of invididual ranges).
-  */
-  get defaultCharacterWidth() {
-    return this.viewState.heightOracle.charWidth;
-  }
-  /**
-  The default height of a line in the editor. May not be accurate
-  for all lines.
-  */
-  get defaultLineHeight() {
-    return this.viewState.heightOracle.lineHeight;
-  }
-  /**
-  The text direction
-  ([`direction`](https://developer.mozilla.org/en-US/docs/Web/CSS/direction)
-  CSS property) of the editor's content element.
-  */
-  get textDirection() {
-    return this.viewState.defaultTextDirection;
-  }
-  /**
-  Find the text direction of the block at the given position, as
-  assigned by CSS. If
-  [`perLineTextDirection`](https://codemirror.net/6/docs/ref/#view.EditorView^perLineTextDirection)
-  isn't enabled, or the given position is outside of the viewport,
-  this will always return the same as
-  [`textDirection`](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection). Note that
-  this may trigger a DOM layout.
-  */
-  textDirectionAt(pos) {
-    let perLine = this.state.facet(perLineTextDirection2);
-    if (!perLine || pos < this.viewport.from || pos > this.viewport.to)
-      return this.textDirection;
-    this.readMeasured();
-    return this.docView.textDirectionAt(pos);
-  }
-  /**
-  Whether this editor [wraps lines](https://codemirror.net/6/docs/ref/#view.EditorView.lineWrapping)
-  (as determined by the
-  [`white-space`](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space)
-  CSS property of its content element).
-  */
-  get lineWrapping() {
-    return this.viewState.heightOracle.lineWrapping;
-  }
-  /**
-  Returns the bidirectional text structure of the given line
-  (which should be in the current document) as an array of span
-  objects. The order of these spans matches the [text
-  direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection)—if that is
-  left-to-right, the leftmost spans come first, otherwise the
-  rightmost spans come first.
-  */
-  bidiSpans(line) {
-    if (line.length > MaxBidiLine2)
-      return trivialOrder2(line.length);
-    let dir = this.textDirectionAt(line.from), isolates;
-    for (let entry of this.bidiCache) {
-      if (entry.from == line.from && entry.dir == dir && (entry.fresh || isolatesEq2(entry.isolates, isolates = getIsolatedRanges2(this, line))))
-        return entry.order;
-    }
-    if (!isolates)
-      isolates = getIsolatedRanges2(this, line);
-    let order = computeOrder2(line.text, dir, isolates);
-    this.bidiCache.push(new CachedOrder2(line.from, line.to, dir, isolates, true, order));
-    return order;
-  }
-  /**
-  Check whether the editor has focus.
-  */
-  get hasFocus() {
-    var _a2;
-    return (this.dom.ownerDocument.hasFocus() || browser2.safari && ((_a2 = this.inputState) === null || _a2 === void 0 ? void 0 : _a2.lastContextMenu) > Date.now() - 3e4) && this.root.activeElement == this.contentDOM;
-  }
-  /**
-  Put focus on the editor.
-  */
-  focus() {
-    this.observer.ignore(() => {
-      focusPreventScroll2(this.contentDOM);
-      this.docView.updateSelection();
-    });
-  }
-  /**
-  Update the [root](https://codemirror.net/6/docs/ref/##view.EditorViewConfig.root) in which the editor lives. This is only
-  necessary when moving the editor's existing DOM to a new window or shadow root.
-  */
-  setRoot(root) {
-    if (this._root != root) {
-      this._root = root;
-      this.observer.setWindow((root.nodeType == 9 ? root : root.ownerDocument).defaultView || window);
-      this.mountStyles();
-    }
-  }
-  /**
-  Clean up this editor view, removing its element from the
-  document, unregistering event handlers, and notifying
-  plugins. The view instance can no longer be used after
-  calling this.
-  */
-  destroy() {
-    if (this.root.activeElement == this.contentDOM)
-      this.contentDOM.blur();
-    for (let plugin of this.plugins)
-      plugin.destroy(this);
-    this.plugins = [];
-    this.inputState.destroy();
-    this.docView.destroy();
-    this.dom.remove();
-    this.observer.destroy();
-    if (this.measureScheduled > -1)
-      this.win.cancelAnimationFrame(this.measureScheduled);
-    this.destroyed = true;
-  }
-  /**
-  Returns an effect that can be
-  [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a transaction to
-  cause it to scroll the given position or range into view.
-  */
-  static scrollIntoView(pos, options = {}) {
-    var _a2, _b2, _c, _d;
-    return scrollIntoView3.of(new ScrollTarget2(typeof pos == "number" ? EditorSelection.cursor(pos) : pos, (_a2 = options.y) !== null && _a2 !== void 0 ? _a2 : "nearest", (_b2 = options.x) !== null && _b2 !== void 0 ? _b2 : "nearest", (_c = options.yMargin) !== null && _c !== void 0 ? _c : 5, (_d = options.xMargin) !== null && _d !== void 0 ? _d : 5));
-  }
-  /**
-  Return an effect that resets the editor to its current (at the
-  time this method was called) scroll position. Note that this
-  only affects the editor's own scrollable element, not parents.
-  See also
-  [`EditorViewConfig.scrollTo`](https://codemirror.net/6/docs/ref/#view.EditorViewConfig.scrollTo).
-  
-  The effect should be used with a document identical to the one
-  it was created for. Failing to do so is not an error, but may
-  not scroll to the expected position. You can
-  [map](https://codemirror.net/6/docs/ref/#state.StateEffect.map) the effect to account for changes.
-  */
-  scrollSnapshot() {
-    let { scrollTop, scrollLeft } = this.scrollDOM;
-    let ref = this.viewState.scrollAnchorAt(scrollTop);
-    return scrollIntoView3.of(new ScrollTarget2(EditorSelection.cursor(ref.from), "start", "start", ref.top - scrollTop, scrollLeft, true));
-  }
-  /**
-  Enable or disable tab-focus mode, which disables key bindings
-  for Tab and Shift-Tab, letting the browser's default
-  focus-changing behavior go through instead. This is useful to
-  prevent trapping keyboard users in your editor.
-  
-  Without argument, this toggles the mode. With a boolean, it
-  enables (true) or disables it (false). Given a number, it
-  temporarily enables the mode until that number of milliseconds
-  have passed or another non-Tab key is pressed.
-  */
-  setTabFocusMode(to) {
-    if (to == null)
-      this.inputState.tabFocusMode = this.inputState.tabFocusMode < 0 ? 0 : -1;
-    else if (typeof to == "boolean")
-      this.inputState.tabFocusMode = to ? 0 : -1;
-    else if (this.inputState.tabFocusMode != 0)
-      this.inputState.tabFocusMode = Date.now() + to;
-  }
-  /**
-  Returns an extension that can be used to add DOM event handlers.
-  The value should be an object mapping event names to handler
-  functions. For any given event, such functions are ordered by
-  extension precedence, and the first handler to return true will
-  be assumed to have handled that event, and no other handlers or
-  built-in behavior will be activated for it. These are registered
-  on the [content element](https://codemirror.net/6/docs/ref/#view.EditorView.contentDOM), except
-  for `scroll` handlers, which will be called any time the
-  editor's [scroll element](https://codemirror.net/6/docs/ref/#view.EditorView.scrollDOM) or one of
-  its parent nodes is scrolled.
-  */
-  static domEventHandlers(handlers3) {
-    return ViewPlugin2.define(() => ({}), { eventHandlers: handlers3 });
-  }
-  /**
-  Create an extension that registers DOM event observers. Contrary
-  to event [handlers](https://codemirror.net/6/docs/ref/#view.EditorView^domEventHandlers),
-  observers can't be prevented from running by a higher-precedence
-  handler returning true. They also don't prevent other handlers
-  and observers from running when they return true, and should not
-  call `preventDefault`.
-  */
-  static domEventObservers(observers3) {
-    return ViewPlugin2.define(() => ({}), { eventObservers: observers3 });
-  }
-  /**
-  Create a theme extension. The first argument can be a
-  [`style-mod`](https://code.haverbeke.berlin/marijn/style-mod#documentation)
-  style spec providing the styles for the theme. These will be
-  prefixed with a generated class for the style.
-  
-  Because the selectors will be prefixed with a scope class, rule
-  that directly match the editor's [wrapper
-  element](https://codemirror.net/6/docs/ref/#view.EditorView.dom)—to which the scope class will be
-  added—need to be explicitly differentiated by adding an `&` to
-  the selector for that element—for example
-  `&.cm-focused`.
-  
-  When `dark` is set to true, the theme will be marked as dark,
-  which will cause the `&dark` rules from [base
-  themes](https://codemirror.net/6/docs/ref/#view.EditorView^baseTheme) to be used (as opposed to
-  `&light` when a light theme is active).
-  */
-  static theme(spec, options) {
-    let prefix = StyleModule.newName();
-    let result = [theme2.of(prefix), styleModule2.of(buildTheme2(`.${prefix}`, spec))];
-    if (options && options.dark)
-      result.push(darkTheme2.of(true));
-    return result;
-  }
-  /**
-  Create an extension that adds styles to the base theme. Like
-  with [`theme`](https://codemirror.net/6/docs/ref/#view.EditorView^theme), use `&` to indicate the
-  place of the editor wrapper element when directly targeting
-  that. You can also use `&dark` or `&light` instead to only
-  target editors with a dark or light theme.
-  */
-  static baseTheme(spec) {
-    return Prec.lowest(styleModule2.of(buildTheme2("." + baseThemeID2, spec, lightDarkIDs2)));
-  }
-  /**
-  Retrieve an editor view instance from the view's DOM
-  representation.
-  */
-  static findFromDOM(dom) {
-    var _a2;
-    let content2 = dom.querySelector(".cm-content");
-    let tile = content2 && Tile.get(content2) || Tile.get(dom);
-    return ((_a2 = tile === null || tile === void 0 ? void 0 : tile.root) === null || _a2 === void 0 ? void 0 : _a2.view) || null;
-  }
-};
-EditorView2.styleModule = styleModule2;
-EditorView2.inputHandler = inputHandler3;
-EditorView2.clipboardInputFilter = clipboardInputFilter2;
-EditorView2.clipboardOutputFilter = clipboardOutputFilter2;
-EditorView2.scrollHandler = scrollHandler2;
-EditorView2.focusChangeEffect = focusChangeEffect2;
-EditorView2.perLineTextDirection = perLineTextDirection2;
-EditorView2.exceptionSink = exceptionSink2;
-EditorView2.updateListener = updateListener2;
-EditorView2.editable = editable2;
-EditorView2.mouseSelectionStyle = mouseSelectionStyle2;
-EditorView2.dragMovesSelection = dragMovesSelection$12;
-EditorView2.clickAddsSelectionRange = clickAddsSelectionRange2;
-EditorView2.decorations = decorations2;
-EditorView2.blockWrappers = blockWrappers;
-EditorView2.outerDecorations = outerDecorations2;
-EditorView2.atomicRanges = atomicRanges2;
-EditorView2.bidiIsolatedRanges = bidiIsolatedRanges2;
-EditorView2.cursorScrollMargin = /* @__PURE__ */ Facet.define({
-  combine: (inputs) => {
-    let x = 5, y = 5;
-    for (let i2 of inputs) {
-      if (typeof i2 == "number")
-        x = y = i2;
-      else
-        ({ x, y } = i2);
-    }
-    return { x, y };
-  }
-});
-EditorView2.scrollMargins = scrollMargins2;
-EditorView2.darkTheme = darkTheme2;
-EditorView2.cspNonce = /* @__PURE__ */ Facet.define({ combine: (values2) => values2.length ? values2[0] : "" });
-EditorView2.contentAttributes = contentAttributes2;
-EditorView2.editorAttributes = editorAttributes2;
-EditorView2.lineWrapping = /* @__PURE__ */ EditorView2.contentAttributes.of({ "class": "cm-lineWrapping" });
-EditorView2.announce = /* @__PURE__ */ StateEffect.define();
-var MaxBidiLine2 = 4096;
-var BadMeasure2 = {};
-var CachedOrder2 = class _CachedOrder {
-  constructor(from2, to, dir, isolates, fresh, order) {
-    this.from = from2;
-    this.to = to;
-    this.dir = dir;
-    this.isolates = isolates;
-    this.fresh = fresh;
-    this.order = order;
-  }
-  static update(cache4, changes) {
-    if (changes.empty && !cache4.some((c) => c.fresh))
-      return cache4;
-    let result = [], lastDir = cache4.length ? cache4[cache4.length - 1].dir : Direction2.LTR;
-    for (let i2 = Math.max(0, cache4.length - 10); i2 < cache4.length; i2++) {
-      let entry = cache4[i2];
-      if (entry.dir == lastDir && !changes.touchesRange(entry.from, entry.to))
-        result.push(new _CachedOrder(changes.mapPos(entry.from, 1), changes.mapPos(entry.to, -1), entry.dir, entry.isolates, false, entry.order));
-    }
-    return result;
-  }
-};
-function attrsFromFacet2(view, facet, base2) {
-  for (let sources = view.state.facet(facet), i2 = sources.length - 1; i2 >= 0; i2--) {
-    let source = sources[i2], value = typeof source == "function" ? source(view) : source;
-    if (value)
-      combineAttrs2(value, base2);
-  }
-  return base2;
-}
-var currentPlatform2 = browser2.mac ? "mac" : browser2.windows ? "win" : browser2.linux ? "linux" : "key";
-function normalizeKeyName2(name2, platform) {
-  const parts = name2.split(/-(?!$)/);
-  let result = parts[parts.length - 1];
-  if (result == "Space")
-    result = " ";
-  let alt, ctrl, shift2, meta2;
-  for (let i2 = 0; i2 < parts.length - 1; ++i2) {
-    const mod = parts[i2];
-    if (/^(cmd|meta|m)$/i.test(mod))
-      meta2 = true;
-    else if (/^a(lt)?$/i.test(mod))
-      alt = true;
-    else if (/^(c|ctrl|control)$/i.test(mod))
-      ctrl = true;
-    else if (/^s(hift)?$/i.test(mod))
-      shift2 = true;
-    else if (/^mod$/i.test(mod)) {
-      if (platform == "mac")
-        meta2 = true;
-      else
-        ctrl = true;
-    } else
-      throw new Error("Unrecognized modifier name: " + mod);
-  }
-  if (alt)
-    result = "Alt-" + result;
-  if (ctrl)
-    result = "Ctrl-" + result;
-  if (meta2)
-    result = "Meta-" + result;
-  if (shift2)
-    result = "Shift-" + result;
-  return result;
-}
-function modifiers2(name2, event, shift2) {
-  if (event.altKey)
-    name2 = "Alt-" + name2;
-  if (event.ctrlKey)
-    name2 = "Ctrl-" + name2;
-  if (event.metaKey)
-    name2 = "Meta-" + name2;
-  if (shift2 !== false && event.shiftKey)
-    name2 = "Shift-" + name2;
-  return name2;
-}
-var handleKeyEvents2 = /* @__PURE__ */ Prec.default(/* @__PURE__ */ EditorView2.domEventHandlers({
-  keydown(event, view) {
-    return runHandlers2(getKeymap2(view.state), event, view, "editor");
-  }
-}));
-var keymap2 = /* @__PURE__ */ Facet.define({ enables: handleKeyEvents2 });
-var Keymaps2 = /* @__PURE__ */ new WeakMap();
-function getKeymap2(state) {
-  let bindings = state.facet(keymap2);
-  let map = Keymaps2.get(bindings);
-  if (!map)
-    Keymaps2.set(bindings, map = buildKeymap2(bindings.reduce((a, b) => a.concat(b), [])));
-  return map;
-}
-function runScopeHandlers(view, event, scope) {
-  return runHandlers2(getKeymap2(view.state), event, view, scope);
-}
-var storedPrefix2 = null;
-var PrefixTimeout2 = 4e3;
-function buildKeymap2(bindings, platform = currentPlatform2) {
-  let bound = /* @__PURE__ */ Object.create(null);
-  let isPrefix = /* @__PURE__ */ Object.create(null);
-  let checkPrefix = (name2, is) => {
-    let current = isPrefix[name2];
-    if (current == null)
-      isPrefix[name2] = is;
-    else if (current != is)
-      throw new Error("Key binding " + name2 + " is used both as a regular binding and as a multi-stroke prefix");
-  };
-  let add2 = (scope, key, command2, preventDefault, stopPropagation) => {
-    var _a2, _b2;
-    let scopeObj = bound[scope] || (bound[scope] = /* @__PURE__ */ Object.create(null));
-    let parts = key.split(/ (?!$)/).map((k) => normalizeKeyName2(k, platform));
-    for (let i2 = 1; i2 < parts.length; i2++) {
-      let prefix = parts.slice(0, i2).join(" ");
-      checkPrefix(prefix, true);
-      if (!scopeObj[prefix])
-        scopeObj[prefix] = {
-          preventDefault: true,
-          stopPropagation: false,
-          run: [(view) => {
-            let ourObj = storedPrefix2 = { view, prefix, scope };
-            setTimeout(() => {
-              if (storedPrefix2 == ourObj)
-                storedPrefix2 = null;
-            }, PrefixTimeout2);
-            return true;
-          }]
-        };
-    }
-    let full = parts.join(" ");
-    checkPrefix(full, false);
-    let binding = scopeObj[full] || (scopeObj[full] = {
-      preventDefault: false,
-      stopPropagation: false,
-      run: ((_b2 = (_a2 = scopeObj._any) === null || _a2 === void 0 ? void 0 : _a2.run) === null || _b2 === void 0 ? void 0 : _b2.slice()) || []
-    });
-    if (command2)
-      binding.run.push(command2);
-    if (preventDefault)
-      binding.preventDefault = true;
-    if (stopPropagation)
-      binding.stopPropagation = true;
-  };
-  for (let b of bindings) {
-    let scopes = b.scope ? b.scope.split(" ") : ["editor"];
-    if (b.any)
-      for (let scope of scopes) {
-        let scopeObj = bound[scope] || (bound[scope] = /* @__PURE__ */ Object.create(null));
-        if (!scopeObj._any)
-          scopeObj._any = { preventDefault: false, stopPropagation: false, run: [] };
-        let { any } = b;
-        for (let key in scopeObj)
-          scopeObj[key].run.push((view) => any(view, currentKeyEvent2));
-      }
-    let name2 = b[platform] || b.key;
-    if (!name2)
-      continue;
-    for (let scope of scopes) {
-      add2(scope, name2, b.run, b.preventDefault, b.stopPropagation);
-      if (b.shift)
-        add2(scope, "Shift-" + name2, b.shift, b.preventDefault, b.stopPropagation);
-    }
-  }
-  return bound;
-}
-var currentKeyEvent2 = null;
-function runHandlers2(map, event, view, scope) {
-  currentKeyEvent2 = event;
-  let name2 = keyName(event);
-  let charCode = codePointAt2(name2, 0), isChar = codePointSize2(charCode) == name2.length && name2 != " ";
-  let prefix = "", handled = false, prevented = false, stopPropagation = false;
-  if (storedPrefix2 && storedPrefix2.view == view && storedPrefix2.scope == scope) {
-    prefix = storedPrefix2.prefix + " ";
-    if (modifierCodes2.indexOf(event.keyCode) < 0) {
-      prevented = true;
-      storedPrefix2 = null;
-    }
-  }
-  let ran = /* @__PURE__ */ new Set();
-  let runFor = (binding) => {
-    if (binding) {
-      for (let cmd2 of binding.run)
-        if (!ran.has(cmd2)) {
-          ran.add(cmd2);
-          if (cmd2(view)) {
-            if (binding.stopPropagation)
-              stopPropagation = true;
-            return true;
-          }
-        }
-      if (binding.preventDefault) {
-        if (binding.stopPropagation)
-          stopPropagation = true;
-        prevented = true;
-      }
-    }
-    return false;
-  };
-  let scopeObj = map[scope], baseName, shiftName;
-  if (scopeObj) {
-    if (runFor(scopeObj[prefix + modifiers2(name2, event, !isChar)])) {
-      handled = true;
-    } else if (isChar && (event.altKey || event.metaKey || event.ctrlKey) && // Ctrl-Alt may be used for AltGr on Windows
-    !(browser2.windows && event.ctrlKey && event.altKey) && // Alt-combinations on macOS tend to be typed characters
-    !(browser2.mac && event.altKey && !(event.ctrlKey || event.metaKey)) && (baseName = base[event.keyCode]) && baseName != name2) {
-      if (runFor(scopeObj[prefix + modifiers2(baseName, event, true)])) {
-        handled = true;
-      } else if (event.shiftKey && (shiftName = shift[event.keyCode]) != name2 && shiftName != baseName && runFor(scopeObj[prefix + modifiers2(shiftName, event, false)])) {
-        handled = true;
-      }
-    } else if (isChar && event.shiftKey && runFor(scopeObj[prefix + modifiers2(name2, event, true)])) {
-      handled = true;
-    }
-    if (!handled && runFor(scopeObj._any))
-      handled = true;
-  }
-  if (prevented)
-    handled = true;
-  if (handled && stopPropagation)
-    event.stopPropagation();
-  currentKeyEvent2 = null;
-  return handled;
-}
-var UnicodeRegexpSupport2 = /x/.unicode != null ? "gu" : "g";
-var baseTheme4 = /* @__PURE__ */ EditorView2.baseTheme({
-  ".cm-tooltip": {
-    zIndex: 500,
-    boxSizing: "border-box"
-  },
-  "&light .cm-tooltip": {
-    border: "1px solid #bbb",
-    backgroundColor: "#f5f5f5"
-  },
-  "&light .cm-tooltip-section:not(:first-child)": {
-    borderTop: "1px solid #bbb"
-  },
-  "&dark .cm-tooltip": {
-    backgroundColor: "#333338",
-    color: "white"
-  },
-  ".cm-tooltip-arrow": {
-    height: `${7}px`,
-    width: `${7 * 2}px`,
-    position: "absolute",
-    zIndex: -1,
-    overflow: "hidden",
-    "&:before, &:after": {
-      content: "''",
-      position: "absolute",
-      width: 0,
-      height: 0,
-      borderLeft: `${7}px solid transparent`,
-      borderRight: `${7}px solid transparent`
-    },
-    ".cm-tooltip-above &": {
-      bottom: `-${7}px`,
-      "&:before": {
-        borderTop: `${7}px solid #bbb`
-      },
-      "&:after": {
-        borderTop: `${7}px solid #f5f5f5`,
-        bottom: "1px"
-      }
-    },
-    ".cm-tooltip-below &": {
-      top: `-${7}px`,
-      "&:before": {
-        borderBottom: `${7}px solid #bbb`
-      },
-      "&:after": {
-        borderBottom: `${7}px solid #f5f5f5`,
-        top: "1px"
-      }
-    }
-  },
-  "&dark .cm-tooltip .cm-tooltip-arrow": {
-    "&:before": {
-      borderTopColor: "#333338",
-      borderBottomColor: "#333338"
-    },
-    "&:after": {
-      borderTopColor: "transparent",
-      borderBottomColor: "transparent"
-    }
-  }
-});
-var panelConfig = /* @__PURE__ */ Facet.define({
-  combine(configs) {
-    let topContainer, bottomContainer;
-    for (let c of configs) {
-      topContainer = topContainer || c.topContainer;
-      bottomContainer = bottomContainer || c.bottomContainer;
-    }
-    return { topContainer, bottomContainer };
-  }
-});
-function getPanel(view, panel) {
-  let plugin = view.plugin(panelPlugin);
-  let index = plugin ? plugin.specs.indexOf(panel) : -1;
-  return index > -1 ? plugin.panels[index] : null;
-}
-var panelPlugin = /* @__PURE__ */ ViewPlugin2.fromClass(class {
-  constructor(view) {
-    this.input = view.state.facet(showPanel);
-    this.specs = this.input.filter((s) => s);
-    this.panels = this.specs.map((spec) => spec(view));
-    let conf = view.state.facet(panelConfig);
-    this.top = new PanelGroup(view, true, conf.topContainer);
-    this.bottom = new PanelGroup(view, false, conf.bottomContainer);
-    this.top.sync(this.panels.filter((p) => p.top));
-    this.bottom.sync(this.panels.filter((p) => !p.top));
-    for (let p of this.panels) {
-      p.dom.classList.add("cm-panel");
-      if (p.mount)
-        p.mount();
-    }
-  }
-  update(update) {
-    let conf = update.state.facet(panelConfig);
-    if (this.top.container != conf.topContainer) {
-      this.top.sync([]);
-      this.top = new PanelGroup(update.view, true, conf.topContainer);
-    }
-    if (this.bottom.container != conf.bottomContainer) {
-      this.bottom.sync([]);
-      this.bottom = new PanelGroup(update.view, false, conf.bottomContainer);
-    }
-    this.top.syncClasses();
-    this.bottom.syncClasses();
-    let input = update.state.facet(showPanel);
-    if (input != this.input) {
-      let specs = input.filter((x) => x);
-      let panels = [], top2 = [], bottom = [], mount = [];
-      for (let spec of specs) {
-        let known = this.specs.indexOf(spec), panel;
-        if (known < 0) {
-          panel = spec(update.view);
-          mount.push(panel);
-        } else {
-          panel = this.panels[known];
-          if (panel.update)
-            panel.update(update);
-        }
-        panels.push(panel);
-        (panel.top ? top2 : bottom).push(panel);
-      }
-      this.specs = specs;
-      this.panels = panels;
-      this.top.sync(top2);
-      this.bottom.sync(bottom);
-      for (let p of mount) {
-        p.dom.classList.add("cm-panel");
-        if (p.mount)
-          p.mount();
-      }
-    } else {
-      for (let p of this.panels)
-        if (p.update)
-          p.update(update);
-    }
-  }
-  destroy() {
-    this.top.sync([]);
-    this.bottom.sync([]);
-  }
-}, {
-  provide: (plugin) => EditorView2.scrollMargins.of((view) => {
-    let value = view.plugin(plugin);
-    return value && { top: value.top.scrollMargin(), bottom: value.bottom.scrollMargin() };
-  })
-});
-var PanelGroup = class {
-  constructor(view, top2, container) {
-    this.view = view;
-    this.top = top2;
-    this.container = container;
-    this.dom = void 0;
-    this.classes = "";
-    this.panels = [];
-    this.syncClasses();
-  }
-  sync(panels) {
-    for (let p of this.panels)
-      if (p.destroy && panels.indexOf(p) < 0)
-        p.destroy();
-    this.panels = panels;
-    this.syncDOM();
-  }
-  syncDOM() {
-    if (this.panels.length == 0) {
-      if (this.dom) {
-        this.dom.remove();
-        this.dom = void 0;
-      }
-      return;
-    }
-    if (!this.dom) {
-      this.dom = document.createElement("div");
-      this.dom.className = this.top ? "cm-panels cm-panels-top" : "cm-panels cm-panels-bottom";
-      this.dom.style[this.top ? "top" : "bottom"] = "0";
-      let parent = this.container || this.view.dom;
-      parent.insertBefore(this.dom, this.top ? parent.firstChild : null);
-    }
-    let curDOM = this.dom.firstChild;
-    for (let panel of this.panels) {
-      if (panel.dom.parentNode == this.dom) {
-        while (curDOM != panel.dom)
-          curDOM = rm(curDOM);
-        curDOM = curDOM.nextSibling;
-      } else {
-        this.dom.insertBefore(panel.dom, curDOM);
-      }
-    }
-    while (curDOM)
-      curDOM = rm(curDOM);
-  }
-  scrollMargin() {
-    return !this.dom || this.container ? 0 : Math.max(0, this.top ? this.dom.getBoundingClientRect().bottom - Math.max(0, this.view.scrollDOM.getBoundingClientRect().top) : Math.min(innerHeight, this.view.scrollDOM.getBoundingClientRect().bottom) - this.dom.getBoundingClientRect().top);
-  }
-  syncClasses() {
-    if (!this.container || this.classes == this.view.themeClasses)
-      return;
-    for (let cls of this.classes.split(" "))
-      if (cls)
-        this.container.classList.remove(cls);
-    for (let cls of (this.classes = this.view.themeClasses).split(" "))
-      if (cls)
-        this.container.classList.add(cls);
-  }
-};
-function rm(node) {
-  let next = node.nextSibling;
-  node.remove();
-  return next;
-}
-var showPanel = /* @__PURE__ */ Facet.define({
-  enables: panelPlugin
-});
-function showDialog(view, config2) {
-  let resolve;
-  let promise = new Promise((r) => resolve = r);
-  let panelCtor = (view2) => createDialog(view2, config2, resolve);
-  if (view.state.field(dialogField, false)) {
-    view.dispatch({ effects: openDialogEffect.of(panelCtor) });
-  } else {
-    view.dispatch({ effects: StateEffect.appendConfig.of(dialogField.init(() => [panelCtor])) });
-  }
-  let close = closeDialogEffect.of(panelCtor);
-  return { close, result: promise.then((form) => {
-    let queue = view.win.queueMicrotask || ((f) => view.win.setTimeout(f, 10));
-    queue(() => {
-      if (view.state.field(dialogField).indexOf(panelCtor) > -1)
-        view.dispatch({ effects: close });
-    });
-    return form;
-  }) };
-}
-var dialogField = /* @__PURE__ */ StateField.define({
-  create() {
-    return [];
-  },
-  update(dialogs, tr) {
-    for (let e of tr.effects) {
-      if (e.is(openDialogEffect))
-        dialogs = [e.value].concat(dialogs);
-      else if (e.is(closeDialogEffect))
-        dialogs = dialogs.filter((d) => d != e.value);
-    }
-    return dialogs;
-  },
-  provide: (f) => showPanel.computeN([f], (state) => state.field(f))
-});
-var openDialogEffect = /* @__PURE__ */ StateEffect.define();
-var closeDialogEffect = /* @__PURE__ */ StateEffect.define();
-function createDialog(view, config2, result) {
-  let content2 = config2.content ? config2.content(view, () => done(null)) : null;
-  if (!content2) {
-    content2 = crelt("form");
-    if (config2.input) {
-      let input = crelt("input", config2.input);
-      if (/^(text|password|number|email|tel|url)$/.test(input.type))
-        input.classList.add("cm-textfield");
-      if (!input.name)
-        input.name = "input";
-      content2.appendChild(crelt("label", (config2.label || "") + ": ", input));
-    } else {
-      content2.appendChild(document.createTextNode(config2.label || ""));
-    }
-    content2.appendChild(document.createTextNode(" "));
-    content2.appendChild(crelt("button", { class: "cm-button", type: "submit" }, config2.submitLabel || "OK"));
-  }
-  let forms = content2.nodeName == "FORM" ? [content2] : content2.querySelectorAll("form");
-  for (let i2 = 0; i2 < forms.length; i2++) {
-    let form = forms[i2];
-    form.addEventListener("keydown", (event) => {
-      if (event.keyCode == 27) {
-        event.preventDefault();
-        done(null);
-      } else if (event.keyCode == 13) {
-        event.preventDefault();
-        done(form);
-      }
-    });
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      done(form);
-    });
-  }
-  let panel = crelt("div", content2, crelt("button", {
-    onclick: () => done(null),
-    "aria-label": view.state.phrase("close"),
-    class: "cm-dialog-close",
-    type: "button"
-  }, ["\xD7"]));
-  if (config2.class)
-    panel.className = config2.class;
-  panel.classList.add("cm-dialog");
-  function done(form) {
-    if (panel.contains(panel.ownerDocument.activeElement))
-      view.focus();
-    result(form);
-  }
-  return {
-    dom: panel,
-    top: config2.top,
-    mount: () => {
-      if (config2.focus) {
-        let focus;
-        if (typeof config2.focus == "string")
-          focus = content2.querySelector(config2.focus);
-        else
-          focus = content2.querySelector("input") || content2.querySelector("button");
-        if (focus && "select" in focus)
-          focus.select();
-        else if (focus && "focus" in focus)
-          focus.focus();
-      }
-    }
-  };
-}
-var GutterMarker2 = class extends RangeValue {
-  /**
-  @internal
-  */
-  compare(other) {
-    return this == other || this.constructor == other.constructor && this.eq(other);
-  }
-  /**
-  Compare this marker to another marker of the same type.
-  */
-  eq(other) {
-    return false;
-  }
-  /**
-  Called if the marker has a `toDOM` method and its representation
-  was removed from a gutter.
-  */
-  destroy(dom) {
-  }
-};
-GutterMarker2.prototype.elementClass = "";
-GutterMarker2.prototype.toDOM = void 0;
-GutterMarker2.prototype.mapMode = MapMode.TrackBefore;
-GutterMarker2.prototype.startSide = GutterMarker2.prototype.endSide = -1;
-GutterMarker2.prototype.point = true;
 
 // node_modules/@codemirror/search/dist/index.js
 var basicNormalize = typeof String.prototype.normalize == "function" ? (x) => x.normalize("NFKD") : (x) => x;
@@ -28959,23 +21057,23 @@ var FlattenedDoc = class _FlattenedDoc {
   get to() {
     return this.from + this.text.length;
   }
-  static get(doc3, from2, to) {
-    let cached = flattened.get(doc3);
+  static get(doc2, from2, to) {
+    let cached = flattened.get(doc2);
     if (!cached || cached.from >= to || cached.to <= from2) {
-      let flat = new _FlattenedDoc(from2, doc3.sliceString(from2, to));
-      flattened.set(doc3, flat);
+      let flat = new _FlattenedDoc(from2, doc2.sliceString(from2, to));
+      flattened.set(doc2, flat);
       return flat;
     }
     if (cached.from == from2 && cached.to == to)
       return cached;
     let { text, from: cachedFrom } = cached;
     if (cachedFrom > from2) {
-      text = doc3.sliceString(from2, cachedFrom) + text;
+      text = doc2.sliceString(from2, cachedFrom) + text;
       cachedFrom = from2;
     }
     if (cached.to < to)
-      text += doc3.sliceString(cached.to, to);
-    flattened.set(doc3, new _FlattenedDoc(cachedFrom, text));
+      text += doc2.sliceString(cached.to, to);
+    flattened.set(doc2, new _FlattenedDoc(cachedFrom, text));
     return new _FlattenedDoc(from2, text.slice(from2 - cachedFrom, to - cachedFrom));
   }
 };
@@ -29071,7 +21169,7 @@ var gotoLine = (view) => {
     let docLine = state.doc.line(Math.max(1, Math.min(state.doc.lines, line2)));
     let selection2 = EditorSelection.cursor(docLine.from + Math.max(0, Math.min(col, docLine.length)));
     view.dispatch({
-      effects: [close, EditorView2.scrollIntoView(selection2.from, { y: "center" })],
+      effects: [close, EditorView.scrollIntoView(selection2.from, { y: "center" })],
       selection: selection2
     });
   });
@@ -29098,15 +21196,15 @@ function highlightSelectionMatches(options) {
     ext.push(highlightConfig.of(options));
   return ext;
 }
-var matchDeco = /* @__PURE__ */ Decoration2.mark({ class: "cm-selectionMatch" });
-var mainMatchDeco = /* @__PURE__ */ Decoration2.mark({ class: "cm-selectionMatch cm-selectionMatch-main" });
+var matchDeco = /* @__PURE__ */ Decoration.mark({ class: "cm-selectionMatch" });
+var mainMatchDeco = /* @__PURE__ */ Decoration.mark({ class: "cm-selectionMatch cm-selectionMatch-main" });
 function insideWordBoundaries(check, state, from2, to) {
   return (from2 == 0 || check(state.sliceDoc(from2 - 1, from2)) != CharCategory.Word) && (to == state.doc.length || check(state.sliceDoc(to, to + 1)) != CharCategory.Word);
 }
 function insideWord(check, state, from2, to) {
   return check(state.sliceDoc(from2, from2 + 1)) == CharCategory.Word && check(state.sliceDoc(to - 1, to)) == CharCategory.Word;
 }
-var matchHighlighter = /* @__PURE__ */ ViewPlugin2.fromClass(class {
+var matchHighlighter = /* @__PURE__ */ ViewPlugin.fromClass(class {
   constructor(view) {
     this.decorations = this.getDeco(view);
   }
@@ -29118,29 +21216,29 @@ var matchHighlighter = /* @__PURE__ */ ViewPlugin2.fromClass(class {
     let conf = view.state.facet(highlightConfig);
     let { state } = view, sel = state.selection;
     if (sel.ranges.length > 1)
-      return Decoration2.none;
+      return Decoration.none;
     let range = sel.main, query, check = null;
     if (range.empty) {
       if (!conf.highlightWordAroundCursor)
-        return Decoration2.none;
+        return Decoration.none;
       let word = state.wordAt(range.head);
       if (!word)
-        return Decoration2.none;
+        return Decoration.none;
       check = state.charCategorizer(range.head);
       query = state.sliceDoc(word.from, word.to);
     } else {
       let len = range.to - range.from;
       if (len < conf.minSelectionLength || len > 200)
-        return Decoration2.none;
+        return Decoration.none;
       if (conf.wholeWords) {
         query = state.sliceDoc(range.from, range.to);
         check = state.charCategorizer(range.head);
         if (!(insideWordBoundaries(check, state, range.from, range.to) && insideWord(check, state, range.from, range.to)))
-          return Decoration2.none;
+          return Decoration.none;
       } else {
         query = state.sliceDoc(range.from, range.to);
         if (!query)
-          return Decoration2.none;
+          return Decoration.none;
       }
     }
     let deco = [];
@@ -29154,16 +21252,16 @@ var matchHighlighter = /* @__PURE__ */ ViewPlugin2.fromClass(class {
           else if (from2 >= range.to || to <= range.from)
             deco.push(matchDeco.range(from2, to));
           if (deco.length > conf.maxMatches)
-            return Decoration2.none;
+            return Decoration.none;
         }
       }
     }
-    return Decoration2.set(deco);
+    return Decoration.set(deco);
   }
 }, {
   decorations: (v) => v.decorations
 });
-var defaultTheme = /* @__PURE__ */ EditorView2.baseTheme({
+var defaultTheme = /* @__PURE__ */ EditorView.baseTheme({
   ".cm-selectionMatch": { backgroundColor: "#99ff7780" },
   ".cm-searchMatch .cm-selectionMatch": { backgroundColor: "transparent" }
 });
@@ -29209,7 +21307,7 @@ var selectNextOccurrence = ({ state, dispatch }) => {
     return false;
   dispatch(state.update({
     selection: state.selection.addRange(EditorSelection.range(range.from, range.to), false),
-    effects: EditorView2.scrollIntoView(range.to)
+    effects: EditorView.scrollIntoView(range.to)
   }));
   return true;
 };
@@ -29222,10 +21320,13 @@ var searchConfigFacet = /* @__PURE__ */ Facet.define({
       regexp: false,
       wholeWord: false,
       createPanel: (view) => new SearchPanel(view),
-      scrollToMatch: (range) => EditorView2.scrollIntoView(range)
+      scrollToMatch: (range) => EditorView.scrollIntoView(range)
     });
   }
 });
+function search(config2) {
+  return config2 ? [searchConfigFacet.of(config2), searchExtensions] : searchExtensions;
+}
 var SearchQuery = class {
   /**
   Create a query object.
@@ -29270,7 +21371,7 @@ var SearchQuery = class {
     return this.regexp ? regexpCursor(this, st, from2, to) : stringCursor(this, st, from2, to);
   }
 };
-var QueryType3 = class {
+var QueryType2 = class {
   constructor(spec) {
     this.spec = spec;
   }
@@ -29291,16 +21392,16 @@ function stringCursor(spec, state, from2, to) {
     test = wrapStringTest(spec.test, state, test);
   return new SearchCursor(state.doc, spec.unquoted, from2, to, spec.caseSensitive ? void 0 : (x) => x.toLowerCase(), test);
 }
-function stringWordTest(doc3, categorizer) {
+function stringWordTest(doc2, categorizer) {
   return (from2, to, buf, bufPos) => {
     if (bufPos > from2 || bufPos + buf.length < to) {
       bufPos = Math.max(0, from2 - 2);
-      buf = doc3.sliceString(bufPos, Math.min(doc3.length, to + 2));
+      buf = doc2.sliceString(bufPos, Math.min(doc2.length, to + 2));
     }
     return (categorizer(charBefore(buf, from2 - bufPos)) != CharCategory.Word || categorizer(charAfter(buf, from2 - bufPos)) != CharCategory.Word) && (categorizer(charAfter(buf, to - bufPos)) != CharCategory.Word || categorizer(charBefore(buf, to - bufPos)) != CharCategory.Word);
   };
 }
-var StringQuery = class extends QueryType3 {
+var StringQuery = class extends QueryType2 {
   constructor(spec) {
     super(spec);
   }
@@ -29373,7 +21474,7 @@ function charAfter(str, index) {
 function regexpWordTest(categorizer) {
   return (_from, _to, match2) => !match2[0].length || (categorizer(charBefore(match2.input, match2.index)) != CharCategory.Word || categorizer(charAfter(match2.input, match2.index)) != CharCategory.Word) && (categorizer(charAfter(match2.input, match2.index + match2[0].length)) != CharCategory.Word || categorizer(charBefore(match2.input, match2.index + match2[0].length)) != CharCategory.Word);
 }
-var RegExpQuery = class extends QueryType3 {
+var RegExpQuery = class extends QueryType2 {
   nextMatch(state, curFrom, curTo) {
     let cursor2 = regexpCursor(this.spec, state, curTo, state.doc.length).next();
     if (cursor2.done)
@@ -29455,9 +21556,9 @@ var SearchState = class {
     this.panel = panel;
   }
 };
-var matchMark = /* @__PURE__ */ Decoration2.mark({ class: "cm-searchMatch" });
-var selectedMatchMark = /* @__PURE__ */ Decoration2.mark({ class: "cm-searchMatch cm-searchMatch-selected" });
-var searchHighlighter = /* @__PURE__ */ ViewPlugin2.fromClass(class {
+var matchMark = /* @__PURE__ */ Decoration.mark({ class: "cm-searchMatch" });
+var selectedMatchMark = /* @__PURE__ */ Decoration.mark({ class: "cm-searchMatch cm-searchMatch-selected" });
+var searchHighlighter = /* @__PURE__ */ ViewPlugin.fromClass(class {
   constructor(view) {
     this.view = view;
     this.decorations = this.highlight(view.state.field(searchState));
@@ -29469,7 +21570,7 @@ var searchHighlighter = /* @__PURE__ */ ViewPlugin2.fromClass(class {
   }
   highlight({ query, panel }) {
     if (!panel || !query.spec.valid)
-      return Decoration2.none;
+      return Decoration.none;
     let { view } = this;
     let builder = new RangeSetBuilder();
     for (let i2 = 0, ranges = view.visibleRanges, l = ranges.length; i2 < l; i2++) {
@@ -29566,7 +21667,7 @@ var replaceNext = /* @__PURE__ */ searchCommand((view, { query }) => {
   } else if (next.from == from2 && next.to == to) {
     replacement = state.toText(query.getReplacement(next));
     changes.push({ from: next.from, to: next.to, insert: replacement });
-    effects.push(EditorView2.announce.of(state.phrase("replaced match on line $", state.doc.lineAt(from2).number) + "."));
+    effects.push(EditorView.announce.of(state.phrase("replaced match on line $", state.doc.lineAt(from2).number) + "."));
   }
   let changeSet = view.state.changes(changes);
   if (next) {
@@ -29596,7 +21697,7 @@ var replaceAll = /* @__PURE__ */ searchCommand((view, { query }) => {
   let announceText = view.state.phrase("replaced $ matches", changes.length) + ".";
   view.dispatch({
     changes,
-    effects: EditorView2.announce.of(announceText),
+    effects: EditorView.announce.of(announceText),
     userEvent: "input.replace.all"
   });
   return true;
@@ -29810,9 +21911,9 @@ function announceMatch(view, { from: from2, to }) {
         break;
       }
   }
-  return EditorView2.announce.of(`${view.state.phrase("current match")}. ${text} ${view.state.phrase("on line")} ${line.number}.`);
+  return EditorView.announce.of(`${view.state.phrase("current match")}. ${text} ${view.state.phrase("on line")} ${line.number}.`);
 }
-var baseTheme5 = /* @__PURE__ */ EditorView2.baseTheme({
+var baseTheme4 = /* @__PURE__ */ EditorView.baseTheme({
   ".cm-panel.cm-search": {
     padding: "2px 6px 4px",
     position: "relative",
@@ -29845,7 +21946,7 @@ var baseTheme5 = /* @__PURE__ */ EditorView2.baseTheme({
 var searchExtensions = [
   searchState,
   /* @__PURE__ */ Prec.low(searchHighlighter),
-  baseTheme5
+  baseTheme4
 ];
 
 // node_modules/@codemirror/theme-one-dark/dist/index.js
@@ -32076,13 +24177,13 @@ var gatherCompletions = {
   },
   __proto__: null
 };
-function getScope(doc3, node) {
+function getScope(doc2, node) {
   let cached = cache.get(node);
   if (cached)
     return cached;
   let completions = [], top2 = true;
   function def(node2, type) {
-    let name2 = doc3.sliceString(node2.from, node2.to);
+    let name2 = doc2.sliceString(node2.from, node2.to);
     completions.push({ label: name2, type });
   }
   node.cursor(IterMode.IncludeAnonymous).iterate((node2) => {
@@ -32093,7 +24194,7 @@ function getScope(doc3, node) {
       if (gather && gather(node2, def) || ScopeNodes.has(node2.name))
         return false;
     } else if (node2.to - node2.from > 8192) {
-      for (let c of getScope(doc3, node2.node))
+      for (let c of getScope(doc2, node2.node))
         completions.push(c);
       return false;
     }
@@ -32217,10 +24318,10 @@ function findOpenTag(node) {
     node = node.parent;
   }
 }
-function elementName(doc3, tree, max = doc3.length) {
+function elementName(doc2, tree, max = doc2.length) {
   for (let ch = tree === null || tree === void 0 ? void 0 : tree.firstChild; ch; ch = ch.nextSibling) {
     if (ch.name == "JSXIdentifier" || ch.name == "JSXBuiltin" || ch.name == "JSXNamespacedName" || ch.name == "JSXMemberExpression")
-      return doc3.sliceString(ch.from, Math.min(ch.to, max));
+      return doc2.sliceString(ch.from, Math.min(ch.to, max));
   }
   return "";
 }
@@ -32656,13 +24757,13 @@ var gatherCompletions2 = {
   AsPattern: /* @__PURE__ */ defID2("variable"),
   __proto__: null
 };
-function getScope2(doc3, node) {
+function getScope2(doc2, node) {
   let cached = cache2.get(node);
   if (cached)
     return cached;
   let completions = [], top2 = true;
   function def(node2, type) {
-    let name2 = doc3.sliceString(node2.from, node2.to);
+    let name2 = doc2.sliceString(node2.from, node2.to);
     completions.push({ label: name2, type });
   }
   node.cursor(IterMode.IncludeAnonymous).iterate((node2) => {
@@ -32672,7 +24773,7 @@ function getScope2(doc3, node) {
         return false;
       top2 = false;
     } else if (node2.to - node2.from > 8192) {
-      for (let c of getScope2(doc3, node2.node))
+      for (let c of getScope2(doc2, node2.node))
         completions.push(c);
       return false;
     }
@@ -33374,7 +25475,7 @@ var parser4 = LRParser.deserialize({
   dialects: { noMatch: 0, selfClosing: 515 },
   tokenPrec: 517
 });
-function getAttrs3(openTag, input) {
+function getAttrs2(openTag, input) {
   let attrs = /* @__PURE__ */ Object.create(null);
   for (let att of openTag.getChildren(Attribute)) {
     let name2 = att.getChild(AttributeName), value = att.getChild(AttributeValue) || att.getChild(UnquotedAttributeValue);
@@ -33389,7 +25490,7 @@ function findTagName(openTag, input) {
 function maybeNest(node, input, tags3) {
   let attrs;
   for (let tag of tags3) {
-    if (!tag.attrs || tag.attrs(attrs || (attrs = getAttrs3(node.node.parent.firstChild, input))))
+    if (!tag.attrs || tag.attrs(attrs || (attrs = getAttrs2(node.node.parent.firstChild, input))))
       return { parser: tag.parser, bracketed: true };
   }
   return null;
@@ -33410,7 +25511,7 @@ function configureNesting(tags3 = [], attributes = []) {
     if (id2 == Element && other.length) {
       let n = node.node, open = n.firstChild, tagName2 = open && findTagName(open, input), attrs2;
       if (tagName2) for (let tag of other) {
-        if (tag.tag == tagName2 && (!tag.attrs || tag.attrs(attrs2 || (attrs2 = getAttrs3(open, input))))) {
+        if (tag.tag == tagName2 && (!tag.attrs || tag.attrs(attrs2 || (attrs2 = getAttrs2(open, input))))) {
           let close = n.lastChild;
           let to = close.type.id == CloseTag ? close.from : n.to;
           if (to > open.to)
@@ -33497,10 +25598,10 @@ function isHex2(ch) {
   return isDigit(ch) || ch >= 97 && ch <= 102 || ch >= 65 && ch <= 70;
 }
 var identifierTokens = (id2, varName, callee3) => (input, stack) => {
-  for (let inside2 = false, dashes = 0, i2 = 0; ; i2++) {
+  for (let inside = false, dashes = 0, i2 = 0; ; i2++) {
     let { next } = input;
-    if (isAlpha(next) || next == dash2 || next == underscore || inside2 && isDigit(next)) {
-      if (!inside2 && (next != dash2 || i2 > 0)) inside2 = true;
+    if (isAlpha(next) || next == dash2 || next == underscore || inside && isDigit(next)) {
+      if (!inside && (next != dash2 || i2 > 0)) inside = true;
       if (dashes === i2 && next == dash2) dashes++;
       input.advance();
     } else if (next == backslash2 && input.peek(1) != newline3) {
@@ -33513,9 +25614,9 @@ var identifierTokens = (id2, varName, callee3) => (input, stack) => {
       } else if (input.next > -1) {
         input.advance();
       }
-      inside2 = true;
+      inside = true;
     } else {
-      if (inside2) input.acceptToken(
+      if (inside) input.acceptToken(
         dashes == 2 && stack.canShift(VariableName) ? varName : next == parenL ? callee3 : id2
       );
       break;
@@ -34366,7 +26467,7 @@ var atRules = /* @__PURE__ */ [
 ].map((label) => ({ type: "keyword", label }));
 var identifier2 = /^(\w[\w-]*|-\w[\w-]*|)$/;
 var variable = /^-(-[\w-]*)?$/;
-function isVarArg(node, doc3) {
+function isVarArg(node, doc2) {
   var _a2;
   if (node.name == "(" || node.type.isError)
     node = node.parent || node;
@@ -34375,7 +26476,7 @@ function isVarArg(node, doc3) {
   let callee3 = (_a2 = node.parent) === null || _a2 === void 0 ? void 0 : _a2.firstChild;
   if ((callee3 === null || callee3 === void 0 ? void 0 : callee3.name) != "Callee")
     return false;
-  return doc3.sliceString(callee3.from, callee3.to) == "var";
+  return doc2.sliceString(callee3.from, callee3.to) == "var";
 }
 var VariablesByNode = /* @__PURE__ */ new NodeWeakMap();
 var declSelector = ["Declaration"];
@@ -34387,7 +26488,7 @@ function astTop(node) {
       return node;
   }
 }
-function variableNames(doc3, node, isVariable) {
+function variableNames(doc2, node, isVariable) {
   if (node.to - node.from > 4096) {
     let known = VariablesByNode.get(node);
     if (known)
@@ -34395,7 +26496,7 @@ function variableNames(doc3, node, isVariable) {
     let result = [], seen = /* @__PURE__ */ new Set(), cursor2 = node.cursor(IterMode.IncludeAnonymous);
     if (cursor2.firstChild())
       do {
-        for (let option of variableNames(doc3, cursor2.node, isVariable))
+        for (let option of variableNames(doc2, cursor2.node, isVariable))
           if (!seen.has(option.label)) {
             seen.add(option.label);
             result.push(option);
@@ -34408,7 +26509,7 @@ function variableNames(doc3, node, isVariable) {
     node.cursor().iterate((node2) => {
       var _a2;
       if (isVariable(node2) && node2.matchContext(declSelector) && ((_a2 = node2.node.nextSibling) === null || _a2 === void 0 ? void 0 : _a2.name) == ":") {
-        let name2 = doc3.sliceString(node2.from, node2.to);
+        let name2 = doc2.sliceString(node2.from, node2.to);
         if (!seen.has(name2)) {
           seen.add(name2);
           result.push({ label: name2, type: "variable" });
@@ -34914,12 +27015,12 @@ var Schema = class {
   }
 };
 Schema.default = /* @__PURE__ */ new Schema();
-function elementName2(doc3, tree, max = doc3.length) {
+function elementName2(doc2, tree, max = doc2.length) {
   if (!tree)
     return "";
   let tag = tree.firstChild;
   let name2 = tag && tag.getChild("TagName");
-  return name2 ? doc3.sliceString(name2.from, Math.min(name2.to, max)) : "";
+  return name2 ? doc2.sliceString(name2.from, Math.min(name2.to, max)) : "";
 }
 function findParentElement(tree, skip = false) {
   for (; tree; tree = tree.parent)
@@ -34931,14 +27032,14 @@ function findParentElement(tree, skip = false) {
     }
   return null;
 }
-function allowedChildren(doc3, tree, schema) {
-  let parentInfo = schema.tags[elementName2(doc3, findParentElement(tree))];
+function allowedChildren(doc2, tree, schema) {
+  let parentInfo = schema.tags[elementName2(doc2, findParentElement(tree))];
   return (parentInfo === null || parentInfo === void 0 ? void 0 : parentInfo.children) || schema.allTags;
 }
-function openTags(doc3, tree) {
+function openTags(doc2, tree) {
   let open = [];
   for (let parent = findParentElement(tree); parent && !parent.type.isTop; parent = findParentElement(parent.parent)) {
-    let tagName2 = elementName2(doc3, parent);
+    let tagName2 = elementName2(doc2, parent);
     if (tagName2 && parent.lastChild.name == "CloseTag")
       break;
     if (tagName2 && open.indexOf(tagName2) < 0 && (tree.name == "EndTag" || tree.from >= parent.firstChild.to))
@@ -37418,12 +29519,12 @@ var Context2 = class {
       return result + (trailing ? this.spaceAfter : "");
     }
   }
-  marker(doc3, add2) {
-    let number2 = this.node.name == "OrderedList" ? String(+itemNumber(this.item, doc3)[2] + add2) : "";
+  marker(doc2, add2) {
+    let number2 = this.node.name == "OrderedList" ? String(+itemNumber(this.item, doc2)[2] + add2) : "";
     return this.spaceBefore + number2 + this.type + this.spaceAfter;
   }
 };
-function getContext(node, doc3) {
+function getContext(node, doc2) {
   let nodes = [];
   for (let cur2 = node; cur2; cur2 = cur2.parent) {
     if (cur2.name == "ListItem" || cur2.name == "Blockquote" || cur2.name == "FencedCode")
@@ -37432,7 +29533,7 @@ function getContext(node, doc3) {
   let context = [];
   for (let i2 = nodes.length - 1; i2 >= 0; i2--) {
     let node2 = nodes[i2], match2;
-    let line = doc3.lineAt(node2.from), startPos = node2.from - line.from;
+    let line = doc2.lineAt(node2.from), startPos = node2.from - line.from;
     if (node2.name == "FencedCode") {
       context.push(new Context2(node2, startPos, startPos, "", "", "", null));
     } else if (node2.name == "Blockquote" && (match2 = /^ *>( ?)/.exec(line.text.slice(startPos)))) {
@@ -37458,13 +29559,13 @@ function getContext(node, doc3) {
   }
   return context;
 }
-function itemNumber(item, doc3) {
-  return /^(\s*)(\d+)(?=[.)])/.exec(doc3.sliceString(item.from, item.from + 10));
+function itemNumber(item, doc2) {
+  return /^(\s*)(\d+)(?=[.)])/.exec(doc2.sliceString(item.from, item.from + 10));
 }
-function renumberList(after, doc3, changes, offset = 0) {
+function renumberList(after, doc2, changes, offset = 0) {
   for (let prev = -1, node = after; ; ) {
     if (node.name == "ListItem") {
-      let m = itemNumber(node, doc3);
+      let m = itemNumber(node, doc2);
       let number2 = +m[2];
       if (prev >= 0) {
         if (number2 != prev + 1)
@@ -37497,12 +29598,12 @@ function normalizeIndent(content2, state) {
   return space7 + content2.slice(blank);
 }
 var insertNewlineContinueMarkup = ({ state, dispatch }) => {
-  let tree = syntaxTree(state), { doc: doc3 } = state;
+  let tree = syntaxTree(state), { doc: doc2 } = state;
   let dont = null, changes = state.changeByRange((range) => {
     if (!range.empty || !markdownLanguage.isActiveAt(state, range.from, 0))
       return dont = { range };
-    let pos = range.from, line = doc3.lineAt(pos);
-    let context = getContext(tree.resolveInner(pos, -1), doc3);
+    let pos = range.from, line = doc2.lineAt(pos);
+    let context = getContext(tree.resolveInner(pos, -1), doc2);
     while (context.length && context[context.length - 1].from > pos - line.from)
       context.pop();
     if (!context.length)
@@ -37513,20 +29614,20 @@ var insertNewlineContinueMarkup = ({ state, dispatch }) => {
     let emptyLine = pos >= inner.to - inner.spaceAfter.length && !/\S/.test(line.text.slice(inner.to));
     if (inner.item && emptyLine) {
       let first = inner.node.firstChild, second = inner.node.getChild("ListItem", "ListItem");
-      if (first.to >= pos || second && second.to < pos || line.from > 0 && !/[^\s>]/.test(doc3.lineAt(line.from - 1).text)) {
+      if (first.to >= pos || second && second.to < pos || line.from > 0 && !/[^\s>]/.test(doc2.lineAt(line.from - 1).text)) {
         let next = context.length > 1 ? context[context.length - 2] : null;
         let delTo, insert3 = "";
         if (next && next.item) {
           delTo = line.from + next.from;
-          insert3 = next.marker(doc3, 1);
+          insert3 = next.marker(doc2, 1);
         } else {
           delTo = line.from + (next ? next.to : 0);
         }
         let changes3 = [{ from: delTo, to: pos, insert: insert3 }];
         if (inner.node.name == "OrderedList")
-          renumberList(inner.item, doc3, changes3, -2);
+          renumberList(inner.item, doc2, changes3, -2);
         if (next && next.node.name == "OrderedList")
-          renumberList(next.item, doc3, changes3);
+          renumberList(next.item, doc2, changes3);
         return { range: EditorSelection.cursor(delTo + insert3.length), changes: changes3 };
       } else {
         let insert3 = blankLine(context, state, line);
@@ -37537,7 +29638,7 @@ var insertNewlineContinueMarkup = ({ state, dispatch }) => {
       }
     }
     if (inner.node.name == "Blockquote" && emptyLine && line.from) {
-      let prevLine = doc3.lineAt(line.from - 1), quoted = />\s*$/.exec(prevLine.text);
+      let prevLine = doc2.lineAt(line.from - 1), quoted = />\s*$/.exec(prevLine.text);
       if (quoted && quoted.index == inner.from) {
         let changes3 = state.changes([
           { from: prevLine.from + quoted.index, to: prevLine.to },
@@ -37548,12 +29649,12 @@ var insertNewlineContinueMarkup = ({ state, dispatch }) => {
     }
     let changes2 = [];
     if (inner.node.name == "OrderedList")
-      renumberList(inner.item, doc3, changes2);
+      renumberList(inner.item, doc2, changes2);
     let continued = inner.item && inner.item.from < line.from;
     let insert2 = "";
     if (!continued || /^[\s\d.)\-+*>]*/.exec(line.text)[0].length >= inner.to) {
       for (let i2 = 0, e = context.length - 1; i2 <= e; i2++) {
-        insert2 += i2 == e && !continued ? context[i2].marker(doc3, 1) : context[i2].blank(i2 < e ? countColumn(line.text, 4, context[i2 + 1].from) - insert2.length : null);
+        insert2 += i2 == e && !continued ? context[i2].marker(doc2, 1) : context[i2].blank(i2 < e ? countColumn(line.text, 4, context[i2 + 1].from) - insert2.length : null);
       }
     }
     let from2 = pos;
@@ -37573,13 +29674,13 @@ var insertNewlineContinueMarkup = ({ state, dispatch }) => {
 function isMark(node) {
   return node.name == "QuoteMark" || node.name == "ListMark";
 }
-function nonTightList(node, doc3) {
+function nonTightList(node, doc2) {
   if (node.name != "OrderedList" && node.name != "BulletList")
     return false;
   let first = node.firstChild, second = node.getChild("ListItem", "ListItem");
   if (!second)
     return false;
-  let line1 = doc3.lineAt(first.to), line2 = doc3.lineAt(second.from);
+  let line1 = doc2.lineAt(first.to), line2 = doc2.lineAt(second.from);
   let empty2 = /^[\s>]*$/.test(line1.text);
   return line1.number + (empty2 ? 0 : 1) < line2.number;
 }
@@ -37611,10 +29712,10 @@ function contextNodeForDelete(tree, pos) {
 var deleteMarkupBackward = ({ state, dispatch }) => {
   let tree = syntaxTree(state);
   let dont = null, changes = state.changeByRange((range) => {
-    let pos = range.from, { doc: doc3 } = state;
+    let pos = range.from, { doc: doc2 } = state;
     if (range.empty && markdownLanguage.isActiveAt(state, range.from)) {
-      let line = doc3.lineAt(pos);
-      let context = getContext(contextNodeForDelete(tree, pos), doc3);
+      let line = doc2.lineAt(pos);
+      let context = getContext(contextNodeForDelete(tree, pos), doc2);
       if (context.length) {
         let inner = context[context.length - 1];
         let spaceEnd = inner.to - inner.spaceAfter.length + (inner.spaceAfter ? 1 : 0);
@@ -37821,18 +29922,18 @@ var parser8 = LRParser.deserialize({
 });
 
 // node_modules/@codemirror/lang-xml/dist/index.js
-function tagName(doc3, tag) {
+function tagName(doc2, tag) {
   let name2 = tag && tag.getChild("TagName");
-  return name2 ? doc3.sliceString(name2.from, name2.to) : "";
+  return name2 ? doc2.sliceString(name2.from, name2.to) : "";
 }
-function elementName$1(doc3, tree) {
+function elementName$1(doc2, tree) {
   let tag = tree && tree.firstChild;
-  return !tag || tag.name != "OpenTag" ? "" : tagName(doc3, tag);
+  return !tag || tag.name != "OpenTag" ? "" : tagName(doc2, tag);
 }
-function attrName(doc3, tag, pos) {
+function attrName(doc2, tag, pos) {
   let attr = tag && tag.getChildren("Attribute").find((a) => a.from <= pos && a.to >= pos);
   let name2 = attr && attr.getChild("AttributeName");
-  return name2 ? doc3.sliceString(name2.from, name2.to) : "";
+  return name2 ? doc2.sliceString(name2.from, name2.to) : "";
 }
 function findParentElement2(tree) {
   for (let cur2 = tree && tree.parent; cur2; cur2 = cur2.parent)
@@ -37939,13 +30040,13 @@ function completeFromSchema(eltSpecs, attrSpecs) {
   }
   return (cx) => {
     var _a2;
-    let { doc: doc3 } = cx.state, loc = findLocation(cx.state, cx.pos);
+    let { doc: doc2 } = cx.state, loc = findLocation(cx.state, cx.pos);
     if (!loc || loc.type == "tag" && !cx.explicit)
       return null;
     let { type, from: from2, context } = loc;
     if (type == "openTag") {
       let children = topElements;
-      let parentName = elementName$1(doc3, context);
+      let parentName = elementName$1(doc2, context);
       if (parentName) {
         let parent = byName[parentName];
         children = (parent === null || parent === void 0 ? void 0 : parent.children) || allElements;
@@ -37956,38 +30057,38 @@ function completeFromSchema(eltSpecs, attrSpecs) {
         validFor: Identifier3
       };
     } else if (type == "closeTag") {
-      let parentName = elementName$1(doc3, context);
+      let parentName = elementName$1(doc2, context);
       return parentName ? {
         from: from2,
-        to: cx.pos + (doc3.sliceString(cx.pos, cx.pos + 1) == ">" ? 1 : 0),
+        to: cx.pos + (doc2.sliceString(cx.pos, cx.pos + 1) == ">" ? 1 : 0),
         options: [((_a2 = byName[parentName]) === null || _a2 === void 0 ? void 0 : _a2.closeNameCompletion) || { label: parentName + ">", type: "type" }],
         validFor: Identifier3
       } : null;
     } else if (type == "attrName") {
-      let parent = byName[tagName(doc3, context)];
+      let parent = byName[tagName(doc2, context)];
       return {
         from: from2,
         options: (parent === null || parent === void 0 ? void 0 : parent.attrs) || globalAttrs,
         validFor: Identifier3
       };
     } else if (type == "attrValue") {
-      let attr = attrName(doc3, context, from2);
+      let attr = attrName(doc2, context, from2);
       if (!attr)
         return null;
-      let parent = byName[tagName(doc3, context)];
+      let parent = byName[tagName(doc2, context)];
       let values2 = ((parent === null || parent === void 0 ? void 0 : parent.attrValues) || attrValues)[attr];
       if (!values2 || !values2.length)
         return null;
       return {
         from: from2,
-        to: cx.pos + (doc3.sliceString(cx.pos, cx.pos + 1) == '"' ? 1 : 0),
+        to: cx.pos + (doc2.sliceString(cx.pos, cx.pos + 1) == '"' ? 1 : 0),
         options: values2,
         validFor: /^"[^"]*"?$/
       };
     } else if (type == "tag") {
-      let parentName = elementName$1(doc3, context), parent = byName[parentName];
+      let parentName = elementName$1(doc2, context), parent = byName[parentName];
       let closing2 = [], last = context && context.lastChild;
-      if (parentName && (!last || last.name != "CloseTag" || tagName(doc3, last) != parentName))
+      if (parentName && (!last || last.name != "CloseTag" || tagName(doc2, last) != parentName))
         closing2.push(parent ? parent.closeCompletion : { label: "</" + parentName + ">", type: "type", boost: 2 });
       let options = closing2.concat(((parent === null || parent === void 0 ? void 0 : parent.children) || (context ? allElements : topElements)).map((e) => e.openCompletion));
       if (context && (parent === null || parent === void 0 ? void 0 : parent.text.length)) {
@@ -38044,12 +30145,12 @@ function xml(conf = {}) {
     support.push(autoCloseTags3);
   return new LanguageSupport(xmlLanguage, support);
 }
-function elementName3(doc3, tree, max = doc3.length) {
+function elementName3(doc2, tree, max = doc2.length) {
   if (!tree)
     return "";
   let tag = tree.firstChild;
   let name2 = tag && tag.getChild("TagName");
-  return name2 ? doc3.sliceString(name2.from, Math.min(name2.to, max)) : "";
+  return name2 ? doc2.sliceString(name2.from, Math.min(name2.to, max)) : "";
 }
 var autoCloseTags3 = /* @__PURE__ */ EditorView.inputHandler.of((view, from2, to, text, insertTransaction) => {
   if (view.composing || view.state.readOnly || from2 != to || text != ">" && text != "/" || !xmlLanguage.isActiveAt(view.state, from2, -1))
@@ -38645,14 +30746,14 @@ function inString(ch, str) {
   return false;
 }
 var Space = " 	\r\n";
-function keywords2(keywords5, types3, builtin) {
+function keywords2(keywords5, types2, builtin) {
   let result = /* @__PURE__ */ Object.create(null);
   result["true"] = result["false"] = Bool2;
   result["null"] = result["unknown"] = Null;
   for (let kw of keywords5.split(" "))
     if (kw)
       result[kw] = Keyword;
-  for (let tp of types3.split(" "))
+  for (let tp of types2.split(" "))
     if (tp)
       result[tp] = Type2;
   for (let kw of (builtin || "").split(" "))
@@ -38679,12 +30780,12 @@ var defaults3 = {
   caseInsensitiveIdentifiers: false,
   words: /* @__PURE__ */ keywords2(SQLKeywords, SQLTypes)
 };
-function dialect(spec, kws, types3, builtin) {
+function dialect(spec, kws, types2, builtin) {
   let dialect2 = {};
   for (let prop in defaults3)
     dialect2[prop] = (spec.hasOwnProperty(prop) ? spec : defaults3)[prop];
   if (kws)
-    dialect2.words = keywords2(kws, types3 || "", builtin);
+    dialect2.words = keywords2(kws, types2 || "", builtin);
   return dialect2;
 }
 function tokensFor(d) {
@@ -38843,32 +30944,32 @@ function tokenBefore(tree) {
     cursor2.moveTo(cursor2.from, -1);
   return cursor2.node;
 }
-function idName(doc3, node) {
-  let text = doc3.sliceString(node.from, node.to);
+function idName(doc2, node) {
+  let text = doc2.sliceString(node.from, node.to);
   let quoted = /^([`'"])(.*)\1$/.exec(text);
   return quoted ? quoted[2] : text;
 }
 function plainID(node) {
   return node && (node.name == "Identifier" || node.name == "QuotedIdentifier");
 }
-function pathFor(doc3, id2) {
+function pathFor(doc2, id2) {
   if (id2.name == "CompositeIdentifier") {
     let path = [];
     for (let ch = id2.firstChild; ch; ch = ch.nextSibling)
       if (plainID(ch))
-        path.push(idName(doc3, ch));
+        path.push(idName(doc2, ch));
     return path;
   }
-  return [idName(doc3, id2)];
+  return [idName(doc2, id2)];
 }
-function parentsFor(doc3, node) {
+function parentsFor(doc2, node) {
   for (let path = []; ; ) {
     if (!node || node.name != ".")
       return path;
     let name2 = tokenBefore(node);
     if (!plainID(name2))
       return path;
-    path.unshift(idName(doc3, name2));
+    path.unshift(idName(doc2, name2));
     node = tokenBefore(name2);
   }
 }
@@ -38890,7 +30991,7 @@ function sourceContext(state, startPos) {
   }
 }
 var EndFrom = /* @__PURE__ */ new Set(/* @__PURE__ */ "where group having order union intersect except all distinct limit offset fetch for".split(" "));
-function getAliases(doc3, at) {
+function getAliases(doc2, at) {
   let statement;
   for (let parent = at; !statement; parent = parent.parent) {
     if (!parent)
@@ -38900,21 +31001,21 @@ function getAliases(doc3, at) {
   }
   let aliases = null;
   for (let scan = statement.firstChild, sawFrom = false, prevID = null; scan; scan = scan.nextSibling) {
-    let kw = scan.name == "Keyword" ? doc3.sliceString(scan.from, scan.to).toLowerCase() : null;
+    let kw = scan.name == "Keyword" ? doc2.sliceString(scan.from, scan.to).toLowerCase() : null;
     let alias = null;
     if (!sawFrom) {
       sawFrom = kw == "from";
     } else if (kw == "as" && prevID && plainID(scan.nextSibling)) {
-      alias = idName(doc3, scan.nextSibling);
+      alias = idName(doc2, scan.nextSibling);
     } else if (kw && EndFrom.has(kw)) {
       break;
     } else if (prevID && plainID(scan)) {
-      alias = idName(doc3, scan);
+      alias = idName(doc2, scan);
     }
     if (alias) {
       if (!aliases)
         aliases = /* @__PURE__ */ Object.create(null);
-      aliases[alias] = pathFor(doc3, prevID);
+      aliases[alias] = pathFor(doc2, prevID);
     }
     prevID = /Identifier$/.test(scan.name) ? scan : null;
   }
@@ -40022,13 +32123,13 @@ var gatherCompletions3 = {
   Parameter: /* @__PURE__ */ defIDs("var"),
   __proto__: null
 };
-function getScope3(doc3, node) {
+function getScope3(doc2, node) {
   let cached = cache3.get(node);
   if (cached)
     return cached;
   let completions = [], top2 = true;
   function def(node2, type) {
-    let name2 = doc3.sliceString(node2.from, node2.to);
+    let name2 = doc2.sliceString(node2.from, node2.to);
     completions.push({ label: name2, type });
   }
   node.cursor(IterMode.IncludeAnonymous).iterate((node2) => {
@@ -40039,7 +32140,7 @@ function getScope3(doc3, node) {
       if (gather && gather(node2, def) || ScopeNodes3.has(node2.name))
         return false;
     } else if (node2.to - node2.from > 8192) {
-      for (let c of getScope3(doc3, node2.node))
+      for (let c of getScope3(doc2, node2.node))
         completions.push(c);
       return false;
     }
@@ -40305,17 +32406,17 @@ var indentation3 = new ExternalTokenizer((input, stack) => {
   }
 });
 var identifiers2 = new ExternalTokenizer((input, stack) => {
-  for (let inside2 = false, dashes = 0, i2 = 0; ; i2++) {
+  for (let inside = false, dashes = 0, i2 = 0; ; i2++) {
     let { next } = input;
-    if (isAlpha3(next) || next == dash3 || next == underscore2 || inside2 && isDigit2(next)) {
-      if (!inside2 && (next != dash3 || i2 > 0)) inside2 = true;
+    if (isAlpha3(next) || next == dash3 || next == underscore2 || inside && isDigit2(next)) {
+      if (!inside && (next != dash3 || i2 > 0)) inside = true;
       if (dashes === i2 && next == dash3) dashes++;
       input.advance();
     } else if (next == hash3 && input.peek(1) == braceL) {
       input.acceptToken(InterpolationStart, 2);
       break;
     } else {
-      if (inside2) input.acceptToken(
+      if (inside) input.acceptToken(
         dashes == 2 && stack.canShift(VariableName2) ? VariableName2 : stack.canShift(queryIdentifier2) ? queryIdentifier2 : next == parenL2 ? callee2 : identifier5
       );
       break;
@@ -40492,6 +32593,7 @@ var basicSetup = (() => {
     closeBrackets(),
     highlightActiveLine(),
     highlightSelectionMatches(),
+    search(),
     keymap.of([
       ...closeBracketsKeymap,
       ...defaultKeymap,
@@ -40509,6 +32611,7 @@ export {
   EditorState,
   EditorView,
   basicSetup,
+  closeSearchPanel,
   css,
   go,
   html,
@@ -40518,10 +32621,12 @@ export {
   keymap,
   markdown,
   oneDark,
+  openSearchPanel,
   php,
   python,
   rust,
   sass,
+  search,
   sql,
   xml,
   yaml

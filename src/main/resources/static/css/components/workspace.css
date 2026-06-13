@@ -786,6 +786,87 @@
     flex-shrink: 0;
 }
 
+/* ========== CM6 搜索面板 ========== */
+
+.cm-editor .cm-panel {
+    padding: 6px 8px;
+    background: var(--bg-app, #fff);
+    border-bottom: 1px solid var(--border, #ddd);
+}
+
+.cm-editor .cm-panel input,
+.cm-editor .cm-panel label {
+    font-size: var(--font-size-sm, 12px);
+    font-family: var(--font-sans, sans-serif);
+    color: var(--text-primary, #333);
+}
+
+.cm-editor .cm-panel input {
+    background: var(--bg-code, #f5f5f5);
+    border: 1px solid var(--border, #ddd);
+    border-radius: 3px;
+    padding: 2px 6px;
+    outline: none;
+}
+
+.cm-editor .cm-panel input:focus {
+    border-color: var(--accent, #4a9eff);
+}
+
+.cm-editor .cm-panel .cm-button {
+    font-size: var(--font-size-sm, 12px);
+    padding: 2px 8px;
+    border: 1px solid var(--border, #ddd);
+    border-radius: 3px;
+    background: var(--bg-code, #f5f5f5);
+    color: var(--text-primary, #333);
+    cursor: pointer;
+}
+
+.cm-editor .cm-panel .cm-button:hover {
+    background: var(--bg-sidebar, #e8e8e8);
+}
+
+.cm-editor .cm-panel .cm-search label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 4px;
+}
+
+.cm-editor .cm-panel .cm-search input[type="checkbox"] {
+    margin: 0;
+}
+
+[data-theme="dark"] .cm-editor .cm-panel {
+    background: var(--bg-app, #1e1e1e);
+    border-bottom-color: var(--border, #333);
+}
+
+[data-theme="dark"] .cm-editor .cm-panel input {
+    background: var(--bg-code, #2a2a2a);
+    border-color: var(--border, #444);
+    color: var(--text-primary, #e0e0e0);
+}
+
+[data-theme="dark"] .cm-editor .cm-panel input:focus {
+    border-color: var(--accent, #58a6ff);
+}
+
+[data-theme="dark"] .cm-editor .cm-panel .cm-button {
+    background: var(--bg-code, #2a2a2a);
+    border-color: var(--border, #444);
+    color: var(--text-primary, #e0e0e0);
+}
+
+[data-theme="dark"] .cm-editor .cm-panel .cm-button:hover {
+    background: #3a3a3a;
+}
+
+[data-theme="dark"] .cm-editor .cm-panel .cm-search label {
+    color: var(--text-secondary, #a0a0a0);
+}
+
 .preview-btn {
     display: flex;
     align-items: center;

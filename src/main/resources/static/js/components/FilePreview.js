@@ -9,7 +9,7 @@
  *   - js/vendor/codemirror.js（esbuild 打包的 CM6 bundle）
  */
 
-import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark,
+import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark, openSearchPanel,
   javascript, python, java, html, css, json, markdown, xml, yaml, sql,
   rust, php, go, sass } from '../vendor/codemirror.js'
 
@@ -26,10 +26,38 @@ export class FilePreview {
     this._themeCompartment = new Compartment();
     /** @private MutationObserver 监听 data-theme 变化 */
     this._themeObserver = null;
+
+    // 全局注册 Ctrl+F/H 快捷键（只注册一次）
+    this._registerKeyboardShortcuts();
+    // 绑定搜索按钮
+    this._registerSearchButton();
+  }
+
+  /** @private 注册全局 Ctrl+F/H 快捷键 */
+  _registerKeyboardShortcuts() {
+    if (FilePreview._keyboardRegistered) return;
+    FilePreview._keyboardRegistered = true;
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F' || e.key === 'h' || e.key === 'H')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.__cmOpenSearch) window.__cmOpenSearch();
+      }
+    });
   }
 
   get currentPath() { return this._currentPath; }
   get isDirty() { return this._dirty; }
+
+  /** @private 绑定搜索按钮点击事件 */
+  _registerSearchButton() {
+    const btn = document.getElementById('previewSearchBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (window.__cmOpenSearch) window.__cmOpenSearch();
+    });
+  }
 
   async show(filePath) {
     if (this._dirty) {
@@ -130,6 +158,14 @@ export class FilePreview {
     // 挂到 DOM 上，供 selection-actions 计算行号引用
     this._container._cmPreviewView = this._view;
 
+    // 暴露全局搜索方法（供 Ctrl+F/H 快捷键和搜索按钮调用）
+    window.__cmOpenSearch = () => {
+      if (this._view) {
+        this._view.focus();
+        openSearchPanel(this._view);
+      }
+    };
+
     this._startThemeObserver();
   }
 
@@ -196,10 +232,12 @@ export class FilePreview {
 
   _updateSaveBtn() {
     const btn = document.getElementById('previewSaveBtn');
+    const searchBtn = document.getElementById('previewSearchBtn');
     if (!btn) return;
 
     if (this._currentPath) {
       btn.style.display = '';
+      if (searchBtn) searchBtn.style.display = '';
       if (this._dirty) {
         btn.innerHTML = `
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -217,6 +255,7 @@ export class FilePreview {
       }
     } else {
       btn.style.display = 'none';
+      if (searchBtn) searchBtn.style.display = 'none';
     }
   }
 
