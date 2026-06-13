@@ -439,27 +439,64 @@ public final class DesktopApplication {
             return true;
         }
 
+        /** 当前 DevTools 对话框，用于防重入和关闭复用 */
+        private static JDialog devToolsDialog;
+
+        /** 当前 DevTools CEF 浏览器实例，关闭时必须显式释放 */
+        private static CefBrowser devToolsBrowser;
+
         private void handleOpenDevTools(CefBrowser browser, CefQueryCallback callback) {
             logger.info("正在打开 DevTools 窗口...");
             pendingCallbacks.add(callback);
+
+            // 如果已有 DevTools，先关闭清理再重新打开
+            closeDevTools();
+
             CefBrowser devTools = browser.getDevTools();
+            devToolsBrowser = devTools;
+
             SwingUtilities.invokeLater(() -> {
                 try {
-                    JDialog devDialog = new JDialog(mainFrame, "Hippo Code - DevTools", false);
-                    devDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-                    devDialog.setSize(960, 640);
-                    devDialog.setLocationRelativeTo(mainFrame);
-                    devDialog.add(devTools.getUIComponent(), BorderLayout.CENTER);
-                    devDialog.setVisible(true);
+                    JDialog dialog = new JDialog(mainFrame, "Hippo Code - DevTools", false);
+                    dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+                    dialog.setSize(960, 640);
+                    dialog.setLocationRelativeTo(mainFrame);
+                    dialog.add(devTools.getUIComponent(), BorderLayout.CENTER);
+
+                    // 窗口关闭时自动清理 CEF 浏览器资源
+                    dialog.addWindowListener(new WindowAdapter() {
+                        @Override
+                        public void windowClosed(WindowEvent e) {
+                            logger.info("DevTools 窗口已关闭，清理 CEF 资源");
+                            closeDevTools();
+                        }
+                    });
+
+                    dialog.setVisible(true);
+                    devToolsDialog = dialog;
                     logger.info("DevTools 窗口已打开");
                     callback.success("{}");
                 } catch (Exception e) {
                     logger.error("打开 DevTools 失败", e);
                     callback.failure(500, e.getMessage());
+                    // 异常时清理，避免泄漏
+                    closeDevTools();
                 } finally {
                     pendingCallbacks.remove(callback);
                 }
             });
+        }
+
+        /** 关闭并清理 DevTools 资源（可安全重复调用） */
+        private static void closeDevTools() {
+            if (devToolsDialog != null) {
+                devToolsDialog.dispose();
+                devToolsDialog = null;
+            }
+            if (devToolsBrowser != null) {
+                devToolsBrowser.close(true);
+                devToolsBrowser = null;
+            }
         }
 
         private void handleGetTheme(CefQueryCallback callback) {

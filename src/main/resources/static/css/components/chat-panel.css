@@ -487,6 +487,7 @@
 .input-ref-chip-lines {
     color: var(--text-muted);
     opacity: 0.7;
+    white-space: nowrap;
 }
 
 .input-ref-chip-close {

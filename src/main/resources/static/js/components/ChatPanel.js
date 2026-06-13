@@ -312,7 +312,7 @@ export class ChatPanel {
       const fileName = filePath.split('/').pop();
       const { iconFile } = getFileIconInfo(fileName, { isDirectory: options?.isDirectory });
       const hasLines = startLine != null && endLine != null;
-      chip.innerHTML = `<img src="icons/${iconFile}" class="input-ref-chip-icon" draggable="false"> <span class="input-ref-chip-text">${fileName}</span>${hasLines ? `<span class="input-ref-chip-lines">:${startLine}-${endLine}</span>` : ''}`;
+      chip.innerHTML = `<img src="icons/${iconFile}" class="input-ref-chip-icon" draggable="false"> <span class="input-ref-chip-text">${fileName}</span>${hasLines ? `<span class="input-ref-chip-lines">${startLine}-${endLine}</span>` : ''}`;
       chip.title = hasLines ? `${filePath}:${startLine}-${endLine}` : filePath;
       chip.dataset.refType = 'file';
       chip.dataset.filePath = filePath;
