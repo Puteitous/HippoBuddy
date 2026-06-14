@@ -302,12 +302,6 @@
     padding: 20px 0;
 }
 
-/* 暗色主题 CM6 */
-[data-theme="dark"] .file-preview-content .cm-editor .cm-gutters {
-    background: transparent;
-    border-right: 1px solid #2a2a2a;
-}
-
 /* ========== 侧栏视图切换 - 折叠/视图切换 ========== */
 
 /* 默认隐藏（对抗桌面端 .desktop-only { display: initial !important } 注入） */

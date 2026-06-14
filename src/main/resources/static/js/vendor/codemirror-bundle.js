@@ -51,7 +51,7 @@ import {
 } from '@codemirror/commands'
 
 // 补全
-import { closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 
 // 搜索
 import { search, SearchQuery, setSearchQuery, getSearchQuery, highlightSelectionMatches, searchKeymap, openSearchPanel, closeSearchPanel, findNext, findPrevious, replaceNext, replaceAll, SearchCursor } from '@codemirror/search'
@@ -105,11 +105,14 @@ export const basicSetup = (() => {
     history(),
     foldGutter(),
     drawSelection(),
+    rectangularSelection(),
+    crosshairCursor(),
     EditorState.allowMultipleSelections.of(true),
     indentOnInput(),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     bracketMatching(),
     closeBrackets(),
+    autocompletion(),
     highlightActiveLine(),
     highlightSelectionMatches(),
     search(),

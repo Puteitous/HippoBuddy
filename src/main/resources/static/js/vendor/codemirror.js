@@ -12622,6 +12622,115 @@ var activeLineHighlighter = /* @__PURE__ */ ViewPlugin.fromClass(class {
 }, {
   decorations: (v) => v.decorations
 });
+var MaxOff = 2e3;
+function rectangleFor(state, a, b) {
+  let startLine = Math.min(a.line, b.line), endLine = Math.max(a.line, b.line);
+  let ranges = [];
+  if (a.off > MaxOff || b.off > MaxOff || a.col < 0 || b.col < 0) {
+    let startOff = Math.min(a.off, b.off), endOff = Math.max(a.off, b.off);
+    for (let i2 = startLine; i2 <= endLine; i2++) {
+      let line = state.doc.line(i2);
+      if (line.length <= endOff)
+        ranges.push(EditorSelection.range(line.from + startOff, line.to + endOff));
+    }
+  } else {
+    let startCol = Math.min(a.col, b.col), endCol = Math.max(a.col, b.col);
+    for (let i2 = startLine; i2 <= endLine; i2++) {
+      let line = state.doc.line(i2);
+      let start = findColumn(line.text, startCol, state.tabSize, true);
+      if (start < 0) {
+        ranges.push(EditorSelection.cursor(line.to));
+      } else {
+        let end = findColumn(line.text, endCol, state.tabSize);
+        ranges.push(EditorSelection.range(line.from + start, line.from + end));
+      }
+    }
+  }
+  return ranges;
+}
+function absoluteColumn(view, x) {
+  let ref = view.coordsAtPos(view.viewport.from);
+  return ref ? Math.round(Math.abs((ref.left - x) / view.defaultCharacterWidth)) : -1;
+}
+function getPos(view, event) {
+  let offset = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
+  let line = view.state.doc.lineAt(offset), off = offset - line.from;
+  let col = off > MaxOff ? -1 : off == line.length ? absoluteColumn(view, event.clientX) : countColumn(line.text, view.state.tabSize, offset - line.from);
+  return { line: line.number, col, off };
+}
+function rectangleSelectionStyle(view, event) {
+  let start = getPos(view, event), startSel = view.state.selection;
+  if (!start)
+    return null;
+  return {
+    update(update) {
+      if (update.docChanged) {
+        let newStart = update.changes.mapPos(update.startState.doc.line(start.line).from);
+        let newLine = update.state.doc.lineAt(newStart);
+        start = { line: newLine.number, col: start.col, off: Math.min(start.off, newLine.length) };
+        startSel = startSel.map(update.changes);
+      }
+    },
+    get(event2, _extend, multiple) {
+      let cur2 = getPos(view, event2);
+      if (!cur2)
+        return startSel;
+      let ranges = rectangleFor(view.state, start, cur2);
+      if (!ranges.length)
+        return startSel;
+      if (multiple)
+        return EditorSelection.create(ranges.concat(startSel.ranges));
+      else
+        return EditorSelection.create(ranges);
+    }
+  };
+}
+function rectangularSelection(options) {
+  let filter = (options === null || options === void 0 ? void 0 : options.eventFilter) || ((e) => e.altKey && e.button == 0);
+  return EditorView.mouseSelectionStyle.of((view, event) => filter(event) ? rectangleSelectionStyle(view, event) : null);
+}
+var keys = {
+  Alt: [18, (e) => !!e.altKey],
+  Control: [17, (e) => !!e.ctrlKey],
+  Shift: [16, (e) => !!e.shiftKey],
+  Meta: [91, (e) => !!e.metaKey]
+};
+var showCrosshair = { style: "cursor: crosshair" };
+function crosshairCursor(options = {}) {
+  let [code2, getter] = keys[options.key || "Alt"];
+  let plugin = ViewPlugin.fromClass(class {
+    constructor(view) {
+      this.view = view;
+      this.isDown = false;
+    }
+    set(isDown) {
+      if (this.isDown != isDown) {
+        this.isDown = isDown;
+        this.view.update([]);
+      }
+    }
+  }, {
+    eventObservers: {
+      keydown(e) {
+        this.set(e.keyCode == code2 || getter(e));
+      },
+      keyup(e) {
+        if (e.keyCode == code2 || !getter(e))
+          this.set(false);
+      },
+      mousemove(e) {
+        this.set(getter(e));
+      }
+    }
+  });
+  return [
+    plugin,
+    EditorView.contentAttributes.of((view) => {
+      var _a2;
+      return ((_a2 = view.plugin(plugin)) === null || _a2 === void 0 ? void 0 : _a2.isDown) ? showCrosshair : null;
+    })
+  ];
+}
 var Outside = "-10000px";
 var TooltipViewManager = class {
   constructor(view, facet, createTooltipView, removeTooltipView) {
@@ -20279,7 +20388,180 @@ var closeCompletion = (view) => {
   view.dispatch({ effects: closeCompletionEffect.of(null) });
   return true;
 };
+var RunningQuery = class {
+  constructor(active, context) {
+    this.active = active;
+    this.context = context;
+    this.time = Date.now();
+    this.updates = [];
+    this.done = void 0;
+  }
+};
+var MaxUpdateCount = 50;
+var MinAbortTime = 1e3;
+var completionPlugin = /* @__PURE__ */ ViewPlugin.fromClass(class {
+  constructor(view) {
+    this.view = view;
+    this.debounceUpdate = -1;
+    this.running = [];
+    this.debounceAccept = -1;
+    this.pendingStart = false;
+    this.composing = 0;
+    for (let active of view.state.field(completionState).active)
+      if (active.isPending)
+        this.startQuery(active);
+  }
+  update(update) {
+    let cState = update.state.field(completionState);
+    let conf = update.state.facet(completionConfig);
+    if (!update.selectionSet && !update.docChanged && update.startState.field(completionState) == cState)
+      return;
+    let doesReset = update.transactions.some((tr) => {
+      let type = getUpdateType(tr, conf);
+      return type & 8 || (tr.selection || tr.docChanged) && !(type & 3);
+    });
+    for (let i2 = 0; i2 < this.running.length; i2++) {
+      let query = this.running[i2];
+      if (doesReset || query.context.abortOnDocChange && update.docChanged || query.updates.length + update.transactions.length > MaxUpdateCount && Date.now() - query.time > MinAbortTime) {
+        for (let handler of query.context.abortListeners) {
+          try {
+            handler();
+          } catch (e) {
+            logException(this.view.state, e);
+          }
+        }
+        query.context.abortListeners = null;
+        this.running.splice(i2--, 1);
+      } else {
+        query.updates.push(...update.transactions);
+      }
+    }
+    if (this.debounceUpdate > -1)
+      clearTimeout(this.debounceUpdate);
+    if (update.transactions.some((tr) => tr.effects.some((e) => e.is(startCompletionEffect))))
+      this.pendingStart = true;
+    let delay = this.pendingStart ? 50 : conf.activateOnTypingDelay;
+    this.debounceUpdate = cState.active.some((a) => a.isPending && !this.running.some((q) => q.active.source == a.source)) ? setTimeout(() => this.startUpdate(), delay) : -1;
+    if (this.composing != 0)
+      for (let tr of update.transactions) {
+        if (tr.isUserEvent("input.type"))
+          this.composing = 2;
+        else if (this.composing == 2 && tr.selection)
+          this.composing = 3;
+      }
+  }
+  startUpdate() {
+    this.debounceUpdate = -1;
+    this.pendingStart = false;
+    let { state } = this.view, cState = state.field(completionState);
+    for (let active of cState.active) {
+      if (active.isPending && !this.running.some((r) => r.active.source == active.source))
+        this.startQuery(active);
+    }
+    if (this.running.length && cState.open && cState.open.disabled)
+      this.debounceAccept = setTimeout(() => this.accept(), this.view.state.facet(completionConfig).updateSyncTime);
+  }
+  startQuery(active) {
+    let { state } = this.view, pos = cur(state);
+    let context = new CompletionContext(state, pos, active.explicit, this.view);
+    let pending = new RunningQuery(active, context);
+    this.running.push(pending);
+    Promise.resolve(active.source(context)).then((result) => {
+      if (!pending.context.aborted) {
+        pending.done = result || null;
+        this.scheduleAccept();
+      }
+    }, (err) => {
+      this.view.dispatch({ effects: closeCompletionEffect.of(null) });
+      logException(this.view.state, err);
+    });
+  }
+  scheduleAccept() {
+    if (this.running.every((q) => q.done !== void 0))
+      this.accept();
+    else if (this.debounceAccept < 0)
+      this.debounceAccept = setTimeout(() => this.accept(), this.view.state.facet(completionConfig).updateSyncTime);
+  }
+  // For each finished query in this.running, try to create a result
+  // or, if appropriate, restart the query.
+  accept() {
+    var _a2;
+    if (this.debounceAccept > -1)
+      clearTimeout(this.debounceAccept);
+    this.debounceAccept = -1;
+    let updated = [];
+    let conf = this.view.state.facet(completionConfig), cState = this.view.state.field(completionState);
+    for (let i2 = 0; i2 < this.running.length; i2++) {
+      let query = this.running[i2];
+      if (query.done === void 0)
+        continue;
+      this.running.splice(i2--, 1);
+      if (query.done) {
+        let pos = cur(query.updates.length ? query.updates[0].startState : this.view.state);
+        let limit = Math.min(pos, query.done.from + (query.active.explicit ? 0 : 1));
+        let active = new ActiveResult(query.active.source, query.active.explicit, limit, query.done, query.done.from, (_a2 = query.done.to) !== null && _a2 !== void 0 ? _a2 : pos);
+        for (let tr of query.updates)
+          active = active.update(tr, conf);
+        if (active.hasResult()) {
+          updated.push(active);
+          continue;
+        }
+      }
+      let current = cState.active.find((a) => a.source == query.active.source);
+      if (current && current.isPending) {
+        if (query.done == null) {
+          let active = new ActiveSource(
+            query.active.source,
+            0
+            /* State.Inactive */
+          );
+          for (let tr of query.updates)
+            active = active.update(tr, conf);
+          if (!active.isPending)
+            updated.push(active);
+        } else {
+          this.startQuery(current);
+        }
+      }
+    }
+    if (updated.length || cState.open && cState.open.disabled)
+      this.view.dispatch({ effects: setActiveEffect.of(updated) });
+  }
+}, {
+  eventHandlers: {
+    blur(event) {
+      let state = this.view.state.field(completionState, false);
+      if (state && state.tooltip && this.view.state.facet(completionConfig).closeOnBlur) {
+        let dialog = state.open && getTooltip(this.view, state.open.tooltip);
+        if (!dialog || !dialog.dom.contains(event.relatedTarget))
+          setTimeout(() => this.view.dispatch({ effects: closeCompletionEffect.of(null) }), 10);
+      }
+    },
+    compositionstart() {
+      this.composing = 1;
+    },
+    compositionend() {
+      if (this.composing == 3) {
+        setTimeout(() => this.view.dispatch({ effects: startCompletionEffect.of(false) }), 20);
+      }
+      this.composing = 0;
+    }
+  }
+});
 var windows = typeof navigator == "object" && /* @__PURE__ */ /Win/.test(navigator.platform);
+var commitCharacters = /* @__PURE__ */ Prec.highest(/* @__PURE__ */ EditorView.domEventHandlers({
+  keydown(event, view) {
+    let field = view.state.field(completionState, false);
+    if (!field || !field.open || field.open.disabled || field.open.selected < 0 || event.key.length > 1 || event.ctrlKey && !(windows && event.altKey) || event.metaKey)
+      return false;
+    let option = field.open.options[field.open.selected];
+    let result = field.active.find((a) => a.source == option.source);
+    let commitChars = option.completion.commitCharacters || result.result.commitCharacters;
+    if (commitChars && commitChars.indexOf(event.key) > -1)
+      applyCompletion(view, option);
+    return false;
+  }
+}));
 var baseTheme3 = /* @__PURE__ */ EditorView.baseTheme({
   ".cm-tooltip.cm-tooltip-autocomplete": {
     "& > ul": {
@@ -20853,6 +21135,16 @@ function canStartStringAt(state, pos, prefixes) {
   }
   return -1;
 }
+function autocompletion(config2 = {}) {
+  return [
+    commitCharacters,
+    completionState,
+    completionConfig.of(config2),
+    completionPlugin,
+    completionKeymapExt,
+    baseTheme3
+  ];
+}
 var completionKeymap = [
   { key: "Ctrl-Space", run: startCompletion },
   { mac: "Alt-`", run: startCompletion },
@@ -20864,6 +21156,7 @@ var completionKeymap = [
   { key: "PageUp", run: /* @__PURE__ */ moveCompletionSelection(false, "page") },
   { key: "Enter", run: acceptCompletion }
 ];
+var completionKeymapExt = /* @__PURE__ */ Prec.highest(/* @__PURE__ */ keymap.computeN([completionConfig], (state) => state.facet(completionConfig).defaultKeymap ? [completionKeymap] : []));
 
 // node_modules/@codemirror/search/dist/index.js
 var basicNormalize = typeof String.prototype.normalize == "function" ? (x) => x.normalize("NFKD") : (x) => x;
@@ -32590,11 +32883,14 @@ var basicSetup = (() => {
     history(),
     foldGutter(),
     drawSelection(),
+    rectangularSelection(),
+    crosshairCursor(),
     EditorState.allowMultipleSelections.of(true),
     indentOnInput(),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     bracketMatching(),
     closeBrackets(),
+    autocompletion(),
     highlightActiveLine(),
     highlightSelectionMatches(),
     search(),

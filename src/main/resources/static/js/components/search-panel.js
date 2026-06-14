@@ -97,13 +97,17 @@ export class SearchPanel {
     this._matchCount = document.createElement('span');
     this._matchCount.className = 'cm-match-count';
 
-    const prevBtn = this._createBtn('↑', '上一个 (Shift+Enter)', () => this._nav('prev'));
-    const nextBtn = this._createBtn('↓', '下一个 (Enter)', () => this._nav('next'));
+    const prevBtn = this._createBtn(
+      '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 7L5 3L8 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      '上一个 (Shift+Enter)', () => this._nav('prev'));
+    const nextBtn = this._createBtn(
+      '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 3L5 7L8 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      '下一个 (Enter)', () => this._nav('next'));
 
     // 展开/收起替换的按钮
     this._expandBtn = document.createElement('button');
     this._expandBtn.className = 'cm-search-expand';
-    this._expandBtn.textContent = '▼';
+    this._expandBtn.innerHTML = '<svg viewBox="0 0 12 12" width="12" height="12"><path d="M2 3h8M2 9h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
     this._expandBtn.title = '展开替换';
     this._expandBtn.addEventListener('click', () => this._toggleReplace());
 
@@ -162,10 +166,10 @@ export class SearchPanel {
     }
   }
 
-  _createBtn(text, title, onClick) {
+  _createBtn(html, title, onClick) {
     const btn = document.createElement('button');
     btn.className = 'cm-search-nav-btn';
-    btn.textContent = text;
+    btn.innerHTML = html;
     btn.title = title;
     btn.addEventListener('click', onClick);
     return btn;
@@ -225,7 +229,9 @@ export class SearchPanel {
   _toggleReplace() {
     const show = this._replaceRow.style.display === 'none';
     this._replaceRow.style.display = show ? '' : 'none';
-    this._expandBtn.textContent = show ? '▲' : '▼';
+    this._expandBtn.innerHTML = show
+      ? '<svg viewBox="0 0 12 12" width="12" height="12"><path d="M2 6h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+      : '<svg viewBox="0 0 12 12" width="12" height="12"><path d="M2 3h8M2 9h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
   }
 
   // ────────── 搜索 ──────────
