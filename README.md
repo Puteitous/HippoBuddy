@@ -1,4 +1,4 @@
-<h1 align="center">🦛 Hippo Code</h1>
+<h1 align="center">Hippo Code</h1>
 
 <p align="center">基于 Java 21 的 AI 编程助手 · 多 LLM 提供商 · DAG 任务编排 · 多代理并行</p>
 
@@ -18,14 +18,15 @@
 </p>
 
 <p align="center">
-  <img src="./image-1.png" alt="Hippo Code 界面预览" width="860">
+  <img src="./image-1.png" alt="Hippo Code 界面预览" width="420">
+  <img src="./image.png" alt="Hippo Code 界面预览" width="420">
 </p>
 
 Hippo Code 是一个基于 Java 21 的 AI 编程助手，支持多 LLM 提供商、多代理并行执行、MCP/LSP 协议集成，可在终端 CLI、Web Dashboard 和桌面窗口三种模式下运行。
 
 ---
 
-## ✨ 特色
+## 特色
 
 - **DAG 任务编排** — 自动分析工具依赖，并行/顺序混合执行
 - **多代理系统** — 主 Agent 自动分解任务，子 Agent 独立并行执行
@@ -37,7 +38,7 @@ Hippo Code 是一个基于 Java 21 的 AI 编程助手，支持多 LLM 提供商
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ```bash
 mvn compile -q                          # 编译
@@ -47,7 +48,7 @@ mvn package -DskipTests                 # 打包
 
 ---
 
-## 🎮 启动方式
+## 启动方式
 
 | 入口        | 命令                                          | 说明                 |
 | ----------- | --------------------------------------------- | -------------------- |
@@ -58,7 +59,7 @@ mvn package -DskipTests                 # 打包
 
 ---
 
-## ⚙️ 配置
+## 配置
 
 复制 `config.yaml.example` 为 `config.yaml`，修改 LLM 配置：
 
@@ -71,7 +72,7 @@ llm:
 
 ---
 
-## ⌨️ CLI 端核心命令
+## CLI 端核心命令
 
 | 命令        | 说明       |
 | ----------- | --------   |
@@ -84,7 +85,7 @@ llm:
 
 ---
 
-## 📁 项目结构
+## 项目结构
 
 ```
 src/main/java/com/example/agent/
@@ -105,7 +106,7 @@ src/main/java/com/example/agent/
 
 ---
 
-## 🧰 技术栈
+## 技术栈
 
 - **Java 21** + 虚拟线程
 - **JLine** 终端交互

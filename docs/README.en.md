@@ -18,14 +18,15 @@
 </p>
 
 <p align="center">
-  <img src="../image-1.png" alt="Hippo Code Screenshot" width="860">
+  <img src="../image-1.png" alt="Hippo Code Screenshot" width="420">
+  <img src="../image.png" alt="Hippo Code Screenshot" width="420">
 </p>
 
 Hippo Code is a Java 21-based AI coding assistant that supports multiple LLM providers, multi-agent parallel execution, and MCP/LSP protocol integration. It runs in three modes: terminal CLI, Web Dashboard, and Desktop window.
 
 ---
 
-## ✨ Features
+## Features
 
 - **DAG Task Orchestration** — Auto-analyze tool dependencies, hybrid parallel/sequential execution
 - **Multi-Agent System** — Main Agent decomposes tasks, sub-agents execute independently in parallel
@@ -37,7 +38,7 @@ Hippo Code is a Java 21-based AI coding assistant that supports multiple LLM pro
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 mvn compile -q                          # Compile
@@ -47,7 +48,7 @@ mvn package -DskipTests                 # Package
 
 ---
 
-## 🎮 Launch Modes
+## Launch Modes
 
 | Entry       | Command                                        | Description            |
 | ----------- | ---------------------------------------------- | ---------------------- |
@@ -58,7 +59,7 @@ mvn package -DskipTests                 # Package
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Copy `config.yaml.example` to `config.yaml` and modify LLM settings:
 
@@ -71,7 +72,7 @@ llm:
 
 ---
 
-## ⌨️ CLI Commands
+## CLI Commands
 
 | Command     | Description      |
 | ----------- | ---------------- |
@@ -84,7 +85,7 @@ llm:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/main/java/com/example/agent/
@@ -105,7 +106,7 @@ src/main/java/com/example/agent/
 
 ---
 
-## 🧰 Tech Stack
+## Tech Stack
 
 - **Java 21** + Virtual Threads
 - **JLine** Terminal Interaction
