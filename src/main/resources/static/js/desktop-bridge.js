@@ -12,6 +12,9 @@
  */
 
 const HippoDesktop = (() => {
+  // DevTools 状态默认空函数，防止 Java 端在按钮初始化前调用
+  window.__devToolsOpen = function() {};
+
   function send(action, payload = {}) {
     return new Promise((resolve, reject) => {
       if (!window.cefQuery) {
@@ -405,6 +408,15 @@ const HippoDesktop = (() => {
         showToast('正在打开 DevTools...');
       });
     }
+
+    // DevTools 状态同步：Java 端在打开/关闭时调用此函数
+    window.__devToolsOpen = function(open) {
+      if (devtoolsBtn) {
+        devtoolsBtn.disabled = open;
+        devtoolsBtn.style.opacity = open ? '0.4' : '';
+        devtoolsBtn.style.pointerEvents = open ? 'none' : '';
+      }
+    };
 
     // 窗口控制按钮初始化（不再依赖 Java executeJavaScript 调用 _onReady）
     initWindowControls();

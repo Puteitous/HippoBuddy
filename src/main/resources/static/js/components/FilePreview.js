@@ -9,9 +9,10 @@
  *   - js/vendor/codemirror.js（esbuild 打包的 CM6 bundle）
  */
 
-import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark, openSearchPanel,
+import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark,
   javascript, python, java, html, css, json, markdown, xml, yaml, sql,
   rust, php, go, sass } from '../vendor/codemirror.js'
+import { SearchPanel } from './search-panel.js'
 
 export class FilePreview {
   constructor({ container, onError, onDirtyChange }) {
@@ -26,25 +27,11 @@ export class FilePreview {
     this._themeCompartment = new Compartment();
     /** @private MutationObserver 监听 data-theme 变化 */
     this._themeObserver = null;
+    /** @private 搜索面板实例 */
+    this._searchPanel = null;
 
-    // 全局注册 Ctrl+F/H 快捷键（只注册一次）
-    this._registerKeyboardShortcuts();
     // 绑定搜索按钮
     this._registerSearchButton();
-  }
-
-  /** @private 注册全局 Ctrl+F/H 快捷键 */
-  _registerKeyboardShortcuts() {
-    if (FilePreview._keyboardRegistered) return;
-    FilePreview._keyboardRegistered = true;
-
-    document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F' || e.key === 'h' || e.key === 'H')) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (window.__cmOpenSearch) window.__cmOpenSearch();
-      }
-    });
   }
 
   get currentPath() { return this._currentPath; }
@@ -55,7 +42,7 @@ export class FilePreview {
     const btn = document.getElementById('previewSearchBtn');
     if (!btn) return;
     btn.addEventListener('click', () => {
-      if (window.__cmOpenSearch) window.__cmOpenSearch();
+      if (this._searchPanel) this._searchPanel.openFind();
     });
   }
 
@@ -158,11 +145,44 @@ export class FilePreview {
     // 挂到 DOM 上，供 selection-actions 计算行号引用
     this._container._cmPreviewView = this._view;
 
-    // 暴露全局搜索方法（供 Ctrl+F/H 快捷键和搜索按钮调用）
-    window.__cmOpenSearch = () => {
+    // 初始化搜索面板
+    this._searchPanel = new SearchPanel(this._view);
+
+    // ── 拦截 Ctrl+F / Ctrl+H ──
+    //
+    // 使用 capture phase（第三个参数 true）在 CM6 内部 keymap 处理前拦截事件。
+    //
+    // 为什么不用 CM6 keymap 覆盖？
+    //   CM6 defaultKeymap 中 "Ctrl-f" 绑定了 cursorCharRight（Emacs 风格），
+    //   这个绑定会优先匹配成功并 return true，导致我们的 Mod-f 覆盖永远无法生效。
+    //
+    // 为什么用 capture phase？
+    //   capture phase 在 CM6 内部 dispatch 之前执行，preventDefault() +
+    //   stopImmediatePropagation() 可以直接阻止事件到达 CM6 的 keymap 系统。
+    //
+    // 注意事项：
+    //   - 只在 编辑器内快捷键冲突 时用此方案，新增快捷键优先用 CM6 keymap.of()
+    //   - _destroyEditor() 中必须 removeEventListener 清理
+    //   - scope: 'editor' 在此场景无效，因为 defaultKeymap 也有相同 key
+    this._view.dom.addEventListener('keydown', this._boundSearchShortcut = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          if (this._searchPanel) this._searchPanel.openFind();
+        } else if (e.key === 'h' || e.key === 'H') {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          if (this._searchPanel) this._searchPanel.openReplace();
+        }
+      }
+    }, true); // capture phase
+
+    // 暴露搜索方法（供外部如 DevTools 调用）
+    window.__cmOpenFind = () => {
       if (this._view) {
         this._view.focus();
-        openSearchPanel(this._view);
+        if (this._searchPanel) this._searchPanel.openFind();
       }
     };
 
@@ -173,8 +193,13 @@ export class FilePreview {
     this._stopThemeObserver();
     this._container._cmPreviewView = null;
     if (this._view) {
+      if (this._boundSearchShortcut) {
+        this._view.dom.removeEventListener('keydown', this._boundSearchShortcut, true);
+        this._boundSearchShortcut = null;
+      }
       this._view.destroy();
       this._view = null;
+      this._searchPanel = null;
     }
     this._container.innerHTML = '';
   }

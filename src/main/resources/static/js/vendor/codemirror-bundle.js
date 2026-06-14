@@ -54,7 +54,7 @@ import {
 import { closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 
 // 搜索
-import { search, highlightSelectionMatches, searchKeymap, openSearchPanel, closeSearchPanel } from '@codemirror/search'
+import { search, SearchQuery, setSearchQuery, getSearchQuery, highlightSelectionMatches, searchKeymap, openSearchPanel, closeSearchPanel, findNext, findPrevious, replaceNext, replaceAll, SearchCursor } from '@codemirror/search'
 
 // 主题
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -83,8 +83,17 @@ export {
   EditorState,
   Compartment,
   search,
+  searchKeymap,
+  SearchQuery,
+  setSearchQuery,
+  getSearchQuery,
   openSearchPanel,
   closeSearchPanel,
+  findNext,
+  findPrevious,
+  replaceNext,
+  replaceAll,
+  SearchCursor,
 }
 
 /** 手动构造 basicSetup，避免元包版本冲突 */

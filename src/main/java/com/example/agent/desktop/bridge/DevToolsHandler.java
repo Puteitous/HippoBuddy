@@ -21,6 +21,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * 通过构造函数注入父窗口 JFrame，不依赖 DesktopApplication 静态字段。
  * 使用实例级 pendingCallbacks 持有异步回调引用。
  * </p>
+ *
+ * <p>
+ * 窗口关闭时只隐藏（HIDE_ON_CLOSE），不销毁 CEF 浏览器实例，
+ * 避免反复 getDevTools() 导致 DevTools 页面空白。
+ * </p>
  */
 public class DevToolsHandler extends CefMessageRouterHandlerAdapter {
 
@@ -29,6 +34,8 @@ public class DevToolsHandler extends CefMessageRouterHandlerAdapter {
     private final JFrame parentFrame;
     private final List<CefQueryCallback> pendingCallbacks = new CopyOnWriteArrayList<>();
 
+    /** 主浏览器引用，用于关闭 DevTools 时通知前端恢复按钮状态 */
+    private CefBrowser mainBrowser;
     private JDialog devToolsDialog;
     private CefBrowser devToolsBrowser;
 
@@ -49,48 +56,70 @@ public class DevToolsHandler extends CefMessageRouterHandlerAdapter {
     private void handleOpenDevTools(CefBrowser browser, CefQueryCallback callback) {
         logger.info("正在打开 DevTools 窗口...");
         pendingCallbacks.add(callback);
+        this.mainBrowser = browser;
 
-        // 如果已有 DevTools，先关闭清理再重新打开
-        closeDevTools();
+        // 如果已有 DevTools 窗口，直接显示并聚焦，避免重复创建导致空白
+        if (devToolsDialog != null) {
+            if (!devToolsDialog.isVisible()) {
+                devToolsDialog.setVisible(true);
+            }
+            devToolsDialog.toFront();
+            notifyFrontend(true);
+            callback.success("{}");
+            pendingCallbacks.remove(callback);
+            return;
+        }
 
+        // 首次创建 DevTools
         CefBrowser devTools = browser.getDevTools();
         devToolsBrowser = devTools;
 
         SwingUtilities.invokeLater(() -> {
             try {
                 JDialog dialog = new JDialog(parentFrame, "Hippo Code - DevTools", false);
-                dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+                // HIDE_ON_CLOSE 而非 DISPOSE_ON_CLOSE：关闭只隐藏，保留 CEF 浏览器实例
+                dialog.setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
                 dialog.setSize(960, 640);
                 dialog.setLocationRelativeTo(parentFrame);
                 dialog.add(devTools.getUIComponent(), BorderLayout.CENTER);
 
-                // 窗口关闭时自动清理 CEF 浏览器资源
+                // 窗口关闭时只隐藏，不销毁 CEF 资源
                 dialog.addWindowListener(new WindowAdapter() {
                     @Override
-                    public void windowClosed(WindowEvent e) {
-                        logger.info("DevTools 窗口已关闭，清理 CEF 资源");
-                        closeDevTools();
+                    public void windowClosing(WindowEvent e) {
+                        logger.info("DevTools 窗口已隐藏，CEF 浏览器实例保留");
+                        notifyFrontend(false);
                     }
                 });
 
                 dialog.setVisible(true);
                 devToolsDialog = dialog;
                 logger.info("DevTools 窗口已打开");
+                notifyFrontend(true);
                 callback.success("{}");
             } catch (Exception e) {
                 logger.error("打开 DevTools 失败", e);
                 callback.failure(500, e.getMessage());
-                // 异常时清理，避免泄漏
-                closeDevTools();
+                // 异常时彻底清理，避免泄漏
+                notifyFrontend(false);
+                destroyDevTools();
             } finally {
                 pendingCallbacks.remove(callback);
             }
         });
     }
 
-    /** 关闭并清理 DevTools 资源（可安全重复调用） */
-    private void closeDevTools() {
-        // 先置空引用，防止重入
+    /** 通知前端 DevTools 打开/关闭状态 */
+    private void notifyFrontend(boolean open) {
+        if (mainBrowser != null) {
+            SwingUtilities.invokeLater(() ->
+                mainBrowser.executeJavaScript(
+                    "window.__devToolsOpen(" + open + ")", "", 0));
+        }
+    }
+
+    /** 彻底销毁 DevTools 资源（异常恢复时调用） */
+    private void destroyDevTools() {
         JDialog dialog = devToolsDialog;
         CefBrowser browser = devToolsBrowser;
         devToolsDialog = null;
@@ -100,7 +129,6 @@ public class DevToolsHandler extends CefMessageRouterHandlerAdapter {
             dialog.dispose();
         }
         if (browser != null) {
-            // 使用 close(false) 避免阻塞 CEF 线程或 EDT，防止死锁
             browser.close(false);
         }
     }

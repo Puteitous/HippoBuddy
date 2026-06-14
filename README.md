@@ -12,6 +12,14 @@
 - **多 LLM 提供商** — OpenAI / Ollama / DashScope 统一接口
 - **三端运行** — 终端 CLI / Web Dashboard / 桌面窗口
 
+## 界面展示
+
+> 📸
+>![alt text](image-1.png)
+> ![alt text](<vscode-file://vscode-app/e:/Trae_projects/Hippo Code/image.png> "alt text")
+
+<br />
+
 ## 快速开始
 
 ```bash
@@ -22,12 +30,12 @@ mvn package -DskipTests                 # 打包
 
 ## 启动方式
 
-| 入口 | 命令 | 说明 |
-|------|------|------|
-| CLI | `java com.example.agent.CliApplication` | 终端交互模式 |
-| CLI + Web | 加 `--web` 参数 | 终端 + Web Dashboard |
-| Web | `java com.example.agent.WebApplication` | 纯 Web 服务 |
-| Desktop | `java com.example.agent.DesktopApplication` | 桌面窗口 |
+| 入口        | 命令                                          | 说明                 |
+| --------- | ------------------------------------------- | ------------------ |
+| CLI       | `java com.example.agent.CliApplication`     | 终端交互模式             |
+| CLI + Web | 加 `--web` 参数                                | 终端 + Web Dashboard |
+| Web       | `java com.example.agent.WebApplication`     | 纯 Web 服务           |
+| Desktop   | `java com.example.agent.DesktopApplication` | 桌面窗口               |
 
 ## 配置
 
@@ -42,14 +50,14 @@ llm:
 
 ## cli端核心命令
 
-| 命令 | 说明 |
-|------|------|
-| `/help` | 帮助 |
-| `/clear` | 清屏 |
-| `/reset` | 重置会话 |
+| 命令        | 说明       |
+| --------- | -------- |
+| `/help`   | 帮助       |
+| `/clear`  | 清屏       |
+| `/reset`  | 重置会话     |
 | `/tokens` | Token 统计 |
-| `/mode` | 切换工作模式 |
-| `/exit` | 退出 |
+| `/mode`   | 切换工作模式   |
+| `/exit`   | 退出       |
 
 ## 项目结构
 
@@ -77,3 +85,4 @@ src/main/java/com/example/agent/
 - Jackson / OkHttp / JTokkit
 - JUnit 5 + Mockito
 - Maven
+

@@ -21550,6 +21550,10 @@ var searchState = /* @__PURE__ */ StateField.define({
   },
   provide: (f) => showPanel.from(f, (val) => val.panel)
 });
+function getSearchQuery(state) {
+  let curState = state.field(searchState, false);
+  return curState ? curState.query.spec : defaultQuery(state);
+}
 var SearchState = class {
   constructor(query, panel) {
     this.query = query;
@@ -32610,9 +32614,14 @@ export {
   Compartment,
   EditorState,
   EditorView,
+  SearchCursor,
+  SearchQuery,
   basicSetup,
   closeSearchPanel,
   css,
+  findNext,
+  findPrevious,
+  getSearchQuery,
   go,
   html,
   java,
@@ -32624,9 +32633,13 @@ export {
   openSearchPanel,
   php,
   python,
+  replaceAll,
+  replaceNext,
   rust,
   sass,
   search,
+  searchKeymap,
+  setSearchQuery,
   sql,
   xml,
   yaml

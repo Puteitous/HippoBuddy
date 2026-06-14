@@ -786,85 +786,344 @@
     flex-shrink: 0;
 }
 
-/* ========== CM6 搜索面板 ========== */
+/* ==========================================
+   自定义搜索浮层面板（替代默认 CM6 面板）
+   浮动在编辑器上方，VS Code / IDEA 风格
+   ========================================== */
 
-.cm-editor .cm-panel {
-    padding: 6px 8px;
+.cm-search-overlay {
+    position: absolute;
+    top: 0;
+    right: 8px;
+    z-index: 50;
+    min-width: 350px;
+    max-width: 420px;
     background: var(--bg-app, #fff);
-    border-bottom: 1px solid var(--border, #ddd);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    box-shadow: var(--shadow-lg, 0 4px 12px rgba(0,0,0,0.1));
+    padding: 6px 8px;
+    font-family: var(--font-sans, sans-serif);
+    font-size: var(--font-size-sm, 12px);
+    margin-top: 4px;
 }
 
-.cm-editor .cm-panel input,
-.cm-editor .cm-panel label {
+/* ── 每一行 ── */
+.cm-search-overlay .cm-search-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.cm-search-overlay .cm-search-row:last-child {
+    margin-bottom: 0;
+}
+
+/* ── 输入框容器（包裹输入框 + 选项图标） ── */
+.cm-search-overlay .cm-search-input-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── 输入框 ── */
+.cm-search-overlay .cm-search-input-wrap .cm-search-input {
+    width: 100%;
     font-size: var(--font-size-sm, 12px);
     font-family: var(--font-sans, sans-serif);
-    color: var(--text-primary, #333);
-}
-
-.cm-editor .cm-panel input {
-    background: var(--bg-code, #f5f5f5);
-    border: 1px solid var(--border, #ddd);
-    border-radius: 3px;
-    padding: 2px 6px;
+    color: var(--text-primary, #111827);
+    background: var(--bg-code, #f3f4f6);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: 4px 66px 4px 8px;  /* 右侧留空给选项图标 */
     outline: none;
+    transition: border-color var(--transition-fast, 0.2s), box-shadow var(--transition-fast, 0.2s);
+    box-sizing: border-box;
 }
 
-.cm-editor .cm-panel input:focus {
-    border-color: var(--accent, #4a9eff);
+.cm-search-overlay .cm-search-input-wrap .cm-search-input:focus {
+    border-color: var(--border, #e5e7eb);
 }
 
-.cm-editor .cm-panel .cm-button {
-    font-size: var(--font-size-sm, 12px);
-    padding: 2px 8px;
-    border: 1px solid var(--border, #ddd);
+.cm-search-overlay .cm-search-input-wrap .cm-search-input::placeholder {
+    color: var(--text-muted, #9ca3af);
+    font-size: var(--font-size-xs, 11px);
+}
+
+/* ── 选项图标组（输入框右侧内部） ── */
+.cm-search-overlay .cm-search-opt-group {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.cm-search-overlay .cm-search-opt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
     border-radius: 3px;
-    background: var(--bg-code, #f5f5f5);
-    color: var(--text-primary, #333);
     cursor: pointer;
+    user-select: none;
+    transition: background var(--transition-fast, 0.2s);
 }
 
-.cm-editor .cm-panel .cm-button:hover {
+.cm-search-overlay .cm-search-opt:hover {
     background: var(--bg-sidebar, #e8e8e8);
 }
 
-.cm-editor .cm-panel .cm-search label {
-    display: inline-flex;
+.cm-search-overlay .cm-search-opt input[type="checkbox"] {
+    display: none;
+}
+
+.cm-search-overlay .cm-search-opt .cm-search-opt-icon {
+    display: flex;
     align-items: center;
-    gap: 4px;
-    margin: 0 4px;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted, #9ca3af);
+    pointer-events: none;
+    transition: color var(--transition-fast, 0.2s);
 }
 
-.cm-editor .cm-panel .cm-search input[type="checkbox"] {
-    margin: 0;
+.cm-search-overlay .cm-search-opt .cm-search-opt-icon svg {
+    display: block;
 }
 
-[data-theme="dark"] .cm-editor .cm-panel {
-    background: var(--bg-app, #1e1e1e);
-    border-bottom-color: var(--border, #333);
+/* 选中状态 */
+.cm-search-overlay .cm-search-opt input[type="checkbox"]:checked + .cm-search-opt-icon {
+    color: var(--accent, #6ea8d7);
 }
 
-[data-theme="dark"] .cm-editor .cm-panel input {
-    background: var(--bg-code, #2a2a2a);
-    border-color: var(--border, #444);
-    color: var(--text-primary, #e0e0e0);
+/* 替换行输入框（没有选项图标，不需要右侧内边距） */
+.cm-replace-row .cm-search-input {
+    width: 100%;
+    padding: 4px 8px;
+    box-sizing: border-box;
 }
 
-[data-theme="dark"] .cm-editor .cm-panel input:focus {
-    border-color: var(--accent, #58a6ff);
+.cm-replace-row .cm-search-input::placeholder {
+    color: var(--text-muted, #9ca3af);
+    font-size: var(--font-size-xs, 11px);
 }
 
-[data-theme="dark"] .cm-editor .cm-panel .cm-button {
-    background: var(--bg-code, #2a2a2a);
-    border-color: var(--border, #444);
-    color: var(--text-primary, #e0e0e0);
+/* ── 匹配计数 ── */
+.cm-search-overlay .cm-match-count {
+    font-size: var(--font-size-xs, 11px);
+    color: var(--text-muted, #9ca3af);
+    min-width: 32px;
+    text-align: center;
+    white-space: nowrap;
+    user-select: none;
 }
 
-[data-theme="dark"] .cm-editor .cm-panel .cm-button:hover {
-    background: #3a3a3a;
+.cm-search-overlay .cm-match-count.no-match {
+    color: var(--error-text, #c62828);
 }
 
-[data-theme="dark"] .cm-editor .cm-panel .cm-search label {
-    color: var(--text-secondary, #a0a0a0);
+/* ── 导航按钮 ── */
+.cm-search-overlay .cm-search-nav-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 4px);
+    color: var(--text-secondary, #4b5563);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background var(--transition-fast, 0.2s), color var(--transition-fast, 0.2s);
+    line-height: 1;
+}
+
+.cm-search-overlay .cm-search-nav-btn:hover {
+    background: var(--bg-code, #f3f4f6);
+    color: var(--text-primary, #111827);
+}
+
+.cm-search-overlay .cm-search-nav-btn:active {
+    background: var(--bg-sidebar, #e8e8e8);
+}
+
+/* ── 展开替换按钮 ── */
+.cm-search-overlay .cm-search-expand {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 4px);
+    color: var(--text-muted, #9ca3af);
+    font-size: 9px;
+    cursor: pointer;
+    transition: background var(--transition-fast, 0.2s), color var(--transition-fast, 0.2s);
+}
+
+.cm-search-overlay .cm-search-expand:hover {
+    background: var(--bg-code, #f3f4f6);
+    color: var(--text-primary, #111827);
+}
+
+/* ── 关闭按钮 ── */
+.cm-search-overlay .cm-search-close {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm, 4px);
+    color: var(--text-muted, #9ca3af);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background var(--transition-fast, 0.2s), color var(--transition-fast, 0.2s);
+    line-height: 1;
+    margin-left: 2px;
+}
+
+.cm-search-overlay .cm-search-close:hover {
+    background: var(--bg-code, #f3f4f6);
+    color: var(--text-primary, #111827);
+}
+
+/* ── 替换操作按钮 ── */
+.cm-search-overlay .cm-search-action {
+    font-size: var(--font-size-xs, 11px);
+    font-family: var(--font-sans, sans-serif);
+    font-weight: 500;
+    padding: 3px 10px;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    background: var(--bg-app, #fff);
+    color: var(--text-primary, #111827);
+    cursor: pointer;
+    transition: background var(--transition-fast, 0.2s), border-color var(--transition-fast, 0.2s);
+    white-space: nowrap;
+}
+
+.cm-search-overlay .cm-search-action:hover {
+    background: var(--bg-code, #f3f4f6);
+    border-color: var(--text-muted, #9ca3af);
+}
+
+.cm-search-overlay .cm-search-action:active {
+    background: var(--bg-sidebar, #e8e8e8);
+}
+
+/* ── 隐藏默认 CM6 搜索面板 ── */
+.cm-editor .cm-panel {
+    display: none !important;
+}
+
+/* ==========================================
+   暗色主题
+   ========================================== */
+
+[data-theme="dark"] .cm-search-overlay {
+    background: var(--bg-app, #181a1b);
+    border-color: var(--border, #37373f);
+    box-shadow: var(--shadow-lg, 0 4px 12px rgba(0,0,0,0.35));
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-input-wrap .cm-search-input,
+[data-theme="dark"] .cm-search-overlay .cm-replace-row .cm-search-input {
+    background: var(--bg-code, #2a2a32);
+    border-color: var(--border, #37373f);
+    color: var(--text-primary, #e8e8ee);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-input-wrap .cm-search-input:focus,
+[data-theme="dark"] .cm-search-overlay .cm-replace-row .cm-search-input:focus {
+    border-color: var(--border, #37373f);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-input-wrap .cm-search-input::placeholder {
+    color: var(--text-muted, #737380);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-replace-row .cm-search-input::placeholder {
+    color: var(--text-muted, #737380);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-nav-btn {
+    color: var(--text-secondary, #a0a0aa);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-nav-btn:hover {
+    background: var(--bg-code, #2a2a32);
+    color: var(--text-primary, #e8e8ee);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-nav-btn:active {
+    background: #3a3a44;
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-expand {
+    color: var(--text-muted, #737380);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-expand:hover {
+    background: var(--bg-code, #2a2a32);
+    color: var(--text-primary, #e8e8ee);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-close {
+    color: var(--text-muted, #737380);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-close:hover {
+    background: var(--bg-code, #2a2a32);
+    color: var(--text-primary, #e8e8ee);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-action {
+    background: var(--bg-code, #2a2a32);
+    border-color: var(--border, #37373f);
+    color: var(--text-primary, #e8e8ee);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-action:hover {
+    background: #3a3a44;
+    border-color: var(--text-muted, #737380);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-action:active {
+    background: #44444e;
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-opt:hover {
+    background: var(--bg-code, #2a2a32);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-opt .cm-search-opt-icon {
+    color: var(--text-muted, #737380);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-search-opt input[type="checkbox"]:checked + .cm-search-opt-icon {
+    color: var(--accent, #58a6ff);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-match-count {
+    color: var(--text-muted, #737380);
+}
+
+[data-theme="dark"] .cm-search-overlay .cm-match-count.no-match {
+    color: var(--error-text, #ef5350);
 }
 
 .preview-btn {
