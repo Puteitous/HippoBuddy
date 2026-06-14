@@ -585,7 +585,7 @@
     color: var(--text-muted);
 }
 
-.input-inner:has(.input-row textarea:placeholder-shown) #sendBtn {
+.input-inner:has(.input-row textarea:placeholder-shown):has(.input-refs:empty) #sendBtn {
     visibility: hidden;
     opacity: 0;
 }

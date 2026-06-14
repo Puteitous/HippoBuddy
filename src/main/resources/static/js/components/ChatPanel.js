@@ -145,6 +145,32 @@ export class ChatPanel {
     };
     document.addEventListener('input', this._inputResizeHandler);
     
+    // 单独为 #messageInput 绑定 Enter 事件（它在 #chatContainer 外部，事件委托捕获不到）
+    if (this.elements.messageInput) {
+      this.elements.messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          if (this.isSendingMessage) return;
+          const content = this._getCombinedInput();
+          if (content) {
+            this.elements.messageInput.value = '';
+            this.elements.messageInput.style.height = 'auto';
+            this._clearRefs();
+            this.sendMessage(content);
+          }
+        }
+        // Backspace 删除最后一个引用卡片（输入框为空或光标在开头时）
+        if (e.key === 'Backspace' && (this.elements.messageInput.value === '' || this.elements.messageInput.selectionStart === 0)) {
+          const refsBar = this._getActiveRefsBar();
+          if (refsBar && refsBar.children.length > 0) {
+            e.preventDefault();
+            refsBar.lastElementChild.remove();
+            if (refsBar.children.length === 0) refsBar.style.display = 'none';
+          }
+        }
+      });
+    }
+    
     // Hero 快捷建议按钮
     this.container.addEventListener('click', (e) => {
       // 河马互动：点击弹跳 + 吐泡泡
