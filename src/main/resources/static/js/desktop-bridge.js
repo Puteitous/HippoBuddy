@@ -298,6 +298,11 @@ const HippoDesktop = (() => {
 
     getWindowState() {
       return send('windowGetState');
+    },
+
+    // ===== 外部链接 =====
+    openExternal(url) {
+      return send('openExternal', { url });
     }
   };
 
@@ -417,6 +422,20 @@ const HippoDesktop = (() => {
         devtoolsBtn.style.pointerEvents = open ? 'none' : '';
       }
     };
+
+    // ========== 外部链接拦截：阻止 JCEF 导航，改走系统浏览器 ==========
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('a[data-external="true"]');
+      if (!link) return;
+      e.preventDefault();
+      const url = link.getAttribute('href');
+      if (url) {
+        api.openExternal(url).catch(() => {
+          // 兜底：直接用 JS 打开
+          window.open(url, '_blank');
+        });
+      }
+    });
 
     // 窗口控制按钮初始化（不再依赖 Java executeJavaScript 调用 _onReady）
     initWindowControls();

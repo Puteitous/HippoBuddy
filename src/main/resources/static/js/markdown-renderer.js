@@ -83,6 +83,17 @@ export async function initMarkdownRenderer(options = {}) {
     };
   }
 
+  // 覆写 link renderer：外部链接添加 target="_blank" 和 data-external 标记
+  renderer.link = function(obj) {
+    const href = typeof obj === 'object' && obj !== null ? obj.href : obj;
+    const text = typeof obj === 'object' && obj !== null ? obj.text : '';
+    const isExternal = href && !href.startsWith('#') && !href.startsWith('/');
+    const attrs = isExternal
+      ? ` target="_blank" rel="noopener noreferrer" data-external="true"`
+      : '';
+    return `<a href="${escapeHtml(href)}"${attrs}>${text}</a>`;
+  };
+
   marked.setOptions({
     renderer: renderer,
     breaks: options.breaks !== false,

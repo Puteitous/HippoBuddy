@@ -8,6 +8,7 @@ import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.desktop.bridge.ConfigHandler;
 import com.example.agent.desktop.bridge.DevToolsHandler;
 import com.example.agent.desktop.bridge.DialogHandler;
+import com.example.agent.desktop.bridge.ExternalLinkHandler;
 import com.example.agent.desktop.bridge.FileHandler;
 import com.example.agent.desktop.bridge.WindowHandler;
 import com.example.agent.logging.WorkspaceManager;
@@ -212,6 +213,7 @@ public final class DesktopApplication {
             router.addHandler(new DevToolsHandler(windowManager.getMainFrame()), true);
             router.addHandler(new DialogHandler(windowManager.getMainFrame()), true);
             router.addHandler(new WindowHandler(windowManager), true);
+            router.addHandler(new ExternalLinkHandler(), true);
             client.addMessageRouter(router);
 
             // ====== 显示桌面窗口 ======
