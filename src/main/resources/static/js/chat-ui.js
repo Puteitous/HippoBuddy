@@ -3,6 +3,7 @@ import { renderMarkdown } from './markdown-renderer.js';
 import { EventBus } from './utils/event-bus.js';
 import { showToast } from './utils/toast.js';
 import { ReviewState } from './utils/review-state.js';
+import { getFileIconInfo } from './utils/file-icons.js';
 import { renderToolCard as renderToolCardFn, renderToolTimelineRow as renderToolTimelineRowFn } from './components/tool-renderers/index.js';
 import { renderBashCard as renderBashCardFn } from './components/tool-renderers/bash.js';
 import { renderEditFileCard as renderEditFileCardFn } from './components/tool-renderers/edit-file.js';
@@ -88,9 +89,22 @@ export class ChatUI {
     msgDiv.className = 'message user';
     if (messageId) msgDiv.dataset.messageId = messageId;
     
+    // 解析 @path 引用并渲染为卡片
+    const { refs, remainingContent } = this._parseRefsFromContent(content);
+    if (refs && refs.length > 0) {
+      const refsBar = document.createElement('div');
+      refsBar.className = 'message-user-refs';
+      refs.forEach(ref => {
+        refsBar.appendChild(this._createRefChip(ref));
+      });
+      msgDiv.appendChild(refsBar);
+    }
+
+    const displayContent = remainingContent ?? content;
+
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    contentDiv.textContent = content;
+    contentDiv.textContent = displayContent;
     msgDiv.appendChild(contentDiv);
 
     const timeDiv = document.createElement('div');
@@ -114,7 +128,7 @@ export class ChatUI {
     copyBtn.title = '复制';
     copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(content).then(() => {
+      navigator.clipboard.writeText(displayContent).then(() => {
         copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
         copyBtn.classList.add('copied');
         setTimeout(() => {
@@ -379,6 +393,64 @@ export class ChatUI {
       case 'in_progress': return '⋯';
       default: return '○';
     }
+  }
+
+  /**
+   * 从消息内容中解析开头的 @path 引用行，返回结构化 refs 和剩余文字
+   */
+  _parseRefsFromContent(content) {
+    if (!content || typeof content !== 'string' || !content.startsWith('@')) {
+      return { refs: null, remainingContent: content };
+    }
+
+    const lines = content.split('\n');
+    const refs = [];
+    let refEndIndex = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('@')) {
+        const pathPart = line.substring(1); // 去掉 @
+        // 解析 @path:start-end 格式
+        const lineMatch = pathPart.match(/^(.+?):(\d+)-(\d+)$/);
+        if (lineMatch) {
+          refs.push({ type: 'file', path: lineMatch[1], startLine: parseInt(lineMatch[2]), endLine: parseInt(lineMatch[3]) });
+        } else {
+          refs.push({ type: 'file', path: pathPart, startLine: null, endLine: null });
+        }
+        refEndIndex = i + 1;
+      } else if (line === '' && refEndIndex > 0) {
+        // 空行表示引用部分结束
+        break;
+      } else {
+        break;
+      }
+    }
+
+    const remainingContent = lines.slice(refEndIndex).join('\n').trim();
+    return { refs, remainingContent };
+  }
+
+  /**
+   * 根据 ref 对象创建引用卡片 DOM
+   */
+  _createRefChip(ref) {
+    const chip = document.createElement('span');
+    chip.className = 'input-ref-chip';
+    if (ref.type === 'file' && ref.path) {
+      const fileName = ref.path.split('/').pop();
+      const { iconFile } = getFileIconInfo(fileName);
+      const hasLines = ref.startLine != null && ref.endLine != null;
+      chip.innerHTML = `<img src="icons/${iconFile}" class="input-ref-chip-icon" draggable="false"> <span class="input-ref-chip-text">${fileName}</span>${hasLines ? `<span class="input-ref-chip-lines">${ref.startLine}-${ref.endLine}</span>` : ''}`;
+      chip.title = hasLines ? `${ref.path}:${ref.startLine}-${ref.endLine}` : ref.path;
+    } else if (ref.type === 'text' && ref.text) {
+      const textSpan = document.createElement('span');
+      textSpan.className = 'input-ref-chip-text';
+      textSpan.textContent = ref.text.length > 80 ? ref.text.slice(0, 80) + '…' : ref.text;
+      chip.appendChild(textSpan);
+    }
+    chip.style.pointerEvents = 'none';
+    return chip;
   }
 
   scrollToBottom() {

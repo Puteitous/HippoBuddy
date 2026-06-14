@@ -556,6 +556,25 @@
     max-width: 260px;
 }
 
+/* ── 历史消息用户引用卡片栏 ───────────────────── */
+.message-user-refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 0 6px 0;
+}
+
+.message.user .input-ref-chip {
+    cursor: default;
+    pointer-events: none;
+    background: var(--bg-code);
+    border-color: transparent;
+}
+
+.message.user .input-ref-chip .input-ref-chip-close {
+    display: none;
+}
+
 .input-row {
     display: flex;
     align-items: center;

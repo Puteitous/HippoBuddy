@@ -198,10 +198,21 @@ export class RollbackPanel {
             actionLabel = '将被修改';
             actionClass = 'action-restore';
           }
+          let diffHtml = '';
+          if (f.insertions !== undefined || f.deletions !== undefined) {
+            const ins = f.insertions || 0;
+            const del = f.deletions || 0;
+            if (ins === 0 && del === 0) {
+              diffHtml = '<span class="diff-none">无变动</span>';
+            } else {
+              diffHtml = `<span class="diff-stats"><span class="diff-add">+${ins}</span> <span class="diff-del">-${del}</span></span>`;
+            }
+          }
           return `<div class="rollback-inline-file">
             <span class="file-icon">${fileSvg}</span>
             <span class="file-name" title="${escapeHtml(f.filePath)}">${escapeHtml(f.filePath)}</span>
             <span class="file-action-badge ${actionClass}">${actionLabel}</span>
+            ${diffHtml}
           </div>`;
         }).join('')}
       </div>

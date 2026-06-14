@@ -250,7 +250,7 @@ describe('MessageSession.js', () => {
         useExecuteRequest: false
       });
       expect(mockChatService.sendMessage).toHaveBeenCalledWith(
-        's-1', '你好', expect.any(Function), null, '你是助手', null, undefined
+        's-1', '你好', expect.any(Function), null, '你是助手', null
       );
     });
 
@@ -263,7 +263,7 @@ describe('MessageSession.js', () => {
         useExecuteRequest: true
       });
       expect(mockChatService.executeRequest).toHaveBeenCalledWith(
-        's-1', 'ask response', expect.any(Function), null, null, null, undefined
+        's-1', 'ask response', expect.any(Function), null, null, null
       );
     });
 

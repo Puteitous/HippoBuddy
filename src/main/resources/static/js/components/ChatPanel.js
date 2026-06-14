@@ -112,7 +112,6 @@ export class ChatPanel {
         if (content) {
           input.value = '';
           input.style.height = 'auto';
-          this._clearRefs();
           this.sendMessage(content);
         }
       }
@@ -155,7 +154,6 @@ export class ChatPanel {
           if (content) {
             this.elements.messageInput.value = '';
             this.elements.messageInput.style.height = 'auto';
-            this._clearRefs();
             this.sendMessage(content);
           }
         }
@@ -201,7 +199,6 @@ export class ChatPanel {
           if (content) {
             input.value = '';
             input.style.height = 'auto';
-            this._clearRefs();
             this.sendMessage(content);
           }
         }
@@ -295,41 +292,28 @@ export class ChatPanel {
   }
   
   /**
-   * 获取输入框中的用户键入文字（不再拼接引用卡片内容）
+   * 获取合并后的输入内容：@path 引用 + 用户键入文字
    */
   _getCombinedInput() {
-    const input = this._getActiveInput();
-    return input?.value.trim() || '';
-  }
-
-  /**
-   * 从引用卡片栏提取结构化 refs 数组
-   * @returns {Array<{type:'file'|'text', path:string|null, startLine:number|null, endLine:number|null, text:string|null}>}
-   */
-  _getRefs() {
     const refsBar = this._getActiveRefsBar();
-    if (!refsBar) return [];
-    const chips = [...refsBar.querySelectorAll('.input-ref-chip')];
-    return chips.map(c => {
+    const input = this._getActiveInput();
+    const typed = input?.value.trim() || '';
+
+    const chips = refsBar ? [...refsBar.querySelectorAll('.input-ref-chip')] : [];
+    const refTexts = chips.map(c => {
       if (c.dataset.refType === 'file' && c.dataset.filePath) {
-        return {
-          type: 'file',
-          path: c.dataset.filePath,
-          startLine: c.dataset.startLine ? Number(c.dataset.startLine) : null,
-          endLine: c.dataset.endLine ? Number(c.dataset.endLine) : null,
-          text: null
-        };
+        const hasLines = c.dataset.startLine && c.dataset.endLine;
+        return hasLines
+          ? `@${c.dataset.filePath}:${c.dataset.startLine}-${c.dataset.endLine}`
+          : `@${c.dataset.filePath}`;
       }
-      // 纯文本引用
+      // 纯文本 → 代码块
       const full = c.title || c.textContent.replace('×', '').trim();
-      return {
-        type: 'text',
-        path: null,
-        startLine: null,
-        endLine: null,
-        text: full
-      };
+      return '```\n' + full + '\n```';
     });
+
+    if (refTexts.length === 0) return typed;
+    return refTexts.join('\n') + (typed ? '\n\n' + typed : '');
   }
 
   /**
@@ -434,16 +418,13 @@ export class ChatPanel {
 
     this._healStuckToolCards();
 
-    // 在清空之前提取当前引用的 refs（结构化数据传给后端）
-    const currentRefs = (!overrideContent && !editMessageId) ? this._getRefs() : [];
-
-    if (!overrideContent && !editMessageId && this.elements.messageInput) {
+    if (!editMessageId && this.elements.messageInput) {
       this.elements.messageInput.value = '';
       this.elements.messageInput.style.height = 'auto';
     }
     
-    // 清空引用卡片
-    if (!overrideContent && !editMessageId) {
+    // 清空引用卡片（编辑操作不清空）
+    if (!editMessageId) {
       this._clearRefs();
     }
     
@@ -463,7 +444,7 @@ export class ChatPanel {
     } else {
       const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       this._lastUserMessageId = tempId;
-      const { msgDiv, editBtn } = this.chatUI.appendUserMessage(content, tempId);
+      const { msgDiv, editBtn } = this.chatUI.appendUserMessage(content, tempId, true);
       this._lastUserMsgDiv = msgDiv;
       if (editBtn) {
         editBtn.addEventListener('click', () => this.startEditMessage(msgDiv));
@@ -494,7 +475,6 @@ export class ChatPanel {
     await session.start({
       sessionId: appState.currentSessionId,
       content,
-      refs: currentRefs,
       signal: this.currentAbortController?.signal,
       systemPrompt: appState.getSystemPrompt(),
       editMessageId: editMessageId || null,
@@ -1455,9 +1435,20 @@ export class ChatPanel {
             userMsgDiv.className = 'message user';
             if (row.id) userMsgDiv.dataset.messageId = row.id;
 
+            // 解析 @path 引用并渲染为卡片
+            const { refs, remainingContent } = this.chatUI._parseRefsFromContent(row.content);
+            if (refs && refs.length > 0) {
+              const refsBar = document.createElement('div');
+              refsBar.className = 'message-user-refs';
+              refs.forEach(ref => {
+                refsBar.appendChild(this.chatUI._createRefChip(ref));
+              });
+              userMsgDiv.appendChild(refsBar);
+            }
+
             const userContentDiv = document.createElement('div');
             userContentDiv.className = 'message-content';
-            userContentDiv.textContent = row.content;
+            userContentDiv.textContent = remainingContent ?? row.content;
             userMsgDiv.appendChild(userContentDiv);
 
             const timeDiv = document.createElement('div');
