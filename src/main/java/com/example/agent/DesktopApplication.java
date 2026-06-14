@@ -39,9 +39,11 @@ import java.nio.file.Path;
  * 启动流程：
  * <ol>
  *   <li>初始化 DI 容器（CoreModule.configure）</li>
+ *   <li>清理上次残留的 jcef_helper 进程</li>
  *   <li>初始化记忆模块（MemoryModule.initialize）</li>
  *   <li>启动 HTTP Server（DashboardServer.start），等待端口就绪</li>
  *   <li>初始化 JCEF，创建浏览器窗口加载 /cockpit</li>
+ *   <li>窗口关闭时：清理资源 → 等待 CEF 子进程退出 → System.exit(0)</li>
  * </ol>
  * </p>
  *
@@ -69,6 +71,8 @@ public final class DesktopApplication {
     private static final Logger logger = LoggerFactory.getLogger(DesktopApplication.class);
 
     private static int PORT;
+    private static CefApp cefApp;
+    private static volatile boolean shutdownStarted = false;
 
     private DesktopApplication() {
     }
@@ -77,6 +81,9 @@ public final class DesktopApplication {
         logger.info("========================================");
         logger.info("  Hippo Code Desktop 启动");
         logger.info("========================================");
+
+        // 0. 启动前清理上次残留的 jcef_helper 进程
+        cleanupResidualJcefProcesses();
 
         // 1. 初始化 DI 容器（与 CLI / Web 模式共享同一套初始化流程）
         CoreModule.configure();
@@ -102,6 +109,36 @@ public final class DesktopApplication {
                     logger.error("HTTP Server 启动失败", throwable);
                     System.exit(1);
                     return null;
+                });
+        // main() 在此自然结束，但 JVM 由 Swing EDT / JCEF 非守护线程保活，
+        // 不会退出。窗口关闭时由回调中的 System.exit(0) 终止。
+    }
+
+    /**
+     * 清理系统中残留的 JCEF Helper 进程（上次异常退出留下的孤儿进程）。
+     * 支持 Windows / Linux / macOS。
+     */
+    private static void cleanupResidualJcefProcesses() {
+        String os = System.getProperty("os.name").toLowerCase();
+        String targetName;
+        if (os.contains("win")) {
+            targetName = "jcef_helper.exe";
+        } else if (os.contains("linux") || os.contains("mac")) {
+            targetName = "jcef_helper";
+        } else {
+            return;
+        }
+
+        ProcessHandle.allProcesses()
+                .filter(ph -> ph.info().command()
+                        .map(cmd -> {
+                            String normalized = cmd.replace('\\', '/').toLowerCase();
+                            return normalized.endsWith(targetName.toLowerCase());
+                        })
+                        .orElse(false))
+                .forEach(ph -> {
+                    logger.warn("发现残留 {} 进程 (PID: {}), 正在清理...", targetName, ph.pid());
+                    ph.destroyForcibly();
                 });
     }
 
@@ -129,10 +166,15 @@ public final class DesktopApplication {
             builder.setAppHandler(new MavenCefAppHandlerAdapter() {
             });
 
-            CefApp app = builder.build();
+            cefApp = builder.build();
             logger.info("JCEF 初始化完成");
 
-            CefClient client = app.createClient();
+            // ====== 注册 ShutdownHook（兜底清理残留进程，防止非正常退出时子进程成为孤儿）======
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                cleanupResidualJcefProcesses();
+            }, "jcef-shutdown-hook"));
+
+            CefClient client = cefApp.createClient();
 
             // ====== 创建浏览器 ======
             CefBrowser browser = client.createBrowser(
@@ -142,11 +184,21 @@ public final class DesktopApplication {
 
             // ====== 窗口管理器（提前创建 JFrame，供 handler 注册时使用）=======
             WindowManager windowManager = new WindowManager(() -> {
+                if (shutdownStarted) return;
+                shutdownStarted = true;
+                logger.info("执行桌面端关闭流程...");
                 browser.close(true);
                 client.dispose();
-                app.dispose();
+                cefApp.dispose();
                 DashboardServer.stop();
                 GracefulShutdown.shutdownAll();
+                // 给 CEF 子进程 3 秒窗口完成清理，再退出 JVM
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                System.exit(0);
             });
 
             // ====== 注册 Bridge Handler ======

@@ -64,7 +64,6 @@ public class WindowManager {
                 if (WindowManager.this.onWindowClosing != null) {
                     WindowManager.this.onWindowClosing.run();
                 }
-                System.exit(0);
             }
 
             @Override
