@@ -1,3 +1,17 @@
+/* ── Emoji 回退字体：用 unicode-range 告诉 Chromium emoji 走系统字体 ── */
+@font-face {
+  font-family: 'Emoji Fallback';
+  src: local('Segoe UI Emoji'), local('Apple Color Emoji'), local('Noto Color Emoji');
+  unicode-range:
+    U+00A9,U+00AE,U+203C,U+2049,U+2122,U+2139,U+2194-2199,U+21A9,U+21AA,
+    U+231A,U+231B,U+2328,U+23CF,U+23E9-23F3,U+23F8-23FA,U+24C2,U+25AA,U+25AB,
+    U+25B6,U+25C0,U+25FB-25FE,U+2600-27BF,U+2934,U+2935,U+2B05-2B07,U+2B1B,
+    U+2B1C,U+2B50,U+2B55,U+3030,U+303D,U+3297,U+3299,U+1F000-1F02F,
+    U+1F0A0-1F0FF,U+1F100-1F64F,U+1F680-1F6FF,U+1F780-1F7FF,U+1F800-1F8FF,
+    U+1F900-1F9FF,U+1FA00-1FA6F,U+1FA70-1FAFF,U+1FB00-1FBFF,U+200D,U+FE00-FE0F;
+  font-display: swap;
+}
+
 :root {
   /* ==========================================
      白色基调色彩体系
@@ -64,7 +78,9 @@
   --spacing-2xl: 24px;
 
   /* --- 字体 --- */
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-mono:
+    'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Emoji Fallback',
+    monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   --font-size-xs: 11px;

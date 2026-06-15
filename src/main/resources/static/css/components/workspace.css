@@ -289,7 +289,7 @@
 }
 
 .file-preview-content .cm-editor .cm-scroller {
-    font-family: var(--font-mono, 'Consolas', 'Courier New', monospace), 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+    font-family: var(--font-mono);
     font-size: var(--font-size-md, 14px);
     line-height: 1.7;
 }
@@ -301,6 +301,7 @@
 /* 只读模式下显示更柔和的背景 */
 .file-preview-content .cm-editor .cm-content {
     padding: 20px 0;
+    font-family: var(--font-mono);
 }
 
 /* ========== 侧栏视图切换 - 折叠/视图切换 ========== */
@@ -1193,7 +1194,10 @@
     font-size: var(--font-size-md, 14px);
     word-break: break-word;
     box-sizing: border-box;
-    font-family: var(--font-sans), 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      'Emoji Fallback',
+      sans-serif;
 }
 
 .file-md-preview > *:first-child {
