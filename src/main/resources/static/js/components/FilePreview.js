@@ -13,6 +13,7 @@ import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark,
   javascript, python, java, html, css, json, markdown, xml, yaml, sql,
   rust, php, go, sass } from '../vendor/codemirror.js'
 import { SearchPanel } from './search-panel.js'
+import { renderMarkdown } from '../markdown-renderer.js'
 
 export class FilePreview {
   constructor({ container, onError, onDirtyChange }) {
@@ -29,9 +30,17 @@ export class FilePreview {
     this._themeObserver = null;
     /** @private 搜索面板实例 */
     this._searchPanel = null;
+    /** @private MD 预览模式状态 */
+    this._mdPreviewMode = false;
+    /** @private MD 预览渲染容器 */
+    this._mdPreviewEl = null;
+    /** @private 当前编辑的图像内容（预览切换时重新渲染使用） */
+    this._contentForPreview = '';
 
     // 绑定搜索按钮
     this._registerSearchButton();
+    // 绑定 MD 预览切换按钮
+    this._registerMdToggleBtn();
   }
 
   get currentPath() { return this._currentPath; }
@@ -44,6 +53,13 @@ export class FilePreview {
     btn.addEventListener('click', () => {
       if (this._searchPanel) this._searchPanel.openFind();
     });
+  }
+
+  /** @private 绑定 MD 预览切换按钮 */
+  _registerMdToggleBtn() {
+    const btn = document.getElementById('previewMdToggleBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => this._toggleMdPreview());
   }
 
   async show(filePath) {
@@ -69,8 +85,11 @@ export class FilePreview {
     }
 
     this._content = content;
+    this._contentForPreview = content;
     this._initEditor(content, filePath);
+    this._mdPreviewMode = false;
     this._updateSaveBtn();
+    this._updateMdToggleBtn();
   }
 
   async reload() {
@@ -194,6 +213,12 @@ export class FilePreview {
     // 初始化搜索面板
     this._searchPanel = new SearchPanel(this._view);
 
+    // ── MD 预览容器 ──
+    this._mdPreviewEl = document.createElement('div');
+    this._mdPreviewEl.className = 'file-md-preview';
+    this._mdPreviewEl.style.display = 'none';
+    this._container.appendChild(this._mdPreviewEl);
+
     // ── 拦截 Ctrl+F / Ctrl+H ──
     //
     // 使用 capture phase（第三个参数 true）在 CM6 内部 keymap 处理前拦截事件。
@@ -246,6 +271,7 @@ export class FilePreview {
       this._view.destroy();
       this._view = null;
       this._searchPanel = null;
+      this._mdPreviewEl = null;
     }
     this._container.innerHTML = '';
   }
@@ -308,7 +334,7 @@ export class FilePreview {
 
     if (this._currentPath) {
       btn.style.display = '';
-      if (searchBtn) searchBtn.style.display = '';
+      if (searchBtn) searchBtn.style.display = this._mdPreviewMode ? 'none' : '';
       if (this._dirty) {
         btn.innerHTML = `
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -327,6 +353,78 @@ export class FilePreview {
     } else {
       btn.style.display = 'none';
       if (searchBtn) searchBtn.style.display = 'none';
+    }
+  }
+
+  // ==================== MD 预览切换 ====================
+
+  /** 判断是否为 Markdown 文件 */
+  _isMarkdown(filePath) {
+    return filePath && filePath.toLowerCase().endsWith('.md');
+  }
+
+  /** 切换 MD 预览/编辑模式 */
+  async _toggleMdPreview() {
+    if (!this._isMarkdown(this._currentPath) || !this._view) return;
+
+    if (this._mdPreviewMode) {
+      // 切回编辑模式
+      this._mdPreviewEl.style.display = 'none';
+      this._view.dom.style.display = '';
+      this._view.focus();
+      this._mdPreviewMode = false;
+    } else {
+      // 切到预览模式
+      const content = this._view.state.doc.toString();
+      this._contentForPreview = content;
+      this._mdPreviewEl.innerHTML = '<div class="file-md-preview-loading">渲染中...</div>';
+      this._mdPreviewEl.style.display = '';
+      this._view.dom.style.display = 'none';
+      // 关闭搜索面板（预览模式下不可用）
+      if (this._searchPanel) this._searchPanel.close();
+
+      try {
+        const html = await renderMarkdown(content);
+        this._mdPreviewEl.innerHTML = html;
+      } catch (err) {
+        this._mdPreviewEl.innerHTML = `<div class="file-preview-placeholder" style="color:var(--error-text);">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p>渲染失败: ${this._escapeHtml(err.message)}</p>
+        </div>`;
+      }
+      this._mdPreviewMode = true;
+    }
+    this._updateSaveBtn();
+    this._updateMdToggleBtn();
+  }
+
+  /** 更新 MD 预览切换按钮状态 */
+  _updateMdToggleBtn() {
+    const btn = document.getElementById('previewMdToggleBtn');
+    if (!btn) return;
+
+    if (this._isMarkdown(this._currentPath) && this._view) {
+      btn.style.display = '';
+      btn.classList.toggle('active', this._mdPreviewMode);
+      btn.title = this._mdPreviewMode ? '编辑模式' : '预览模式';
+      btn.innerHTML = this._mdPreviewMode
+        ? `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 1.5H5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-11a1 1 0 0 0-1-1z"/>
+            <line x1="5" y1="4" x2="11" y2="4"/>
+            <line x1="5" y1="7" x2="11" y2="7"/>
+            <line x1="5" y1="10" x2="9" y2="10"/>
+          </svg>`
+        : `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 3v10l5-3.5L11 13l4-2.5V3l-4 2.5L6 3 1 6.5z"/>
+            <path d="M6 3v7.5"/>
+            <path d="M11 5.5V13"/>
+          </svg>`;
+    } else {
+      btn.style.display = 'none';
     }
   }
 

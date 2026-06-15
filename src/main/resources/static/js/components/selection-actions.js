@@ -74,7 +74,9 @@ export function initSelectionActions() {
           ? selection.anchorNode
           : selection.anchorNode?.parentElement;
         const previewContent = anchorEl?.closest?.('.file-preview-content');
-        if (previewContent && selection.rangeCount > 0) {
+        // 渲染后的 MD 预览中的选区没有行号概念，降级为纯文本
+        const isMdPreview = anchorEl?.closest?.('.file-md-preview');
+        if (previewContent && selection.rangeCount > 0 && !isMdPreview) {
           const filePath = previewContent.dataset.currentPath;
           const cmView = previewContent._cmPreviewView;
           if (filePath && cmView) {
