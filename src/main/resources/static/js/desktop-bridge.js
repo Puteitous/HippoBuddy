@@ -107,7 +107,7 @@ const HippoDesktop = (() => {
   // ========== 窗口最大化状态同步 ==========
   async function syncMaximizeState() {
     try {
-      const state = await send('windowGetState');
+      const state = await send('windowIsMaximized');
       const btn = document.getElementById('winMaximize');
       if (btn && state && typeof state.maximized === 'boolean') {
         btn.classList.toggle('is-maximized', state.maximized);
@@ -169,13 +169,13 @@ const HippoDesktop = (() => {
       });
     }
 
-    // 监听最大化状态变化（定时轮询 + 事件后检查）
+    // 监听最大化状态变化（定时轮询，windowIsMaximized 只读缓存字段，不阻塞 EDT）
     setInterval(syncMaximizeState, 1000);
 
     // 初始同步
     setTimeout(syncMaximizeState, 500);
 
-    // 窗口 resize 时也同步
+    // 窗口 resize 时同步（例如拖拽改变窗口大小后还原/最大化）
     window.addEventListener('resize', syncMaximizeState);
   }
 

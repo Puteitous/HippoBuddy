@@ -41,15 +41,9 @@ public final class NativeFolderPicker {
             } catch (Exception ignored) {
             }
 
-            Frame frame = (parent instanceof Frame) ? (Frame) parent : null;
-            int result;
-            if (frame != null) {
-                result = chooser.showOpenDialog(frame);
-            } else if (parent != null) {
-                result = chooser.showOpenDialog(parent);
-            } else {
-                result = chooser.showOpenDialog(null);
-            }
+            // 始终传 null 作为 parent，避免 undecorated JFrame 导致
+            // 文件夹选择对话框弹出在主窗口后面或模态循环异常
+            int result = chooser.showOpenDialog(null);
 
             if (result == JFileChooser.APPROVE_OPTION) {
                 File selected = chooser.getSelectedFile();

@@ -67,6 +67,16 @@ public class WindowManager {
             }
 
             @Override
+            public void windowDeiconified(WindowEvent e) {
+                // undecorated JFrame 从最小化恢复时，Windows 会重置为 NORMAL 状态，
+                // 导致最大化标志位丢失。这里手动重新应用最大化。
+                if (maximized) {
+                    maximized = false;
+                    maximizeWindow();
+                }
+            }
+
+            @Override
             public void windowStateChanged(WindowEvent e) {
                 int newState = e.getNewState();
                 // 最小化时不改变 maximized 状态，等还原时自动恢复
