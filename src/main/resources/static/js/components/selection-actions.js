@@ -182,10 +182,11 @@ export function initSelectionActions() {
     }
   });
 
-  // ── 点击其他地方隐藏 ─────────────────────────
+  // ── 点击其他地方隐藏（延迟隐藏，避免点击同区域空行时误隐藏） ──
   document.addEventListener('mousedown', (e) => {
     if (btn && !btn.contains(e.target)) {
-      hideBtn();
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hideBtn, 200);
     }
   });
 
@@ -196,10 +197,11 @@ export function initSelectionActions() {
     scrollRafId = requestAnimationFrame(() => {
       scrollRafId = null;
       const pos = getSelectionPosition();
+      clearTimeout(hideTimer);
       if (pos) {
         showBtn(pos.x, pos.y);
       } else {
-        hideBtn();
+        hideTimer = setTimeout(hideBtn, 200);
       }
     });
   }, true);

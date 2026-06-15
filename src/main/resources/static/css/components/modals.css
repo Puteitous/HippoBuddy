@@ -726,4 +726,99 @@ select.config-input option {
     transform: scale(0.98);
 }
 
+/* ========== 确认弹窗 ========== */
+
+.confirm-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    animation: fadeIn 0.15s ease;
+}
+
+.confirm-dialog {
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    min-width: 320px;
+    max-width: 400px;
+    padding: 20px 24px 16px;
+    animation: modalSlideIn 0.2s ease-out;
+}
+
+.confirm-dialog-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.confirm-dialog-message {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 20px;
+    word-break: break-word;
+}
+
+.confirm-dialog-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.confirm-dialog-btn {
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: var(--font-size-md);
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all var(--transition-fast);
+    outline: none;
+    min-width: 68px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.confirm-dialog-btn:focus-visible {
+    box-shadow: 0 0 0 2px var(--text-muted);
+}
+
+.confirm-dialog-btn-primary {
+    background: var(--text-primary);
+    color: var(--bg-app);
+    border-color: var(--text-primary);
+}
+
+.confirm-dialog-btn-primary:hover {
+    opacity: 0.8;
+}
+
+.confirm-dialog-btn-secondary {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
+
+.confirm-dialog-btn-secondary:hover {
+    background: var(--bg-code);
+    color: var(--text-primary);
+}
+
+.confirm-dialog-btn-danger {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border);
+}
+
+.confirm-dialog-btn-danger:hover {
+    background: var(--bg-code);
+    color: var(--error-color);
+    border-color: var(--error-color);
+}
+
 

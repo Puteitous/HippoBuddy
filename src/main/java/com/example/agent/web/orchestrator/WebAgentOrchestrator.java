@@ -307,14 +307,16 @@ public class WebAgentOrchestrator {
                 return;
             }
 
-            executeToolCalls(toolCalls, conversation, sseWriter, sessionId);
+            boolean allToolsCompleted = executeToolCalls(toolCalls, conversation, sseWriter, sessionId);
 
-            // 工具执行可能修改了文件，但 makeSnapshot（在 addAssistantMessage 中）在工具执行前就调用过了
-            // 重新创建快照以捕获工具执行后的实际文件状态
-            String userMsgId = getConversationService().findLastUserMessageId(conversation);
-            if (userMsgId != null) {
-                FileSnapshotManager.removeSnapshot(sessionId, userMsgId);
-                FileSnapshotManager.makeSnapshot(sessionId, userMsgId);
+            if (allToolsCompleted) {
+                // 工具全部执行完成，重新创建快照以捕获工具执行后的实际文件状态
+                // 注意：makeSnapshot（在 addAssistantMessage 中）在工具执行前就调用过了
+                String userMsgId = getConversationService().findLastUserMessageId(conversation);
+                if (userMsgId != null) {
+                    FileSnapshotManager.removeSnapshot(sessionId, userMsgId);
+                    FileSnapshotManager.makeSnapshot(sessionId, userMsgId);
+                }
             }
 
             toolRegistry.getBlockerChain().onTurnComplete();
@@ -362,7 +364,7 @@ public class WebAgentOrchestrator {
         sseWriter.sendSseEvent("done", "{}");
     }
 
-    private void executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId) {
+    private boolean executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId) {
         for (int i = 0; i < toolCalls.size(); i++) {
             ToolCall toolCall = toolCalls.get(i);
             if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
@@ -371,7 +373,7 @@ public class WebAgentOrchestrator {
                 } else {
                     logger.info("收到取消信号，跳过工具执行 (sessionId={})", sessionId);
                 }
-                return;
+                return false;
             }
 
             String toolName = toolCall.getFunction().getName();
@@ -469,7 +471,7 @@ public class WebAgentOrchestrator {
                                     logger.info("暂存剩余工具调用: sessionId={}, 数量={}, 列表=[{}]",
                                         sessionId, remaining.size(), remainingIds);
                                 }
-                                return;
+                                return false;
                             }
                         }
                     }
@@ -573,7 +575,7 @@ public class WebAgentOrchestrator {
                         remainingToolCalls.put(sessionId, remaining);
                         logger.info("暂存剩余工具调用: sessionId={}, 数量={}", sessionId, remaining.size());
                     }
-                    return;
+                    return false;
                 }
 
                 String rawResult = toolRegistry.execute(toolName, arguments);
@@ -597,7 +599,7 @@ public class WebAgentOrchestrator {
 
                     sseWriter.sendSseEvent("waiting_user", rawResult);
                     logger.info("waiting_user 事件已发送");
-                    return;
+                    return false;
                 }
 
                 String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
@@ -629,6 +631,7 @@ public class WebAgentOrchestrator {
                 RequestContext.clear();
             }
         }
+        return true;
     }
 
     /**

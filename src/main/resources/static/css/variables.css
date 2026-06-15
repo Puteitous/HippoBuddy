@@ -2,7 +2,7 @@
   /* ==========================================
      白色基调色彩体系
      参考 Claude/ChatGPT 配色哲学
-     蓝色仅用于极少数交互元素（链接 hover、焦点边框）
+     中性暖灰作为强调色
      ========================================== */
 
   /* --- 新变量体系 --- */
@@ -17,7 +17,7 @@
   --text-secondary:#4b5563;
   --text-muted:    #9ca3af;
 
-  --accent:        #6ea8d7;
+  --accent:        #787c82;
 
   /* --- 向后兼容别名（旧变量映射到新值） --- */
   --bg-white:      var(--bg-app);
@@ -28,7 +28,7 @@
   --text-light:    #d1d5db;
 
   --primary-color: var(--accent);
-  --primary-hover: #5a94c2;
+  --primary-hover: #5c6066;
   --primary-dark:  #1a1a2e;
   --primary-dark-hover: #16213e;
 
@@ -82,7 +82,7 @@
 
 [data-theme="dark"] {
   /* --- 新变量体系（暗色） ---
-     以 chat-nav-strip 展开色调为基准：温暖炭灰，告别冷峻深蓝黑
+     温暖炭灰基调，干净中性
      --- */
   --bg-canvas:     #32353c;
   --bg-app:        #181a1b;
@@ -95,7 +95,7 @@
   --text-secondary:#a0a0aa;
   --text-muted:    #737380;
 
-  --accent:        #58a6ff;
+  --accent:        #9ca0a6;
 
   /* --- 向后兼容别名（暗色） --- */
   --bg-white:      var(--bg-app);
@@ -106,7 +106,7 @@
   --text-light:    #737380;
 
   --primary-color: var(--accent);
-  --primary-hover: #4a8ac4;
+  --primary-hover: #b0b4ba;
 
   --success-color: #66bb6a;
   --success-bg:    #1b3a1e;

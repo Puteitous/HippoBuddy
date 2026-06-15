@@ -11,20 +11,29 @@
  * 一个 tab 就是一个文件路径，tab 的去重由外部保证。
  */
 
+import { ConfirmDialog } from '../utils/modal.js';
+
 export class FileTabs {
   /**
    * @param {Object} options
    * @param {HTMLElement} options.container - 标签容器 (#fileTabs)
    * @param {Function} options.onTabSelect - (filePath: string) => void
    * @param {Function} options.onTabClose - (filePath: string) => void
+   * @param {Function} [options.onBeforeSwitch] - async (fromPath, toPath) => boolean，切换前询问，返回 false 取消切换
+   * @param {Function} [options.onBeforeClose] - async (filePath) => boolean，关闭前询问，返回 false 取消关闭
    */
-  constructor({ container, onTabSelect, onTabClose }) {
+  constructor({ container, onTabSelect, onTabClose, onBeforeSwitch, onBeforeClose }) {
     this._container = container;
     this._onTabSelect = onTabSelect || (() => {});
     this._onTabClose = onTabClose || (() => {});
+    this._onBeforeSwitch = onBeforeSwitch || null;
+    this._onBeforeClose = onBeforeClose || null;
 
     /** @type {Map<string, HTMLElement>} path → tab element */
     this._tabs = new Map();
+    /** @type {Set<string>} 追踪脏文件路径 */
+    this._dirtyFiles = new Set();
+    this._batchClosing = false;
     this._activePath = null;
     this._order = [];
     this._dragPath = null;
@@ -70,6 +79,21 @@ export class FileTabs {
     const tabEl = this._tabs.get(filePath);
     if (!tabEl) return;
     tabEl.classList.toggle('dirty', dirty);
+    if (dirty) {
+      this._dirtyFiles.add(filePath);
+    } else {
+      this._dirtyFiles.delete(filePath);
+    }
+  }
+
+  /** 是否有脏文件 */
+  get hasDirtyFiles() {
+    return this._dirtyFiles.size > 0;
+  }
+
+  /** 脏文件数量 */
+  get dirtyCount() {
+    return this._dirtyFiles.size;
   }
 
   /** 销毁，清理副作用 */
@@ -84,10 +108,10 @@ export class FileTabs {
   // ==================== 打开 / 切换 ====================
 
   /** 打开（或切换到）一个 tab */
-  openTab(filePath, displayName) {
+  async openTab(filePath, displayName) {
     const existing = this._tabs.get(filePath);
     if (existing) {
-      this._selectTab(filePath);
+      await this._selectTab(filePath);
       return;
     }
 
@@ -112,22 +136,22 @@ export class FileTabs {
     const closeEl = document.createElement('button');
     closeEl.className = 'file-tab-close';
     closeEl.textContent = '✕';
-    closeEl.addEventListener('click', (e) => {
+    closeEl.addEventListener('click', async (e) => {
       e.stopPropagation();
-      this.closeTab(filePath);
+      await this.closeTab(filePath);
     });
     tabEl.appendChild(closeEl);
 
     // Click to select
-    tabEl.addEventListener('click', () => {
-      this._selectTab(filePath);
+    tabEl.addEventListener('click', async () => {
+      await this._selectTab(filePath);
     });
 
     // 中键关闭
-    tabEl.addEventListener('auxclick', (e) => {
+    tabEl.addEventListener('auxclick', async (e) => {
       if (e.button === 1) {
         e.preventDefault();
-        this.closeTab(filePath);
+        await this.closeTab(filePath);
       }
     });
 
@@ -144,15 +168,20 @@ export class FileTabs {
     this._container.appendChild(tabEl);
     this._tabs.set(filePath, tabEl);
     this._order.push(filePath);
-    this._selectTab(filePath);
+    await this._selectTab(filePath);
 
     // 滚动标签到可见
     tabEl.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
   }
 
   /** 切换到指定 tab */
-  _selectTab(filePath) {
+  async _selectTab(filePath, { _internal = false } = {}) {
     if (this._activePath === filePath) return;
+
+    // 切换前询问（脏检查），内部操作（如关闭 tab 后的自动切换）跳过
+    if (!_internal && this._onBeforeSwitch && this._activePath) {
+      if (!(await this._onBeforeSwitch(this._activePath, filePath))) return;
+    }
 
     // 取消旧 tab 高亮
     if (this._activePath) {
@@ -173,9 +202,17 @@ export class FileTabs {
   // ==================== 关闭 ====================
 
   /** 关闭一个 tab */
-  closeTab(filePath) {
+  async closeTab(filePath) {
     const tabEl = this._tabs.get(filePath);
     if (!tabEl) return;
+
+    // 关闭前询问（脏检查），批量关闭时跳过（已在 _confirmBatchClose 中处理）
+    if (!this._batchClosing && this._onBeforeClose) {
+      if (!(await this._onBeforeClose(filePath))) return;
+    }
+
+    // 清理 dirty 追踪
+    this._dirtyFiles.delete(filePath);
 
     tabEl.remove();
     this._tabs.delete(filePath);
@@ -187,7 +224,7 @@ export class FileTabs {
       if (this._order.length > 0) {
         // 优先选左边的，没有则选右边的
         const nextIdx = Math.min(idx, this._order.length - 1);
-        this._selectTab(this._order[nextIdx]);
+        await this._selectTab(this._order[nextIdx], { _internal: true });
       } else {
         this._activePath = null;
         this._onTabClose(filePath);
@@ -198,36 +235,33 @@ export class FileTabs {
   }
 
   /** 关闭除指定的以外所有 tab */
-  closeOthers(filePath) {
+  async closeOthers(filePath) {
     const paths = this._order.filter(p => p !== filePath);
-    for (const p of paths) {
-      this.closeTab(p);
-    }
+    if (!(await this._confirmBatchClose(paths))) return;
+    this._batchClosing = true;
+    for (const p of paths) await this.closeTab(p);
+    this._batchClosing = false;
   }
 
   /** 关闭指定 tab 右侧的所有 tab */
-  closeRight(filePath) {
+  async closeRight(filePath) {
     const idx = this._order.indexOf(filePath);
     if (idx === -1) return;
     const paths = this._order.slice(idx + 1);
-    for (const p of paths) {
-      this.closeTab(p);
-    }
+    if (!(await this._confirmBatchClose(paths))) return;
+    this._batchClosing = true;
+    for (const p of paths) await this.closeTab(p);
+    this._batchClosing = false;
   }
 
-  /** 关闭所有 tab */
-  closeAll() {
+  /** 关闭所有 tab，返回是否实际关闭了 */
+  async closeAll() {
     const paths = this._order.slice();
-    for (const p of paths) {
-      const el = this._tabs.get(p);
-      if (el) el.remove();
-      this._tabs.delete(p);
-    }
-    this._order = [];
-    this._activePath = null;
-    if (paths.length > 0) {
-      this._onTabClose(paths[paths.length - 1]);
-    }
+    if (!(await this._confirmBatchClose(paths))) return false;
+    this._batchClosing = true;
+    for (const p of paths) await this.closeTab(p);
+    this._batchClosing = false;
+    return true;
   }
 
   // ==================== 右键菜单 ====================
@@ -246,11 +280,11 @@ export class FileTabs {
       <div class="ctx-item" data-action="copy-path">复制文件路径</div>
     `;
 
-    menu.addEventListener('click', (e) => {
+    menu.addEventListener('click', async (e) => {
       const item = e.target.closest('.ctx-item');
       if (!item) return;
       const action = item.dataset.action;
-      this._handleContextAction(action);
+      await this._handleContextAction(action);
       this._hideContextMenu();
     });
 
@@ -281,22 +315,22 @@ export class FileTabs {
     this._ctxTargetPath = null;
   }
 
-  _handleContextAction(action) {
+  async _handleContextAction(action) {
     const target = this._ctxTargetPath;
     if (!target) return;
 
     switch (action) {
       case 'close-current':
-        this.closeTab(target);
+        await this.closeTab(target);
         break;
       case 'close-others':
-        this.closeOthers(target);
+        await this.closeOthers(target);
         break;
       case 'close-right':
-        this.closeRight(target);
+        await this.closeRight(target);
         break;
       case 'close-all':
-        this.closeAll();
+        await this.closeAll();
         break;
       case 'copy-path':
         navigator.clipboard.writeText(target).catch(() => {});
@@ -401,5 +435,26 @@ export class FileTabs {
   _getDisplayName(filePath) {
     const parts = filePath.replace(/\\/g, '/').split('/');
     return parts[parts.length - 1] || filePath;
+  }
+
+  /**
+   * 批量关闭前检查脏文件并弹窗确认
+   * @param {string[]} paths - 待关闭的文件路径列表
+   * @returns {Promise<boolean>} 是否继续关闭
+   */
+  async _confirmBatchClose(paths) {
+    const dirtyPaths = paths.filter(p => this._dirtyFiles.has(p));
+    if (dirtyPaths.length === 0) return true;
+    const names = dirtyPaths.map(p => this._getDisplayName(p));
+    if (names.length === 1) {
+      const result = await ConfirmDialog.closeConfirm(`"${names[0]}" 有未保存的修改，是否保存？`);
+      return result !== 'cancel';
+    }
+    const result = await ConfirmDialog.confirm(
+      `${names.length} 个文件有未保存的修改，确定全部关闭吗？`,
+      '全部关闭',
+      '取消'
+    );
+    return result;
   }
 }

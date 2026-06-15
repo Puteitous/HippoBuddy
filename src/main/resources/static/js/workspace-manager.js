@@ -17,6 +17,7 @@ import { FileTree } from './components/FileTree.js';
 import { FileTabs } from './components/FileTabs.js';
 import { FilePreview } from './components/FilePreview.js';
 import { EventBus } from './utils/event-bus.js';
+import { ConfirmDialog } from './utils/modal.js';
 
 const HippoWorkspace = (() => {
   if (typeof window.cefQuery === 'undefined') {
@@ -73,6 +74,30 @@ const HippoWorkspace = (() => {
     container: els.tabs,
     onTabSelect: handleTabSelect,
     onTabClose: handleTabClose,
+    onBeforeSwitch: async (fromPath, toPath) => {
+      if (filePreview.isDirty && filePreview.currentPath === fromPath) {
+        const name = fromPath.split('/').pop() || fromPath;
+        const result = await ConfirmDialog.saveDiscardCancel(`"${name}" 有未保存的修改，是否保存？`);
+        if (result === 'save') {
+          await filePreview.save();
+          return true;
+        }
+        return result !== 'cancel';
+      }
+      return true;
+    },
+    onBeforeClose: async (filePath) => {
+      if (filePreview.isDirty && filePreview.currentPath === filePath) {
+        const name = filePath.split('/').pop() || filePath;
+        const result = await ConfirmDialog.closeConfirm(`"${name}" 有未保存的修改，是否保存？`);
+        if (result === 'save') {
+          await filePreview.save();
+          return true;
+        }
+        return result !== 'cancel';
+      }
+      return true;
+    },
   });
 
   const filePreview = new FilePreview({
@@ -188,7 +213,7 @@ const HippoWorkspace = (() => {
     }
   }
 
-  function _applyRestoredSession(session) {
+  async function _applyRestoredSession(session) {
     const files = session.openFiles || [];
     if (files.length === 0) return;
 
@@ -198,7 +223,7 @@ const HippoWorkspace = (() => {
 
     for (const filePath of files) {
       const displayName = filePath.split('/').pop() || filePath;
-      fileTabs.openTab(filePath, displayName);
+      await fileTabs.openTab(filePath, displayName);
     }
 
     // 恢复回调
@@ -206,9 +231,9 @@ const HippoWorkspace = (() => {
 
     // 切换到激活的文件
     if (session.activeFile && files.includes(session.activeFile)) {
-      fileTabs._selectTab(session.activeFile);
+      await fileTabs._selectTab(session.activeFile);
     } else {
-      fileTabs._selectTab(files[files.length - 1]);
+      await fileTabs._selectTab(files[files.length - 1]);
     }
 
     // 显式触发预览（_selectTab 在目标已是 activePath 时会提前返回，不触发回调）
@@ -301,11 +326,13 @@ const HippoWorkspace = (() => {
       _restoreWorkspaceSession();
     },
 
-    clearWorkspace() {
+    async clearWorkspace() {
+      // closeAll 内部会检查脏文件并弹窗，用户取消则中止
+      if (fileTabs.count > 0 && !(await fileTabs.closeAll())) return;
+
       _currentRoot = null;
       _currentView = 'sessions';
       fileTree.clear();
-      fileTabs.closeAll();
       hidePreview();
       if (els.fileTreeEmpty) els.fileTreeEmpty.style.display = '';
       if (els.workspaceIndicator) els.workspaceIndicator.style.setProperty('display', 'none', 'important');
@@ -393,9 +420,9 @@ const HippoWorkspace = (() => {
 
   // ========== 文件选择流 ==========
 
-  function handleFileSelect(filePath) {
+  async function handleFileSelect(filePath) {
     const displayName = filePath.split('/').pop() || filePath;
-    fileTabs.openTab(filePath, displayName);
+    await fileTabs.openTab(filePath, displayName);
     fileTree.setActiveFile(filePath);
     showPreview(filePath);
     // 打开文件后持久化标签页状态

@@ -47,8 +47,10 @@ export class FilePreview {
   }
 
   async show(filePath) {
+    // 上游（FileTabs onBeforeSwitch）已处理脏检查弹窗，此处只清理旧 dirty 状态
     if (this._dirty) {
-      if (!confirm('当前文件有未保存的修改，确定要切换吗？')) return;
+      this._dirty = false;
+      this._onDirtyChange(this._currentPath, false);
     }
 
     this._currentPath = filePath;
@@ -168,10 +170,20 @@ export class FilePreview {
       parent: this._container,
       dispatch: (tr) => {
         this._view.update([tr]);
-        if (tr.docChanged && !this._dirty) {
-          this._dirty = true;
-          this._onDirtyChange(this._currentPath, true);
-          this._updateSaveBtn();
+        if (tr.docChanged) {
+          const currentContent = this._view.state.doc.toString();
+          if (currentContent === this._content) {
+            // 撤销回原始内容，清除脏标记
+            if (this._dirty) {
+              this._dirty = false;
+              this._onDirtyChange(this._currentPath, false);
+              this._updateSaveBtn();
+            }
+          } else if (!this._dirty) {
+            this._dirty = true;
+            this._onDirtyChange(this._currentPath, true);
+            this._updateSaveBtn();
+          }
         }
       },
     });
