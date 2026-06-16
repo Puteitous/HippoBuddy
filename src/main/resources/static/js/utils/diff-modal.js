@@ -54,7 +54,7 @@ export class DiffModalManager {
     }
   }
 
-  async show(filePath) {
+  async show(filePath, toolCallId) {
     if (!this.overlay) {
       console.error('Diff modal not initialized');
       return;
@@ -82,7 +82,11 @@ export class DiffModalManager {
     }
 
     try {
-      const response = await fetch(`/api/files/diff?path=${encodeURIComponent(filePath)}&all=true`);
+      let url = `/api/files/diff?path=${encodeURIComponent(filePath)}&all=true`;
+      if (toolCallId) {
+        url += `&toolCallId=${encodeURIComponent(toolCallId)}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('加载失败');
       }
@@ -90,7 +94,8 @@ export class DiffModalManager {
       this.allChanges = data.allChanges || [];
       this.renderTimeline();
       if (this.allChanges.length > 0) {
-        this.selectChange(this.allChanges.length - 1);
+        const targetIndex = data.targetIndex != null ? data.targetIndex : this.allChanges.length - 1;
+        this.selectChange(targetIndex);
       }
     } catch (e) {
       if (this.contentPanel) {
@@ -247,3 +252,5 @@ export class DiffModalManager {
 }
 
 export const diffModalManager = new DiffModalManager();
+// 全局函数，供 inline onclick 使用（tool-timeline-view-btn）
+window.showFileDiff = (filePath, toolCallId) => diffModalManager.show(filePath, toolCallId);

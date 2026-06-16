@@ -10,6 +10,7 @@ import com.example.agent.llm.model.Message;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.snapshot.FileSnapshotManager;
 import com.example.agent.snapshot.Snapshot;
+import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.web.util.ConversationJsonlReader;
 import com.example.agent.web.util.MessageConverter;
 import com.example.agent.web.util.SessionListBuilder;
@@ -111,6 +112,10 @@ public class SessionApiHandler implements HttpHandler {
     }
 
     private void handleGetMessages(HttpExchange exchange, String sessionId) throws IOException {
+        // 切换到该会话时，同时加载其文件变更记录
+        FileChangeTracker.clearSessionChanges();
+        FileChangeTracker.loadSessionChanges(sessionId);
+
         Map<String, Conversation> activeSessions = com.example.agent.web.session.WebSessionManager.getInstance().getSessions();
         Conversation conversation = activeSessions.get(sessionId);
 

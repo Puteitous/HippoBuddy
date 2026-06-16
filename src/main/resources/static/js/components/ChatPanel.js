@@ -1378,6 +1378,7 @@ export class ChatPanel {
               segments.push({
                 type: 'tool',
                 name: tc.name,
+                id: tc.id,
                 args: tc.arguments,
                 result: result,
                 resultContent: resultContent,

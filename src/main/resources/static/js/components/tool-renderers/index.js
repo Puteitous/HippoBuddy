@@ -187,7 +187,7 @@ export function renderToolTimelineRow(tool) {
     const args = parseToolArgs(tool.args);
     const fp = args.path || '';
     if (fp) {
-      viewBtnHtml = `<span class="tool-timeline-view-btn" onclick="event.stopPropagation();window.HippoWorkspace?.navigateToFile('${escapeHtml(fp)}')">查看</span>`;
+      viewBtnHtml = `<span class="tool-timeline-view-btn" onclick="event.stopPropagation();window.showFileDiff('${escapeHtml(fp)}','${escapeHtml(tool.id||'')}')">查看</span>`;
     }
   }
 

@@ -33,7 +33,7 @@ export function renderEditFileCard(tool) {
   }
 
   return `
-    <div class="tool-card editfile-card" data-file-path="${escapeHtml(filePath)}" data-review-status="pending">
+    <div class="tool-card editfile-card" data-file-path="${escapeHtml(filePath)}" data-review-status="pending" data-tool-call-id="${tool.id}">
       <div class="tool-header">
         <span class="tool-icon">${editSvg}</span>
         <span class="tool-title">编辑文件</span>

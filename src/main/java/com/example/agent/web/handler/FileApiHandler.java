@@ -73,6 +73,7 @@ public class FileApiHandler implements HttpHandler {
         String filePath = null;
         int changeIndex = -1;
         boolean allChanges = false;
+        String toolCallId = null;
 
         if (query != null) {
             String[] params = query.split("&");
@@ -88,6 +89,8 @@ public class FileApiHandler implements HttpHandler {
                         }
                     } else if ("all".equals(kv[0])) {
                         allChanges = "true".equals(kv[1]);
+                    } else if ("toolCallId".equals(kv[0])) {
+                        toolCallId = java.net.URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
                     }
                 }
             }
@@ -106,6 +109,7 @@ public class FileApiHandler implements HttpHandler {
 
         if (allChanges) {
             List<Map<String, Object>> allChangesList = new ArrayList<>();
+            int targetIndex = changes.size() - 1;
             for (int ci = 0; ci < changes.size(); ci++) {
                 FileChangeTracker.FileChange c = changes.get(ci);
                 Map<String, Object> changeItem = new HashMap<>();
@@ -116,11 +120,15 @@ public class FileApiHandler implements HttpHandler {
                 String modified = c.newContent != null ? c.newContent : "";
                 changeItem.put("changes", buildDiffList(original, modified));
                 changeItem.put("wordDiff", buildWordDiffList(original, modified));
+                if (toolCallId != null && !toolCallId.isEmpty() && toolCallId.equals(c.toolCallId)) {
+                    targetIndex = ci;
+                }
                 allChangesList.add(changeItem);
             }
             Map<String, Object> response = new HashMap<>();
             response.put("filePath", filePath);
             response.put("allChanges", allChangesList);
+            response.put("targetIndex", targetIndex);
             sendJson(exchange, 200, objectMapper.writeValueAsString(response));
             return;
         }

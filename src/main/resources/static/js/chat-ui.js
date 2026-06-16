@@ -4,6 +4,7 @@ import { EventBus } from './utils/event-bus.js';
 import { showToast } from './utils/toast.js';
 import { ReviewState } from './utils/review-state.js';
 import { getFileIconInfo } from './utils/file-icons.js';
+import { diffModalManager } from './utils/diff-modal.js';
 import { renderToolCard as renderToolCardFn, renderToolTimelineRow as renderToolTimelineRowFn } from './components/tool-renderers/index.js';
 import { renderBashCard as renderBashCardFn } from './components/tool-renderers/bash.js';
 import { renderEditFileCard as renderEditFileCardFn } from './components/tool-renderers/edit-file.js';
@@ -295,8 +296,9 @@ export class ChatUI {
       viewBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const filePath = card.dataset.filePath;
-        if (filePath && window.HippoWorkspace?.navigateToFile) {
-          window.HippoWorkspace.navigateToFile(filePath);
+        const toolCallId = card.dataset.toolCallId;
+        if (filePath) {
+          diffModalManager.show(filePath, toolCallId);
         }
       });
     }

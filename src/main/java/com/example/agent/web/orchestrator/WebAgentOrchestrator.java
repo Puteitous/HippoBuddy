@@ -578,41 +578,47 @@ public class WebAgentOrchestrator {
                     return false;
                 }
 
-                String rawResult = toolRegistry.execute(toolName, arguments);
+                // 设置 toolCallId 供 FileChangeTracker.recordChange 使用
+                FileChangeTracker.setCurrentToolCallId(toolCall.getId());
+                try {
+                    String rawResult = toolRegistry.execute(toolName, arguments);
 
-                if ("ask_user".equals(toolName)) {
-                    JsonNode resultNode = objectMapper.readTree(rawResult);
-                    String question = resultNode.get("question").asText();
-                    List<String> options = new ArrayList<>();
-                    if (resultNode.has("options")) {
-                        for (JsonNode opt : resultNode.get("options")) {
-                            options.add(opt.asText());
+                    if ("ask_user".equals(toolName)) {
+                        JsonNode resultNode = objectMapper.readTree(rawResult);
+                        String question = resultNode.get("question").asText();
+                        List<String> options = new ArrayList<>();
+                        if (resultNode.has("options")) {
+                            for (JsonNode opt : resultNode.get("options")) {
+                                options.add(opt.asText());
+                            }
                         }
+                        boolean allowCustomInput = resultNode.get("allow_custom_input").asBoolean();
+
+                        logger.info("发送 waiting_user 事件: question={}, options={}", question, options);
+
+                        sessionManager.setPendingToolCall(sessionId, new PendingToolCall(
+                            toolCall.getId(), toolName, question, options, allowCustomInput
+                        ));
+
+                        sseWriter.sendSseEvent("waiting_user", rawResult);
+                        logger.info("waiting_user 事件已发送");
+                        return false;
                     }
-                    boolean allowCustomInput = resultNode.get("allow_custom_input").asBoolean();
 
-                    logger.info("发送 waiting_user 事件: question={}, options={}", question, options);
+                    String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
 
-                    sessionManager.setPendingToolCall(sessionId, new PendingToolCall(
-                        toolCall.getId(), toolName, question, options, allowCustomInput
-                    ));
+                    getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
+                    sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
+                        + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
+                        + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
+                        + "\",\"args\":" + arguments + "}");
 
-                    sseWriter.sendSseEvent("waiting_user", rawResult);
-                    logger.info("waiting_user 事件已发送");
-                    return false;
+                    SessionLogger.logToolCall(sessionId, toolName, arguments, truncatedResult, true);
+                    SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
+                    stats.addToolCall();
+                } finally {
+                    FileChangeTracker.clearCurrentToolCallId();
                 }
-
-                String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
-
-                getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
-                sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                    + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                    + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
-                    + "\",\"args\":" + arguments + "}");
-
-                SessionLogger.logToolCall(sessionId, toolName, arguments, truncatedResult, true);
-                SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
-                stats.addToolCall();
             } catch (Exception e) {
                 String errorMsg = e.getMessage();
                 if (errorMsg == null || errorMsg.isEmpty()) {
