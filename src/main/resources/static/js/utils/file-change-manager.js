@@ -149,6 +149,7 @@ export class FileChangeManager {
       if (result.success) {
         showToast(`文件已恢复：${filePath.split(/[/\\]/).pop()}`, { type: 'success', duration: 3000 });
         this.updateFileChanges();
+        EventBus.emit('file:changes-updated');
       } else {
         showToast(`回滚失败：${result.error || '未知错误'}`, { type: 'error', duration: 3000 });
         btnEl.classList.remove('rolling');

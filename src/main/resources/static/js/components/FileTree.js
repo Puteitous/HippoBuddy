@@ -100,10 +100,15 @@ export class FileTree {
     const preservedDirs = new Set(this._expandedDirs);
     const preservedActive = this._activeFilePath;
     try {
-      this._container.innerHTML = '';
-      await this._renderTree(this._rootPath, this._container);
+      // 离屏构建：在 DocumentFragment 中完整构建新树
+      const tempContainer = document.createElement('div');
+      await this._renderTree(this._rootPath, tempContainer);
+
+      // 渲染已展开的子目录
       for (const dirPath of preservedDirs) {
-        const nodeEl = this._findDirNode(dirPath);
+        const nodeEl = tempContainer.querySelector(
+          `.file-tree-node[data-is-dir][data-path="${this._escapeCss(dirPath)}"]`
+        );
         if (!nodeEl) continue;
         const childrenEl = nodeEl.nextElementSibling;
         if (childrenEl && childrenEl.classList.contains('file-tree-children')) {
@@ -111,6 +116,11 @@ export class FileTree {
           await this._renderTree(dirPath, childrenEl);
         }
       }
+
+      // 原子替换：同一帧内完成清空 + 挂载，消除空白帧
+      this._container.replaceChildren(...tempContainer.childNodes);
+
+      // 恢复选中高亮
       this._activeFilePath = preservedActive;
       if (preservedActive) {
         const activeEl = this._findDirNode(preservedActive) || this._findFileNode(preservedActive);
