@@ -545,7 +545,7 @@ const HippoWorkspace = (() => {
       const onMove = (ev) => {
         const diff = ev.clientX - startX; // 拖右为正，拖左为负
         const w = Math.max(180, Math.min(500, startWidth + diff));
-        sessionPanel.classList.remove('collapsed');
+        sessionPanel.classList.remove('hidden');
         document.documentElement.style.setProperty('--session-panel-width', w + 'px');
       };
 

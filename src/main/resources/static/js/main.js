@@ -187,6 +187,26 @@ function init() {
     activityBar.onPanelOpen('token', () => tokenMonitor?.updateTokenStats());
     activityBar.onPanelOpen('monitor', () => metricsPanel?.updateMetrics());
     activityBar.onPanelOpen('files', () => fileChangeManager?.updateFileChanges());
+
+    // 注册会话面板折叠/展开动作
+    activityBar.onAction('toggle-session', (btn) => {
+      const sp = document.getElementById('sessionPanel');
+      if (!sp) return;
+      sp.classList.toggle('hidden');
+      btn.classList.toggle('active', !sp.classList.contains('hidden'));
+    });
+
+    // 同步初始 active 状态（默认不隐藏）
+    const sp = document.getElementById('sessionPanel');
+    const sessionBtn = activityBar.bar?.querySelector('[data-action="toggle-session"]');
+    if (sp && sessionBtn) {
+      sessionBtn.classList.toggle('active', !sp.classList.contains('hidden'));
+    }
+
+    // 弹窗新建会话
+    activityBar.onAction('new-session', () => {
+      createNewSession();
+    });
   }
 
   // 15. 安排 splash 结束 + 页面内容渐入
@@ -263,9 +283,6 @@ function bindGlobalEvents() {
     applyHljsTheme(theme);
   });
   
-  // 新建会话
-  document.getElementById('sessionNewBtn')?.addEventListener('click', createNewSession);
-  
   // 聊天面板头部 - 新建会话
   document.getElementById('chatNewBtn')?.addEventListener('click', createNewSession);
   
@@ -317,9 +334,6 @@ function bindGlobalEvents() {
     });
   }
   
-  // 压缩会话
-  elements.compactBtn?.addEventListener('click', handleCompact);
-  
   // 提示词预设
   elements.promptCustomBtn?.addEventListener('click', () => {
     elements.promptModal.style.display = 'flex';
@@ -345,16 +359,6 @@ function bindGlobalEvents() {
     }
     closePromptModal();
   });
-  
-  // 左侧栏折叠（52px 仅图标）
-  const sessionPanel = document.getElementById('sessionPanel');
-  const sessionToggle = document.getElementById('sessionToggle');
-  if (sessionPanel && sessionToggle) {
-    sessionToggle.addEventListener('click', () => {
-      sessionPanel.classList.toggle('collapsed');
-      sessionToggle.title = sessionPanel.classList.contains('collapsed') ? '展开侧栏' : '折叠侧栏';
-    });
-  }
   
   // 侧边栏折叠（通过事件代理处理）
   document.querySelectorAll('.sidebar-section-header').forEach(header => {

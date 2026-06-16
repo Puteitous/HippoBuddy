@@ -11,15 +11,6 @@ export class FileChangeManager {
   }
 
   init() {
-    const list = document.getElementById('fileChangesList');
-    if (list) {
-      list.addEventListener('click', (e) => {
-        this._handleFileClick(e);
-      });
-    } else {
-      console.warn('FileChangeManager: #fileChangesList not found');
-    }
-
     // Activity Bar 面板的列表点击（事件委托，面板 body 始终存在）
     const activityBody = document.getElementById('activityPanelBody');
     if (activityBody) {

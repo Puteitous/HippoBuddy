@@ -22,6 +22,9 @@ export class ActivityBar {
         /** 面板打开回调：{ panelName: () => void } */
         this._openCallbacks = new Map();
 
+        /** 动作按钮回调：{ actionName: (btn) => void } */
+        this._actionHandlers = new Map();
+
         this.init();
     }
 
@@ -32,8 +35,14 @@ export class ActivityBar {
         this.bar.querySelectorAll('.activity-bar-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const panelName = btn.dataset.panel;
-                if (!panelName) return;
-                this.togglePanel(panelName);
+                if (panelName) {
+                    this.togglePanel(panelName);
+                    return;
+                }
+                const action = btn.dataset.action;
+                if (action && this._actionHandlers.has(action)) {
+                    this._actionHandlers.get(action)(btn);
+                }
             });
         });
 
@@ -78,6 +87,15 @@ export class ActivityBar {
      */
     onPanelOpen(panelName, callback) {
         this._openCallbacks.set(panelName, callback);
+    }
+
+    /**
+     * 注册动作按钮回调（非面板按钮，如切换侧栏）
+     * @param {string} actionName - 对应 data-action
+     * @param {Function} handler - (btn: HTMLElement) => void
+     */
+    onAction(actionName, handler) {
+        this._actionHandlers.set(actionName, handler);
     }
 
     /**
