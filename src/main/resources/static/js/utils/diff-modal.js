@@ -12,6 +12,7 @@ export class DiffModalManager {
     this.statsEl = null;
     this.rollbackBtn = null;
     this.currentFilePath = null;
+    this.currentToolCallId = null;
     this.allChanges = [];
     this.activeIndex = -1;
 
@@ -61,6 +62,7 @@ export class DiffModalManager {
     }
 
     this.currentFilePath = filePath;
+    this.currentToolCallId = null;
     this.overlay.style.display = 'flex';
 
     if (this.filePathEl) {
@@ -152,6 +154,7 @@ export class DiffModalManager {
     });
 
     const c = this.allChanges[index];
+    this.currentToolCallId = c.toolCallId || '';
     this.renderDiff(c);
   }
 
@@ -214,7 +217,10 @@ export class DiffModalManager {
       const response = await fetch('/api/files/rollback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath: this.currentFilePath })
+        body: JSON.stringify({
+          filePath: this.currentFilePath,
+          toolCallId: this.currentToolCallId || undefined
+        })
       });
 
       const result = await response.json();
@@ -246,6 +252,7 @@ export class DiffModalManager {
       this.overlay.style.display = 'none';
     }
     this.currentFilePath = null;
+    this.currentToolCallId = null;
     this.allChanges = [];
     this.activeIndex = -1;
   }

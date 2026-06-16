@@ -116,6 +116,7 @@ public class FileApiHandler implements HttpHandler {
                 changeItem.put("toolName", c.toolName);
                 changeItem.put("timestamp", c.timestamp);
                 changeItem.put("index", ci);
+                changeItem.put("toolCallId", c.toolCallId != null ? c.toolCallId : "");
                 String original = c.originalContent != null ? c.originalContent : "";
                 String modified = c.newContent != null ? c.newContent : "";
                 changeItem.put("changes", buildDiffList(original, modified));
@@ -169,28 +170,38 @@ public class FileApiHandler implements HttpHandler {
 
         JsonNode json = objectMapper.readTree(body);
         String filePath = json.has("filePath") ? json.get("filePath").asText() : null;
+        String toolCallId = json.has("toolCallId") ? json.get("toolCallId").asText() : null;
         if (filePath == null || filePath.trim().isEmpty()) {
             sendJson(exchange, 400, objectMapper.writeValueAsString(Map.of("error", "Missing or invalid filePath")));
             return;
         }
 
-        logger.info("执行文件回滚: filePath={}", filePath);
+        logger.info("执行文件回滚: filePath={}, toolCallId={}", filePath, toolCallId);
         
-        boolean success = FileChangeTracker.rollback(filePath);
+        boolean success;
+        if (toolCallId != null && !toolCallId.isEmpty()) {
+            success = FileChangeTracker.rollbackByToolCallId(filePath, toolCallId);
+        } else {
+            success = FileChangeTracker.rollback(filePath);
+        }
         
         if (!success) {
             String absolutePath = Path.of(filePath).toAbsolutePath().normalize().toString();
             if (!absolutePath.equals(filePath)) {
                 logger.info("尝试使用绝对路径回滚: absolutePath={}", absolutePath);
-                success = FileChangeTracker.rollback(absolutePath);
+                if (toolCallId != null && !toolCallId.isEmpty()) {
+                    success = FileChangeTracker.rollbackByToolCallId(absolutePath, toolCallId);
+                } else {
+                    success = FileChangeTracker.rollback(absolutePath);
+                }
             }
         }
         
         if (success) {
-            logger.info("文件回滚成功: filePath={}", filePath);
+            logger.info("文件回滚成功: filePath={}, toolCallId={}", filePath, toolCallId);
             sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", true, "message", "文件已恢复")));
         } else {
-            logger.warn("文件回滚失败: filePath={}", filePath);
+            logger.warn("文件回滚失败: filePath={}, toolCallId={}", filePath, toolCallId);
             sendJson(exchange, 404, objectMapper.writeValueAsString(Map.of("success", false, "error", "未找到可恢复的版本")));
         }
     }

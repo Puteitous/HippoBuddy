@@ -513,7 +513,9 @@ async function switchSession(sessionId) {
     
     tokenMonitor.scheduleUpdate();
     metricsPanel.updateMetrics();
+    // 刷新文件变更列表（后端已在 handleGetMessages 中加载了目标会话的变更）
     fileChangeManager?.updateFileChanges();
+    EventBus.emit('file:changes-updated');
   } catch (e) {
     chatContainer.classList.remove('switching');
     chatContainer.innerHTML = `

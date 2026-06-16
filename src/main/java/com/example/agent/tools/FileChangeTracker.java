@@ -216,6 +216,61 @@ public class FileChangeTracker {
         return result;
     }
 
+    /**
+     * 根据 toolCallId 回滚到指定变更，移除该变更及其之后的所有变更。
+     * 如果 toolCallId 为空，回滚最后一次变更。
+     */
+    public static boolean rollbackByToolCallId(String filePath, String toolCallId) {
+        ensureInitialized();
+        if (toolCallId == null || toolCallId.isEmpty()) {
+            return rollback(filePath);
+        }
+
+        List<FileChange> allChanges = getAllChanges(filePath);
+        FileChange target = null;
+        for (FileChange c : allChanges) {
+            if (toolCallId.equals(c.toolCallId)) {
+                target = c;
+                break;
+            }
+        }
+        if (target == null) return false;
+
+        try {
+            if (target.newFile) {
+                Files.deleteIfExists(Path.of(target.filePath));
+            } else if (target.originalBytes != null) {
+                Files.write(Path.of(target.filePath), target.originalBytes,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            } else {
+                Files.writeString(Path.of(target.filePath), target.originalContent, StandardCharsets.UTF_8);
+            }
+
+            String sessionId = target.sessionId;
+            Map<String, List<FileChange>> sessionChanges = changesBySession.get(sessionId);
+            if (sessionChanges != null) {
+                List<FileChange> fileChanges = sessionChanges.get(target.filePath);
+                if (fileChanges != null) {
+                    int listIndex = -1;
+                    for (int i = 0; i < fileChanges.size(); i++) {
+                        if (toolCallId.equals(fileChanges.get(i).toolCallId)) {
+                            listIndex = i;
+                            break;
+                        }
+                    }
+                    if (listIndex >= 0) {
+                        fileChanges.subList(listIndex, fileChanges.size()).clear();
+                    }
+                }
+                flushSessionToFile(sessionId, sessionChanges);
+            }
+            return true;
+        } catch (Exception e) {
+            logger.error("回滚失败: filePath={}, toolCallId={}", filePath, toolCallId, e);
+            return false;
+        }
+    }
+
     public static boolean rollback(String filePath) {
         ensureInitialized();
         FileChange change = getLastChange(filePath);
