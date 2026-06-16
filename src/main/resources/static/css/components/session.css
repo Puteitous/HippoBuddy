@@ -7,7 +7,7 @@
     background: transparent;
     min-width: 52px;
     overflow: hidden;
-    transition: width var(--transition-normal);
+    transition: width var(--transition-normal), opacity var(--transition-normal), min-width var(--transition-normal);
     contain: layout style paint;
     will-change: width;
 }
@@ -17,8 +17,13 @@
     transition: none !important;
 }
 
-.session-panel.collapsed {
-    width: 52px !important;
+.session-panel.hidden {
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+    opacity: 0;
 }
 
 .session-header {
@@ -51,99 +56,6 @@
     gap: 2px;
 }
 
-.session-new-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-md);
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition-fast);
-    flex-shrink: 0;
-}
-
-.session-new-btn:hover {
-    background: var(--bg-code);
-    color: var(--text-primary);
-}
-
-.session-new-btn:active {
-    transform: scale(0.95);
-}
-
-.toggle-icon-hamburger {
-    display: flex;
-    align-items: center;
-    transform: translateY(1px);
-}
-
-.session-panel.collapsed .session-header {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 12px 0 8px;
-    gap: 2px;
-}
-
-.session-panel.collapsed .session-header-left {
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-}
-
-.session-panel.collapsed .session-header-title {
-    opacity: 0;
-    width: 0;
-    height: 0;
-    padding: 0;
-    margin: 0;
-    overflow: hidden;
-}
-
-.session-panel.collapsed .session-category {
-    display: none;
-}
-
-.session-panel.collapsed .session-list {
-    display: none;
-}
-
-/* 折叠触发按钮 */
-.session-toggle-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-md);
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition-fast);
-    flex-shrink: 0;
-}
-
-.session-toggle-btn:hover {
-    background: var(--bg-code);
-    color: var(--text-secondary);
-}
-
-.session-toggle-btn svg {
-    transition: transform var(--transition-normal);
-}
-
-.session-panel.collapsed .session-toggle-btn svg {
-    transform: rotate(180deg);
-}
-
-.session-panel.collapsed .session-new-btn {
-    display: flex;
-}
 
 .session-list {
     flex: 1;
@@ -280,10 +192,6 @@
     transform: translateY(2px);
 }
 
-.session-panel.collapsed .session-show-more {
-    display: none;
-}
-
 .session-rename-input {
     flex: 1;
     border: 1px solid var(--border);
@@ -352,10 +260,6 @@
     transform: scale(0.85);
 }
 
-.session-panel.collapsed .view-capsule {
-    display: none;
-}
-
 /* ========== 左侧面板拖拽分隔条 ========== */
 .session-resizer {
     width: 4px;
@@ -369,8 +273,8 @@
     border-radius: 2px;
 }
 
-/* 折叠时分隔条隐藏 */
-.session-panel.collapsed ~ .session-resizer {
+/* 面板隐藏时分隔条隐藏 */
+.session-panel.hidden ~ .session-resizer {
     display: none;
 }
 

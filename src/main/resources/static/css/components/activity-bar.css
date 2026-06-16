@@ -13,7 +13,7 @@
     padding: 8px 0;
     gap: 2px;
     background: transparent;
-    border-right: 1px solid var(--border);
+    border-right: 1px solid color-mix(in srgb, var(--border), var(--text-secondary) 20%);
     z-index: 50;
     position: relative;
 }
@@ -67,7 +67,7 @@
     top: 0;
     bottom: 0;
     width: 320px;
-    background: var(--bg-white);
+    background: var(--bg-canvas);
     border-right: 1px solid var(--border);
     z-index: 60;
     display: flex;
@@ -513,7 +513,7 @@
     padding: 2px 8px;
     border: 1px solid var(--border-color);
     border-radius: 10px;
-    background: var(--bg-white);
+    background: var(--bg-canvas);
     color: var(--text-secondary);
     cursor: pointer;
     flex-shrink: 0;
@@ -539,4 +539,24 @@
     font-size: 10px;
     vertical-align: middle;
     color: var(--error-color);
+}
+
+/* 会话面板切换按钮旋转动画 */
+.activity-bar-btn[data-action="toggle-session"] svg {
+    transition: transform var(--transition-normal);
+}
+
+.activity-bar-btn[data-action="toggle-session"]:not(.active) svg {
+    transform: rotate(180deg);
+}
+
+/* 新建会话按钮点击动画 */
+.activity-bar-btn[data-action="new-session"]:active svg {
+    transform: scale(0.85);
+    transition: transform 0.1s ease;
+}
+
+/* 文件浏览模式下收起面板时隐藏右侧竖线 */
+.activity-bar:has(~ .session-panel.view-files.hidden) {
+    border-right: none;
 }
