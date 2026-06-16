@@ -118,18 +118,22 @@ export class TokenMonitor {
       // 更新侧边栏可视化
       this.updateTokenVisual(stats);
       
-      // 添加到历史记录（只添加有实际数据的记录）
+      // 添加到历史记录（只添加有实际数据的记录，去重）
       const totalTokens = stats.totalTokens || 0;
       const promptTokens = stats.promptTokens || 0;
       const completionTokens = stats.completionTokens || 0;
       
-      if (totalTokens > 0 || promptTokens > 0 || completionTokens > 0) {
-        appState.addTokenRecord({
-          total: totalTokens,
-          prompt: promptTokens,
-          completion: completionTokens,
-          percent: stats.usagePercent
-        });
+      const recordKey = `${totalTokens}|${promptTokens}|${completionTokens}`;
+      if (recordKey !== this._lastRecordKey) {
+        this._lastRecordKey = recordKey;
+        if (totalTokens > 0 || promptTokens > 0 || completionTokens > 0) {
+          appState.addTokenRecord({
+            total: totalTokens,
+            prompt: promptTokens,
+            completion: completionTokens,
+            percent: stats.usagePercent
+          });
+        }
       }
       
       // 更新趋势图
@@ -169,84 +173,144 @@ export class TokenMonitor {
    * 更新 Token 可视化
    */
   updateTokenVisual(stats) {
-    if (!this.elements.tvPercent || !stats) return;
+    if (!stats) return;
     
     const percent = stats.usagePercent || 0;
     const color = this.getTokenColor(percent);
     
-    // 上下文使用率
-    this.elements.tvPercent.textContent = `${percent.toFixed(1)}%`;
-    this.elements.tvPercent.style.color = color;
-    
-    // 进度条
-    this.elements.tvBar.style.width = `${Math.min(percent, 100)}%`;
-    this.elements.tvBar.style.background = color;
-    this.elements.tvBar.style.boxShadow = percent > 80 ? `0 0 8px ${color}` : 'none';
-    
-    // 当前上下文
-    if (this.elements.tvUsage) {
-      this.elements.tvUsage.textContent = (stats.currentTokens || 0).toLocaleString();
+    // 右侧面板元素可能不存在（右侧面板已移除），安全更新
+    if (this.elements.tvPercent) {
+      // 上下文使用率
+      this.elements.tvPercent.textContent = `${percent.toFixed(1)}%`;
+      this.elements.tvPercent.style.color = color;
+      
+      // 进度条
+      this.elements.tvBar.style.width = `${Math.min(percent, 100)}%`;
+      this.elements.tvBar.style.background = color;
+      this.elements.tvBar.style.boxShadow = percent > 80 ? `0 0 8px ${color}` : 'none';
+      
+      // 当前上下文
+      if (this.elements.tvUsage) {
+        this.elements.tvUsage.textContent = (stats.currentTokens || 0).toLocaleString();
+      }
+      if (this.elements.tvMax) {
+        this.elements.tvMax.textContent = (stats.maxTokens || 0).toLocaleString();
+      }
+      
+      // Prompt 和 Completion（带准确性标记）
+      if (this.elements.tvPrompt) {
+        this.elements.tvPrompt.textContent = stats.hasKnownUsage 
+          ? (stats.promptTokens || 0).toLocaleString() 
+          : '~' + (stats.currentTokens || 0).toLocaleString();
+      }
+      if (this.elements.tvCompletion) {
+        this.elements.tvCompletion.textContent = stats.hasKnownUsage 
+          ? (stats.completionTokens || 0).toLocaleString() 
+          : '~' + (stats.currentTokens || 0).toLocaleString();
+      }
+      
+      // 会话总计
+      if (this.elements.tvSessionInput) {
+        this.elements.tvSessionInput.textContent = (stats.sessionTotalInput || 0).toLocaleString();
+      }
+      if (this.elements.tvSessionOutput) {
+        this.elements.tvSessionOutput.textContent = (stats.sessionTotalOutput || 0).toLocaleString();
+      }
+      if (this.elements.tvLlmCalls) {
+        this.elements.tvLlmCalls.textContent = (stats.sessionLlmCalls || 0).toLocaleString();
+      }
+      if (this.elements.tvToolCalls) {
+        this.elements.tvToolCalls.textContent = (stats.sessionToolCalls || 0).toLocaleString();
+      }
+      if (this.elements.tvSessionTotal) {
+        this.elements.tvSessionTotal.textContent = (stats.sessionTotalTokens || 0).toLocaleString();
+      }
+      
+      // 缓存命中
+      if (this.elements.tvCacheHit) {
+        this.elements.tvCacheHit.textContent = stats.cacheHitTokens ? stats.cacheHitTokens.toLocaleString() : '0';
+      }
+      if (this.elements.tvCacheRate) {
+        this.elements.tvCacheRate.textContent = stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%';
+      }
+      
+      // 会话级缓存命中
+      if (this.elements.tvSessionCacheHit) {
+        this.elements.tvSessionCacheHit.textContent = stats.sessionCacheHitTokens ? stats.sessionCacheHitTokens.toLocaleString() : '0';
+      }
+      if (this.elements.tvSessionCacheRate) {
+        this.elements.tvSessionCacheRate.textContent = stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%';
+      }
     }
-    if (this.elements.tvMax) {
-      this.elements.tvMax.textContent = (stats.maxTokens || 0).toLocaleString();
-    }
-    
-    // Prompt 和 Completion（带准确性标记）
-    if (this.elements.tvPrompt) {
-      this.elements.tvPrompt.textContent = stats.hasKnownUsage 
-        ? (stats.promptTokens || 0).toLocaleString() 
-        : '~' + (stats.currentTokens || 0).toLocaleString();
-    }
-    if (this.elements.tvCompletion) {
-      this.elements.tvCompletion.textContent = stats.hasKnownUsage 
-        ? (stats.completionTokens || 0).toLocaleString() 
-        : '~' + (stats.currentTokens || 0).toLocaleString();
-    }
-    
-    // 会话总计
-    if (this.elements.tvSessionInput) {
-      this.elements.tvSessionInput.textContent = (stats.sessionTotalInput || 0).toLocaleString();
-    }
-    if (this.elements.tvSessionOutput) {
-      this.elements.tvSessionOutput.textContent = (stats.sessionTotalOutput || 0).toLocaleString();
-    }
-    if (this.elements.tvLlmCalls) {
-      this.elements.tvLlmCalls.textContent = (stats.sessionLlmCalls || 0).toLocaleString();
-    }
-    if (this.elements.tvToolCalls) {
-      this.elements.tvToolCalls.textContent = (stats.sessionToolCalls || 0).toLocaleString();
-    }
-    if (this.elements.tvSessionTotal) {
-      this.elements.tvSessionTotal.textContent = (stats.sessionTotalTokens || 0).toLocaleString();
-    }
-    
-    // 缓存命中
-    if (this.elements.tvCacheHit) {
-      this.elements.tvCacheHit.textContent = stats.cacheHitTokens ? stats.cacheHitTokens.toLocaleString() : '0';
-    }
-    if (this.elements.tvCacheRate) {
-      this.elements.tvCacheRate.textContent = stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%';
-    }
-    
-    // 会话级缓存命中
-    if (this.elements.tvSessionCacheHit) {
-      this.elements.tvSessionCacheHit.textContent = stats.sessionCacheHitTokens ? stats.sessionCacheHitTokens.toLocaleString() : '0';
-    }
-    if (this.elements.tvSessionCacheRate) {
-      this.elements.tvSessionCacheRate.textContent = stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%';
-    }
-    
+
     // 更新输入框状态条
     if (this.elements.statusBarTokenValue) {
       this.elements.statusBarTokenValue.textContent = `${percent.toFixed(0)}%`;
     }
+    
+    // === 同步更新 Activity Bar 面板元素 ===
+    this._updateAbElements(stats, percent, color);
+  }
+  
+  /**
+   * 更新 Activity Bar 面板中的 Token 元素
+   * 支持懒加载：元素可能晚于 TokenMonitor 初始化，每次检查并自动重缓存
+   */
+  _updateAbElements(stats, percent, color) {
+    // 不依赖 document.getElementById（template 克隆的元素可能查找不到），
+    // 直接从 activityPanelBody 中 querySelector 查找
+    const panelBody = document.getElementById('activityPanelBody');
+    if (!panelBody || !panelBody.querySelector('.token-visual')) return;
+    
+    const q = (id) => panelBody.querySelector('#' + id);
+    
+    const elPercent = q('abTvPercent');
+    if (!elPercent) return;
+    
+    elPercent.textContent = `${percent.toFixed(1)}%`;
+    elPercent.style.color = color;
+    
+    const elBar = q('abTvBar');
+    if (elBar) {
+      elBar.style.width = `${Math.min(percent, 100)}%`;
+      elBar.style.background = color;
+      elBar.style.boxShadow = percent > 80 ? `0 0 8px ${color}` : 'none';
+    }
+    
+    this._setText(q('abTvUsage'), (stats.currentTokens || 0).toLocaleString());
+    this._setText(q('abTvMax'), (stats.maxTokens || 0).toLocaleString());
+    
+    this._setText(q('abTvPrompt'), stats.hasKnownUsage 
+      ? (stats.promptTokens || 0).toLocaleString() 
+      : '~' + (stats.currentTokens || 0).toLocaleString());
+    this._setText(q('abTvCompletion'), stats.hasKnownUsage 
+      ? (stats.completionTokens || 0).toLocaleString() 
+      : '~' + (stats.currentTokens || 0).toLocaleString());
+    
+    this._setText(q('abTvSessionInput'), (stats.sessionTotalInput || 0).toLocaleString());
+    this._setText(q('abTvSessionOutput'), (stats.sessionTotalOutput || 0).toLocaleString());
+    this._setText(q('abTvLlmCalls'), (stats.sessionLlmCalls || 0).toLocaleString());
+    this._setText(q('abTvToolCalls'), (stats.sessionToolCalls || 0).toLocaleString());
+    this._setText(q('abTvSessionTotal'), (stats.sessionTotalTokens || 0).toLocaleString());
+    
+    this._setText(q('abTvCacheHit'), stats.cacheHitTokens ? stats.cacheHitTokens.toLocaleString() : '0');
+    this._setText(q('abTvCacheRate'), stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%');
+    this._setText(q('abTvSessionCacheHit'), stats.sessionCacheHitTokens ? stats.sessionCacheHitTokens.toLocaleString() : '0');
+    this._setText(q('abTvSessionCacheRate'), stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%');
+  }
+
+  /**
+   * 安全设置文本内容
+   */
+  _setText(el, text) {
+    if (el) el.textContent = text;
   }
   
   /**
    * 渲染趋势图（SVG 折线图）
    */
   renderTrendChart() {
-    if (!this.elements.trendChart || !this.elements.trendCount) return;
+    if (!appState.tokenHistory) return;
     
     // 过滤掉全 0 的记录
     const history = appState.tokenHistory.filter(h => 
@@ -254,8 +318,11 @@ export class TokenMonitor {
     );
     
     if (history.length < 2) {
-      this.elements.trendChart.innerHTML = '<div class="token-trend-empty">等待更多数据...</div>';
-      this.elements.trendCount.textContent = (history.length || 0) + ' 次记录';
+      const msg = '等待更多数据...';
+      if (this.elements.trendChart) this.elements.trendChart.innerHTML = `<div class="token-trend-empty">${msg}</div>`;
+      if (this.elements.trendCount) this.elements.trendCount.textContent = (history.length || 0) + ' 次记录';
+      // 同步 Activity Bar
+      this._syncAbTrendChart(`<div class="token-trend-empty">${msg}</div>`, (history.length || 0) + ' 次记录');
       return;
     }
     
@@ -290,10 +357,11 @@ export class TokenMonitor {
     });
     const allPoints = [...points, ...areaPoints, points[0]];
     
-    this.elements.trendCount.textContent = `${values.length} 次记录`;
+    const countText = `${values.length} 次记录`;
+    if (this.elements.trendCount) this.elements.trendCount.textContent = countText;
     
     // 渲染 SVG 折线图
-    this.elements.trendChart.innerHTML = `
+    const svgHtml = `
       <svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
@@ -306,6 +374,23 @@ export class TokenMonitor {
         <circle cx="${points[points.length - 1].split(',')[0]}" cy="${points[points.length - 1].split(',')[1]}" r="2.5" fill="var(--primary-color)" stroke="var(--bg-white)" stroke-width="1.5"/>
       </svg>
     `;
+    if (this.elements.trendChart) this.elements.trendChart.innerHTML = svgHtml;
+    
+    // 同步 Activity Bar 趋势图
+    this._syncAbTrendChart(svgHtml, countText);
+  }
+
+  /**
+   * 同步 Activity Bar 面板的趋势图
+   */
+  _syncAbTrendChart(svgHtml, countText) {
+    const panelBody = document.getElementById('activityPanelBody');
+    if (!panelBody || !panelBody.querySelector('.token-trend')) return;
+    
+    const chart = panelBody.querySelector('#abTrendChart');
+    const count = panelBody.querySelector('#abTrendCount');
+    if (chart) chart.innerHTML = svgHtml;
+    if (count) count.textContent = countText;
   }
   
   /**

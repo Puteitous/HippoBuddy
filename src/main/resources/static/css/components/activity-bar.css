@@ -1,72 +1,206 @@
-/* ========== 右侧面板内容区 ========== */
+/* ==========================================
+   Activity Bar — 左侧固定竖条（类似 VS Code）
+   浮动面板展示在竖条右侧
+   ========================================== */
 
-.right-panel-body {
-    flex: 1;
-    overflow-y: auto;
+/* ========== Activity Bar 竖条 ========== */
+.activity-bar {
+    width: 48px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    padding: 0 0 8px;
+    align-items: center;
+    padding: 8px 0;
+    gap: 2px;
+    background: transparent;
+    border-right: 1px solid var(--border);
+    z-index: 50;
+    position: relative;
+}
+
+.activity-bar-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+}
+
+.activity-bar-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.activity-bar-btn:hover {
+    background: var(--bg-code);
+    color: var(--text-secondary);
+}
+
+.activity-bar-btn.active {
+    background: var(--bg-active);
+    color: var(--text-primary);
+}
+
+.activity-bar-btn.active::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+}
+
+/* ========== Activity 浮动面板 ========== */
+.activity-floating-panel {
+    position: absolute;
+    left: 48px;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    background: var(--bg-white);
+    border-right: 1px solid var(--border);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 4px 0 12px rgba(0,0,0,0.06);
+    animation: activity-panel-slide-in 0.2s ease;
+    margin: 0 0 16px 0;
+    border-radius: var(--radius-lg);
+    height: calc(100% - 16px);
+    overflow: hidden;
+}
+
+.activity-floating-panel.closing {
+    animation: activity-panel-slide-out 0.15s ease forwards;
+}
+
+@keyframes activity-panel-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes activity-panel-slide-out {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-12px);
+    }
+}
+
+.activity-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 12px 10px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.activity-panel-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    user-select: none;
+}
+
+.activity-panel-close {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: all var(--transition-fast);
+}
+
+.activity-panel-close:hover {
+    background: var(--bg-code);
+    color: var(--text-primary);
+}
+
+.activity-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 10px 10px;
+    display: flex;
+    flex-direction: column;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
     mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
 }
 
-.sidebar-section {
-    border-bottom: 1px solid transparent;
+/* 面板内容区域，复用右侧面板现有样式 */
+.activity-panel-body .sidebar-section:first-child {
+    border-top: none;
 }
 
-.sidebar-section:last-child {
-    border-bottom: none;
-}
-
-.sidebar-section-header {
+/* 空状态提示 */
+.activity-panel-empty {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
+    justify-content: center;
+    height: 100%;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    gap: 8px;
+}
+
+.activity-panel-empty svg {
+    width: 28px;
+    height: 28px;
+    opacity: 0.4;
+}
+
+/* ========== 按钮徽标（显示未读数等） ========== */
+.activity-bar-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 4px;
+    border-radius: 10px;
+    background: var(--error-color);
+    color: #fff;
+    font-size: 9px;
     font-weight: 600;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    cursor: pointer;
-    user-select: none;
-    transition: background var(--transition-fast);
-    letter-spacing: 0.03em;
+    line-height: 14px;
+    text-align: center;
+    pointer-events: none;
 }
 
-.sidebar-section-header > span {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
+/* ==========================================
+   面板通用内容样式（从 right-panel.css 迁移）
+   Activity Bar 三个面板共用
+   ========================================== */
 
-.sidebar-section-header svg {
-    flex-shrink: 0;
-}
-
-.sidebar-section-header:hover {
-    background: var(--bg-code);
-}
-
-.sidebar-section-header .arrow {
-    font-size: 11px;
-    color: var(--text-muted);
-    transition: transform var(--transition-fast);
-    margin-left: auto;
-}
-
-.sidebar-section-header.expanded .arrow {
-    transform: rotate(90deg);
-}
-
-.sidebar-section-body {
-    display: none;
-    padding: 6px 10px 10px;
-}
-
-.sidebar-section-body.show {
-    display: block;
-}
-
-/* Token 可视化面板 */
+/* ========== Token 可视化面板 ========== */
 .token-visual {
     font-size: var(--font-size-sm);
 }

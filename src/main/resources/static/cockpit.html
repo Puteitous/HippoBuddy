@@ -14,10 +14,10 @@
     <link rel="stylesheet" href="css/components/splash.css?v=20260527-1">
     <link rel="stylesheet" href="css/components/session.css?v=20260527-1">
     <link rel="stylesheet" href="css/components/chat-panel.css?v=20260527-2">
-    <link rel="stylesheet" href="css/components/right-panel.css?v=20260527-1">
     <link rel="stylesheet" href="css/components/tool-cards.css?v=20260527-2">
     <link rel="stylesheet" href="css/components/modals.css?v=20260612-1">
     <link rel="stylesheet" href="css/components/workspace.css?v=20260608-1">
+    <link rel="stylesheet" href="css/components/activity-bar.css?v=20260616-1">
     <link id="hljs-light-theme" rel="stylesheet" href="js/vendor/github.min.css">
     <link id="hljs-dark-theme" rel="stylesheet" href="js/vendor/github-dark.min.css" disabled>
     <script src="js/vendor/marked.min.js"></script>
@@ -44,13 +44,6 @@
             </span>
         </div>
         <div class="header-actions">
-            <button class="header-icon-btn" id="rightPanelShowBtn" title="展开右侧面板" style="display:none;">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="15" width="4" height="6" rx="0.5"/>
-                    <rect x="10" y="9" width="4" height="12" rx="0.5"/>
-                    <rect x="17" y="3" width="4" height="18" rx="0.5"/>
-                </svg>
-            </button>
             <button class="header-icon-btn" id="compactBtn" title="压缩上下文">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6"/>
@@ -120,6 +113,41 @@
     
     <!-- 主容器 -->
     <div class="main-container">
+        <!-- Activity Bar -->
+        <div class="activity-bar" id="activityBar">
+            <button class="activity-bar-btn" data-panel="token" title="Token 统计">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="14" width="4" height="6" rx="0.5"/>
+                    <rect x="10" y="8" width="4" height="12" rx="0.5"/>
+                    <rect x="16" y="2" width="4" height="18" rx="0.5"/>
+                </svg>
+            </button>
+            <button class="activity-bar-btn" data-panel="monitor" title="实时监控">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1 17 7 11 11 14 18 6"/>
+                    <polyline points="14 6 18 6 18 10"/>
+                </svg>
+            </button>
+            <button class="activity-bar-btn" data-panel="files" title="文件变更">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Activity 浮动面板 -->
+        <div class="activity-floating-panel" id="activityFloatingPanel" style="display:none;">
+            <div class="activity-panel-header">
+                <span class="activity-panel-title" id="activityPanelTitle">面板</span>
+                <button class="activity-panel-close" id="activityPanelClose">✕</button>
+            </div>
+            <div class="activity-panel-body" id="activityPanelBody"></div>
+        </div>
+
         <!-- 会话面板 -->
         <div class="session-panel" id="sessionPanel">
             <div class="session-header">
@@ -338,199 +366,6 @@
             </svg>
         </button>
 
-        <!-- 右侧面板（默认隐藏） -->
-        <div class="right-panel hidden" id="rightPanel">
-            <div class="right-panel-toggle" id="rightPanelToggle" title="收起右侧面板">
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="10" width="3" height="4" rx="0.5"/>
-                    <rect x="6.5" y="6" width="3" height="8" rx="0.5"/>
-                    <rect x="11" y="2" width="3" height="12" rx="0.5"/>
-                </svg>
-            </div>
-
-            <!-- 右侧面板内容 -->
-            <div class="right-panel-body">
-
-            <!-- Token 统计 -->
-            <div class="sidebar-section" data-section="token">
-                <div class="sidebar-section-header">
-                    <span>
-                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2" y="10" width="3" height="4" rx="0.5"/>
-                            <rect x="6.5" y="6" width="3" height="8" rx="0.5"/>
-                            <rect x="11" y="2" width="3" height="12" rx="0.5"/>
-                        </svg>
-                        Token 统计
-                    </span>
-                    <span class="arrow">▶</span>
-                </div>
-                <div class="sidebar-section-body show">
-                    <div class="token-visual" id="tokenVisual">
-                        <div class="token-visual-item">
-                            <div class="token-visual-label">
-                                <span>上下文使用率</span>
-                                <span class="token-visual-value" id="tvPercent">0%</span>
-                            </div>
-                            <div class="token-visual-track">
-                                <div class="token-visual-fill" id="tvBar" style="width:0%"></div>
-                            </div>
-                            <div class="token-visual-sub">
-                                <span id="tvUsage">0</span> / <span id="tvMax">0</span> tokens
-                            </div>
-                        </div>
-                        <div class="token-visual-divider"></div>
-                        <div class="token-visual-grid">
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">Prompt</span>
-                                <span class="tvs-value" id="tvPrompt">0</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">Completion</span>
-                                <span class="tvs-value" id="tvCompletion">0</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">总输入</span>
-                                <span class="tvs-value" id="tvSessionInput">0</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">总输出</span>
-                                <span class="tvs-value" id="tvSessionOutput">0</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">LLM 调用</span>
-                                <span class="tvs-value" id="tvLlmCalls">0</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">工具调用</span>
-                                <span class="tvs-value" id="tvToolCalls">0</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">缓存命中</span>
-                                <span class="tvs-value success-text" id="tvCacheHit">0</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">缓存率</span>
-                                <span class="tvs-value success-text" id="tvCacheRate">0%</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">总缓存命中</span>
-                                <span class="tvs-value success-text" id="tvSessionCacheHit">0</span>
-                            </div>
-                            <div class="token-visual-stat">
-                                <span class="tvs-label">总缓存率</span>
-                                <span class="tvs-value success-text" id="tvSessionCacheRate">0%</span>
-                            </div>
-                        </div>
-                        <div class="token-visual-divider"></div>
-                        <div class="token-visual-total">
-                            <span>会话总消耗</span>
-                            <span class="tv-total-value" id="tvSessionTotal">0</span>
-                        </div>
-                        <div class="token-trend" id="tokenTrend">
-                            <div class="token-trend-header">
-                                <span class="token-trend-label">Token 消耗趋势</span>
-                                <span class="token-trend-value" id="trendCount">0 次记录</span>
-                            </div>
-                            <div class="token-trend-chart" id="trendChart">
-                                <div class="token-trend-empty">等待数据...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 实时监控（简化版，去掉🧠记忆系统） -->
-            <div class="sidebar-section" data-section="monitor">
-                <div class="sidebar-section-header">
-                    <span>
-                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="1 11 5 7 8 10 15 2"/>
-                            <polyline points="11 2 15 2 15 6"/>
-                        </svg>
-                        实时监控
-                    </span>
-                    <span class="arrow">▶</span>
-                </div>
-                <div class="sidebar-section-body">
-                    <div class="metrics-panel" id="metricsPanel">
-                        <div class="metrics-group">
-                            <div class="metrics-group-title">
-                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="4" width="10" height="7" rx="2"/>
-                                    <circle cx="6.5" cy="7.5" r="0.8" fill="currentColor"/>
-                                    <circle cx="9.5" cy="7.5" r="0.8" fill="currentColor"/>
-                                    <path d="M5 4V2"/>
-                                    <path d="M11 4V2"/>
-                                    <path d="M3 11v2"/>
-                                    <path d="M13 11v2"/>
-                                </svg>
-                                LLM 调用
-                            </div>
-                            <div class="metrics-grid">
-                                <div class="metrics-item">
-                                    <span class="metrics-label">请求次数</span>
-                                    <span class="metrics-value" id="metLlmTotal">0</span>
-                                </div>
-                                <div class="metrics-item">
-                                    <span class="metrics-label">成功率</span>
-                                    <span class="metrics-value" id="metLlmSuccessRate">0%</span>
-                                </div>
-                                <div class="metrics-item">
-                                    <span class="metrics-label">平均耗时</span>
-                                    <span class="metrics-value" id="metLlmAvgLatency">0ms</span>
-                                </div>
-                                <div class="metrics-item">
-                                    <span class="metrics-label">最慢</span>
-                                    <span class="metrics-value" id="metLlmMaxLatency">0ms</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="metrics-divider"></div>
-                        <div class="metrics-group">
-                            <div class="metrics-group-title">🔧 工具调用</div>
-                            <div class="metrics-grid">
-                                <div class="metrics-item">
-                                    <span class="metrics-label">总调用</span>
-                                    <span class="metrics-value" id="metToolTotal">0</span>
-                                </div>
-                                <div class="metrics-item">
-                                    <span class="metrics-label">成功率</span>
-                                    <span class="metrics-value" id="metToolSuccessRate">0%</span>
-                                </div>
-                                <div class="metrics-item">
-                                    <span class="metrics-label">失败</span>
-                                    <span class="metrics-value" id="metToolFailed">0</span>
-                                </div>
-                            </div>
-                            <div class="metrics-tool-list" id="metToolList"></div>
-                        </div>
-                        <div class="metrics-update-time" id="metUpdateTime"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 文件变更 -->
-            <div class="sidebar-section" data-section="files">
-                <div class="sidebar-section-header">
-                    <span>
-                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
-                            <path d="M9 2v3h3"/>
-                        </svg>
-                        文件变更
-                    </span>
-                    <span class="arrow">▶</span>
-                </div>
-                <div class="sidebar-section-body">
-                    <div class="file-changes-panel" id="fileChangesPanel">
-                        <div class="file-changes-empty" id="fileChangesEmpty">暂无文件变更</div>
-                        <div class="file-changes-list" id="fileChangesList"></div>
-                    </div>
-                </div>
-            </div>
-
-            </div>
-        </div>
     </div>
 
     <!-- Diff 弹窗 -->
@@ -686,6 +521,148 @@
         </div>
       </div>
     </div>
+
+    <!-- Activity Bar -->
+    <script type="module" src="js/components/ActivityBar.js"></script>
+
+    <!-- Activity Bar 面板模板 -->
+    <template id="abTokenPanel">
+        <div class="token-visual">
+            <div class="token-visual-item">
+                <div class="token-visual-label">
+                    <span>上下文使用率</span>
+                    <span class="token-visual-value" id="abTvPercent">0%</span>
+                </div>
+                <div class="token-visual-track">
+                    <div class="token-visual-fill" id="abTvBar" style="width:0%"></div>
+                </div>
+                <div class="token-visual-sub">
+                    <span id="abTvUsage">0</span> / <span id="abTvMax">0</span> tokens
+                </div>
+            </div>
+            <div class="token-visual-divider"></div>
+            <div class="token-visual-grid">
+                <div class="token-visual-stat">
+                    <span class="tvs-label">Prompt</span>
+                    <span class="tvs-value" id="abTvPrompt">0</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">Completion</span>
+                    <span class="tvs-value" id="abTvCompletion">0</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">总输入</span>
+                    <span class="tvs-value" id="abTvSessionInput">0</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">总输出</span>
+                    <span class="tvs-value" id="abTvSessionOutput">0</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">LLM 调用</span>
+                    <span class="tvs-value" id="abTvLlmCalls">0</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">工具调用</span>
+                    <span class="tvs-value" id="abTvToolCalls">0</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">缓存命中</span>
+                    <span class="tvs-value success-text" id="abTvCacheHit">0</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">缓存率</span>
+                    <span class="tvs-value success-text" id="abTvCacheRate">0%</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">总缓存命中</span>
+                    <span class="tvs-value success-text" id="abTvSessionCacheHit">0</span>
+                </div>
+                <div class="token-visual-stat">
+                    <span class="tvs-label">总缓存率</span>
+                    <span class="tvs-value success-text" id="abTvSessionCacheRate">0%</span>
+                </div>
+            </div>
+            <div class="token-visual-divider"></div>
+            <div class="token-visual-total">
+                <span>会话总消耗</span>
+                <span class="tv-total-value" id="abTvSessionTotal">0</span>
+            </div>
+            <div class="token-trend">
+                <div class="token-trend-header">
+                    <span class="token-trend-label">Token 消耗趋势</span>
+                    <span class="token-trend-value" id="abTrendCount">0 次记录</span>
+                </div>
+                <div class="token-trend-chart" id="abTrendChart">
+                    <div class="token-trend-empty">等待数据...</div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="abMonitorPanel">
+        <div class="metrics-panel">
+            <div class="metrics-group">
+                <div class="metrics-group-title">
+                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="10" height="7" rx="2"/>
+                        <circle cx="6.5" cy="7.5" r="0.8" fill="currentColor"/>
+                        <circle cx="9.5" cy="7.5" r="0.8" fill="currentColor"/>
+                        <path d="M5 4V2"/>
+                        <path d="M11 4V2"/>
+                        <path d="M3 11v2"/>
+                        <path d="M13 11v2"/>
+                    </svg>
+                    LLM 调用
+                </div>
+                <div class="metrics-grid">
+                    <div class="metrics-item">
+                        <span class="metrics-label">请求次数</span>
+                        <span class="metrics-value" id="abMetLlmTotal">0</span>
+                    </div>
+                    <div class="metrics-item">
+                        <span class="metrics-label">成功率</span>
+                        <span class="metrics-value" id="abMetLlmSuccessRate">0%</span>
+                    </div>
+                    <div class="metrics-item">
+                        <span class="metrics-label">平均耗时</span>
+                        <span class="metrics-value" id="abMetLlmAvgLatency">0ms</span>
+                    </div>
+                    <div class="metrics-item">
+                        <span class="metrics-label">最慢</span>
+                        <span class="metrics-value" id="abMetLlmMaxLatency">0ms</span>
+                    </div>
+                </div>
+            </div>
+            <div class="metrics-divider"></div>
+            <div class="metrics-group">
+                <div class="metrics-group-title">🔧 工具调用</div>
+                <div class="metrics-grid">
+                    <div class="metrics-item">
+                        <span class="metrics-label">总调用</span>
+                        <span class="metrics-value" id="abMetToolTotal">0</span>
+                    </div>
+                    <div class="metrics-item">
+                        <span class="metrics-label">成功率</span>
+                        <span class="metrics-value" id="abMetToolSuccessRate">0%</span>
+                    </div>
+                    <div class="metrics-item">
+                        <span class="metrics-label">失败</span>
+                        <span class="metrics-value" id="abMetToolFailed">0</span>
+                    </div>
+                </div>
+                <div class="metrics-tool-list" id="abMetToolList"></div>
+            </div>
+            <div class="metrics-update-time" id="abMetUpdateTime"></div>
+        </div>
+    </template>
+
+    <template id="abFilesPanel">
+        <div class="file-changes-panel">
+            <div class="file-changes-empty" id="abFileChangesEmpty">暂无文件变更</div>
+            <div class="file-changes-list" id="abFileChangesList"></div>
+        </div>
+    </template>
 
     <!-- 工作区组件（桌面端文件树/标签/预览） -->
     <script type="module" src="js/components/FileTree.js"></script>

@@ -14,22 +14,21 @@ export class FileChangeManager {
     const list = document.getElementById('fileChangesList');
     if (list) {
       list.addEventListener('click', (e) => {
-        const item = e.target.closest('.file-change-item');
-        if (!item) return;
-        
-        const filePath = item.dataset.path;
-        if (!filePath) return;
-        
-        const rollbackBtn = e.target.closest('.file-change-rollback');
-        if (rollbackBtn) {
-          this._rollbackFile(filePath, rollbackBtn);
-        } else {
-          console.log('📂 FileChangeManager: 点击文件变更, path=', filePath);
-          diffModalManager.show(filePath);
-        }
+        this._handleFileClick(e);
       });
     } else {
       console.warn('FileChangeManager: #fileChangesList not found');
+    }
+
+    // Activity Bar 面板的列表点击（事件委托，面板 body 始终存在）
+    const activityBody = document.getElementById('activityPanelBody');
+    if (activityBody) {
+      activityBody.addEventListener('click', (e) => {
+        const target = e.target.closest('#abFileChangesList');
+        if (target) {
+          this._handleFileClick(e);
+        }
+      });
     }
 
     this.updateFileChanges();
@@ -54,24 +53,48 @@ export class FileChangeManager {
     }
   }
 
+  _handleFileClick(e) {
+    const item = e.target.closest('.file-change-item');
+    if (!item) return;
+    
+    const filePath = item.dataset.path;
+    if (!filePath) return;
+    
+    const rollbackBtn = e.target.closest('.file-change-rollback');
+    if (rollbackBtn) {
+      this._rollbackFile(filePath, rollbackBtn);
+    } else {
+      console.log('📂 FileChangeManager: 点击文件变更, path=', filePath);
+      diffModalManager.show(filePath);
+    }
+  }
+
   async updateFileChanges() {
     try {
       const response = await fetch('/api/files/changes');
       if (!response.ok) return;
       const changes = await response.json();
+
+      // 右侧面板 DOM 可能已被移除，安全查找
       const list = document.getElementById('fileChangesList');
       const empty = document.getElementById('fileChangesEmpty');
-      if (!list || !empty) return;
+      const statusBarFiles = document.getElementById('statusBarFilesValue');
 
+      // 无变更时的空状态
       if (!changes || changes.length === 0) {
-        list.innerHTML = '';
-        empty.style.display = 'block';
-        const statusBarFiles = document.getElementById('statusBarFilesValue');
+        if (list) list.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+        const abEmpty = document.getElementById('abFileChangesEmpty');
+        const abList = document.getElementById('abFileChangesList');
+        if (abList) abList.innerHTML = '';
+        if (abEmpty) abEmpty.style.display = 'block';
         if (statusBarFiles) statusBarFiles.textContent = '0';
         return;
       }
 
-      empty.style.display = 'none';
+      if (empty) empty.style.display = 'none';
+      const abEmpty = document.getElementById('abFileChangesEmpty');
+      if (abEmpty) abEmpty.style.display = 'none';
 
       // 按文件路径分组，只显示每组最新一条，附带修改次数
       const fileGroups = new Map();
@@ -94,7 +117,6 @@ export class FileChangeManager {
         }
       }
 
-      const statusBarFiles = document.getElementById('statusBarFilesValue');
       if (statusBarFiles) statusBarFiles.textContent = `${fileGroups.size}`;
 
       // 检测是否有新变更（文件列表或时间戳变化），有则触发文件树刷新
@@ -104,7 +126,7 @@ export class FileChangeManager {
       }
       this._lastChangeSnapshot = currentSnapshot;
 
-      list.innerHTML = Array.from(fileGroups.values()).map(c => {
+      const fileHtml = Array.from(fileGroups.values()).map(c => {
         const fileName = c.filePath.split(/[/\\]/).pop();
         const time = new Date(c.latest).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
         const icon = c.toolName === 'delete_file'
@@ -128,6 +150,11 @@ export class FileChangeManager {
           </div>
         `;
       }).join('');
+
+      if (list) list.innerHTML = fileHtml;
+      // 同步更新 Activity Bar 面板
+      const abList = document.getElementById('abFileChangesList');
+      if (abList) abList.innerHTML = fileHtml;
     } catch (e) {
       console.error('获取文件变更失败:', e);
     }

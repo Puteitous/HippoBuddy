@@ -1,6 +1,5 @@
 export class SplashScreen {
-  constructor({ rightPanelShowBtn } = {}) {
-    this._rightPanelShowBtn = rightPanelShowBtn || document.getElementById('rightPanelShowBtn');
+  constructor() {
     this._splashCleanupTimer = null;
   }
 
@@ -31,7 +30,6 @@ export class SplashScreen {
     setTimeout(() => {
       splash.style.display = 'none';
       document.body.classList.remove('page-loading');
-      this._updateRightPanelUI();
     }, 150);
   }
 
@@ -48,17 +46,9 @@ export class SplashScreen {
       this._splashCleanupTimer = setTimeout(() => {
         splash.style.display = 'none';
         document.body.classList.remove('page-loading');
-        this._updateRightPanelUI();
       }, 600);
     }, 2400);
   }
 
-  _updateRightPanelUI() {
-    const rp = document.getElementById('rightPanel');
-    const rpt = document.getElementById('rightPanelToggle');
-    if (rpt) rpt.title = '展开右侧面板';
-    if (this._rightPanelShowBtn) {
-      this._rightPanelShowBtn.style.display = '';
-    }
-  }
+
 }

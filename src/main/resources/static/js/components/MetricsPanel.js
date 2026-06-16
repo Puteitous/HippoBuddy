@@ -31,7 +31,18 @@ export class MetricsPanel {
       metMemInjection: document.getElementById('metMemInjection'),
       
       // 更新时间
-      metUpdateTime: document.getElementById('metUpdateTime')
+      metUpdateTime: document.getElementById('metUpdateTime'),
+      
+      // Activity Bar 面板元素（ab 前缀，懒加载）
+      abMetLlmTotal: null,
+      abMetLlmSuccessRate: null,
+      abMetLlmAvgLatency: null,
+      abMetLlmMaxLatency: null,
+      abMetToolTotal: null,
+      abMetToolSuccessRate: null,
+      abMetToolFailed: null,
+      abMetToolList: null,
+      abMetUpdateTime: null
     };
   }
   
@@ -96,9 +107,68 @@ export class MetricsPanel {
         this.elements.metUpdateTime.textContent = '更新于 ' + timeStr;
       }
       
+      // === 同步更新 Activity Bar 面板 ===
+      this._lazyCacheAbElements();
+      this._syncAbMetrics(data, timeStr);
+      
     } catch (e) {
       console.error('更新监控指标失败:', e);
     }
+  }
+  
+  /**
+   * 同步更新 Activity Bar 面板中的监控元素
+   */
+  _syncAbMetrics(data, timeStr) {
+    if (!data || !this.elements.abMetLlmTotal) return;
+    
+    // LLM
+    if (data.llm) {
+      const llm = data.llm;
+      this.elements.abMetLlmTotal.textContent = llm.totalRequests;
+      const rate = llm.totalRequests > 0
+        ? Math.round(llm.successfulRequests / llm.totalRequests * 100) + '%'
+        : '0%';
+      this.elements.abMetLlmSuccessRate.textContent = rate;
+      this.elements.abMetLlmAvgLatency.textContent = llm.avgLatencyMs + 'ms';
+      this.elements.abMetLlmMaxLatency.textContent = llm.maxLatencyMs + 'ms';
+    }
+    
+    // 工具
+    if (data.tools) {
+      const tools = data.tools;
+      this.elements.abMetToolTotal.textContent = tools.totalCalls;
+      const toolRate = tools.totalCalls > 0
+        ? Math.round(tools.successfulCalls / tools.totalCalls * 100) + '%'
+        : '0%';
+      this.elements.abMetToolSuccessRate.textContent = toolRate;
+      this.elements.abMetToolFailed.textContent = tools.failedCalls;
+      
+      if (this.elements.abMetToolList && tools.details) {
+        this.elements.abMetToolList.innerHTML = tools.details.map(t =>
+          `<span class="metrics-tool-tag"><span class="tool-count">${t.count}</span> ${escapeHtml(t.name)}</span>`
+        ).join('');
+      }
+    }
+    
+    if (this.elements.abMetUpdateTime) {
+      this.elements.abMetUpdateTime.textContent = '更新于 ' + timeStr;
+    }
+  }
+  
+  /**
+   * 懒加载 Activity Bar 面板元素
+   */
+  _lazyCacheAbElements() {
+    this.elements.abMetLlmTotal = document.getElementById('abMetLlmTotal') || this.elements.abMetLlmTotal;
+    this.elements.abMetLlmSuccessRate = document.getElementById('abMetLlmSuccessRate') || this.elements.abMetLlmSuccessRate;
+    this.elements.abMetLlmAvgLatency = document.getElementById('abMetLlmAvgLatency') || this.elements.abMetLlmAvgLatency;
+    this.elements.abMetLlmMaxLatency = document.getElementById('abMetLlmMaxLatency') || this.elements.abMetLlmMaxLatency;
+    this.elements.abMetToolTotal = document.getElementById('abMetToolTotal') || this.elements.abMetToolTotal;
+    this.elements.abMetToolSuccessRate = document.getElementById('abMetToolSuccessRate') || this.elements.abMetToolSuccessRate;
+    this.elements.abMetToolFailed = document.getElementById('abMetToolFailed') || this.elements.abMetToolFailed;
+    this.elements.abMetToolList = document.getElementById('abMetToolList') || this.elements.abMetToolList;
+    this.elements.abMetUpdateTime = document.getElementById('abMetUpdateTime') || this.elements.abMetUpdateTime;
   }
   
   /**

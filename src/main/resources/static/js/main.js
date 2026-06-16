@@ -25,6 +25,7 @@ import { renderMarkdown } from './markdown-renderer.js';
 import { SplashScreen } from './components/SplashScreen.js';
 import { RollbackPanel } from './components/RollbackPanel.js';
 import { initSelectionActions } from './components/selection-actions.js';
+import { ActivityBar } from './components/ActivityBar.js';
 
 // ========== 全局状态 ==========
 let currentSessionId = null;
@@ -49,11 +50,11 @@ let metricsPanel;
 let fileChangeManager;
 let splashScreen;
 let rollbackPanel;
+let activityBar;
 
 // ========== DOM 元素 ==========
 const elements = {
   themeToggle: document.getElementById('themeToggle'),
-  rightPanelShowBtn: document.getElementById('rightPanelShowBtn'),
   sseStatus: document.getElementById('sseStatus'),
   compactBtn: document.getElementById('compactBtn'),
   messageInput: document.getElementById('messageInput'),
@@ -73,9 +74,36 @@ function init() {
   console.log('🚀 Initializing Hippo Cockpit...');
   
   // 0. 启动 splash 出水动画（与初始化并行）
-  splashScreen = new SplashScreen({ rightPanelShowBtn: elements.rightPanelShowBtn });
+  splashScreen = new SplashScreen();
   splashScreen.startAnimation();
   
+  // 0.1 初始化 Activity Bar
+  activityBar = new ActivityBar();
+  
+  // 注册 Token 面板（克隆模板内容）
+  const abTokenTemplate = document.getElementById('abTokenPanel');
+  if (abTokenTemplate && activityBar) {
+    activityBar.registerPanel('token', () => {
+      return abTokenTemplate.content.cloneNode(true);
+    });
+  }
+
+  // 注册监控面板
+  const abMonitorTemplate = document.getElementById('abMonitorPanel');
+  if (abMonitorTemplate && activityBar) {
+    activityBar.registerPanel('monitor', () => {
+      return abMonitorTemplate.content.cloneNode(true);
+    });
+  }
+
+  // 注册文件变更面板
+  const abFilesTemplate = document.getElementById('abFilesPanel');
+  if (abFilesTemplate && activityBar) {
+    activityBar.registerPanel('files', () => {
+      return abFilesTemplate.content.cloneNode(true);
+    });
+  }
+
   // 1. 初始化主题
   initTheme();
   
@@ -154,7 +182,14 @@ function init() {
     }
   });
   
-  // 14. 安排 splash 结束 + 页面内容渐入
+  // 14. 注册 Activity Bar 面板打开回调（所有组件已就绪）
+  if (activityBar) {
+    activityBar.onPanelOpen('token', () => tokenMonitor?.updateTokenStats());
+    activityBar.onPanelOpen('monitor', () => metricsPanel?.updateMetrics());
+    activityBar.onPanelOpen('files', () => fileChangeManager?.updateFileChanges());
+  }
+
+  // 15. 安排 splash 结束 + 页面内容渐入
   splashScreen.scheduleCleanup();
   
   console.log('✅ Hippo Cockpit initialized');
@@ -330,67 +365,22 @@ function bindGlobalEvents() {
     });
   });
   
-  // 右侧面板显隐折叠
-  const rightPanel = document.getElementById('rightPanel');
-  const rightPanelToggle = document.getElementById('rightPanelToggle');
-  function updateRightPanelUI() {
-    const isHidden = rightPanel.classList.contains('hidden');
-    rightPanelToggle.title = isHidden ? '展开右侧面板' : '收起右侧面板';
-    if (elements.rightPanelShowBtn) {
-      elements.rightPanelShowBtn.style.display = isHidden ? '' : 'none';
-    }
-  }
-  if (rightPanel && rightPanelToggle) {
-    rightPanelToggle.addEventListener('click', () => {
-      rightPanel.classList.toggle('hidden');
-      updateRightPanelUI();
-    });
-  }
-  
-  // 顶栏展开右侧面板按钮
-  if (elements.rightPanelShowBtn && rightPanel) {
-    elements.rightPanelShowBtn.addEventListener('click', () => {
-      rightPanel.classList.remove('hidden');
-      updateRightPanelUI();
-    });
-  }
-  
-  // 状态条各模块独立点击切换
+  // 状态条各模块 → 打开 Activity Bar 对应面板
   const statusBarItems = document.querySelectorAll('.status-bar-item');
-  let lastActiveSection = null;
   statusBarItems.forEach(item => {
     item.addEventListener('click', () => {
       const section = item.dataset.section;
-      if (!section || !rightPanel) return;
+      if (!section || !activityBar) return;
       
-      const isHidden = rightPanel.classList.contains('hidden');
+      // 映射 data-section → Activity Bar 面板名
+      const panelMap = { token: 'token', monitor: 'monitor', files: 'files' };
+      const panelName = panelMap[section];
+      if (!panelName) return;
       
-      // 如果右侧面板隐藏，或点击了不同的模块
-      if (isHidden || lastActiveSection !== section) {
-        // 显示面板
-        rightPanel.classList.remove('hidden');
-        updateRightPanelUI();
-        
-        // 找到对应的 section 并展开
-        const targetSection = rightPanel.querySelector(`.sidebar-section[data-section="${section}"]`);
-        if (targetSection) {
-          // 展开该 section
-          const header = targetSection.querySelector('.sidebar-section-header');
-          const body = targetSection.querySelector('.sidebar-section-body');
-          if (header && body) {
-            header.classList.add('expanded');
-            body.classList.add('show');
-          }
-          // 滚动到该 section
-          targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        
-        lastActiveSection = section;
+      if (activityBar.getActivePanel() === panelName) {
+        activityBar.closePanel();
       } else {
-        // 点击了同一个模块 → 隐藏面板
-        rightPanel.classList.add('hidden');
-        updateRightPanelUI();
-        lastActiveSection = null;
+        activityBar.openPanel(panelName);
       }
     });
   });
