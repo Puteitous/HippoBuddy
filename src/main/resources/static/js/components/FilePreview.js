@@ -16,6 +16,15 @@ import { SearchPanel } from './search-panel.js'
 import { renderMarkdown } from '../markdown-renderer.js'
 import { createDiffExtension } from './FilePreviewDiff.js'
 
+/**
+ * 支持文本编辑 + 图片/PDF 预览的扩展文件预览类。
+ *
+ * 文件类型自动检测：
+ *   - 文本/代码文件 → CodeMirror 6 编辑器（可编辑）
+ *   - 图片文件 → &lt;img&gt; 标签渲染（只读）
+ *   - PDF 文件 → &lt;iframe&gt; 嵌入浏览器原生 PDF 查看器（只读）
+ */
+
 export class FilePreview {
   constructor({ container, onError, onDirtyChange }) {
     this._container = container;
@@ -41,6 +50,8 @@ export class FilePreview {
     this._diffCompartment = new Compartment();
     /** @private AI 修改前的文件原始内容（用于 diff 对比） */
     this._originalContent = null;
+    /** @private 二进制预览类型：'image' | 'pdf' | null */
+    this._binaryViewType = null;
 
     // 绑定搜索按钮
     this._registerSearchButton();
@@ -77,6 +88,33 @@ export class FilePreview {
     this._currentPath = filePath;
     this._container.dataset.currentPath = filePath;
     this._dirty = false;
+
+    // ── 图片 / PDF 等二进制文件 → 直接通过 HTTP 渲染预览 ──
+    if (this._isImage(filePath) || this._isPdf(filePath)) {
+      this._destroyEditor();
+      this._showBinaryPreview(filePath);
+      this._updateSaveBtn();
+      this._updateMdToggleBtn();
+      return;
+    }
+
+    // ── 表格文件（XLSX/XLS/CSV）→ 通过 SheetJS 渲染为 HTML 表格 ──
+    if (this._isSpreadsheet(filePath)) {
+      this._destroyEditor();
+      this._showSpreadsheet(filePath);
+      this._updateSaveBtn();
+      this._updateMdToggleBtn();
+      return;
+    }
+
+    // ── DOCX 文件 → 通过 mammoth.js 渲染为 HTML ──
+    if (this._isDocx(filePath)) {
+      this._destroyEditor();
+      this._showDocx(filePath);
+      this._updateSaveBtn();
+      this._updateMdToggleBtn();
+      return;
+    }
 
     let content;
     try {
@@ -130,6 +168,7 @@ export class FilePreview {
 
   clear() {
     this._destroyEditor();
+    this._binaryViewType = null;
     this._currentPath = null;
     this._content = '';
     this._dirty = false;
@@ -372,6 +411,12 @@ export class FilePreview {
     if (!btn) return;
 
     if (this._currentPath) {
+      // 二进制文件（图片/PDF）不显示保存和搜索按钮
+      if (this._binaryViewType) {
+        btn.style.display = 'none';
+        if (searchBtn) searchBtn.style.display = 'none';
+        return;
+      }
       btn.style.display = '';
       if (searchBtn) searchBtn.style.display = this._mdPreviewMode ? 'none' : '';
       if (this._dirty) {
@@ -464,6 +509,309 @@ export class FilePreview {
           </svg>`;
     } else {
       btn.style.display = 'none';
+    }
+  }
+
+  // ==================== 二进制文件预览（图片 / PDF）====================
+
+  /** 判断是否为图片文件 */
+  _isImage(filePath) {
+    if (!filePath) return false;
+    const ext = filePath.split('.').pop().toLowerCase();
+    return ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext);
+  }
+
+  /** 判断是否为 PDF 文件 */
+  _isPdf(filePath) {
+    return filePath && filePath.toLowerCase().endsWith('.pdf');
+  }
+
+  /** 渲染二进制文件预览（图片用 &lt;img&gt;，PDF 用 &lt;iframe&gt;） */
+  _showBinaryPreview(filePath) {
+    this._binaryViewType = this._isImage(filePath) ? 'image' : 'pdf';
+    const encodedPath = encodeURIComponent(filePath);
+    const url = `/api/file/raw?path=${encodedPath}`;
+    const fileName = filePath.split('/').pop() || filePath;
+
+    const isDark = this._isDarkTheme();
+    const bgColor = isDark ? '#1e1e1e' : '#f5f5f5';
+
+    if (this._binaryViewType === 'image') {
+      this._container.innerHTML = `
+        <div class="file-binary-preview" style="
+          display:flex; align-items:center; justify-content:center;
+          flex:1; min-height:0; height:100%; overflow:auto;
+          background:${bgColor}; padding:20px;">
+          <img src="${url}" alt="${this._escapeHtml(fileName)}"
+               style="max-width:100%; max-height:100%; object-fit:contain;"
+               onerror="this.parentElement.innerHTML='<div class=\\'file-preview-placeholder\\' style=\\'color:var(--error-text);\\'><svg viewBox=\\'0 0 24 24\\' width=\\'32\\' height=\\'32\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.5\\'><circle cx=\\'12\\' cy=\\'12\\' r=\\'10\\'/><line x1=\\'12\\' y1=\\'8\\' x2=\\'12\\' y2=\\'12\\'/><line x1=\\'12\\' y1=\\'16\\' x2=\\'12.01\\' y2=\\'16\\'/></svg><p>图片加载失败</p></div>'" />
+        </div>`;
+    } else {
+      this._container.innerHTML = `
+        <div class="file-binary-preview pdf" style="
+          display:flex; flex-direction:column; flex:1; min-height:0; height:100%;
+          background:${bgColor};">
+          <iframe src="${url}" title="${this._escapeHtml(fileName)}"
+                  style="flex:1; border:none; width:100%; height:100%;"></iframe>
+        </div>`;
+    }
+  }
+
+  // ==================== 表格文件预览（XLSX / XLS / CSV）====================
+
+  /** 判断是否为表格文件 */
+  _isSpreadsheet(filePath) {
+    if (!filePath) return false;
+    const ext = filePath.split('.').pop().toLowerCase();
+    return ['xlsx', 'xls', 'csv'].includes(ext);
+  }
+
+  /** 通过 SheetJS 将表格文件渲染为 HTML 表格 */
+  async _showSpreadsheet(filePath) {
+    this._binaryViewType = 'spreadsheet';
+    const encodedPath = encodeURIComponent(filePath);
+    const url = `/api/file/raw?path=${encodedPath}`;
+
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const arrayBuffer = await resp.arrayBuffer();
+
+      // SheetJS 解析
+      const data = new Uint8Array(arrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      // 构建 HTML
+      const isDark = this._isDarkTheme();
+      const tableBg = isDark ? '#1e1e1e' : '#ffffff';
+      const headBg = isDark ? '#2d2d2d' : '#f5f5f5';
+      const borderColor = isDark ? '#444' : '#e0e0e0';
+      const textColor = isDark ? '#d4d4d4' : '#333';
+      const altRowBg = isDark ? '#252526' : '#fafafa';
+
+      let html = `<div class="file-spreadsheet-preview" style="
+        display:flex; flex-direction:column; flex:1; min-height:0; height:100%;
+        background:${tableBg};">
+
+        <!-- 顶部信息栏 -->
+        <div class="spreadsheet-info" style="
+          padding:8px 16px; font-size:13px; color:${textColor};
+          border-bottom:1px solid ${borderColor};
+          background:${headBg}; display:flex; align-items:center; gap:12px;
+          flex-shrink:0;">
+          <span style="font-weight:600;">${this._escapeHtml(filePath.split('/').pop() || '')}</span>
+          <span style="color:${isDark ? '#999' : '#888'}; font-size:12px;">
+            ${workbook.SheetNames.length} 个 sheet · ${workbook.SheetNames[0]}（激活）
+          </span>
+        </div>`;
+
+      // Sheet 标签栏
+      if (workbook.SheetNames.length > 1) {
+        html += `<div class="spreadsheet-sheet-tabs" style="
+          display:flex; overflow-x:auto; flex-shrink:0;
+          border-bottom:1px solid ${borderColor};
+          background:${headBg}; padding:0 4px;">
+          ${workbook.SheetNames.map((name, i) => `
+            <div class="sheet-tab ${i === 0 ? 'active' : ''}" data-sheet-index="${i}"
+                 style="
+              padding:4px 14px; font-size:12px; cursor:pointer;
+              color:${i === 0 ? textColor : isDark ? '#999' : '#888'};
+              border-bottom:2px solid ${i === 0 ? '#007acc' : 'transparent'};
+              white-space:nowrap; user-select:none;
+              transition:color .15s, border-color .15s;">
+              ${this._escapeHtml(name)}
+            </div>`).join('')}
+        </div>`;
+      }
+
+      // 表格容器
+      html += `<div class="spreadsheet-table-wrap" style="
+        flex:1; overflow:auto; min-height:0; padding:0;">`;
+
+      // 渲染第一个 sheet
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+      if (jsonData.length === 0) {
+        html += `<div style="padding:40px; text-align:center; color:${isDark ? '#888' : '#999'}; font-size:14px;">此 sheet 为空</div>`;
+      } else {
+        html += '<table style="border-collapse:collapse; width:auto; font-size:13px;">';
+        jsonData.forEach((row, rowIdx) => {
+          html += '<tr>';
+          row.forEach((cell) => {
+            const tag = rowIdx === 0 ? 'th' : 'td';
+            const val = cell != null ? String(cell) : '';
+            html += `<${tag} style="
+              border:1px solid ${borderColor}; padding:4px 10px;
+              text-align:${rowIdx === 0 || !isNaN(val) && val !== '' ? 'center' : 'left'};
+              background:${rowIdx === 0 ? headBg : (rowIdx % 2 === 0 ? altRowBg : 'transparent')};
+              color:${textColor};
+              white-space:nowrap; font-weight:${rowIdx === 0 ? '600' : '400'};
+              max-width:400px; overflow:hidden; text-overflow:ellipsis;">
+              ${this._escapeHtml(val)}
+            </${tag}>`;
+          });
+          html += '</tr>';
+        });
+        html += '</table>';
+      }
+
+      html += '</div></div>';
+      this._container.innerHTML = html;
+
+      // ── 绑定 sheet 切换事件 ──
+      const tabs = this._container.querySelectorAll('.sheet-tab');
+      const wrap = this._container.querySelector('.spreadsheet-table-wrap');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const idx = parseInt(tab.dataset.sheetIndex, 10);
+          // 更新激活样式
+          tabs.forEach(t => {
+            t.style.color = isDark ? '#999' : '#888';
+            t.style.borderBottomColor = 'transparent';
+          });
+          tab.style.color = textColor;
+          tab.style.borderBottomColor = '#007acc';
+
+          // 重新渲染选中 sheet
+          const name = workbook.SheetNames[idx];
+          const s = workbook.Sheets[name];
+          const data = XLSX.utils.sheet_to_json(s, { header: 1, defval: '' });
+          let tableHtml = '';
+          if (data.length === 0) {
+            tableHtml = `<div style="padding:40px; text-align:center; color:${isDark ? '#888' : '#999'}; font-size:14px;">此 sheet 为空</div>`;
+          } else {
+            tableHtml = '<table style="border-collapse:collapse; width:auto; font-size:13px;">';
+            data.forEach((row, rowIdx) => {
+              tableHtml += '<tr>';
+              row.forEach((cell) => {
+                const tag = rowIdx === 0 ? 'th' : 'td';
+                const val = cell != null ? String(cell) : '';
+                tableHtml += `<${tag} style="
+                  border:1px solid ${borderColor}; padding:4px 10px;
+                  text-align:${rowIdx === 0 || (!isNaN(val) && val !== '') ? 'center' : 'left'};
+                  background:${rowIdx === 0 ? headBg : (rowIdx % 2 === 0 ? altRowBg : 'transparent')};
+                  color:${textColor};
+                  white-space:nowrap; font-weight:${rowIdx === 0 ? '600' : '400'};
+                  max-width:400px; overflow:hidden; text-overflow:ellipsis;">
+                  ${this._escapeHtml(val)}
+                </${tag}>`;
+              });
+              tableHtml += '</tr>';
+            });
+            tableHtml += '</table>';
+          }
+          wrap.innerHTML = tableHtml;
+
+          // 更新顶部信息
+          const infoSpan = this._container.querySelector('.spreadsheet-info span:last-child');
+          if (infoSpan) {
+            infoSpan.textContent = `${workbook.SheetNames.length} 个 sheet · ${name}（激活）`;
+          }
+        });
+      });
+
+    } catch (err) {
+      console.error('FilePreview: spreadsheet parse failed', filePath, err);
+      const isDark = this._isDarkTheme();
+      this._container.innerHTML = `
+        <div class="file-preview-placeholder" style="color:var(--error-text);">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p>表格解析失败: ${this._escapeHtml(err.message)}</p>
+        </div>`;
+      this._onError(err);
+    }
+  }
+
+  // ==================== DOCX 文件预览 ====================
+
+  /** 判断是否为 DOCX 文件 */
+  _isDocx(filePath) {
+    return filePath && filePath.toLowerCase().endsWith('.docx');
+  }
+
+  /** 通过 mammoth.js 将 DOCX 渲染为 HTML */
+  async _showDocx(filePath) {
+    this._binaryViewType = 'docx';
+    const encodedPath = encodeURIComponent(filePath);
+    const url = `/api/file/raw?path=${encodedPath}`;
+
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const arrayBuffer = await resp.arrayBuffer();
+
+      // mammoth.js 转换（带样式映射，处理 Word 常见样式）
+      const styleMap = [
+        "p[style-name='Title'] => h1:fresh",
+        "p[style-name='Subtitle'] => h2:fresh",
+        "p[style-name='Heading 1'] => h1:fresh",
+        "p[style-name='Heading 2'] => h2:fresh",
+        "p[style-name='Heading 3'] => h3:fresh",
+        "p[style-name='Heading 4'] => h4:fresh",
+        "p[style-name='Heading 5'] => h5:fresh",
+        "p[style-name='Quote'] => blockquote:fresh",
+      ];
+      const result = await mammoth.convertToHtml({
+        arrayBuffer: arrayBuffer,
+        styleMap: styleMap,
+      });
+
+      const isDark = this._isDarkTheme();
+      const bgColor = isDark ? '#1e1e1e' : '#ffffff';
+      const textColor = isDark ? '#d4d4d4' : '#333';
+
+      // 样式化后的文档容器
+      this._container.innerHTML = `
+        <div class="file-docx-preview" style="
+          display:flex; flex-direction:column; flex:1; min-height:0; height:100%;">
+
+          <!-- 顶部信息栏 -->
+          <div class="docx-info" style="
+            padding:8px 16px; font-size:13px; color:${textColor};
+            border-bottom:1px solid ${isDark ? '#444' : '#e0e0e0'};
+            background:${isDark ? '#2d2d2d' : '#f5f5f5'};
+            display:flex; align-items:center; gap:12px; flex-shrink:0;">
+            <span style="font-weight:600;">${this._escapeHtml(filePath.split('/').pop() || '')}</span>
+            ${result.messages && result.messages.length > 0
+              ? `<span title="${this._escapeHtml(result.messages.map(m => m.message).join('\n'))}"
+                     style="color:${isDark ? '#d4a017' : '#b8860b'}; font-size:12px; cursor:help;">
+                   ⚠ ${result.messages.length} 条样式警告
+                 </span>`
+              : ''}
+          </div>
+
+          <!-- 文档内容区 -->
+          <div class="docx-content" style="
+            flex:1; overflow:auto; min-height:0; padding:30px 40px;
+            background:${bgColor}; color:${textColor};
+            font-family:'Georgia','Times New Roman',serif; font-size:15px; line-height:1.7;">
+            ${result.value}
+          </div>
+        </div>`;
+
+      // 如果转换有警告，将它们渲染到控制台
+      if (result.messages && result.messages.length > 0) {
+        console.info('mammoth.js 转换警告:', result.messages);
+      }
+
+    } catch (err) {
+      console.error('FilePreview: docx parse failed', filePath, err);
+      this._container.innerHTML = `
+        <div class="file-preview-placeholder" style="color:var(--error-text);">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p>文档解析失败: ${this._escapeHtml(err.message)}</p>
+        </div>`;
+      this._onError(err);
     }
   }
 

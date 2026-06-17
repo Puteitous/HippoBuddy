@@ -9,6 +9,7 @@ import com.example.agent.web.handler.DiffOriginalHandler;
 import com.example.agent.web.handler.FileApiHandler;
 import com.example.agent.web.handler.GitStatusHandler;
 import com.example.agent.web.handler.MemoryApiHandler;
+import com.example.agent.web.handler.RawFileHandler;
 import com.example.agent.web.handler.MetricsApiHandler;
 import com.example.agent.web.handler.SessionApiHandler;
 import com.example.agent.web.handler.StaticFileHandler;
@@ -82,6 +83,7 @@ public class DashboardServer {
             server.createContext("/api/files", new FileApiHandler());
             server.createContext("/api/git/status", new GitStatusHandler());
             server.createContext("/api/diff/original", new DiffOriginalHandler());
+            server.createContext("/api/file/raw", new RawFileHandler());
             server.createContext("/api/config", new ConfigApiHandler());
             server.createContext("/chat", new StaticFileHandler("/static"));
             server.createContext("/cockpit", new StaticFileHandler("/static"));
