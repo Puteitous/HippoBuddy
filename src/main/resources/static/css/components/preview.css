@@ -13,16 +13,86 @@
 }
 
 .file-binary-preview.image {
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
-  padding: 20px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
 }
 
-.file-binary-preview.image img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+/* 图片缩放工具栏 */
+.img-zoom-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.img-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s;
+  line-height: 1;
+}
+
+.img-zoom-btn:hover {
+  background: var(--bg-code);
+}
+
+.img-zoom-btn:active {
+  background: var(--border);
+}
+
+.img-zoom-reset {
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.img-zoom-level {
+  min-width: 44px;
+  text-align: center;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-secondary);
+}
+
+/* 图片缩放视口 */
+.img-zoom-viewport {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-code);
+  background-image:
+    radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  cursor: default;
+}
+
+.img-zoom-viewport img.img-zoomable {
+  max-width: none;
+  max-height: none;
+  display: block;
+  transform-origin: center center;
+  cursor: grab;
+  image-rendering: auto;
+}
+
+.img-zoom-viewport img.img-zoomable[draggable="true"] {
+  cursor: grab;
 }
 
 .file-binary-preview.pdf {
