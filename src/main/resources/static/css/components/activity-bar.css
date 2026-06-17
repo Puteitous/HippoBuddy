@@ -450,63 +450,99 @@
 .file-change-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     padding: 6px 8px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-secondary);
-    cursor: default;
+    border-radius: var(--radius-md);
     transition: background var(--transition-fast);
+    position: relative;
 }
 
 .file-change-item:hover {
     background: var(--bg-code);
 }
 
-.file-change-icon {
-    font-size: 14px;
-    flex-shrink: 0;
-    width: 20px;
-    text-align: center;
+/* 回滚按钮默认隐藏，hover 时显示 */
+.file-change-item .file-change-rollback {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
-.file-change-info {
+.file-change-item:hover .file-change-rollback {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.file-change-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.file-change-icon-img {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    display: inline-block;
+}
+
+/* 已删除文件 — 降低不透明度 */
+.file-change-item-deleted .file-change-icon-img {
+    opacity: 0.5;
+}
+
+.file-change-name {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+}
+
+.file-change-basename {
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .file-change-path {
-    font-size: var(--font-size-xs);
-    color: var(--text-primary);
+    font-size: 11px;
+    color: var(--text-muted);
     font-family: var(--font-mono);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: flex;
-    align-items: center;
 }
 
-.file-change-meta {
-    font-size: 10px;
+.file-change-item-deleted .file-change-basename,
+.file-change-item-deleted .file-change-path {
     color: var(--text-muted);
-    display: flex;
-    gap: 8px;
-    margin-top: 1px;
+    text-decoration: line-through;
 }
 
-.file-change-tool {
-    background: var(--bg-light);
-    padding: 0 4px;
-    border-radius: 3px;
+/* Git-style status letter — 纯色无背景 */
+.file-change-status {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    line-height: 1;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
 }
 
-.file-change-badge {
-    background: var(--primary-color);
-    color: white;
-    padding: 0 5px;
-    border-radius: 8px;
-    font-size: 9px;
-    margin-left: 4px;
-}
+.file-change-status.status-modified { color: #d49433; }
+.file-change-status.status-added    { color: #2ea043; }
+.file-change-status.status-deleted  { color: #f85149; }
 
 .file-change-rollback {
     font-size: 10px;

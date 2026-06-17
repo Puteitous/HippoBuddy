@@ -2,7 +2,7 @@ import { escapeHtml } from '../utils.js';
 import { showToast } from './toast.js';
 import { diffModalManager } from './diff-modal.js';
 import { EventBus } from './event-bus.js';
-import { ReviewState } from './review-state.js';
+import { getFileIconInfo } from './file-icons.js';
 
 export class FileChangeManager {
   constructor() {
@@ -117,27 +117,42 @@ export class FileChangeManager {
       }
       this._lastChangeSnapshot = currentSnapshot;
 
+      const workspaceRoot = window.HippoWorkspace?.currentPath;
       const fileHtml = Array.from(fileGroups.values()).map(c => {
         const fileName = c.filePath.split(/[/\\]/).pop();
-        const time = new Date(c.latest).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        const icon = c.toolName === 'delete_file'
-          ? '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h10"/><path d="M5 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M4 6v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6"/></svg>'
-          : '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v3h3"/></svg>';
-        const badge = c.count > 1 ? `<span class="file-change-badge">${c.count}次</span>` : '';
-        const reviewStatus = ReviewState.isRolledBack(c.filePath);
-        const reviewDot = reviewStatus ? '<span class="file-review-dot rolled-back" title="已撤销">↩</span>' : '';
+        const displayPath = workspaceRoot && c.filePath.startsWith(workspaceRoot)
+          ? c.filePath.slice(workspaceRoot.length + 1)
+          : c.filePath;
+        // 去掉路径末尾的文件名，只保留目录部分
+        const dirPath = displayPath.endsWith(fileName)
+          ? displayPath.slice(0, -fileName.length).replace(/[/\\]$/, '')
+          : displayPath;
+        const { iconFile } = getFileIconInfo(fileName);
+        const icon = `<img class="file-change-icon-img" src="icons/${iconFile}" draggable="false" alt="">`;
+
+        // Git-style status letter
+        let statusLetter, statusClass;
+        if (c.toolName === 'delete_file') {
+          statusLetter = 'D';
+          statusClass = 'status-deleted';
+        } else if (c.toolName === 'write_file') {
+          statusLetter = 'A';
+          statusClass = 'status-added';
+        } else {
+          statusLetter = 'M';
+          statusClass = 'status-modified';
+        }
+
+        const itemClass = c.toolName === 'delete_file' ? ' file-change-item-deleted' : '';
         return `
-          <div class="file-change-item" data-path="${escapeHtml(c.filePath)}" style="cursor:pointer;">
+          <div class="file-change-item${itemClass}" data-path="${escapeHtml(c.filePath)}" style="cursor:pointer;">
             <span class="file-change-icon">${icon}</span>
-            <div class="file-change-info">
-              <div class="file-change-path" title="${escapeHtml(c.filePath)}">${escapeHtml(fileName)} ${reviewDot}</div>
-              <div class="file-change-meta">
-                <span>${escapeHtml(time)}</span>
-                <span class="file-change-tool">${escapeHtml(c.toolName)}</span>
-                ${badge}
-              </div>
+            <div class="file-change-name" title="${escapeHtml(c.filePath)}">
+              <span class="file-change-basename">${escapeHtml(fileName)}</span>
+              <span class="file-change-path">${escapeHtml(dirPath)}</span>
             </div>
             <button class="file-change-rollback">回滚</button>
+            <span class="file-change-status ${statusClass}">${statusLetter}</span>
           </div>
         `;
       }).join('');

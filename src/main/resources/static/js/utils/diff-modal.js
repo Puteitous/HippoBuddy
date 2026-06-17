@@ -45,6 +45,7 @@ export class DiffModalManager {
     }
 
     this.overlay.addEventListener('click', (e) => {
+      e.stopPropagation();
       if (e.target === this.overlay) {
         this.close();
       }

@@ -318,30 +318,27 @@
 
 .file-tree-node .file-tree-status-badge {
     margin-left: auto;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 700;
     font-family: var(--font-mono);
     line-height: 1;
-    padding: 1px 4px;
-    border-radius: 3px;
     flex-shrink: 0;
+    width: 14px;
+    text-align: center;
     user-select: none;
     pointer-events: none;
 }
 
 .file-tree-status-badge.status-modified {
     color: #d49433;
-    background: rgba(212, 148, 51, 0.12);
 }
 
 .file-tree-status-badge.status-added {
     color: #2ea043;
-    background: rgba(46, 160, 67, 0.12);
 }
 
 .file-tree-status-badge.status-deleted {
     color: #f85149;
-    background: rgba(248, 81, 73, 0.12);
 }
 
 /* 文件节点整体颜色变体 */
@@ -360,17 +357,14 @@
 /* 深色主题适配 */
 [data-theme="dark"] .file-tree-status-badge.status-modified {
     color: #d29922;
-    background: rgba(210, 153, 34, 0.15);
 }
 
 [data-theme="dark"] .file-tree-status-badge.status-added {
     color: #3fb950;
-    background: rgba(63, 185, 80, 0.15);
 }
 
 [data-theme="dark"] .file-tree-status-badge.status-deleted {
     color: #f85149;
-    background: rgba(248, 81, 73, 0.15);
 }
 
 [data-theme="dark"] .file-tree-node.status-modified .file-tree-name {
