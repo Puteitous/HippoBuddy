@@ -118,12 +118,6 @@ const HippoWorkspace = (() => {
   const MAX_RECENT_FOLDERS = 20;
 
   function _syncRecentFolders() {
-    // 桌面端：同步到后端文件，确保重启后不丢失
-    if (window.HippoDesktop?.isAvailable && window.HippoDesktop.setRecentFolders) {
-      const folders = _getRecentFolders();
-      window.HippoDesktop.setRecentFolders(JSON.stringify(folders));
-    }
-    // 同步更新下拉 DOM
     _renderRecentFolders();
   }
 
@@ -155,25 +149,11 @@ const HippoWorkspace = (() => {
 
   // ========== 工作区会话持久化（标签页 + 预览恢复） ==========
 
-  function _loadSessionFromBackend() {
-    if (!window.HippoDesktop?.isAvailable) return Promise.resolve(null);
-    return window.HippoDesktop.getWorkspaceSession().then(raw => {
-      if (!raw || raw === 'null') return null;
-      return JSON.parse(raw);
-    }).catch(() => null);
-  }
-
-  function _saveSessionToBackend(session) {
-    if (!window.HippoDesktop?.isAvailable) return;
-    window.HippoDesktop.setWorkspaceSession(session ? JSON.stringify(session) : null).catch(() => {});
-  }
-
   function _saveWorkspaceSession() {
     if (!_currentRoot) return;
     const openFiles = fileTabs.openPaths;
     if (openFiles.length === 0) {
       try { localStorage.removeItem('hippo-workspace-session'); } catch(e) {}
-      _saveSessionToBackend(null);
       return;
     }
     const session = {
@@ -184,21 +164,11 @@ const HippoWorkspace = (() => {
     try {
       localStorage.setItem('hippo-workspace-session', JSON.stringify(session));
     } catch(e) {}
-    _saveSessionToBackend(session);
   }
 
   function _restoreWorkspaceSession() {
     if (!_currentRoot) return;
-    // 桌面端优先从后端文件加载（localStorage 在 JCEF 中可能不持久）
-    const desktop = window.HippoDesktop?.isAvailable;
-    if (desktop) {
-      _loadSessionFromBackend().then(session => {
-        if (session) _applyRestoredSession(session);
-        else _restoreFromLocalStorage();
-      }).catch(() => _restoreFromLocalStorage());
-    } else {
-      _restoreFromLocalStorage();
-    }
+    _restoreFromLocalStorage();
   }
 
   function _restoreFromLocalStorage() {

@@ -152,11 +152,28 @@ function init() {
   // 9. 加载预设提示词
   loadPromptPresets();
   
-  // 10. 生成并设置当前会话 ID
-  currentSessionId = generateSessionId();
-  sessionManager.setCurrentSession(currentSessionId);
-  appState.currentSessionId = currentSessionId;
-  sessionManager.loadSessions().then(() => updateHistoryDropdown?.());
+  // 10. 尝试恢复上次会话，否则创建新会话
+  (async () => {
+    const lastSessionId = (() => {
+      try { return localStorage.getItem('hippo-last-session-id'); } catch { return null; }
+    })();
+    if (lastSessionId) {
+      try {
+        const messages = await chatService.getSessionMessages(lastSessionId);
+        if (messages && messages.length > 0) {
+          await switchSession(lastSessionId);
+          sessionManager.loadSessions().then(() => updateHistoryDropdown?.());
+          return;
+        }
+      } catch (e) {
+        console.warn('恢复上次会话失败，创建新会话:', e);
+      }
+    }
+    currentSessionId = generateSessionId();
+    sessionManager.setCurrentSession(currentSessionId);
+    appState.currentSessionId = currentSessionId;
+    sessionManager.loadSessions().then(() => updateHistoryDropdown?.());
+  })();
   
   // 11. 启动自动更新
   tokenMonitor.startAutoUpdate(30000);
@@ -275,13 +292,6 @@ function bindGlobalEvents() {
     applyHljsTheme(next);
   });
 
-  // 监听桌面端后端恢复的主题
-  window.addEventListener('theme-restored', (e) => {
-    const theme = e.detail.theme;
-    document.documentElement.setAttribute('data-theme', theme);
-    elements.themeToggle.innerHTML = theme === 'dark' ? ICON_SUN : ICON_MOON;
-    applyHljsTheme(theme);
-  });
   
   // 聊天面板头部 - 新建会话
   document.getElementById('chatNewBtn')?.addEventListener('click', createNewSession);
@@ -475,6 +485,7 @@ async function createNewSession() {
     elements.messageInput.style.height = 'auto';
     elements.messageInput.focus();
   }
+  try { localStorage.setItem('hippo-last-session-id', currentSessionId); } catch(e) {}
   updateHistoryDropdown();
 }
 
@@ -535,6 +546,9 @@ async function switchSession(sessionId) {
       });
       document.querySelector('.chat-panel')?.classList.add('has-messages');
     }
+    
+    // 保存为上次活跃会话
+    try { localStorage.setItem('hippo-last-session-id', sessionId); } catch(e) {}
     
     tokenMonitor.scheduleUpdate();
     metricsPanel.updateMetrics();

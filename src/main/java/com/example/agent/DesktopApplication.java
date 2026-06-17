@@ -157,7 +157,8 @@ public final class DesktopApplication {
             builder.getCefSettings().windowless_rendering_enabled = false;
 
             // 设置持久化缓存路径，使 localStorage / IndexDB 等跨重启保留
-            Path browserCacheDir = WorkspaceManager.getGlobalCacheDir().resolve("jcef");
+            // 使用绝对路径，否则jcef缓存会因为路径问题失效
+            Path browserCacheDir = WorkspaceManager.getGlobalCacheDir().resolve("jcef").toAbsolutePath();
             try {
                 Files.createDirectories(browserCacheDir);
             } catch (IOException e) {
@@ -206,10 +207,7 @@ public final class DesktopApplication {
             CefMessageRouter router = CefMessageRouter.create(
                     new CefMessageRouter.CefMessageRouterConfig());
             router.addHandler(new FileHandler(), true);
-            router.addHandler(new ConfigHandler(
-                    windowManager.getThemeConfigPath(),
-                    windowManager.getRecentFoldersConfigPath(),
-                    windowManager.getWorkspaceSessionConfigPath()), true);
+            router.addHandler(new ConfigHandler(), true);
             router.addHandler(new DevToolsHandler(windowManager.getMainFrame()), true);
             router.addHandler(new DialogHandler(windowManager.getMainFrame()), true);
             router.addHandler(new WindowHandler(windowManager), true);
@@ -224,25 +222,6 @@ public final class DesktopApplication {
                 "document.addEventListener('keydown',function(e){if(e.key==='F12'){window.cefQuery({request:JSON.stringify({action:'openDevTools'}),onSuccess:function(r){},onFailure:function(){}});}});",
                 "", 0
             );
-
-            // ====== 应用持久化的主题 ======
-            try {
-                Path themeFile = windowManager.getThemeConfigPath();
-                if (Files.exists(themeFile)) {
-                    String savedTheme = Files.readString(themeFile).trim();
-                    if (savedTheme.equals("dark") || savedTheme.equals("light")) {
-                        browser.executeJavaScript(
-                            "try{localStorage.setItem('hippo-theme','" + savedTheme + "');" +
-                            "document.cookie='hippo-theme=" + savedTheme + ";path=/;max-age=2592000;SameSite=Lax';" +
-                            "}catch(e){}",
-                            "", 0
-                        );
-                        logger.info("已注入持久化主题: {}", savedTheme);
-                    }
-                }
-            } catch (Exception e) {
-                logger.debug("未找到持久化主题配置，使用默认主题", e);
-            }
 
         } catch (Exception e) {
             logger.error("JCEF 初始化失败", e);

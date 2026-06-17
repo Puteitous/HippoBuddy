@@ -234,33 +234,6 @@ const HippoDesktop = (() => {
       return send('openDevTools');
     },
 
-    // ===== 主题持久化 =====
-    getTheme() {
-      return send('getTheme').then(r => r && r.theme);
-    },
-
-    setTheme(theme) {
-      return send('setTheme', { theme });
-    },
-
-    // ===== 最近文件夹持久化 =====
-    getRecentFolders() {
-      return send('getRecentFolders').then(r => r && r.folders);
-    },
-
-    setRecentFolders(folders) {
-      return send('setRecentFolders', { folders });
-    },
-
-    // ===== 工作区会话持久化 =====
-    getWorkspaceSession() {
-      return send('getWorkspaceSession').then(r => r && r.session);
-    },
-
-    setWorkspaceSession(session) {
-      return send('setWorkspaceSession', { session });
-    },
-
     // ===== 文件系统工具 =====
     showItemInFolder(path) {
       return send('showItemInFolder', { path });
@@ -398,18 +371,7 @@ const HippoDesktop = (() => {
 
     // 检查 WorkspaceManager 是否可用
     if (ws && ws.isAvailable) {
-      // 1. 先从后端加载持久化的最近文件夹列表到 localStorage
-      api.getRecentFolders().then((foldersStr) => {
-        if (foldersStr && foldersStr !== '[]') {
-          try {
-            localStorage.setItem('hippo-recent-folders', foldersStr);
-            // 更新 localStorage 后重新渲染下拉框，否则下拉框仍显示"暂无最近打开的文件夹"
-            ws?.renderRecentFolders?.();
-          } catch(e) {}
-        }
-      }).catch(() => {});
-
-      // 2. 恢复上次工作区
+      // 恢复上次工作区
       api.getCurrentFolder().then((result) => {
         if (result && result.path) {
           ws.openWorkspace(result.path);

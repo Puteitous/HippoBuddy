@@ -1,7 +1,5 @@
 package com.example.agent.desktop;
 
-import com.example.agent.logging.WorkspaceManager;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -192,17 +190,4 @@ public class WindowManager {
         WindowCornerUtil.apply(mainFrame, maximized);
     }
 
-    // ========== 持久化配置路径 ==========
-
-    public Path getThemeConfigPath() {
-        return WorkspaceManager.getGlobalConfigDir().resolve("theme.txt");
-    }
-
-    public Path getRecentFoldersConfigPath() {
-        return WorkspaceManager.getGlobalConfigDir().resolve("recent-folders.json");
-    }
-
-    public Path getWorkspaceSessionConfigPath() {
-        return WorkspaceManager.getGlobalConfigDir().resolve("workspace-session.json");
-    }
 }

@@ -1,10 +1,10 @@
 // 全局应用状态管理
 
-// 可靠的主题读取：localStorage → cookie 后备（桌面端启动时由 Java 注入持久化值到 localStorage）
+// 可靠的主题读取：localStorage → cookie 后备
 function _loadTheme() {
   const fromLS = localStorage.getItem('hippo-theme');
   if (fromLS === 'dark' || fromLS === 'light') return fromLS;
-  // cookie 后备（JCEF 环境 localStorage 可能不持久）
+  // cookie 后备
   const match = document.cookie.match(/\bhippo-theme=(dark|light)\b/);
   return match ? match[1] : 'light';
 }
@@ -13,10 +13,6 @@ function _saveTheme(value) {
   try { localStorage.setItem('hippo-theme', value); } catch (_) {}
   // cookie 后备，30 天过期
   document.cookie = `hippo-theme=${value}; path=/; max-age=2592000; SameSite=Lax`;
-  // 桌面端：通过 Java Bridge 持久化到磁盘
-  if (window.HippoDesktop) {
-    window.HippoDesktop.setTheme(value).catch(() => {});
-  }
 }
 
 export const AppState = {
@@ -110,19 +106,6 @@ export const AppState = {
       if (saved) {
         this.currentSystemPrompt = saved;
       }
-    }
-    
-    // 桌面端：从后端同步持久化主题（兜底，确保 localStorage/cookie 失效时仍能恢复）
-    if (window.HippoDesktop) {
-      window.HippoDesktop.getTheme().then(backendTheme => {
-        if (backendTheme && backendTheme !== this.currentTheme) {
-          this.setState('currentTheme', backendTheme);
-          // 通知 DOM 更新
-          document.documentElement.setAttribute('data-theme', backendTheme);
-          // 触发自定义事件，让其他模块感知主题变化
-          window.dispatchEvent(new CustomEvent('theme-restored', { detail: { theme: backendTheme } }));
-        }
-      }).catch(() => {});
     }
     
     return this;
