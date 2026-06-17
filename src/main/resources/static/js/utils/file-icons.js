@@ -92,6 +92,15 @@ const EXT_ICON_MAP = {
   rar: 'zip',
   '7z': 'zip',
   tgz: 'zip',
+  // Documents
+  pdf: 'pdf',
+  docx: 'word',
+  doc: 'word',
+  xlsx: 'excel',
+  xls: 'excel',
+  csv: 'excel',
+  pptx: 'powerpoint',
+  ppt: 'powerpoint',
 };
 
 const FULLNAME_ICON_MAP = {
