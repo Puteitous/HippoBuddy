@@ -8,6 +8,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLDecoder;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -71,20 +76,83 @@ public class RawFileHandler implements HttpHandler {
             return;
         }
 
-        String mimeType = getMimeType(file.getFileName().toString());
+        String fileName = file.getFileName().toString();
+        String mimeType = getMimeType(fileName);
 
         byte[] content = Files.readAllBytes(file);
+
+        // ── CSV 文件编码检测与转换 ──
+        if (fileName.toLowerCase().endsWith(".csv")) {
+            content = ensureUtf8WithBom(content);
+            mimeType = "text/csv; charset=UTF-8";
+        }
+
+        // CSV 不缓存（避免编码问题导致用户刷新后仍看到乱码）
+        String cacheControl = fileName.toLowerCase().endsWith(".csv")
+            ? "no-cache, no-store, must-revalidate"
+            : "private, max-age=3600";
 
         exchange.getResponseHeaders().set("Content-Type", mimeType);
         exchange.getResponseHeaders().set("Content-Length", String.valueOf(content.length));
         exchange.getResponseHeaders().set("Content-Size-Human", formatFileSize(fileSize));
         exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
-        exchange.getResponseHeaders().set("Cache-Control", "private, max-age=3600");
+        exchange.getResponseHeaders().set("Cache-Control", cacheControl);
 
         exchange.sendResponseHeaders(200, content.length);
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(content);
         }
+    }
+
+    /**
+     * 检测 CSV 字节数组的编码，确保返回 UTF-8 with BOM 的字节数组。
+     * <p>
+     * 检测策略：
+     *   1. 已有 UTF-8 BOM（EF BB BF）→ 保留原始字节
+     *   2. 尝试 UTF-8 解码 → 成功则添加 BOM
+     *   3. UTF-8 解码失败 → 按 GBK 解码，再编码为 UTF-8 并添加 BOM
+     * </p>
+     */
+    static byte[] ensureUtf8WithBom(byte[] input) {
+        if (input == null || input.length == 0) {
+            return input;
+        }
+
+        // 1. 检查是否已有 UTF-8 BOM
+        if (input.length >= 3 && (input[0] & 0xFF) == 0xEF
+            && (input[1] & 0xFF) == 0xBB && (input[2] & 0xFF) == 0xBF) {
+            return input;
+        }
+
+        // 2. 尝试 UTF-8 解码
+        CharsetDecoder utf8Decoder = StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT);
+        try {
+            utf8Decoder.decode(ByteBuffer.wrap(input));
+            // UTF-8 合法 → 添加 BOM 后返回
+            return addBom(input);
+        } catch (CharacterCodingException e) {
+            // 3. UTF-8 解码失败 → 尝试 GBK
+            try {
+                Charset gbk = Charset.forName("GBK");
+                String text = gbk.decode(ByteBuffer.wrap(input)).toString();
+                byte[] utf8Bytes = text.getBytes(StandardCharsets.UTF_8);
+                return addBom(utf8Bytes);
+            } catch (Exception ex) {
+                logger.warn("CSV encoding fallback (GBK) failed, returning raw bytes with BOM", ex);
+                return addBom(input);
+            }
+        }
+    }
+
+    /** 为字节数组添加 UTF-8 BOM（EF BB BF） */
+    private static byte[] addBom(byte[] data) {
+        byte[] bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+        byte[] result = new byte[bom.length + data.length];
+        System.arraycopy(bom, 0, result, 0, bom.length);
+        System.arraycopy(data, 0, result, bom.length, data.length);
+        return result;
     }
 
     /** 格式化文件大小为人类可读形式 */

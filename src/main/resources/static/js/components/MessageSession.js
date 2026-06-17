@@ -1,6 +1,7 @@
 import { EventRouter } from './EventRouter.js';
 import { renderMarkdown } from '../markdown-renderer.js';
 import { escapeHtml } from '../utils.js';
+import { EventBus } from '../utils/event-bus.js';
 
 export class MessageSession {
   constructor({ chatUI, renderPipeline, chatService }) {
@@ -199,6 +200,11 @@ export class MessageSession {
           existingTool.progressLines = null;
           s._renderPipeline.flush(s._segments, s._currentText);
           s._renderPipeline.scheduleRender(s._segments, s._currentText);
+
+          // 文件操作工具执行后刷新文件树 + 预览面板（主 SSE 流路径）
+          if (parsed.success) {
+            _emitFileEventsFromToolResult(parsed);
+          }
         }
       },
 
@@ -495,6 +501,11 @@ export class MessageSession {
       existingTool.confirmationData = null;
       existingTool.progressLines = null;
     }
+
+    // 文件操作工具执行后刷新文件树 + 预览面板（确认 SSE 流路径）
+    if (parsed.success) {
+      _emitFileEventsFromToolResult(parsed);
+    }
   }
 
   handleToolProgress(parsed) {
@@ -622,5 +633,29 @@ export class MessageSession {
     this._reasoningSegment = null;
     this._contentDiv = null;
     this._btnContainer = null;
+  }
+}
+
+/**
+ * 从 tool_result 事件中提取文件操作信息，触发文件树刷新和预览重新加载
+ * 模块级函数，同时被主 SSE 流和确认 SSE 流调用
+ */
+function _emitFileEventsFromToolResult(parsed) {
+  // 文件操作工具执行后刷新文件树
+  if (parsed.name === 'bash' || parsed.name === 'write_file' || parsed.name === 'edit_file' || parsed.name === 'delete_file') {
+    EventBus.emit('file:changes-updated');
+  }
+  // write_file/edit_file：通知预览面板重新加载
+  if (parsed.args) {
+    try {
+      const args = typeof parsed.args === 'string' ? JSON.parse(parsed.args) : parsed.args;
+      if (parsed.name === 'write_file' || parsed.name === 'edit_file') {
+        if (args.path) EventBus.emit('file:preview-reload', args.path);
+      } else if (parsed.name === 'delete_file' && Array.isArray(args.paths)) {
+        for (const p of args.paths) {
+          EventBus.emit('file:preview-reload', p);
+        }
+      }
+    } catch (_e) { /* ignore */ }
   }
 }

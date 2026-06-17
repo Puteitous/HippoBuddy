@@ -55,37 +55,34 @@ function isCsvFile(filePath) {
 }
 
 /**
- * 对 CSV 字节数组做编码检测和转换，返回 UTF-8 编码的 Uint8Array。
+ * 对 CSV 字节数组做编码检测和转换，返回 UTF-8 字符串。
  *
  * 检测策略：
- *   1. 检查 UTF-8 BOM → 去除 BOM，直接按 UTF-8 使用
- *   2. 尝试 UTF-8 解码（fatal 模式）→ 成功则为合法 UTF-8
- *   3. 失败 → 按 GBK 解码，再重新编码为 UTF-8 字节
+ *   1. 检查 UTF-8 BOM → 去除 BOM，按 UTF-8 解码为字符串
+ *   2. 尝试 UTF-8 解码（fatal 模式）→ 成功则返回字符串
+ *   3. 失败 → 按 GBK 解码，返回字符串
  */
-function decodeCSVBytes(arrayBuffer) {
+function decodeCSVToString(arrayBuffer) {
   const bytes = new Uint8Array(arrayBuffer);
-  if (bytes.length === 0) return bytes;
+  if (bytes.length === 0) return '';
 
-  // 1. 检查 UTF-8 BOM（EF BB BF）
+  let dataBytes = bytes;
+
+  // 1. 检查 UTF-8 BOM（EF BB BF）→ 去除 BOM
   if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
-    return bytes.slice(3);
+    dataBytes = bytes.slice(3);
   }
 
   // 2. 尝试 UTF-8 解码（fatal 模式：遇到非法序列抛异常）
   try {
-    const decoder = new TextDecoder('utf-8', { fatal: true });
-    decoder.decode(bytes);
-    return bytes;
+    return new TextDecoder('utf-8', { fatal: true }).decode(dataBytes);
   } catch (_) {
-    // 3. UTF-8 解码失败 → 按 GBK 解码，再转回 UTF-8 字节
+    // 3. UTF-8 解码失败 → 按 GBK 解码
     try {
-      const gbkDecoder = new TextDecoder('gbk');
-      const text = gbkDecoder.decode(bytes);
-      const utf8Encoder = new TextEncoder();
-      return utf8Encoder.encode(text);
+      return new TextDecoder('gbk').decode(dataBytes);
     } catch (e) {
-      console.warn('BinaryPreview: CSV encoding fallback failed, using raw bytes', e);
-      return bytes;
+      console.warn('BinaryPreview: CSV encoding fallback failed, returning empty', e);
+      return '';
     }
   }
 }
@@ -287,12 +284,14 @@ export class BinaryPreview {
 
       let sheetData;
       if (isCsvFile(filePath)) {
-        sheetData = decodeCSVBytes(arrayBuffer);
+        // CSV: 解码为 UTF-8 字符串后传给 SheetJS，避免字节数组编码识别错误
+        const csvString = decodeCSVToString(arrayBuffer);
+        sheetData = csvString;
       } else {
         sheetData = new Uint8Array(arrayBuffer);
       }
 
-      const workbook = XLSX.read(sheetData, { type: 'array' });
+      const workbook = XLSX.read(sheetData, { type: isCsvFile(filePath) ? 'string' : 'array' });
 
       const renderSheetTable = (sheet, sheetIdx) => {
         const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
