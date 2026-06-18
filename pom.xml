@@ -151,7 +151,7 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.16.1</version>
+            <version>2.18.0</version>
         </dependency>
         <!-- commons-compress 1.28.0 与 commons-io 2.16.1 有 API 不兼容，降级至 1.27.1 -->
         <dependency>
@@ -170,6 +170,18 @@
             <groupId>net.java.dev.jna</groupId>
             <artifactId>jna-platform</artifactId>
             <version>5.14.0</version>
+        </dependency>
+
+        <!-- Apache POI: Office 文件解析（XLSX/XLS/DOCX） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>5.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.4.1</version>
         </dependency>
 
     </dependencies>

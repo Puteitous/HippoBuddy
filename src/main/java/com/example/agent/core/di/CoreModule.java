@@ -112,6 +112,7 @@ public final class CoreModule {
         ToolRegistry registry = new ToolRegistry(objectMapper);
 
         registry.register(new ReadFileTool());
+        registry.register(new ReadOfficeFileTool());
         registry.register(new WriteFileTool());
         registry.register(new EditFileTool());
         registry.register(new UndoFileTool());
