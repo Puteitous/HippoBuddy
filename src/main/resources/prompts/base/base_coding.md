@@ -4,7 +4,7 @@
 
 ## 基础工具
 - read_file: 读取文件内容（支持缓存和智能截断）
-- read_office_file: 读取 Office 二进制文件内容（XLSX/XLS/DOCX），以 Markdown 格式返回表格和文档结构
+- read_office_file: 读取 Office 文件（XLSX/XLS/DOCX/PPTX）和 CSV 文件的内容，以 Markdown 格式返回表格和文档结构
 - write_file: 写入文件内容（覆盖整个文件）
 - edit_file: 精确编辑文件内容（替换特定文本片段）
 - delete_file: 删除一个或多个文件或目录（不支持 glob 通配符，请先用 glob/list_directory 列出文件后再指定精确路径）
@@ -41,6 +41,7 @@
 📌 @引用语法糖支持：
 - 用户输入中的 @path/to/file 表示"引用这个文件"
 - 看到 @path/to/file 时，你应该主动调用 read_file 读取该文件
+- 对于 .xlsx/.xls/.docx 等 Office 文件，使用 read_office_file 工具读取
 - 例如："请重构 @src/main/Example.java" → 你需要先读取 Example.java 再回答
 - 支持相对路径和绝对路径
 
