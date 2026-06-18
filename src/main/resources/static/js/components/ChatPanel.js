@@ -89,10 +89,10 @@ export class ChatPanel {
     this.bindEvents();
 
     // 监听文本选中快捷操作 → 插入输入框
-    this._unsubscribeSelectionAction = EventBus.on('selection:add-to-input', ({ text, refType, filePath, startLine, endLine }) => {
+    this._unsubscribeSelectionAction = EventBus.on('selection:add-to-input', ({ text, refType, filePath, startLine, endLine, selectedText }) => {
       const bar = this._getActiveRefsBar();
       if (bar) {
-        this._addRefChip(bar, text, refType, filePath, startLine, endLine);
+        this._addRefChip(bar, text, refType, filePath, startLine, endLine, undefined, selectedText);
         const input = this._getActiveInput();
         if (input) input.focus();
       }
@@ -285,13 +285,28 @@ export class ChatPanel {
       e.preventDefault();
       inputArea.classList.remove('drag-over');
 
-      const path = e.dataTransfer.getData('text/plain');
-      if (!path) return;
-
-      const dragType = e.dataTransfer.getData('text/x-hippo-type');
       const bar = this._getActiveRefsBar();
-      if (bar) {
+      if (!bar) return;
+
+      // 从文件树拖拽 → text/plain 包含文件路径
+      const path = e.dataTransfer.getData('text/plain');
+      if (path) {
+        const dragType = e.dataTransfer.getData('text/x-hippo-type');
         this._addRefChip(bar, path, 'file', path, undefined, undefined, { isDirectory: dragType === 'directory' });
+        const input = this._getActiveInput();
+        if (input) input.focus();
+        return;
+      }
+
+      // 从 OS 资源管理器拖入 → e.dataTransfer.files 包含 File 对象
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const filePath = file.path || file.fullPath;
+          if (filePath) {
+            this._addRefChip(bar, filePath, 'file', filePath);
+          }
+        }
         const input = this._getActiveInput();
         if (input) input.focus();
       }
@@ -316,9 +331,14 @@ export class ChatPanel {
         const sl = c.dataset.startLine;
         const el = c.dataset.endLine;
         const hasLines = sl && el && sl !== 'undefined' && el !== 'undefined';
-        return hasLines
+        const ref = hasLines
           ? `@${c.dataset.filePath}:${sl}-${el}`
           : `@${c.dataset.filePath}`;
+        // 二进制文件预览带选中文字 → 追加在 @path 后面
+        if (c.dataset.selectedText) {
+          return ref + '\n```\n' + c.dataset.selectedText + '\n```';
+        }
+        return ref;
       }
       // 纯文本 → 代码块
       const full = c.title || c.textContent.replace('×', '').trim();
@@ -338,8 +358,9 @@ export class ChatPanel {
    * @param {number} [startLine]
    * @param {number} [endLine]
    * @param {{ isDirectory?: boolean }} [options]
+   * @param {string} [selectedText] - 二进制文件预览的选中文字内容
    */
-  _addRefChip(bar, text, refType, filePath, startLine, endLine, options) {
+  _addRefChip(bar, text, refType, filePath, startLine, endLine, options, selectedText) {
     const chip = document.createElement('span');
     chip.className = 'input-ref-chip';
     if (refType === 'file' && filePath) {
@@ -352,6 +373,7 @@ export class ChatPanel {
       chip.dataset.filePath = filePath;
       if (startLine != null) chip.dataset.startLine = startLine;
       if (endLine != null) chip.dataset.endLine = endLine;
+      if (selectedText) chip.dataset.selectedText = selectedText;
       chip.classList.add('input-ref-chip-navigable');
     } else {
       const textSpan = document.createElement('span');

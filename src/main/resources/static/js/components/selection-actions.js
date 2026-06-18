@@ -92,6 +92,18 @@ export function initSelectionActions() {
             if (selection) selection.removeAllRanges();
             return;
           }
+          // 二进制文件预览（表格/DOCX/图片/PDF）→ 文件路径 + 选中文字
+          if (filePath) {
+            EventBus.emit('selection:add-to-input', {
+              text: filePath,
+              refType: 'file',
+              filePath,
+              selectedText: text
+            });
+            hideBtn();
+            if (selection) selection.removeAllRanges();
+            return;
+          }
         }
 
         // 其他区域 → 纯文本引用

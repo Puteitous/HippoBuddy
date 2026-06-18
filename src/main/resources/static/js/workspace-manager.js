@@ -581,6 +581,22 @@ const HippoWorkspace = (() => {
   // 文件变更时刷新文件树（file-change-manager 在 `message:sent` 后自动检测变更并 emit 此事件）
   // AI 消息发送完成后不需要额外挂 fileTree.refresh()，防止双重刷新导致闪烁
 
+  // ── 全局文件拖放保护 ────────────────────────────
+  // 防止外部文件拖到非输入区时浏览器默认跳转/打开文件
+  document.addEventListener('dragover', (e) => {
+    if (e.dataTransfer.types?.includes('Files')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  });
+  document.addEventListener('drop', (e) => {
+    if (e.dataTransfer.types?.includes('Files')) {
+      // 阻止浏览器默认行为（导航到文件路径），
+      // 输入区内的 drop 由 ChatPanel 处理，也一起拦掉不影响
+      e.preventDefault();
+    }
+  });
+
   console.log('HippoWorkspace initialized ✅');
   return api;
 })();
