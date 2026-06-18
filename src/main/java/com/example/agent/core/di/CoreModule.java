@@ -113,6 +113,7 @@ public final class CoreModule {
 
         registry.register(new ReadFileTool());
         registry.register(new ReadOfficeFileTool());
+        registry.register(new WriteOfficeFileTool());
         registry.register(new WriteFileTool());
         registry.register(new EditFileTool());
         registry.register(new UndoFileTool());

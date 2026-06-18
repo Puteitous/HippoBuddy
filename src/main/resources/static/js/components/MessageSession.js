@@ -642,7 +642,7 @@ export class MessageSession {
  */
 function _emitFileEventsFromToolResult(parsed) {
   // 文件操作工具执行后刷新文件树
-  if (parsed.name === 'bash' || parsed.name === 'write_file' || parsed.name === 'edit_file' || parsed.name === 'delete_file') {
+  if (parsed.name === 'bash' || parsed.name === 'write_office_file' || parsed.name === 'write_file' || parsed.name === 'edit_file' || parsed.name === 'delete_file') {
     EventBus.emit('file:changes-updated');
   }
   // write_file/edit_file：通知预览面板重新加载
