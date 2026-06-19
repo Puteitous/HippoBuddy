@@ -41,7 +41,7 @@ export function renderEditFileCard(tool) {
         <span class="arrow">▶</span>
       </div>
       <div class="tool-call-details">
-        <div class="editfile-path">${fileSvg} ${escapeHtml(filePath)}</div>
+        <div class="editfile-path" data-file-path="${escapeHtml(filePath)}">${fileSvg} ${escapeHtml(filePath)}</div>
         ${isRunning ? '<div class="editfile-loading">正在编辑文件...</div>' : ''}
         ${isSuccess ? `
         <div class="editfile-diff">

@@ -108,6 +108,16 @@ export class ChatPanel {
       const endLine = chip.dataset.endLine && chip.dataset.endLine !== 'undefined' ? parseInt(chip.dataset.endLine) : null;
       window.HippoWorkspace?.navigateToFile?.(filePath, startLine, endLine);
     });
+
+    // 工具卡片文件路径点击跳转
+    document.addEventListener('click', (e) => {
+      const pathEl = e.target.closest('[data-file-path]');
+      if (!pathEl) return;
+      const filePath = pathEl.dataset.filePath;
+      if (!filePath) return;
+      e.stopPropagation();
+      window.HippoWorkspace?.navigateToFile?.(filePath);
+    });
   }
   
   bindEvents() {

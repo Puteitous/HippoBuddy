@@ -47,7 +47,7 @@ export function renderWriteFileCard(tool) {
         <span class="arrow">▶</span>
       </div>
       <div class="tool-call-details">
-        <div class="writefile-path">${fileSvg} ${escapeHtml(filePath)}</div>
+        <div class="writefile-path" data-file-path="${escapeHtml(filePath)}">${fileSvg} ${escapeHtml(filePath)}</div>
         ${isRunning ? '<div class="editfile-loading">正在写入文件...</div>' : ''}
         ${isSuccess ? `
         <div class="editfile-diff">

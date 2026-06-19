@@ -668,6 +668,24 @@
     overflow: hidden;
 }
 
+/* 工具卡片文件路径可点击 */
+.editfile-path[data-file-path],
+.writefile-path[data-file-path],
+.bash-meta[data-file-path],
+.delete-file-path[data-file-path],
+.delete-file-list-item[data-file-path],
+.tool-timeline-summary[data-file-path] {
+    cursor: pointer;
+}
+.editfile-path[data-file-path]:hover,
+.writefile-path[data-file-path]:hover,
+.bash-meta[data-file-path]:hover,
+.delete-file-path[data-file-path]:hover,
+.delete-file-list-item[data-file-path]:hover,
+.tool-timeline-summary[data-file-path]:hover {
+    color: var(--text-primary);
+}
+
 .unified-diff {
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);

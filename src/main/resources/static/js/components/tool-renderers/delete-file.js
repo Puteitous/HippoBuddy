@@ -18,7 +18,7 @@ function _renderDeleteFileConfirmBody(data) {
       <div class="delete-file-simple">
         ${trashIcon}
         <span class="delete-file-label">删除:</span>
-        <span class="delete-file-path">${escapeHtml(items[0])}</span>
+        <span class="delete-file-path" data-file-path="${escapeHtml(items[0])}">${escapeHtml(items[0])}</span>
       </div>
       <div class="confirmation-footer">
         <div class="confirmation-buttons">
@@ -29,7 +29,7 @@ function _renderDeleteFileConfirmBody(data) {
   }
 
   const fileListHtml = items.map(f => `
-    <div class="delete-file-list-item">${escapeHtml(f)}</div>
+    <div class="delete-file-list-item" data-file-path="${escapeHtml(f)}">${escapeHtml(f)}</div>
   `).join('');
 
   return `

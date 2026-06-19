@@ -69,7 +69,7 @@ export function renderBashCard(tool) {
       </div>
       <div class="tool-call-details">
         <div class="bash-command">${escapeHtml(command)}</div>
-        ${workingDir ? `<div class="bash-meta">${folderSvg} ${escapeHtml(workingDir)}</div>` : ''}
+        ${workingDir ? `<div class="bash-meta" data-file-path="${escapeHtml(workingDir)}">${folderSvg} ${escapeHtml(workingDir)}</div>` : ''}
         ${exitCode !== null ? `<div class="bash-meta">${exitSvg} 退出码: ${exitCode} ${duration ? `| ⏱ ${duration}ms` : ''}</div>` : ''}
         ${output ? `<div class="bash-output"><pre><code>${escapeHtml(output)}</code></pre></div>` : ''}
         ${isError && tool.error ? `<div class="bash-error">${escapeHtml(tool.error)}</div>` : ''}

@@ -158,6 +158,18 @@ export function renderToolTimelineRow(tool) {
     summary = name;
   }
 
+  // 提取文件路径（用于 timeline summary 可点击跳转）
+  let summaryFilePath = '';
+  if (name === 'read_file' || name === 'edit_file' || name === 'write_file') {
+    const args = parseToolArgs(tool.args);
+    summaryFilePath = args.path || '';
+  } else if (name === 'delete_file') {
+    const args = parseToolArgs(tool.args);
+    if (args.paths && Array.isArray(args.paths)) {
+      summaryFilePath = args.paths[0] || '';
+    }
+  }
+
   let statusSvg;
   if (isPendingConfirm) {
     statusSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z"/><line x1="8" y1="5" x2="8" y2="9"/><line x1="8" y1="11" x2="8.01" y2="11"/></svg>';
@@ -196,7 +208,7 @@ export function renderToolTimelineRow(tool) {
       <div class="tool-timeline-row" onclick="window.toggleToolTimeline(this)">
         <span class="tool-timeline-dot">${toolSvg}</span>
         <span class="tool-timeline-name">${escapeHtml(name)}</span>
-        <span class="tool-timeline-summary">${escapeHtml(truncateText(summary, 60))}</span>
+        <span class="tool-timeline-summary"${summaryFilePath ? ` onclick="event.stopPropagation();window.HippoWorkspace?.navigateToFile?.('${escapeHtml(summaryFilePath)}')" data-file-path="${escapeHtml(summaryFilePath)}"` : ''}>${escapeHtml(truncateText(summary, 60))}</span>
         <span class="tool-timeline-status ${status}">${statusSvg}</span>
         ${viewBtnHtml}
         <span class="tool-timeline-arrow">▶</span>
