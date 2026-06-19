@@ -704,34 +704,6 @@
     border-color: #606060;
 }
 
-/* ========== 文件树 Toast ========== */
-
-.file-tree-toast {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%) translateY(10px);
-    background: #1e1e1e;
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-size: 14px;
-    z-index: 100001;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    opacity: 0;
-    transition: opacity 0.25s, transform 0.25s;
-    pointer-events: none;
-}
-
-.file-tree-toast.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-}
-
-/* 深色主题 Toast */
-[data-theme="dark"] .file-tree-toast {
-    background: #3a3a3a;
-}
 
 /* ========== 文件树右键菜单样式增强 ========== */
 

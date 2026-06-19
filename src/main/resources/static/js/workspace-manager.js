@@ -18,6 +18,7 @@ import { FileTabs } from './components/FileTabs.js';
 import { FilePreview } from './components/FilePreview.js';
 import { EventBus } from './utils/event-bus.js';
 import { ConfirmDialog } from './utils/modal.js';
+import { showBottomToast } from './utils/toast.js';
 
 const HippoWorkspace = (() => {
   if (typeof window.cefQuery === 'undefined') {
@@ -239,6 +240,7 @@ const HippoWorkspace = (() => {
         if (path) {
           dropdown.classList.remove('show');
           api.openWorkspace(path);
+          showBottomToast('工作区已切换: ' + path);
         }
       });
     });

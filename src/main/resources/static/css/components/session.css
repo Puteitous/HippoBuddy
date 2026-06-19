@@ -130,15 +130,28 @@
     line-height: 1.3;
 }
 
-.session-project-header .project-count {
-    font-size: var(--font-size-xs);
-    font-weight: 500;
+.session-project-header .project-open-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
     color: var(--text-muted);
-    background: var(--bg-code);
-    padding: 1px 7px;
-    border-radius: 10px;
+    cursor: pointer;
+    border-radius: 4px;
     flex-shrink: 0;
-    line-height: 1.5;
+    opacity: 0;
+    transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+.session-project-header:hover .project-open-btn {
+    opacity: 0.6;
+}
+.session-project-header .project-open-btn:hover {
+    opacity: 1;
+    background: var(--bg-code);
+    color: var(--text-primary);
 }
 
 /* Infinite scroll sentinel — invisible trigger for IntersectionObserver */

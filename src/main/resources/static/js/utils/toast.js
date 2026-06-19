@@ -1,10 +1,10 @@
 // Toast 通知系统
 
 const TOAST_ICONS = {
-  success: '✅',
-  error: '❌',
-  info: 'ℹ️',
-  warning: '⚠️'
+  success: '✓',
+  error: '✕',
+  info: '◉',
+  warning: '▲'
 };
 
 const TOAST_TITLES = {
@@ -95,4 +95,23 @@ export function closeAllToasts() {
   if (container) {
     container.innerHTML = '';
   }
+}
+
+/**
+ * 底部居中 Toast（桌面端提示，3 秒自动消失）
+ * @param {string} msg - 消息内容
+ */
+export function showBottomToast(msg) {
+  const existing = document.getElementById('hippoDesktopToast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'hippoDesktopToast';
+  toast.className = 'toast-bottom';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }

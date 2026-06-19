@@ -11,6 +11,8 @@
  * Web 端没有 cefQuery，所有功能自动降级。
  */
 
+import { showBottomToast } from './utils/toast.js';
+
 const HippoDesktop = (() => {
   // DevTools 状态默认空函数，防止 Java 端在按钮初始化前调用
   window.__devToolsOpen = function() {};
@@ -47,26 +49,6 @@ const HippoDesktop = (() => {
         }
       });
     });
-  }
-
-  function showToast(msg) {
-    const existing = document.getElementById('hippoDesktopToast');
-    if (existing) existing.remove();
-    const toast = document.createElement('div');
-    toast.id = 'hippoDesktopToast';
-    toast.textContent = msg;
-    Object.assign(toast.style, {
-      position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
-      background: '#1e1e1e', color: '#fff', padding: '10px 20px', borderRadius: '8px',
-      fontSize: '14px', zIndex: '99999', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-      opacity: '0', transition: 'opacity 0.3s'
-    });
-    document.body.appendChild(toast);
-    requestAnimationFrame(() => toast.style.opacity = '1');
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
   }
 
   // ========== 拖拽状态 ==========
@@ -317,10 +299,10 @@ const HippoDesktop = (() => {
           if (ws && ws.isAvailable) {
             await ws.openWorkspace(result.path);
           }
-          showToast('工作区已切换: ' + result.path);
+          showBottomToast('工作区已切换: ' + result.path);
         }
       } catch (err) {
-        showToast('打开文件夹失败: ' + err.message);
+        showBottomToast('打开文件夹失败: ' + err.message);
       }
     };
 
@@ -387,7 +369,7 @@ const HippoDesktop = (() => {
       devtoolsBtn.style.display = '';
       devtoolsBtn.addEventListener('click', () => {
         api.openDevTools();
-        showToast('正在打开 DevTools...');
+        showBottomToast('正在打开 DevTools...');
       });
     }
 

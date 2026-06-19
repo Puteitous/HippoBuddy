@@ -1,0 +1,21 @@
+/* 底部居中 Toast — 与 desktop-bridge 原有风格一致 */
+.toast-bottom {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-code);
+    color: var(--text-primary);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 99999;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+}
+.toast-bottom.show {
+    opacity: 1;
+}

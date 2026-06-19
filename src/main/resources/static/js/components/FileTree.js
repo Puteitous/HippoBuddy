@@ -15,6 +15,7 @@
  */
 
 import { getFileIconInfo } from '../utils/file-icons.js';
+import { showToast } from '../utils/toast.js';
 
 export class FileTree {
   /**
@@ -277,7 +278,7 @@ export class FileTree {
           this._doRefresh();
           this._onRefresh();
         } catch (err) {
-          this._showToast('重命名失败: ' + err.message);
+          showToast('重命名失败: ' + err.message, { type: 'error' });
         }
         break;
       }
@@ -299,7 +300,7 @@ export class FileTree {
           this._doRefresh();
           this._onRefresh();
         } catch (err) {
-          this._showToast('删除失败: ' + err.message);
+          showToast('删除失败: ' + err.message, { type: 'error' });
         }
         break;
       }
@@ -462,20 +463,6 @@ export class FileTree {
       overlay.style.display = 'flex';
       requestAnimationFrame(() => overlay.classList.add('show'));
     });
-  }
-
-  _showToast(msg) {
-    const existing = document.querySelector('.file-tree-toast');
-    if (existing) existing.remove();
-    const toast = document.createElement('div');
-    toast.className = 'file-tree-toast';
-    toast.textContent = msg;
-    document.body.appendChild(toast);
-    requestAnimationFrame(() => toast.classList.add('show'));
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 300);
-    }, 2500);
   }
 
   // ==================== 辅助 ====================

@@ -1,5 +1,6 @@
 import { truncateText } from './utils.js';
 import { ChatService } from './chat-service.js';
+import { showBottomToast } from './utils/toast.js';
 
 export class SessionManager {
   constructor(listContainer, onSessionSwitch) {
@@ -297,14 +298,26 @@ export class SessionManager {
     nameSpan.className = 'project-name';
     nameSpan.textContent = row.name;
 
-    const badge = document.createElement('span');
-    badge.className = 'project-count';
-    badge.textContent = row.count;
+    const openBtn = document.createElement('button');
+    openBtn.className = 'project-open-btn';
+    openBtn.title = '打开工作目录';
+    openBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l6-6"/><path d="M5 5h6v6"/></svg>';
+    openBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!row.fullPath) return;
+      // 切换 Hippo 工作区到该目录
+      const ws = window.HippoWorkspace;
+      if (ws?.openWorkspace) {
+        ws.openWorkspace(row.fullPath).then(() => {
+          showBottomToast('工作区已切换: ' + row.fullPath);
+        }).catch(() => {});
+      }
+    });
 
     el.appendChild(chevron);
     el.appendChild(icon);
     el.appendChild(nameSpan);
-    el.appendChild(badge);
+    el.appendChild(openBtn);
 
     // Toggle collapse on click
     el.addEventListener('click', (e) => {
