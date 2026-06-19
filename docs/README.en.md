@@ -17,8 +17,11 @@
 </p>
 
 <p align="center">
-  <img src="../image-1.png" alt="HippoBuddy Screenshot" width="420">
-  <img src="../image.png" alt="HippoBuddy Screenshot" width="420">
+  <img src="../image-1.png" alt="HippoBuddy Screenshot" width="100%">
+</p>
+
+<p align="center">
+  <img src="../image.png" alt="HippoBuddy Screenshot" width="100%">
 </p>
 
 HippoBuddy is a **workspace-centric** AI desktop buddy. Open a folder and collaborate with an Agent to write code, edit files, run scripts, organize documents, and analyze projects. Supports DeepSeek / Claude / GPT and other mainstream models. All data stays local.

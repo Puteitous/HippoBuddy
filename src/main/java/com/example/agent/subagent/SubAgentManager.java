@@ -44,7 +44,7 @@ public class SubAgentManager {
         this.completionCallbacks = new ConcurrentHashMap<>();
         this.llmClient = ServiceLocator.get(LlmClient.class);
         
-        String workspacePath = WorkspaceManager.getCurrentProjectDir().toString();
+        String workspacePath = WorkspaceManager.getHippoRoot().toString();
         this.projectAgentLoader = new ProjectAgentLoader(workspacePath);
         
         this.executor = new ThreadPoolExecutor(

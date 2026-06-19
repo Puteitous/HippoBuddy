@@ -294,7 +294,6 @@ public class CliApplication {
                 if (session.isHasCrashMarker()) {
                     try {
                         Path transcriptFile = WorkspaceManager.getSessionMessagesFile(
-                            WorkspaceManager.getCurrentProjectKey(),
                             session.getSessionId()
                         );
                         int lines = TranscriptLoader.repairAndCompact(transcriptFile);

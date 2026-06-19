@@ -78,9 +78,7 @@ class TranscriptP0EndToEndTest {
     void testCrashRecoveryWithTruncatedLine() throws IOException {
         service.addUserMessage(conversation, "Message before crash");
 
-        Path transcriptFile = WorkspaceManager.getSessionMessagesFile(
-            WorkspaceManager.getCurrentProjectKey(), sessionId
-        );
+        Path transcriptFile = WorkspaceManager.getSessionMessagesFile(sessionId);
 
         Files.writeString(transcriptFile, "{\"type\":\"user\",\"uuid\":\"broken\",\"message\":\n", 
             java.nio.file.StandardOpenOption.APPEND);
@@ -97,9 +95,7 @@ class TranscriptP0EndToEndTest {
         service.addUserMessage(conversation, "Good message 1");
         service.addUserMessage(conversation, "Good message 2");
 
-        Path transcriptFile = WorkspaceManager.getSessionMessagesFile(
-            WorkspaceManager.getCurrentProjectKey(), sessionId
-        );
+        Path transcriptFile = WorkspaceManager.getSessionMessagesFile(sessionId);
 
         Files.writeString(transcriptFile, "{incomplete json\n", 
             java.nio.file.StandardOpenOption.APPEND);

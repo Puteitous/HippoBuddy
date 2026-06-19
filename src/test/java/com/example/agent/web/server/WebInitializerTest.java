@@ -23,14 +23,12 @@ import static org.mockito.Mockito.mock;
 class WebInitializerTest {
 
     private Path originalHippoRoot;
-    private String originalProjectKey;
     private String originalUserDir;
     private WebSessionManager sessionManager;
 
     @BeforeEach
     void setUp(@TempDir Path tempDir) throws Exception {
         originalHippoRoot = getStaticField(WorkspaceManager.class, "HIPPO_ROOT");
-        originalProjectKey = getStaticField(WorkspaceManager.class, "CURRENT_PROJECT_KEY");
         originalUserDir = System.getProperty("user.dir");
 
         System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
@@ -45,7 +43,6 @@ class WebInitializerTest {
     @AfterEach
     void tearDown() throws Exception {
         setStaticField(WorkspaceManager.class, "HIPPO_ROOT", originalHippoRoot);
-        setStaticField(WorkspaceManager.class, "CURRENT_PROJECT_KEY", originalProjectKey);
         System.setProperty("user.dir", originalUserDir);
         ServiceLocator.clear();
         sessionManager.clear();

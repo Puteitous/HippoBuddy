@@ -17,8 +17,11 @@
 </p>
 
 <p align="center">
-  <img src="./image-1.png" alt="HippoBuddy 界面预览" width="420">
-  <img src="./image.png" alt="HippoBuddy 界面预览" width="420">
+  <img src="./image-1.png" alt="HippoBuddy 界面预览" width="100%">
+</p>
+
+<p align="center">
+  <img src="./image.png" alt="HippoBuddy 界面预览" width="100%">
 </p>
 
 HippoBuddy 是一个以**工作区文件夹为核心**的 AI 桌面伙伴。打开一个文件夹，就能和 Agent 一起写代码、改文件、跑脚本、整理文档、分析项目。支持 DeepSeek / Claude / GPT 等主流模型，数据全在本地。

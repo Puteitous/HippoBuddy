@@ -56,9 +56,7 @@ class ResumeConversationTest {
     }
 
     private void writeSessionMemory(String sessionId, String content) throws Exception {
-        Path memoryPath = WorkspaceManager.getSessionMemoryPath(
-            WorkspaceManager.getCurrentProjectKey(), sessionId
-        );
+        Path memoryPath = WorkspaceManager.getSessionMemoryPath(sessionId);
         Files.createDirectories(memoryPath.getParent());
         Files.writeString(memoryPath, content);
     }

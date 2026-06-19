@@ -87,9 +87,7 @@ public class ConversationLoop {
         conversationService.registerConversation(sessionId, conversation);
 
         MDC.put("sessionId", sessionId.substring(0, Math.min(12, sessionId.length())));
-        Path logFile = WorkspaceManager.getSessionLogFile(
-            WorkspaceManager.getCurrentProjectKey(), sessionId
-        );
+        Path logFile = WorkspaceManager.getSessionLogFile(sessionId);
         conversationLogger = new ConversationLogger(sessionId, logFile);
         logger.info("新会话已启动: {}", sessionId);
     }
@@ -383,9 +381,7 @@ public class ConversationLoop {
         conversationRound = countUserMessages(conversationService.getHistory(conversation));
         
         MDC.put("sessionId", sessionId.substring(0, Math.min(12, sessionId.length())));
-        Path logFile = WorkspaceManager.getSessionLogFile(
-            WorkspaceManager.getCurrentProjectKey(), sessionId
-        );
+        Path logFile = WorkspaceManager.getSessionLogFile(sessionId);
         conversationLogger = new ConversationLogger(sessionId, logFile);
         
         logger.info("恢复会话: {}, {} 轮对话, mode={}", sessionId, conversationRound, resumeResult.getStatus());

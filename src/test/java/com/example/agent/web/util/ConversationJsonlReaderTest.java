@@ -400,12 +400,10 @@ class ConversationJsonlReaderTest {
     class FileCacheTests {
 
         private Path originalHippoRoot;
-        private String originalProjectKey;
 
         @BeforeEach
         void setUp(@TempDir Path tempDir) throws Exception {
             originalHippoRoot = getStaticField(WorkspaceManager.class, "HIPPO_ROOT");
-            originalProjectKey = getStaticField(WorkspaceManager.class, "CURRENT_PROJECT_KEY");
 
             WorkspaceManager.overrideBasePath(tempDir);
             reader.refreshFileCache();
@@ -414,13 +412,12 @@ class ConversationJsonlReaderTest {
         @AfterEach
         void tearDown() throws Exception {
             setStaticField(WorkspaceManager.class, "HIPPO_ROOT", originalHippoRoot);
-            setStaticField(WorkspaceManager.class, "CURRENT_PROJECT_KEY", originalProjectKey);
         }
 
         @Test
         @DisplayName("refreshFileCache 扫描目录结构并填充缓存")
         void refreshFileCachePopulatesFromDirectoryStructure(@TempDir Path tempDir) throws Exception {
-            Path sessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("session-alpha"));
             Files.createFile(dateDir.resolve("session-alpha").resolve("conversation.jsonl"));
@@ -438,7 +435,7 @@ class ConversationJsonlReaderTest {
         @Test
         @DisplayName("refreshFileCache 清除之前的缓存条目")
         void refreshFileCacheClearsPreviousEntries(@TempDir Path tempDir) throws Exception {
-            Path sessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("session-old"));
             Files.createFile(dateDir.resolve("session-old").resolve("conversation.jsonl"));
@@ -467,7 +464,7 @@ class ConversationJsonlReaderTest {
         @Test
         @DisplayName("findJsonlFile 在缓存命中时直接返回")
         void findJsonlFileReturnsCachedPath(@TempDir Path tempDir) throws Exception {
-            Path sessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("session-x"));
             Path jsonlPath = dateDir.resolve("session-x").resolve("conversation.jsonl");
@@ -483,7 +480,7 @@ class ConversationJsonlReaderTest {
         @Test
         @DisplayName("findJsonlFile 在未缓存时刷新并查找")
         void findJsonlFileRefreshesOnCacheMiss(@TempDir Path tempDir) throws Exception {
-            Path sessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("session-y"));
             Path jsonlPath = dateDir.resolve("session-y").resolve("conversation.jsonl");
@@ -505,7 +502,7 @@ class ConversationJsonlReaderTest {
         @Test
         @DisplayName("跳过没有 conversation.jsonl 的会话目录")
         void skipSessionDirsWithoutJsonlFile(@TempDir Path tempDir) throws Exception {
-            Path sessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("session-without-jsonl"));
 
@@ -517,7 +514,7 @@ class ConversationJsonlReaderTest {
         @Test
         @DisplayName("扫描多日期多会话目录")
         void scansMultipleDateAndSessionDirs(@TempDir Path tempDir) throws Exception {
-            Path sessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
             Files.createDirectories(sessionsDir.resolve("2024-01-01").resolve("session-a"));
             Files.createFile(sessionsDir.resolve("2024-01-01").resolve("session-a").resolve("conversation.jsonl"));
             Files.createDirectories(sessionsDir.resolve("2024-01-02").resolve("session-b"));

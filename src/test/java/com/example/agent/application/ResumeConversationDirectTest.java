@@ -44,11 +44,8 @@ class ResumeConversationDirectTest {
 
     private Path createTranscriptFile(String sessionId, String... jsonLines) throws Exception {
         String safeSessionId = sessionId.replaceAll("[^a-zA-Z0-9_-]", "");
-        String projectKey = WorkspaceManager.getCurrentProjectKey();
         Path transcriptFile = testBaseDir
             .resolve(".hippo")
-            .resolve("projects")
-            .resolve(projectKey)
             .resolve("sessions")
             .resolve(LocalDate.now().toString())
             .resolve(safeSessionId)

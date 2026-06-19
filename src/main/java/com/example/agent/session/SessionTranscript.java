@@ -62,8 +62,7 @@ public class SessionTranscript {
 
     public SessionTranscript(String sessionId, int batchSize, long flushIntervalMs) {
         this.sessionId = sessionId;
-        String projectKey = WorkspaceManager.getCurrentProjectKey();
-        this.transcriptFile = WorkspaceManager.getSessionMessagesFile(projectKey, sessionId);
+        this.transcriptFile = WorkspaceManager.getSessionMessagesFile(sessionId);
         this.batchSize = Math.max(1, batchSize);
         this.flushIntervalMs = Math.max(10, flushIntervalMs);
         this.writeQueue = new LinkedBlockingQueue<>(MAX_QUEUE_SIZE);

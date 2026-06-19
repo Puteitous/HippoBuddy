@@ -34,20 +34,14 @@ public class SubAgentLogger {
     }
 
     private Path resolveLogDir(String parentSessionId, String taskId) {
-        String projectKey = WorkspaceManager.getCurrentProjectKey();
-        
         if (parentSessionId != null) {
-            String dateDir = extractDateFromSessionId(parentSessionId);
-            Path subagentsDir = WorkspaceManager.getProjectDir(projectKey)
-                .resolve("sessions")
-                .resolve(dateDir)
-                .resolve(parentSessionId)
+            Path subagentsDir = WorkspaceManager.getSessionDir(parentSessionId)
                 .resolve("subagents")
                 .resolve(taskId);
             logger.info("Sub-Agent 日志目录（父会话 {}）: {}", parentSessionId, subagentsDir);
             return subagentsDir;
         } else {
-            Path globalDir = WorkspaceManager.getCurrentProjectDir()
+            Path globalDir = WorkspaceManager.getHippoRoot()
                 .resolve("subagents")
                 .resolve(taskId);
             logger.warn("ParentSessionId 为 null，使用全局 Sub-Agent 目录: {}", globalDir);

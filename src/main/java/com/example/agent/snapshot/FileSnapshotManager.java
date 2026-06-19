@@ -760,8 +760,7 @@ public class FileSnapshotManager {
             return testBaseDir.resolve(sessionId);
         }
         try {
-            String projectKey = WorkspaceManager.getCurrentProjectKey();
-            return WorkspaceManager.getSessionDir(projectKey, sessionId);
+            return WorkspaceManager.getSessionDir(sessionId);
         } catch (Exception e) {
             logger.warn("解析会话目录失败: sessionId={}", sessionId, e);
             return null;

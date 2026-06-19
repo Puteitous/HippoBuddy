@@ -124,7 +124,8 @@ public final class DesktopApplication {
      * 优先级（高 → 低）：
      * <ol>
      *   <li>JVM 参数 {@code -Dhippo.data.dir=...}（用户手工指定）</li>
-     *   <li>操作系统用户数据目录（自动检测）</li>
+     *   <li>本地 {@code .hippo} 目录存在 → 开发模式，不切换（和 CLI/Web 共享数据）</li>
+     *   <li>操作系统用户数据目录（打包后自动检测）</li>
      * </ol>
      * <p>
      * 该方法必须在任何引用 {@code WorkspaceManager} 的代码之前调用，
@@ -133,6 +134,11 @@ public final class DesktopApplication {
     private static void initDataDir() {
         // 如果已通过 JVM 参数指定，不覆盖
         if (System.getProperty("hippo.data.dir") != null) {
+            return;
+        }
+
+        // 开发模式：本地 .hippo 存在时直接用，不切 %APPDATA%
+        if (java.nio.file.Files.exists(java.nio.file.Paths.get(".hippo"))) {
             return;
         }
 

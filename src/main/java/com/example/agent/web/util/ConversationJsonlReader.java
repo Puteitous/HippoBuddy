@@ -28,7 +28,7 @@ public class ConversationJsonlReader {
 
     public void refreshFileCache() {
         sessionIdToFileCache.clear();
-        Path sessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+        Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
         if (!Files.exists(sessionsDir)) return;
 
         try (Stream<Path> dateDirs = Files.list(sessionsDir)) {

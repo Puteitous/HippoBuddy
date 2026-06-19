@@ -52,12 +52,10 @@ class SessionListBuilderTest {
     class BuildSessionListTests {
 
         private Path originalHippoRoot;
-        private String originalProjectKey;
 
         @BeforeEach
         void setUp(@TempDir Path tempDir) throws Exception {
             originalHippoRoot = getStaticField(com.example.agent.logging.WorkspaceManager.class, "HIPPO_ROOT");
-            originalProjectKey = getStaticField(com.example.agent.logging.WorkspaceManager.class, "CURRENT_PROJECT_KEY");
             com.example.agent.logging.WorkspaceManager.overrideBasePath(tempDir);
             jsonlReader.refreshFileCache();
         }
@@ -65,7 +63,6 @@ class SessionListBuilderTest {
         @AfterEach
         void tearDown() throws Exception {
             setStaticField(com.example.agent.logging.WorkspaceManager.class, "HIPPO_ROOT", originalHippoRoot);
-            setStaticField(com.example.agent.logging.WorkspaceManager.class, "CURRENT_PROJECT_KEY", originalProjectKey);
         }
 
         @Test
@@ -110,7 +107,7 @@ class SessionListBuilderTest {
         @Test
         @DisplayName("文件缓存中的非活跃会话加入列表")
         void inactiveSessionsFromFileCache() throws Exception {
-            Path sessionsDir = com.example.agent.logging.WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = com.example.agent.logging.WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("archived-1"));
             Path jsonl = dateDir.resolve("archived-1").resolve("conversation.jsonl");
@@ -131,7 +128,7 @@ class SessionListBuilderTest {
         @Test
         @DisplayName("活跃会话优先于文件缓存，不重复")
         void activeSessionTakesPriority() throws Exception {
-            Path sessionsDir = com.example.agent.logging.WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = com.example.agent.logging.WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("sess-1"));
             Path jsonl = dateDir.resolve("sess-1").resolve("conversation.jsonl");
@@ -167,7 +164,7 @@ class SessionListBuilderTest {
         @Test
         @DisplayName("活跃会话标题优先从 JSONL 文件缓存中取")
         void activeSessionTitleFromJsonlWhenAvailable() throws Exception {
-            Path sessionsDir = com.example.agent.logging.WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = com.example.agent.logging.WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("sess-1"));
             Path jsonl = dateDir.resolve("sess-1").resolve("conversation.jsonl");
@@ -188,7 +185,7 @@ class SessionListBuilderTest {
         @Test
         @DisplayName("活跃+非活跃混合列表构建")
         void mixedActiveAndInactiveSessions() throws Exception {
-            Path sessionsDir = com.example.agent.logging.WorkspaceManager.getCurrentProjectDir().resolve("sessions");
+            Path sessionsDir = com.example.agent.logging.WorkspaceManager.getHippoRoot().resolve("sessions");
             Path dateDir = sessionsDir.resolve("2024-01-01");
             Files.createDirectories(dateDir.resolve("inactive-1"));
             Path jsonl1 = dateDir.resolve("inactive-1").resolve("conversation.jsonl");

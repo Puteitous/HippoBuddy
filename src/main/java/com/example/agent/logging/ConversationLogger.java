@@ -35,9 +35,7 @@ public class ConversationLogger {
         
         try {
             Files.createDirectories(logFile.getParent());
-            WorkspaceManager.ensureSessionResources(
-                WorkspaceManager.getCurrentProjectKey(), sessionId
-            );
+            WorkspaceManager.ensureSessionResources(sessionId);
             writeHeader();
             logger.debug("创建会话日志: session={}", sessionId);
         } catch (IOException e) {
@@ -151,8 +149,7 @@ public class ConversationLogger {
     
     private Path writeToolResultShard(String toolCallId, String result) {
         try {
-            String projectKey = WorkspaceManager.getCurrentProjectKey();
-            Path resultPath = WorkspaceManager.getToolResultPath(projectKey, sessionId, toolCallId);
+            Path resultPath = WorkspaceManager.getToolResultPath(sessionId, toolCallId);
             Files.createDirectories(resultPath.getParent());
             Files.writeString(resultPath, result, StandardOpenOption.CREATE);
             return resultPath;

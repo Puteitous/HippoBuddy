@@ -67,7 +67,7 @@ public class FileChangeTracker {
 
         // 一次性清理旧全局 changes/changes.jsonl（不再使用的全局共享文件）
         try {
-            Path oldGlobalFile = WorkspaceManager.getCurrentProjectDir().resolve("changes").resolve("changes.jsonl");
+            Path oldGlobalFile = WorkspaceManager.getHippoRoot().resolve("changes").resolve("changes.jsonl");
             if (Files.exists(oldGlobalFile)) {
                 Files.delete(oldGlobalFile);
                 logger.info("已删除旧全局 changes.jsonl（迁移到会话级存储）");
@@ -125,8 +125,7 @@ public class FileChangeTracker {
                 Path sessionDir = testBaseDir.resolve(sessionId);
                 return sessionDir.resolve(STORAGE_FILE);
             }
-            String projectKey = WorkspaceManager.getCurrentProjectKey();
-            return WorkspaceManager.getSessionDir(projectKey, sessionId).resolve(STORAGE_FILE);
+            return WorkspaceManager.getSessionDir(sessionId).resolve(STORAGE_FILE);
         } catch (Exception e) {
             logger.warn("解析会话存储路径失败: sessionId={}", sessionId, e);
             return null;

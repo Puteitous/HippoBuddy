@@ -61,7 +61,7 @@ public class UserResourceManager {
     public static List<Path> findAllMemoryFiles() {
         List<Path> result = new ArrayList<>();
         Path projectDir = Paths.get(WorkspaceManager.getCurrentWorkingDir());
-        Path projectMemoryDir = WorkspaceManager.getCurrentProjectDir().resolve("memory");
+        Path projectMemoryDir = WorkspaceManager.getHippoRoot().resolve("memory");
         
         for (String name : MEMORY_FILE_NAMES) {
             Path file = projectDir.resolve(name);
@@ -133,7 +133,7 @@ public class UserResourceManager {
     }
     
     public static Path getSessionMemoryFile(String sessionId) {
-        return WorkspaceManager.getCurrentProjectDir()
+        return WorkspaceManager.getHippoRoot()
             .resolve("memory")
             .resolve("session_" + sessionId + ".md");
     }

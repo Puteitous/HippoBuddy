@@ -56,7 +56,6 @@ public final class WebApplication {
 
         // 2. 初始化记忆模块
         Config config = Config.getInstance();
-        WorkspaceManager.ensureProjectDirectories(WorkspaceManager.getCurrentProjectKey());
         MemoryModule.initialize(config, WorkspaceManager.getUserMemoryDir());
 
         // 3. 确定端口：CLI 参数优先，否则从配置读取

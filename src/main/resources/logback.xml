@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <define name="PROJECT_KEY_SAFE" class="com.example.agent.logging.ProjectKeyPropertyDefiner" />
-    <property name="SYSTEM_LOG_DIR" value=".hippo/projects/${PROJECT_KEY_SAFE}/logs/system" />
+    <property name="SYSTEM_LOG_DIR" value=".hippo/logs/system" />
     <property name="PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} [%X{sessionId:-} turn=%X{turn:-} tool=%X{tool:-}] - %msg%n" />
     
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">

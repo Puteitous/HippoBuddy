@@ -14,10 +14,9 @@ public class WorkspaceManager {
     private static final Logger logger = LoggerFactory.getLogger(WorkspaceManager.class);
     
     private static Path HIPPO_ROOT = determineHippoRoot();
-    private static String CURRENT_PROJECT_KEY = sanitizePath(getCurrentWorkingDir());
     
     /**
-     * 确定 Hippo 数据根目录。
+     * 确定 HippoBuddy 数据根目录。
      * <p>
      * 优先级：
      * <ol>
@@ -35,8 +34,6 @@ public class WorkspaceManager {
 
     public static void overrideBasePath(Path basePath) {
         HIPPO_ROOT = basePath.resolve(".hippo");
-        // 重新计算 project key，因为临时目录的 path 可能不同
-        CURRENT_PROJECT_KEY = sanitizePath(basePath.toString());
         ensureCoreDirectories();
     }
 
@@ -60,90 +57,58 @@ public class WorkspaceManager {
         return System.getProperty("user.dir");
     }
     
-    public static String getCurrentProjectKey() {
-        return CURRENT_PROJECT_KEY;
-    }
-    
+    /**
+     * 创建扁平化的核心数据目录结构。
+     * <p>
+     * 新结构（Phase 1）：
+     * <pre>
+     * .hippo/
+     *   sessions/        — 所有会话 JSON
+     *   logs/
+     *     system/        — 系统日志
+     *     conversations/ — 人类可读的对话日志
+     *   config/          — 全局配置
+     *   metrics/         — 指标统计
+     *   debug/           — 调试日志
+     *   cache/           — 缓存
+     *   rules/           — 用户规则
+     *   skills/          — 用户技能
+     *   memory/          — 长期记忆
+     * </pre>
+     */
     private static void ensureCoreDirectories() {
         try {
             Path[] dirs = {
-                getProjectsRoot(),
-                getGlobalConfigDir(),
-                getGlobalMetricsDir(),
-                getGlobalDebugDir(),
-                getGlobalCacheDir()
+                HIPPO_ROOT.resolve("sessions"),
+                HIPPO_ROOT.resolve("logs").resolve("system"),
+                HIPPO_ROOT.resolve("logs").resolve("conversations"),
+                HIPPO_ROOT.resolve("config"),
+                HIPPO_ROOT.resolve("metrics"),
+                HIPPO_ROOT.resolve("debug"),
+                HIPPO_ROOT.resolve("cache"),
+                HIPPO_ROOT.resolve("rules"),
+                HIPPO_ROOT.resolve("skills"),
+                HIPPO_ROOT.resolve("memory")
             };
             for (Path dir : dirs) {
                 if (!Files.exists(dir)) {
                     Files.createDirectories(dir);
-                    logger.debug("创建工作空间目录: {}", dir);
+                    logger.debug("创建数据目录: {}", dir);
                 }
             }
-            logger.info("✅ 工作空间初始化完成，当前项目: {}", getCurrentWorkingDir());
+            logger.info("✅ 工作空间初始化完成: {}", HIPPO_ROOT);
         } catch (Exception e) {
             logger.error("❌ 工作空间初始化失败", e);
         }
     }
     
-    public static void ensureProjectDirectories(String projectKey) {
-        try {
-            Path projectDir = getProjectDir(projectKey);
-            Path[] dirs = {
-                projectDir.resolve("sessions"),      // 🤖 会话 JSON（程序用）
-                projectDir.resolve("logs").resolve("system"),      // 🖥️  系统日志
-                projectDir.resolve("logs").resolve("conversations"), // 💬 会话日志（人类用）
-                projectDir.resolve("resources"),     // 📦 资源分片
-                projectDir.resolve("cache")          // ⚡ 项目缓存
-            };
-            for (Path dir : dirs) {
-                if (!Files.exists(dir)) {
-                    Files.createDirectories(dir);
-                }
-            }
-            writeProjectMetadata(projectKey);
-        } catch (Exception e) {
-            logger.error("初始化项目目录失败: {}", projectKey, e);
-        }
-    }
+    // =========================================================
+    // 会话存储路径（扁平结构，无 projectKey 层级）
+    // =========================================================
     
-    private static void writeProjectMetadata(String projectKey) {
-        Path metaFile = getProjectDir(projectKey).resolve("project.json");
-        if (!Files.exists(metaFile)) {
-            try {
-                String json = String.format("""
-                    {
-                      "originalPath": "%s",
-                      "firstSeen": "%s",
-                      "lastActive": "%s",
-                      "sessionCount": 0
-                    }
-                    """,
-                    getCurrentWorkingDir().replace("\\", "\\\\"),
-                    LocalDate.now(),
-                    LocalDate.now()
-                );
-                Files.writeString(metaFile, json);
-            } catch (Exception e) {
-                logger.debug("写入项目元数据失败: {}", e.getMessage());
-            }
-        }
-    }
-    
-    public static Path getProjectsRoot() {
-        return HIPPO_ROOT.resolve("projects");
-    }
-    
-    public static Path getProjectDir(String projectKey) {
-        return getProjectsRoot().resolve(projectKey);
-    }
-    
-    public static Path getCurrentProjectDir() {
-        return getProjectDir(CURRENT_PROJECT_KEY);
-    }
-    
-    public static Path getSessionDir(String projectKey, String sessionId) {
+    public static Path getSessionDir(String sessionId) {
         String dateDir = extractDateFromSessionId(sessionId);
-        return getProjectDir(projectKey).resolve("sessions").resolve(dateDir).resolve(sessionId);
+        return HIPPO_ROOT.resolve("sessions").resolve(dateDir).resolve(sessionId);
     }
     
     private static String extractDateFromSessionId(String sessionId) {
@@ -164,38 +129,42 @@ public class WorkspaceManager {
         return LocalDate.now().format(DATE_FORMAT);
     }
     
-    public static Path getSessionMessagesFile(String projectKey, String sessionId) {
-        return getSessionDir(projectKey, sessionId).resolve("conversation.jsonl");
+    public static Path getSessionMessagesFile(String sessionId) {
+        return getSessionDir(sessionId).resolve("conversation.jsonl");
     }
     
-    public static Path getSessionMetadataFile(String projectKey, String sessionId) {
-        return getSessionDir(projectKey, sessionId).resolve("session.json");
+    public static Path getSessionMetadataFile(String sessionId) {
+        return getSessionDir(sessionId).resolve("session.json");
     }
     
-    public static Path getSessionLogFile(String projectKey, String sessionId) {
+    public static Path getSessionLogFile(String sessionId) {
         String date = LocalDate.now().format(DATE_FORMAT);
-        return getProjectDir(projectKey).resolve("logs").resolve("conversations").resolve(date).resolve(sessionId + ".log");
+        return HIPPO_ROOT.resolve("logs").resolve("conversations").resolve(date).resolve(sessionId + ".log");
     }
     
-    public static Path getToolResultPath(String projectKey, String sessionId, String toolCallId) {
-        return getSessionDir(projectKey, sessionId).resolve("tool-results").resolve(toolCallId + ".json");
+    public static Path getToolResultPath(String sessionId, String toolCallId) {
+        return getSessionDir(sessionId).resolve("tool-results").resolve(toolCallId + ".json");
     }
     
-    public static Path getSessionPlanPath(String projectKey, String sessionId, String planId) {
-        return getSessionDir(projectKey, sessionId).resolve("plans").resolve(planId + ".md");
+    public static Path getSessionPlanPath(String sessionId, String planId) {
+        return getSessionDir(sessionId).resolve("plans").resolve(planId + ".md");
     }
     
-    public static Path getSubagentSessionPath(String projectKey, String sessionId, String agentId) {
-        return getSessionDir(projectKey, sessionId).resolve("subagents").resolve("agent-" + agentId + ".jsonl");
+    public static Path getSubagentSessionPath(String sessionId, String agentId) {
+        return getSessionDir(sessionId).resolve("subagents").resolve("agent-" + agentId + ".jsonl");
     }
 
-    public static Path getSessionMemoryPath(String projectKey, String sessionId) {
-        return getSessionDir(projectKey, sessionId).resolve("memory").resolve("session-memory.md");
+    public static Path getSessionMemoryPath(String sessionId) {
+        return getSessionDir(sessionId).resolve("memory").resolve("session-memory.md");
     }
     
-    public static Path getProjectCacheDir(String projectKey) {
-        return getProjectDir(projectKey).resolve("cache");
+    public static Path getCacheDir() {
+        return HIPPO_ROOT.resolve("cache");
     }
+    
+    // =========================================================
+    // 全局子目录
+    // =========================================================
     
     public static Path getGlobalConfigDir() {
         return HIPPO_ROOT.resolve("config");
@@ -225,6 +194,10 @@ public class WorkspaceManager {
         return HIPPO_ROOT.resolve("memory");
     }
     
+    // =========================================================
+    // 指标 / 调试文件
+    // =========================================================
+    
     public static Path getTokenMetricsFile(LocalDate date) {
         return getGlobalMetricsDir().resolve("tokens_" + date.format(DATE_FORMAT) + ".csv");
     }
@@ -237,9 +210,12 @@ public class WorkspaceManager {
         return getGlobalDebugDir().resolve(sessionId + ".txt");
     }
     
-    public static void ensureSessionResources(String projectKey, String sessionId) {
+    /**
+     * 确保会话的子资源目录存在（tool-results / plans / subagents）。
+     */
+    public static void ensureSessionResources(String sessionId) {
         try {
-            Path sessionDir = getSessionDir(projectKey, sessionId);
+            Path sessionDir = getSessionDir(sessionId);
             Path[] dirs = {
                 sessionDir.resolve("tool-results"),
                 sessionDir.resolve("plans"),

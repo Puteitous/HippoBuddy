@@ -78,7 +78,7 @@ public class AgentContext {
                 .terminal(terminal)
                 .completer(new StringsCompleter("help", "exit", "quit", "clear", "reset", "retry", "config", "showlog", "tokens", "/mcp", "/mcp list", "/mcp connect", "/mcp disconnect", "/mcp tools", "/chat", "/coding", "/builder", "/mode", "/mode chat", "/mode coding", "/mode builder"))
                 .variable(LineReader.HISTORY_FILE, 
-                    WorkspaceManager.getCurrentProjectDir().resolve("cli-history"))
+                    WorkspaceManager.getHippoRoot().resolve("cli-history"))
                 .option(LineReader.Option.DISABLE_EVENT_EXPANSION, true)
                 .variable("escape-time", 50)
                 .build();
@@ -134,7 +134,6 @@ public class AgentContext {
     }
 
     public void initialize() {
-        WorkspaceManager.ensureProjectDirectories(WorkspaceManager.getCurrentProjectKey());
         LocalDate today = LocalDate.now();
         this.tokenMetricsCollector = new TokenMetricsCollector(today);
         this.eventMetricsCollector = new EventMetricsCollector(today);

@@ -15,18 +15,15 @@ public class SessionStorageFactory {
     }
 
     public static SessionStorage create(SessionConfig config) {
-        String projectKey = WorkspaceManager.getCurrentProjectKey();
         String workingDir = WorkspaceManager.getCurrentWorkingDir();
-        
+        Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
+
         logger.info("📂 检测到当前工作目录: {}", workingDir);
-        logger.info("📂 项目哈希键: {}", projectKey);
-        
-        WorkspaceManager.ensureProjectDirectories(projectKey);
-        Path projectSessionsDir = WorkspaceManager.getCurrentProjectDir().resolve("sessions");
-        
+        logger.info("📂 会话存储目录: {}", sessionsDir);
+
         if (config == null) {
             logger.warn("SessionConfig 为 null，使用默认配置创建 SessionStorage");
-            return new SessionStorage(projectSessionsDir, 10);
+            return new SessionStorage(sessionsDir, 10);
         }
 
         config.validate();
@@ -40,11 +37,11 @@ public class SessionStorageFactory {
             expireHours = -1;
         }
 
-        logger.debug("创建 SessionStorage (按项目分组): 项目目录={}, 最大会话数={}, 过期时间={}小时",
-            projectSessionsDir, maxSavedSessions, expireHours);
+        logger.debug("创建 SessionStorage: 会话目录={}, 最大会话数={}, 过期时间={}小时",
+            sessionsDir, maxSavedSessions, expireHours);
 
         return new SessionStorage(
-            projectSessionsDir,
+            sessionsDir,
             maxSavedSessions,
             expireHours,
             tombstoneThresholdBytes

@@ -155,7 +155,7 @@ public class AgentUi {
             return;
         }
 
-        Path logFile = WorkspaceManager.getSessionLogFile(WorkspaceManager.getCurrentProjectKey(), currentConversationId);
+        Path logFile = WorkspaceManager.getSessionLogFile(currentConversationId);
 
         if (!Files.exists(logFile)) {
             println(ConsoleStyle.yellow("日志文件不存在: " + logFile));

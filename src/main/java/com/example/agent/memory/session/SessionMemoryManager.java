@@ -61,8 +61,7 @@ public class SessionMemoryManager {
                 "session-memory.md"
             );
         } else {
-            String projectKey = WorkspaceManager.getCurrentProjectKey();
-            this.memoryFilePath = WorkspaceManager.getSessionMemoryPath(projectKey, sessionId);
+            this.memoryFilePath = WorkspaceManager.getSessionMemoryPath(sessionId);
         }
         ensureDirectory();
     }

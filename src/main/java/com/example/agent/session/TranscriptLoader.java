@@ -111,11 +111,10 @@ public class TranscriptLoader {
 
     public static LoadResult load(String sessionId) {
         String safeSessionId = SessionStorage.sanitizeSessionId(sessionId);
-        String projectKey = WorkspaceManager.getCurrentProjectKey();
-        Path transcriptFile = WorkspaceManager.getSessionMessagesFile(projectKey, safeSessionId);
+        Path transcriptFile = WorkspaceManager.getSessionMessagesFile(safeSessionId);
         
-        logger.info("TranscriptLoader.load: sessionId={}, safeSessionId={}, projectKey={}, filePath={}", 
-            sessionId, safeSessionId, projectKey, transcriptFile);
+        logger.info("TranscriptLoader.load: sessionId={}, safeSessionId={}, filePath={}", 
+            sessionId, safeSessionId, transcriptFile);
         
         return load(transcriptFile);
     }
@@ -330,8 +329,7 @@ public class TranscriptLoader {
 
     public static boolean exists(String sessionId) {
         String safeSessionId = SessionStorage.sanitizeSessionId(sessionId);
-        String projectKey = WorkspaceManager.getCurrentProjectKey();
-        Path transcriptFile = WorkspaceManager.getSessionMessagesFile(projectKey, safeSessionId);
+        Path transcriptFile = WorkspaceManager.getSessionMessagesFile(safeSessionId);
         return Files.exists(transcriptFile);
     }
 

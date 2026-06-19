@@ -30,7 +30,7 @@ public class EditFailureLogger {
         if (logDirOverride != null) {
             return logDirOverride;
         }
-        return WorkspaceManager.getCurrentProjectDir().resolve("logs").resolve("edit-failures");
+        return WorkspaceManager.getHippoRoot().resolve("logs").resolve("edit-failures");
     }
 
     public static void logFailure(

@@ -87,12 +87,8 @@ public class TranscriptLister {
     }
 
     public static List<SessionSummary> listSessions() {
-        return listSessions(WorkspaceManager.getCurrentProjectKey());
-    }
-
-    public static List<SessionSummary> listSessions(String projectKey) {
         List<SessionSummary> sessions = new ArrayList<>();
-        Path sessionsDir = WorkspaceManager.getProjectDir(projectKey).resolve("sessions");
+        Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
 
         if (!Files.exists(sessionsDir)) {
             return sessions;
@@ -205,8 +201,7 @@ public class TranscriptLister {
     }
 
     public static void repairAllSessions() throws IOException {
-        String projectKey = WorkspaceManager.getCurrentProjectKey();
-        Path sessionsDir = WorkspaceManager.getProjectDir(projectKey).resolve("sessions");
+        Path sessionsDir = WorkspaceManager.getHippoRoot().resolve("sessions");
 
         if (!Files.exists(sessionsDir)) {
             return;
