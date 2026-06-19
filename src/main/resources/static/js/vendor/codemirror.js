@@ -1475,8 +1475,8 @@ var EditorSelection = class _EditorSelection {
     return new _EditorSelection(ranges, mainIndex);
   }
 };
-function checkSelection(selection2, docLength) {
-  for (let range of selection2.ranges)
+function checkSelection(selection3, docLength) {
+  for (let range of selection3.ranges)
     if (range.to > docLength)
       throw new RangeError("Selection points outside of document");
 }
@@ -2034,25 +2034,25 @@ var StateEffect = class _StateEffect {
 StateEffect.reconfigure = /* @__PURE__ */ StateEffect.define();
 StateEffect.appendConfig = /* @__PURE__ */ StateEffect.define();
 var Transaction = class _Transaction {
-  constructor(startState, changes, selection2, effects, annotations, scrollIntoView3) {
+  constructor(startState, changes, selection3, effects, annotations, scrollIntoView3) {
     this.startState = startState;
     this.changes = changes;
-    this.selection = selection2;
+    this.selection = selection3;
     this.effects = effects;
     this.annotations = annotations;
     this.scrollIntoView = scrollIntoView3;
     this._doc = null;
     this._state = null;
-    if (selection2)
-      checkSelection(selection2, changes.newLength);
+    if (selection3)
+      checkSelection(selection3, changes.newLength);
     if (!annotations.some((a) => a.type == _Transaction.time))
       this.annotations = annotations.concat(_Transaction.time.of(Date.now()));
   }
   /**
   @internal
   */
-  static create(startState, changes, selection2, effects, annotations, scrollIntoView3) {
-    return new _Transaction(startState, changes, selection2, effects, annotations, scrollIntoView3);
+  static create(startState, changes, selection3, effects, annotations, scrollIntoView3) {
+    return new _Transaction(startState, changes, selection3, effects, annotations, scrollIntoView3);
   }
   /**
   The new document produced by the transaction. Contrary to
@@ -2272,10 +2272,10 @@ function makeCategorizer(wordChars) {
   };
 }
 var EditorState = class _EditorState {
-  constructor(config2, doc2, selection2, values2, computeSlot, tr) {
+  constructor(config2, doc2, selection3, values2, computeSlot, tr) {
     this.config = config2;
     this.doc = doc2;
-    this.selection = selection2;
+    this.selection = selection3;
     this.values = values2;
     this.status = config2.statusTemplate.slice();
     this.computeSlot = computeSlot;
@@ -2342,8 +2342,8 @@ var EditorState = class _EditorState {
     } else {
       startValues = tr.startState.values.slice();
     }
-    let selection2 = tr.startState.facet(allowMultipleSelections) ? tr.newSelection : tr.newSelection.asSingle();
-    new _EditorState(conf, tr.newDoc, selection2, startValues, (state, slot) => slot.update(state, tr), tr);
+    let selection3 = tr.startState.facet(allowMultipleSelections) ? tr.newSelection : tr.newSelection.asSingle();
+    new _EditorState(conf, tr.newDoc, selection3, startValues, (state, slot) => slot.update(state, tr), tr);
   }
   /**
   Create a [transaction spec](https://codemirror.net/6/docs/ref/#state.TransactionSpec) that
@@ -2473,11 +2473,11 @@ var EditorState = class _EditorState {
   static create(config2 = {}) {
     let configuration = Configuration.resolve(config2.extensions || [], /* @__PURE__ */ new Map());
     let doc2 = config2.doc instanceof Text ? config2.doc : Text.of((config2.doc || "").split(configuration.staticFacet(_EditorState.lineSeparator) || DefaultSplit));
-    let selection2 = !config2.selection ? EditorSelection.single(0) : config2.selection instanceof EditorSelection ? config2.selection : EditorSelection.single(config2.selection.anchor, config2.selection.head);
-    checkSelection(selection2, doc2.length);
+    let selection3 = !config2.selection ? EditorSelection.single(0) : config2.selection instanceof EditorSelection ? config2.selection : EditorSelection.single(config2.selection.anchor, config2.selection.head);
+    checkSelection(selection3, doc2.length);
     if (!configuration.staticFacet(allowMultipleSelections))
-      selection2 = selection2.asSingle();
-    return new _EditorState(configuration, doc2, selection2, configuration.dynamicSlots.map(() => null), (state, slot) => slot.create(state), null);
+      selection3 = selection3.asSingle();
+    return new _EditorState(configuration, doc2, selection3, configuration.dynamicSlots.map(() => null), (state, slot) => slot.create(state), null);
   }
   /**
   The size (in columns) of a tab in the document, determined by
@@ -2913,23 +2913,23 @@ var RangeSet = class _RangeSet {
   of the iteration.
   */
   static spans(sets, from2, to, iterator, minPointSize = -1) {
-    let cursor2 = new SpanCursor(sets, null, minPointSize).goto(from2), pos = from2;
-    let openRanges = cursor2.openStart;
+    let cursor3 = new SpanCursor(sets, null, minPointSize).goto(from2), pos = from2;
+    let openRanges = cursor3.openStart;
     for (; ; ) {
-      let curTo = Math.min(cursor2.to, to);
-      if (cursor2.point) {
-        let active = cursor2.activeForPoint(cursor2.to);
-        let openCount = cursor2.pointFrom < from2 ? active.length + 1 : cursor2.point.startSide < 0 ? active.length : Math.min(active.length, openRanges);
-        iterator.point(pos, curTo, cursor2.point, active, openCount, cursor2.pointRank);
-        openRanges = Math.min(cursor2.openEnd(curTo), active.length);
+      let curTo = Math.min(cursor3.to, to);
+      if (cursor3.point) {
+        let active = cursor3.activeForPoint(cursor3.to);
+        let openCount = cursor3.pointFrom < from2 ? active.length + 1 : cursor3.point.startSide < 0 ? active.length : Math.min(active.length, openRanges);
+        iterator.point(pos, curTo, cursor3.point, active, openCount, cursor3.pointRank);
+        openRanges = Math.min(cursor3.openEnd(curTo), active.length);
       } else if (curTo > pos) {
-        iterator.span(pos, curTo, cursor2.active, openRanges);
-        openRanges = cursor2.openEnd(curTo);
+        iterator.span(pos, curTo, cursor3.active, openRanges);
+        openRanges = cursor3.openEnd(curTo);
       }
-      if (cursor2.to > to)
-        return openRanges + (cursor2.point && cursor2.to > to ? 1 : 0);
-      pos = cursor2.to;
-      cursor2.next();
+      if (cursor3.to > to)
+        return openRanges + (cursor3.point && cursor3.to > to ? 1 : 0);
+      pos = cursor3.to;
+      cursor3.next();
     }
   }
   /**
@@ -4073,11 +4073,11 @@ function getSelection(root) {
 function contains(dom, node) {
   return node ? dom == node || dom.contains(node.nodeType != 1 ? node.parentNode : node) : false;
 }
-function hasSelection(dom, selection2) {
-  if (!selection2.anchorNode)
+function hasSelection(dom, selection3) {
+  if (!selection3.anchorNode)
     return false;
   try {
-    return contains(dom, selection2.anchorNode);
+    return contains(dom, selection3.anchorNode);
   } catch (_) {
     return false;
   }
@@ -4353,9 +4353,9 @@ function getRoot(node) {
   }
   return null;
 }
-function atElementStart(doc2, selection2) {
-  let node = selection2.focusNode, offset = selection2.focusOffset;
-  if (!node || selection2.anchorNode != node || selection2.anchorOffset != offset)
+function atElementStart(doc2, selection3) {
+  let node = selection3.focusNode, offset = selection3.focusOffset;
+  if (!node || selection3.anchorNode != node || selection3.anchorOffset != offset)
     return false;
   offset = Math.min(offset, maxOffset(node));
   for (; ; ) {
@@ -6523,32 +6523,32 @@ var DocView = class {
   // If a zero-length widget is inserted next to the cursor during
   // composition, avoid moving it across it and disrupting the
   // composition.
-  suppressWidgetCursorChange(sel, cursor2) {
-    return this.hasComposition && cursor2.empty && isEquivalentPosition(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset) && this.posFromDOM(sel.focusNode, sel.focusOffset) == cursor2.head;
+  suppressWidgetCursorChange(sel, cursor3) {
+    return this.hasComposition && cursor3.empty && isEquivalentPosition(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset) && this.posFromDOM(sel.focusNode, sel.focusOffset) == cursor3.head;
   }
   enforceCursorAssoc() {
     if (this.hasComposition)
       return;
-    let { view } = this, cursor2 = view.state.selection.main;
+    let { view } = this, cursor3 = view.state.selection.main;
     let sel = getSelection(view.root);
     let { anchorNode, anchorOffset } = view.observer.selectionRange;
-    if (!sel || !cursor2.empty || !cursor2.assoc || !sel.modify)
+    if (!sel || !cursor3.empty || !cursor3.assoc || !sel.modify)
       return;
-    let line = this.lineAt(cursor2.head, cursor2.assoc);
+    let line = this.lineAt(cursor3.head, cursor3.assoc);
     if (!line)
       return;
     let lineStart = line.posAtStart;
-    if (cursor2.head == lineStart || cursor2.head == lineStart + line.length)
+    if (cursor3.head == lineStart || cursor3.head == lineStart + line.length)
       return;
-    let before = this.coordsAt(cursor2.head, -1), after = this.coordsAt(cursor2.head, 1);
+    let before = this.coordsAt(cursor3.head, -1), after = this.coordsAt(cursor3.head, 1);
     if (!before || !after || before.bottom > after.top)
       return;
-    let dom = this.domAtPos(cursor2.head + cursor2.assoc, cursor2.assoc);
+    let dom = this.domAtPos(cursor3.head + cursor3.assoc, cursor3.assoc);
     sel.collapse(dom.node, dom.offset);
-    sel.modify("move", cursor2.assoc < 0 ? "forward" : "backward", "lineboundary");
+    sel.modify("move", cursor3.assoc < 0 ? "forward" : "backward", "lineboundary");
     view.observer.readSelectionRange();
     let newRange = view.observer.selectionRange;
-    if (view.docView.posFromDOM(newRange.anchorNode, newRange.anchorOffset) != cursor2.from)
+    if (view.docView.posFromDOM(newRange.anchorNode, newRange.anchorOffset) != cursor3.from)
       sel.collapse(anchorNode, anchorOffset);
   }
   posFromDOM(node, offset) {
@@ -7761,8 +7761,8 @@ function selectionFromPoints(points, base2) {
   let anchor = points[0].pos, head = points.length == 2 ? points[1].pos : anchor;
   return anchor > -1 && head > -1 ? EditorSelection.single(anchor + base2, head + base2) : null;
 }
-function sameSelPos(selection2, range) {
-  return range.head == selection2.main.head && range.anchor == selection2.main.anchor;
+function sameSelPos(selection3, range) {
+  return range.head == selection3.main.head && range.anchor == selection3.main.anchor;
 }
 var InputState = class {
   setSelectionOrigin(origin) {
@@ -8041,10 +8041,10 @@ var MouseSelection = class {
       this.select(this.lastEvent);
   }
   select(event) {
-    let { view } = this, selection2 = skipAtomsForSelection(this.atoms, this.style.get(event, this.extend, this.multiple));
-    if (this.mustSelect || !selection2.eq(view.state.selection, this.dragging === false))
+    let { view } = this, selection3 = skipAtomsForSelection(this.atoms, this.style.get(event, this.extend, this.multiple));
+    if (this.mustSelect || !selection3.eq(view.state.selection, this.dragging === false))
       this.view.dispatch({
-        selection: selection2,
+        selection: selection3,
         userEvent: "select.pointer"
       });
     this.mustSelect = false;
@@ -10325,10 +10325,10 @@ var DOMObserver = class {
   }
   readSelectionRange() {
     let { view } = this;
-    let selection2 = getSelection(view.root);
-    if (!selection2)
+    let selection3 = getSelection(view.root);
+    if (!selection3)
       return false;
-    let range = browser.safari && view.root.nodeType == 11 && view.root.activeElement == this.dom && safariSelectionRangeHack(this.view, selection2) || selection2;
+    let range = browser.safari && view.root.nodeType == 11 && view.root.activeElement == this.dom && safariSelectionRangeHack(this.view, selection3) || selection3;
     if (!range || this.selectionRange.eq(range))
       return false;
     let local = hasSelection(this.dom, range);
@@ -10612,9 +10612,9 @@ function buildSelectionRangeFromRange(view, range) {
     [anchorNode, anchorOffset, focusNode, focusOffset] = [focusNode, focusOffset, anchorNode, anchorOffset];
   return { anchorNode, anchorOffset, focusNode, focusOffset };
 }
-function safariSelectionRangeHack(view, selection2) {
-  if (selection2.getComposedRanges) {
-    let range = selection2.getComposedRanges(view.root)[0];
+function safariSelectionRangeHack(view, selection3) {
+  if (selection3.getComposedRanges) {
+    let range = selection3.getComposedRanges(view.root)[0];
     if (range)
       return buildSelectionRangeFromRange(view, range);
   }
@@ -12279,8 +12279,8 @@ var cursorLayer = /* @__PURE__ */ layer({
       let prim = r == state.selection.main;
       if (r.empty || conf.drawRangeCursor && !(prim && browser.ios && conf.iosSelectionHandles)) {
         let className = prim ? "cm-cursor cm-cursor-primary" : "cm-cursor cm-cursor-secondary";
-        let cursor2 = r.empty ? r : EditorSelection.cursor(r.head, r.assoc);
-        for (let piece of RectangleMarker.forRange(view, className, cursor2))
+        let cursor3 = r.empty ? r : EditorSelection.cursor(r.head, r.assoc);
+        for (let piece of RectangleMarker.forRange(view, className, cursor3))
           cursors.push(piece);
       }
     }
@@ -12341,9 +12341,9 @@ var hideNativeSelection = /* @__PURE__ */ Prec.highest(/* @__PURE__ */ EditorVie
 }));
 function iterMatches(doc2, re, from2, to, f) {
   re.lastIndex = 0;
-  for (let cursor2 = doc2.iterRange(from2, to), pos = from2, m; !cursor2.next().done; pos += cursor2.value.length) {
-    if (!cursor2.lineBreak)
-      while (m = re.exec(cursor2.value))
+  for (let cursor3 = doc2.iterRange(from2, to), pos = from2, m; !cursor3.next().done; pos += cursor3.value.length) {
+    if (!cursor3.lineBreak)
+      while (m = re.exec(cursor3.value))
         f(pos + m.index, m);
   }
 }
@@ -13577,11 +13577,11 @@ var gutterView = /* @__PURE__ */ ViewPlugin.fromClass(class {
 function asArray2(val) {
   return Array.isArray(val) ? val : [val];
 }
-function advanceCursor(cursor2, collect, pos) {
-  while (cursor2.value && cursor2.from <= pos) {
-    if (cursor2.from == pos)
-      collect.push(cursor2.value);
-    cursor2.next();
+function advanceCursor(cursor3, collect, pos) {
+  while (cursor3.value && cursor3.from <= pos) {
+    if (cursor3.from == pos)
+      collect.push(cursor3.value);
+    cursor3.next();
   }
 }
 var UpdateContext = class {
@@ -14113,10 +14113,10 @@ var Tree = class _Tree {
   */
   cursorAt(pos, side = 0, mode = 0) {
     let scope = CachedNode.get(this) || this.topNode;
-    let cursor2 = new TreeCursor(scope);
-    cursor2.moveTo(pos, side);
-    CachedNode.set(this, cursor2._tree);
-    return cursor2;
+    let cursor3 = new TreeCursor(scope);
+    cursor3.moveTo(pos, side);
+    CachedNode.set(this, cursor3._tree);
+    return cursor3;
   }
   /**
   Get a [syntax node](#common.SyntaxNode) object for the top of the
@@ -15093,14 +15093,14 @@ function hasChild(tree) {
 function buildTree(data2) {
   var _a2;
   let { buffer, nodeSet, maxBufferLength = DefaultBufferLength, reused = [], minRepeatType = nodeSet.types.length } = data2;
-  let cursor2 = Array.isArray(buffer) ? new FlatBufferCursor(buffer, buffer.length) : buffer;
+  let cursor3 = Array.isArray(buffer) ? new FlatBufferCursor(buffer, buffer.length) : buffer;
   let types2 = nodeSet.types;
   let contextHash = 0, lookAhead = 0;
   function takeNode(parentStart, minPos, children2, positions2, inRepeat, depth) {
-    let { id: id2, start, end, size } = cursor2;
+    let { id: id2, start, end, size } = cursor3;
     let lookAheadAtStart = lookAhead, contextAtStart = contextHash;
     if (size < 0) {
-      cursor2.next();
+      cursor3.next();
       if (size == -1) {
         let node2 = reused[id2];
         children2.push(node2);
@@ -15118,27 +15118,27 @@ function buildTree(data2) {
     }
     let type = types2[id2], node, buffer2;
     let startPos = start - parentStart;
-    if (end - start <= maxBufferLength && (buffer2 = findBufferSize(cursor2.pos - minPos, inRepeat))) {
+    if (end - start <= maxBufferLength && (buffer2 = findBufferSize(cursor3.pos - minPos, inRepeat))) {
       let data3 = new Uint16Array(buffer2.size - buffer2.skip);
-      let endPos = cursor2.pos - buffer2.size, index = data3.length;
-      while (cursor2.pos > endPos)
+      let endPos = cursor3.pos - buffer2.size, index = data3.length;
+      while (cursor3.pos > endPos)
         index = copyToBuffer(buffer2.start, data3, index);
       node = new TreeBuffer(data3, end - buffer2.start, nodeSet);
       startPos = buffer2.start - parentStart;
     } else {
-      let endPos = cursor2.pos - size;
-      cursor2.next();
+      let endPos = cursor3.pos - size;
+      cursor3.next();
       let localChildren = [], localPositions = [];
       let localInRepeat = id2 >= minRepeatType ? id2 : -1;
       let lastGroup = 0, lastEnd = end;
-      while (cursor2.pos > endPos) {
-        if (localInRepeat >= 0 && cursor2.id == localInRepeat && cursor2.size >= 0) {
-          if (cursor2.end <= lastEnd - maxBufferLength) {
-            makeRepeatLeaf(localChildren, localPositions, start, lastGroup, cursor2.end, lastEnd, localInRepeat, lookAheadAtStart, contextAtStart);
+      while (cursor3.pos > endPos) {
+        if (localInRepeat >= 0 && cursor3.id == localInRepeat && cursor3.size >= 0) {
+          if (cursor3.end <= lastEnd - maxBufferLength) {
+            makeRepeatLeaf(localChildren, localPositions, start, lastGroup, cursor3.end, lastEnd, localInRepeat, lookAheadAtStart, contextAtStart);
             lastGroup = localChildren.length;
-            lastEnd = cursor2.end;
+            lastEnd = cursor3.end;
           }
-          cursor2.next();
+          cursor3.next();
         } else if (depth > 2500) {
           takeFlatNode(start, endPos, localChildren, localPositions);
         } else {
@@ -15162,10 +15162,10 @@ function buildTree(data2) {
   function takeFlatNode(parentStart, minPos, children2, positions2) {
     let nodes = [];
     let nodeCount = 0, stopAt = -1;
-    while (cursor2.pos > minPos) {
-      let { id: id2, start, end, size } = cursor2;
+    while (cursor3.pos > minPos) {
+      let { id: id2, start, end, size } = cursor3;
       if (size > 4) {
-        cursor2.next();
+        cursor3.next();
       } else if (stopAt > -1 && start < stopAt) {
         break;
       } else {
@@ -15173,7 +15173,7 @@ function buildTree(data2) {
           stopAt = end - maxBufferLength;
         nodes.push(id2, start, end);
         nodeCount++;
-        cursor2.next();
+        cursor3.next();
       }
     }
     if (nodeCount) {
@@ -15222,7 +15222,7 @@ function buildTree(data2) {
     return new Tree(type, children2, positions2, length2, props);
   }
   function findBufferSize(maxSize, inRepeat) {
-    let fork = cursor2.fork();
+    let fork = cursor3.fork();
     let size = 0, start = 0, skip = 0, minStart = fork.end - maxBufferLength;
     let result = { size: 0, start: 0, skip: 0 };
     scan: for (let minPos = fork.pos - maxSize; fork.pos > minPos; ) {
@@ -15265,13 +15265,13 @@ function buildTree(data2) {
     return result.size > 4 ? result : void 0;
   }
   function copyToBuffer(bufferStart, buffer2, index) {
-    let { id: id2, start, end, size } = cursor2;
-    cursor2.next();
+    let { id: id2, start, end, size } = cursor3;
+    cursor3.next();
     if (size >= 0 && id2 < minRepeatType) {
       let startIndex = index;
       if (size > 4) {
-        let endPos = cursor2.pos - (size - 4);
-        while (cursor2.pos > endPos)
+        let endPos = cursor3.pos - (size - 4);
+        while (cursor3.pos > endPos)
           index = copyToBuffer(bufferStart, buffer2, index);
       }
       buffer2[--index] = startIndex;
@@ -15286,7 +15286,7 @@ function buildTree(data2) {
     return index;
   }
   let children = [], positions = [];
-  while (cursor2.pos > 0)
+  while (cursor3.pos > 0)
     takeNode(data2.start || 0, data2.bufferStart || 0, children, positions, -1, 0);
   let length = (_a2 = data2.length) !== null && _a2 !== void 0 ? _a2 : children.length ? positions[0] + children[0].length : 0;
   return new Tree(types2[data2.topID], children.reverse(), positions.reverse(), length);
@@ -15377,18 +15377,18 @@ var NodeWeakMap = class {
   /**
   Set the value for the node that a cursor currently points to.
   */
-  cursorSet(cursor2, value) {
-    if (cursor2.buffer)
-      this.setBuffer(cursor2.buffer.buffer, cursor2.index, value);
+  cursorSet(cursor3, value) {
+    if (cursor3.buffer)
+      this.setBuffer(cursor3.buffer.buffer, cursor3.index, value);
     else
-      this.map.set(cursor2.tree, value);
+      this.map.set(cursor3.tree, value);
   }
   /**
   Retrieve the value for the node that a cursor currently points
   to.
   */
-  cursorGet(cursor2) {
-    return cursor2.buffer ? this.getBuffer(cursor2.buffer.buffer, cursor2.index) : this.map.get(cursor2.tree);
+  cursorGet(cursor3) {
+    return cursor3.buffer ? this.getBuffer(cursor3.buffer.buffer, cursor3.index) : this.map.get(cursor3.tree);
   }
 };
 var TreeFragment = class _TreeFragment {
@@ -15609,49 +15609,49 @@ var MixedParse = class {
     let fragmentCursor = new FragmentCursor(this.fragments);
     let overlay = null;
     let covered = null;
-    let cursor2 = new TreeCursor(new TreeNode(this.baseTree, this.ranges[0].from, 0, null), IterMode.IncludeAnonymous | IterMode.IgnoreMounts);
+    let cursor3 = new TreeCursor(new TreeNode(this.baseTree, this.ranges[0].from, 0, null), IterMode.IncludeAnonymous | IterMode.IgnoreMounts);
     scan: for (let nest, isCovered; ; ) {
       let enter = true, range;
-      if (this.stoppedAt != null && cursor2.from >= this.stoppedAt) {
+      if (this.stoppedAt != null && cursor3.from >= this.stoppedAt) {
         enter = false;
-      } else if (fragmentCursor.hasNode(cursor2)) {
+      } else if (fragmentCursor.hasNode(cursor3)) {
         if (overlay) {
-          let match2 = overlay.mounts.find((m) => m.frag.from <= cursor2.from && m.frag.to >= cursor2.to && m.mount.overlay);
+          let match2 = overlay.mounts.find((m) => m.frag.from <= cursor3.from && m.frag.to >= cursor3.to && m.mount.overlay);
           if (match2)
             for (let r of match2.mount.overlay) {
               let from2 = r.from + match2.pos, to = r.to + match2.pos;
-              if (from2 >= cursor2.from && to <= cursor2.to && !overlay.ranges.some((r2) => r2.from < to && r2.to > from2))
+              if (from2 >= cursor3.from && to <= cursor3.to && !overlay.ranges.some((r2) => r2.from < to && r2.to > from2))
                 overlay.ranges.push({ from: from2, to });
             }
         }
         enter = false;
-      } else if (covered && (isCovered = checkCover(covered.ranges, cursor2.from, cursor2.to))) {
+      } else if (covered && (isCovered = checkCover(covered.ranges, cursor3.from, cursor3.to))) {
         enter = isCovered != 2;
-      } else if (!cursor2.type.isAnonymous && (nest = this.nest(cursor2, this.input)) && (cursor2.from < cursor2.to || !nest.overlay)) {
-        if (!cursor2.tree) {
-          materialize(cursor2);
+      } else if (!cursor3.type.isAnonymous && (nest = this.nest(cursor3, this.input)) && (cursor3.from < cursor3.to || !nest.overlay)) {
+        if (!cursor3.tree) {
+          materialize(cursor3);
           if (overlay)
             overlay.depth++;
           if (covered)
             covered.depth++;
         }
-        let oldMounts = fragmentCursor.findMounts(cursor2.from, nest.parser);
+        let oldMounts = fragmentCursor.findMounts(cursor3.from, nest.parser);
         if (typeof nest.overlay == "function") {
-          overlay = new ActiveOverlay(nest.parser, nest.overlay, oldMounts, this.inner.length, cursor2.from, !!nest.bracketed, cursor2.tree, overlay);
+          overlay = new ActiveOverlay(nest.parser, nest.overlay, oldMounts, this.inner.length, cursor3.from, !!nest.bracketed, cursor3.tree, overlay);
         } else {
-          let ranges = punchRanges(this.ranges, nest.overlay || (cursor2.from < cursor2.to ? [new Range2(cursor2.from, cursor2.to)] : []));
+          let ranges = punchRanges(this.ranges, nest.overlay || (cursor3.from < cursor3.to ? [new Range2(cursor3.from, cursor3.to)] : []));
           if (ranges.length)
             checkRanges(ranges);
           if (ranges.length || !nest.overlay)
-            this.inner.push(new InnerParse(nest.parser, ranges.length ? nest.parser.startParse(this.input, enterFragments(oldMounts, ranges), ranges) : nest.parser.startParse(""), nest.overlay ? nest.overlay.map((r) => new Range2(r.from - cursor2.from, r.to - cursor2.from)) : null, !!nest.bracketed, cursor2.tree, ranges.length ? ranges[0].from : cursor2.from));
+            this.inner.push(new InnerParse(nest.parser, ranges.length ? nest.parser.startParse(this.input, enterFragments(oldMounts, ranges), ranges) : nest.parser.startParse(""), nest.overlay ? nest.overlay.map((r) => new Range2(r.from - cursor3.from, r.to - cursor3.from)) : null, !!nest.bracketed, cursor3.tree, ranges.length ? ranges[0].from : cursor3.from));
           if (!nest.overlay)
             enter = false;
           else if (ranges.length)
             covered = { ranges, depth: 0, prev: covered };
         }
-      } else if (overlay && (range = overlay.predicate(cursor2))) {
+      } else if (overlay && (range = overlay.predicate(cursor3))) {
         if (range === true)
-          range = new Range2(cursor2.from, cursor2.to);
+          range = new Range2(cursor3.from, cursor3.to);
         if (range.from < range.to) {
           let last = overlay.ranges.length - 1;
           if (last >= 0 && overlay.ranges[last].to == range.from)
@@ -15660,16 +15660,16 @@ var MixedParse = class {
             overlay.ranges.push(range);
         }
       }
-      if (enter && cursor2.firstChild()) {
+      if (enter && cursor3.firstChild()) {
         if (overlay)
           overlay.depth++;
         if (covered)
           covered.depth++;
       } else {
         for (; ; ) {
-          if (cursor2.nextSibling())
+          if (cursor3.nextSibling())
             break;
-          if (!cursor2.parent())
+          if (!cursor3.parent())
             break scan;
           if (overlay && !--overlay.depth) {
             let ranges = punchRanges(this.ranges, overlay.ranges);
@@ -15702,14 +15702,14 @@ function sliceBuf(buf, startI, endI, nodes, positions, off) {
     positions.push(from2 - off);
   }
 }
-function materialize(cursor2) {
-  let { node } = cursor2, stack = [];
+function materialize(cursor3) {
+  let { node } = cursor3, stack = [];
   let buffer = node.context.buffer;
   do {
-    stack.push(cursor2.index);
-    cursor2.parent();
-  } while (!cursor2.tree);
-  let base2 = cursor2.tree, i2 = base2.children.indexOf(buffer);
+    stack.push(cursor3.index);
+    cursor3.parent();
+  } while (!cursor3.tree);
+  let base2 = cursor3.tree, i2 = base2.children.indexOf(buffer);
   let buf = base2.children[i2], b = buf.buffer, newStack = [i2];
   function split(startI, endI, type, innerOffset, length, stackPos) {
     let targetI = stack[stackPos];
@@ -15725,8 +15725,8 @@ function materialize(cursor2) {
   }
   base2.children[i2] = split(0, b.length, NodeType.none, 0, buf.length, stack.length - 1);
   for (let index of newStack) {
-    let tree = cursor2.tree.children[index], pos = cursor2.tree.positions[index];
-    cursor2.yield(new TreeNode(tree, pos + cursor2.from, index, cursor2._tree));
+    let tree = cursor3.tree.children[index], pos = cursor3.tree.positions[index];
+    cursor3.yield(new TreeNode(tree, pos + cursor3.from, index, cursor3._tree));
   }
 }
 var StructureCursor = class {
@@ -15737,22 +15737,22 @@ var StructureCursor = class {
   }
   // Move to the first node (in pre-order) that starts at or after `pos`.
   moveTo(pos) {
-    let { cursor: cursor2 } = this, p = pos - this.offset;
-    while (!this.done && cursor2.from < p) {
-      if (cursor2.to >= pos && cursor2.enter(p, 1, IterMode.IgnoreOverlays | IterMode.ExcludeBuffers)) ;
-      else if (cursor2.to <= pos) {
-        if (!cursor2.next(false))
+    let { cursor: cursor3 } = this, p = pos - this.offset;
+    while (!this.done && cursor3.from < p) {
+      if (cursor3.to >= pos && cursor3.enter(p, 1, IterMode.IgnoreOverlays | IterMode.ExcludeBuffers)) ;
+      else if (cursor3.to <= pos) {
+        if (!cursor3.next(false))
           this.done = true;
       } else {
         break;
       }
     }
   }
-  hasNode(cursor2) {
-    this.moveTo(cursor2.from);
-    if (!this.done && this.cursor.from + this.offset == cursor2.from && this.cursor.tree) {
+  hasNode(cursor3) {
+    this.moveTo(cursor3.from);
+    if (!this.done && this.cursor.from + this.offset == cursor3.from && this.cursor.tree) {
       for (let tree = this.cursor.tree; ; ) {
-        if (tree == cursor2.tree)
+        if (tree == cursor3.tree)
           return true;
         if (tree.children.length && tree.positions[0] == 0 && tree.children[0] instanceof Tree)
           tree = tree.children[0];
@@ -16137,14 +16137,14 @@ var HighlightBuilder = class {
     if (to > this.at && this.class)
       this.span(this.at, to, this.class);
   }
-  highlightRange(cursor2, from2, to, inheritedClass, highlighters) {
-    let { type, from: start, to: end } = cursor2;
+  highlightRange(cursor3, from2, to, inheritedClass, highlighters) {
+    let { type, from: start, to: end } = cursor3;
     if (start >= to || end <= from2)
       return;
     if (type.isTop)
       highlighters = this.highlighters.filter((h) => !h.scope || h.scope(type));
     let cls = inheritedClass;
-    let rule = getStyleTags(cursor2) || Rule.empty;
+    let rule = getStyleTags(cursor3) || Rule.empty;
     let tagCls = highlightTags(highlighters, rule.tags);
     if (tagCls) {
       if (cls)
@@ -16156,20 +16156,20 @@ var HighlightBuilder = class {
     this.startSpan(Math.max(from2, start), cls);
     if (rule.opaque)
       return;
-    let mounted = cursor2.tree && cursor2.tree.prop(NodeProp.mounted);
+    let mounted = cursor3.tree && cursor3.tree.prop(NodeProp.mounted);
     if (mounted && mounted.overlay) {
-      let inner = cursor2.node.enter(mounted.overlay[0].from + start, 1);
+      let inner = cursor3.node.enter(mounted.overlay[0].from + start, 1);
       let innerHighlighters = this.highlighters.filter((h) => !h.scope || h.scope(mounted.tree.type));
-      let hasChild2 = cursor2.firstChild();
+      let hasChild2 = cursor3.firstChild();
       for (let i2 = 0, pos = start; ; i2++) {
         let next = i2 < mounted.overlay.length ? mounted.overlay[i2] : null;
         let nextPos = next ? next.from + start : end;
         let rangeFrom2 = Math.max(from2, pos), rangeTo2 = Math.min(to, nextPos);
         if (rangeFrom2 < rangeTo2 && hasChild2) {
-          while (cursor2.from < rangeTo2) {
-            this.highlightRange(cursor2, rangeFrom2, rangeTo2, inheritedClass, highlighters);
-            this.startSpan(Math.min(rangeTo2, cursor2.to), cls);
-            if (cursor2.to >= nextPos || !cursor2.nextSibling())
+          while (cursor3.from < rangeTo2) {
+            this.highlightRange(cursor3, rangeFrom2, rangeTo2, inheritedClass, highlighters);
+            this.startSpan(Math.min(rangeTo2, cursor3.to), cls);
+            if (cursor3.to >= nextPos || !cursor3.nextSibling())
               break;
           }
         }
@@ -16182,19 +16182,19 @@ var HighlightBuilder = class {
         }
       }
       if (hasChild2)
-        cursor2.parent();
-    } else if (cursor2.firstChild()) {
+        cursor3.parent();
+    } else if (cursor3.firstChild()) {
       if (mounted)
         inheritedClass = "";
       do {
-        if (cursor2.to <= from2)
+        if (cursor3.to <= from2)
           continue;
-        if (cursor2.from >= to)
+        if (cursor3.from >= to)
           break;
-        this.highlightRange(cursor2, from2, to, inheritedClass, highlighters);
-        this.startSpan(Math.min(to, cursor2.to), cls);
-      } while (cursor2.nextSibling());
-      cursor2.parent();
+        this.highlightRange(cursor3, from2, to, inheritedClass, highlighters);
+        this.startSpan(Math.min(to, cursor3.to), cls);
+      } while (cursor3.nextSibling());
+      cursor3.parent();
     }
   }
 };
@@ -18136,18 +18136,18 @@ function matchBrackets(state, pos, dir, config2 = {}) {
 }
 function matchMarkedBrackets(_state, _pos, dir, token, handle, matching, brackets) {
   let parent = token.parent, firstToken = { from: handle.from, to: handle.to };
-  let depth = 0, cursor2 = parent === null || parent === void 0 ? void 0 : parent.cursor();
-  if (cursor2 && (dir < 0 ? cursor2.childBefore(token.from) : cursor2.childAfter(token.to)))
+  let depth = 0, cursor3 = parent === null || parent === void 0 ? void 0 : parent.cursor();
+  if (cursor3 && (dir < 0 ? cursor3.childBefore(token.from) : cursor3.childAfter(token.to)))
     do {
-      if (dir < 0 ? cursor2.to <= token.from : cursor2.from >= token.to) {
-        if (depth == 0 && matching.indexOf(cursor2.type.name) > -1 && cursor2.from < cursor2.to) {
-          let endHandle = findHandle(cursor2);
+      if (dir < 0 ? cursor3.to <= token.from : cursor3.from >= token.to) {
+        if (depth == 0 && matching.indexOf(cursor3.type.name) > -1 && cursor3.from < cursor3.to) {
+          let endHandle = findHandle(cursor3);
           return { start: firstToken, end: endHandle ? { from: endHandle.from, to: endHandle.to } : void 0, matched: true };
-        } else if (matchingNodes(cursor2.type, dir, brackets)) {
+        } else if (matchingNodes(cursor3.type, dir, brackets)) {
           depth++;
-        } else if (matchingNodes(cursor2.type, -dir, brackets)) {
+        } else if (matchingNodes(cursor3.type, -dir, brackets)) {
           if (depth == 0) {
-            let endHandle = findHandle(cursor2);
+            let endHandle = findHandle(cursor3);
             return {
               start: firstToken,
               end: endHandle && endHandle.from < endHandle.to ? { from: endHandle.from, to: endHandle.to } : void 0,
@@ -18157,7 +18157,7 @@ function matchMarkedBrackets(_state, _pos, dir, token, handle, matching, bracket
           depth--;
         }
       }
-    } while (dir < 0 ? cursor2.prevSibling() : cursor2.nextSibling());
+    } while (dir < 0 ? cursor3.prevSibling() : cursor3.nextSibling());
   return { start: firstToken, matched: false };
 }
 function matchPlainBrackets(state, pos, dir, tree, tokenType, maxScanDistance, brackets) {
@@ -18487,14 +18487,14 @@ function history(config2 = {}) {
     })
   ];
 }
-function cmd(side, selection2) {
+function cmd(side, selection3) {
   return function({ state, dispatch }) {
-    if (!selection2 && state.readOnly)
+    if (!selection3 && state.readOnly)
       return false;
     let historyState = state.field(historyField_, false);
     if (!historyState)
       return false;
-    let tr = historyState.pop(side, state, selection2);
+    let tr = historyState.pop(side, state, selection3);
     if (!tr)
       return false;
     dispatch(tr);
@@ -18531,7 +18531,7 @@ var HistEvent = class _HistEvent {
   // This does not check `addToHistory` and such, it assumes the
   // transaction needs to be converted to an item. Returns null when
   // there are no changes or effects in the transaction.
-  static fromTransaction(tr, selection2) {
+  static fromTransaction(tr, selection3) {
     let effects = none2;
     for (let invert of tr.startState.facet(invertedEffects)) {
       let result = invert(tr);
@@ -18540,7 +18540,7 @@ var HistEvent = class _HistEvent {
     }
     if (!effects.length && tr.changes.empty)
       return null;
-    return new _HistEvent(tr.changes.invert(tr.startState.doc), effects, void 0, selection2 || tr.startState.selection, none2);
+    return new _HistEvent(tr.changes.invert(tr.startState.doc), effects, void 0, selection3 || tr.startState.selection, none2);
   }
   static selection(selections) {
     return new _HistEvent(void 0, none2, void 0, void 0, selections);
@@ -18572,15 +18572,15 @@ function conc(a, b) {
 }
 var none2 = [];
 var MaxSelectionsPerEvent = 200;
-function addSelection(branch, selection2) {
+function addSelection(branch, selection3) {
   if (!branch.length) {
-    return [HistEvent.selection([selection2])];
+    return [HistEvent.selection([selection3])];
   } else {
     let lastEvent = branch[branch.length - 1];
     let sels = lastEvent.selectionsAfter.slice(Math.max(0, lastEvent.selectionsAfter.length - MaxSelectionsPerEvent));
-    if (sels.length && sels[sels.length - 1].eq(selection2))
+    if (sels.length && sels[sels.length - 1].eq(selection3))
       return branch;
-    sels.push(selection2);
+    sels.push(selection3);
     return updateBranch(branch, branch.length - 1, 1e9, lastEvent.setSelAfter(sels));
   }
 }
@@ -18637,11 +18637,11 @@ var HistoryState = class _HistoryState {
     }
     return new _HistoryState(done, none2, time, userEvent);
   }
-  addSelection(selection2, time, userEvent, newGroupDelay) {
+  addSelection(selection3, time, userEvent, newGroupDelay) {
     let last = this.done.length ? this.done[this.done.length - 1].selectionsAfter : none2;
-    if (last.length > 0 && time - this.prevTime < newGroupDelay && userEvent == this.prevUserEvent && userEvent && /^select($|\.)/.test(userEvent) && eqSelectionShape(last[last.length - 1], selection2))
+    if (last.length > 0 && time - this.prevTime < newGroupDelay && userEvent == this.prevUserEvent && userEvent && /^select($|\.)/.test(userEvent) && eqSelectionShape(last[last.length - 1], selection3))
       return this;
-    return new _HistoryState(addSelection(this.done, selection2), this.undone, time, userEvent);
+    return new _HistoryState(addSelection(this.done, selection3), this.undone, time, userEvent);
   }
   addMapping(mapping) {
     return new _HistoryState(addMappingToBranch(this.done, mapping), addMappingToBranch(this.undone, mapping), this.prevTime, this.prevUserEvent);
@@ -18650,11 +18650,11 @@ var HistoryState = class _HistoryState {
     let branch = side == 0 ? this.done : this.undone;
     if (branch.length == 0)
       return null;
-    let event = branch[branch.length - 1], selection2 = event.selectionsAfter[0] || (event.startSelection ? event.startSelection.map(event.changes.invertedDesc, 1) : state.selection);
+    let event = branch[branch.length - 1], selection3 = event.selectionsAfter[0] || (event.startSelection ? event.startSelection.map(event.changes.invertedDesc, 1) : state.selection);
     if (onlySelection && event.selectionsAfter.length) {
       return state.update({
         selection: event.selectionsAfter[event.selectionsAfter.length - 1],
-        annotations: fromHistory.of({ side, rest: popSelection(branch), selection: selection2 }),
+        annotations: fromHistory.of({ side, rest: popSelection(branch), selection: selection3 }),
         userEvent: side == 0 ? "select.undo" : "select.redo",
         scrollIntoView: true
       });
@@ -18668,7 +18668,7 @@ var HistoryState = class _HistoryState {
         changes: event.changes,
         selection: event.startSelection,
         effects: event.effects,
-        annotations: fromHistory.of({ side, rest, selection: selection2 }),
+        annotations: fromHistory.of({ side, rest, selection: selection3 }),
         filter: false,
         userEvent: side == 0 ? "undo" : "redo",
         scrollIntoView: true
@@ -18687,14 +18687,14 @@ var historyKeymap = [
 function updateSel(sel, by) {
   return EditorSelection.create(sel.ranges.map(by), sel.mainIndex);
 }
-function setSel(state, selection2) {
-  return state.update({ selection: selection2, scrollIntoView: true, userEvent: "select" });
+function setSel(state, selection3) {
+  return state.update({ selection: selection3, scrollIntoView: true, userEvent: "select" });
 }
 function moveSel({ state, dispatch }, how) {
-  let selection2 = updateSel(state.selection, how);
-  if (selection2.eq(state.selection, true))
+  let selection3 = updateSel(state.selection, how);
+  if (selection3.eq(state.selection, true))
     return false;
-  dispatch(setSel(state, selection2));
+  dispatch(setSel(state, selection3));
   return true;
 }
 function rangeEnd(range, forward) {
@@ -18775,10 +18775,10 @@ function pageInfo(view) {
 }
 function cursorByPage(view, forward) {
   let page = pageInfo(view);
-  let { state } = view, selection2 = updateSel(state.selection, (range) => {
+  let { state } = view, selection3 = updateSel(state.selection, (range) => {
     return range.empty ? view.moveVertically(range, forward, page.height) : rangeEnd(range, forward);
   });
-  if (selection2.eq(state.selection))
+  if (selection3.eq(state.selection))
     return false;
   let effect;
   if (page.selfScroll) {
@@ -18786,9 +18786,9 @@ function cursorByPage(view, forward) {
     let scrollRect = view.scrollDOM.getBoundingClientRect();
     let scrollTop = scrollRect.top + page.marginTop, scrollBottom = scrollRect.bottom - page.marginBottom;
     if (startPos && startPos.top > scrollTop && startPos.bottom < scrollBottom)
-      effect = EditorView.scrollIntoView(selection2.main.head, { y: "start", yMargin: startPos.top - scrollTop });
+      effect = EditorView.scrollIntoView(selection3.main.head, { y: "start", yMargin: startPos.top - scrollTop });
   }
-  view.dispatch(setSel(state, selection2), { effects: effect });
+  view.dispatch(setSel(state, selection3), { effects: effect });
   return true;
 }
 var cursorPageUp = (view) => cursorByPage(view, false);
@@ -18811,7 +18811,7 @@ var cursorLineBoundaryRight = (view) => moveSel(view, (range) => moveByLineBound
 var cursorLineStart = (view) => moveSel(view, (range) => EditorSelection.cursor(view.lineBlockAt(range.head).from, 1));
 var cursorLineEnd = (view) => moveSel(view, (range) => EditorSelection.cursor(view.lineBlockAt(range.head).to, -1));
 function toMatchingBracket(state, dispatch, extend) {
-  let found = false, selection2 = updateSel(state.selection, (range) => {
+  let found = false, selection3 = updateSel(state.selection, (range) => {
     let matching = matchBrackets(state, range.head, -1) || matchBrackets(state, range.head, 1) || range.head > 0 && matchBrackets(state, range.head - 1, 1) || range.head < state.doc.length && matchBrackets(state, range.head + 1, -1);
     if (!matching || !matching.end)
       return range;
@@ -18821,18 +18821,18 @@ function toMatchingBracket(state, dispatch, extend) {
   });
   if (!found)
     return false;
-  dispatch(setSel(state, selection2));
+  dispatch(setSel(state, selection3));
   return true;
 }
 var cursorMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, dispatch, false);
 function extendSel(target, how) {
-  let selection2 = updateSel(target.state.selection, (range) => {
+  let selection3 = updateSel(target.state.selection, (range) => {
     let head = how(range);
     return EditorSelection.range(range.anchor, head.head, head.goalColumn, head.bidiLevel || void 0, head.assoc);
   });
-  if (selection2.eq(target.state.selection))
+  if (selection3.eq(target.state.selection))
     return false;
-  target.dispatch(setSel(target.state, selection2));
+  target.dispatch(setSel(target.state, selection3));
   return true;
 }
 function selectByChar(view, forward) {
@@ -18889,7 +18889,7 @@ var selectLine = ({ state, dispatch }) => {
   return true;
 };
 var selectParentSyntax = ({ state, dispatch }) => {
-  let selection2 = updateSel(state.selection, (range) => {
+  let selection3 = updateSel(state.selection, (range) => {
     let tree = syntaxTree(state), stack = tree.resolveStack(range.from, 1);
     if (range.empty) {
       let stackBefore = tree.resolveStack(range.from, -1);
@@ -18903,9 +18903,9 @@ var selectParentSyntax = ({ state, dispatch }) => {
     }
     return range;
   });
-  if (selection2.eq(state.selection))
+  if (selection3.eq(state.selection))
     return false;
-  dispatch(setSel(state, selection2));
+  dispatch(setSel(state, selection3));
   return true;
 };
 function addCursorVertically(view, forward) {
@@ -18934,14 +18934,14 @@ function addCursorVertically(view, forward) {
 var addCursorAbove = (view) => addCursorVertically(view, false);
 var addCursorBelow = (view) => addCursorVertically(view, true);
 var simplifySelection = ({ state, dispatch }) => {
-  let cur2 = state.selection, selection2 = null;
+  let cur2 = state.selection, selection3 = null;
   if (cur2.ranges.length > 1)
-    selection2 = EditorSelection.create([cur2.main]);
+    selection3 = EditorSelection.create([cur2.main]);
   else if (!cur2.main.empty)
-    selection2 = EditorSelection.create([EditorSelection.cursor(cur2.main.head)]);
-  if (!selection2)
+    selection3 = EditorSelection.create([EditorSelection.cursor(cur2.main.head)]);
+  if (!selection3)
     return false;
-  dispatch(setSel(state, selection2));
+  dispatch(setSel(state, selection3));
   return true;
 };
 function deleteBy(target, by) {
@@ -19149,7 +19149,7 @@ var deleteLine = (view) => {
       to++;
     return { from: from2, to };
   }));
-  let selection2 = updateSel(state.selection, (range) => {
+  let selection3 = updateSel(state.selection, (range) => {
     let dist2 = void 0;
     if (view.lineWrapping) {
       let block = view.lineBlockAt(range.head), pos = view.coordsAtPos(range.head, range.assoc || 1);
@@ -19158,7 +19158,7 @@ var deleteLine = (view) => {
     }
     return view.moveVertically(range, true, dist2);
   }).map(changes);
-  view.dispatch({ changes, selection: selection2, scrollIntoView: true, userEvent: "delete.line" });
+  view.dispatch({ changes, selection: selection3, scrollIntoView: true, userEvent: "delete.line" });
   return true;
 };
 function isBetweenBrackets(state, pos) {
@@ -21460,10 +21460,10 @@ var gotoLine = (view) => {
       line2 = line2 * (sign == "-" ? -1 : 1) + startLine.number;
     }
     let docLine = state.doc.line(Math.max(1, Math.min(state.doc.lines, line2)));
-    let selection2 = EditorSelection.cursor(docLine.from + Math.max(0, Math.min(col, docLine.length)));
+    let selection3 = EditorSelection.cursor(docLine.from + Math.max(0, Math.min(col, docLine.length)));
     view.dispatch({
-      effects: [close, EditorView.scrollIntoView(selection2.from, { y: "center" })],
-      selection: selection2
+      effects: [close, EditorView.scrollIntoView(selection3.from, { y: "center" })],
+      selection: selection3
     });
   });
   return true;
@@ -21536,9 +21536,9 @@ var matchHighlighter = /* @__PURE__ */ ViewPlugin.fromClass(class {
     }
     let deco = [];
     for (let part of view.visibleRanges) {
-      let cursor2 = new SearchCursor(state.doc, query, part.from, part.to);
-      while (!cursor2.next().done) {
-        let { from: from2, to } = cursor2.value;
+      let cursor3 = new SearchCursor(state.doc, query, part.from, part.to);
+      while (!cursor3.next().done) {
+        let { from: from2, to } = cursor3.value;
         if (!check || insideWordBoundaries(check, state, from2, to)) {
           if (range.empty && from2 <= range.from && to >= range.to)
             deco.push(mainMatchDeco.range(from2, to));
@@ -21559,9 +21559,9 @@ var defaultTheme = /* @__PURE__ */ EditorView.baseTheme({
   ".cm-searchMatch .cm-selectionMatch": { backgroundColor: "transparent" }
 });
 var selectWord = ({ state, dispatch }) => {
-  let { selection: selection2 } = state;
-  let newSel = EditorSelection.create(selection2.ranges.map((range) => state.wordAt(range.head) || EditorSelection.cursor(range.head)), selection2.mainIndex);
-  if (newSel.eq(selection2))
+  let { selection: selection3 } = state;
+  let newSel = EditorSelection.create(selection3.ranges.map((range) => state.wordAt(range.head) || EditorSelection.cursor(range.head)), selection3.mainIndex);
+  if (newSel.eq(selection3))
     return false;
   dispatch(state.update({ selection: newSel }));
   return true;
@@ -21569,22 +21569,22 @@ var selectWord = ({ state, dispatch }) => {
 function findNextOccurrence(state, query) {
   let { main, ranges } = state.selection;
   let word = state.wordAt(main.head), fullWord = word && word.from == main.from && word.to == main.to;
-  for (let cycled = false, cursor2 = new SearchCursor(state.doc, query, ranges[ranges.length - 1].to); ; ) {
-    cursor2.next();
-    if (cursor2.done) {
+  for (let cycled = false, cursor3 = new SearchCursor(state.doc, query, ranges[ranges.length - 1].to); ; ) {
+    cursor3.next();
+    if (cursor3.done) {
       if (cycled)
         return null;
-      cursor2 = new SearchCursor(state.doc, query, 0, Math.max(0, ranges[ranges.length - 1].from - 1));
+      cursor3 = new SearchCursor(state.doc, query, 0, Math.max(0, ranges[ranges.length - 1].from - 1));
       cycled = true;
     } else {
-      if (cycled && ranges.some((r) => r.from == cursor2.value.from))
+      if (cycled && ranges.some((r) => r.from == cursor3.value.from))
         continue;
       if (fullWord) {
-        let word2 = state.wordAt(cursor2.value.from);
-        if (!word2 || word2.from != cursor2.value.from || word2.to != cursor2.value.to)
+        let word2 = state.wordAt(cursor3.value.from);
+        if (!word2 || word2.from != cursor3.value.from || word2.to != cursor3.value.to)
           continue;
       }
-      return cursor2.value;
+      return cursor3.value;
     }
   }
 }
@@ -21699,21 +21699,21 @@ var StringQuery = class extends QueryType2 {
     super(spec);
   }
   nextMatch(state, curFrom, curTo) {
-    let cursor2 = stringCursor(this.spec, state, curTo, state.doc.length).nextOverlapping();
-    if (cursor2.done) {
+    let cursor3 = stringCursor(this.spec, state, curTo, state.doc.length).nextOverlapping();
+    if (cursor3.done) {
       let end = Math.min(state.doc.length, curFrom + this.spec.unquoted.length);
-      cursor2 = stringCursor(this.spec, state, 0, end).nextOverlapping();
+      cursor3 = stringCursor(this.spec, state, 0, end).nextOverlapping();
     }
-    return cursor2.done || cursor2.value.from == curFrom && cursor2.value.to == curTo ? null : cursor2.value;
+    return cursor3.done || cursor3.value.from == curFrom && cursor3.value.to == curTo ? null : cursor3.value;
   }
   // Searching in reverse is, rather than implementing an inverted search
   // cursor, done by scanning chunk after chunk forward.
   prevMatchInRange(state, from2, to) {
     for (let pos = to; ; ) {
       let start = Math.max(from2, pos - 1e4 - this.spec.unquoted.length);
-      let cursor2 = stringCursor(this.spec, state, start, pos), range = null;
-      while (!cursor2.nextOverlapping().done)
-        range = cursor2.value;
+      let cursor3 = stringCursor(this.spec, state, start, pos), range = null;
+      while (!cursor3.nextOverlapping().done)
+        range = cursor3.value;
       if (range)
         return range;
       if (start == from2)
@@ -21731,18 +21731,18 @@ var StringQuery = class extends QueryType2 {
     return this.spec.unquote(this.spec.replace);
   }
   matchAll(state, limit) {
-    let cursor2 = stringCursor(this.spec, state, 0, state.doc.length), ranges = [];
-    while (!cursor2.next().done) {
+    let cursor3 = stringCursor(this.spec, state, 0, state.doc.length), ranges = [];
+    while (!cursor3.next().done) {
       if (ranges.length >= limit)
         return null;
-      ranges.push(cursor2.value);
+      ranges.push(cursor3.value);
     }
     return ranges;
   }
   highlight(state, from2, to, add2) {
-    let cursor2 = stringCursor(this.spec, state, Math.max(0, from2 - this.spec.unquoted.length), Math.min(to + this.spec.unquoted.length, state.doc.length));
-    while (!cursor2.next().done)
-      add2(cursor2.value.from, cursor2.value.to);
+    let cursor3 = stringCursor(this.spec, state, Math.max(0, from2 - this.spec.unquoted.length), Math.min(to + this.spec.unquoted.length, state.doc.length));
+    while (!cursor3.next().done)
+      add2(cursor3.value.from, cursor3.value.to);
   }
 };
 function wrapRegexpTest(test, state, inner) {
@@ -21769,10 +21769,10 @@ function regexpWordTest(categorizer) {
 }
 var RegExpQuery = class extends QueryType2 {
   nextMatch(state, curFrom, curTo) {
-    let cursor2 = regexpCursor(this.spec, state, curTo, state.doc.length).next();
-    if (cursor2.done)
-      cursor2 = regexpCursor(this.spec, state, 0, curFrom).next();
-    return cursor2.done ? null : cursor2.value;
+    let cursor3 = regexpCursor(this.spec, state, curTo, state.doc.length).next();
+    if (cursor3.done)
+      cursor3 = regexpCursor(this.spec, state, 0, curFrom).next();
+    return cursor3.done ? null : cursor3.value;
   }
   prevMatchInRange(state, from2, to) {
     for (let size = 1; ; size++) {
@@ -21781,9 +21781,9 @@ var RegExpQuery = class extends QueryType2 {
         to - size * 1e4
         /* FindPrev.ChunkSize */
       );
-      let cursor2 = regexpCursor(this.spec, state, start, to), range = null;
-      while (!cursor2.next().done)
-        range = cursor2.value;
+      let cursor3 = regexpCursor(this.spec, state, start, to), range = null;
+      while (!cursor3.next().done)
+        range = cursor3.value;
       if (range && (start == from2 || range.from > start + 10))
         return range;
       if (start == from2)
@@ -21808,22 +21808,22 @@ var RegExpQuery = class extends QueryType2 {
     });
   }
   matchAll(state, limit) {
-    let cursor2 = regexpCursor(this.spec, state, 0, state.doc.length), ranges = [];
-    while (!cursor2.next().done) {
+    let cursor3 = regexpCursor(this.spec, state, 0, state.doc.length), ranges = [];
+    while (!cursor3.next().done) {
       if (ranges.length >= limit)
         return null;
-      ranges.push(cursor2.value);
+      ranges.push(cursor3.value);
     }
     return ranges;
   }
   highlight(state, from2, to, add2) {
-    let cursor2 = regexpCursor(this.spec, state, Math.max(
+    let cursor3 = regexpCursor(this.spec, state, Math.max(
       0,
       from2 - 250
       /* RegExp.HighlightMargin */
     ), Math.min(to + 250, state.doc.length));
-    while (!cursor2.next().done)
-      add2(cursor2.value.from, cursor2.value.to);
+    while (!cursor3.next().done)
+      add2(cursor3.value.from, cursor3.value.to);
   }
 };
 var setSearchQuery = /* @__PURE__ */ StateEffect.define();
@@ -21895,11 +21895,11 @@ var findNext = /* @__PURE__ */ searchCommand((view, { query }) => {
   let next = query.nextMatch(view.state, to, to);
   if (!next)
     return false;
-  let selection2 = EditorSelection.single(next.from, next.to);
+  let selection3 = EditorSelection.single(next.from, next.to);
   let config2 = view.state.facet(searchConfigFacet);
   view.dispatch({
-    selection: selection2,
-    effects: [announceMatch(view, next), config2.scrollToMatch(selection2.main, view)],
+    selection: selection3,
+    effects: [announceMatch(view, next), config2.scrollToMatch(selection3.main, view)],
     userEvent: "select.search"
   });
   selectSearchInput(view);
@@ -21910,11 +21910,11 @@ var findPrevious = /* @__PURE__ */ searchCommand((view, { query }) => {
   let prev = query.prevMatch(state, from2, from2);
   if (!prev)
     return false;
-  let selection2 = EditorSelection.single(prev.from, prev.to);
+  let selection3 = EditorSelection.single(prev.from, prev.to);
   let config2 = view.state.facet(searchConfigFacet);
   view.dispatch({
-    selection: selection2,
-    effects: [announceMatch(view, prev), config2.scrollToMatch(selection2.main, view)],
+    selection: selection3,
+    effects: [announceMatch(view, prev), config2.scrollToMatch(selection3.main, view)],
     userEvent: "select.search"
   });
   selectSearchInput(view);
@@ -21957,7 +21957,7 @@ var replaceNext = /* @__PURE__ */ searchCommand((view, { query }) => {
   if (!match2)
     return false;
   let next = match2;
-  let changes = [], selection2, replacement;
+  let changes = [], selection3, replacement;
   let effects = [];
   if (!next.precise) {
     next = query.nextMatch(state, next.from, next.to);
@@ -21968,13 +21968,13 @@ var replaceNext = /* @__PURE__ */ searchCommand((view, { query }) => {
   }
   let changeSet = view.state.changes(changes);
   if (next) {
-    selection2 = EditorSelection.single(next.from, next.to).map(changeSet);
+    selection3 = EditorSelection.single(next.from, next.to).map(changeSet);
     effects.push(announceMatch(view, next));
-    effects.push(state.facet(searchConfigFacet).scrollToMatch(selection2.main, view));
+    effects.push(state.facet(searchConfigFacet).scrollToMatch(selection3.main, view));
   }
   view.dispatch({
     changes: changeSet,
-    selection: selection2,
+    selection: selection3,
     effects,
     userEvent: "input.replace"
   });
@@ -22389,6 +22389,446 @@ var oneDarkHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
   }
 ]);
 var oneDark = [oneDarkTheme, /* @__PURE__ */ syntaxHighlighting(oneDarkHighlightStyle)];
+
+// node_modules/@fsegurai/codemirror-theme-vscode-light/dist/index.js
+var generalContent = {
+  fontSize: "14px",
+  fontFamily: "JetBrains Mono, Consolas, monospace",
+  lineHeight: "1.6"
+};
+var generalCursor = {
+  borderLeftWidth: "2px"
+};
+var generalDiff = {
+  insertedTextDecoration: "none",
+  deletedTextDecoration: "line-through",
+  insertedLinePadding: "1px 3px",
+  borderRadius: "3px"
+};
+var generalGutter = {
+  paddingRight: "8px",
+  fontSize: "0.9em",
+  fontWeight: "500",
+  lineHeight: "1.78"
+  // Adjusted to compensate for 0.9em fontSize (1.6 / 0.9 ≈ 1.78)
+};
+var generalPanel = {
+  borderRadius: "4px",
+  padding: "2px 10px"
+};
+var generalLine = {
+  borderRadius: "2px"
+};
+var generalMatching = {
+  borderRadius: "2px"
+};
+var generalPlaceholder = {
+  borderRadius: "4px",
+  padding: "0 5px",
+  margin: "0 2px"
+};
+var generalScroller = {
+  width: "12px",
+  height: "12px",
+  borderRadius: "6px"
+};
+var generalSearchField = {
+  borderRadius: "4px",
+  padding: "2px 6px"
+};
+var generalTooltip = {
+  borderRadius: "4px",
+  borderRadiusSelected: "3px",
+  lineHeight: "1.3",
+  padding: "4px 8px",
+  paddingRight: "8px"
+};
+var base00 = "#ffffff";
+var base01 = "#f3f3f3";
+var base02 = "#d6d6d6";
+var base03 = "#6b6b6b";
+var base04 = "#000000";
+var base05 = "#383a42";
+var base06 = "#1f1f1f";
+var base07 = "#f5f5f5";
+var base08 = "#0064ff";
+var base09 = "#af00db";
+var base0A = "#0070c1";
+var base0B = "#267f99";
+var base0C = "#795e26";
+var base0D = "#098658";
+var base0E = "#a31515";
+var base0F = "#e51400";
+var base10 = "#795e26";
+var base11 = "#008000";
+var invalid2 = base0F;
+var highlightBackground2 = "#99999926";
+var background2 = base00;
+var tooltipBackground2 = base01;
+var selection2 = "#add6ff";
+var selectionMatch = "#a8ac9480";
+var cursor2 = base04;
+var activeBracketBg = "#007acc20";
+var activeBracketBorder = "#007acc";
+var diagnosticWarning = "#bf8803";
+var linkColor = "#006ab1";
+var visitedLinkColor = "#9e46d0";
+var addedBackground = "#ddfbe0";
+var removedBackground = "#ffebec";
+var addedText = "#22863a";
+var removedText = "#e51400";
+var vsCodeLightTheme = /* @__PURE__ */ EditorView.theme({
+  // Base editor styles
+  "&": {
+    color: base05,
+    backgroundColor: background2,
+    fontSize: generalContent.fontSize,
+    fontFamily: generalContent.fontFamily
+  },
+  // Content and cursor
+  ".cm-content": {
+    caretColor: cursor2,
+    lineHeight: generalContent.lineHeight
+  },
+  ".cm-cursor, .cm-dropCursor": {
+    borderLeftColor: cursor2,
+    borderLeftWidth: generalCursor.borderLeftWidth
+  },
+  ".cm-fat-cursor": {
+    backgroundColor: `${cursor2}99`,
+    color: background2
+  },
+  // Selection
+  "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+    backgroundColor: selection2
+  },
+  // Make sure selection appears above active line
+  ".cm-selectionLayer": {
+    zIndex: 100
+  },
+  // Search functionality
+  ".cm-searchMatch": {
+    backgroundColor: "#bbdefb",
+    outline: `1px solid ${base0A}90`,
+    color: base06,
+    borderRadius: generalSearchField.borderRadius
+  },
+  ".cm-searchMatch.cm-searchMatch-selected": {
+    backgroundColor: "#90caf9",
+    color: base06,
+    padding: generalSearchField.padding,
+    "& span": {
+      color: base06
+    }
+  },
+  ".cm-search.cm-panel.cm-textfield": {
+    color: base05,
+    borderRadius: generalSearchField.borderRadius,
+    padding: generalSearchField.padding
+  },
+  // Panels
+  ".cm-panels": {
+    backgroundColor: base01,
+    color: base05,
+    borderRadius: "3px",
+    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)"
+  },
+  ".cm-panels.cm-panels-top": {
+    borderBottom: `1px solid ${base02}`
+  },
+  ".cm-panels.cm-panels-bottom": {
+    borderTop: `1px solid ${base02}`
+  },
+  ".cm-panel button": {
+    backgroundColor: background2,
+    color: base05,
+    border: `1px solid ${base02}`,
+    borderRadius: generalPanel.borderRadius,
+    padding: generalPanel.padding
+  },
+  ".cm-panel button:hover": {
+    backgroundColor: "#e8e8e8",
+    border: `1px solid ${base03}80`
+  },
+  // Line highlighting
+  ".cm-activeLine": {
+    backgroundColor: highlightBackground2,
+    borderRadius: generalLine.borderRadius,
+    zIndex: 1
+  },
+  // Gutters
+  ".cm-gutters": {
+    backgroundColor: base07,
+    color: "#237893",
+    // VSCode's specific gutter color
+    border: "none",
+    borderRight: `1px solid ${base02}`,
+    paddingRight: generalGutter.paddingRight
+  },
+  ".cm-activeLineGutter": {
+    backgroundColor: highlightBackground2,
+    color: "#0b216f",
+    // VSCode's specific active gutter color
+    fontWeight: generalGutter.fontWeight
+  },
+  ".cm-lineNumbers": {
+    fontSize: generalGutter.fontSize,
+    lineHeight: generalGutter.lineHeight
+  },
+  ".cm-foldGutter": {
+    fontSize: generalGutter.fontSize,
+    lineHeight: generalGutter.lineHeight
+  },
+  ".cm-foldGutter .cm-gutterElement": {
+    color: "#237893",
+    cursor: "pointer"
+  },
+  ".cm-foldGutter .cm-gutterElement:hover": {
+    color: "#0b216f"
+  },
+  // Diff/Merge View Styles
+  // Inserted/Added Content
+  ".cm-insertedLine": {
+    textDecoration: generalDiff.insertedTextDecoration,
+    backgroundColor: addedBackground,
+    color: addedText,
+    padding: generalDiff.insertedLinePadding,
+    borderRadius: generalDiff.borderRadius
+  },
+  "ins.cm-insertedLine, ins.cm-insertedLine:not(:has(.cm-changedText))": {
+    textDecoration: generalDiff.insertedTextDecoration,
+    backgroundColor: `${addedBackground} !important`,
+    color: addedText,
+    padding: generalDiff.insertedLinePadding,
+    borderRadius: generalDiff.borderRadius,
+    border: `1px solid ${addedText}40`
+  },
+  "ins.cm-insertedLine .cm-changedText": {
+    background: "transparent !important"
+  },
+  // Deleted/Removed Content
+  ".cm-deletedLine": {
+    textDecoration: generalDiff.deletedTextDecoration,
+    backgroundColor: removedBackground,
+    color: removedText,
+    padding: generalDiff.insertedLinePadding,
+    borderRadius: generalDiff.borderRadius
+  },
+  "del.cm-deletedLine, del, del:not(:has(.cm-deletedText))": {
+    textDecoration: generalDiff.deletedTextDecoration,
+    backgroundColor: `${removedBackground} !important`,
+    color: removedText,
+    padding: generalDiff.insertedLinePadding,
+    borderRadius: generalDiff.borderRadius,
+    border: `1px solid ${removedText}40`
+  },
+  "del .cm-deletedText, del .cm-changedText": {
+    background: "transparent !important"
+  },
+  // Tooltips and autocomplete
+  ".cm-tooltip": {
+    backgroundColor: tooltipBackground2,
+    border: `1px solid ${base02}`,
+    borderRadius: generalTooltip.borderRadius,
+    padding: generalTooltip.padding,
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)"
+  },
+  ".cm-tooltip-autocomplete": {
+    "& > ul": {
+      backgroundColor: tooltipBackground2,
+      border: "none",
+      maxHeight: "300px"
+    },
+    "& > ul > li": {
+      padding: generalTooltip.padding,
+      lineHeight: generalTooltip.lineHeight
+    },
+    "& > ul > li[aria-selected]": {
+      backgroundColor: "#dcebfc",
+      color: base06,
+      borderRadius: generalTooltip.borderRadiusSelected
+    },
+    "& > ul > li > span.cm-completionIcon": {
+      color: base03,
+      paddingRight: generalTooltip.paddingRight
+    },
+    "& > ul > li > span.cm-completionDetail": {
+      color: base03,
+      fontStyle: "italic"
+    }
+  },
+  ".cm-tooltip .cm-tooltip-arrow:before": {
+    borderTopColor: "transparent",
+    borderBottomColor: "transparent"
+  },
+  ".cm-tooltip .cm-tooltip-arrow:after": {
+    borderTopColor: tooltipBackground2,
+    borderBottomColor: tooltipBackground2
+  },
+  // Diagnostics styling
+  ".cm-diagnostic": {
+    "&-error": {
+      borderLeft: `3px solid ${invalid2}`
+    },
+    "&-warning": {
+      borderLeft: `3px solid ${diagnosticWarning}`
+    },
+    "&-info": {
+      borderLeft: `3px solid ${linkColor}`
+    }
+  },
+  ".cm-lintPoint-error": {
+    borderBottom: `2px wavy ${invalid2}`
+  },
+  ".cm-lintPoint-warning": {
+    borderBottom: `2px wavy ${diagnosticWarning}`
+  },
+  // Matching brackets
+  ".cm-matchingBracket": {
+    backgroundColor: activeBracketBg,
+    outline: `1px solid ${activeBracketBorder}80`,
+    borderRadius: generalMatching.borderRadius
+  },
+  ".cm-nonmatchingBracket": {
+    backgroundColor: `${base0F}20`,
+    outline: `1px solid ${invalid2}`,
+    borderRadius: generalMatching.borderRadius
+  },
+  // Selection matches
+  ".cm-selectionMatch": {
+    backgroundColor: selectionMatch,
+    outline: `1px solid ${base02}70`,
+    borderRadius: generalMatching.borderRadius
+  },
+  // Fold placeholder
+  ".cm-foldPlaceholder": {
+    backgroundColor: tooltipBackground2,
+    color: base03,
+    border: `1px dotted ${base03}70`,
+    borderRadius: generalPlaceholder.borderRadius,
+    padding: generalPlaceholder.padding,
+    margin: generalPlaceholder.margin
+  },
+  // Focus outline
+  "&.cm-focused": {
+    outline: "none",
+    boxShadow: `0 0 0 1px ${base02}`
+  },
+  // Scrollbars
+  "& .cm-scroller::-webkit-scrollbar": {
+    width: generalScroller.width,
+    height: generalScroller.height
+  },
+  "& .cm-scroller::-webkit-scrollbar-track": {
+    background: background2
+  },
+  "& .cm-scroller::-webkit-scrollbar-thumb": {
+    backgroundColor: "#dadada",
+    borderRadius: generalScroller.borderRadius,
+    border: `3px solid ${background2}`
+  },
+  "& .cm-scroller::-webkit-scrollbar-thumb:hover": {
+    backgroundColor: "#cccccc"
+  },
+  // Ghost text
+  ".cm-ghostText": {
+    opacity: "0.5",
+    color: base03
+  }
+}, { dark: false });
+var vsCodeLightHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
+  // Keywords and control flow
+  { tag: tags.keyword, color: base08, fontWeight: "bold" },
+  { tag: tags.controlKeyword, color: base09, fontWeight: "bold" },
+  { tag: tags.moduleKeyword, color: base08, fontWeight: "bold" },
+  // Names and variables
+  { tag: [tags.name, tags.deleted, tags.character, tags.macroName], color: base05 },
+  { tag: [tags.variableName], color: base0A },
+  { tag: [tags.propertyName], color: base0A, fontStyle: "normal" },
+  // Classes and types
+  { tag: [tags.typeName], color: base0B },
+  { tag: [tags.className], color: base0B, fontStyle: "normal" },
+  { tag: [tags.namespace], color: base05, fontStyle: "normal" },
+  // Operators and punctuation
+  { tag: [tags.operator, tags.operatorKeyword], color: base05 },
+  { tag: [tags.bracket], color: base05 },
+  { tag: [tags.brace], color: base05 },
+  { tag: [tags.punctuation], color: base05 },
+  // Functions and parameters
+  { tag: [/* @__PURE__ */ tags.function(tags.variableName)], color: base0C },
+  { tag: [tags.labelName], color: base0C, fontStyle: "normal" },
+  { tag: [/* @__PURE__ */ tags.definition(/* @__PURE__ */ tags.function(tags.variableName))], color: base0C },
+  { tag: [/* @__PURE__ */ tags.definition(tags.variableName)], color: base0A },
+  // Constants and literals
+  { tag: tags.number, color: base0D },
+  { tag: tags.changed, color: base10 },
+  { tag: tags.annotation, color: base10, fontStyle: "italic" },
+  { tag: tags.modifier, color: base08, fontStyle: "normal" },
+  { tag: tags.self, color: base08 },
+  {
+    tag: [tags.color, /* @__PURE__ */ tags.constant(tags.name), /* @__PURE__ */ tags.standard(tags.name)],
+    color: base0A
+  },
+  { tag: [tags.atom, tags.bool, /* @__PURE__ */ tags.special(tags.variableName)], color: base08 },
+  // Strings and regex
+  { tag: [tags.processingInstruction, tags.inserted], color: base0E },
+  { tag: [/* @__PURE__ */ tags.special(tags.string), tags.regexp], color: base09 },
+  { tag: tags.string, color: base0E },
+  // Punctuation and structure
+  { tag: /* @__PURE__ */ tags.definition(tags.typeName), color: base0B, fontWeight: "bold" },
+  { tag: [/* @__PURE__ */ tags.definition(tags.name), tags.separator], color: base05 },
+  // Comments and documentation
+  { tag: tags.meta, color: base03 },
+  { tag: tags.comment, fontStyle: "italic", color: base11 },
+  { tag: tags.docComment, fontStyle: "italic", color: base11 },
+  // HTML/XML elements
+  { tag: [tags.tagName], color: base08 },
+  { tag: [tags.attributeName], color: base0A },
+  // Markdown and text formatting
+  { tag: [tags.heading], fontWeight: "bold", color: base08 },
+  { tag: tags.heading1, color: base08, fontWeight: "bold" },
+  { tag: tags.heading2, color: base08 },
+  { tag: tags.heading3, color: base08 },
+  { tag: tags.heading4, color: base08 },
+  { tag: tags.heading5, color: base08 },
+  { tag: tags.heading6, color: base08 },
+  { tag: [tags.strong], fontWeight: "bold", color: base08 },
+  { tag: [tags.emphasis], fontStyle: "italic", color: base0A },
+  // Links and URLs
+  {
+    tag: [tags.link],
+    color: visitedLinkColor,
+    textDecoration: "underline",
+    textUnderlinePosition: "under"
+  },
+  {
+    tag: [tags.url],
+    color: linkColor,
+    textDecoration: "underline",
+    textUnderlineOffset: "2px"
+  },
+  // Special states
+  {
+    tag: [tags.invalid],
+    color: base05,
+    textDecoration: "underline wavy",
+    borderBottom: `1px wavy ${invalid2}`
+  },
+  { tag: [tags.strikethrough], color: invalid2, textDecoration: "line-through" },
+  // Enhanced syntax highlighting
+  { tag: /* @__PURE__ */ tags.constant(tags.name), color: base0A },
+  { tag: tags.deleted, color: invalid2 },
+  { tag: tags.squareBracket, color: base05 },
+  { tag: tags.angleBracket, color: base05 },
+  // Additional specific styles
+  { tag: tags.monospace, color: base05 },
+  { tag: [tags.contentSeparator], color: base05 },
+  { tag: tags.quote, color: base11 }
+]);
+var vsCodeLight = [
+  vsCodeLightTheme,
+  /* @__PURE__ */ syntaxHighlighting(vsCodeLightHighlightStyle)
+];
 
 // node_modules/@lezer/lr/dist/index.js
 var Stack = class _Stack {
@@ -23297,24 +23737,24 @@ function overrides(token, prev, tableData, tableOffset) {
 var verbose = typeof process != "undefined" && process.env && /\bparse\b/.test(process.env.LOG);
 var stackIDs = null;
 function cutAt(tree, pos, side) {
-  let cursor2 = tree.cursor(IterMode.IncludeAnonymous);
-  cursor2.moveTo(pos);
+  let cursor3 = tree.cursor(IterMode.IncludeAnonymous);
+  cursor3.moveTo(pos);
   for (; ; ) {
-    if (!(side < 0 ? cursor2.childBefore(pos) : cursor2.childAfter(pos)))
+    if (!(side < 0 ? cursor3.childBefore(pos) : cursor3.childAfter(pos)))
       for (; ; ) {
-        if ((side < 0 ? cursor2.to < pos : cursor2.from > pos) && !cursor2.type.isError)
+        if ((side < 0 ? cursor3.to < pos : cursor3.from > pos) && !cursor3.type.isError)
           return side < 0 ? Math.max(0, Math.min(
-            cursor2.to - 1,
+            cursor3.to - 1,
             pos - 25
             /* Lookahead.Margin */
           )) : Math.min(tree.length, Math.max(
-            cursor2.from + 1,
+            cursor3.from + 1,
             pos + 25
             /* Lookahead.Margin */
           ));
-        if (side < 0 ? cursor2.prevSibling() : cursor2.nextSibling())
+        if (side < 0 ? cursor3.prevSibling() : cursor3.nextSibling())
           break;
-        if (!cursor2.parent())
+        if (!cursor3.parent())
           return side < 0 ? 0 : tree.length;
       }
   }
@@ -26790,15 +27230,15 @@ function variableNames(doc2, node, isVariable) {
     let known = VariablesByNode.get(node);
     if (known)
       return known;
-    let result = [], seen = /* @__PURE__ */ new Set(), cursor2 = node.cursor(IterMode.IncludeAnonymous);
-    if (cursor2.firstChild())
+    let result = [], seen = /* @__PURE__ */ new Set(), cursor3 = node.cursor(IterMode.IncludeAnonymous);
+    if (cursor3.firstChild())
       do {
-        for (let option of variableNames(doc2, cursor2.node, isVariable))
+        for (let option of variableNames(doc2, cursor3.node, isVariable))
           if (!seen.has(option.label)) {
             seen.add(option.label);
             result.push(option);
           }
-      } while (cursor2.nextSibling());
+      } while (cursor3.nextSibling());
     VariablesByNode.set(node, result);
     return result;
   } else {
@@ -31236,10 +31676,10 @@ var parser$1 = /* @__PURE__ */ LRParser.deserialize({
   tokenPrec: 0
 });
 function tokenBefore(tree) {
-  let cursor2 = tree.cursor().moveTo(tree.from, -1);
-  while (/Comment/.test(cursor2.name))
-    cursor2.moveTo(cursor2.from, -1);
-  return cursor2.node;
+  let cursor3 = tree.cursor().moveTo(tree.from, -1);
+  while (/Comment/.test(cursor3.name))
+    cursor3.moveTo(cursor3.from, -1);
+  return cursor3.node;
 }
 function idName(doc2, node) {
   let text = doc2.sliceString(node.from, node.to);
@@ -32918,6 +33358,7 @@ export {
   basicSetup,
   closeSearchPanel,
   css,
+  defaultHighlightStyle,
   findNext,
   findPrevious,
   getSearchQuery,
@@ -32941,6 +33382,8 @@ export {
   searchKeymap,
   setSearchQuery,
   sql,
+  syntaxHighlighting,
+  vsCodeLight,
   xml,
   yaml
 };

@@ -514,7 +514,7 @@ async function switchSession(sessionId) {
         <div class="empty-state">
           <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
           <h1 class="empty-hero-title">HippoBuddy</h1>
-          <p class="empty-hero-subtitle">你的 AI 编码助手</p>
+          <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
           <div class="empty-hero-input-area">
             <div class="hero-input-wrapper">
               <div class="empty-hero-input-refs" id="heroInputRefs"></div>
@@ -561,7 +561,7 @@ async function switchSession(sessionId) {
       <div class="empty-state">
         <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
         <h1 class="empty-hero-title">HippoBuddy</h1>
-        <p class="empty-hero-subtitle">你的 AI 编码助手</p>
+        <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
         <div class="empty-hero-input-area">
           <div class="hero-input-wrapper">
             <div class="empty-hero-input-refs" id="heroInputRefs"></div>

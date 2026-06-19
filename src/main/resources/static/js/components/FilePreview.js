@@ -10,7 +10,8 @@
  *   - js/components/file-binary-preview.js（二进制预览委托）
  */
 
-import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark,
+import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark, vsCodeLight,
+  defaultHighlightStyle, syntaxHighlighting,
   javascript, python, java, html, css, json, markdown, xml, yaml, sql,
   rust, php, go, sass } from '../vendor/codemirror.js'
 import { SearchPanel } from './search-panel.js'
@@ -277,7 +278,7 @@ export class FilePreview {
       extensions: [
         basicSetup,
         lang,
-        this._themeCompartment.of(isDark ? oneDark : []),
+        this._themeCompartment.of(isDark ? oneDark : this._getLightTheme()),
         this._diffCompartment.of([]), // 暂不启用 diff，等 _fetchOriginalContent 完成后激活
         saveKeyBinding,
         EditorView.theme({
@@ -385,14 +386,22 @@ export class FilePreview {
     return document.documentElement.getAttribute('data-theme') === 'dark';
   }
 
+  /** 获取浅色主题，vsCodeLight 不可用时降级到 defaultHighlightStyle */
+  _getLightTheme() {
+    if (typeof vsCodeLight !== 'undefined') return vsCodeLight;
+    console.warn('FilePreview: vsCodeLight 未加载，降级到 defaultHighlightStyle');
+    return syntaxHighlighting(defaultHighlightStyle);
+  }
+
   /** 监听 <html> data-theme 变化，动态切换 CM6 主题 */
   _startThemeObserver() {
     this._stopThemeObserver();
     this._themeObserver = new MutationObserver(() => {
       if (!this._view) return;
       const isDark = this._isDarkTheme();
+      const ext = isDark ? oneDark : this._getLightTheme();
       this._view.dispatch({
-        effects: this._themeCompartment.reconfigure(isDark ? oneDark : []),
+        effects: this._themeCompartment.reconfigure(ext),
       });
     });
     this._themeObserver.observe(document.documentElement, {

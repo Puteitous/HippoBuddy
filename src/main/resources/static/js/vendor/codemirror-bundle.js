@@ -61,6 +61,7 @@ import { search, SearchQuery, setSearchQuery, getSearchQuery, highlightSelection
 
 // 主题
 import { oneDark } from '@codemirror/theme-one-dark'
+import { vsCodeLight } from '@fsegurai/codemirror-theme-vscode-light'
 
 // 语言包
 import { javascript } from '@codemirror/lang-javascript'
@@ -136,5 +137,5 @@ export const basicSetup = (() => {
   ]
 })()
 
-export { oneDark }
+export { oneDark, vsCodeLight, defaultHighlightStyle, syntaxHighlighting }
 export { javascript, python, java, html, css, json, markdown, xml, yaml, sql, rust, php, go, sass }
