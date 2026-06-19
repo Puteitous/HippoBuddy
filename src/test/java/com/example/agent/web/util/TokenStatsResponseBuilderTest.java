@@ -4,7 +4,6 @@ import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Usage;
 import com.example.agent.service.TokenEstimatorFactory;
-import com.example.agent.web.logging.SessionLogger;
 import com.example.agent.web.session.SessionTokenStats;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -65,7 +64,7 @@ class TokenStatsResponseBuilderTest {
         @Test
         @DisplayName("应返回全默认值的响应")
         void returnsEmptyResponse() {
-            Map<String, Object> response = builder.build(null, MAX_TOKENS, null, null);
+            Map<String, Object> response = builder.build(null, MAX_TOKENS, null);
 
             assertEquals(0, response.get("currentTokens"));
             assertEquals(MAX_TOKENS, response.get("maxTokens"));
@@ -90,7 +89,7 @@ class TokenStatsResponseBuilderTest {
         @DisplayName("应使用估算 token 值，不包含真实 usage 字段")
         void usesEstimatedTokens() {
             Conversation conv = createConversation("hello");
-            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null, null);
+            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null);
 
             assertEquals(false, response.get("hasKnownUsage"));
             assertTrue((Integer) response.get("currentTokens") > 0);
@@ -104,8 +103,7 @@ class TokenStatsResponseBuilderTest {
         @DisplayName("usagePercent 应在合理范围内")
         void usagePercentInRange() {
             Conversation conv = createConversation("hello");
-            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null, null);
-
+            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null);
             double usagePercent = (Double) response.get("usagePercent");
             assertTrue(usagePercent > 0.0);
             assertTrue(usagePercent < 100.0);
@@ -120,8 +118,7 @@ class TokenStatsResponseBuilderTest {
         @DisplayName("应使用真实的 usage 数据")
         void usesRealUsage() {
             Conversation conv = createConversationWithUsage("hello");
-            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null, null);
-
+            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null);
             assertEquals(true, response.get("hasKnownUsage"));
             assertEquals(80, response.get("currentTokens"));
             assertEquals(50, response.get("promptTokens"));
@@ -135,8 +132,7 @@ class TokenStatsResponseBuilderTest {
         @DisplayName("缓存命中数据应正确填充")
         void cacheHitDataPopulated() {
             Conversation conv = createConversationWithCacheHit("hello");
-            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null, null);
-
+            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null);
             assertEquals(true, response.get("hasKnownUsage"));
             assertEquals(160, response.get("currentTokens"));
             assertEquals(100, response.get("promptTokens"));
@@ -159,7 +155,7 @@ class TokenStatsResponseBuilderTest {
             stats.addToolCall();
 
             Conversation conv = createConversationWithUsage("hello");
-            Map<String, Object> response = builder.build(conv, MAX_TOKENS, stats, null);
+            Map<String, Object> response = builder.build(conv, MAX_TOKENS, stats);
 
             assertEquals(100, response.get("sessionTotalInput"));
             assertEquals(50, response.get("sessionTotalOutput"));
@@ -171,43 +167,10 @@ class TokenStatsResponseBuilderTest {
         }
 
         @Test
-        @DisplayName("stats 为 null 时使用 legacyStats")
-        void usesLegacyStatsWhenStatsIsNull() {
-            SessionLogger.SessionTokenStats legacyStats =
-                new SessionLogger.SessionTokenStats(200, 100, 300, 5, 3);
-
+        @DisplayName("stats 为 null 时不包含 session 统计字段")
+        void noSessionFieldsWhenStatsNull() {
             Conversation conv = createConversationWithUsage("hello");
-            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null, legacyStats);
-
-            assertEquals(200, response.get("sessionTotalInput"));
-            assertEquals(100, response.get("sessionTotalOutput"));
-            assertEquals(300, response.get("sessionTotalTokens"));
-            assertEquals(5, response.get("sessionLlmCalls"));
-            assertEquals(3, response.get("sessionToolCalls"));
-        }
-
-        @Test
-        @DisplayName("stats 优先于 legacyStats")
-        void statsTakesPriority() {
-            SessionTokenStats stats = new SessionTokenStats();
-            stats.addLlmCall(10, 5, 15);
-            SessionLogger.SessionTokenStats legacyStats =
-                new SessionLogger.SessionTokenStats(200, 100, 300, 5, 3);
-
-            Conversation conv = createConversationWithUsage("hello");
-            Map<String, Object> response = builder.build(conv, MAX_TOKENS, stats, legacyStats);
-
-            assertEquals(10, response.get("sessionTotalInput"));
-            assertEquals(5, response.get("sessionTotalOutput"));
-            assertEquals(15, response.get("sessionTotalTokens"));
-        }
-
-        @Test
-        @DisplayName("两者都为 null 时不包含 session 统计字段")
-        void noSessionFieldsWhenBothNull() {
-            Conversation conv = createConversationWithUsage("hello");
-            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null, null);
-
+            Map<String, Object> response = builder.build(conv, MAX_TOKENS, null);
             assertFalse(response.containsKey("sessionTotalInput"));
             assertFalse(response.containsKey("sessionTotalOutput"));
             assertFalse(response.containsKey("sessionTotalTokens"));
@@ -225,8 +188,8 @@ class TokenStatsResponseBuilderTest {
         void differentMaxTokensAffectsUsagePercent() {
             Conversation conv = createConversationWithUsage("hello");
 
-            Map<String, Object> responseSmall = builder.build(conv, 100, null, null);
-            Map<String, Object> responseLarge = builder.build(conv, 10000, null, null);
+            Map<String, Object> responseSmall = builder.build(conv, 100, null);
+            Map<String, Object> responseLarge = builder.build(conv, 10000, null);
 
             double percentSmall = (Double) responseSmall.get("usagePercent");
             double percentLarge = (Double) responseLarge.get("usagePercent");
@@ -237,7 +200,7 @@ class TokenStatsResponseBuilderTest {
         @Test
         @DisplayName("conversation 为 null 时 maxTokens 传递正确")
         void maxTokensPassedWhenConversationNull() {
-            Map<String, Object> response = builder.build(null, 5000, null, null);
+            Map<String, Object> response = builder.build(null, 5000, null);
             assertEquals(5000, response.get("maxTokens"));
         }
     }

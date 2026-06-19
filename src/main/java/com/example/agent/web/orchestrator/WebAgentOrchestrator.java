@@ -24,7 +24,6 @@ import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.snapshot.FileSnapshotManager;
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
-import com.example.agent.web.logging.SessionLogger;
 import com.example.agent.web.session.PendingBashConfirmation;
 import com.example.agent.web.session.PendingDeleteConfirmation;
 import com.example.agent.web.session.PendingToolCall;
@@ -279,9 +278,6 @@ public class WebAgentOrchestrator {
                     sessionId, turn + 1, hasContent ? finalContent.length() : 0, hasToolCalls);
             }
 
-            SessionLogger.logLlmResponse(sessionId, turn + 1, response.getUsage(),
-                hasContent ? finalContent : null);
-
             if (response.getUsage() != null) {
                 SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                 stats.addLlmCall(
@@ -422,7 +418,6 @@ public class WebAgentOrchestrator {
                                         + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                                         + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
                                         + "\",\"args\":" + arguments + "}");
-                                    SessionLogger.logToolCall(sessionId, toolName, arguments, truncatedResult, true);
                                     SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                                     stats.addToolCall();
                                 } finally {
@@ -440,7 +435,6 @@ public class WebAgentOrchestrator {
                                     + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                                     + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
                                     + "\",\"args\":" + arguments + "}");
-                                SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
                                 continue;
                             }
 
@@ -502,7 +496,6 @@ public class WebAgentOrchestrator {
                                 + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                                 + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
                                 + "\",\"args\":" + arguments + "}");
-                            SessionLogger.logToolCall(sessionId, toolName, arguments, truncatedResult, true);
                             SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                             stats.addToolCall();
                         } finally {
@@ -524,7 +517,6 @@ public class WebAgentOrchestrator {
                             + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                             + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
                             + "\",\"args\":" + arguments + "}");
-                        SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
                         continue;
                     }
 
@@ -536,19 +528,17 @@ public class WebAgentOrchestrator {
                         sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
                             + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                             + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                            + "\",\"args\":" + arguments + "}");
-                        SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
-                        continue;
-                    }
+                                    + "\",\"args\":" + arguments + "}");
+                            continue;
+                        }
 
-                    if (preview.totalCount() == 0) {
+                        if (preview.totalCount() == 0) {
                         String errorMsg = "没有找到需要删除的文件。";
                         getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
                         sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
                             + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                             + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
                             + "\",\"args\":" + arguments + "}");
-                        SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
                         continue;
                     }
 
@@ -613,7 +603,6 @@ public class WebAgentOrchestrator {
                         + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
                         + "\",\"args\":" + arguments + "}");
 
-                    SessionLogger.logToolCall(sessionId, toolName, arguments, truncatedResult, true);
                     SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                     stats.addToolCall();
                 } finally {
@@ -629,8 +618,6 @@ public class WebAgentOrchestrator {
                     + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
                     + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
                     + "\",\"args\":" + arguments + "}");
-
-                SessionLogger.logToolCall(sessionId, toolName, arguments, errorMsg, false);
             } finally {
                 FileChangeTracker.clearCurrentSessionId();
                 FileSnapshotManager.clearCurrentSessionId();

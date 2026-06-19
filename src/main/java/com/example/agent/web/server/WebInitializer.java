@@ -6,17 +6,11 @@ import com.example.agent.llm.client.LlmClient;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.application.ConversationService;
 import com.example.agent.service.TokenEstimatorFactory;
-import com.example.agent.web.logging.SessionLogger;
-import com.example.agent.web.session.SessionTokenStats;
 import com.example.agent.web.session.WebSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
 
 public final class WebInitializer {
 
@@ -69,65 +63,6 @@ public final class WebInitializer {
     }
 
     public static void initializeTokenCache(WebSessionManager sessionManager) {
-        if (tokenCacheInitialized) {
-            return;
-        }
-        synchronized (WebInitializer.class) {
-            if (tokenCacheInitialized) {
-                return;
-            }
-            try {
-                Path logsDir = Paths.get(System.getProperty("user.dir"), ".hippo", "logs", "conversations");
-                if (!Files.exists(logsDir)) {
-                    tokenCacheInitialized = true;
-                    return;
-                }
-
-                Map<String, SessionTokenStats> preloaded = new HashMap<>();
-
-                try (var stream = Files.list(logsDir)) {
-                    var recentFiles = stream
-                        .filter(p -> p.toString().endsWith(".log"))
-                        .sorted((a, b) -> {
-                            try {
-                                return Long.compare(
-                                    Files.getLastModifiedTime(b).toMillis(),
-                                    Files.getLastModifiedTime(a).toMillis()
-                                );
-                            } catch (Exception e) {
-                                return 0;
-                            }
-                        })
-                        .limit(100)
-                        .toList();
-
-                    for (Path logFile : recentFiles) {
-                        try {
-                            String fileName = logFile.getFileName().toString();
-                            String id = fileName.replace(".log", "");
-
-                            var stats = SessionLogger.getTokenStats(id);
-                            if (stats != null && stats.totalTokens > 0) {
-                                SessionTokenStats cachedStats = new SessionTokenStats();
-                                cachedStats.totalInputTokens = stats.totalInputTokens;
-                                cachedStats.totalOutputTokens = stats.totalOutputTokens;
-                                cachedStats.totalTokens = stats.totalTokens;
-                                cachedStats.llmCalls = stats.llmCalls;
-                                cachedStats.toolCalls = stats.toolCalls;
-                                preloaded.put(id, cachedStats);
-                            }
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-
-                sessionManager.loadTokenCache(preloaded);
-                logger.info("初始化会话 Token 缓存完成，共加载 {} 个会话", preloaded.size());
-            } catch (Exception e) {
-                logger.warn("初始化会话 Token 缓存失败", e);
-            } finally {
-                tokenCacheInitialized = true;
-            }
-        }
+        tokenCacheInitialized = true;
     }
 }

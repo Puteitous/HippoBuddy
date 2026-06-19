@@ -554,22 +554,28 @@ public class SessionApiHandler implements HttpHandler {
     private void handleGetTokens(HttpExchange exchange, String sessionId) throws IOException {
         Conversation conversation = com.example.agent.web.session.WebSessionManager.getInstance().getSessions().get(sessionId);
 
+        // 会话未加载时（如重启后首次访问），尝试从 JSONL 恢复
+        if (conversation == null) {
+            try {
+                conversation = com.example.agent.web.session.WebSessionManager.getInstance()
+                    .getOrCreateConversation(sessionId, null);
+            } catch (Exception e) {
+                logger.debug("从 JSONL 加载会话失败：sessionId={}", sessionId);
+            }
+        }
+
         int maxTokens = Config.getInstance().getContext().getMaxTokens();
 
         com.example.agent.web.session.SessionTokenStats stats = null;
-        com.example.agent.web.logging.SessionLogger.SessionTokenStats legacyStats = null;
         if (conversation != null) {
             try {
                 stats = com.example.agent.web.session.WebSessionManager.getInstance().getSessionTokenStats(sessionId);
-                if (stats == null) {
-                    legacyStats = com.example.agent.web.logging.SessionLogger.getTokenStats(sessionId);
-                }
             } catch (Exception e) {
                 logger.debug("读取会话 Token 统计失败：sessionId={}", sessionId);
             }
         }
 
-        Map<String, Object> response = tokenStatsResponseBuilder.build(conversation, maxTokens, stats, legacyStats);
+        Map<String, Object> response = tokenStatsResponseBuilder.build(conversation, maxTokens, stats);
 
         sendJson(exchange, response);
     }

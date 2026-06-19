@@ -69,6 +69,9 @@ export class TokenMonitor {
     appState.subscribe('currentTheme', () => {
       this.renderTrendChart();
     });
+    
+    // 初始化悬浮 tooltip
+    this._initHoverTooltip();
   }
   
   /**
@@ -174,6 +177,7 @@ export class TokenMonitor {
    */
   updateTokenVisual(stats) {
     if (!stats) return;
+    this._lastStats = stats;
     
     const percent = stats.usagePercent || 0;
     const color = this.getTokenColor(percent);
@@ -245,7 +249,7 @@ export class TokenMonitor {
 
     // 更新输入框状态条
     if (this.elements.statusBarTokenValue) {
-      this.elements.statusBarTokenValue.textContent = `${percent.toFixed(0)}%`;
+      this.elements.statusBarTokenValue.textContent = `${percent.toFixed(1)}%`;
     }
     
     // === 同步更新 Activity Bar 面板元素 ===
@@ -391,6 +395,103 @@ export class TokenMonitor {
     const count = panelBody.querySelector('#abTrendCount');
     if (chart) chart.innerHTML = svgHtml;
     if (count) count.textContent = countText;
+  }
+  
+  /**
+   * 初始化悬浮 tooltip：hover 到状态栏 Token 按钮上时简洁展示关键数据
+   */
+  _initHoverTooltip() {
+    const el = this.elements.statusBarToken;
+    if (!el) return;
+    
+    // 创建 tooltip 元素
+    const tooltip = document.createElement('div');
+    tooltip.className = 'status-bar-tooltip';
+    tooltip.style.display = 'none';
+    document.body.appendChild(tooltip);
+    
+    const showTooltip = () => {
+      const stats = this._lastStats;
+      if (!stats) return;
+      
+      const percent = stats.usagePercent || 0;
+      const color = this.getTokenColor(percent);
+      const barWidth = Math.min(percent, 100);
+      
+      tooltip.innerHTML = `
+        <div class="sbt-header">
+          <span>Token 使用率</span>
+          <span class="sbt-percent" style="color:${color}">${percent.toFixed(1)}%</span>
+        </div>
+        <div class="sbt-bar-track">
+          <div class="sbt-bar-fill" style="width:${barWidth}%;background:${color}"></div>
+        </div>
+        <div class="sbt-row">
+          <span>当前</span>
+          <span>${(stats.currentTokens || 0).toLocaleString()} / ${(stats.maxTokens || 0).toLocaleString()}</span>
+        </div>
+        <div class="sbt-divider"></div>
+        <div class="sbt-row">
+          <span>本轮输入</span>
+          <span>${(stats.promptTokens || 0).toLocaleString()}</span>
+        </div>
+        <div class="sbt-row">
+          <span>本轮输出</span>
+          <span>${(stats.completionTokens || 0).toLocaleString()}</span>
+        </div>
+        <div class="sbt-divider"></div>
+        <div class="sbt-row">
+          <span>会话输入</span>
+          <span>${(stats.sessionTotalInput || 0).toLocaleString()}</span>
+        </div>
+        <div class="sbt-row">
+          <span>会话输出</span>
+          <span>${(stats.sessionTotalOutput || 0).toLocaleString()}</span>
+        </div>
+        <div class="sbt-row">
+          <span>LLM 调用</span>
+          <span>${(stats.sessionLlmCalls || 0).toLocaleString()} 次</span>
+        </div>
+        <div class="sbt-row">
+          <span>工具调用</span>
+          <span>${(stats.sessionToolCalls || 0).toLocaleString()} 次</span>
+        </div>
+        ${(stats.cacheHitTokens || stats.sessionCacheHitTokens) ? `
+        <div class="sbt-divider"></div>
+        <div class="sbt-row">
+          <span>缓存命中</span>
+          <span>${(stats.cacheHitTokens || 0).toLocaleString()} (${stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%'})</span>
+        </div>
+        ` : ''}
+        <div class="sbt-divider"></div>
+        <div class="sbt-row sbt-total">
+          <span>会话总计</span>
+          <span>${(stats.sessionTotalTokens || 0).toLocaleString()} tokens</span>
+        </div>
+      `;
+      
+      // 定位 tooltip
+      const rect = el.getBoundingClientRect();
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${rect.left - 25}px`;
+      tooltip.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+      
+      // 超出右侧边界时右对齐
+      const tipWidth = tooltip.offsetWidth;
+      if (rect.left - 30 + tipWidth > window.innerWidth - 16) {
+        tooltip.style.left = `${window.innerWidth - tipWidth - 16}px`;
+      }
+    };
+    
+    const hideTooltip = () => {
+      tooltip.style.display = 'none';
+    };
+    
+    el.addEventListener('mouseenter', showTooltip);
+    el.addEventListener('mouseleave', hideTooltip);
+    
+    // 点击时隐藏（防止遮挡 Activity Bar 面板）
+    el.addEventListener('click', hideTooltip);
   }
   
   /**

@@ -5,8 +5,6 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.exception.LlmException;
 import com.example.agent.llm.model.Message;
-import com.example.agent.service.TokenEstimatorFactory;
-import com.example.agent.web.logging.SessionLogger;
 import com.example.agent.web.orchestrator.WebAgentOrchestrator;
 import com.example.agent.web.session.SessionCancelManager;
 import com.example.agent.web.server.WebInitializer;
@@ -104,9 +102,6 @@ public class ChatApiHandler implements HttpHandler {
             logger.info("Web Chat 收到消息：session={}, message={}, edit={}, hasPendingTool={}",
                 sessionId, userMessage, editMessageId != null, sessionManager.hasPendingToolCall(sessionId));
 
-            int estimatedTokens = TokenEstimatorFactory.getDefault().estimateTextTokens(userMessage);
-            SessionLogger.logUserMessage(sessionId, Message.user(userMessage), estimatedTokens);
-
             WebInitializer.ensureMemoryInitialized();
 
             Conversation conversation = sessionManager.getOrCreateConversation(sessionId, systemPromptOverride);
@@ -116,7 +111,6 @@ public class ChatApiHandler implements HttpHandler {
             if (pendingTool != null) {
                 String toolResult = "用户回答：" + userMessage;
                 conversationService.addToolResult(conversation, pendingTool.toolCallId, pendingTool.toolName, toolResult, true);
-                SessionLogger.logToolCall(sessionId, pendingTool.toolName, pendingTool.question, toolResult, true);
                 SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                 stats.addToolCall();
 

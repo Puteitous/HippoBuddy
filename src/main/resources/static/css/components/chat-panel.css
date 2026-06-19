@@ -736,6 +736,89 @@
     transform: translateY(-1px);
 }
 
+/* ===== Token 状态栏悬浮 Tooltip ===== */
+.status-bar-tooltip {
+    position: fixed;
+    z-index: 10000;
+    min-width: 260px;
+    max-width: 320px;
+    padding: 12px 14px;
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    pointer-events: none;
+    animation: sbt-fade-in 0.15s ease;
+}
+
+[data-theme="dark"] .status-bar-tooltip {
+    background: var(--bg-app);
+    border-color: var(--border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes sbt-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.sbt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+}
+
+.sbt-percent {
+    font-weight: 700;
+}
+
+.sbt-bar-track {
+    height: 4px;
+    background: var(--bg-code);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.sbt-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.sbt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+    color: var(--text-secondary);
+}
+
+.sbt-row span:first-child {
+    color: var(--text-muted);
+}
+
+.sbt-total {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.sbt-total span:first-child {
+    color: var(--text-muted);
+}
+
+.sbt-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 5px 0;
+}
+
 /* ========== 对话导航悬浮条 ========== */
 .chat-nav-strip {
     position: absolute;

@@ -1,6 +1,7 @@
 package com.example.agent.session;
 
 import com.example.agent.llm.model.Message;
+import com.example.agent.llm.model.Usage;
 import com.example.agent.logging.WorkspaceManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -41,6 +42,7 @@ public class TranscriptLoader {
         private int truncatedLines = 0;
         private boolean recoveredFromCrash = false;
         private LocalDateTime lastActivityTime;
+        private Usage lastKnownUsage;
 
         public SessionData toSessionData(String sessionId) {
             SessionData session = SessionData.create(
@@ -96,6 +98,10 @@ public class TranscriptLoader {
 
         public int getMessageCount() {
             return messages.size();
+        }
+
+        public Usage getLastKnownUsage() {
+            return lastKnownUsage;
         }
 
         public boolean isEmpty() {
@@ -278,6 +284,10 @@ public class TranscriptLoader {
                     msg.setToolSuccess(entry.getToolSuccess());
                 }
                 result.messages.add(msg);
+                // 记录最后一条 assistant 的 usage，用于重启后恢复上下文统计
+                if ("assistant".equals(role) && entry.getUsage() != null) {
+                    result.lastKnownUsage = entry.getUsage();
+                }
                 logger.debug("添加消息 [{}]: role={}, contentLength={}", 
                     result.messages.size(), role, msg.getContent() != null ? msg.getContent().length() : 0);
                 return;

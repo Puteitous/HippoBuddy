@@ -3,7 +3,6 @@ package com.example.agent.web.util;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.model.Message;
 import com.example.agent.service.TokenEstimatorFactory;
-import com.example.agent.web.logging.SessionLogger;
 import com.example.agent.web.session.SessionTokenStats;
 
 import java.util.HashMap;
@@ -13,8 +12,7 @@ import java.util.Map;
 public class TokenStatsResponseBuilder {
 
     public Map<String, Object> build(Conversation conversation, int maxTokens,
-                                      SessionTokenStats stats,
-                                      SessionLogger.SessionTokenStats legacyStats) {
+                                      SessionTokenStats stats) {
         if (conversation == null) {
             return buildEmptyResponse(maxTokens);
         }
@@ -56,12 +54,6 @@ public class TokenStatsResponseBuilder {
             response.put("sessionToolCalls", stats.toolCalls);
             response.put("sessionCacheHitTokens", stats.totalCacheHitTokens);
             response.put("sessionCacheHitRate", Math.round(stats.getSessionCacheHitRate() * 10.0) / 10.0);
-        } else if (legacyStats != null) {
-            response.put("sessionTotalInput", legacyStats.totalInputTokens);
-            response.put("sessionTotalOutput", legacyStats.totalOutputTokens);
-            response.put("sessionTotalTokens", legacyStats.totalTokens);
-            response.put("sessionLlmCalls", legacyStats.llmCalls);
-            response.put("sessionToolCalls", legacyStats.toolCalls);
         }
 
         return response;

@@ -490,7 +490,7 @@ public class ConversationService {
             if (message.isUser()) {
                 components.transcript.appendUserMessage(message);
             } else if (message.isAssistant()) {
-                components.transcript.appendAssistantMessage(message, null);
+                components.transcript.appendAssistantMessage(message, conversation.getLastKnownUsage());
                 String snapshotSessionId = conversation.getSessionId();
                 if (snapshotSessionId != null) {
                     String userMsgId = findLastUserMessageId(conversation);
@@ -679,6 +679,15 @@ public class ConversationService {
         }
 
         detectAndFixInterruption(conversation);
+
+        // 恢复最后一条 assistant 的 usage，确保重启后上下文统计准确
+        Usage restoredUsage = loadResult.getLastKnownUsage();
+        if (restoredUsage != null) {
+            conversation.updateLastKnownUsage(restoredUsage);
+            logger.info("已恢复 usage: prompt={}, completion={}, total={}",
+                restoredUsage.getPromptTokens(), restoredUsage.getCompletionTokens(),
+                restoredUsage.getTotalTokens());
+        }
 
         if (loadResult.isRecoveredFromCrash()) {
             logger.info("会话 {} 从崩溃中恢复，截断了 {} 行损坏数据",
