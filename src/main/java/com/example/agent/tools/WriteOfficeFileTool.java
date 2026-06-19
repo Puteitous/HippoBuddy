@@ -62,11 +62,7 @@ public class WriteOfficeFileTool implements ToolExecutor {
                         },
                         "data": {
                             "type": "object",
-                            "description": "写入的数据。格式因目标文件类型而异。"
-                                + " XLSX: {sheets: [{name?, headers?, rows: [[...]]}]}. "
-                                + " CSV: {headers?, rows: [[...]]}. "
-                                + " DOCX: {content: \"# Title\\\\n\\\\nParagraph...\"}. "
-                                + " PPTX: {slides: [{title?, content?, bullets?: [...], table?: {headers?, rows: [[...]]}, layout?}]}."
+                            "description": "写入的数据。格式因目标文件类型而异。 XLSX: {sheets: [{name?, headers?, rows: [[...]]}]}. CSV: {headers?, rows: [[...]]}. DOCX: {content: \\"# Title\\\\n\\\\nParagraph...\\"}. PPTX: {slides: [{title?, content?, bullets?: [...], table?: {headers?, rows: [[...]]}, layout?}]}."
                         },
                         "format": {
                             "type": "string",
@@ -75,8 +71,7 @@ public class WriteOfficeFileTool implements ToolExecutor {
                         },
                         "overwrite": {
                             "type": "boolean",
-                            "description": "文件已存在时是否覆盖（默认 false）。"
-                                + "设为 true 可覆盖已有文件实现编辑更新。"
+                            "description": "文件已存在时是否覆盖（默认 false）。设为 true 可覆盖已有文件实现编辑更新。"
                         }
                     },
                     "required": ["path", "data"]

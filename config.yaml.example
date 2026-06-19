@@ -41,7 +41,7 @@ tools:
     # Tavily 免费注册: https://tavily.com/（月 1,000 basic + 100 advanced）
 
   subagent:
-    # Sub-Agent 并行任务（默认关闭，与 prompts.yaml 中 FEATURE_SUBAGENT 联动）
+    # Sub-Agent 并行任务（默认关闭）
     # 启用后注册 fork_agent / fork_agents / list_subagents / cancel_subagent 工具
     enabled: false
 

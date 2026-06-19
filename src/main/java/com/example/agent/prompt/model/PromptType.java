@@ -9,14 +9,12 @@ public enum PromptType {
 
     // ========== 核心层（始终注入） ==========
     CORE_ROLE("core", "role", "角色定义 + 自主决策原则"),
-    CORE_TOOL_RULES("core", "tool-rules", "跨模式工具使用规范"),
 
     // ========== 模式层 ==========
     MODE_CODING("mode", "coding", "构建模式 - 工程师角色，全权限执行"),
     MODE_CHAT("mode", "chat", "顾问模式 - 只读探索"),
 
     // ========== 功能层 ==========
-    FEATURE_SUBAGENT("feature", "subagent", "Sub-Agent 并行任务指南"),
     FEATURE_MEMORY("feature", "memory", "长期记忆系统指南"),
 
     // ========== 任务/专家/工具层（预留） ==========

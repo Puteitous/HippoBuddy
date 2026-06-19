@@ -9,13 +9,6 @@ prompts:
     priority: 100
     description: "角色定义 + 自主决策原则 + @引用 + 工具调用策略"
 
-  - type: CORE_TOOL_RULES
-    file: core/tool-rules.md
-    version: "1.0.0"
-    enabled: true
-    priority: 90
-    description: "todo_write 等跨模式工具使用规范"
-
   # ===========================================================================
   # 模式层（根据当前 TaskMode 按需加载）
   # ===========================================================================
@@ -32,16 +25,6 @@ prompts:
     enabled: true
     priority: 80
     description: "顾问模式 - 只读探索，提供建议不执行"
-
-  # ===========================================================================
-  # 功能层（条件注入 - 默认禁用，由用户配置/按钮控制）
-  # ===========================================================================
-  - type: FEATURE_MEMORY
-    file: features/memory.md
-    version: "1.0.0"
-    enabled: false
-    priority: 40
-    description: "长期记忆系统指南（默认关闭）"
 
 config:
   defaultBase: CODING

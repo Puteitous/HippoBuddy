@@ -25,8 +25,10 @@ public class TodoWriteTool implements ToolExecutor {
 
     @Override
     public String getDescription() {
-        return "创建和管理任务清单，用于跟踪执行进度。支持新增、更新、标记任务状态。" +
-               "每次执行重要操作前后都应该调用此工具来更新任务进度。";
+        return "创建和管理任务清单，用于跟踪执行进度。支持新增、更新、标记任务状态。\n\n" +
+               "使用规范：每次执行重要操作前后都应该调用此工具来更新任务进度。" +
+               "开始前用 mode: 'replace' 建立完整清单，执行中每步开始前标记 status: 'in_progress'，" +
+               "完成后标记 status: 'completed'（均用 mode: 'merge'），计划变更也用 mode: 'merge'。";
     }
 
     @Override

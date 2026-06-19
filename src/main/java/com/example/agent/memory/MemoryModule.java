@@ -103,9 +103,9 @@ public class MemoryModule {
             com.example.agent.tools.ToolRegistry toolRegistry = 
                 com.example.agent.core.di.ServiceLocator.get(com.example.agent.tools.ToolRegistry.class);
             
-            toolRegistry.register(new com.example.agent.tools.RecallMemoryTool(memoryStore));
+            // toolRegistry.register(new com.example.agent.tools.RecallMemoryTool(memoryStore));
             
-            logger.info("✅ 记忆工具已注册：recall_memory");
+            logger.info("⚠️ 记忆工具未注册（Memory 未启用）");
             logger.info("ℹ️  记忆删除：LLM 使用 read_file + edit_file + rm 自主操作");
         } catch (Exception e) {
             logger.warn("注册记忆工具失败（ToolRegistry 可能未初始化）：{}", e.getMessage());
