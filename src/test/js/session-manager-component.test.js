@@ -13,6 +13,8 @@ describe('SessionManager.js', () => {
     const mod = await vi.importActual('../../main/resources/static/js/session-manager.js');
     SessionManager = mod.SessionManager;
     sessionManager = new SessionManager(listContainer, onSessionSwitch);
+    // Default to time mode for existing tests; project mode tested separately
+    sessionManager._groupMode = 'time';
   });
 
   afterEach(() => {

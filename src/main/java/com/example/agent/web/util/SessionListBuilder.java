@@ -1,7 +1,9 @@
 package com.example.agent.web.util;
 
+import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.model.Message;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +18,7 @@ import java.util.Set;
 public class SessionListBuilder {
 
     private final ConversationJsonlReader jsonlReader;
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public SessionListBuilder(ConversationJsonlReader jsonlReader) {
         this.jsonlReader = jsonlReader;
@@ -35,6 +38,17 @@ public class SessionListBuilder {
             String title = resolveTitle(entry.getKey(), entry.getValue());
             if (title != null) {
                 sessionInfo.put("title", title);
+            }
+
+            // 优先从 session.json 读取 projectPath，回退到当前工作区
+            String projectPath = resolveProjectPath(entry.getKey(), null);
+            if (projectPath != null) {
+                sessionInfo.put("projectPath", projectPath);
+            } else {
+                String currentFolder = WorkspaceContext.getCurrentFolder();
+                if (currentFolder != null && !currentFolder.isBlank()) {
+                    sessionInfo.put("projectPath", currentFolder);
+                }
             }
 
             sessionList.add(sessionInfo);
@@ -64,6 +78,12 @@ public class SessionListBuilder {
                 sessionInfo.put("title", title);
             }
 
+            // 从 session.json 读取 projectPath
+            String projectPath = resolveProjectPath(sessionId, jsonl);
+            if (projectPath != null) {
+                sessionInfo.put("projectPath", projectPath);
+            }
+
             sessionList.add(sessionInfo);
         }
 
@@ -86,6 +106,38 @@ public class SessionListBuilder {
         });
 
         return sessionList;
+    }
+
+    /**
+     * 解析会话所属的工作区路径。
+     *
+     * @param sessionId 会话 ID
+     * @param jsonlPath 会话的 JSONL 文件路径，为 null 时自动计算
+     * @return 工作区路径，没有则返回 null
+     */
+    private String resolveProjectPath(String sessionId, Path jsonlPath) {
+        Path sessionDir;
+        if (jsonlPath != null) {
+            sessionDir = jsonlPath.getParent();
+        } else {
+            sessionDir = com.example.agent.logging.WorkspaceManager.getSessionDir(sessionId);
+        }
+        Path metadataFile = sessionDir.resolve("session.json");
+        if (Files.exists(metadataFile)) {
+            try {
+                byte[] bytes = Files.readAllBytes(metadataFile);
+                if (bytes.length > 0) {
+                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(bytes);
+                    com.fasterxml.jackson.databind.JsonNode wp = node.get("workspacePath");
+                    if (wp != null && !wp.asText().isBlank()) {
+                        return wp.asText();
+                    }
+                }
+            } catch (IOException e) {
+                // ignore
+            }
+        }
+        return null;
     }
 
     private String resolveTitle(String sessionId, Conversation conversation) {

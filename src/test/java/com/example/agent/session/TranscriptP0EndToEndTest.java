@@ -51,6 +51,7 @@ class TranscriptP0EndToEndTest {
         service.addAssistantMessage(conversation, "I'm fine, thank you!");
         service.addUserMessage(conversation, "What's Java?");
         service.addAssistantMessage(conversation, "Java is a programming language");
+        service.flushTranscript(sessionId);
 
         LlmClient mockLlmClient = mock(LlmClient.class);
         ConversationService newService = new ConversationService(tokenEstimator, mockLlmClient);
@@ -64,6 +65,7 @@ class TranscriptP0EndToEndTest {
     @Test
     void testSessionStoragePrefersTranscript() {
         service.addUserMessage(conversation, "Transcript message");
+        service.flushTranscript(sessionId);
 
         SessionStorage storage = new SessionStorage(tempDir.resolve("sessions"), 10);
         storage.saveSession(SessionData.create(sessionId, conversation.getMessages(), SessionData.Status.INTERRUPTED));
@@ -77,6 +79,7 @@ class TranscriptP0EndToEndTest {
     @Test
     void testCrashRecoveryWithTruncatedLine() throws IOException {
         service.addUserMessage(conversation, "Message before crash");
+        service.flushTranscript(sessionId);
 
         Path transcriptFile = WorkspaceManager.getSessionMessagesFile(sessionId);
 
@@ -94,6 +97,7 @@ class TranscriptP0EndToEndTest {
     void testRepairAndCompact() throws IOException {
         service.addUserMessage(conversation, "Good message 1");
         service.addUserMessage(conversation, "Good message 2");
+        service.flushTranscript(sessionId);
 
         Path transcriptFile = WorkspaceManager.getSessionMessagesFile(sessionId);
 
@@ -111,6 +115,7 @@ class TranscriptP0EndToEndTest {
     void testResumeSessionUsesTranscript() {
         service.addUserMessage(conversation, "This is from transcript");
         service.addAssistantMessage(conversation, "Got it!");
+        service.flushTranscript(sessionId);
 
         SessionData sessionData = SessionData.create(sessionId, 
             List.of(Message.user("This is from old snapshot")),

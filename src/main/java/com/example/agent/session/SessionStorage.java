@@ -157,6 +157,7 @@ public class SessionStorage {
         index.setLastActiveAt(source.getLastActiveAt());
         index.setMessageCount(source.getMessageCount());
         index.setLastUserMessage(source.getLastUserMessage());
+        index.setWorkspacePath(source.getWorkspacePath());
         index.setMessages(null);
         return index;
     }

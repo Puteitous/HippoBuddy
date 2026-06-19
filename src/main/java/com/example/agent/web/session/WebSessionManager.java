@@ -9,6 +9,7 @@ import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.application.ConversationService;
 import com.example.agent.prompt.PromptLibrary;
 import com.example.agent.prompt.PromptService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +38,7 @@ public class WebSessionManager implements SessionManager {
     private static final Map<String, Set<String>> sessionAutoAllowRules = new ConcurrentHashMap<>();
     private static final Map<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static WebSessionManager instance;
 
     public static synchronized WebSessionManager getInstance() {
@@ -258,6 +261,9 @@ public class WebSessionManager implements SessionManager {
 
             conversationService.ensureSessionComponents(conversation);
 
+            // 写入 session.json（记录工作区路径）
+            writeSessionMetadata(id);
+
             long loadTime = System.currentTimeMillis() - startTime;
             metrics.loadTimeMs = loadTime;
             metrics.messageCount = resumeResult.getTotalMessages();
@@ -310,6 +316,44 @@ public class WebSessionManager implements SessionManager {
         } catch (IOException e) {
             logger.warn("检查会话文件修改时间失败：sessionId={}, 错误：{}", sessionId, e.getMessage());
             return true;
+        }
+    }
+
+    /**
+     * 将会话的工作区路径持久化到 session.json。
+     * 仅在会话首次创建时写入（session.json 不存在或没有 workspacePath 时），
+     * 防止重启后因当前工作区变更而覆盖历史会话的归属。
+     */
+    private void writeSessionMetadata(String sessionId) {
+        try {
+            Path metadataFile = WorkspaceManager.getSessionMetadataFile(sessionId);
+
+            // 已有 workspacePath 时跳过，保留历史归属
+            if (Files.exists(metadataFile)) {
+                try {
+                    byte[] bytes = Files.readAllBytes(metadataFile);
+                    if (bytes.length > 0) {
+                        com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(bytes);
+                        com.fasterxml.jackson.databind.JsonNode wp = node.get("workspacePath");
+                        if (wp != null && !wp.asText().isBlank()) {
+                            return;
+                        }
+                    }
+                } catch (IOException ignored) {
+                }
+            }
+
+            Files.createDirectories(metadataFile.getParent());
+
+            Map<String, String> metadata = new HashMap<>();
+            String workspacePath = WorkspaceContext.getCurrentFolder();
+            if (workspacePath != null && !workspacePath.isBlank()) {
+                metadata.put("workspacePath", workspacePath);
+            }
+
+            objectMapper.writeValue(metadataFile.toFile(), metadata);
+        } catch (IOException e) {
+            logger.debug("写入 session.json 失败：sessionId={}", sessionId, e);
         }
     }
 
