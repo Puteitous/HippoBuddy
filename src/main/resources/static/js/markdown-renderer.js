@@ -110,12 +110,94 @@ export async function initMarkdownRenderer(options = {}) {
   return marked;
 }
 
+/**
+ * 在 marked 解析前，将裸的 \ce{...} 和 \pu{...}（不在 $/$$ 数学模式内、不在代码块内）自动包上 $ 分隔符。
+ * LLM 经常直接输出 \ce{H2O} 而不加 $，不加包裹 KaTeX 不会渲染。
+ *
+ * 用状态机扫描全程，准确判断 \ce{...} 是否已在 $$...$$ 或 $...$ 包裹中，
+ * 避免对已处于数学模式的公式重复加 $（这是之前用简单前一个字符判断的 bug）。
+ */
+function wrapBareMhchem(text) {
+  // 只保护围栏代码块（```...```），不保护行内反引号
+  // 因为 LLM 常把 \ce{...} 放在行内反引号中当作"公式标记"，实际应渲染为数学公式
+  const fencedBlocks = [];
+  let blockIdx = 0;
+  text = text.replace(/(```[\s\S]*?```)/g, (m) => {
+    const key = `\x00CODE_${blockIdx++}\x00`;
+    fencedBlocks.push({ key, orig: m });
+    return key;
+  });
+
+  // 用状态机扫描全程，跟踪 $$/$ 数学模式的开关
+  let result = '';
+  let last = 0;
+  /** @type {'normal'|'inline'|'display'} */
+  let mathMode = 'normal';
+
+  const re = /(\\ce\{|\\pu\{|\$\$|\$)/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const token = m[0];
+    const at = m.index;
+
+    if (token === '$$') {
+      mathMode = mathMode === 'display' ? 'normal' : 'display';
+      continue;
+    }
+    if (token === '$') {
+      mathMode = mathMode === 'inline' ? 'normal' : 'inline';
+      continue;
+    }
+
+    // 匹配到 \ce{ 或 \pu{
+    if (mathMode !== 'normal') continue; // 已在数学模式内，跳过
+
+    const start = at;
+    // 跳过前面有 \ 转义的（\\ce{...} 应原样显示）
+    if (start > 0 && text[start - 1] === '\\') continue;
+
+    const cmdLen = token.length; // 4
+    let depth = 1;
+    let i = start + cmdLen;
+    while (i < text.length && depth > 0) {
+      if (text[i] === '{') depth++;
+      else if (text[i] === '}') depth--;
+      i++;
+    }
+
+    // 检查是否被行内反引号包裹（LLM 常输出 `\ce{...}`）
+    const hasBacktickBefore = start > 0 && text[start - 1] === '`';
+    const hasBacktickAfter = i < text.length && text[i] === '`';
+
+    if (hasBacktickBefore && hasBacktickAfter) {
+      // `\ce{...}` → $\ce{...}$，去掉反引号
+      result += text.slice(last, start - 1);
+      result += '$' + text.slice(start, i) + '$';
+      last = i + 1;
+    } else {
+      result += text.slice(last, start);
+      result += '$' + text.slice(start, i) + '$';
+      last = i;
+    }
+    re.lastIndex = last; // 从替换后的位置继续扫描
+  }
+  result += text.slice(last);
+
+  // 恢复围栏代码块
+  for (const { key, orig } of fencedBlocks) {
+    result = result.replace(key, orig);
+  }
+  return result;
+}
+
 let _cachedMarked = null;
 
 export async function renderMarkdown(text) {
   if (!_cachedMarked) {
     _cachedMarked = await initMarkdownRenderer({ enableHighlight: true });
   }
+  // 预处理：给裸 \ce{...} / \pu{...} 自动包 $，使 KaTeX 能渲染
+  text = wrapBareMhchem(text);
   let html = _cachedMarked.parse(text);
 
   // 若 KaTeX 已加载，对 $...$ / $$...$$ 公式做后渲染
@@ -126,7 +208,7 @@ export async function renderMarkdown(text) {
     // 保护代码块和已渲染的 katex 区域，避免误伤
     const protectedBlocks = [];
     let idx = 0;
-    html = html.replace(/(<pre[^>]*>[\s\S]*?<\/pre>)|(<code[^>]*>[\s\S]*?<\/code>)|(<span class="katex[^"]*"[^>]*>[\s\S]*?<\/span>)/gi, (match) => {
+    html = html.replace(/(<pre[^>]*>[\s\S]*?<\/pre>)|(<code[^>]*>[\s\S]*?<\/code>)|(<div class="katex-block"[\s\S]*?<\/div>)|(<span class="katex[^"]*"[^>]*>[\s\S]*?<\/span>)/gi, (match) => {
       const key = `\x00KATEX_PROTECT_${idx++}\x00`;
       protectedBlocks.push({ key, match });
       return key;
@@ -143,7 +225,8 @@ export async function renderMarkdown(text) {
         // marked 也会吞掉 \[ 和 \] 中的反斜杠，同样恢复
         clean = clean.replace(/\\([\[\]])/g, '\\\\$1');
         const result = window.katex.renderToString(clean, { displayMode: true, throwOnError: false });
-        return result;
+        const latex = expr.replace(/<br\s*\/?>/gi, '\n').trim();
+        return `<div class="katex-block" data-latex="${encodeURIComponent(latex)}">${result}<button class="message-action-btn katex-copy-btn" title="复制 LaTeX 源码" onclick="window.copyLatex(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>`;
       } catch (e) {
         return `$$${expr}$$`;
       }
@@ -165,7 +248,9 @@ export async function renderMarkdown(text) {
         let clean = unescapeHtml(expr.replace(/<br\s*\/?>/gi, ' ').trim());
         clean = clean.replace(/\\(?=\s)/g, '\\\\');
         clean = clean.replace(/\\([\[\]])/g, '\\\\$1');
-        return window.katex.renderToString(clean, { displayMode: true, throwOnError: false });
+        const result = window.katex.renderToString(clean, { displayMode: true, throwOnError: false });
+        const latex = expr.replace(/<br\s*\/?>/gi, '\n').trim();
+        return `<div class="katex-block" data-latex="${encodeURIComponent(latex)}">${result}<button class="message-action-btn katex-copy-btn" title="复制 LaTeX 源码" onclick="window.copyLatex(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>`;
       } catch (e) {
         return `[${expr}]`;
       }
@@ -210,3 +295,16 @@ export function copyCode(codeId) {
 }
 
 window.copyCode = copyCode;
+window.copyLatex = function(btn) {
+  const block = btn.closest('.katex-block');
+  if (!block) return;
+  const latex = decodeURIComponent(block.dataset.latex || '');
+  navigator.clipboard.writeText(latex).then(() => {
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+};

@@ -52,7 +52,7 @@ export class FilePreview {
     /** @private TOC 滚动同步 cleanup 回调 */
     this._tocScrollCleanup = null;
     /** @private TOC 折叠状态 */
-    this._tocCollapsed = false;
+    this._tocCollapsed = true;
     /** @private Compartment 用于动态切换 diff 扩展 */
     this._diffCompartment = new Compartment();
     /** @private AI 修改前的文件原始内容（用于 diff 对比） */
@@ -599,6 +599,7 @@ export class FilePreview {
       ${itemsHtml}
     </div>`;
     this._tocEl.innerHTML = tocHtml + itemsHtml + floatingHtml;
+    this._tocEl.classList.toggle('collapsed', this._tocCollapsed);
 
     // 点击跳转（同时服务主面板和浮层面板中的 .file-md-toc-item）
     this._tocEl.addEventListener('click', (e) => {
