@@ -287,9 +287,10 @@ export class BinaryPreview {
   // ==================== 表格预览（XLSX / XLS / CSV）====================
 
   /** 通过 SheetJS 将表格文件渲染为 HTML 表格 */
-  async showSpreadsheet(filePath) {
+  async showSpreadsheet(filePath, _forceRefresh) {
     const encodedPath = encodeURIComponent(filePath);
-    const url = `/api/file/raw?path=${encodedPath}`;
+    const cacheBust = _forceRefresh ? `&_t=${Date.now()}` : '';
+    const url = `/api/file/raw?path=${encodedPath}${cacheBust}`;
 
     const MAX_TOTAL_ROWS = 1000;
     const DISPLAY_ROWS = 100;
@@ -369,6 +370,7 @@ export class BinaryPreview {
                  ${escapeHtml(formatFileSize(arrayBuffer.byteLength))}
                </span>`
             : `<span class="spreadsheet-size">${escapeHtml(formatFileSize(arrayBuffer.byteLength))}</span>`}
+          <button class="preview-refresh-btn" title="重新加载">↻</button>
         </div>`;
 
       if (workbook.SheetNames.length > 1) {
@@ -403,6 +405,12 @@ export class BinaryPreview {
         });
       });
 
+      // 刷新按钮
+      const refreshBtn = this._container.querySelector('.preview-refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => this.showSpreadsheet(filePath, true));
+      }
+
     } catch (err) {
       console.error('BinaryPreview: spreadsheet parse failed', filePath, err);
       this._container.innerHTML = `<div class="file-preview-placeholder">
@@ -420,9 +428,10 @@ export class BinaryPreview {
   // ==================== DOCX 预览 ====================
 
   /** 通过 mammoth.js 将 DOCX 渲染为 HTML */
-  async showDocx(filePath) {
+  async showDocx(filePath, _forceRefresh) {
     const encodedPath = encodeURIComponent(filePath);
-    const url = `/api/file/raw?path=${encodedPath}`;
+    const cacheBust = _forceRefresh ? `&_t=${Date.now()}` : '';
+    const url = `/api/file/raw?path=${encodedPath}${cacheBust}`;
 
     try {
       const resp = await fetch(url);
@@ -457,6 +466,7 @@ export class BinaryPreview {
                    ⚠ ${result.messages.length} 条样式警告
                  </span>`
               : ''}
+            <button class="preview-refresh-btn" title="重新加载">↻</button>
           </div>
           <div class="docx-content">
             ${result.value}
@@ -465,6 +475,11 @@ export class BinaryPreview {
 
       if (result.messages && result.messages.length > 0) {
         console.info('BinaryPreview: mammoth.js 转换警告:', result.messages);
+      }
+
+      const docxRefreshBtn = this._container.querySelector('.preview-refresh-btn');
+      if (docxRefreshBtn) {
+        docxRefreshBtn.addEventListener('click', () => this.showDocx(filePath, true));
       }
 
     } catch (err) {
@@ -484,9 +499,10 @@ export class BinaryPreview {
   // ==================== PPTX 预览 ====================
 
   /** 通过 PptxViewJS 将 PPTX 渲染为带翻页的幻灯片预览 */
-  async showPptx(filePath) {
+  async showPptx(filePath, _forceRefresh) {
     const encodedPath = encodeURIComponent(filePath);
-    const url = `/api/file/raw?path=${encodedPath}`;
+    const cacheBust = _forceRefresh ? `&_t=${Date.now()}` : '';
+    const url = `/api/file/raw?path=${encodedPath}${cacheBust}`;
 
     let _pptxScale = 1;
     const MIN_SCALE = 0.25;
@@ -546,7 +562,8 @@ export class BinaryPreview {
         <button class="pptx-zoom-btn" data-action="zoom-out" title="缩小">−</button>
         <span class="pptx-zoom-level">100%</span>
         <button class="pptx-zoom-btn" data-action="zoom-in" title="放大">+</button>
-        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="重置">⟲</button>
+        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="重置缩放">1:1</button>
+        <button class="pptx-refresh-btn" title="重新加载">↻</button>
       `;
       container.appendChild(zoomToolbar);
 
@@ -650,6 +667,12 @@ export class BinaryPreview {
         }
         applyZoom(canvas, zoomLevelEl);
       });
+
+      // ── 刷新事件 ──
+      const pptxRefreshBtn = zoomToolbar.querySelector('.pptx-refresh-btn');
+      if (pptxRefreshBtn) {
+        pptxRefreshBtn.addEventListener('click', () => this.showPptx(filePath, true));
+      }
 
       // ── 滚轮缩放 ──
       slideWrap.addEventListener('wheel', (e) => {

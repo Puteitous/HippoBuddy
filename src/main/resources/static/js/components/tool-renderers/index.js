@@ -130,6 +130,9 @@ export function renderToolTimelineRow(tool) {
   } else if (name === 'web_fetch') {
     const args = parseToolArgs(tool.args);
     summary = args.url || '';
+  } else if (name === 'list_directory') {
+    const args = parseToolArgs(tool.args);
+    summary = args.path || '(项目根目录)';
   } else if (name === 'delete_file') {
     const args = parseToolArgs(tool.args);
     if (args.paths && Array.isArray(args.paths)) {
@@ -168,6 +171,9 @@ export function renderToolTimelineRow(tool) {
     if (args.paths && Array.isArray(args.paths)) {
       summaryFilePath = args.paths[0] || '';
     }
+  } else if (name === 'list_directory') {
+    const args = parseToolArgs(tool.args);
+    summaryFilePath = args.path || '';
   }
 
   let statusSvg;

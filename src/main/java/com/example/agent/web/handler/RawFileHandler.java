@@ -87,10 +87,21 @@ public class RawFileHandler implements HttpHandler {
             mimeType = "text/csv; charset=UTF-8";
         }
 
-        // CSV 不缓存（避免编码问题导致用户刷新后仍看到乱码）
-        String cacheControl = fileName.toLowerCase().endsWith(".csv")
-            ? "no-cache, no-store, must-revalidate"
-            : "private, max-age=3600";
+        // Office 文件（xlsx/xls/csv/docx/pptx）：小于 10MB 不缓存，大文件缓存 1 小时
+        // CSV 的编码检测若缓存可能显示乱码，但 CSV 通常很小（远低于 10MB），走小文件不缓存即可
+        String lower = fileName.toLowerCase();
+        String cacheControl;
+        if (lower.endsWith(".xlsx") || lower.endsWith(".xls")
+                || lower.endsWith(".csv")
+                || lower.endsWith(".docx") || lower.endsWith(".pptx")) {
+            if (fileSize < 10L * 1024 * 1024) {
+                cacheControl = "no-cache, no-store, must-revalidate";
+            } else {
+                cacheControl = "private, max-age=3600";
+            }
+        } else {
+            cacheControl = "private, max-age=3600";
+        }
 
         exchange.getResponseHeaders().set("Content-Type", mimeType);
         exchange.getResponseHeaders().set("Content-Length", String.valueOf(content.length));
