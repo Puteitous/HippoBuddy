@@ -1,0 +1,157 @@
+/* ==========================================
+   CustomDropdown — 通用现代化下拉框
+   依附 body，通过 JS 控制显隐和位置
+   ========================================== */
+
+/* ── Trigger 按钮（贴在宿主元素上） ── */
+.dd-trigger {
+  cursor: pointer;
+  user-select: none;
+  /* 宿主自行控制背景/颜色 */
+}
+
+.dd-trigger.dd-open {
+  /* 打开状态标记，宿主可按需添加样式 */
+}
+
+/* ── 下拉菜单 ── */
+.dd-menu {
+  position: fixed;
+  z-index: 10050;
+  width: 220px;
+  max-height: 320px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: ddFadeIn 0.12s ease-out;
+}
+
+@keyframes ddFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── 选项 ── */
+.dd-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  position: relative;
+}
+
+.dd-option:hover,
+.dd-option-highlighted {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dd-option-selected {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.dd-option-check {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.dd-option-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+}
+
+.dd-option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 分隔线 ── */
+.dd-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+/* ── 模型选择器专用适配（状态栏） ── */
+.model-selector {
+  display: flex !important;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px 1px 2px;
+  cursor: default;
+  position: relative;
+}
+
+.model-selector:hover {
+  background: transparent !important;
+}
+
+.dd-trigger.model-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  padding: 2px 6px 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  white-space: nowrap;
+  max-width: 160px;
+  min-width: 50px;
+  outline: none;
+}
+
+.dd-trigger.model-dropdown-trigger:hover {
+  color: var(--text-primary);
+  background: var(--bg-code);
+}
+
+.dd-trigger.model-dropdown-trigger::after {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  border-right: 4.5px solid currentColor;
+  opacity: 0.5;
+  flex-shrink: 0;
+  margin-left: 2px;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.dd-trigger.model-dropdown-trigger:hover::after {
+  opacity: 0.8;
+}
+
+.dd-trigger.model-dropdown-trigger.dd-open::after {
+  transform: rotate(-90deg);
+}

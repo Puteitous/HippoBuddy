@@ -688,6 +688,9 @@
     flex-shrink: 0;
 }
 
+/* ===== 状态栏模型快速选择器 ===== */
+/* 样式已迁移至 dropdown.css */
+
 .status-bar-actions {
     display: flex;
     align-items: center;

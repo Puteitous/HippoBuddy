@@ -266,4 +266,141 @@ class LlmConfigTest {
         llmConfig.setMaxTokens(-1);
         assertEquals(-1, llmConfig.getMaxTokens());
     }
+
+    // ========== 模型历史快照 ==========
+
+    @Test
+    void testModelHistoryDefaultsToEmpty() {
+        assertNotNull(llmConfig.getModelHistory());
+        assertTrue(llmConfig.getModelHistory().isEmpty());
+    }
+
+    @Test
+    void testSnapshotToHistory() {
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.setBaseUrl("https://api.openai.com");
+        llmConfig.setApiKey("sk-test-key");
+
+        llmConfig.snapshotToHistory();
+
+        assertEquals(1, llmConfig.getModelHistory().size());
+        ModelSnapshot snap = llmConfig.getModelHistory().get(0);
+        assertEquals("openai", snap.getProvider());
+        assertEquals("gpt-4o", snap.getModel());
+        assertEquals("https://api.openai.com", snap.getBaseUrl());
+        assertEquals("sk-test-key", snap.getApiKey());
+    }
+
+    @Test
+    void testSnapshotToHistoryReplacesDuplicate() {
+        // 第一次快照
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.snapshotToHistory();
+
+        // 修改配置后再次快照（相同 key）
+        llmConfig.setMaxTokens(8192);
+        llmConfig.setThinkingEnabled(false);
+        llmConfig.snapshotToHistory();
+
+        // 应该只有 1 条（覆盖旧快照）
+        assertEquals(1, llmConfig.getModelHistory().size());
+        ModelSnapshot snap = llmConfig.getModelHistory().get(0);
+        assertEquals(8192, snap.getMaxTokens());
+        assertFalse(snap.isThinkingEnabled());
+    }
+
+    @Test
+    void testSnapshotToHistoryMultipleModels() {
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.setApiKey("sk-openai-key");
+        llmConfig.snapshotToHistory();
+
+        llmConfig.setProvider("dashscope");
+        llmConfig.setModel("qwen-max");
+        llmConfig.setApiKey("sk-dashscope-key");
+        llmConfig.snapshotToHistory();
+
+        assertEquals(2, llmConfig.getModelHistory().size());
+        assertEquals("openai:gpt-4o", llmConfig.getModelHistory().get(0).getKey());
+        assertEquals("dashscope:qwen-max", llmConfig.getModelHistory().get(1).getKey());
+    }
+
+    @Test
+    void testFindSnapshotFound() {
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.setBaseUrl("https://api.openai.com");
+        llmConfig.snapshotToHistory();
+
+        ModelSnapshot found = llmConfig.findSnapshot("openai", "gpt-4o");
+        assertNotNull(found);
+        assertEquals("https://api.openai.com", found.getBaseUrl());
+    }
+
+    @Test
+    void testFindSnapshotNotFound() {
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.snapshotToHistory();
+
+        ModelSnapshot found = llmConfig.findSnapshot("dashscope", "qwen-max");
+        assertNull(found);
+    }
+
+    @Test
+    void testFindSnapshotWithNullModel() {
+        llmConfig.snapshotToHistory();
+        assertNull(llmConfig.findSnapshot(null, null));
+    }
+
+    @Test
+    void testSnapshotToHistoryPreservesApiKey() {
+        String apiKey = "sk-very-secret-key-12345678";
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.setApiKey(apiKey);
+        llmConfig.snapshotToHistory();
+
+        ModelSnapshot snap = llmConfig.getModelHistory().get(0);
+        assertEquals(apiKey, snap.getApiKey());
+    }
+
+    @Test
+    void testFindSnapshotRestoresAllFields() {
+        // 保存完整配置
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.setBaseUrl("https://api.openai.com/v1");
+        llmConfig.setApiKey("sk-restore-key");
+        llmConfig.setMaxTokens(16384);
+        llmConfig.setThinkingEnabled(false);
+        llmConfig.setReasoningEffort("max");
+        llmConfig.snapshotToHistory();
+
+        // 切换到另一个模型
+        llmConfig.setProvider("dashscope");
+        llmConfig.setModel("qwen-turbo");
+        llmConfig.setBaseUrl("https://dashscope.aliyuncs.com");
+        llmConfig.setApiKey("sk-other-key");
+        llmConfig.setMaxTokens(2048);
+        llmConfig.setThinkingEnabled(true);
+        llmConfig.setReasoningEffort("high");
+
+        // 从历史恢复
+        ModelSnapshot snap = llmConfig.findSnapshot("openai", "gpt-4o");
+        assertNotNull(snap);
+        snap.applyTo(llmConfig);
+
+        // 验证所有字段已恢复
+        assertEquals("openai", llmConfig.getProvider());
+        assertEquals("gpt-4o", llmConfig.getModel());
+        assertEquals("https://api.openai.com/v1", llmConfig.getBaseUrl());
+        assertEquals("sk-restore-key", llmConfig.getApiKey());
+        assertEquals(16384, llmConfig.getMaxTokens());
+        assertFalse(llmConfig.isThinkingEnabled());
+        assertEquals("max", llmConfig.getReasoningEffort());
+    }
 }

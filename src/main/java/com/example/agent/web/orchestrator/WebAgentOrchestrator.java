@@ -11,6 +11,7 @@ import com.example.agent.execute.StopHook;
 import com.example.agent.execute.TaskCompletionHook;
 import com.example.agent.llm.client.AbstractLlmClient;
 import com.example.agent.llm.client.LlmClient;
+import com.example.agent.llm.client.LlmClientFactory;
 import com.example.agent.llm.exception.LlmException;
 import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.Message;
@@ -62,7 +63,7 @@ public class WebAgentOrchestrator {
     private static final WebAgentOrchestrator INSTANCE = new WebAgentOrchestrator(WebSessionManager.getInstance());
 
     private final SessionManager sessionManager;
-    private final LlmClient llmClient;
+    private volatile LlmClient llmClient;
 
     /**
      * 暂存因 bash 确认弹窗而尚未执行的剩余 tool calls。
@@ -81,6 +82,22 @@ public class WebAgentOrchestrator {
         this.sessionManager = sessionManager;
         this.llmClient = ServiceLocator.get(LlmClient.class);
         this.toolRegistry = ServiceLocator.get(ToolRegistry.class);
+    }
+
+    /**
+     * 刷新 LLM 客户端实例。当用户切换 Provider 时调用，
+     * 重新创建 LlmClient 并更新 DI 容器和本实例的引用。
+     * <p>
+     * 同 Provider 内换 model 不需要调用此方法，
+     * AbstractLlmClient.getModel() 每次请求都动态读取 Config。
+     * </p>
+     */
+    public void refreshClient() {
+        LlmClient newClient = LlmClientFactory.create();
+        ServiceLocator.registerSingleton(LlmClient.class, newClient);
+        this.llmClient = newClient;
+        logger.info("LLM 客户端已刷新: provider={}, model={}",
+            newClient.getProviderName(), newClient.getModel());
     }
 
     private ConversationService getConversationService() {

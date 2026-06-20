@@ -57,9 +57,9 @@ public abstract class AbstractLlmClient implements LlmClient {
     protected final RetryPolicy retryPolicy;
     protected final SseParser sseParser;
 
-    private final ThreadLocal<InputStream> currentResponseStream = new ThreadLocal<>();
-    private final ThreadLocal<Boolean> aborted = ThreadLocal.withInitial(() -> false);
-    private final ThreadLocal<Supplier<Boolean>> streamCancelCheck = ThreadLocal.withInitial(() -> () -> false);
+    protected final ThreadLocal<InputStream> currentResponseStream = new ThreadLocal<>();
+    protected final ThreadLocal<Boolean> aborted = ThreadLocal.withInitial(() -> false);
+    protected final ThreadLocal<Supplier<Boolean>> streamCancelCheck = ThreadLocal.withInitial(() -> () -> false);
 
     protected AbstractLlmClient(Config config, RetryPolicy retryPolicy) {
         if (config == null) {
@@ -146,8 +146,11 @@ public abstract class AbstractLlmClient implements LlmClient {
         
         List<Message> processedMessages = applyCacheStrategy(messages);
         
-        ChatRequest request = ChatRequest.of(getModel(), processedMessages)
-                .maxTokens(config.getLlm().getMaxTokens());
+        ChatRequest request = ChatRequest.of(getModel(), processedMessages);
+        int maxTokens = config.getLlm().getMaxTokens();
+        if (maxTokens > 0) {
+            request.maxTokens(maxTokens);
+        }
         
         applyThinkingConfig(request);
         applyResponseFormat(request);
@@ -202,8 +205,11 @@ public abstract class AbstractLlmClient implements LlmClient {
         List<Message> processedMessages = applyCacheStrategy(messages);
         
         ChatRequest request = ChatRequest.of(getModel(), processedMessages)
-                .stream(true)
-                .maxTokens(config.getLlm().getMaxTokens());
+                .stream(true);
+        int maxTokens = config.getLlm().getMaxTokens();
+        if (maxTokens > 0) {
+            request.maxTokens(maxTokens);
+        }
         
         applyThinkingConfig(request);
         applyResponseFormat(request);

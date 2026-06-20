@@ -26,6 +26,7 @@ import { SplashScreen } from './components/SplashScreen.js';
 import { RollbackPanel } from './components/RollbackPanel.js';
 import { initSelectionActions } from './components/selection-actions.js';
 import { ActivityBar } from './components/ActivityBar.js';
+import { CustomDropdown } from './utils/dropdown.js';
 
 // ========== 全局状态 ==========
 let currentSessionId = null;
@@ -145,7 +146,10 @@ function init() {
 
   // 7.1 初始化文本选中快捷操作
   initSelectionActions();
-  
+
+  // 7.2 加载当前模型配置到快速切换器
+  loadQuickModelConfig();
+
   // 8. 绑定全局事件
   bindGlobalEvents();
   
@@ -886,19 +890,53 @@ const configBtn = document.getElementById('settingsBtn');
 const configClose = document.getElementById('configModalClose');
 const configCancel = document.getElementById('configModalCancel');
 const configSave = document.getElementById('configModalSave');
-const configProvider = document.getElementById('configProvider');
+const configProviderBtn = document.getElementById('configProvider');
 const configModel = document.getElementById('configModel');
 const configApiKey = document.getElementById('configApiKey');
 const configBaseUrl = document.getElementById('configBaseUrl');
 const configApiKeyToggle = document.getElementById('configApiKeyToggle');
+const configMaxTokens = document.getElementById('configMaxTokens');
+
+/** Provider 可选列表 */
+const PROVIDER_ITEMS = [
+  { label: 'DashScope', value: 'dashscope' },
+  { label: 'OpenAI', value: 'openai' },
+  { label: 'DeepSeek', value: 'deepseek' },
+  { label: '智谱 GLM', value: 'zhipu' },
+  { label: 'Kimi (月之暗面)', value: 'moonshot' },
+  { label: 'MiniMax', value: 'minimax' },
+  { label: '阶跃星辰', value: 'stepfun' },
+  { label: '零一万物', value: 'lingyi' },
+  { label: '豆包 (字节)', value: 'doubao' },
+  { label: '硅基流动', value: 'siliconflow' },
+  { label: '讯飞星火', value: 'xunfei' },
+  { label: 'Anthropic', value: 'anthropic' },
+  { label: 'Ollama', value: 'ollama' },
+  { label: 'Local', value: 'local' },
+];
+
+let providerDropdown = null;
 
 async function loadConfig() {
   try {
     const resp = await fetch('/api/config/llm');
     const data = await resp.json();
-    configProvider.value = data.provider || 'dashscope';
+
+    // Provider 下拉
+    if (!providerDropdown && configProviderBtn) {
+      providerDropdown = new CustomDropdown({
+        trigger: configProviderBtn,
+        items: PROVIDER_ITEMS,
+        selectedValue: data.provider || 'dashscope',
+        placement: 'bottom-left',
+      });
+    } else if (providerDropdown) {
+      providerDropdown.setSelectedValue(data.provider || 'dashscope');
+    }
+
     configModel.value = data.model || '';
     configBaseUrl.value = data.baseUrl || '';
+    configMaxTokens.value = data.maxTokens || '';
     // API Key: 有 key 时显示 masked 值，否则留空
     if (data.hasApiKey) {
       configApiKey.value = data.apiKeyMasked || '';
@@ -915,10 +953,11 @@ async function loadConfig() {
 
 async function saveConfig() {
   const body = {
-    provider: configProvider.value,
+    provider: providerDropdown ? providerDropdown.getSelectedItem()?.value || 'dashscope' : 'dashscope',
     model: configModel.value,
     baseUrl: configBaseUrl.value,
-    apiKey: configApiKey.value
+    apiKey: configApiKey.value,
+    maxTokens: configMaxTokens.value ? parseInt(configMaxTokens.value, 10) : undefined,
   };
 
   // 如果用户没改 masked 值，不传 apiKey
@@ -934,6 +973,8 @@ async function saveConfig() {
     });
     if (!resp.ok) throw new Error(await resp.text());
     showToast('模型配置已保存', 'success');
+    // 同步更新快速选择器
+    loadQuickModelConfig();
     closeConfigModal();
   } catch (e) {
     showToast('保存失败: ' + e.message, 'error');
@@ -946,6 +987,8 @@ function openConfigModal() {
 }
 
 function closeConfigModal() {
+  // 关闭 Provider 下拉（防止菜单悬浮在关闭的弹窗上）
+  if (providerDropdown) providerDropdown.close();
   configModal.style.display = 'none';
 }
 
@@ -975,6 +1018,158 @@ document.addEventListener('keydown', (e) => {
     closeConfigModal();
   }
 });
+
+// ========== 快速模型切换（状态栏） ==========
+const modelQuickSelectTrigger = document.getElementById('modelQuickSelect');
+const MODEL_CONFIG_CACHE_KEY = 'hippo_model_config';
+
+/** 从 localStorage 加载缓存的模型配置 */
+function loadModelConfigFromCache() {
+  try {
+    const raw = localStorage.getItem(MODEL_CONFIG_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn('读取模型配置缓存失败:', e);
+    return null;
+  }
+}
+
+/** 保存模型配置到 localStorage 缓存 */
+function saveModelConfigToCache(data) {
+  try {
+    localStorage.setItem(MODEL_CONFIG_CACHE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('保存模型配置缓存失败:', e);
+  }
+}
+
+/** 用数据更新下拉框 */
+function applyModelConfigToDropdown(data) {
+  const provider = data.provider || '';
+  const model = data.model || '';
+  const currentCombo = provider + ':' + model;
+  const items = buildModelDropdownItems(data);
+
+  if (!modelDropdown) {
+    if (!modelQuickSelectTrigger) return;
+    modelDropdown = new CustomDropdown({
+      trigger: modelQuickSelectTrigger,
+      items,
+      selectedValue: provider && model ? currentCombo : '',
+      onSelect: (item) => {
+        if (item.value === ADD_MODEL_VALUE) {
+          openConfigModal();
+          setTimeout(() => loadQuickModelConfig(), 100);
+          return;
+        }
+        if (!item.value) return;
+        const colonIdx = item.value.indexOf(':');
+        if (colonIdx > 0) {
+          saveQuickModelConfig(
+            item.value.substring(0, colonIdx),
+            item.value.substring(colonIdx + 1)
+          );
+        }
+      },
+    });
+  } else {
+    modelDropdown.setItems(items);
+    modelDropdown.setSelectedValue(provider && model ? currentCombo : '');
+  }
+}
+
+const ADD_MODEL_VALUE = '__add_model__';
+let modelDropdown = null;
+
+/** 构建下拉选项列表 */
+function buildModelDropdownItems(data) {
+  const provider = data.provider || '';
+  const model = data.model || '';
+  const currentCombo = provider + ':' + model;
+  const history = data.modelHistory || [];
+  const items = [];
+  const seen = new Set();
+
+  // 历史记录
+  if (history.length > 0) {
+    for (const snap of history) {
+      const key = snap.provider + ':' + snap.model;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({
+        label: snap.model,
+        value: key,
+      });
+    }
+  }
+
+  // 当前模型未在历史中
+  if (provider && model && !seen.has(currentCombo)) {
+    items.push({
+      label: model,
+      value: currentCombo,
+    });
+  }
+
+  // 分隔线 + 添加入口
+  if (items.length > 0) {
+    items.push({ type: 'divider' });
+  }
+  items.push({
+    label: '✚ 添加模型...',
+    value: ADD_MODEL_VALUE,
+  });
+
+  // 如果没有模型，加占位
+  if (items.length <= 1) { // 只有添加入口
+    items.unshift({
+      label: '未配置模型',
+      value: '',
+      disabled: true,
+    });
+  }
+
+  return items;
+}
+
+/** 加载当前配置并同步到快速选择器（缓存优先 + 后台刷新） */
+async function loadQuickModelConfig() {
+  // 1. 缓存优先：立即展示
+  const cached = loadModelConfigFromCache();
+  if (cached) {
+    applyModelConfigToDropdown(cached);
+  }
+
+  // 2. 后台异步请求最新数据
+  try {
+    const resp = await fetch('/api/config/llm');
+    const data = await resp.json();
+    saveModelConfigToCache(data);
+    applyModelConfigToDropdown(data);
+  } catch (e) {
+    console.warn('加载模型配置失败:', e);
+    // 缓存已有数据，静默失败即可
+  }
+}
+
+/** 保存模型配置（快捷切换） */
+async function saveQuickModelConfig(provider, model) {
+  try {
+    const resp = await fetch('/api/config/llm', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, model })
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    showToast('模型已切换: ' + provider + ' · ' + model, 'success');
+    // 立即刷新下拉框及缓存
+    loadQuickModelConfig();
+  } catch (e) {
+    showToast('切换模型失败: ' + e.message, 'error');
+    loadQuickModelConfig();
+  }
+}
 
 // ========== 启动应用 ==========
 init();

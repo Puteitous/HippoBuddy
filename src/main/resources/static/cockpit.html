@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/components/activity-bar.css?v=20260616-1">
     <link rel="stylesheet" href="css/components/preview.css?v=20260617-1">
     <link rel="stylesheet" href="css/components/toast.css?v=20260620-1">
+    <link rel="stylesheet" href="css/components/dropdown.css?v=20260620-1">
     <link id="hljs-light-theme" rel="stylesheet" href="js/vendor/github.min.css">
     <link id="hljs-dark-theme" rel="stylesheet" href="js/vendor/github-dark.min.css" disabled>
     <script src="js/vendor/marked.min.js"></script>
@@ -321,6 +322,10 @@
                     </div>
                     <div class="input-status-bar" id="inputStatusBar">
                         <div class="status-bar-left">
+                            <span class="status-bar-item model-selector" id="statusBarModelSelector" title="快速切换模型">
+                                <button id="modelQuickSelect" class="model-dropdown-trigger">加载中...</button>
+                            </span>
+                            <span class="status-bar-divider"></span>
                             <span class="status-bar-item" id="statusBarToken" data-section="token" title="Token 使用率">
                                 <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="2" y="10" width="3" height="4" rx="0.5"/>
@@ -689,12 +694,9 @@
                 <div class="config-form">
                     <div class="config-field">
                         <label class="config-label" for="configProvider">Provider</label>
-                        <select class="config-input" id="configProvider">
-                            <option value="dashscope">DashScope</option>
-                            <option value="openai">OpenAI</option>
-                            <option value="ollama">Ollama</option>
-                            <option value="local">Local</option>
-                        </select>
+                        <div class="config-provider-wrap">
+                            <button class="config-input config-provider-btn" id="configProvider">DashScope</button>
+                        </div>
                     </div>
                     <div class="config-field">
                         <label class="config-label" for="configModel">Model</label>
@@ -715,6 +717,10 @@
                     <div class="config-field">
                         <label class="config-label" for="configBaseUrl">Base URL</label>
                         <input class="config-input" id="configBaseUrl" type="text" placeholder="https://dashscope.aliyuncs.com">
+                    </div>
+                    <div class="config-field">
+                        <label class="config-label" for="configMaxTokens">Max Tokens</label>
+                        <input class="config-input" id="configMaxTokens" type="number" min="1" placeholder="2048">
                     </div>
                 </div>
             </div>

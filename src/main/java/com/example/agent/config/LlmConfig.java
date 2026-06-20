@@ -4,12 +4,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class LlmConfig {
 
-    private static final int DEFAULT_MAX_TOKENS = 2048;
+    private static final int DEFAULT_MAX_TOKENS = 0;
     private static final double DEFAULT_TEMPERATURE = 0.7;
     private static final int DEFAULT_TIMEOUT = 60000;
 
@@ -40,6 +42,9 @@ public class LlmConfig {
     
     @JsonProperty("response_format")
     private String responseFormat;
+
+    @JsonProperty("model_history")
+    private List<ModelSnapshot> modelHistory = new ArrayList<>();
 
     public LlmConfig() {
     }
@@ -136,6 +141,39 @@ public class LlmConfig {
 
     public void setResponseFormat(String responseFormat) {
         this.responseFormat = responseFormat;
+    }
+
+    public List<ModelSnapshot> getModelHistory() {
+        return modelHistory;
+    }
+
+    public void setModelHistory(List<ModelSnapshot> modelHistory) {
+        this.modelHistory = modelHistory != null ? modelHistory : new ArrayList<>();
+    }
+
+    /** 将当前配置作为快照加入历史（去重），返回 true 表示新增 */
+    public boolean snapshotToHistory() {
+        ModelSnapshot snap = ModelSnapshot.from(this);
+        String key = snap.getKey();
+        // 移除旧的同 key 快照
+        modelHistory.removeIf(s -> s.getKey().equals(key));
+        modelHistory.add(snap);
+        // 限制历史条数，保留最新的 20 条
+        if (modelHistory.size() > 20) {
+            modelHistory = new ArrayList<>(modelHistory.subList(modelHistory.size() - 20, modelHistory.size()));
+        }
+        return true;
+    }
+
+    /** 按 key(provider:model) 查找历史快照 */
+    public ModelSnapshot findSnapshot(String provider, String model) {
+        String targetKey = (provider != null ? provider : "") + ":" + (model != null ? model : "");
+        for (ModelSnapshot snap : modelHistory) {
+            if (snap.getKey().equals(targetKey)) {
+                return snap;
+            }
+        }
+        return null;
     }
 
     public boolean isValid() {

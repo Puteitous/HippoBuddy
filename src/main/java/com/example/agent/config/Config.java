@@ -177,8 +177,8 @@ public class Config {
             result.addError("model", "模型名称不能为空");
         }
         
-        if (llm.getMaxTokens() <= 0) {
-            result.addError("maxTokens", "maxTokens 必须大于 0");
+        if (llm.getMaxTokens() < 0) {
+            result.addError("maxTokens", "maxTokens 不能为负数");
         }
         
         return result;

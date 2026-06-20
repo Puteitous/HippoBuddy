@@ -454,6 +454,7 @@
     width: 40px;
     text-align: right;
     padding: 2px 8px;
+    margin-left: -15px;
     color: var(--text-muted);
     user-select: none;
     flex-shrink: 0;
@@ -640,6 +641,43 @@
     border-color: var(--text-muted);
     outline: none;
     box-shadow: none;
+}
+
+/* ── Provider 下拉触发按钮（模拟 select 外观） ── */
+.config-provider-wrap {
+    position: relative;
+}
+
+.config-provider-btn {
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+}
+
+.config-provider-btn::after {
+    content: '';
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-right: 5px solid var(--text-muted);
+    flex-shrink: 0;
+    transition: transform var(--transition-fast);
+    margin-left: auto;
+}
+
+.config-provider-btn.dd-open::after {
+    transform: rotate(-90deg);
+}
+
+.config-provider-btn:hover {
+    border-color: var(--text-muted);
 }
 
 .config-input::placeholder {

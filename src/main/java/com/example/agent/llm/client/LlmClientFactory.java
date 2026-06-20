@@ -17,7 +17,16 @@ public class LlmClientFactory {
         OLLAMA,
         AZURE,
         ANTHROPIC,
-        CUSTOM
+        CUSTOM,
+        DEEPSEEK,
+        ZHIPU,
+        MOONSHOT,
+        MINIMAX,
+        STEPFUN,
+        LINGYI,
+        DOUBAO,
+        SILICONFLOW,
+        XUNFEI
     }
 
     private LlmClientFactory() {
@@ -57,8 +66,28 @@ public class LlmClientFactory {
                 return new OllamaLlmClient(config, retryPolicy);
             case CUSTOM:
                 return createCustomClient(config, retryPolicy);
+            case DEEPSEEK:
+                return new OpenAiLlmClient(config, retryPolicy);
+            case ZHIPU:
+                return new OpenAiLlmClient(config, retryPolicy);
+            case MOONSHOT:
+                return new OpenAiLlmClient(config, retryPolicy);
+            case MINIMAX:
+                return new OpenAiLlmClient(config, retryPolicy);
+            case STEPFUN:
+                return new OpenAiLlmClient(config, retryPolicy);
+            case LINGYI:
+                return new OpenAiLlmClient(config, retryPolicy);
+            case DOUBAO:
+                return new OpenAiLlmClient(config, retryPolicy);
+            case SILICONFLOW:
+                return new OpenAiLlmClient(config, retryPolicy);
+            case XUNFEI:
+                return new OpenAiLlmClient(config, retryPolicy);
             case AZURE:
+                return new OpenAiLlmClient(config, retryPolicy);
             case ANTHROPIC:
+                return new AnthropicLlmClient(config, retryPolicy);
             default:
                 logger.warn("提供商 {} 尚未完全支持，使用 OpenAI 兼容模式", provider);
                 return new OpenAiLlmClient(config, retryPolicy);
@@ -95,11 +124,36 @@ public class LlmClientFactory {
                 return Provider.DASHSCOPE;
             case "OPENAI":
             case "GPT":
-            case "SILICONFLOW":
                 return Provider.OPENAI;
             case "OLLAMA":
             case "LOCAL":
                 return Provider.OLLAMA;
+            case "DEEPSEEK":
+            case "DS":
+                return Provider.DEEPSEEK;
+            case "ZHIPU":
+            case "GLM":
+                return Provider.ZHIPU;
+            case "MOONSHOT":
+            case "KIMI":
+                return Provider.MOONSHOT;
+            case "MINIMAX":
+                return Provider.MINIMAX;
+            case "STEPFUN":
+            case "STEP":
+                return Provider.STEPFUN;
+            case "LINGYI":
+            case "YI":
+                return Provider.LINGYI;
+            case "DOUBAO":
+            case "BYTEDANCE":
+            case "VOLC":
+                return Provider.DOUBAO;
+            case "SILICONFLOW":
+                return Provider.SILICONFLOW;
+            case "XUNFEI":
+            case "SPARK":
+                return Provider.XUNFEI;
             case "AZURE":
             case "AZURE_OPENAI":
                 return Provider.AZURE;
@@ -129,6 +183,26 @@ public class LlmClientFactory {
                 return OpenAiLlmClient.getDefaultBaseUrlStatic();
             case OLLAMA:
                 return OllamaLlmClient.getDefaultBaseUrlStatic();
+            case DEEPSEEK:
+                return "https://api.deepseek.com";
+            case ZHIPU:
+                return "https://open.bigmodel.cn/api/paas/v4";
+            case MOONSHOT:
+                return "https://api.moonshot.cn/v1";
+            case MINIMAX:
+                return "https://api.minimaxi.chat/v1";
+            case STEPFUN:
+                return "https://api.stepfun.com/v1";
+            case LINGYI:
+                return "https://api.lingyiwanwu.com/v1";
+            case DOUBAO:
+                return "https://ark.cn-beijing.volces.com/api/v3";
+            case SILICONFLOW:
+                return "https://api.siliconflow.cn/v1";
+            case XUNFEI:
+                return "https://spark-api-open.xf-yun.com/v1";
+            case ANTHROPIC:
+                return AnthropicLlmClient.getDefaultBaseUrlStatic();
             default:
                 return OpenAiLlmClient.getDefaultBaseUrlStatic();
         }
@@ -143,6 +217,26 @@ public class LlmClientFactory {
                 return OpenAiLlmClient.getDefaultModelStatic();
             case OLLAMA:
                 return OllamaLlmClient.getDefaultModelStatic();
+            case DEEPSEEK:
+                return "deepseek-chat";
+            case ZHIPU:
+                return "GLM-4.7-Flash";
+            case MOONSHOT:
+                return "kimi-k2.6";
+            case MINIMAX:
+                return "MiniMax-M2.5";
+            case STEPFUN:
+                return "step-2";
+            case LINGYI:
+                return "yi-large";
+            case DOUBAO:
+                return "doubao-pro-32k";
+            case SILICONFLOW:
+                return "deepseek-v4-flash";
+            case XUNFEI:
+                return "spark-4.0";
+            case ANTHROPIC:
+                return AnthropicLlmClient.getDefaultModelStatic();
             default:
                 return OpenAiLlmClient.getDefaultModelStatic();
         }
