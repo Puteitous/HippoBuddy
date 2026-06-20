@@ -684,6 +684,68 @@
     color: var(--text-muted);
 }
 
+/* ── 高级选项（可折叠） ── */
+.config-advanced {
+    margin-top: 0;
+}
+
+.config-advanced-summary {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color var(--transition-fast);
+}
+
+.config-advanced-summary::-webkit-details-marker {
+    display: none;
+}
+
+.config-advanced-summary::before {
+    content: '';
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 5px solid var(--text-muted);
+    transition: transform var(--transition-fast);
+    flex-shrink: 0;
+}
+
+details[open] .config-advanced-summary::before {
+    transform: rotate(90deg);
+}
+
+.config-advanced-summary:hover {
+    color: var(--text-secondary);
+}
+
+.config-advanced-body {
+    padding-top: 10px;
+}
+
+.config-label-hint {
+    font-weight: 400;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+}
+
+/* 隐藏 number input 的上下箭头 */
+.config-input[type="number"] {
+    -moz-appearance: textfield;
+}
+.config-input[type="number"]::-webkit-inner-spin-button,
+.config-input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 /* ===== 现代化 Select ===== */
 select.config-input {
     cursor: pointer;

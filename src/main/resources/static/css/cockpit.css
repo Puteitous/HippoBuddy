@@ -294,6 +294,13 @@ body.desktop-window {
     position: relative;
 }
 
+/* ========== 左侧区域（Activity Bar + 会话面板） ========== */
+.sidebar-area {
+    display: flex;
+    position: relative;
+    height: 100%;
+}
+
 /* ========== 聊天面板容器（右侧） ========== */
 .chat-panel {
     flex: 1;
@@ -338,7 +345,7 @@ body.desktop-window {
 
 /* 预览面板隐藏时，分隔条也隐藏 */
 .preview-panel.hidden + .panel-resizer {
-    display: none;
+    display: none !important;
 }
 
 .panel-resizer:hover,

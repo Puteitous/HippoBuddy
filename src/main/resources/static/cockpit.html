@@ -121,6 +121,7 @@
     
     <!-- 主容器 -->
     <div class="main-container">
+        <div class="sidebar-area">
         <!-- Activity Bar -->
         <div class="activity-bar" id="activityBar">
             <button class="activity-bar-btn" data-action="toggle-session" title="会话面板">
@@ -170,6 +171,7 @@
         </div>
 
         <!-- 会话面板 -->
+        <div class="session-panel-wrap">
         <div class="session-panel" id="sessionPanel">
             <div class="session-header">
                 <div class="session-header-left">
@@ -204,6 +206,8 @@
                     <p>打开工作区以浏览文件</p>
                 </div>
             </div>
+        </div>
+        </div>
         </div>
 
         <!-- 左侧面板拖拽分隔条 -->
@@ -718,10 +722,15 @@
                         <label class="config-label" for="configBaseUrl">Base URL</label>
                         <input class="config-input" id="configBaseUrl" type="text" placeholder="https://dashscope.aliyuncs.com">
                     </div>
-                    <div class="config-field">
-                        <label class="config-label" for="configMaxTokens">Max Tokens</label>
-                        <input class="config-input" id="configMaxTokens" type="number" min="1" placeholder="2048">
-                    </div>
+                    <details class="config-advanced">
+                        <summary class="config-advanced-summary">高级选项</summary>
+                        <div class="config-advanced-body">
+                            <div class="config-field">
+                                <label class="config-label" for="configMaxTokens">Max Tokens <span class="config-label-hint">(单次输出上限, 0=不限制)</span></label>
+                                <input class="config-input" id="configMaxTokens" type="number" min="0" placeholder="0">
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
             <div class="config-modal-footer">

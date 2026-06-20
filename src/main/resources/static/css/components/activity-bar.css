@@ -14,6 +14,9 @@
     gap: 2px;
     background: transparent;
     border-right: 1px solid color-mix(in srgb, var(--border), var(--text-secondary) 20%);
+    border-top: 1px solid color-mix(in srgb, var(--border), var(--text-secondary) 20%);
+    border-bottom: 1px solid color-mix(in srgb, var(--border), var(--text-secondary) 20%);
+    border-radius: var(--radius-lg);
     z-index: 50;
     position: relative;
 }
@@ -68,15 +71,15 @@
     bottom: 0;
     width: 320px;
     background: var(--bg-canvas);
-    border-right: 1px solid var(--border);
+    border-right: 1px solid color-mix(in srgb, var(--border), var(--text-secondary) 20%);
+    border-top: 1px solid color-mix(in srgb, var(--border), var(--text-secondary) 20%);
+    border-bottom: 1px solid color-mix(in srgb, var(--border), var(--text-secondary) 20%);
     z-index: 60;
     display: flex;
     flex-direction: column;
     box-shadow: 4px 0 12px rgba(0,0,0,0.06);
     animation: activity-panel-slide-in 0.2s ease;
-    margin: 0 0 16px 0;
-    border-radius: var(--radius-lg);
-    height: calc(100% - 16px);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
     overflow: hidden;
 }
 
@@ -110,9 +113,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 12px 10px;
+    height: 36px;
+    padding: 0 12px;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid color-mix(in srgb, var(--border), var(--text-secondary) 20%);
 }
 
 .activity-panel-title {
@@ -146,7 +150,7 @@
 .activity-panel-body {
     flex: 1;
     overflow-y: auto;
-    padding: 6px 10px 10px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
@@ -592,7 +596,9 @@
     transition: transform 0.1s ease;
 }
 
-/* 文件浏览模式下收起面板时隐藏右侧竖线 */
-.activity-bar:has(~ .session-panel.view-files.hidden) {
-    border-right: none;
+/* 浮动面板展开时隐藏 Activity Bar 右侧圆角，与面板边线一体化 */
+.activity-bar:has(.activity-bar-btn.active[data-panel]) {
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
+
+

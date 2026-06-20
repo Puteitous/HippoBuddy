@@ -1,5 +1,9 @@
 /* ========== 会话侧栏 ========== */
 
+.session-panel-wrap {
+    display: flex;
+}
+
 .session-panel {
     width: var(--session-panel-width, 300px);
     display: flex;
@@ -27,7 +31,8 @@
 }
 
 .session-header {
-    padding: 14px 10px 10px;
+    height: 36px;
+    padding: 0 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -373,7 +378,7 @@
 }
 
 /* 面板隐藏时分隔条隐藏 */
-.session-panel.hidden ~ .session-resizer {
+.sidebar-area:has(.session-panel.hidden) + .session-resizer {
     display: none;
 }
 
