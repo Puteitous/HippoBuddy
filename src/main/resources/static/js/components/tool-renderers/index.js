@@ -157,13 +157,17 @@ export function renderToolTimelineRow(tool) {
         diffStatsHtml = `<span class="timeline-diff-stats"><span class="diff-add">+${lineCount}</span></span>`;
       }
     }
+  } else if (name === 'read_office_file' || name === 'write_office_file') {
+    const args = parseToolArgs(tool.args);
+    summary = args.path || '';
   } else {
     summary = name;
   }
 
   // 提取文件路径（用于 timeline summary 可点击跳转）
   let summaryFilePath = '';
-  if (name === 'read_file' || name === 'edit_file' || name === 'write_file') {
+  if (name === 'read_file' || name === 'edit_file' || name === 'write_file'
+      || name === 'read_office_file' || name === 'write_office_file') {
     const args = parseToolArgs(tool.args);
     summaryFilePath = args.path || '';
   } else if (name === 'delete_file') {

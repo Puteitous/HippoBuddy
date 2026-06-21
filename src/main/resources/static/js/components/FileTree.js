@@ -81,6 +81,52 @@ export class FileTree {
     this._container.innerHTML = '';
     await this._renderTree(rootPath, this._container);
     await this._fetchAndApplyGitStatus();
+    this._setupRootDropTarget();
+  }
+
+  /** 根容器作为放置目标：拖拽文件/文件夹到根目录 */
+  _setupRootDropTarget() {
+    // 避免重复绑定
+    if (this._container._rootDropSetup) return;
+    this._container._rootDropSetup = true;
+
+    this._container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this._container.classList.add('drag-over');
+    });
+
+    this._container.addEventListener('dragleave', (e) => {
+      this._container.classList.remove('drag-over');
+    });
+
+    this._container.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      this._container.classList.remove('drag-over');
+
+      const sourcePath = e.dataTransfer.getData('text/plain');
+      if (!sourcePath || !this._rootPath) return;
+
+      // 已经在根目录下则跳过
+      const parentDir = sourcePath.substring(0, sourcePath.lastIndexOf('/'));
+      if (parentDir === this._rootPath) return;
+
+      const fileName = sourcePath.split('/').pop();
+      const destPath = this._rootPath + '/' + fileName;
+
+      try {
+        await window.HippoDesktop.rename(sourcePath, destPath);
+        this._doRefresh();
+        this._onRefresh();
+        showToast('已移动到根目录: ' + fileName, { type: 'success' });
+      } catch (err) {
+        showToast('移动失败: ' + err.message, { type: 'error' });
+      }
+    });
+
+    this._container.addEventListener('dragend', () => {
+      this._container.classList.remove('drag-over');
+    });
   }
 
   /**
@@ -105,8 +151,9 @@ export class FileTree {
       const tempContainer = document.createElement('div');
       await this._renderTree(this._rootPath, tempContainer);
 
-      // 渲染已展开的子目录
-      for (const dirPath of preservedDirs) {
+      // 渲染已展开的子目录 — 按路径长度排序以保持父目录优先
+      const sortedDirs = [...preservedDirs].sort((a, b) => a.length - b.length);
+      for (const dirPath of sortedDirs) {
         const nodeEl = tempContainer.querySelector(
           `.file-tree-node[data-is-dir][data-path="${this._escapeCss(dirPath)}"]`
         );
@@ -143,13 +190,93 @@ export class FileTree {
     this._container.innerHTML = '';
   }
 
-  /** 高亮当前激活的文件 */
+  /** 高亮当前激活的文件/目录，并滚动到可视区域 */
   setActiveFile(filePath) {
     this._activeFilePath = filePath;
     const items = this._container.querySelectorAll('.file-tree-node');
     for (const el of items) {
       el.classList.toggle('active', el.dataset.path === filePath);
     }
+    // 滚动到目标节点
+    const activeEl = this._container.querySelector(
+      `.file-tree-node[data-path="${this._escapeCss(filePath)}"]`
+    );
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  /**
+   * 展开并高亮指定目录（在文件树中定位目录）
+   * @param {string} dirPath - 绝对路径
+   */
+  async revealDirectory(dirPath) {
+    const normalizedDir = dirPath.replace(/\\/g, '/').replace(/\/$/, '');
+    if (!this._rootPath) return;
+    if (!normalizedDir.startsWith(this._rootPath)) return;
+
+    // 展开目标目录及其所有父目录
+    let current = this._rootPath;
+    const parts = normalizedDir.slice(this._rootPath.length).split('/').filter(Boolean);
+    this._expandedDirs.add(current);
+    for (const part of parts) {
+      current = current + '/' + part;
+      this._expandedDirs.add(current);
+    }
+
+    // 刷新树保留展开状态（_doRefresh 会读取 _activeFilePath 来恢复高亮）
+    this._activeFilePath = normalizedDir;
+    await this._doRefresh();
+
+    // 高亮目标目录（_doRefresh 已从 _activeFilePath 恢复，但为保证即时性再确保一次）
+    const targetEl = this._container.querySelector(
+      `.file-tree-node[data-is-dir][data-path="${this._escapeCss(normalizedDir)}"]`
+    );
+    if (targetEl) {
+      targetEl.classList.add('active');
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  /**
+   * 展开文件的所有父目录并高亮该文件（从外部导航时使用）
+   * @param {string} filePath - 文件绝对路径
+   */
+  async revealFile(filePath) {
+    await this._revealParentDirs(filePath);
+    this.setActiveFile(filePath);
+  }
+
+  /**
+   * 展开文件的所有父目录，确保文件节点在 DOM 中可见
+   * @param {string} filePath - 文件绝对路径
+   * @returns {Promise<boolean>} 是否刷新了树
+   */
+  async _revealParentDirs(filePath) {
+    if (!this._rootPath) return false;
+    const dirPath = filePath.substring(0, filePath.lastIndexOf('/'));
+    if (!dirPath || dirPath === this._rootPath) return false;
+    if (!dirPath.startsWith(this._rootPath)) return false;
+
+    const relativePath = dirPath.slice(this._rootPath.length);
+    const parts = relativePath.split('/').filter(Boolean);
+    if (parts.length === 0) return false;
+
+    // 检查是否已经全部展开
+    let allExpanded = true;
+    let current = this._rootPath;
+    for (const part of parts) {
+      current = current + '/' + part;
+      if (!this._expandedDirs.has(current)) {
+        allExpanded = false;
+      }
+      this._expandedDirs.add(current);
+    }
+
+    if (allExpanded) return false;
+
+    await this._doRefresh();
+    return true;
   }
 
   // ==================== 右键菜单 ====================
@@ -170,13 +297,13 @@ export class FileTree {
 
   _buildContextMenu(isDir) {
     const items = [];
-    if (isDir) {
-      items.push(
-        { action: 'new-file', label: '新建文件', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3z"/><line x1="8" y1="7" x2="8" y2="11"/><line x1="6" y1="9" x2="10" y2="9"/></svg>' },
-        { action: 'new-folder', label: '新建文件夹', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/><line x1="8" y1="8" x2="8" y2="12"/><line x1="6" y1="10" x2="10" y2="10"/></svg>' },
-        { separator: true }
-      );
-    }
+    // 无论文件还是文件夹，都提供新建文件/文件夹选项
+    // 对文件操作时，会创建在同级目录（父目录）下
+    items.push(
+      { action: 'new-file', label: '新建文件', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3z"/><line x1="8" y1="7" x2="8" y2="11"/><line x1="6" y1="9" x2="10" y2="9"/></svg>' },
+      { action: 'new-folder', label: '新建文件夹', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/><line x1="8" y1="8" x2="8" y2="12"/><line x1="6" y1="10" x2="10" y2="10"/></svg>' },
+      { separator: true }
+    );
     items.push(
       { action: 'copy-absolute', label: '复制绝对路径', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M6 2V1"/><path d="M10 2V1"/></svg>' },
       { action: 'copy-relative', label: '复制相对路径', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a2 2 0 0 1 2 2v7"/><path d="M2 5l3-3"/><path d="M2 5l3 3"/></svg>' },
@@ -240,6 +367,8 @@ export class FileTree {
       case 'new-file':
       case 'new-folder': {
         const isFile = action === 'new-file';
+        // 如果目标不是目录，用其父目录作为新建路径
+        const baseDir = this._ctxIsDir ? targetPath : targetPath.substring(0, targetPath.lastIndexOf('/'));
         const label = isFile ? '文件名' : '文件夹名';
         const hint = isFile ? '例如: index.js' : '例如: my-folder';
         const name = await this._showInputDialog({
@@ -249,7 +378,7 @@ export class FileTree {
           placeholder: isFile ? 'index.js' : 'my-folder'
         });
         if (!name) return;
-        const newPath = targetPath + '/' + name;
+        const newPath = baseDir + '/' + name;
         try {
           if (isFile) {
             await api.createFile(newPath);
@@ -626,6 +755,7 @@ export class FileTree {
 
     nodeEl.addEventListener('click', (e) => {
       e.stopPropagation();
+      this.setActiveFile(fullPath);
       toggleDir();
     });
 
@@ -637,7 +767,50 @@ export class FileTree {
     nodeEl.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', fullPath);
       e.dataTransfer.setData('text/x-hippo-type', 'directory');
-      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.effectAllowed = 'copyMove';
+    });
+
+    // --- 作为放置目标：拖拽移动文件/文件夹到此目录 ---
+    nodeEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      nodeEl.classList.add('drag-over');
+    });
+
+    nodeEl.addEventListener('dragleave', (e) => {
+      e.stopPropagation();
+      nodeEl.classList.remove('drag-over');
+    });
+
+    nodeEl.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      nodeEl.classList.remove('drag-over');
+
+      const sourcePath = e.dataTransfer.getData('text/plain');
+      if (!sourcePath) return;
+
+      // 禁止拖到自身 或 自己的子目录
+      if (sourcePath === fullPath || sourcePath.startsWith(fullPath + '/')) return;
+
+      const fileName = sourcePath.split('/').pop();
+      const destPath = fullPath + '/' + fileName;
+
+      // 同名文件已存在时不做任何操作（后端会报错）
+      try {
+        await window.HippoDesktop.rename(sourcePath, destPath);
+        this._doRefresh();
+        this._onRefresh();
+        showToast('已移动: ' + fileName, { type: 'success' });
+      } catch (err) {
+        showToast('移动失败: ' + err.message, { type: 'error' });
+      }
+    });
+
+    // 拖拽结束清理高亮
+    nodeEl.addEventListener('dragend', () => {
+      nodeEl.classList.remove('drag-over');
     });
 
     parentEl.appendChild(nodeEl);
@@ -669,7 +842,7 @@ export class FileTree {
     nodeEl.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', fullPath);
       e.dataTransfer.setData('text/x-hippo-type', 'file');
-      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.effectAllowed = 'copyMove';
       const dragImg = document.createElement('span');
       dragImg.textContent = '\uD83D\uDCC4';
       dragImg.style.position = 'absolute';
@@ -679,8 +852,10 @@ export class FileTree {
       setTimeout(() => document.body.removeChild(dragImg), 0);
     });
 
-    nodeEl.addEventListener('click', (e) => {
+    nodeEl.addEventListener('click', async (e) => {
       e.stopPropagation();
+      // 先展开父目录，让文件节点在 DOM 中可见
+      await this._revealParentDirs(fullPath);
       this._onFileSelect(fullPath);
     });
 

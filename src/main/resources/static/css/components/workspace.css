@@ -70,6 +70,20 @@
     color: var(--accent);
 }
 
+.file-tree-node.drag-over {
+    background: rgba(108, 168, 215, 0.18);
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+}
+
+/* 根容器拖拽高亮 */
+.file-tree-body.drag-over {
+    background: rgba(108, 168, 215, 0.06);
+    outline: 2px dashed var(--accent);
+    outline-offset: -4px;
+    border-radius: 4px;
+}
+
 .file-tree-toggle {
     display: flex;
     align-items: center;

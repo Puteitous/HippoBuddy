@@ -364,16 +364,34 @@ const HippoWorkspace = (() => {
 
     /**
      * 导航到文件（切换文件视图、打开文件、跳转行号）
+     * 如果是目录路径，则在文件树中展开并高亮该目录。
      * @param {string} filePath - 绝对或相对路径
      * @param {number} [startLine] - 1-based 起始行号
      * @param {number} [endLine] - 1-based 结束行号，提供则选中范围
      */
-    navigateToFile(filePath, startLine, endLine) {
+    async navigateToFile(filePath, startLine, endLine) {
       let absPath = filePath;
       // 相对路径 → 拼接工作区根路径
       if (absPath && !absPath.startsWith('/') && !absPath.match(/^[a-zA-Z]:/)) {
         absPath = _currentRoot ? _currentRoot + '/' + absPath : absPath;
       }
+      if (!absPath) return;
+
+      // 检测路径是否为目录
+      try {
+        const result = await window.HippoDesktop.isDirectory(absPath);
+        if (result && result.isDirectory) {
+          // 目录：切换到文件视图，在文件树中展开并高亮
+          switchView('files');
+          await fileTree.revealDirectory(absPath);
+          return;
+        }
+      } catch (e) {
+        // isDirectory 不可用或失败，回退到文件行为
+        console.debug('navigateToFile: isDirectory check failed, fallback to file behavior', e);
+      }
+
+      // 文件：保持现有行为
       handleFileSelect(absPath);
       if (startLine != null) {
         // 等文件加载渲染完成后滚动到指定行
@@ -417,14 +435,14 @@ const HippoWorkspace = (() => {
   async function handleFileSelect(filePath) {
     const displayName = filePath.split('/').pop() || filePath;
     await fileTabs.openTab(filePath, displayName);
-    fileTree.setActiveFile(filePath);
+    await fileTree.revealFile(filePath);
     showPreview(filePath);
     // 打开文件后持久化标签页状态
     _saveWorkspaceSession();
   }
 
-  function handleTabSelect(filePath) {
-    fileTree.setActiveFile(filePath);
+  async function handleTabSelect(filePath) {
+    await fileTree.revealFile(filePath);
     showPreview(filePath);
   }
 

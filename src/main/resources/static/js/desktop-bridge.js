@@ -194,6 +194,10 @@ const HippoDesktop = (() => {
       return send('writeFile', { path, content: base64, encoding: 'base64' });
     },
 
+    isDirectory(path) {
+      return send('isDirectory', { path });
+    },
+
     openFileDialog() {
       return send('openFileDialog');
     },

@@ -64,6 +64,9 @@ public class FileHandler extends CefMessageRouterHandlerAdapter {
                 case "showItemInFolder":
                     handleShowItemInFolder(json, callback);
                     return true;
+                case "isDirectory":
+                    handleIsDirectory(json, callback);
+                    return true;
                 default:
                     return false;
             }
@@ -260,6 +263,24 @@ public class FileHandler extends CefMessageRouterHandlerAdapter {
             callback.success("{}");
         } catch (Exception e) {
             logger.error("打开文件所在目录失败", e);
+            callback.failure(500, e.getMessage());
+        }
+    }
+
+    private void handleIsDirectory(JsonNode json, CefQueryCallback callback) {
+        try {
+            String path = json.has("path") ? json.get("path").asText() : null;
+            if (path == null || path.isBlank()) {
+                callback.failure(400, "Missing path parameter");
+                return;
+            }
+            Path target = Paths.get(path);
+            ObjectNode result = MAPPER.createObjectNode();
+            result.put("exists", Files.exists(target));
+            result.put("isDirectory", Files.isDirectory(target));
+            callback.success(MAPPER.writeValueAsString(result));
+        } catch (Exception e) {
+            logger.error("isDirectory 查询失败", e);
             callback.failure(500, e.getMessage());
         }
     }
