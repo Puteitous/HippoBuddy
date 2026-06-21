@@ -585,12 +585,26 @@
     cursor: default;
     pointer-events: none;
     background: var(--bg-code);
-    border-color: transparent;
+    border: 1px solid #d1d5db;
+    border-radius: var(--radius-sm);
+}
+
+[data-theme="dark"] .message.user .input-ref-chip {
+    border-color: #4b4b55;
 }
 
 .message.user .input-ref-chip-navigable {
     cursor: pointer !important;
     pointer-events: auto;
+    transition: background var(--transition-fast);
+}
+
+.message.user .input-ref-chip-navigable:hover {
+    background: #e5e7eb;
+}
+
+[data-theme="dark"] .message.user .input-ref-chip-navigable:hover {
+    background: #37373f;
 }
 
 .message.user .input-ref-chip .input-ref-chip-close {

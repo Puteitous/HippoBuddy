@@ -238,18 +238,30 @@ export class ChatPanel {
     
     // 滚动事件
     if (this.container) {
+      let lastScrollTop = this.container.scrollTop;
       this.container.addEventListener('scroll', () => {
-        if (this.isNearBottom(100)) {
-          appState.userScrolledUp = false;
-          if (this.elements.newMsgHint) {
-            this.elements.newMsgHint.style.display = 'none';
-          }
-        } else {
+        const currentScrollTop = this.container.scrollTop;
+        const goingUp = currentScrollTop < lastScrollTop;
+
+        // ── 用户有意义上滚（≥20px）→ 停止自动滚动 ──
+        // 死区 20px 过滤内容回流导致的亚像素抖动
+        if (goingUp && (lastScrollTop - currentScrollTop) >= 20) {
           appState.userScrolledUp = true;
           if (this.elements.newMsgHint) {
             this.elements.newMsgHint.style.display = 'flex';
           }
         }
+
+        // ── 用户滚回底部附近 → 恢复自动滚动 ──
+        // 与 smartScroll 的滚动阈值一致，确保一旦回到底部附近就能恢复自动滚动
+        if (!goingUp && this.isNearBottom(100)) {
+          appState.userScrolledUp = false;
+          if (this.elements.newMsgHint) {
+            this.elements.newMsgHint.style.display = 'none';
+          }
+        }
+
+        lastScrollTop = currentScrollTop;
       });
     }
     
@@ -508,7 +520,8 @@ export class ChatPanel {
     const session = new MessageSession({
       chatUI: this.chatUI,
       renderPipeline: this.renderPipeline,
-      chatService: this.chatService
+      chatService: this.chatService,
+      smartScroll: () => this.smartScroll()
     });
     this._activeSession = session;
 
@@ -859,7 +872,8 @@ export class ChatPanel {
     const session = new MessageSession({
       chatUI: this.chatUI,
       renderPipeline: this.renderPipeline,
-      chatService: this.chatService
+      chatService: this.chatService,
+      smartScroll: () => this.smartScroll()
     });
     this._activeSession = session;
 
@@ -1010,7 +1024,7 @@ export class ChatPanel {
         this.renderPipeline.renderFinal(session.getSegments(), '');
         // 内容已完整渲染，显示操作按钮
         session.showActionButtons();
-        this.chatUI.scrollToBottom();
+        this.smartScroll();
       }
 
     }).catch(err => {
@@ -1056,19 +1070,31 @@ export class ChatPanel {
   
   /**
    * 智能滚动
+   * 距底 < 100px 时总是滚动（不受 userScrolledUp 阻挡），
+   * 解决内容增长导致 scroll 事件误将 userScrolledUp 置为 true 的问题。
    */
   smartScroll() {
+    // 距底 < 100px → 不管 userScrolledUp 状态如何，重置并滚动
     if (this.isNearBottom(100)) {
+      appState.userScrolledUp = false;
       this.chatUI.scrollToBottom();
       if (this.elements.newMsgHint) {
         this.elements.newMsgHint.style.display = 'none';
       }
-      appState.userScrolledUp = false;
-    } else {
+      return;
+    }
+
+    // userScrolledUp 且不在底部附近 → 跳过滚动显示新消息提示
+    if (appState.userScrolledUp) {
       if (this.elements.newMsgHint) {
         this.elements.newMsgHint.style.display = 'flex';
       }
-      appState.userScrolledUp = true;
+      return;
+    }
+
+    // 不在底部附近但 userScrolledUp=false → 仅显示提示
+    if (this.elements.newMsgHint) {
+      this.elements.newMsgHint.style.display = 'flex';
     }
   }
   
@@ -1662,7 +1688,7 @@ export class ChatPanel {
       }
     }
 
-    this.chatUI.scrollToBottom();
+    this.smartScroll();
   }
 
   /**

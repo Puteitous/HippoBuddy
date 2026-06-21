@@ -4,10 +4,11 @@ import { escapeHtml } from '../utils.js';
 import { EventBus } from '../utils/event-bus.js';
 
 export class MessageSession {
-  constructor({ chatUI, renderPipeline, chatService }) {
+  constructor({ chatUI, renderPipeline, chatService, smartScroll }) {
     this._chatUI = chatUI;
     this._renderPipeline = renderPipeline;
     this._chatService = chatService;
+    this._smartScroll = smartScroll;
 
     this._segments = [];
     this._currentText = '';
@@ -94,7 +95,7 @@ export class MessageSession {
         }
         s._reasoningSegment.content += parsed.reasoning;
         s._renderPipeline.scheduleRender(s._segments, s._currentText);
-        s._chatUI.scrollToBottom();
+        s._smartScroll?.();
       },
 
       reasoning_done: () => {
@@ -119,7 +120,7 @@ export class MessageSession {
         }
         s._renderPipeline.markTextOnly();
         s._renderPipeline.scheduleRender(s._segments, s._currentText);
-        s._chatUI.scrollToBottom();
+        s._smartScroll?.();
       },
 
       tool_start: (parsed, contentDiv) => {
@@ -319,7 +320,7 @@ export class MessageSession {
       if (!this._pendingInteraction) {
         this._btnContainer.style.display = 'flex';
       }
-      this._chatUI.scrollToBottom();
+      this._smartScroll?.();
 
     } catch (error) {
       if (error.name === 'AbortError' || error.constructor.name === 'AbortError') {
@@ -344,7 +345,7 @@ export class MessageSession {
       }
 
       if (this._btnContainer && !this._pendingInteraction) this._btnContainer.style.display = 'flex';
-      this._chatUI.scrollToBottom();
+      this._smartScroll?.();
     }
 
     if (this._contentDiv) {
