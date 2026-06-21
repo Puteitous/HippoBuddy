@@ -1,11 +1,14 @@
 package com.example.agent.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * 模型配置快照，用于在 modelHistory 中保存完整的模型配置。
  * 切换历史模型时，从快照恢复所有配置字段，无需用户重新填写。
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ModelSnapshot {
 
     private String provider;
@@ -54,6 +57,7 @@ public class ModelSnapshot {
     }
 
     /** 快照唯一标识 provider:model */
+    @JsonIgnore
     public String getKey() {
         return (provider != null ? provider : "") + ":" + (model != null ? model : "");
     }

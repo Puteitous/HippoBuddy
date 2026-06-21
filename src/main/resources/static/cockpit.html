@@ -740,6 +740,17 @@
                                 <label class="config-label" for="configMaxTokens">Max Tokens <span class="config-label-hint">(单次输出上限, 0=不限制)</span></label>
                                 <input class="config-input" id="configMaxTokens" type="number" min="0" placeholder="0">
                             </div>
+                            <div class="config-field desktop-only">
+                                <label class="config-label" for="configDefaultWorkspace">默认工作区路径 <span class="config-label-hint">(留空使用内置默认)</span></label>
+                                <div class="config-workspace-wrap">
+                                    <input class="config-input" id="configDefaultWorkspace" type="text" placeholder="留空则使用内置默认路径">
+                                    <button class="config-workspace-browse" id="configDefaultWorkspaceBrowse" title="选择文件夹">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </details>
                 </div>

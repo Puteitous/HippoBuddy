@@ -804,6 +804,38 @@ select.config-input option {
     color: var(--text-primary);
 }
 
+/* ── 默认工作区路径输入（带文件夹选择按钮） ── */
+.config-workspace-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.config-workspace-wrap .config-input {
+    padding-right: 36px;
+}
+
+.config-workspace-browse {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-fast);
+}
+
+.config-workspace-browse:hover {
+    color: var(--text-primary);
+}
+
 .config-modal-footer {
     display: flex;
     justify-content: flex-end;

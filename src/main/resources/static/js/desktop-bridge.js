@@ -215,6 +215,14 @@ const HippoDesktop = (() => {
       return send('isDefaultWorkspace');
     },
 
+    getDefaultWorkspace() {
+      return send('getDefaultWorkspace');
+    },
+
+    setDefaultWorkspace(path) {
+      return send('setDefaultWorkspace', { path });
+    },
+
     // ===== DevTools =====
     openDevTools() {
       return send('openDevTools');

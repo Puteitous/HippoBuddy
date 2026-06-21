@@ -1,5 +1,6 @@
 package com.example.agent.logging;
 
+import com.example.agent.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -198,11 +199,31 @@ public class WorkspaceManager {
     /**
      * 返回默认工作区目录。
      * <p>
-     * 当用户未选择工作区时，文件操作将使用此目录作为根目录。
+     * 优先级：
+     * <ol>
+     *   <li>用户通过设置页自定义的路径（{@link Config#getWorkspace()}）</li>
+     *   <li>内置默认：{@code {hippo.data.dir}/default-workspace/}</li>
+     * </ol>
      * 目录不存在时会自动创建。
      * </p>
      */
     public static Path getDefaultWorkspaceDir() {
+        // 优先读取用户自定义路径
+        String customPath = Config.getInstance().getWorkspace().getDefaultWorkspacePath();
+        if (customPath != null && !customPath.isBlank()) {
+            Path dir = Paths.get(customPath).toAbsolutePath().normalize();
+            if (!Files.exists(dir)) {
+                try {
+                    Files.createDirectories(dir);
+                    logger.info("创建自定义默认工作区目录: {}", dir);
+                } catch (IOException e) {
+                    logger.warn("创建自定义默认工作区目录失败: {}", dir, e);
+                }
+            }
+            return dir;
+        }
+
+        // fallback 到内置默认
         Path dir = HIPPO_ROOT.resolve("default-workspace");
         if (!Files.exists(dir)) {
             try {

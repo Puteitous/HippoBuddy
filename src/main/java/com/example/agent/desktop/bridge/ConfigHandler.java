@@ -1,8 +1,10 @@
 package com.example.agent.desktop.bridge;
 
+import com.example.agent.config.Config;
 import com.example.agent.desktop.WorkspaceContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
@@ -43,6 +45,12 @@ public class ConfigHandler extends CefMessageRouterHandlerAdapter {
                 case "isDefaultWorkspace":
                     handleIsDefaultWorkspace(callback);
                     return true;
+                case "getDefaultWorkspace":
+                    handleGetDefaultWorkspace(callback);
+                    return true;
+                case "setDefaultWorkspace":
+                    handleSetDefaultWorkspace(json, callback);
+                    return true;
                 default:
                     return false;
             }
@@ -78,5 +86,32 @@ public class ConfigHandler extends CefMessageRouterHandlerAdapter {
     private void handleIsDefaultWorkspace(CefQueryCallback callback) throws Exception {
         callback.success(MAPPER.writeValueAsString(
                 MAPPER.createObjectNode().put("isDefault", WorkspaceContext.isDefaultWorkspace())));
+    }
+
+    // ===== 默认工作区路径配置 =====
+
+    private void handleGetDefaultWorkspace(CefQueryCallback callback) throws Exception {
+        String path = Config.getInstance().getWorkspace().getDefaultWorkspacePath();
+        callback.success(MAPPER.writeValueAsString(
+                MAPPER.createObjectNode().put("path", path != null ? path : "")));
+    }
+
+    private void handleSetDefaultWorkspace(JsonNode json, CefQueryCallback callback) throws Exception {
+        String path = json.has("path") ? json.get("path").asText() : "";
+        Config.getInstance().getWorkspace().setDefaultWorkspacePath(path);
+        Config.getInstance().save();
+
+        // 如果当前在默认工作区，立即切换到新路径
+        boolean switched = false;
+        if (WorkspaceContext.isDefaultWorkspace()) {
+            WorkspaceContext.clear();
+            WorkspaceContext.save();
+            switched = true;
+        }
+
+        ObjectNode result = MAPPER.createObjectNode();
+        result.put("path", path);
+        result.put("switched", switched);
+        callback.success(MAPPER.writeValueAsString(result));
     }
 }

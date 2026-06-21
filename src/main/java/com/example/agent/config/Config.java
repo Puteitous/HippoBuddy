@@ -37,6 +37,7 @@ public class Config {
     private LspConfig lsp = new LspConfig();
     private MemoryConfig memory = new MemoryConfig();
     private WebConfig web = new WebConfig();
+    private WorkspaceConfig workspace = new WorkspaceConfig();
 
     private transient ConfigLoader configLoader;
 
@@ -138,6 +139,7 @@ public class Config {
                 this.lsp = reloaded.lsp;
                 this.memory = reloaded.memory;
                 this.web = reloaded.web;
+                this.workspace = reloaded.workspace;
                 this.loadFromEnvironment();
                 logger.info("Configuration reloaded from: {}", configFile.getAbsolutePath());
             } catch (IOException e) {
@@ -312,6 +314,17 @@ public class Config {
         this.web = web;
     }
 
+    public WorkspaceConfig getWorkspace() {
+        if (workspace == null) {
+            workspace = new WorkspaceConfig();
+        }
+        return workspace;
+    }
+
+    public void setWorkspace(WorkspaceConfig workspace) {
+        this.workspace = workspace;
+    }
+
     @JsonIgnore
     public String getConfigFilePath() {
         if (configLoader == null) {
@@ -334,6 +347,7 @@ public class Config {
 
                 ", memory=" + memory +
                 ", web=" + web +
+                ", workspace=" + workspace +
                 '}';
     }
 }

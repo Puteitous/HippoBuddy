@@ -107,10 +107,10 @@ export class SessionManager {
 
   /** Group sessions by project, projects sorted by latest session time */
   _computeProjectRows() {
-    // 1. Group sessions by project
+    // 1. Group sessions by project (路径统一用 / 分隔)
     const projectMap = new Map();
     for (const s of this.sessions) {
-      const projectKey = s.projectPath || '';
+      const projectKey = s.projectPath ? s.projectPath.replace(/\\/g, '/') : '';
       if (!projectMap.has(projectKey)) {
         projectMap.set(projectKey, []);
       }
@@ -119,14 +119,16 @@ export class SessionManager {
 
     // 2. Build project info & sort by latest session time
     const projects = [];
-    for (const [projectPath, sessions] of projectMap) {
+    for (const [rawProjectPath, sessions] of projectMap) {
+      // 统一使用归一化后的路径
+      const projectPath = rawProjectPath;
       let latestTime = 0;
       for (const s of sessions) {
         const ts = parseInt(s.createdAt, 10);
         if (!isNaN(ts) && ts > latestTime) latestTime = ts;
       }
       const dirName = projectPath
-        ? projectPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || projectPath
+        ? projectPath.split('/').filter(Boolean).pop() || projectPath
         : '其他';
       projects.push({ projectPath, sessions, latestTime, dirName });
     }
