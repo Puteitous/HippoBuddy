@@ -335,13 +335,13 @@ describe('chat-service.js', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messageId: 'msg-123' }),
+          body: JSON.stringify({ messageId: 'msg-123', mode: 'all' }),
         })
       );
       expect(result).toEqual({ success: true, filesChanged: 2 });
     });
 
-    it('rewind 发送正确的请求体', async () => {
+    it('rewind 发送正确的请求体（默认 mode=all）', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ success: true }),
@@ -351,8 +351,20 @@ describe('chat-service.js', () => {
 
       const callBody = JSON.parse(globalThis.fetch.mock.calls[0][1].body);
       expect(callBody.messageId).toBe('msg-123');
-      expect(callBody.startTime).toBeUndefined();
-      expect(callBody.endTime).toBeUndefined();
+      expect(callBody.mode).toBe('all');
+    });
+
+    it('rewind 支持 mode 参数', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      });
+
+      await chatService.rewind('s1', 'msg-123', 'files');
+
+      const callBody = JSON.parse(globalThis.fetch.mock.calls[0][1].body);
+      expect(callBody.messageId).toBe('msg-123');
+      expect(callBody.mode).toBe('files');
     });
 
     it('rewind 请求失败时抛出错误', async () => {
@@ -412,6 +424,45 @@ describe('chat-service.js', () => {
       expect(result).toEqual({ files: [] });
     });
 
+    it('forkSession 调用 POST /api/sessions/{id}/fork', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ newSessionId: 's1_fork_123', messageCount: 5 }),
+      });
+
+      const result = await chatService.forkSession('s1', 'msg-123');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/sessions/s1/fork',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId: 'msg-123' }),
+        })
+      );
+      expect(result.newSessionId).toBe('s1_fork_123');
+      expect(result.messageCount).toBe(5);
+    });
+
+    it('forkSession 请求失败时抛出错误', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ error: 'messageId is required' }),
+      });
+
+      await expect(
+        chatService.forkSession('s1', '')
+      ).rejects.toThrow('messageId is required');
+    });
+
+    it('forkSession 网络错误时抛出错误', async () => {
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+      await expect(
+        chatService.forkSession('s1', 'msg-123')
+      ).rejects.toThrow('Network error');
+    });
 
   });
 });

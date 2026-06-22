@@ -1653,6 +1653,17 @@
     cursor: not-allowed;
 }
 
+.rollback-inline-btn-files {
+    background: transparent;
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.rollback-inline-btn-files:hover {
+    background: var(--bg-code);
+    border-color: var(--text-muted);
+}
+
 .rollback-inline-loading {
     margin: 8px auto 4px;
     max-width: 860px;

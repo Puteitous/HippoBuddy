@@ -381,6 +381,32 @@ function bindGlobalEvents() {
   EventBus.on('message:rollback', (msgDiv) => {
     rollbackPanel.execute(msgDiv, currentSessionId);
   });
+
+  // 消息分叉事件
+  EventBus.on('message:fork', async (msgDiv) => {
+    const assistantRow = msgDiv.closest('.message-row');
+    if (!assistantRow) return;
+
+    const userRow = assistantRow.previousElementSibling;
+    const messageId = userRow?.querySelector('.message.user')?.dataset?.messageId
+      || chatPanel._lastUserMessageId;
+
+    if (!messageId) {
+      showToast('无法确定分叉位置的消息 ID', { type: 'error', duration: 3000 });
+      return;
+    }
+
+    try {
+      const forkResult = await chatService.forkSession(currentSessionId, messageId);
+      if (forkResult.newSessionId) {
+        showToast('已创建新会话，正在切换...', { type: 'info', duration: 3000 });
+        await switchSession(forkResult.newSessionId);
+        showToast('已分叉为新会话', { type: 'success', duration: 4000 });
+      }
+    } catch (e) {
+      showToast(`分叉失败：${e.message}`, { type: 'error', duration: 3000 });
+    }
+  });
 }
 
 // RollbackPanel 接管了回滚逻辑

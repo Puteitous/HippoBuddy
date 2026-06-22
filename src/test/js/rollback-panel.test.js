@@ -53,9 +53,15 @@ describe('RollbackPanel.js', () => {
       expect(el.className).toBe('rollback-inline');
       expect(el.querySelector('.rollback-inline-count').textContent).toContain('2 个文件');
       expect(el.querySelectorAll('.rollback-inline-file').length).toBe(2);
+
+      // 状态字母
       expect(el.querySelector('.file-status-letter.action-restore')).toBeDefined();
       expect(el.querySelector('.file-status-letter.action-restore').textContent).toBe('M');
       expect(el.querySelector('.file-status-letter.action-delete').textContent).toBe('D');
+
+      // 操作按钮
+      expect(el.querySelector('.rollback-inline-btn-files')).toBeDefined();
+      expect(el.querySelector('.rollback-inline-btn-confirm')).toBeDefined();
     });
 
     it('无文件时显示无变更', () => {

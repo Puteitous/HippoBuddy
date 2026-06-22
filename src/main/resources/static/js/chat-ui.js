@@ -197,6 +197,15 @@ export class ChatUI {
     });
     btnContainer.appendChild(rollbackBtn);
 
+    const forkBtn = document.createElement('button');
+    forkBtn.className = 'message-action-btn fork-btn';
+    forkBtn.title = '从此处分叉为新会话';
+    forkBtn.innerHTML = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:14px;height:14px;vertical-align:middle"><path fill="currentColor" d="m76.67 10c-7.366 0-13.337 5.97-13.337 13.333 0 6.204 4.258 11.374 10 12.861v7.139c0 1.841-1.494 3.333-3.333 3.333h-33.333c-3.77 0-7.207 1.299-10 3.412v-13.88c5.742-1.491 10-6.66 10-12.864 0-7.364-5.97-13.334-13.334-13.334s-13.333 5.97-13.333 13.333c0 6.204 4.258 11.374 10 12.858v27.617c-5.742 1.484-10 6.653-10 12.858 0 7.364 5.97 13.334 13.333 13.334s13.333-5.97 13.333-13.333c0-6.205-4.258-11.374-10-12.858v-.476c0-5.523 4.479-10 10-10h33.334c5.521 0 10-4.476 10-10v-7.137c5.739-1.488 10-6.657 10-12.863 0-7.363-5.97-13.333-13.33-13.333z"></path></svg>';
+    forkBtn.addEventListener('click', () => {
+      EventBus.emit('message:fork', msgDiv);
+    });
+    btnContainer.appendChild(forkBtn);
+
     footer.appendChild(btnContainer);
 
     msgDiv.appendChild(footer);

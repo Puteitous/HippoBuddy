@@ -25,6 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.example.agent.logging.WorkspaceManager.getSessionDir;
+
 /**
  * 对话级回滚处理器。
  * <p>
@@ -35,6 +37,11 @@ import java.util.Map;
  * </ul>
  * <p>
  * 从 {@link SessionApiHandler} 拆分独立，职责内聚。
+ * <p>
+ * 此外还提供会话分叉（fork）API：
+ * <ul>
+ *   <li>POST /api/sessions/{id}/fork — 从指定消息处分叉为新会话</li>
+ * </ul>
  */
 public class SessionRewindHandler {
 
@@ -72,12 +79,28 @@ public class SessionRewindHandler {
      * 2. 截断内存中的 Conversation 消息
      * 3. 事务性重写 JSONL 文件
      */
+    /**
+     * 对话级回滚执行。
+     * POST /api/sessions/{id}/rewind
+     * <p>
+     * 流程：
+     * 1. 从 conversation.jsonl 提取目标消息后的文件操作 toolCallId，逆序回滚
+     * 2. 截断内存中的 Conversation 消息
+     * 3. 事务性重写 JSONL 文件
+     * <p>
+     * 请求体支持 mode 参数：
+     * <ul>
+     *   <li>{@code "all"}（默认）— 回滚文件 + 截断会话</li>
+     *   <li>{@code "files"} — 仅回滚文件，保留会话记录</li>
+     * </ul>
+     */
     public void handleRewindSession(HttpExchange exchange, String sessionId) throws IOException {
         String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         JsonNode json = objectMapper.readTree(requestBody);
         String messageId = json.has("messageId") ? json.get("messageId").asText("") : "";
+        String mode = json.has("mode") ? json.get("mode").asText("") : "all";
 
-        logger.info("handleRewindSession: sessionId={}, messageId={}", sessionId, messageId);
+        logger.info("handleRewindSession: sessionId={}, messageId={}, mode={}", sessionId, messageId, mode);
 
         if (messageId.isBlank()) {
             sendError(exchange, 400, "messageId is required");
@@ -125,20 +148,30 @@ public class SessionRewindHandler {
                 return;
             }
 
-            int filesChanged = executeRewindRollback(jsonlPath, messageId);
-            truncateConversationJsonl(jsonlPath, sessionId, messageId);
+            // 回滚文件变更（mode == "files" || mode == "all"）
+            boolean rollbackFiles = "files".equals(mode) || "all".equals(mode);
+            int filesChanged = 0;
+            if (rollbackFiles) {
+                filesChanged = executeRewindRollback(jsonlPath, messageId);
+            }
 
-            if (isActiveSession) {
-                int removed = conversationService.truncateMessagesAfter(conversation, messageId);
-                logger.debug("内存截断完成: sessionId={}, 删除{}条消息", sessionId, removed);
-                conversationService.destroyTranscript(sessionId);
-                conversationService.ensureSessionComponents(conversation);
+            // 截断会话（仅 mode == "all"）
+            if ("all".equals(mode)) {
+                truncateConversationJsonl(jsonlPath, sessionId, messageId);
+
+                if (isActiveSession) {
+                    int removed = conversationService.truncateMessagesAfter(conversation, messageId);
+                    logger.debug("内存截断完成: sessionId={}, 删除{}条消息", sessionId, removed);
+                    conversationService.destroyTranscript(sessionId);
+                    conversationService.ensureSessionComponents(conversation);
+                }
             }
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "已回滚到指定轮次");
+            response.put("message", "all".equals(mode) ? "已回滚到指定轮次" : "文件已回滚");
             response.put("filesChanged", filesChanged);
+            response.put("mode", mode);
             if (userMessageContent != null) {
                 response.put("lastUserMessage", userMessageContent);
             }
@@ -147,6 +180,98 @@ public class SessionRewindHandler {
         } catch (Exception e) {
             logger.error("回滚失败: sessionId={}", sessionId, e);
             sendError(exchange, 500, "回滚失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 会话分叉：从指定消息处复制历史记录到新会话。
+     * POST /api/sessions/{id}/fork
+     * <p>
+     * 新会话包含目标消息之前的所有历史（含系统消息），
+     * 并继承源会话的 session.json 元数据（如 workspacePath）。
+     * 分叉后前端应切换到新会话 ID 继续对话。
+     */
+    public void handleForkSession(HttpExchange exchange, String sessionId) throws IOException {
+        String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        JsonNode json = objectMapper.readTree(requestBody);
+        String messageId = json.has("messageId") ? json.get("messageId").asText("") : "";
+
+        logger.info("handleForkSession: sessionId={}, messageId={}", sessionId, messageId);
+
+        if (messageId.isBlank()) {
+            sendError(exchange, 400, "messageId is required");
+            return;
+        }
+
+        Path jsonlPath = findJsonlPathForSession(sessionId);
+        if (jsonlPath == null || !Files.exists(jsonlPath)) {
+            sendError(exchange, 404, "Session not found");
+            return;
+        }
+
+        try {
+            // 逐行读取，保留到当前轮次（含目标用户消息 + 后续助理回复，不含下一条用户消息）
+            List<String> keptLines = new ArrayList<>();
+            boolean found = false;
+            for (String line : Files.readAllLines(jsonlPath, StandardCharsets.UTF_8)) {
+                if (line.isBlank()) continue;
+                try {
+                    JsonNode lineNode = objectMapper.readTree(line);
+                    String uuid = lineNode.has("uuid") ? lineNode.get("uuid").asText() : "";
+                    String type = lineNode.has("type") ? lineNode.get("type").asText("") : "";
+
+                    if (!found) {
+                        if (messageId.equals(uuid)) {
+                            found = true;
+                            keptLines.add(line); // 包含目标用户消息
+                            continue;
+                        }
+                        keptLines.add(line);
+                    } else {
+                        // 找到目标后，遇到下一条用户消息则停止
+                        if ("user".equals(type) && !uuid.equals(messageId)) {
+                            break;
+                        }
+                        keptLines.add(line); // 包含助理回复
+                    }
+                } catch (Exception e) {
+                    if (!found) keptLines.add(line);
+                }
+            }
+
+            if (!found) {
+                sendError(exchange, 404, "Message not found in session file");
+                return;
+            }
+
+            // 生成新 sessionId：在源 ID 后追加 _fork_ 时间戳，确保唯一且可溯源
+            String newSessionId = sessionId + "_fork_" + System.currentTimeMillis();
+
+            // 创建新会话目录并写入截断后的 JSONL
+            Path newSessionDir = getSessionDir(newSessionId);
+            Files.createDirectories(newSessionDir);
+            Path newJsonlPath = newSessionDir.resolve("conversation.jsonl");
+            Files.write(newJsonlPath, keptLines, StandardCharsets.UTF_8);
+
+            // 继承源会话的元数据（workspacePath 等）
+            Path sourceMetadata = jsonlPath.getParent().resolve("session.json");
+            if (Files.exists(sourceMetadata)) {
+                Files.copy(sourceMetadata, newSessionDir.resolve("session.json"));
+            }
+
+            // 注册到 JSONL reader 缓存，使其立即可见
+            jsonlReader.getFileCache().put(newSessionId, newJsonlPath);
+
+            logger.info("分叉会话完成: source={}, newSessionId={}, 消息数={}", sessionId, newSessionId, keptLines.size());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("newSessionId", newSessionId);
+            response.put("messageCount", keptLines.size());
+            sendJson(exchange, response);
+
+        } catch (Exception e) {
+            logger.error("分叉会话失败: sessionId={}", sessionId, e);
+            sendError(exchange, 500, "分叉失败: " + e.getMessage());
         }
     }
 

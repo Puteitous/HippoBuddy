@@ -76,31 +76,51 @@ export class RollbackPanel {
 
     const result = await new Promise((resolve) => {
       const cancelBtn = panel.querySelector('.rollback-inline-btn-cancel');
+      const filesBtn = panel.querySelector('.rollback-inline-btn-files');
       const confirmBtn = panel.querySelector('.rollback-inline-btn-confirm');
+
+      const disableAll = () => {
+        [cancelBtn, filesBtn, confirmBtn].forEach(b => { b.disabled = true; });
+      };
 
       cancelBtn.addEventListener('click', () => {
         this._animateRemove(panel);
         resolve(null);
       });
 
+      filesBtn.addEventListener('click', async () => {
+        disableAll();
+        filesBtn.textContent = '回滚中...';
+        resolve('files');
+      });
+
       confirmBtn.addEventListener('click', async () => {
-        confirmBtn.disabled = true;
+        disableAll();
         confirmBtn.textContent = '回滚中...';
-        cancelBtn.disabled = true;
-        resolve('confirm');
+        resolve('all');
       });
     });
 
     if (!result) return;
 
-    console.log('[Rollback] 用户确认回滚，调用 rewind API: sessionId=%s, messageId=%s', currentSessionId, messageId);
+    const mode = result; // 'files' or 'all'
+    console.log('[Rollback] 用户确认回滚: mode=%s, sessionId=%s, messageId=%s', mode, currentSessionId, messageId);
     try {
-      const rewindResult = await this._chatService.rewind(currentSessionId, messageId);
+      const rewindResult = await this._chatService.rewind(currentSessionId, messageId, mode);
       console.log('[Rollback] rewind 响应:', rewindResult);
 
       if (rewindResult.success) {
         panel.remove();
 
+        if (mode === 'files') {
+          // 仅回滚文件：不截断会话，只刷新文件变更状态
+          console.log('[Rollback] 文件已回滚，保留会话记录');
+          if (this._onUpdateFileChanges) this._onUpdateFileChanges();
+          showToast(rewindResult.message || '文件已回滚', { type: 'success', duration: 4000 });
+          return;
+        }
+
+        // 全部回滚：原有流程
         console.log('[Rollback] 回滚成功，重新加载会话消息');
         this._chatService.invalidateMessageCache(currentSessionId);
         this._chatContainer.classList.add('switching');
@@ -231,7 +251,8 @@ export class RollbackPanel {
       <div class="rollback-inline-footer">
         <span class="rollback-inline-actions">
           <button class="rollback-inline-btn rollback-inline-btn-cancel">取消</button>
-          <button class="rollback-inline-btn rollback-inline-btn-confirm">确认</button>
+          <button class="rollback-inline-btn rollback-inline-btn-files">回滚文件</button>
+          <button class="rollback-inline-btn rollback-inline-btn-confirm">全部回滚</button>
         </span>
       </div>
     `;

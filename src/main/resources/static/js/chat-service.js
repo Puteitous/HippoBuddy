@@ -305,20 +305,40 @@ export class ChatService {
   }
 
   /**
-   * 快照回滚（基于快照方案）
+   * 回滚文件变更和/或会话记录。
    * @param {string} sessionId
    * @param {string} messageId
+   * @param {string} [mode='all'] - 'all' 回滚文件+截断会话，'files' 仅回滚文件
    * @returns {Promise<{success: boolean, filesChanged: number}>}
    */
-  async rewind(sessionId, messageId) {
+  async rewind(sessionId, messageId, mode = 'all') {
     const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/rewind`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId, mode })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: '请求失败' }));
+      throw new Error(err.error || `回滚失败: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * 会话分叉：从指定消息处复制历史到新会话。
+   * @param {string} sessionId
+   * @param {string} messageId
+   * @returns {Promise<{newSessionId: string, messageCount: number}>}
+   */
+  async forkSession(sessionId, messageId) {
+    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/fork`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messageId })
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({ error: '请求失败' }));
-      throw new Error(err.error || `回滚失败: ${response.status}`);
+      throw new Error(err.error || `分叉失败: ${response.status}`);
     }
     return response.json();
   }
