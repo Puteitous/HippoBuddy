@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ConfirmDialog } from '../../main/resources/static/js/utils/modal.js';
 
 describe('SessionManager.js', () => {
   let SessionManager;
@@ -179,7 +180,7 @@ describe('SessionManager.js', () => {
 
   describe('deleteSession', () => {
     it('确认后调用 chatService.deleteSession', async () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const confirmSpy = vi.spyOn(ConfirmDialog, 'confirmDelete').mockResolvedValue(true);
       sessionManager.chatService.deleteSession = vi.fn().mockResolvedValue(undefined);
       sessionManager.chatService.getSessions = vi.fn().mockResolvedValue([]);
       sessionManager.sessionNames['s1'] = '测试会话';
@@ -194,7 +195,7 @@ describe('SessionManager.js', () => {
     });
 
     it('取消确认时不删除', async () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const confirmSpy = vi.spyOn(ConfirmDialog, 'confirmDelete').mockResolvedValue(false);
       sessionManager.chatService.deleteSession = vi.fn();
 
       const event = { stopPropagation: vi.fn() };

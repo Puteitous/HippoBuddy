@@ -1501,7 +1501,7 @@
 
 .rollback-inline-header .rollback-inline-icon {
     flex-shrink: 0;
-    color: var(--warning-color, #e6a23c);
+    color: rgb(56, 123, 255);
     display: flex;
     align-items: center;
 }
@@ -1531,14 +1531,39 @@
 }
 
 .rollback-inline-file:hover {
-    background: var(--bg-light);
+    background: var(--bg-hover);
+}
+
+.rollback-inline-file.action-delete .file-name {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.rollback-inline-file .file-status-letter {
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    width: 16px;
+    text-align: center;
+    font-family: var(--font-mono);
+}
+
+.rollback-inline-file .file-status-letter.action-delete {
+    color: #c62828;
+}
+
+.rollback-inline-file .file-status-letter.action-add {
+    color: #2e7d32;
+}
+
+.rollback-inline-file .file-status-letter.action-restore {
+    color: #1565c0;
 }
 
 .rollback-inline-file .file-icon {
     flex-shrink: 0;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
+    width: 14px;
+    height: 14px;
 }
 
 .rollback-inline-file .file-name {
@@ -1554,30 +1579,8 @@
 .rollback-inline-file .file-action-badge {
     flex-shrink: 0;
     font-size: 10px;
-    font-weight: 600;
-    padding: 1px 7px;
-    border-radius: 8px;
-    line-height: 1.6;
-}
-
-.rollback-inline-file .file-action-badge.action-restore {
-    background: #e8f5e9;
-    color: #2e7d32;
-}
-
-.rollback-inline-file .file-action-badge.action-add {
-    background: #e3f2fd;
-    color: #1565c0;
-}
-
-.rollback-inline-file .file-action-badge.action-delete {
-    background: #fbe9e7;
-    color: #c62828;
-}
-
-.rollback-inline-file .file-action-badge.action-unchanged {
-    background: #f5f5f5;
-    color: #9e9e9e;
+    font-weight: 500;
+    color: var(--text-muted);
 }
 
 .rollback-inline-file .diff-stats {
@@ -1635,15 +1638,14 @@
 }
 
 .rollback-inline-btn-confirm {
-    background: var(--text-secondary);
-    color: #fff;
-    border-color: var(--text-secondary);
+    background: var(--bg-white);
+    color: var(--text-primary);
+    border-color: var(--border);
 }
 
 .rollback-inline-btn-confirm:hover {
-    opacity: 0.8;
-    background: var(--text-primary);
-    border-color: var(--text-primary);
+    background: var(--bg-hover);
+    border-color: var(--text-muted);
 }
 
 .rollback-inline-btn-confirm:disabled {

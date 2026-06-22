@@ -53,21 +53,15 @@ describe('RollbackPanel.js', () => {
       expect(el.className).toBe('rollback-inline');
       expect(el.querySelector('.rollback-inline-count').textContent).toContain('2 个文件');
       expect(el.querySelectorAll('.rollback-inline-file').length).toBe(2);
-      expect(el.querySelector('.diff-add')).toBeDefined();
-      expect(el.querySelector('.diff-del')).toBeDefined();
+      expect(el.querySelector('.file-status-letter.action-restore')).toBeDefined();
+      expect(el.querySelector('.file-status-letter.action-restore').textContent).toBe('M');
+      expect(el.querySelector('.file-status-letter.action-delete').textContent).toBe('D');
     });
 
     it('无文件时显示无变更', () => {
       const el = panel._buildPanel([]);
       expect(el.querySelector('.rollback-inline-count').textContent).toContain('无文件变更');
       expect(el.querySelector('.rollback-inline-files')).toBeNull();
-    });
-
-    it('有不带 diff 的无变动文件', () => {
-      const files = [{ filePath: '/a/b.txt', action: 'restore', insertions: 0, deletions: 0 }];
-      const el = panel._buildPanel(files);
-      expect(el.querySelector('.diff-none')).toBeDefined();
-      expect(el.querySelector('.diff-none').textContent).toBe('无变动');
     });
   });
 

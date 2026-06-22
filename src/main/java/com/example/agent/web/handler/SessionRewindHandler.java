@@ -256,7 +256,8 @@ public class SessionRewindHandler {
         if (jsonlPath == null || !Files.exists(jsonlPath)) return List.of();
 
         DiffComputer diffComputer = DiffComputer.DEFAULT;
-        Map<String, Map<String, Object>> fileChanges = new LinkedHashMap<>();
+        // 不跳过重复文件，收集每个文件的完整操作链
+        Map<String, List<FileChangeTracker.FileChange>> allFileChanges = new LinkedHashMap<>();
         boolean foundTarget = false;
 
         for (String line : Files.readAllLines(jsonlPath, StandardCharsets.UTF_8)) {
@@ -296,36 +297,66 @@ public class SessionRewindHandler {
                     }
 
                     for (String filePath : executor.getFilePaths(args)) {
-                        if (fileChanges.containsKey(filePath)) continue;
-
                         FileChangeTracker.FileChange change = FileChangeTracker.getChangeByToolCallId(toolCallId);
-                        String action;
-                        int insertions = 0;
-                        int deletions = 0;
-
                         if (change != null) {
-                            action = change.newFile ? "delete" : "restore";
-                            int[] stats = diffComputer.countDiffStats(
-                                change.originalContent != null ? change.originalContent : "",
-                                change.newContent != null ? change.newContent : "");
-                            insertions = stats[0];
-                            deletions = stats[1];
-                        } else {
-                            action = "restore";
+                            allFileChanges.computeIfAbsent(filePath, k -> new ArrayList<>()).add(change);
                         }
-
-                        Map<String, Object> item = new HashMap<>();
-                        item.put("filePath", filePath);
-                        item.put("action", action);
-                        item.put("insertions", insertions);
-                        item.put("deletions", deletions);
-                        fileChanges.put(filePath, item);
                     }
                 }
             } catch (Exception ignored) {}
         }
 
-        return new ArrayList<>(fileChanges.values());
+        // 根据完整操作链推导每个文件的净效果
+        List<Map<String, Object>> previewFiles = new ArrayList<>();
+        for (Map.Entry<String, List<FileChangeTracker.FileChange>> entry : allFileChanges.entrySet()) {
+            String filePath = entry.getKey();
+            List<FileChangeTracker.FileChange> changes = entry.getValue();
+
+            FileChangeTracker.FileChange first = changes.get(0);
+            FileChangeTracker.FileChange last = changes.get(changes.size() - 1);
+
+            // 第一次操作前文件是否存在
+            boolean existedBefore = !first.newFile;
+            // 最后一次操作后文件是否存在（当前工作区状态）
+            boolean existsNow = !"delete_file".equals(last.toolName);
+
+            // 无净变化 → 跳过（如新建后又删除了）
+            if (!existedBefore && !existsNow) continue;
+
+            String action;
+            int insertions = 0;
+            int deletions = 0;
+
+            if (!existedBefore && existsNow) {
+                // 之前不存在 → 现在存在 → 回滚后消失
+                action = "delete";
+            } else if (existedBefore && !existsNow) {
+                // 之前存在 → 现在不存在 → 回滚后还原
+                action = "add";
+                int[] stats = diffComputer.countDiffStats(
+                    first.originalContent != null ? first.originalContent : "",
+                    "");
+                insertions = stats[0];
+                deletions = stats[1];
+            } else {
+                // 之前存在 → 现在存在 → 内容被修改，回滚后恢复
+                action = "restore";
+                int[] stats = diffComputer.countDiffStats(
+                    first.originalContent != null ? first.originalContent : "",
+                    last.newContent != null ? last.newContent : "");
+                insertions = stats[0];
+                deletions = stats[1];
+            }
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("filePath", filePath);
+            item.put("action", action);
+            item.put("insertions", insertions);
+            item.put("deletions", deletions);
+            previewFiles.add(item);
+        }
+
+        return previewFiles;
     }
 
     private Path findJsonlPathForSession(String sessionId) {

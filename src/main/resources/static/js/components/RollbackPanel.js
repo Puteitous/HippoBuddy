@@ -1,5 +1,6 @@
 import { showToast } from '../utils/toast.js';
 import { escapeHtml } from '../utils.js';
+import { getFileIconInfo } from '../utils/file-icons.js';
 
 export class RollbackPanel {
   constructor({ chatService, chatPanel, chatContainer, messageInput, onCreateNewSession, onUpdateFileChanges }) {
@@ -172,8 +173,6 @@ export class RollbackPanel {
   }
 
   _buildPanel(previewFiles) {
-    const fileSvg = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v3h3"/></svg>';
-
     // 只保留有实际变动的文件（delete / add / restore）
     const changedFiles = previewFiles.filter(f =>
       f.action === 'delete' || f.action === 'add' || f.action === 'restore'
@@ -187,32 +186,27 @@ export class RollbackPanel {
       filesHtml = `
       <div class="rollback-inline-files">
         ${changedFiles.map(f => {
-          let actionLabel, actionClass;
+          let actionLabel, actionClass, statusLetter;
           if (f.action === 'delete') {
-            actionLabel = '将被删除';
+            actionLabel = '即将移除';
             actionClass = 'action-delete';
+            statusLetter = 'D';
           } else if (f.action === 'add') {
-            actionLabel = '将被添加';
+            actionLabel = '即将还原';
             actionClass = 'action-add';
+            statusLetter = 'A';
           } else {
-            actionLabel = '将被修改';
+            actionLabel = '即将恢复';
             actionClass = 'action-restore';
+            statusLetter = 'M';
           }
-          let diffHtml = '';
-          if (f.insertions !== undefined || f.deletions !== undefined) {
-            const ins = f.insertions || 0;
-            const del = f.deletions || 0;
-            if (ins === 0 && del === 0) {
-              diffHtml = '<span class="diff-none">无变动</span>';
-            } else {
-              diffHtml = `<span class="diff-stats"><span class="diff-add">+${ins}</span> <span class="diff-del">-${del}</span></span>`;
-            }
-          }
-          return `<div class="rollback-inline-file">
-            <span class="file-icon">${fileSvg}</span>
+          const fileName = f.filePath.split(/[/\\]/).pop();
+          const { iconFile } = getFileIconInfo(fileName);
+          return `<div class="rollback-inline-file ${actionClass}">
+            <img class="file-icon" src="icons/${iconFile}" draggable="false" alt="">
             <span class="file-name" title="${escapeHtml(f.filePath)}">${escapeHtml(f.filePath)}</span>
             <span class="file-action-badge ${actionClass}">${actionLabel}</span>
-            ${diffHtml}
+            <span class="file-status-letter ${actionClass}">${statusLetter}</span>
           </div>`;
         }).join('')}
       </div>

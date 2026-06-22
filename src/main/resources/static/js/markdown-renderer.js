@@ -210,7 +210,7 @@ export async function renderMarkdown(text) {
   // 注意：这里在 HTML 字符串层面用正则替换，而非 DOM 层面，
   // 因为 marked 的 breaks:true 会将 \n 转为 <br>，导致 auto-render
   // 的 DOM 文本节点扫描无法识别跨 <br> 的 $$...$$ 公式块。
-  if (window.katex) {
+  if (typeof window !== 'undefined' && window.katex) {
     // 保护代码块和已渲染的 katex 区域，避免误伤
     const protectedBlocks = [];
     let idx = 0;
