@@ -76,29 +76,33 @@ export class RollbackPanel {
 
     const result = await new Promise((resolve) => {
       const cancelBtn = panel.querySelector('.rollback-inline-btn-cancel');
-      const filesBtn = panel.querySelector('.rollback-inline-btn-files');
-      const confirmBtn = panel.querySelector('.rollback-inline-btn-confirm');
+      const confirmBtn = panel.querySelector('.rollback-inline-split > .rollback-inline-btn-confirm');
+      const split = panel.querySelector('.rollback-inline-split');
+      const dropdownBtns = panel.querySelectorAll('.rollback-inline-split-dropdown [data-mode]');
 
       const disableAll = () => {
-        [cancelBtn, filesBtn, confirmBtn].forEach(b => { b.disabled = true; });
+        cancelBtn.disabled = true;
+        confirmBtn.disabled = true;
+        dropdownBtns.forEach(b => { b.disabled = true; });
+        split?.classList.add('disabled');
       };
 
-      cancelBtn.addEventListener('click', () => {
+      const onCancel = () => {
         this._animateRemove(panel);
         resolve(null);
-      });
+      };
 
-      filesBtn.addEventListener('click', async () => {
+      const onConfirm = async (/** @type {Event} */ e) => {
+        const btn = e.currentTarget;
+        const mode = btn.dataset.mode || 'all';
         disableAll();
-        filesBtn.textContent = '回滚中...';
-        resolve('files');
-      });
+        btn.textContent = '回滚中...';
+        resolve(mode);
+      };
 
-      confirmBtn.addEventListener('click', async () => {
-        disableAll();
-        confirmBtn.textContent = '回滚中...';
-        resolve('all');
-      });
+      cancelBtn.addEventListener('click', onCancel);
+      confirmBtn.addEventListener('click', onConfirm);
+      dropdownBtns.forEach(btn => btn.addEventListener('click', onConfirm));
     });
 
     if (!result) return;
@@ -249,10 +253,14 @@ export class RollbackPanel {
       </div>
       ${filesHtml}
       <div class="rollback-inline-footer">
-        <span class="rollback-inline-actions">
-          <button class="rollback-inline-btn rollback-inline-btn-cancel">取消</button>
-          <button class="rollback-inline-btn rollback-inline-btn-files">仅回滚文件</button>
-          <button class="rollback-inline-btn rollback-inline-btn-confirm">回滚会话与文件</button>
+        <button class="rollback-inline-btn rollback-inline-btn-cancel">取消</button>
+        <span class="rollback-inline-split">
+          <button class="rollback-inline-btn rollback-inline-btn-confirm">回滚</button>
+          <button class="rollback-inline-split-toggle" title="更多回滚选项">▾</button>
+          <span class="rollback-inline-split-dropdown">
+            <button class="rollback-inline-btn rollback-inline-btn-confirm" data-mode="all"><span class="dropdown-check">✓</span>回滚会话与文件</button>
+            <button class="rollback-inline-btn rollback-inline-btn-files" data-mode="files"><span class="dropdown-check-placeholder"></span>仅回滚文件</button>
+          </span>
         </span>
       </div>
     `;

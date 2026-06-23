@@ -430,32 +430,6 @@ export class TokenMonitor {
           <span>当前</span>
           <span>${(stats.currentTokens || 0).toLocaleString()} / ${(stats.maxTokens || 0).toLocaleString()}</span>
         </div>
-        <div class="sbt-divider"></div>
-        <div class="sbt-row">
-          <span>本轮输入</span>
-          <span>${(stats.promptTokens || 0).toLocaleString()}</span>
-        </div>
-        <div class="sbt-row">
-          <span>本轮输出</span>
-          <span>${(stats.completionTokens || 0).toLocaleString()}</span>
-        </div>
-        <div class="sbt-divider"></div>
-        <div class="sbt-row">
-          <span>会话输入</span>
-          <span>${(stats.sessionTotalInput || 0).toLocaleString()}</span>
-        </div>
-        <div class="sbt-row">
-          <span>会话输出</span>
-          <span>${(stats.sessionTotalOutput || 0).toLocaleString()}</span>
-        </div>
-        <div class="sbt-row">
-          <span>LLM 调用</span>
-          <span>${(stats.sessionLlmCalls || 0).toLocaleString()} 次</span>
-        </div>
-        <div class="sbt-row">
-          <span>工具调用</span>
-          <span>${(stats.sessionToolCalls || 0).toLocaleString()} 次</span>
-        </div>
         ${(stats.cacheHitTokens || stats.sessionCacheHitTokens) ? `
         <div class="sbt-divider"></div>
         <div class="sbt-row">

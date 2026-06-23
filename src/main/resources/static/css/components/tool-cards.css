@@ -1608,12 +1608,134 @@
     align-items: center;
     justify-content: flex-end;
     padding: 8px 5px 10px;
+    gap: 8px;
 }
 
-.rollback-inline-footer .rollback-inline-actions {
+/* Split button: primary action + toggle arrow + dropdown */
+.rollback-inline-split {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+}
+
+.rollback-inline-split .rollback-inline-btn-confirm {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    border-right: none;
+    background: #3c3c3c;
+    color: #ffffff;
+    border-color: #3c3c3c;
+    padding: 3px 6px;
+}
+
+.rollback-inline-split .rollback-inline-btn-confirm:hover {
+    background: #2a2a2a;
+    border-color: #2a2a2a;
+}
+
+.rollback-inline-split-toggle {
     display: flex;
-    gap: 6px;
-    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 6px;
+    border: 1px solid #3c3c3c;
+    border-left: none;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: #3c3c3c;
+    color: #ffffff;
+    font-size: 9px;
+    cursor: pointer;
+    line-height: 1;
+    transition: all var(--transition-fast);
+    user-select: none;
+}
+
+.rollback-inline-split-toggle:hover {
+    background: #2a2a2a;
+    border-color: #2a2a2a;
+}
+
+[data-theme="dark"] .rollback-inline-split-toggle {
+    background: #e8e8ee;
+    color: #666;
+    border-color: #d0d0d4;
+}
+
+[data-theme="dark"] .rollback-inline-split-toggle:hover {
+    background: #dcdce2;
+    color: #333;
+}
+
+.rollback-inline-split-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    z-index: 10;
+    min-width: max-content;
+    background: var(--bg-primary, #ffffff);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+/* 桥接空隙，防止鼠标移动时 hover 丢失 */
+.rollback-inline-split-dropdown::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.rollback-inline-split-dropdown .rollback-inline-btn-files,
+.rollback-inline-split-dropdown .rollback-inline-btn-confirm {
+    display: block;
+    width: 100%;
+    white-space: nowrap;
+    background: transparent;
+    border: none;
+    padding: 6px 14px;
+    text-align: left;
+    font-size: 12px;
+    border-radius: 3px;
+    color: var(--text-primary);
+}
+
+.rollback-inline-split-dropdown .rollback-inline-btn-files:hover,
+.rollback-inline-split-dropdown .rollback-inline-btn-confirm:hover {
+    background: var(--bg-hover);
+}
+
+.dropdown-check {
+    display: inline-block;
+    width: 16px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.dropdown-check-placeholder {
+    display: inline-block;
+    width: 16px;
+}
+
+.rollback-inline-split:hover .rollback-inline-split-dropdown,
+.rollback-inline-split-dropdown:hover {
+    display: block;
+}
+
+.rollback-inline-split.disabled .rollback-inline-split-dropdown,
+.rollback-inline-split.disabled .rollback-inline-split-toggle {
+    display: none;
+}
+
+[data-theme="dark"] .rollback-inline-split-dropdown {
+    background: #2d2d30;
+    border-color: #444;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 
 .rollback-inline-btn {
@@ -1664,17 +1786,27 @@
     border-color: var(--text-muted);
 }
 
-[data-theme="dark"] .rollback-inline-btn-confirm,
-[data-theme="dark"] .rollback-inline-btn-files {
+[data-theme="dark"] .rollback-inline-split > .rollback-inline-btn-confirm {
     background: #e8e8ee;
     color: #181a1b;
     border-color: #d0d0d4;
 }
 
-[data-theme="dark"] .rollback-inline-btn-confirm:hover,
-[data-theme="dark"] .rollback-inline-btn-files:hover {
+[data-theme="dark"] .rollback-inline-split > .rollback-inline-btn-confirm:hover {
     background: #dcdce2;
     border-color: #c0c0c4;
+}
+
+[data-theme="dark"] .rollback-inline-split-dropdown .rollback-inline-btn-confirm,
+[data-theme="dark"] .rollback-inline-split-dropdown .rollback-inline-btn-files {
+    background: transparent;
+    color: var(--text-primary);
+    border: none;
+}
+
+[data-theme="dark"] .rollback-inline-split-dropdown .rollback-inline-btn-confirm:hover,
+[data-theme="dark"] .rollback-inline-split-dropdown .rollback-inline-btn-files:hover {
+    background: var(--bg-hover);
 }
 
 .rollback-inline-loading {

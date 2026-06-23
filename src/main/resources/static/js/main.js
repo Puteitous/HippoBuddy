@@ -399,7 +399,6 @@ function bindGlobalEvents() {
     try {
       const forkResult = await chatService.forkSession(currentSessionId, messageId);
       if (forkResult.newSessionId) {
-        showToast('已创建新会话，正在切换...', { type: 'info', duration: 3000 });
         await switchSession(forkResult.newSessionId);
         await sessionManager.loadSessions();
         updateHistoryDropdown?.();
