@@ -8,6 +8,8 @@ export class FileChangeManager {
   constructor() {
     this._refreshTimer = null;
     this._lastChangeSnapshot = null; // 记录上一次变更快照，用于检测新变更
+    this._cachedFileGroups = new Map(); // 缓存分组后的文件列表，用于 popover 渲染
+    this._popoverHideTimer = null; // 悬浮面板隐藏防抖定时器
   }
 
   init() {
@@ -35,6 +37,55 @@ export class FileChangeManager {
     this._refreshTimer = setInterval(() => {
       this.updateFileChanges();
     }, 15000);
+
+    // ── 文件变更悬浮面板 hover 逻辑 ──
+    this._bindPopoverHover();
+  }
+
+  _bindPopoverHover() {
+    const statusBarFiles = document.getElementById('statusBarFiles');
+    const popover = document.getElementById('statusBarFilesPopover');
+    if (!statusBarFiles || !popover) return;
+
+    const showPopover = () => {
+      if (this._popoverHideTimer) {
+        clearTimeout(this._popoverHideTimer);
+        this._popoverHideTimer = null;
+      }
+      popover.classList.add('show');
+    };
+
+    const hidePopover = () => {
+      if (this._popoverHideTimer) {
+        clearTimeout(this._popoverHideTimer);
+      }
+      // 延迟 200ms 隐藏，避免移出时闪烁
+      this._popoverHideTimer = setTimeout(() => {
+        popover.classList.remove('show');
+      }, 200);
+    };
+
+    statusBarFiles.addEventListener('mouseenter', showPopover);
+    statusBarFiles.addEventListener('mouseleave', hidePopover);
+    popover.addEventListener('mouseenter', showPopover);
+    popover.addEventListener('mouseleave', hidePopover);
+
+    // 点击状态栏文件项也切换显隐（点击时打开活动栏面板，隐藏 popover）
+    statusBarFiles.addEventListener('click', () => {
+      popover.classList.remove('show');
+    });
+
+    // 点击 popover 中的文件项 → 打开 diff 弹窗
+    popover.addEventListener('click', (e) => {
+      const fileItem = e.target.closest('.popover-file-item');
+      if (fileItem) {
+        const filePath = fileItem.dataset.path;
+        if (filePath) {
+          popover.classList.remove('show');
+          diffModalManager.show(filePath);
+        }
+      }
+    });
   }
 
   destroy() {
@@ -73,6 +124,8 @@ export class FileChangeManager {
 
       // 无变更时的空状态
       if (!changes || changes.length === 0) {
+        this._cachedFileGroups = new Map();
+        this._renderFilesPopover();
         if (list) list.innerHTML = '';
         if (empty) empty.style.display = 'block';
         const abEmpty = document.getElementById('abFileChangesEmpty');
@@ -109,6 +162,9 @@ export class FileChangeManager {
       }
 
       if (statusBarFiles) statusBarFiles.textContent = `${fileGroups.size}`;
+
+      // 缓存分组数据给 popover 使用
+      this._cachedFileGroups = fileGroups;
 
       // 检测是否有新变更（文件列表或时间戳变化），有则触发文件树刷新
       const currentSnapshot = JSON.stringify(Array.from(fileGroups.entries()).map(([k, v]) => [k, v.latest]));
@@ -161,9 +217,62 @@ export class FileChangeManager {
       // 同步更新 Activity Bar 面板
       const abList = document.getElementById('abFileChangesList');
       if (abList) abList.innerHTML = fileHtml;
+
+      // 渲染悬浮面板
+      this._renderFilesPopover();
     } catch (e) {
       console.error('获取文件变更失败:', e);
     }
+  }
+
+  _renderFilesPopover() {
+    const popoverBody = document.getElementById('filesPopoverBody');
+    if (!popoverBody) return;
+
+    if (this._cachedFileGroups.size === 0) {
+      popoverBody.innerHTML = '';
+      return;
+    }
+
+    // 按最近修改时间降序排列
+    const sorted = Array.from(this._cachedFileGroups.values())
+      .sort((a, b) => b.latest - a.latest);
+
+    const MAX_VISIBLE = 10;
+    const visible = sorted.slice(0, MAX_VISIBLE);
+    const overflow = sorted.length - MAX_VISIBLE;
+
+    let html = '';
+    for (const c of visible) {
+      const fileName = c.filePath.split(/[/\\]/).pop();
+      const { iconFile } = getFileIconInfo(fileName);
+
+      let statusLetter, statusClass;
+      if (c.toolName === 'delete_file') {
+        statusLetter = 'D';
+        statusClass = 'status-deleted';
+      } else if (c.toolName === 'write_file') {
+        statusLetter = 'A';
+        statusClass = 'status-added';
+      } else {
+        statusLetter = 'M';
+        statusClass = 'status-modified';
+      }
+
+      html += `
+        <div class="popover-file-item" data-path="${escapeHtml(c.filePath)}">
+          <span class="file-icon"><img src="icons/${iconFile}" draggable="false" alt=""></span>
+          <span class="file-name">${escapeHtml(fileName)}</span>
+          <span class="file-status ${statusClass}">${statusLetter}</span>
+        </div>
+      `;
+    }
+
+    if (overflow > 0) {
+      html += `<div class="popover-file-overflow">还有 ${overflow} 个文件变更</div>`;
+    }
+
+    popoverBody.innerHTML = html;
   }
 
   async _rollbackFile(filePath, btnEl) {

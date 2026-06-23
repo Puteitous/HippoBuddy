@@ -25,7 +25,11 @@ export class ActivityBar {
         /** 动作按钮回调：{ actionName: (btn) => void } */
         this._actionHandlers = new Map();
 
+        /** 活动栏是否可见 */
+        this._visible = true;
+
         this.init();
+        this._loadVisibilityState();
     }
 
     init() {
@@ -214,5 +218,53 @@ export class ActivityBar {
      */
     getActivePanel() {
         return this.activePanel;
+    }
+
+    /**
+     * 从 localStorage 恢复活动栏可见性状态
+     */
+    _loadVisibilityState() {
+        const hidden = localStorage.getItem('hippo-activity-bar-hidden') === 'true';
+        if (hidden) {
+            this.hide();
+        }
+    }
+
+    /**
+     * 隐藏活动栏，关闭已打开的面板
+     */
+    hide() {
+        this._visible = false;
+        this.bar.classList.add('hidden');
+        this.closePanel();
+        localStorage.setItem('hippo-activity-bar-hidden', 'true');
+    }
+
+    /**
+     * 显示活动栏
+     */
+    show() {
+        this._visible = true;
+        this.bar.classList.remove('hidden');
+        localStorage.setItem('hippo-activity-bar-hidden', 'false');
+    }
+
+    /**
+     * 切换活动栏显示/隐藏
+     */
+    toggleVisibility() {
+        if (this._visible) {
+            this.hide();
+        } else {
+            this.show();
+        }
+        return this._visible;
+    }
+
+    /**
+     * 活动栏当前是否可见
+     */
+    isVisible() {
+        return this._visible;
     }
 }

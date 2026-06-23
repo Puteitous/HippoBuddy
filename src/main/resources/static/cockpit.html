@@ -365,6 +365,10 @@
                                 </svg>
                                 <span class="status-bar-label">文件</span>
                                 <span class="status-bar-value" id="statusBarFilesValue">0</span>
+                                <!-- 文件变更悬浮面板 -->
+                                <div class="status-bar-files-popover" id="statusBarFilesPopover">
+                                    <div class="files-popover-body" id="filesPopoverBody"></div>
+                                </div>
                             </span>
                             <span class="status-bar-divider"></span>
                             <span class="status-bar-item" id="statusBarMonitor" data-section="monitor" title="实时监控">
@@ -378,6 +382,12 @@
                         <div class="status-bar-actions">
                             <button id="stopBtn" style="display:none;" title="停止生成">
                                 <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                            </button>
+                            <button id="activityBarToggleBtn" title="切换活动栏">
+                                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="1" y="2" width="3" height="12" rx="0.5"/>
+                                    <rect x="6" y="2" width="9" height="12" rx="0.5"/>
+                                </svg>
                             </button>
                             <button id="sendBtn" title="发送消息">
                                 <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -405,7 +415,7 @@
         <div class="diff-modal">
             <div class="diff-modal-header">
                 <div class="diff-modal-title">
-                    <span>📄 文件变更对比</span>
+                    <span>文件变更对比</span>
                     <span class="diff-file-path" id="diffFilePath"></span>
                 </div>
                 <button class="diff-modal-close" id="diffModalClose">✕</button>

@@ -601,4 +601,18 @@
     border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
 
+/* ========== Activity Bar 隐藏/显示 ========== */
+.activity-bar.hidden {
+    width: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    border: none;
+    transition: width 0.2s ease, padding 0.2s ease;
+}
+
+/* 活动栏隐藏时，浮动面板左边缘归零 */
+.sidebar-area:has(.activity-bar.hidden) .activity-floating-panel {
+    left: 0;
+}
+
 

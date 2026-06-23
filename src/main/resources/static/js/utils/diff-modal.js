@@ -1,6 +1,7 @@
 import { escapeHtml } from '../utils.js';
 import { showToast } from './toast.js';
 import { EventBus } from './event-bus.js';
+import { getFileIconInfo } from './file-icons.js';
 
 export class DiffModalManager {
   constructor() {
@@ -67,7 +68,9 @@ export class DiffModalManager {
     this.overlay.style.display = 'flex';
 
     if (this.filePathEl) {
-      this.filePathEl.textContent = filePath.split(/[/\\]/).pop();
+      const fileName = filePath.split(/[/\\]/).pop();
+      const { iconFile } = getFileIconInfo(fileName);
+      this.filePathEl.innerHTML = `<img class="diff-file-icon" src="icons/${iconFile}" draggable="false" alt=""> ${escapeHtml(fileName)}`;
     }
 
     if (this.timeline) {

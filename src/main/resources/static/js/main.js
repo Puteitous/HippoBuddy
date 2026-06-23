@@ -229,6 +229,17 @@ function init() {
     activityBar.onAction('new-session', () => {
       createNewSession();
     });
+
+    // 活动栏显示/隐藏切换按钮
+    const toggleBtn = document.getElementById('activityBarToggleBtn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        const nowVisible = activityBar.toggleVisibility();
+        toggleBtn.classList.toggle('active', nowVisible);
+      });
+      // 同步初始状态（可能从 localStorage 恢复了隐藏）
+      toggleBtn.classList.toggle('active', activityBar.isVisible());
+    }
   }
 
   // 15. 安排 splash 结束 + 页面内容渐入

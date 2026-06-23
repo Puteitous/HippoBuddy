@@ -311,6 +311,16 @@
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
     font-weight: 400;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.diff-file-icon {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 .diff-modal-close {
