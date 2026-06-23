@@ -4,6 +4,7 @@ import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.config.Config;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
+import com.example.agent.domain.rule.RuleManager;
 import com.example.agent.llm.model.Message;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.application.ConversationService;
@@ -379,6 +380,12 @@ public class WebSessionManager implements SessionManager {
         } catch (Exception e) {
             logger.warn("加载默认 System Prompt 失败，使用 fallback", e);
             prompt = "You are Hippo, a helpful AI assistant with access to various tools including file operations, code search, and bash commands. Always respond in the same language as the user's message.";
+        }
+
+        // 通过 RuleManager 注入项目规则（懒加载，自动从 .hippo/rules/ 扫描）
+        RuleManager ruleManager = ServiceLocator.getOrNull(RuleManager.class);
+        if (ruleManager != null) {
+            prompt = ruleManager.enhanceSystemPrompt(prompt);
         }
 
         String workspacePath = WorkspaceContext.getCurrentFolder();

@@ -158,10 +158,8 @@ public class AgentContext {
         ServiceLocator.registerSingleton(ToolOrchestrator.class, toolOrchestrator);
         logger.info("ToolOrchestrator 初始化完成 ✅ - {}", toolOrchestrator.getStats());
 
-        // 初始化各种管理器
-        this.ruleManager.loadHippoRules();
-        this.ruleManager.loadMemoryMd();
-        logger.info("RuleManager 初始化完成");
+        // RuleManager 自动在首次 enhanceSystemPrompt 时加载规则文件
+        logger.info("RuleManager 就绪（懒加载模式）");
 
         logger.info("代码检索：实时搜索模式（无预构建索引）");
 

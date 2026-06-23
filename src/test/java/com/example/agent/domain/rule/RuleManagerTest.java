@@ -14,9 +14,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * 测试重点：
  * - null 配置处理
  * - null tokenEstimator 处理
- * - 不存在的文件处理
- * - 空文件/空内容处理
+ * - 懒加载行为
  * - reload 边界
+ * - 禁用注入
  */
 class RuleManagerTest {
 
@@ -32,8 +32,7 @@ class RuleManagerTest {
     void testConstructorWithNullConfig() {
         RuleManager manager = new RuleManager(tokenEstimator, null);
         assertNotNull(manager);
-        assertEquals("", manager.getHippoRulesContent());
-        assertEquals("", manager.getMemoryMdContent());
+        assertEquals(0, manager.getTotalTokens());
     }
 
     @Test
@@ -68,53 +67,22 @@ class RuleManagerTest {
     }
 
     @Test
-    @DisplayName("边界 - 加载不存在的规则文件")
-    void testLoadNonExistentRulesFile() {
-        RuleConfig config = new RuleConfig();
-        config.setRulesFile("nonexistent_rules.txt");
-        RuleManager manager = new RuleManager(tokenEstimator, config);
-
-        assertDoesNotThrow(() -> manager.loadHippoRules());
-        assertEquals("", manager.getHippoRulesContent());
+    @DisplayName("懒加载 - 构造后不调用 enhanceSystemPrompt 不触发文件扫描")
+    void testLazyLoadingNoScanOnConstruction() {
+        // 构造后不应有文件扫描行为，token 应为 0
+        RuleManager manager = new RuleManager(tokenEstimator);
+        assertEquals(0, manager.getTotalTokens());
     }
 
     @Test
-    @DisplayName("边界 - 加载不存在的记忆文件")
-    void testLoadNonExistentMemoryFile() {
-        RuleConfig config = new RuleConfig();
-        config.setMemoryFile("nonexistent_memory.md");
-        RuleManager manager = new RuleManager(tokenEstimator, config);
-
-        assertDoesNotThrow(() -> manager.loadMemoryMd());
-        assertEquals("", manager.getMemoryMdContent());
-    }
-
-    @Test
-    @DisplayName("边界 - null 文件路径配置")
-    void testNullFilePaths() {
-        RuleConfig config = new RuleConfig();
-        config.setRulesFile(null);
-        config.setMemoryFile(null);
-        RuleManager manager = new RuleManager(tokenEstimator, config);
-
-        assertDoesNotThrow(() -> manager.loadHippoRules());
-        assertDoesNotThrow(() -> manager.loadMemoryMd());
-        assertEquals("", manager.getHippoRulesContent());
-        assertEquals("", manager.getMemoryMdContent());
-    }
-
-    @Test
-    @DisplayName("边界 - 空字符串文件路径")
-    void testEmptyFilePaths() {
-        RuleConfig config = new RuleConfig();
-        config.setRulesFile("");
-        config.setMemoryFile("");
-        RuleManager manager = new RuleManager(tokenEstimator, config);
-
-        assertDoesNotThrow(() -> manager.loadHippoRules());
-        assertDoesNotThrow(() -> manager.loadMemoryMd());
-        assertEquals("", manager.getHippoRulesContent());
-        assertEquals("", manager.getMemoryMdContent());
+    @DisplayName("懒加载 - 首次 enhanceSystemPrompt 触发加载（无规则文件时返回空）")
+    void testLazyLoadingTriggersOnFirstEnhance() {
+        RuleManager manager = new RuleManager(tokenEstimator);
+        String result = manager.enhanceSystemPrompt("base prompt");
+        // 没有实际规则文件，规则部分应为空，但 base prompt 应保留
+        assertTrue(result.contains("base prompt"));
+        // 确保 token 被计算了（即使规则内容为空）
+        assertTrue(manager.getTotalTokens() > 0);
     }
 
     @Test
@@ -122,9 +90,7 @@ class RuleManagerTest {
     void testEnhanceNullSystemPrompt() {
         RuleManager manager = new RuleManager(tokenEstimator);
         String result = manager.enhanceSystemPrompt(null);
-
         assertNotNull(result);
-        assertTrue(result.contains("项目规则"));
     }
 
     @Test
@@ -132,9 +98,7 @@ class RuleManagerTest {
     void testEnhanceEmptySystemPrompt() {
         RuleManager manager = new RuleManager(tokenEstimator);
         String result = manager.enhanceSystemPrompt("");
-
         assertNotNull(result);
-        assertTrue(result.contains("项目规则"));
     }
 
     @Test
@@ -182,5 +146,24 @@ class RuleManagerTest {
             manager.reload();
             manager.reload();
         });
+    }
+
+    @Test
+    @DisplayName("边界 - reload 后再次 enhanceSystemPrompt 不报错")
+    void testReloadThenEnhance() {
+        RuleManager manager = new RuleManager(tokenEstimator);
+        manager.reload();
+        String result = manager.enhanceSystemPrompt("after reload");
+        assertNotNull(result);
+        assertTrue(manager.getTotalTokens() > 0);
+    }
+
+    @Test
+    @DisplayName("边界 - 连续多次 enhanceSystemPrompt 结果一致")
+    void testMultipleEnhanceCalls() {
+        RuleManager manager = new RuleManager(tokenEstimator);
+        String result1 = manager.enhanceSystemPrompt("test");
+        String result2 = manager.enhanceSystemPrompt("test");
+        assertEquals(result1, result2);
     }
 }

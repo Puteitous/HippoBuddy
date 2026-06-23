@@ -1,16 +1,19 @@
 package com.example.agent.domain.rule;
 
 import com.example.agent.config.RuleConfig;
-import com.example.agent.config.UserResourceManager;
 import com.example.agent.memory.MemoryStore;
 import com.example.agent.service.TokenEstimator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
+/**
+ * 规则管理器 — 负责加载规则文件并注入到 System Prompt。
+ * <p>
+ * 规则来源唯一路径：{@code .hippo/rules/*.md}。
+ * 规则文件在首次调用 {@link #enhanceSystemPrompt(String)} 时自动加载（懒加载），
+ * 不依赖任何入口（CLI / Web / Desktop）显式调用初始化方法。
+ * </p>
+ */
 public class RuleManager {
 
     private static final Logger logger = LoggerFactory.getLogger(RuleManager.class);
@@ -20,9 +23,9 @@ public class RuleManager {
     private final RuleConfig config;
     private MemoryStore memoryStore;
 
-    private String hippoRulesContent;
-    private String memoryMdContent;
+    private String rulesContent;
     private int totalTokens;
+    private boolean loaded;
 
     public RuleManager(TokenEstimator tokenEstimator, RuleConfig config) {
         if (tokenEstimator == null) {
@@ -30,9 +33,9 @@ public class RuleManager {
         }
         this.tokenEstimator = tokenEstimator;
         this.config = config != null ? config : new RuleConfig();
-        this.hippoRulesContent = "";
-        this.memoryMdContent = "";
+        this.rulesContent = "";
         this.totalTokens = 0;
+        this.loaded = false;
     }
 
     public RuleManager(TokenEstimator tokenEstimator) {
@@ -43,44 +46,44 @@ public class RuleManager {
         this.memoryStore = memoryStore;
     }
 
-    public void loadHippoRules() {
-        UserResourceManager.initialize();
-        hippoRulesContent = UserResourceManager.loadCombinedRules();
-        
-        if (!hippoRulesContent.isEmpty()) {
-            int tokens = tokenEstimator.estimateTextTokens(hippoRulesContent);
-            logger.info("📋 加载分层规则文件，总大小: {} 字符, {} tokens", hippoRulesContent.length(), tokens);
+    /**
+     * 确保规则文件已被加载（懒加载）。
+     * 仅在第一次调用时扫描 {@code .hippo/rules/} 目录。
+     */
+    private void ensureLoaded() {
+        if (loaded) {
+            return;
         }
+        rulesContent = RuleLoader.loadCombinedRules();
+        loaded = true;
     }
 
-    public void loadMemoryMd() {
-        UserResourceManager.initialize();
-        memoryMdContent = UserResourceManager.loadCombinedMemory();
-        
-        if (!memoryMdContent.isEmpty()) {
-            int tokens = tokenEstimator.estimateTextTokens(memoryMdContent);
-            logger.info("🧠 加载分层记忆文件，总大小: {} 字符, {} tokens", memoryMdContent.length(), tokens);
-        }
-    }
-
+    /**
+     * 增强系统提示词：将项目规则 + 长期记忆索引注入到 base prompt 之后。
+     * <p>
+     * 首次调用时会自动触发规则文件的懒加载。
+     * 如果配置中 {@code inject_at_startup = false}，直接返回原始 prompt，不做任何增强。
+     * </p>
+     *
+     * @param baseSystemPrompt 原始系统提示词，可以为 null 或空
+     * @return 增强后的系统提示词
+     */
     public String enhanceSystemPrompt(String baseSystemPrompt) {
         if (!config.isInjectAtStartup()) {
             logger.debug("RuleManager 注入已禁用");
             return baseSystemPrompt;
         }
 
+        ensureLoaded();
+
         StringBuilder enhanced = new StringBuilder();
         if (baseSystemPrompt != null && !baseSystemPrompt.isEmpty()) {
             enhanced.append(baseSystemPrompt).append("\n\n");
         }
 
-        enhanced.append("=== 项目规则 ===\n");
-        if (!hippoRulesContent.isEmpty()) {
-            enhanced.append(hippoRulesContent).append("\n\n");
-        }
-        if (!memoryMdContent.isEmpty()) {
-            enhanced.append("=== 项目上下文记忆 ===\n");
-            enhanced.append(memoryMdContent).append("\n\n");
+        if (!rulesContent.isEmpty()) {
+            enhanced.append("=== 项目规则 ===\n");
+            enhanced.append(rulesContent).append("\n\n");
         }
 
         // 注入长期记忆索引（会话启动时一次注入）
@@ -101,21 +104,21 @@ public class RuleManager {
         return result;
     }
 
-    public String getHippoRulesContent() {
-        return hippoRulesContent;
+    /**
+     * 重新加载规则文件（热重载）。
+     * 调用后，下一次 {@link #enhanceSystemPrompt(String)} 会重新扫描 {@code .hippo/rules/}。
+     */
+    public void reload() {
+        logger.info("重新加载规则文件...");
+        loaded = false;
+        ensureLoaded();
     }
 
-    public String getMemoryMdContent() {
-        return memoryMdContent;
-    }
-
+    /**
+     * 返回增强后的总 token 数。
+     */
     public int getTotalTokens() {
         return totalTokens;
     }
 
-    public void reload() {
-        logger.info("重新加载规则文件...");
-        loadHippoRules();
-        loadMemoryMd();
-    }
 }
