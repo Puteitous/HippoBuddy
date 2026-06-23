@@ -15,6 +15,16 @@ public class DiffComputer {
 
     public static final DiffComputer DEFAULT = new DiffComputer();
 
+    /** 按行分割，去掉文件末尾 \n 带来的尾部空串 */
+    private static List<String> splitLines(String text) {
+        List<String> lines = new ArrayList<>(Arrays.asList(text.split("\n", -1)));
+        // 文件结尾有 \n 时 split("\n", -1) 会多一个空串，去掉它
+        if (lines.size() > 1 && lines.get(lines.size() - 1).isEmpty()) {
+            lines.remove(lines.size() - 1);
+        }
+        return lines;
+    }
+
     public List<Map<String, String>> computeDiffAsMap(String original, String modified) {
         List<String[]> diffLines = computeDiff(original, modified);
         List<Map<String, String>> result = new ArrayList<>();
@@ -28,8 +38,8 @@ public class DiffComputer {
     }
 
     public List<String[]> computeDiff(String original, String modified) {
-        List<String> origLines = Arrays.asList(original.split("\n", -1));
-        List<String> modLines = Arrays.asList(modified.split("\n", -1));
+        List<String> origLines = splitLines(original);
+        List<String> modLines = splitLines(modified);
 
         Patch<String> patch = DiffUtils.diff(origLines, modLines);
         List<String[]> result = new ArrayList<>();

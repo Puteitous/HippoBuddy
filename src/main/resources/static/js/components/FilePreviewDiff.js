@@ -3,7 +3,7 @@
  *
  * 在编辑器中通过行背景色 + 左侧边框显示 AI 对文件的修改：
  * - 绿色左边框 + 淡绿色背景 = 新增行
- * - 黄色左边框 + 淡黄色背景 = 修改行
+ * - 红色左边框 + 淡红色背景 = 修改行
  *
  * 用法：
  *   import { createDiffExtension } from './FilePreviewDiff.js'

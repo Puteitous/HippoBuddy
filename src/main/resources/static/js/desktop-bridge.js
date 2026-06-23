@@ -423,6 +423,15 @@ const HippoDesktop = (() => {
       }
     };
 
+    // 刷新页面按钮
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+      refreshBtn.style.display = '';
+      refreshBtn.addEventListener('click', () => {
+        location.reload();
+      });
+    }
+
     // ========== 外部链接拦截：阻止 JCEF 导航，改走系统浏览器 ==========
     document.addEventListener('click', (e) => {
       const link = e.target.closest('a[data-external="true"]');

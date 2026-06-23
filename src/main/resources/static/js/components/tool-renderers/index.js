@@ -221,7 +221,7 @@ export function renderToolTimelineRow(tool) {
         <span class="tool-timeline-summary"${summaryFilePath ? ` onclick="event.stopPropagation();window.HippoWorkspace?.navigateToFile?.('${escapeHtml(summaryFilePath)}')" data-file-path="${escapeHtml(summaryFilePath)}"` : ''}>${escapeHtml(truncateText(summary, 60))}</span>
         <span class="tool-timeline-status ${status}">${statusSvg}</span>
         ${viewBtnHtml}
-        <span class="tool-timeline-arrow">▶</span>
+        <span class="tool-timeline-arrow">◀</span>
       </div>
       <div class="tool-timeline-detail">${detailHTML}</div>
     </div>`;

@@ -17,7 +17,7 @@ export function renderTodoWriteCard(tool) {
         <span class="tool-icon">${todoIcon}</span>
         <span class="tool-title">任务清单</span>
         <span class="tool-progress-label">${completed}/${total}</span>
-        <span class="arrow">▶</span>
+        <span class="arrow">◀</span>
       </div>
       <div class="tool-call-details">
         ${total > 1 ? `

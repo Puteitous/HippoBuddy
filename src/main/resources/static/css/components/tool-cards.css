@@ -294,11 +294,11 @@
 }
 
 .ask-user-card .tool-header.expanded .arrow {
-    transform: rotate(90deg);
+    transform: rotate(-90deg);
 }
 
 .ask-user-card.expanded .tool-header .arrow {
-    transform: rotate(90deg);
+    transform: rotate(-90deg);
 }
 
 .ask-user-card .tool-call-details {
@@ -1017,7 +1017,7 @@
 }
 
 .tool-timeline-item.expanded .tool-timeline-arrow {
-    transform: rotate(90deg);
+    transform: rotate(-90deg);
 }
 
 /* ── Timeline 查看变更按钮 ── */

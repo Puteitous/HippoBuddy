@@ -1007,6 +1007,12 @@ export class ChatPanel {
         session.pushTextSegment();
         if (contentDiv) this.renderPipeline.setContainer(contentDiv);
         this.renderPipeline.renderFinal(session.getSegments(), '');
+        // 重建 dataset.markdown，使之包含确认流后新增的文本内容
+        const textSegments = session.getSegments()
+          .filter(s => s.type === 'text')
+          .map(s => s.content);
+        if (session.getCurrentText().trim()) textSegments.push(session.getCurrentText());
+        contentDiv.dataset.markdown = textSegments.join('');
         // 内容已完整渲染，显示操作按钮
         session.showActionButtons();
         this.smartScroll();

@@ -1758,15 +1758,13 @@
    由 FilePreviewDiff.js 插件渲染
    ══════════════════════════════════════════════════ */
 
-/* ── Diff 行背景色 + 左侧色条 ── */
+/* ── Diff 行背景色 ── */
 .cm-diff-line-added {
-    background: rgba(45, 164, 78, 0.08) !important;
-    border-left: 3px solid #2da44e !important;
+    background: rgba(45, 164, 78, 0.15) !important;
 }
 
 .cm-diff-line-modified {
-    background: rgba(212, 148, 51, 0.08) !important;
-    border-left: 3px solid #d49433 !important;
+    background: rgba(218, 54, 51, 0.15) !important;
 }
 
 [data-theme="dark"] .cm-diff-line-added {
@@ -1774,7 +1772,7 @@
 }
 
 [data-theme="dark"] .cm-diff-line-modified {
-    background: rgba(212, 148, 51, 0.15) !important;
+    background: rgba(218, 54, 51, 0.15) !important;
 }
 
 /* ══════════════════════════════════════════════════

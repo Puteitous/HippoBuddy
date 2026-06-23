@@ -145,12 +145,25 @@ export class DiffModalManager {
       });
       const toolLabel = this.getToolLabel(c.toolName);
       const isActive = i === this.activeIndex;
+
+      // 统计该次变更的 +/- 数量
+      let added = 0, removed = 0;
+      if (c.changes) {
+        for (const ch of c.changes) {
+          if (ch.type === 'added') added++;
+          if (ch.type === 'removed') removed++;
+        }
+      }
+      const statsHtml = (added > 0 || removed > 0)
+        ? `<span class="diff-timeline-stats"><span class="diff-added-count">+${added}</span> <span class="diff-removed-count">-${removed}</span></span>`
+        : '';
+
       html += `
         <div class="diff-timeline-item ${isActive ? 'active' : ''}" data-index="${i}">
           <div class="diff-timeline-dot"></div>
           <div class="diff-timeline-content">
             <div class="diff-timeline-time">${escapeHtml(time)}</div>
-            <div class="diff-timeline-tool">${escapeHtml(toolLabel)}</div>
+            <div class="diff-timeline-tool">${escapeHtml(toolLabel)} ${statsHtml}</div>
           </div>
         </div>
       `;
@@ -209,10 +222,6 @@ export class DiffModalManager {
     }
 
     this.contentPanel.innerHTML = `<div class="diff-content">${html}</div>`;
-
-    if (this.statsEl) {
-      this.statsEl.innerHTML = `<span class="diff-added-count">+${addedCount}</span> <span class="diff-removed-count">-${removedCount}</span>`;
-    }
 
     this.contentPanel.scrollTop = 0;
   }

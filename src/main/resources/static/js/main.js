@@ -408,6 +408,14 @@ function bindGlobalEvents() {
       showToast(`分叉失败：${e.message}`, { type: 'error', duration: 3000 });
     }
   });
+
+  // Ctrl+F5 刷新页面（桌面端无需重启）
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'F5') {
+      e.preventDefault();
+      location.reload();
+    }
+  });
 }
 
 // RollbackPanel 接管了回滚逻辑

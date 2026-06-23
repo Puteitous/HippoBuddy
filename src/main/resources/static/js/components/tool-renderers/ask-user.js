@@ -24,7 +24,7 @@ export function renderAskUserCard(tool) {
       <div class="tool-header" onclick="window.toggleToolCardDetails(this)">
         <span class="tool-icon">${askIcon}</span>
         <span class="tool-title">需要确认</span>
-        <span class="arrow">▶</span>
+        <span class="arrow">◀</span>
       </div>
       <div class="tool-call-details">
         <div class="question-text">${escapeHtml(question)}</div>

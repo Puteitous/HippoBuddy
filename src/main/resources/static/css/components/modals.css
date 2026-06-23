@@ -432,6 +432,20 @@
     margin-top: 2px;
 }
 
+.diff-timeline-stats {
+    margin-left: 8px;
+}
+
+.diff-timeline-stats .diff-added-count {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.diff-timeline-stats .diff-removed-count {
+    color: var(--error-color);
+    font-weight: 600;
+}
+
 .diff-content-panel {
     flex: 1;
     overflow-y: auto;
@@ -518,8 +532,7 @@
 }
 
 .diff-stats {
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
+    display: none;
 }
 
 .diff-stats .diff-added-count {
@@ -533,6 +546,7 @@
 }
 
 .diff-rollback-btn {
+    margin-left: auto;
     padding: 6px 16px;
     border: 1px solid var(--error-color);
     border-radius: var(--radius-sm);
