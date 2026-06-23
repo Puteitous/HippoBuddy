@@ -129,4 +129,44 @@ describe('session-manager.js', () => {
       expect(sessionManager.sessionNames['s1'].length).toBeLessThanOrEqual(23);
     });
   });
+
+  describe('updateSessionTitle', () => {
+    it('更新已存在会话项的标题 DOM', () => {
+      sessionManager.listContainer.innerHTML = `
+        <div class="session-item" data-session-id="s1">
+          <div class="session-info">
+            <span class="session-name">旧标题</span>
+          </div>
+        </div>
+      `;
+
+      sessionManager.updateSessionTitle('s1', '新标题');
+
+      const nameSpan = sessionManager.listContainer.querySelector('.session-name');
+      expect(nameSpan.textContent).toBe('新标题');
+    });
+
+    it('更新 sessionNames 缓存', () => {
+      sessionManager.updateSessionTitle('s1', '缓存标题');
+      expect(sessionManager.sessionNames['s1']).toBe('缓存标题');
+    });
+
+    it('标题相同不重复更新', () => {
+      sessionManager.sessionNames['s1'] = '相同标题';
+
+      sessionManager.updateSessionTitle('s1', '相同标题');
+
+      // sessionNames 不变，DOM 无变化
+      expect(sessionManager.sessionNames['s1']).toBe('相同标题');
+    });
+
+    it('长标题被截断', () => {
+      sessionManager.updateSessionTitle('s1', 'a'.repeat(50));
+      expect(sessionManager.sessionNames['s1'].length).toBeLessThanOrEqual(33);
+    });
+
+    it('不存在 DOM 中时不报错', () => {
+      expect(() => sessionManager.updateSessionTitle('不存在', '标题')).not.toThrow();
+    });
+  });
 });

@@ -195,15 +195,24 @@ function init() {
     fileChangeManager.updateFileChanges();
   });
   
-  EventBus.on('session:auto-name', ({ sessionId, content }) => {
+  EventBus.on('session:auto-name', ({ sessionId }) => {
     if (sessionId && sessionManager) {
       if (!sessionManager.sessionNames || !sessionManager.sessionNames[sessionId]) {
-        sessionManager.setSessionName(sessionId, content);
+        sessionManager.setSessionName(sessionId, '新会话');
         sessionManager.loadSessions().then(() => updateHistoryDropdown?.());
       }
     }
   });
-  
+
+  // 接收 AI 生成的标题，局部更新 DOM（不重刷列表）
+  EventBus.on('session:title-updated', ({ sessionId, title }) => {
+    if (sessionId && sessionManager && title) {
+      sessionManager.updateSessionTitle(sessionId, title);
+      // 同步更新历史记录下拉框
+      updateHistoryDropdown?.();
+    }
+  });
+
   // 14. 注册 Activity Bar 面板打开回调（所有组件已就绪）
   if (activityBar) {
     activityBar.onPanelOpen('token', () => tokenMonitor?.updateTokenStats());

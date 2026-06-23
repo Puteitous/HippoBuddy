@@ -567,6 +567,28 @@ export class SessionManager {
       this.sessionNames[sessionId] = truncateText(name, 20);
     }
   }
+
+  /**
+   * 局部更新会话标题（不重刷整个列表）。
+   * 若标题已在 sessionNames 中且内容相同则跳过。
+   */
+  updateSessionTitle(sessionId, title) {
+    const truncated = truncateText(title, 30);
+    if (this.sessionNames[sessionId] === truncated) return;
+    this.sessionNames[sessionId] = truncated;
+
+    // 在 DOM 中找到该会话项，直接更新文字
+    const items = this.listContainer.querySelectorAll('.session-item');
+    for (const item of items) {
+      if (item.dataset.sessionId === sessionId) {
+        const nameSpan = item.querySelector('.session-name');
+        if (nameSpan) {
+          nameSpan.textContent = truncated;
+        }
+        break;
+      }
+    }
+  }
 }
 
 window.renameSession = async (sessionId, event) => {

@@ -366,6 +366,37 @@ describe('chat-service.js', () => {
       );
     });
 
+    it('generateTitle 调用 POST /api/sessions/{id}/title 并返回标题', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ title: '帮我写一个React组件', source: 'generated' }),
+      });
+
+      const result = await chatService.generateTitle('s1');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/sessions/s1/title',
+        expect.objectContaining({ method: 'POST' })
+      );
+      expect(result).toEqual({ title: '帮我写一个React组件', source: 'generated' });
+    });
+
+    it('generateTitle 请求失败时返回 null', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({ status: 404 });
+
+      const result = await chatService.generateTitle('nonexistent');
+
+      expect(result).toBeNull();
+    });
+
+    it('generateTitle 网络异常时返回 null', async () => {
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+      const result = await chatService.generateTitle('s1');
+
+      expect(result).toBeNull();
+    });
+
     it('compactSession 调用 POST /api/sessions/{id}/compact', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,

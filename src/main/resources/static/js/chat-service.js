@@ -290,6 +290,28 @@ export class ChatService {
     }
   }
 
+  /**
+   * 用 LLM 自动生成会话标题（基于第一条用户消息）。
+   * 不会覆盖用户手动重命名的标题。
+   * @param {string} sessionId 会话 ID
+   * @param {string} [userMessage] 用户消息原文（作为兜底，解决标题 API 比 Chat API 先到达后端的竞态）
+   * @returns {Promise<{title: string, source: string}|null>}
+   */
+  async generateTitle(sessionId, userMessage) {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/title`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userMessage })
+      });
+      if (!response.ok) return null;
+      return response.json();
+    } catch (e) {
+      console.warn('生成标题失败:', e);
+      return null;
+    }
+  }
+
   async compactSession(sessionId, instruction = null) {
     const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/compact`, {
       method: 'POST',

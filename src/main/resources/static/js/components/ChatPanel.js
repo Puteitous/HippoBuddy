@@ -486,7 +486,11 @@ export class ChatPanel {
     this._clearRefs();
     
     this.lastUserMessage = content;
-    EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId, content });
+    EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId });
+
+    // 立即并行发起标题生成，不等第一轮对话结束
+    // 传递 content 作为兜底，解决标题 API 比 Chat API 先到达后端的竞态
+    this._generateSessionTitle(content);
     
     const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     this._lastUserMessageId = tempId;
@@ -542,6 +546,26 @@ export class ChatPanel {
     }
     
     EventBus.emit('message:sent');
+  }
+
+  /**
+   * 异步调用后端 API 生成会话标题（基于第一条用户消息）。
+   * 传递 content 解决标题 API 比 Chat API 先到达后端的竞态。
+   * 不会覆盖用户手动重命名的标题。
+   * @param {string} content 用户消息原文
+   */
+  async _generateSessionTitle(content) {
+    try {
+      const result = await this.chatService.generateTitle(appState.currentSessionId, content);
+      if (result && result.title) {
+        EventBus.emit('session:title-updated', {
+          sessionId: appState.currentSessionId,
+          title: result.title
+        });
+      }
+    } catch {
+      // 静默失败，保留现有的 auto-name 标题
+    }
   }
   
   /**

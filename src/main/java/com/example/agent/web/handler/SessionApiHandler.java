@@ -8,6 +8,7 @@ import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
 import com.example.agent.service.TokenEstimatorFactory;
+import com.example.agent.service.TitleGenerationService;
 import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.web.util.ConversationJsonlReader;
 import com.example.agent.web.util.MessageConverter;
@@ -86,6 +87,9 @@ public class SessionApiHandler implements HttpHandler {
             } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/rename$")) {
                 String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/rename"));
                 handleRenameSession(exchange, sessionId);
+            } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/title$")) {
+                String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/title"));
+                handleGenerateTitle(exchange, sessionId);
             } else {
                 sendError(exchange, 404, "Not found");
             }
@@ -238,6 +242,40 @@ public class SessionApiHandler implements HttpHandler {
             sendError(exchange, 404, "Session not found");
         }
         exchange.close();
+    }
+
+    /**
+     * 根据第一条用户消息，用 LLM 自动生成会话标题。
+     * POST /api/sessions/{id}/title
+     * 如果已存在 custom-title 则跳过（不覆盖用户手动重命名）。
+     * 请求体可选字段：userMessage（前端消息原文，作为首选消息来源）。
+     */
+    private void handleGenerateTitle(HttpExchange exchange, String sessionId) throws IOException {
+        // 读取请求体中前端传递的 userMessage（首选消息来源）
+        String frontendMessage = null;
+        try {
+            String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            if (!requestBody.isBlank()) {
+                JsonNode json = objectMapper.readTree(requestBody);
+                if (json.has("userMessage") && !json.get("userMessage").asText().isBlank()) {
+                    frontendMessage = json.get("userMessage").asText();
+                }
+            }
+        } catch (Exception ignored) {
+            // 无请求体或解析失败时忽略
+        }
+
+        TitleGenerationService service = new TitleGenerationService();
+        String title = service.generateTitle(sessionId, frontendMessage);
+
+        if (title == null) {
+            sendError(exchange, 400, "No user message found");
+            return;
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("title", title);
+        sendJson(exchange, response);
     }
 
     /**
