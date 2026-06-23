@@ -78,5 +78,11 @@ export class EventRouter {
       this.handlers.waiting_user(parsed, contentDiv);
       return;
     }
+
+    // 兜底：tool_result 的 JSON 损坏导致 name 字段缺失，仍然尝试路由
+    if (parsed._eventType === 'tool_result') {
+      this.handlers.tool_result(parsed);
+      return;
+    }
   }
 }

@@ -34,6 +34,8 @@ import com.example.agent.web.session.WebSessionManager;
 import com.example.agent.web.util.SseWriter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -384,9 +386,7 @@ public class WebAgentOrchestrator {
             if (!"ask_user".equals(toolName)) {
                 logger.debug("executeToolCalls 发送 tool_start: toolCallId={}, toolName={} (sessionId={})",
                     toolCall.getId(), toolName, sessionId);
-                sseWriter.sendSseEvent("tool_start", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                    + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                    + "\",\"args\":" + SseWriter.escapeJsonForValue(arguments) + "}");
+                sseWriter.sendSseEvent("tool_start", buildStartJson(toolCall.getId(), toolName, arguments));
             }
 
             try (var _session = FileChangeTracker.withContext(sessionId, null)) {
@@ -412,16 +412,13 @@ public class WebAgentOrchestrator {
                                         if (now - lastProgressTime[0] > 200) {
                                             lastProgressTime[0] = now;
                                             sseWriter.sendSseEvent("tool_progress",
-                                                "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                                                + "\",\"line\":\"" + SseWriter.escapeJson(line) + "\"}");
+                                                buildProgressJson(toolCall.getId(), line));
                                         }
                                     });
                                     String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
                                     getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
-                                    sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                                        + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                                        + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
-                                        + "\",\"args\":" + arguments + "}");
+                                    sseWriter.sendSseEvent("tool_result",
+                                        buildToolResultJson(toolCall.getId(), toolName, true, truncatedResult, null, arguments, toolCall.getId()));
                                     SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                                     stats.addToolCall();
                                 } finally {
@@ -435,10 +432,8 @@ public class WebAgentOrchestrator {
                             if (hookResult.isDenied()) {
                                 String errorMsg = hookResult.getReason();
                                 getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
-                                sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                                    + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                                    + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                                    + "\",\"args\":" + arguments + "}");
+                                sseWriter.sendSseEvent("tool_result",
+                                    buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
                                 continue;
                             }
 
@@ -451,10 +446,8 @@ public class WebAgentOrchestrator {
                                 );
                                 sessionManager.setPendingBashConfirmation(sessionId, pending);
 
-                                String confirmJson = "{\"confirmId\":\"" + SseWriter.escapeJson(confirmId)
-                                    + "\",\"command\":\"" + SseWriter.escapeJson(command)
-                                    + "\",\"riskLevel\":\"" + SseWriter.escapeJson(hookResult.getRiskLevel())
-                                    + "\",\"riskReason\":\"" + SseWriter.escapeJson(hookResult.getReason()) + "\"}";
+                                String confirmJson = buildBashConfirmJson(confirmId, command,
+                                    hookResult.getRiskLevel(), hookResult.getReason());
                                 sseWriter.sendSseEvent("tool_confirmation", confirmJson);
                                 logger.info("发送 tool_confirmation 事件: confirmId={}, command={}, riskLevel={}",
                                     confirmId, command, hookResult.getRiskLevel());
@@ -496,10 +489,8 @@ public class WebAgentOrchestrator {
                             });
                             String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
                             getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
-                            sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                                + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                                + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
-                                + "\",\"args\":" + arguments + "}");
+                            sseWriter.sendSseEvent("tool_result",
+                                buildToolResultJson(toolCall.getId(), toolName, true, truncatedResult, null, arguments, toolCall.getId()));
                             SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                             stats.addToolCall();
                         } finally {
@@ -517,10 +508,8 @@ public class WebAgentOrchestrator {
                     if (preview.hasErrors()) {
                         String errorMsg = "预览删除文件失败:\n" + String.join("\n", preview.getErrors());
                         getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
-                        sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                            + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                            + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                            + "\",\"args\":" + arguments + "}");
+                        sseWriter.sendSseEvent("tool_result",
+                            buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
                         continue;
                     }
 
@@ -529,20 +518,16 @@ public class WebAgentOrchestrator {
                             + "受保护文件 " + preview.getSkippedProtected().size() + " 个:\n"
                             + preview.getSkippedProtected().stream().map(f -> "  - " + f).collect(java.util.stream.Collectors.joining("\n"));
                         getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
-                        sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                            + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                            + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                                    + "\",\"args\":" + arguments + "}");
-                            continue;
-                        }
+                        sseWriter.sendSseEvent("tool_result",
+                            buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
+                        continue;
+                    }
 
-                        if (preview.totalCount() == 0) {
+                    if (preview.totalCount() == 0) {
                         String errorMsg = "没有找到需要删除的文件。";
                         getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
-                        sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                            + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                            + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                            + "\",\"args\":" + arguments + "}");
+                        sseWriter.sendSseEvent("tool_result",
+                            buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
                         continue;
                     }
 
@@ -601,10 +586,8 @@ public class WebAgentOrchestrator {
                     String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
 
                     getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
-                    sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                        + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                        + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
-                        + "\",\"args\":" + arguments + "}");
+                    sseWriter.sendSseEvent("tool_result",
+                        buildToolResultJson(toolCall.getId(), toolName, true, truncatedResult, null, arguments, toolCall.getId()));
 
                     SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                     stats.addToolCall();
@@ -615,10 +598,8 @@ public class WebAgentOrchestrator {
                     errorMsg = e.getClass().getSimpleName() + " (无详细信息)";
                 }
                 getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
-                sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(toolCall.getId())
-                    + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                    + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                    + "\",\"args\":" + arguments + "}");
+                sseWriter.sendSseEvent("tool_result",
+                    buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
             } finally {
                 RequestContext.clear();
             }
@@ -832,35 +813,103 @@ public class WebAgentOrchestrator {
         return command.toLowerCase();
     }
 
+    // ========== JSON 构建辅助（使用 ObjectMapper，杜绝手拼） ==========
+
     /**
-     * 构建 delete_file 确认 SSE 事件 JSON。
+     * 使用 ObjectMapper 安全构建 tool_result SSE 事件 JSON，避免手拼字符串导致的格式错误。
+     * @param resultContent success=true 时的 result 字段内容，传 null 则不包含
+     * @param errorContent  success=false 时的 error 字段内容，传 null 则不包含
+     */
+    private static String buildToolResultJson(String id, String name, boolean success,
+                                               String resultContent, String errorContent,
+                                               String argsJson, String toolCallId) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("id", id);
+        node.put("name", name);
+        node.put("success", success);
+        if (resultContent != null) {
+            node.put("result", resultContent);
+        }
+        if (errorContent != null) {
+            node.put("error", errorContent);
+        }
+        node.set("args", safeArgs(argsJson, toolCallId));
+        return node.toString();
+    }
+
+    /**
+     * 安全解析 arguments JSON，非法时降级为文本节点，避免整个 tool_result 事件断裂。
+     */
+    private static JsonNode safeArgs(String json, String toolCallId) {
+        try {
+            if (json != null && !json.trim().isEmpty()) {
+                JsonNode node = objectMapper.readTree(json);
+                if (node != null && !node.isMissingNode()) return node;
+            }
+        } catch (Exception e) {
+            logger.warn("arguments 非合法 JSON, toolCallId={}, 已转为字符串兜底", toolCallId);
+        }
+        return objectMapper.getNodeFactory().textNode(json != null ? json : "");
+    }
+
+    /**
+     * 使用 ObjectMapper 安全构建 tool_start SSE 事件 JSON。
+     */
+    private static String buildStartJson(String id, String name, String argsJson) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("id", id);
+        node.put("name", name);
+        node.set("args", safeArgs(argsJson, id));
+        return node.toString();
+    }
+
+    /**
+     * 使用 ObjectMapper 安全构建 tool_progress SSE 事件 JSON。
+     */
+    private static String buildProgressJson(String id, String line) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("id", id);
+        node.put("line", line);
+        return node.toString();
+    }
+
+    /**
+     * 使用 ObjectMapper 安全构建 tool_confirmation（bash）SSE 事件 JSON。
+     */
+    private static String buildBashConfirmJson(String confirmId, String command,
+                                                String riskLevel, String riskReason) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("confirmId", confirmId);
+        node.put("command", command);
+        node.put("riskLevel", riskLevel);
+        node.put("riskReason", riskReason);
+        return node.toString();
+    }
+
+    /**
+     * 使用 ObjectMapper 安全构建 delete_file 确认 SSE 事件 JSON。
      * 文件列表超过 10 个则截断显示。
      */
-    private static String buildDeleteConfirmJson(String confirmId, String[] filePaths, String[] dirPaths, int totalCount) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"confirmId\":\"").append(SseWriter.escapeJson(confirmId)).append("\"");
-        sb.append(",\"toolType\":\"delete_file\"");
-        sb.append(",\"totalCount\":").append(totalCount);
+    private static String buildDeleteConfirmJson(String confirmId, String[] filePaths,
+                                                  String[] dirPaths, int totalCount) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("confirmId", confirmId);
+        node.put("toolType", "delete_file");
+        node.put("totalCount", totalCount);
 
-        sb.append(",\"files\":[");
+        ArrayNode filesArray = node.putArray("files");
         int displayCount = Math.min(filePaths.length, 10);
         for (int i = 0; i < displayCount; i++) {
-            if (i > 0) sb.append(",");
-            sb.append("\"").append(SseWriter.escapeJson(filePaths[i])).append("\"");
+            filesArray.add(filePaths[i]);
         }
-        sb.append("]");
 
-        sb.append(",\"directories\":[");
+        ArrayNode dirsArray = node.putArray("directories");
         int dirDisplayCount = Math.min(dirPaths.length, 10);
         for (int i = 0; i < dirDisplayCount; i++) {
-            if (i > 0) sb.append(",");
-            sb.append("\"").append(SseWriter.escapeJson(dirPaths[i])).append("\"");
+            dirsArray.add(dirPaths[i]);
         }
-        sb.append("]");
 
-        sb.append(",\"truncated\":").append(totalCount > 10);
-
-        sb.append("}");
-        return sb.toString();
+        node.put("truncated", totalCount > 10);
+        return node.toString();
     }
 }

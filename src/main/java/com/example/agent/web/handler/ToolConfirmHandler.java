@@ -20,6 +20,8 @@ import com.example.agent.web.session.WebSessionManager;
 import com.example.agent.web.util.SseWriter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.function.Consumer;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -144,11 +146,9 @@ public class ToolConfirmHandler implements HttpHandler {
             logger.warn("bash 确认超时：confirmId={}, command={}", confirmId, pending.command);
             conversationService.addToolResult(
                 conversation, pending.toolCallId, pending.toolName, "错误: 确认已超时", false);
-            String cleanArgs = pending.arguments.replace("\r", "").replace("\n", "");
-            sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                + "\",\"success\":false,\"error\":\"确认已超时"
-                + "\",\"args\":" + cleanArgs + "}");
+            sseWriter.sendSseEvent("tool_result",
+                buildToolResultJson(pending.toolCallId, pending.toolName, false, null, "确认已超时",
+                    safeArgs(pending.arguments, pending.toolCallId)));
             orchestrator.continueAfterConfirmation(sessionId, conversation, sseWriter);
             return;
         }
@@ -176,8 +176,7 @@ public class ToolConfirmHandler implements HttpHandler {
                     if (now - lastProgressTime[0] > 200) {
                         lastProgressTime[0] = now;
                         sseWriter.sendSseEvent("tool_progress",
-                            "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                            + "\",\"line\":\"" + SseWriter.escapeJson(line) + "\"}");
+                            buildProgressJson(pending.toolCallId, line));
                     }
                 };
                 String result;
@@ -193,11 +192,9 @@ public class ToolConfirmHandler implements HttpHandler {
                 conversationService.addToolResult(
                     conversation, pending.toolCallId, pending.toolName, truncatedResult, true);
 
-                String cleanArgs = pending.arguments.replace("\r", "").replace("\n", "");
-                sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                    + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                    + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(truncatedResult)
-                    + "\",\"args\":" + cleanArgs + "}");
+                sseWriter.sendSseEvent("tool_result",
+                    buildToolResultJson(pending.toolCallId, pending.toolName, true, truncatedResult, null,
+                        safeArgs(pending.arguments, pending.toolCallId)));
             } catch (Exception e) {
                 String errorMsg = e.getMessage();
                 if (errorMsg == null || errorMsg.isEmpty()) {
@@ -206,11 +203,9 @@ public class ToolConfirmHandler implements HttpHandler {
                 conversationService.addToolResult(
                     conversation, pending.toolCallId, pending.toolName, "错误: " + errorMsg, false);
 
-                String cleanArgs = pending.arguments.replace("\r", "").replace("\n", "");
-                sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                    + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                    + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                    + "\",\"args\":" + cleanArgs + "}");
+                sseWriter.sendSseEvent("tool_result",
+                    buildToolResultJson(pending.toolCallId, pending.toolName, false, null, errorMsg,
+                        safeArgs(pending.arguments, pending.toolCallId)));
             }
 
             // session 级 auto-allow 存储
@@ -225,11 +220,9 @@ public class ToolConfirmHandler implements HttpHandler {
             conversationService.addToolResult(
                 conversation, pending.toolCallId, pending.toolName, "错误: 用户拒绝了执行该命令", false);
 
-            String denyArgs = pending.arguments.replace("\r", "").replace("\n", "");
-            sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                + "\",\"success\":false,\"error\":\"用户拒绝了执行该命令"
-                + "\",\"args\":" + denyArgs + "}");
+            sseWriter.sendSseEvent("tool_result",
+                buildToolResultJson(pending.toolCallId, pending.toolName, false, null, "用户拒绝了执行该命令",
+                    safeArgs(pending.arguments, pending.toolCallId)));
         }
 
         // 先执行剩余工具调用，再继续 Agent 循环
@@ -245,10 +238,9 @@ public class ToolConfirmHandler implements HttpHandler {
             logger.warn("delete_file 确认超时：confirmId={}", confirmId);
             conversationService.addToolResult(
                 conversation, pending.toolCallId, pending.toolName, "错误: 确认已超时", false);
-            sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                + "\",\"success\":false,\"error\":\"确认已超时"
-                + "\",\"args\":" + pending.arguments + "}");
+            sseWriter.sendSseEvent("tool_result",
+                buildToolResultJson(pending.toolCallId, pending.toolName, false, null, "确认已超时",
+                    pending.arguments));
             try {
                 orchestrator.continueAfterConfirmation(sessionId, conversation, sseWriter);
             } catch (LlmException e) {
@@ -281,10 +273,9 @@ public class ToolConfirmHandler implements HttpHandler {
                 conversationService.addToolResult(
                     conversation, pending.toolCallId, pending.toolName, result, true);
 
-                sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                    + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                    + "\",\"success\":true,\"result\":\"" + SseWriter.escapeJson(result)
-                    + "\",\"args\":" + pending.arguments + "}");
+                sseWriter.sendSseEvent("tool_result",
+                    buildToolResultJson(pending.toolCallId, pending.toolName, true, result, null,
+                        pending.arguments));
             } catch (Exception e) {
                 String errorMsg = e.getMessage();
                 if (errorMsg == null || errorMsg.isEmpty()) {
@@ -293,10 +284,9 @@ public class ToolConfirmHandler implements HttpHandler {
                 conversationService.addToolResult(
                     conversation, pending.toolCallId, pending.toolName, "错误: " + errorMsg, false);
 
-                sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                    + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                    + "\",\"success\":false,\"error\":\"" + SseWriter.escapeJson(errorMsg)
-                    + "\",\"args\":" + pending.arguments + "}");
+                sseWriter.sendSseEvent("tool_result",
+                    buildToolResultJson(pending.toolCallId, pending.toolName, false, null, errorMsg,
+                        pending.arguments));
             }
         } else {
             logger.info("用户拒绝删除文件：confirmId={}, fileCount={}", confirmId, pending.totalFileCount);
@@ -304,10 +294,9 @@ public class ToolConfirmHandler implements HttpHandler {
             conversationService.addToolResult(
                 conversation, pending.toolCallId, pending.toolName, "错误: 用户拒绝了删除操作", false);
 
-            sseWriter.sendSseEvent("tool_result", "{\"id\":\"" + SseWriter.escapeJson(pending.toolCallId)
-                + "\",\"name\":\"" + SseWriter.escapeJson(pending.toolName)
-                + "\",\"success\":false,\"error\":\"用户拒绝了删除操作"
-                + "\",\"args\":" + pending.arguments + "}");
+            sseWriter.sendSseEvent("tool_result",
+                buildToolResultJson(pending.toolCallId, pending.toolName, false, null, "用户拒绝了删除操作",
+                    pending.arguments));
         }
 
         // delete_file 不需要继续剩余工具队列（单个工具调用）
@@ -326,6 +315,46 @@ public class ToolConfirmHandler implements HttpHandler {
         exchange.sendResponseHeaders(statusCode, json.getBytes(StandardCharsets.UTF_8).length);
         exchange.getResponseBody().write(json.getBytes(StandardCharsets.UTF_8));
         exchange.close();
+    }
+
+    // ========== JSON 构建辅助（使用 ObjectMapper，杜绝手拼） ==========
+
+    private static String buildToolResultJson(String id, String name, boolean success,
+                                               String resultContent, String errorContent,
+                                               JsonNode argsNode) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("id", id);
+        node.put("name", name);
+        node.put("success", success);
+        if (resultContent != null) {
+            node.put("result", resultContent);
+        }
+        if (errorContent != null) {
+            node.put("error", errorContent);
+        }
+        if (argsNode != null) {
+            node.set("args", argsNode);
+        }
+        return node.toString();
+    }
+
+    private static JsonNode safeArgs(String json, String toolCallId) {
+        try {
+            if (json != null && !json.trim().isEmpty()) {
+                JsonNode node = objectMapper.readTree(json);
+                if (node != null && !node.isMissingNode()) return node;
+            }
+        } catch (Exception e) {
+            logger.warn("arguments 非合法 JSON, toolCallId={}, 已转为字符串兜底", toolCallId);
+        }
+        return objectMapper.getNodeFactory().textNode(json != null ? json : "");
+    }
+
+    private static String buildProgressJson(String id, String line) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("id", id);
+        node.put("line", line);
+        return node.toString();
     }
 
     private static String extractCommandName(String command) {

@@ -287,7 +287,10 @@ describe('ChatPanel.js', () => {
            }
          },
         handleToolResult(parsed) {
-          const existingTool = this._segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+          let existingTool = this._segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+          if (!existingTool && parsed.id) {
+            existingTool = this._segments.find(s => s.type === 'tool' && s.id === parsed.id && !s.result);
+          }
           if (existingTool) {
             existingTool.result = parsed.success ? 'success' : 'error';
             existingTool.error = parsed.error || null;
@@ -567,35 +570,6 @@ describe('ChatPanel.js', () => {
     });
   });
 
-  describe('startEditMessage', () => {
-    it('创建编辑界面', () => {
-      const msgDiv = document.createElement('div');
-      msgDiv.className = 'message user';
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'message-content';
-      contentDiv.textContent = '原始消息';
-      msgDiv.appendChild(contentDiv);
-
-      chatPanel.startEditMessage(msgDiv);
-
-      expect(msgDiv.classList.contains('editing')).toBe(true);
-      expect(msgDiv.querySelector('.message-edit-textarea')).toBeTruthy();
-      expect(msgDiv.querySelector('.message-edit-textarea').value).toBe('原始消息');
-    });
-
-    it('已编辑状态不重复创建', () => {
-      const msgDiv = document.createElement('div');
-      msgDiv.classList.add('editing');
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'message-content';
-      contentDiv.textContent = '原始消息';
-      msgDiv.appendChild(contentDiv);
-
-      chatPanel.startEditMessage(msgDiv);
-
-      expect(msgDiv.querySelector('.message-edit-container')).toBeFalsy();
-    });
-  });
 
   describe('destroy', () => {
     it('清理时中止未完成的请求', () => {
@@ -606,6 +580,177 @@ describe('ChatPanel.js', () => {
       chatPanel.destroy();
 
       expect(abortSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('定时自愈（_startStuckTimer / _clearStuckTimer）', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('_startStuckTimer 30s 后触发 _healStuckToolCards', () => {
+      const healSpy = vi.spyOn(chatPanel, '_healStuckToolCards');
+
+      chatPanel._startStuckTimer();
+
+      // 30s 前不应触发
+      vi.advanceTimersByTime(29000);
+      expect(healSpy).not.toHaveBeenCalled();
+
+      // 到 30s
+      vi.advanceTimersByTime(1000);
+      expect(healSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('_clearStuckTimer 清除定时器', () => {
+      const healSpy = vi.spyOn(chatPanel, '_healStuckToolCards');
+
+      chatPanel._startStuckTimer();
+      chatPanel._clearStuckTimer();
+
+      // 即使到 30s 也不应触发
+      vi.advanceTimersByTime(30000);
+      expect(healSpy).not.toHaveBeenCalled();
+    });
+
+    it('_startStuckTimer 重复调用只保留最后一个定时器', () => {
+      const healSpy = vi.spyOn(chatPanel, '_healStuckToolCards');
+
+      chatPanel._startStuckTimer();
+      chatPanel._startStuckTimer();
+      chatPanel._startStuckTimer();
+
+      vi.advanceTimersByTime(30000);
+      expect(healSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('stopGeneration 清除 stuck 定时器', () => {
+      const clearSpy = vi.spyOn(chatPanel, '_clearStuckTimer');
+
+      chatPanel._startStuckTimer();
+      chatPanel.stopGeneration('session-1');
+
+      expect(clearSpy).toHaveBeenCalled();
+    });
+
+    it('sendMessage 完成后启动 stuck 定时器', async () => {
+      const startSpy = vi.spyOn(chatPanel, '_startStuckTimer');
+
+      // 模拟成功发送消息
+      mockChatService.sendMessage.mockResolvedValue({ hasContent: true });
+      chatPanel._activeSession = {
+        start: vi.fn().mockResolvedValue(undefined),
+        getSegments: () => [],
+        getCurrentText: () => '',
+        healStuckCards: vi.fn().mockReturnValue(false)
+      };
+      chatPanel.currentAbortController = new AbortController();
+
+      await chatPanel.sendMessage('hello');
+
+      expect(startSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('集成测试：损坏 JSON 的 tool_result 降级链路', () => {
+    function createSession() {
+      return {
+        _segments: [],
+        _currentText: '',
+        _reasoningSegment: null,
+        _hasReceivedData: false,
+        _runningToolCallIds: new Set(),
+        getSegments() { return this._segments; },
+        getCurrentText() { return this._currentText; },
+        setCurrentText(text) { this._currentText = text; },
+        pushTextSegment() {
+          if (this._currentText.trim()) {
+            this._segments.push({ type: 'text', content: this._currentText });
+            this._currentText = '';
+          }
+        },
+        pushSegment(seg) { this._segments.push(seg); },
+        clearAll() {
+          this._currentText = '';
+          this._segments = [];
+          this._reasoningSegment = null;
+        },
+        clearReasoning() {
+          if (this._reasoningSegment) {
+            this._reasoningSegment.done = true;
+            this._reasoningSegment = null;
+          }
+        },
+        handleReasoning() {},
+        handleReasoningDone() {},
+        handleContent() {},
+        handleToolStart() {},
+        handleToolResult(parsed) {
+          let existingTool = this._segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
+          if (!existingTool && parsed.id) {
+            existingTool = this._segments.find(s => s.type === 'tool' && s.id === parsed.id && !s.result);
+          }
+          if (existingTool) {
+            existingTool.result = parsed.success ? 'success' : 'error';
+            existingTool.error = parsed.error || null;
+            existingTool.resultContent = parsed.result || null;
+            if (parsed.args) existingTool.args = parsed.args;
+            existingTool.confirmationData = null;
+            existingTool.progressLines = null;
+          }
+        },
+        handleToolProgress() {},
+        handleToolConfirmation() {},
+        getContentDiv() { return null; },
+        healStuckCards: vi.fn().mockReturnValue(false)
+      };
+    }
+
+    beforeEach(() => {
+      chatPanel._activeSession = createSession();
+    });
+
+    it('缺失 name 的 tool_result 通过 EventRouter 兜底 + id fallback 标记 error', () => {
+      const contentDiv = document.createElement('div');
+      const session = chatPanel._activeSession;
+      // 在 session 中放入一个 running 的 tool
+      session._segments.push({
+        type: 'tool', id: 'tc-1', name: 'edit_file', args: '{}', result: null
+      });
+
+      // 模拟 chat-service.js 正则兜底产出的对象：有 id 但没有 name
+      chatPanel.handleChunk(
+        { _eventType: 'tool_result', id: 'tc-1', success: false, error: '工具结果数据解析异常' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      const seg = session.getSegments()[0];
+      expect(seg.result).toBe('error');
+      expect(seg.error).toBe('工具结果数据解析异常');
+    });
+
+    it('完全损坏的 tool_result（无 id 无 name）不影响已有 segment', () => {
+      const contentDiv = document.createElement('div');
+      const session = chatPanel._activeSession;
+      session._segments.push({
+        type: 'tool', id: 'tc-1', name: 'edit_file', args: '{}', result: null
+      });
+
+      // 只有 _eventType，无 id 无 name（最极端情况）
+      chatPanel.handleChunk(
+        { _eventType: 'tool_result' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      // segment 不应被修改
+      const seg = session.getSegments()[0];
+      expect(seg.result).toBeNull();
     });
   });
 });

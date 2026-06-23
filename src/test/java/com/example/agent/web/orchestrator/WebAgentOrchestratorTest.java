@@ -20,6 +20,9 @@ import com.example.agent.web.session.SessionManager;
 import com.example.agent.web.session.SessionTokenStats;
 import com.example.agent.web.util.SseWriter;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -374,6 +378,112 @@ class WebAgentOrchestratorTest {
             verify(mockSessionManager).setPendingToolCall(eq(TEST_SESSION_ID), any(PendingToolCall.class));
             String output = sseOutput();
             assertTrue(output.contains("event: waiting_user"), "ask_user 应发送 waiting_user 事件");
+        }
+
+        @Test
+        @DisplayName("tool_result SSE 输出应包含合法 JSON（id、name、success、args）")
+        void toolResultSseIsValidJson() throws Exception {
+            registerMockTool("read_file", "文件内容: test");
+
+            mockLlmClient.enqueueResponse(
+                LlmResponseBuilder.withToolCall("read_file", "{\"path\":\"test.txt\"}")
+            );
+            mockLlmClient.enqueueSuccessResponse("文件读取完毕。");
+
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            // 提取 tool_result 的 data 部分并验证 JSON 合法性
+            String output = sseOutput();
+            String[] lines = output.split("\n");
+            ObjectMapper mapper = new ObjectMapper();
+            boolean foundToolResult = false;
+
+            for (int i = 0; i < lines.length; i++) {
+                if (lines[i].equals("event: tool_result") && i + 1 < lines.length) {
+                    String dataLine = lines[i + 1];
+                    assertTrue(dataLine.startsWith("data: "), "tool_result 后一行应是 data: 开头");
+                    String json = dataLine.substring(6); // 去掉 "data: "
+
+                    JsonNode node = mapper.readTree(json);
+                    assertTrue(node.has("id"), "tool_result JSON 应包含 id 字段");
+                    assertTrue(node.has("name"), "tool_result JSON 应包含 name 字段");
+                    assertTrue(node.has("success"), "tool_result JSON 应包含 success 字段");
+                    assertTrue(node.has("args"), "tool_result JSON 应包含 args 字段");
+                    assertEquals("read_file", node.get("name").asText());
+                    assertTrue(node.get("success").asBoolean());
+                    assertTrue(node.get("result").asText().contains("文件内容"));
+                    foundToolResult = true;
+                }
+            }
+            assertTrue(foundToolResult, "应发送 tool_result 事件");
+        }
+
+        @Test
+        @DisplayName("tool_start SSE 输出应包含合法 JSON（id、name、args）")
+        void toolStartSseIsValidJson() throws Exception {
+            registerMockTool("read_file", "文件内容");
+
+            mockLlmClient.enqueueResponse(
+                LlmResponseBuilder.withToolCall("read_file", "{\"path\":\"test.txt\"}")
+            );
+            mockLlmClient.enqueueSuccessResponse("完成。");
+
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            String output = sseOutput();
+            String[] lines = output.split("\n");
+            ObjectMapper mapper = new ObjectMapper();
+            boolean foundToolStart = false;
+
+            for (int i = 0; i < lines.length; i++) {
+                if (lines[i].equals("event: tool_start") && i + 1 < lines.length) {
+                    String dataLine = lines[i + 1];
+                    assertTrue(dataLine.startsWith("data: "), "tool_start 后一行应是 data: 开头");
+                    String json = dataLine.substring(6);
+
+                    JsonNode node = mapper.readTree(json);
+                    assertTrue(node.has("id"), "tool_start JSON 应包含 id 字段");
+                    assertTrue(node.has("name"), "tool_start JSON 应包含 name 字段");
+                    assertTrue(node.has("args"), "tool_start JSON 应包含 args 字段");
+                    assertEquals("read_file", node.get("name").asText());
+                    foundToolStart = true;
+                }
+            }
+            assertTrue(foundToolStart, "应发送 tool_start 事件");
+        }
+
+        @Test
+        @DisplayName("工具执行失败时 tool_result 应包含 success=false 及 error 信息")
+        void toolResultErrorContainsErrorField() throws Exception {
+            registerFailingTool("failing_tool");
+
+            mockLlmClient.enqueueResponse(
+                LlmResponseBuilder.withToolCall("failing_tool", "{}")
+            );
+            mockLlmClient.enqueueSuccessResponse("已处理。");
+
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            String output = sseOutput();
+            String[] lines = output.split("\n");
+            ObjectMapper mapper = new ObjectMapper();
+            boolean foundErrorResult = false;
+
+            for (int i = 0; i < lines.length; i++) {
+                if (lines[i].equals("event: tool_result") && i + 1 < lines.length) {
+                    String dataLine = lines[i + 1];
+                    String json = dataLine.substring(6);
+                    JsonNode node = mapper.readTree(json);
+                    if (!node.get("success").asBoolean()) {
+                        assertTrue(node.has("error"), "失败的 tool_result 应包含 error 字段");
+                        assertTrue(node.get("error").asText().contains("模拟工具执行失败"));
+                        assertTrue(node.has("id"), "失败的 tool_result 应包含 id 字段");
+                        assertTrue(node.has("name"), "失败的 tool_result 应包含 name 字段");
+                        foundErrorResult = true;
+                    }
+                }
+            }
+            assertTrue(foundErrorResult, "应发送失败的 tool_result 事件");
         }
     }
 
@@ -747,6 +857,75 @@ class WebAgentOrchestratorTest {
             assertTrue(assistant.getToolCalls() == null || assistant.getToolCalls().isEmpty(),
                 "空 tool_calls 的 assistant 不应被修改");
             assertEquals("some content", assistant.getContent());
+        }
+    }
+
+    @Nested
+    @DisplayName("safeArgs 兜底 (反射调用私有方法)")
+    class SafeArgsGracefulDegradationTests {
+
+        private Method safeArgsMethod;
+        private Method buildToolResultJsonMethod;
+
+        @BeforeEach
+        void setUpReflection() throws Exception {
+            safeArgsMethod = WebAgentOrchestrator.class.getDeclaredMethod("safeArgs", String.class, String.class);
+            safeArgsMethod.setAccessible(true);
+            buildToolResultJsonMethod = WebAgentOrchestrator.class.getDeclaredMethod(
+                "buildToolResultJson", String.class, String.class, boolean.class,
+                String.class, String.class, String.class, String.class);
+            buildToolResultJsonMethod.setAccessible(true);
+        }
+
+        @Test
+        @DisplayName("非法 JSON → 返回 textNode，不抛异常")
+        void invalidJson_returnsTextNode() throws Exception {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode result = (JsonNode) safeArgsMethod.invoke(orchestrator, "纯文本参数", "tc-invalid");
+            assertInstanceOf(TextNode.class, result, "非法 JSON 应返回 TextNode");
+            assertEquals("纯文本参数", result.asText());
+
+            // 通过 buildToolResultJson 验证整体输出仍是合法 JSON
+            String json = (String) buildToolResultJsonMethod.invoke(orchestrator,
+                "tc-1", "test_tool", false, null, "error msg", "纯文本参数", "tc-1");
+            JsonNode node = mapper.readTree(json);
+            assertTrue(node.has("id"), "即使 args 非法，id 字段仍存在");
+            assertTrue(node.has("args"), "即使 args 非法，args 字段仍存在");
+            assertEquals("纯文本参数", node.get("args").asText(), "args 降级为文本值");
+        }
+
+        @Test
+        @DisplayName("null arguments → 返回空字符串 textNode")
+        void nullJson_returnsEmptyTextNode() throws Exception {
+            JsonNode result = (JsonNode) safeArgsMethod.invoke(orchestrator, (String) null, "tc-null");
+            assertInstanceOf(TextNode.class, result, "null 应返回 TextNode");
+            assertEquals("", result.asText(), "null 输入应返回空字符串");
+        }
+
+        @Test
+        @DisplayName("合法 JSON → 返回 ObjectNode，保持嵌套结构")
+        void validJson_returnsObjectNode() throws Exception {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode result = (JsonNode) safeArgsMethod.invoke(orchestrator,
+                "{\"path\":\"test.txt\",\"content\":\"hello\"}", "tc-valid");
+            assertInstanceOf(ObjectNode.class, result, "合法 JSON 应返回 ObjectNode");
+            assertEquals("test.txt", result.get("path").asText());
+            assertEquals("hello", result.get("content").asText());
+
+            // 通过 buildToolResultJson 验证嵌套结构保持
+            String json = (String) buildToolResultJsonMethod.invoke(orchestrator,
+                "tc-1", "test_tool", true, "ok", null, "{\"path\":\"test.txt\"}", "tc-1");
+            JsonNode node = mapper.readTree(json);
+            assertTrue(node.get("args").isObject(), "合法 JSON 的 args 应为对象");
+            assertEquals("test.txt", node.get("args").get("path").asText());
+        }
+
+        @Test
+        @DisplayName("空字符串 arguments → 返回空字符串 textNode")
+        void emptyString_returnsEmptyTextNode() throws Exception {
+            JsonNode result = (JsonNode) safeArgsMethod.invoke(orchestrator, "", "tc-empty");
+            assertInstanceOf(TextNode.class, result, "空字符串应返回 TextNode");
+            assertEquals("", result.asText());
         }
     }
 }

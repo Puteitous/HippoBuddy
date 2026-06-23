@@ -102,4 +102,19 @@ describe('EventRouter.js', () => {
       expect(handler).not.toHaveBeenCalled();
     }
   });
+
+  // ── tool_result 兜底路由（加固后的新行为） ──
+
+  it('tool_result 缺失 name 字段时仍应分发（兜底路由）', () => {
+    router.handle({ _eventType: 'tool_result', id: 'tc-1', success: true }, {}, {});
+    expect(handlers.tool_result).toHaveBeenCalledTimes(1);
+    expect(handlers.tool_result).toHaveBeenCalledWith(
+      { _eventType: 'tool_result', id: 'tc-1', success: true }
+    );
+  });
+
+  it('tool_result 只有 _eventType 时也能兜底分发', () => {
+    router.handle({ _eventType: 'tool_result' }, {}, {});
+    expect(handlers.tool_result).toHaveBeenCalledTimes(1);
+  });
 });

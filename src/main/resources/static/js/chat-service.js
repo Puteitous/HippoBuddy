@@ -178,6 +178,25 @@ export class ChatService {
             onChunk(parsed);
           }
         } else {
+          // 正则兜底：JSON 解析失败时，尝试从 tool_result 数据中提取关键字段
+          if (currentEvent === 'tool_result') {
+            const idMatch = data.match(/"id"\s*:\s*"([^"]*)"/);
+            const nameMatch = data.match(/"name"\s*:\s*"([^"]*)"/);
+            const successMatch = data.match(/"success"\s*:\s*(true|false)/);
+            if (idMatch && nameMatch) {
+              if (onChunk) {
+                hasContent = true;
+                onChunk({
+                  id: idMatch[1],
+                  name: nameMatch[1],
+                  success: successMatch?.[1] === 'true',
+                  error: '工具结果数据解析异常',
+                  _eventType: 'tool_result'
+                });
+              }
+              return;
+            }
+          }
           if (onChunk) {
             onChunk({
               type: currentEvent || 'raw',

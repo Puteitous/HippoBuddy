@@ -180,6 +180,80 @@ describe('chat-service.js', () => {
       await expect(chatService.executeRequest('session-1', 'hi', null, controller.signal))
         .rejects.toThrow();
     });
+
+    it('tool_result JSON 损坏时通过正则兜底提取 id/name/success', async () => {
+      // 模拟 tool_result 的 data 中包含未转义字符导致 JSON.parse 失败
+      const encoder = new TextEncoder();
+      const rawText = 'event: tool_result\ndata: {"id":"tc-1","name":"edit_file","success":true,"result":"内容含有未转义\\n换行","args":{"path":"bad\\file"}}\n\nevent: done\ndata: [DONE]\n\n';
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader() {
+            let read = false;
+            return {
+              read() {
+                if (!read) {
+                  read = true;
+                  return Promise.resolve({ done: false, value: encoder.encode(rawText) });
+                }
+                return Promise.resolve({ done: true, value: undefined });
+              }
+            };
+          }
+        }
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+      const chunks = [];
+      const result = await chatService.executeRequest(
+        'session-1', 'hi', (chunk) => chunks.push(chunk), null
+      );
+
+      // 即使 JSON 损坏，正则兜底也能提取出关键字段
+      const toolResultChunk = chunks.find(c => c._eventType === 'tool_result');
+      expect(toolResultChunk).toBeDefined();
+      expect(toolResultChunk.id).toBe('tc-1');
+      expect(toolResultChunk.name).toBe('edit_file');
+      expect(toolResultChunk.success).toBe(true);
+      expect(result.hasContent).toBe(true);
+    });
+
+    it('tool_result JSON 完全损坏无法正则恢复时回退到 raw_error', async () => {
+      // 完全乱数据，正则也救不回来
+      const encoder = new TextEncoder();
+      const rawText = 'event: tool_result\ndata: {{{{完全乱掉了}}}\n\nevent: done\ndata: [DONE]\n\n';
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader() {
+            let read = false;
+            return {
+              read() {
+                if (!read) {
+                  read = true;
+                  return Promise.resolve({ done: false, value: encoder.encode(rawText) });
+                }
+                return Promise.resolve({ done: true, value: undefined });
+              }
+            };
+          }
+        }
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+      const chunks = [];
+      const result = await chatService.executeRequest(
+        'session-1', 'hi', (chunk) => chunks.push(chunk), null
+      );
+
+      // 应回退到 raw 类型数据
+      const rawChunk = chunks.find(c => c.type === 'tool_result');
+      expect(rawChunk).toBeDefined();
+      expect(rawChunk.content).toBe('{{{{完全乱掉了}}}');
+      expect(result.hasContent).toBe(true);
+    });
   });
 
   describe('sendMessage 重试逻辑', () => {

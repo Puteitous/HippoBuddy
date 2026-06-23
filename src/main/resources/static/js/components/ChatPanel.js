@@ -23,6 +23,7 @@ export class ChatPanel {
     this._lastUserMsgDiv = null;
     this._lastUserMessageId = null;
     this._runningToolCallIds = new Set();
+    this._stuckTimer = null;
     this._destroyed = false;
 
     this._activeSession = null;
@@ -528,6 +529,9 @@ export class ChatPanel {
       },
       onRetry
     });
+
+    // SSE 流结束，启动兜底定时器检查 stuck tool（30s 后运行）
+    this._startStuckTimer();
 
     this.isCompleted = true;
     this.setSendingState(false);
@@ -1180,6 +1184,26 @@ export class ChatPanel {
 
     // 自愈：停止生成时标记所有未完成的 tool 卡片
     this._healStuckToolCards();
+    this._clearStuckTimer();
+  }
+
+  /**
+   * 启动 stuck 定时器：SSE 流结束后 30s 检查一次是否有卡在 running 状态的 tool。
+   * 兜底机制——前 4 层防护都失效时的最终防线。
+   */
+  _startStuckTimer() {
+    this._clearStuckTimer();
+    this._stuckTimer = setTimeout(() => {
+      this._healStuckToolCards();
+      this._stuckTimer = null;
+    }, 30000);
+  }
+
+  _clearStuckTimer() {
+    if (this._stuckTimer) {
+      clearTimeout(this._stuckTimer);
+      this._stuckTimer = null;
+    }
   }
 
   /**

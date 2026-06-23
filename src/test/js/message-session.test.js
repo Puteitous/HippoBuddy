@@ -175,6 +175,21 @@ describe('MessageSession.js', () => {
       session.handleToolResult({ name: 'bash', success: true });
       expect(session.getSegments()[0].confirmationData).toBeNull();
     });
+
+    it('通过 id 兜底匹配（name 字段缺失时的 fallback）', () => {
+      session.getSegments().push({ type: 'tool', id: 'tc-1', name: 'bash', args: '{}', result: null });
+      // 模拟 name 缺失（如 JSON 损坏场景），只有 id
+      session.handleToolResult({ id: 'tc-1', success: false, error: 'JSON 解析异常' });
+      expect(session.getSegments()[0].result).toBe('error');
+      expect(session.getSegments()[0].error).toBe('JSON 解析异常');
+    });
+
+    it('同时缺失 name 和 id 时不应匹配', () => {
+      session.getSegments().push({ type: 'tool', id: 'tc-1', name: 'bash', args: '{}', result: null });
+      session.handleToolResult({ success: true });
+      // 无匹配，segment 的 result 仍为 null
+      expect(session.getSegments()[0].result).toBeNull();
+    });
   });
 
   describe('handleToolProgress', () => {

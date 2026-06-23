@@ -494,6 +494,10 @@ export class MessageSession {
     if (!existingTool) {
       existingTool = this._segments.find(s => s.type === 'tool' && s.name === parsed.name && !s.result);
     }
+    // 兜底：name 字段因 JSON 损坏而缺失，尝试通过 id 匹配
+    if (!existingTool && parsed.id) {
+      existingTool = this._segments.find(s => s.type === 'tool' && s.id === parsed.id && !s.result);
+    }
     if (existingTool) {
       existingTool.result = parsed.success ? 'success' : 'error';
       existingTool.error = parsed.error || null;
