@@ -321,6 +321,11 @@ body.desktop-window {
     flex-shrink: 0;
 }
 
+/* 预览面板显示时，user 气泡右间距不足，向左偏移避免与 nav-strip 重叠 */
+.preview-panel:not(.hidden) + .panel-resizer + .chat-panel .message.user {
+    margin-right: 18px;
+}
+
 /* 聊天面板折叠时，缩到仅头部高度，让预览区域最大化 */
 .preview-panel:not(.hidden) + .panel-resizer + .chat-panel.collapsed {
     width: 0 !important;

@@ -453,8 +453,8 @@ export class ChatPanel {
   /**
    * 发送消息
    */
-  async sendMessage(overrideContent, editMessageId, editMsgDiv) {
-    console.log('📤 sendMessage 被调用', { overrideContent, editMessageId, isSending: this.isSendingMessage });
+  async sendMessage(overrideContent) {
+    console.log('📤 sendMessage 被调用', { overrideContent, isSending: this.isSendingMessage });
     
     if (this.isSendingMessage) {
       console.log('⏭️ sendMessage 跳过：LLM 正在输出中');
@@ -477,38 +477,20 @@ export class ChatPanel {
 
     this._healStuckToolCards();
 
-    if (!editMessageId && this.elements.messageInput) {
+    if (this.elements.messageInput) {
       this.elements.messageInput.value = '';
       this.elements.messageInput.style.height = 'auto';
     }
     
-    // 清空引用卡片（编辑操作不清空）
-    if (!editMessageId) {
-      this._clearRefs();
-    }
+    this._clearRefs();
     
     this.lastUserMessage = content;
     EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId, content });
     
-    if (editMsgDiv) {
-      const row = editMsgDiv.closest('.message-row') || editMsgDiv;
-      const contentDiv = editMsgDiv.querySelector('.message-content');
-      if (contentDiv) contentDiv.textContent = content;
-      let nextSibling = row.nextElementSibling;
-      while (nextSibling) {
-        const toRemove = nextSibling;
-        nextSibling = nextSibling.nextElementSibling;
-        toRemove.remove();
-      }
-    } else {
-      const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-      this._lastUserMessageId = tempId;
-      const { msgDiv, editBtn } = this.chatUI.appendUserMessage(content, tempId, true);
-      this._lastUserMsgDiv = msgDiv;
-      if (editBtn) {
-        editBtn.addEventListener('click', () => this.startEditMessage(msgDiv));
-      }
-    }
+    const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    this._lastUserMessageId = tempId;
+    const { msgDiv } = this.chatUI.appendUserMessage(content, tempId, true);
+    this._lastUserMsgDiv = msgDiv;
     
     this.setSendingState(true);
     if (this.elements.messageInput) {
@@ -537,7 +519,6 @@ export class ChatPanel {
       content,
       signal: this.currentAbortController?.signal,
       systemPrompt: appState.getSystemPrompt(),
-      editMessageId: editMessageId || null,
       useExecuteRequest: false,
       onMessageId: (id) => {
         if (this._lastUserMsgDiv) {
@@ -1263,82 +1244,6 @@ export class ChatPanel {
   }
 
   /**
-   * 开始编辑消息
-   */
-  startEditMessage(msgDiv) {
-    const contentDiv = msgDiv.querySelector('.message-content');
-    if (!contentDiv) return;
-    
-    if (msgDiv.classList.contains('editing')) return;
-    msgDiv.classList.add('editing');
-    
-    const originalText = contentDiv.textContent;
-    const row = msgDiv.closest('.message-row') || msgDiv;
-    
-    const textarea = document.createElement('textarea');
-    textarea.className = 'message-edit-textarea';
-    textarea.value = originalText;
-    textarea.rows = Math.min(Math.max(originalText.split('\n').length, 4), 15);
-    
-    const editActions = document.createElement('div');
-    editActions.className = 'message-edit-actions';
-    
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'message-edit-cancel';
-    cancelBtn.textContent = '取消';
-    
-    const sendBtn = document.createElement('button');
-    sendBtn.className = 'message-edit-send';
-    sendBtn.textContent = '发送';
-    
-    editActions.appendChild(cancelBtn);
-    editActions.appendChild(sendBtn);
-    
-    contentDiv.style.display = 'none';
-    const originalActions = row.querySelector('.message-actions');
-    if (originalActions) originalActions.style.display = 'none';
-    
-    contentDiv.parentNode.insertBefore(textarea, contentDiv.nextSibling);
-    row.appendChild(editActions);
-    
-    textarea.focus();
-    
-    // 取消编辑
-    cancelBtn.onclick = () => {
-      msgDiv.classList.remove('editing');
-      textarea.remove();
-      editActions.remove();
-      contentDiv.style.display = '';
-      if (originalActions) originalActions.style.display = '';
-    };
-    
-    // 发送编辑
-    sendBtn.onclick = () => {
-      const newContent = textarea.value.trim();
-      if (!newContent || newContent === originalText) {
-        cancelBtn.click();
-        return;
-      }
-      
-      msgDiv.classList.remove('editing');
-      textarea.remove();
-      editActions.remove();
-      this.sendMessage(newContent, msgDiv.dataset.messageId || '', msgDiv);
-    };
-    
-    // 键盘事件
-    textarea.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-        e.preventDefault();
-        sendBtn.click();
-      }
-      if (e.key === 'Escape') {
-        cancelBtn.click();
-      }
-    });
-  }
-  
-  /**
    * 从服务端消息数组加载历史消息（会话切换时调用）
    */
   async loadHistoryMessages(messages, noAnimation = false) {
@@ -1530,16 +1435,8 @@ export class ChatPanel {
             timeDiv.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
             userMsgDiv.appendChild(timeDiv);
 
-            userRow.appendChild(userMsgDiv);
-
             const btnContainer = document.createElement('div');
             btnContainer.className = 'message-actions';
-
-            const editBtn = document.createElement('button');
-            editBtn.className = 'message-action-btn';
-            editBtn.title = '编辑';
-            editBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
-            btnContainer.appendChild(editBtn);
 
             const copyBtn = document.createElement('button');
             copyBtn.className = 'message-action-btn';
@@ -1556,9 +1453,11 @@ export class ChatPanel {
               }).catch(() => {});
             });
             btnContainer.appendChild(copyBtn);
+
+            // btnContainer 先 append，让它在 msgDiv 左侧
             userRow.appendChild(btnContainer);
+            userRow.appendChild(userMsgDiv);
             fragment.appendChild(userRow);
-            pendingUserEditBtns.push({ editBtn, msgDiv: userMsgDiv });
           }
           continue;
         }
@@ -1686,13 +1585,6 @@ export class ChatPanel {
         this.container.appendChild(fragment);
       }
 
-      if (pendingUserEditBtns.length > 0) {
-        requestAnimationFrame(() => {
-          for (const { editBtn, msgDiv } of pendingUserEditBtns) {
-            editBtn.addEventListener('click', () => this.startEditMessage(msgDiv));
-          }
-        });
-      }
     }
 
     this.chatUI.scrollToBottom();

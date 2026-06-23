@@ -113,16 +113,8 @@ export class ChatUI {
     timeDiv.textContent = formatTime(new Date());
     msgDiv.appendChild(timeDiv);
 
-    row.appendChild(msgDiv);
-
     const btnContainer = document.createElement('div');
     btnContainer.className = 'message-actions';
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'message-action-btn';
-    editBtn.title = '编辑';
-    editBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
-    btnContainer.appendChild(editBtn);
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'message-action-btn';
@@ -140,7 +132,9 @@ export class ChatUI {
     });
     btnContainer.appendChild(copyBtn);
 
+    // btnContainer 先 append，让它在 msgDiv 左侧
     row.appendChild(btnContainer);
+    row.appendChild(msgDiv);
     
     this.container.appendChild(row);
     if (animate) {
@@ -150,7 +144,7 @@ export class ChatUI {
       requestAnimationFrame(() => row.classList.add('animate-in'));
     }
     this.scrollToBottom();
-    return { msgDiv, contentDiv, editBtn, copyBtn, btnContainer, messageRow: row };
+    return { msgDiv, contentDiv, copyBtn, btnContainer, messageRow: row };
   }
 
   appendAssistantMessage(initialHTML = '<span class="typing-indicator">...</span>') {

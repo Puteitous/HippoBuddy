@@ -149,11 +149,15 @@ export function initSelectionActions() {
   // 获取选中文本的末尾光标位置（用于定位按钮）
   function getSelectionPosition() {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+    if (!selection || selection.isCollapsed || !selection.rangeCount) {
+      return null;
+    }
 
     const range = selection.getRangeAt(0);
     const container = range.commonAncestorContainer;
-    if (!isInSelectableArea(container)) return null;
+    if (!isInSelectableArea(container)) {
+      return null;
+    }
 
     // 判断选择方向：从下往上选时，折叠到开头（真正的视觉末尾）
     const isBackwards = (() => {
@@ -167,8 +171,21 @@ export function initSelectionActions() {
 
     const endRange = range.cloneRange();
     endRange.collapse(isBackwards); // 反向选择时折叠到开头而非末尾
-    const rect = endRange.getBoundingClientRect();
-    if (!rect) return null;
+    let rect = endRange.getBoundingClientRect();
+    if (!rect) {
+      return null;
+    }
+
+    // 瞬态零坐标修复：拖选过程中 collapse() 偶尔返回 (0,0) 零高度矩形，
+    // 降级使用原始 range.getClientRects() 取有效矩形
+    if (rect.top === 0 && rect.bottom === 0 && rect.left === 0 && rect.right === 0) {
+      const rects = range.getClientRects();
+      if (rects && rects.length > 0) {
+        rect = isBackwards ? rects[0] : rects[rects.length - 1];
+      } else {
+        return null;
+      }
+    }
 
     // 检查光标位置是否还在容器的可视区域内
     const selectableEl = (container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement).closest(SELECTABLE_AREAS.join(','));
@@ -191,16 +208,15 @@ export function initSelectionActions() {
     if (pos) {
       showBtn(pos.x, pos.y);
     } else {
-      // 延迟隐藏，给点击按钮留时间
-      hideTimer = setTimeout(hideBtn, 200);
+      hideBtn();
     }
   });
 
-  // ── 点击其他地方隐藏（延迟隐藏，避免点击同区域空行时误隐藏） ──
+  // ── 点击其他地方隐藏 ───────────────────────────
   document.addEventListener('mousedown', (e) => {
     if (btn && !btn.contains(e.target)) {
       clearTimeout(hideTimer);
-      hideTimer = setTimeout(hideBtn, 200);
+      hideBtn();
     }
   });
 
@@ -215,7 +231,7 @@ export function initSelectionActions() {
       if (pos) {
         showBtn(pos.x, pos.y);
       } else {
-        hideTimer = setTimeout(hideBtn, 200);
+        hideBtn();
       }
     });
   }, true);

@@ -35,6 +35,7 @@ export class FileTree {
     this._activeFilePath = null;
     this._gitStatus = null;
     this._refreshDebounceTimer = null;
+    this._loadingDirs = new Set();
 
     // 右键菜单
     this._contextMenuEl = this._createContextMenu();
@@ -743,13 +744,22 @@ export class FileTree {
         iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
         childrenEl.style.display = 'none';
         childrenEl.innerHTML = '';
+        // 清理加载中标记，便于下次展开重新加载
+        this._loadingDirs.delete(fullPath);
       } else {
+        // 防止异步加载未完成时重复点击导致竞态
+        if (this._loadingDirs.has(fullPath)) return;
+        this._loadingDirs.add(fullPath);
         this._expandedDirs.add(fullPath);
         toggleEl.classList.add('expanded');
         iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity="0.1"/></svg>';
         childrenEl.style.display = '';
-        await this._renderTree(fullPath, childrenEl);
-        this._applyGitStatusClasses();
+        try {
+          await this._renderTree(fullPath, childrenEl);
+          this._applyGitStatusClasses();
+        } finally {
+          this._loadingDirs.delete(fullPath);
+        }
       }
     };
 

@@ -57,7 +57,7 @@
     background: var(--bg-app);
     color: var(--text-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: 50%;
     cursor: pointer;
     box-shadow: var(--shadow-sm);
     z-index: 10;
@@ -87,7 +87,10 @@
 }
 
 .message-row.user-row {
-    align-items: flex-end;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: 6px;
 }
 
 .message-row.assistant-row {
@@ -170,6 +173,9 @@
 }
 
 .message-row.user-row .message-actions {
+    align-self: flex-end;
+    flex-shrink: 0;
+    margin-top: 0;
     opacity: 0;
     transition: opacity var(--transition-fast);
 }
@@ -1150,61 +1156,6 @@
     font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.5;
-}
-
-/* ========== 消息编辑 ========== */
-.message.editing {
-    position: relative;
-}
-
-.message-edit-textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-md);
-    font-family: inherit;
-    line-height: 1.6;
-    resize: vertical;
-    background: var(--bg-app);
-    color: var(--text-primary);
-    outline: none;
-    min-height: 80px;
-    box-sizing: border-box;
-    transition: border-color var(--transition-fast);
-}
-
-.message-edit-textarea:focus {
-    border-color: #d1d5db;
-}
-
-[data-theme="dark"] .message-edit-textarea:focus {
-    border-color: #4b5563;
-}
-
-.message-edit-actions {
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
-    margin-top: 6px;
-}
-
-.message-edit-cancel,
-.message-edit-send {
-    padding: 5px 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--bg-app);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    transition: all var(--transition-fast);
-}
-
-.message-edit-cancel:hover,
-.message-edit-send:hover {
-    background: var(--bg-code);
-    color: var(--text-primary);
 }
 
 /* ========== 加载指示器 ========== */
