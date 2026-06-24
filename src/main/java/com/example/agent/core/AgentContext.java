@@ -7,6 +7,7 @@ import com.example.agent.context.config.ContextConfig;
 import com.example.agent.core.di.CoreModule;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.rule.RuleManager;
+import com.example.agent.domain.skill.SkillManager;
 import com.example.agent.subagent.SubAgentManager;
 
 import com.example.agent.llm.client.LlmClient;
@@ -58,6 +59,7 @@ public class AgentContext {
     private TokenMetricsCollector tokenMetricsCollector;
     private EventMetricsCollector eventMetricsCollector;
     private RuleManager ruleManager;
+    private SkillManager skillManager;
     private McpServiceManager mcpServiceManager;
     // private LspServiceManager lspServiceManager; // 已移除，见 AgentMode/prompt
     private com.example.agent.memory.MemoryRetriever memoryRetriever;
@@ -150,6 +152,7 @@ public class AgentContext {
         this.llmClient = ServiceLocator.get(LlmClient.class);
         this.tokenEstimator = ServiceLocator.get(TokenEstimator.class);
         this.ruleManager = ServiceLocator.get(RuleManager.class);
+        this.skillManager = ServiceLocator.get(SkillManager.class);
         this.toolRegistry = ServiceLocator.get(ToolRegistry.class);
         this.concurrentToolExecutor = ServiceLocator.get(ConcurrentToolExecutor.class);
 
@@ -193,6 +196,7 @@ public class AgentContext {
         // 增强系统提示词（使用 PromptLibrary）
         String basePrompt = promptService.getBasePrompt(null);
         String enhancedSystemPrompt = this.ruleManager.enhanceSystemPrompt(basePrompt);
+        enhancedSystemPrompt = this.skillManager.enhanceSystemPrompt(enhancedSystemPrompt);
         this.conversation = conversationService.create(enhancedSystemPrompt, config.getContext().getMaxTokens(), sessionId);
 
         logger.info("✅ 四层架构落地: ConversationService(应用层) + Conversation(领域层)");
@@ -207,6 +211,7 @@ public class AgentContext {
             };
             String prompt = promptService.getBasePrompt(taskMode);
             String enhancedPrompt = ruleManager.enhanceSystemPrompt(prompt);
+            enhancedPrompt = skillManager.enhanceSystemPrompt(enhancedPrompt);
             
             // ✅ 核心：preserveHistory = true
             conversationService.setSystemPrompt(conversation, enhancedPrompt, true);
@@ -223,6 +228,7 @@ public class AgentContext {
         // 默认使用 Chat 模式 Prompt
         String defaultPrompt = promptService.getBasePrompt(com.example.agent.prompt.model.TaskMode.CHAT);
         String enhancedDefaultPrompt = ruleManager.enhanceSystemPrompt(defaultPrompt);
+        enhancedDefaultPrompt = skillManager.enhanceSystemPrompt(enhancedDefaultPrompt);
         conversationService.setSystemPrompt(conversation, enhancedDefaultPrompt);
         logger.info("默认启用 Chat 模式 System Prompt ✅");
     }
@@ -235,6 +241,7 @@ public class AgentContext {
         if (this.ruleManager != null) {
             this.ruleManager.reload();
             String enhancedSystemPrompt = this.ruleManager.enhanceSystemPrompt(basePrompt);
+            enhancedSystemPrompt = this.skillManager.enhanceSystemPrompt(enhancedSystemPrompt);
             this.conversation = conversationService.create(enhancedSystemPrompt, config.getContext().getMaxTokens(), sessionId);
         } else {
             this.conversation = conversationService.create(basePrompt, config.getContext().getMaxTokens(), sessionId);

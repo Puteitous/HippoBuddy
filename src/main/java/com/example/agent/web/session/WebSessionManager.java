@@ -5,6 +5,7 @@ import com.example.agent.config.Config;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.rule.RuleManager;
+import com.example.agent.domain.skill.SkillManager;
 import com.example.agent.llm.model.Message;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.application.ConversationService;
@@ -386,6 +387,12 @@ public class WebSessionManager implements SessionManager {
         RuleManager ruleManager = ServiceLocator.getOrNull(RuleManager.class);
         if (ruleManager != null) {
             prompt = ruleManager.enhanceSystemPrompt(prompt);
+        }
+
+        // 通过 SkillManager 注入技能目录
+        SkillManager skillManager = ServiceLocator.getOrNull(SkillManager.class);
+        if (skillManager != null) {
+            prompt = skillManager.enhanceSystemPrompt(prompt);
         }
 
         String workspacePath = WorkspaceContext.getCurrentFolder();

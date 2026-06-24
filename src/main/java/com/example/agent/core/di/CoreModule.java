@@ -12,6 +12,7 @@ import com.example.agent.core.health.LlmHealthIndicator;
 import com.example.agent.core.health.SystemHealthIndicator;
 
 import com.example.agent.domain.rule.RuleManager;
+import com.example.agent.domain.skill.SkillManager;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.client.LlmClientFactory;
 import com.example.agent.llm.retry.RetryPolicy;
@@ -70,6 +71,10 @@ public final class CoreModule {
         RuleManager ruleManager = new RuleManager(tokenEstimator, config.getRule());
         ServiceLocator.registerSingleton(RuleManager.class, ruleManager);
         logger.info("✅ [Level 2] 领域服务: RuleManager");
+
+        SkillManager skillManager = new SkillManager();
+        ServiceLocator.registerSingleton(SkillManager.class, skillManager);
+        logger.info("✅ [Level 2] 领域服务: SkillManager");
 
         TodoManager todoManager = new TodoManager();
         ServiceLocator.registerSingleton(TodoManager.class, todoManager);
