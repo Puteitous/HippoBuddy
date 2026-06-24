@@ -206,11 +206,43 @@ public final class SkillLoader {
      * 查找 Frontmatter 结束位置（第二个 {@code ---}）。
      */
     private static int findFrontmatterEnd(String content) {
-        int searchFrom = content.startsWith("---\r\n") ? 5 : 4;
+        int searchFrom = 3;
         int idx = content.indexOf("\n---", searchFrom);
         if (idx < 0) {
             idx = content.indexOf("\r\n---", searchFrom);
         }
         return idx;
+    }
+
+    /**
+     * 从技能文件内容中剥离 Frontmatter，只返回正文。
+     * 如果没有 Frontmatter，原样返回。
+     *
+     * @param content 完整的技能文件内容（可能含 Frontmatter）
+     * @return 剥离 Frontmatter 后的正文
+     */
+    public static String stripFrontmatter(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+        if (content.startsWith("---\n") || content.startsWith("---\r\n")) {
+            int searchFrom = 3;
+            int endIdx = content.indexOf("\n---", searchFrom);
+            if (endIdx < 0) {
+                endIdx = content.indexOf("\r\n---", searchFrom);
+            }
+            if (endIdx > 0) {
+                int bodyStart = endIdx + 4;
+                if (bodyStart < content.length() && content.charAt(bodyStart) == '\n') {
+                    bodyStart++;
+                } else if (bodyStart + 1 < content.length()
+                        && content.charAt(bodyStart) == '\r'
+                        && content.charAt(bodyStart + 1) == '\n') {
+                    bodyStart += 2;
+                }
+                return content.substring(bodyStart);
+            }
+        }
+        return content;
     }
 }

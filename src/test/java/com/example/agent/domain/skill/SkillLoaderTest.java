@@ -391,4 +391,101 @@ class SkillLoaderTest {
         assertNotNull(skills.get(0).toString());
         assertTrue(skills.get(0).toString().contains("S"));
     }
+
+    // ==================== stripFrontmatter ====================
+
+    @Nested
+    @DisplayName("stripFrontmatter")
+    class StripFrontmatterTests {
+
+        @Test
+        @DisplayName("null 输入返回空字符串")
+        void nullInput() {
+            assertEquals("", SkillLoader.stripFrontmatter(null));
+        }
+
+        @Test
+        @DisplayName("空字符串返回空字符串")
+        void emptyInput() {
+            assertEquals("", SkillLoader.stripFrontmatter(""));
+        }
+
+        @Test
+        @DisplayName("空白字符串返回空字符串")
+        void blankInput() {
+            assertEquals("", SkillLoader.stripFrontmatter("   "));
+        }
+
+        @Test
+        @DisplayName("无 Frontmatter — 原样返回")
+        void noFrontmatter() {
+            String input = "just plain content\nwithout frontmatter";
+            assertEquals(input, SkillLoader.stripFrontmatter(input));
+        }
+
+        @Test
+        @DisplayName("完整 Frontmatter — 只返回正文")
+        void fullFrontmatter() {
+            String input = "---\nname: Test\ndescription: desc\n---\nbody content\n";
+            assertEquals("body content\n", SkillLoader.stripFrontmatter(input));
+        }
+
+        @Test
+        @DisplayName("Frontmatter 后正文有多行")
+        void multiLineBody() {
+            String input = "---\nname: Test\n---\nline1\nline2\nline3\n";
+            assertEquals("line1\nline2\nline3\n", SkillLoader.stripFrontmatter(input));
+        }
+
+        @Test
+        @DisplayName("Frontmatter 后无正文 — 返回空字符串")
+        void frontmatterOnly() {
+            String input = "---\nname: Test\n---\n";
+            assertEquals("", SkillLoader.stripFrontmatter(input));
+        }
+
+        @Test
+        @DisplayName("Frontmatter 后紧接正文无换行")
+        void frontmatterNoTrailingNewline() {
+            String input = "---\nname: Test\n---\nbody";
+            assertEquals("body", SkillLoader.stripFrontmatter(input));
+        }
+
+        @Test
+        @DisplayName("只有 --- 开头无结束标记 — 原样返回")
+        void noEndMarker() {
+            String input = "---\nname: Test\ncontent\n";
+            assertEquals(input, SkillLoader.stripFrontmatter(input));
+        }
+
+        @Test
+        @DisplayName("正文中有 --- 但不影响剥离")
+        void bodyContainsMarker() {
+            String input = "---\nname: Test\n---\n---\nstill body\n---\n";
+            assertEquals("---\nstill body\n---\n", SkillLoader.stripFrontmatter(input),
+                    "只剥离第一个 Frontmatter");
+        }
+
+        @Test
+        @DisplayName("Windows 换行符 (\\r\\n)")
+        void windowsLineEndings() {
+            String input = "---\r\nname: Test\r\n---\r\nbody content\r\n";
+            assertEquals("body content\r\n", SkillLoader.stripFrontmatter(input));
+        }
+
+        @Test
+        @DisplayName("只含 --- 无任何内容 — 返回空字符串")
+        void onlyMarkers() {
+            String input = "---\n---\n";
+            assertEquals("", SkillLoader.stripFrontmatter(input),
+                    "Frontmatter 后是空内容");
+        }
+
+        @Test
+        @DisplayName("无 name 字段的 Frontmatter")
+        void frontmatterWithoutName() {
+            String input = "---\ndescription: only desc\n---\nbody\n";
+            assertEquals("body\n", SkillLoader.stripFrontmatter(input));
+        }
+    }
 }

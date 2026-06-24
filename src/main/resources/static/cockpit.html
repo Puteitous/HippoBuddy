@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="css/components/toast.css?v=20260620-1">
     <link rel="stylesheet" href="css/components/dropdown.css?v=20260620-1">
     <link rel="stylesheet" href="css/components/rule-selector.css?v=20260624-1">
+    <link rel="stylesheet" href="css/components/skill-panel.css?v=20260625-1">
     <link id="hljs-light-theme" rel="stylesheet" href="js/vendor/github.min.css">
     <link id="hljs-dark-theme" rel="stylesheet" href="js/vendor/github-dark.min.css" disabled>
     <link rel="stylesheet" href="js/vendor/katex.min.css">
@@ -185,6 +186,14 @@
                     <line x1="16" y1="13" x2="8" y2="13"/>
                     <line x1="16" y1="17" x2="8" y2="17"/>
                     <polyline points="10 9 9 9 8 9"/>
+                </svg>
+            </button>
+            <button class="activity-bar-btn" data-panel="skills" title="技能管理">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
+                    <polyline points="12 2 15 3.5 15 10.5"/>
+                    <line x1="12" y1="22" x2="12" y2="15.5"/>
+                    <polyline points="22 8.5 12 15.5 2 8.5"/>
                 </svg>
             </button>
         </div>
@@ -591,6 +600,7 @@
 
     <!-- Activity Bar -->
     <script type="module" src="js/components/ActivityBar.js"></script>
+    <script type="module" src="js/components/skill-panel.js"></script>
 
     <!-- Activity Bar 面板模板 -->
     <template id="abTokenPanel">

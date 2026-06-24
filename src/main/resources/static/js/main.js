@@ -26,6 +26,7 @@ import { SplashScreen } from './components/SplashScreen.js';
 import { RollbackPanel } from './components/RollbackPanel.js';
 import { initSelectionActions } from './components/selection-actions.js';
 import { ActivityBar } from './components/ActivityBar.js';
+import { SkillPanel } from './components/skill-panel.js';
 import { CustomDropdown } from './utils/dropdown.js';
 import { ConfirmDialog } from './utils/modal.js';
 
@@ -103,6 +104,22 @@ function init() {
   if (abFilesTemplate && activityBar) {
     activityBar.registerPanel('files', () => {
       return abFilesTemplate.content.cloneNode(true);
+    });
+  }
+
+  // 注册技能面板
+  if (activityBar) {
+    let skillPanelInstance = null;
+    activityBar.registerPanel('skills', () => {
+      if (!skillPanelInstance) {
+        skillPanelInstance = new SkillPanel();
+      }
+      return skillPanelInstance.render();
+    });
+    activityBar.onPanelOpen('skills', () => {
+      if (skillPanelInstance) {
+        skillPanelInstance._loadSkills();
+      }
     });
   }
 

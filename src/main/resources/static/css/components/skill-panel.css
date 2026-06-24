@@ -1,0 +1,654 @@
+/* ==========================================
+   Skill Panel — Activity Bar 技能管理面板
+   ========================================== */
+
+.skill-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    font-size: var(--font-size-sm);
+}
+
+/* ========== 头部 ========== */
+.skill-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.skill-panel-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: var(--font-size-md);
+}
+
+.skill-panel-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.skill-panel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-canvas);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.skill-panel-btn:hover {
+    background: var(--bg-code);
+    color: var(--text-primary);
+}
+
+.skill-panel-btn-icon {
+    padding: 4px;
+    border: none;
+    background: transparent;
+}
+
+.skill-panel-btn-primary {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.skill-panel-btn-primary:hover {
+    opacity: 0.9;
+    color: #fff;
+}
+
+/* ========== 分组 ========== */
+.skill-panel-group {
+    margin-bottom: 12px;
+}
+
+.skill-panel-group:last-child {
+    margin-bottom: 0;
+}
+
+.skill-panel-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    padding: 0 2px;
+}
+
+.skill-panel-group-label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.skill-panel-group-count {
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-code);
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+
+/* ========== 技能项 ========== */
+.skill-panel-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.skill-panel-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: var(--radius-md);
+    transition: background var(--transition-fast);
+}
+
+.skill-panel-item:hover {
+    background: var(--bg-code);
+}
+
+.skill-panel-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.skill-panel-item-name {
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.skill-panel-item-desc {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+}
+
+.skill-panel-item-del {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+.skill-panel-item:hover .skill-panel-item-del {
+    opacity: 1;
+}
+
+.skill-panel-item-del:hover {
+    background: var(--error-bg);
+    color: var(--error-color);
+}
+
+/* ========== 空状态 ========== */
+.skill-panel-empty,
+.skill-panel-empty-item {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    padding: 16px 8px;
+}
+
+/* ========== 加载状态 ========== */
+.skill-panel-loading {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    padding: 16px;
+}
+
+/* ========== 错误状态 ========== */
+.skill-panel-error {
+    text-align: center;
+    color: var(--error-color);
+    font-size: var(--font-size-xs);
+    padding: 8px;
+    background: var(--error-bg);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+}
+
+/* ==========================================
+   新建技能弹窗（复用 modals.css 风格）
+   ========================================== */
+.skill-create-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.skill-create-modal {
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    width: 440px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.skill-create-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+}
+
+.skill-create-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.skill-create-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.skill-create-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.skill-create-input {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.skill-create-input:focus {
+    border-color: var(--primary-color);
+}
+
+.skill-create-help {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.skill-create-toggle {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.skill-create-toggle-btn {
+    flex: 1;
+    padding: 6px 12px;
+    border: none;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.skill-create-toggle-btn.active {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.skill-create-textarea {
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    font-family: var(--font-mono);
+    transition: border-color var(--transition-fast);
+}
+
+.skill-create-textarea:focus {
+    border-color: var(--primary-color);
+}
+
+.skill-create-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.skill-create-btn {
+    padding: 6px 16px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: 1px solid var(--border-color);
+}
+
+.skill-create-btn-cancel {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.skill-create-btn-cancel:hover {
+    background: var(--bg-code);
+}
+
+.skill-create-btn-save {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.skill-create-btn-save:hover {
+    opacity: 0.9;
+}
+
+.skill-create-btn-save:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.skill-create-error {
+    color: var(--error-color);
+    font-size: var(--font-size-sm);
+    padding: 6px 8px;
+    background: var(--error-bg);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+}
+
+/* ==========================================
+   技能详情弹窗 — 现代化风格
+   ========================================== */
+
+/* ── 遮罩 ── */
+.skill-detail-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: skill-detail-fade-in 0.15s ease;
+}
+
+@keyframes skill-detail-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── 弹窗卡片 ── */
+.skill-detail-modal {
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    width: 640px;
+    max-width: 92vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 24px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+    animation: skill-detail-slide-up 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@keyframes skill-detail-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── 表单字段 ── */
+.skill-detail-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.skill-detail-label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    user-select: none;
+}
+
+.skill-detail-input {
+    padding: 8px 12px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.skill-detail-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
+}
+
+.skill-detail-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+/* ── 作用域切换 ── */
+.skill-detail-toggle {
+    display: inline-flex;
+    gap: 0;
+    border: 1.5px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    align-self: flex-start;
+}
+
+.skill-detail-toggle-btn {
+    padding: 7px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.skill-detail-toggle-btn:not(.active):hover {
+    color: var(--text-primary);
+    background: var(--bg-code);
+}
+
+.skill-detail-toggle-btn.active {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.skill-detail-toggle-btn.active::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 7px;
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--primary-color) 40%, transparent);
+}
+
+/* ── 分隔线 ── */
+.skill-detail-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 0;
+    position: relative;
+}
+
+/* ── 文件提示 ── */
+.skill-detail-file-hint {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    padding: 4px 0;
+    user-select: none;
+}
+
+/* ── 加载状态 ── */
+.skill-detail-loading {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    padding: 32px 16px;
+    animation: skill-detail-pulse 1s ease-in-out infinite;
+}
+
+@keyframes skill-detail-pulse {
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 1; }
+}
+
+.skill-detail-loading-error {
+    color: var(--error-color);
+    animation: none;
+}
+
+/* ── Raw 编辑器 ── */
+.skill-detail-editor-wrap {
+    flex: 1;
+    min-height: 0;
+}
+
+.skill-detail-textarea {
+    width: 100%;
+    min-height: 280px;
+    padding: 14px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-code);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    tab-size: 2;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.skill-detail-textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent);
+}
+
+/* ── 状态提示 ── */
+.skill-detail-status {
+    font-size: var(--font-size-xs);
+    padding: 8px 12px;
+    border-radius: 8px;
+    line-height: 1.4;
+    animation: skill-detail-status-in 0.2s ease;
+}
+
+@keyframes skill-detail-status-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.skill-detail-status-success {
+    color: #1a7f37;
+    background: #dafbe1;
+    border: 1px solid color-mix(in srgb, #1a7f37 20%, transparent);
+}
+
+[data-theme="dark"] .skill-detail-status-success {
+    color: #56d364;
+    background: #0a3b1a;
+    border-color: color-mix(in srgb, #56d364 20%, transparent);
+}
+
+.skill-detail-status-error {
+    color: var(--error-color);
+    background: var(--error-bg);
+    border: 1px solid color-mix(in srgb, var(--error-color) 20%, transparent);
+}
+
+/* ── 按钮区 ── */
+.skill-detail-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 4px;
+}
+
+.skill-detail-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1.5px solid transparent;
+    line-height: 1.4;
+}
+
+.skill-detail-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.skill-detail-btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.skill-detail-btn-ghost:hover {
+    background: var(--bg-code);
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--border-color), var(--text-secondary) 30%);
+}
+
+.skill-detail-btn-primary {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.skill-detail-btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 30%, transparent);
+}
+
+/* ── 弹窗滚动条美化 ── */
+.skill-detail-modal::-webkit-scrollbar {
+    width: 6px;
+}
+
+.skill-detail-modal::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.skill-detail-modal::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.skill-detail-modal::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
