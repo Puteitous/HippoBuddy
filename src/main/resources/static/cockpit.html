@@ -56,6 +56,28 @@
                 <span class="brand-code">Buddy</span>
             </span>
         </div>
+        <!-- 会话面板折叠时的逃生工具栏 -->
+        <div class="toolbar-escape" id="toolbarEscape" style="display:none;">
+            <button class="toolbar-btn" id="sessionToggleBtnEsc" title="会话面板">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+            <button class="toolbar-btn" id="newSessionBtnEsc" title="新建会话">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+            </button>
+            <button class="toolbar-btn" id="activityBarToggleBtnEsc" title="切换活动栏">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="2" width="3" height="12" rx="0.5"/>
+                    <rect x="6" y="2" width="9" height="12" rx="0.5"/>
+                </svg>
+            </button>
+        </div>
         <div class="header-actions">
             <div class="workspace-indicator desktop-only desktop-only-flex" id="workspaceIndicator" style="display:none !important;">
                 <svg class="workspace-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -143,19 +165,6 @@
         <div class="sidebar-area">
         <!-- Activity Bar -->
         <div class="activity-bar" id="activityBar">
-            <button class="activity-bar-btn" data-action="toggle-session" title="会话面板">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <line x1="3" y1="12" x2="21" y2="12"/>
-                    <line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-            </button>
-            <button class="activity-bar-btn" data-action="new-session" title="新建会话">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-            </button>
             <button class="activity-bar-btn" data-panel="token" title="Token 统计">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="4" y="14" width="4" height="6" rx="0.5"/>
@@ -192,26 +201,47 @@
         <!-- 会话面板 -->
         <div class="session-panel-wrap">
         <div class="session-panel" id="sessionPanel">
+            <!-- 工具栏：会话/面板操作按钮 -->
+            <div class="session-toolbar">
+                <button class="toolbar-btn" id="sessionToggleBtn" title="会话面板">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <button class="toolbar-btn" id="newSessionBtn" title="新建会话">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
+                <button class="toolbar-btn" id="activityBarToggleBtn" title="切换活动栏">
+                    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="1" y="2" width="3" height="12" rx="0.5"/>
+                        <rect x="6" y="2" width="9" height="12" rx="0.5"/>
+                    </svg>
+                </button>
+                <div class="toolbar-spacer"></div>
+                <!-- 侧栏视图切换胶囊（桌面端） -->
+                <div class="view-capsule" id="sidebarViewSwitcher" style="display:none;">
+                    <button class="capsule-btn active" data-view="sessions" title="会话列表">
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="2" y1="4" x2="14" y2="4"/>
+                            <line x1="2" y1="8" x2="14" y2="8"/>
+                            <line x1="2" y1="12" x2="10" y2="12"/>
+                        </svg>
+                    </button>
+                    <button class="capsule-btn" data-view="files" title="文件浏览">
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2 4h5l2 2h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
             <div class="session-header">
                 <div class="session-header-left">
                     <span class="session-header-title">会话</span>
-                </div>
-                <div class="session-header-right">
-                    <!-- 侧栏视图切换胶囊（桌面端） -->
-                    <div class="view-capsule" id="sidebarViewSwitcher" style="display:none;">
-                        <button class="capsule-btn active" data-view="sessions" title="会话列表">
-                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="2" y1="4" x2="14" y2="4"/>
-                                <line x1="2" y1="8" x2="14" y2="8"/>
-                                <line x1="2" y1="12" x2="10" y2="12"/>
-                            </svg>
-                        </button>
-                        <button class="capsule-btn" data-view="files" title="文件浏览">
-                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M2 4h5l2 2h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>
-                            </svg>
-                        </button>
-                    </div>
                 </div>
             </div>
             <div class="session-list" id="sessionList"></div>
@@ -383,12 +413,6 @@
                         <div class="status-bar-actions">
                             <button id="stopBtn" style="display:none;" title="停止生成">
                                 <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                            </button>
-                            <button id="activityBarToggleBtn" title="切换活动栏">
-                                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="1" y="2" width="3" height="12" rx="0.5"/>
-                                    <rect x="6" y="2" width="9" height="12" rx="0.5"/>
-                                </svg>
                             </button>
                             <button id="sendBtn" title="发送消息">
                                 <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

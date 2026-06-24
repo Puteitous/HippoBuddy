@@ -221,35 +221,60 @@ function init() {
     activityBar.onPanelOpen('monitor', () => metricsPanel?.updateMetrics());
     activityBar.onPanelOpen('files', () => fileChangeManager?.updateFileChanges());
 
-    // 注册会话面板折叠/展开动作
-    activityBar.onAction('toggle-session', (btn) => {
+    // 会话面板折叠/展开 — 工具栏按钮 & 逃生工具栏
+    const toolbarEscape = document.getElementById('toolbarEscape');
+
+    function toggleSessionPanel(btn) {
       const sp = document.getElementById('sessionPanel');
       if (!sp) return;
-      sp.classList.toggle('hidden');
-      btn.classList.toggle('active', !sp.classList.contains('hidden'));
-    });
-
-    // 同步初始 active 状态（默认不隐藏）
-    const sp = document.getElementById('sessionPanel');
-    const sessionBtn = activityBar.bar?.querySelector('[data-action="toggle-session"]');
-    if (sp && sessionBtn) {
-      sessionBtn.classList.toggle('active', !sp.classList.contains('hidden'));
+      const nowHidden = !sp.classList.contains('hidden');
+      sp.classList.toggle('hidden', nowHidden);
+      if (btn) btn.classList.toggle('active', !nowHidden);
+      // 逃生工具栏同步显示/隐藏
+      if (toolbarEscape) {
+        toolbarEscape.style.display = nowHidden ? 'flex' : 'none';
+      }
     }
 
-    // 弹窗新建会话
-    activityBar.onAction('new-session', () => {
-      createNewSession();
-    });
+    const sessionToggleBtn = document.getElementById('sessionToggleBtn');
+    if (sessionToggleBtn) {
+      sessionToggleBtn.addEventListener('click', () => toggleSessionPanel(sessionToggleBtn));
+      // 同步初始 active 状态
+      const sp = document.getElementById('sessionPanel');
+      if (sp) {
+        sessionToggleBtn.classList.toggle('active', !sp.classList.contains('hidden'));
+      }
+    }
+    const sessionToggleBtnEsc = document.getElementById('sessionToggleBtnEsc');
+    if (sessionToggleBtnEsc) {
+      sessionToggleBtnEsc.addEventListener('click', () => toggleSessionPanel(sessionToggleBtnEsc));
+    }
 
-    // 活动栏显示/隐藏切换按钮
+    // 新建会话 — 工具栏 & 逃生按钮
+    const newSessionBtn = document.getElementById('newSessionBtn');
+    if (newSessionBtn) {
+      newSessionBtn.addEventListener('click', () => createNewSession());
+    }
+    const newSessionBtnEsc = document.getElementById('newSessionBtnEsc');
+    if (newSessionBtnEsc) {
+      newSessionBtnEsc.addEventListener('click', () => createNewSession());
+    }
+
+    // 活动栏显示/隐藏切换按钮（在工具栏 & 逃生中）
+    function toggleActivityBar(btn) {
+      const nowVisible = activityBar.toggleVisibility();
+      btn.classList.toggle('active', nowVisible);
+    }
+
     const toggleBtn = document.getElementById('activityBarToggleBtn');
     if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => {
-        const nowVisible = activityBar.toggleVisibility();
-        toggleBtn.classList.toggle('active', nowVisible);
-      });
-      // 同步初始状态（可能从 localStorage 恢复了隐藏）
+      toggleBtn.addEventListener('click', () => toggleActivityBar(toggleBtn));
       toggleBtn.classList.toggle('active', activityBar.isVisible());
+    }
+    const toggleBtnEsc = document.getElementById('activityBarToggleBtnEsc');
+    if (toggleBtnEsc) {
+      toggleBtnEsc.addEventListener('click', () => toggleActivityBar(toggleBtnEsc));
+      toggleBtnEsc.classList.toggle('active', activityBar.isVisible());
     }
   }
 

@@ -883,17 +883,6 @@
     transform: translateY(-1px);
 }
 
-/* 活动栏切换按钮 — active 表示活动栏可见 */
-#activityBarToggleBtn.active {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-}
-
-#activityBarToggleBtn.active svg {
-    stroke: #fff;
-}
-
 /* ===== Token 状态栏悬浮 Tooltip ===== */
 .status-bar-tooltip {
     position: fixed;

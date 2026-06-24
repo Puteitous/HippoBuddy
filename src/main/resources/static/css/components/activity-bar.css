@@ -581,21 +581,6 @@
     color: var(--error-color);
 }
 
-/* 会话面板切换按钮旋转动画 */
-.activity-bar-btn[data-action="toggle-session"] svg {
-    transition: transform var(--transition-normal);
-}
-
-.activity-bar-btn[data-action="toggle-session"]:not(.active) svg {
-    transform: rotate(180deg);
-}
-
-/* 新建会话按钮点击动画 */
-.activity-bar-btn[data-action="new-session"]:active svg {
-    transform: scale(0.85);
-    transition: transform 0.1s ease;
-}
-
 /* 浮动面板展开时隐藏 Activity Bar 右侧圆角，与面板边线一体化 */
 .activity-bar:has(.activity-bar-btn.active[data-panel]) {
     border-radius: var(--radius-lg) 0 0 var(--radius-lg);
