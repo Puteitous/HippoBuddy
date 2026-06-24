@@ -77,7 +77,7 @@ export class ChatService {
     }
   }
 
-  async sendMessage(session, message, onChunk, signal, systemPrompt, editMessageId) {
+  async sendMessage(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules) {
     let lastError = null;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -96,7 +96,7 @@ export class ChatService {
       }
 
       try {
-        const result = await this.executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId);
+        const result = await this.executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules);
         if (result.hasContent) {
           return;
         }
@@ -115,7 +115,7 @@ export class ChatService {
     throw lastError || new Error('请求失败');
   }
 
-  async executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId) {
+  async executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules) {
     const timeout = 5 * 60 * 1000;
     let timeoutReject;
     const timeoutPromise = new Promise((_, reject) => {
@@ -139,7 +139,8 @@ export class ChatService {
             session: session,
             message: message,
             ...(systemPrompt ? { systemPrompt: systemPrompt } : {}),
-            ...(editMessageId ? { editMessageId: editMessageId } : {})
+            ...(editMessageId ? { editMessageId: editMessageId } : {}),
+            ...(selectedRules && selectedRules.length > 0 ? { selectedRules: selectedRules } : {})
           })
         }),
         timeoutPromise

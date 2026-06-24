@@ -1,10 +1,16 @@
 package com.example.agent.domain.rule;
 
 import com.example.agent.config.RuleConfig;
+import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.service.SimpleTokenEstimator;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,14 +23,25 @@ import static org.junit.jupiter.api.Assertions.*;
  * - 懒加载行为
  * - reload 边界
  * - 禁用注入
+ * - 工作区切换缓存失效
+ * - 两层规则（项目级+全局）输出格式
  */
 class RuleManagerTest {
 
     private SimpleTokenEstimator tokenEstimator;
 
+    @TempDir
+    Path tempDir;
+
     @BeforeEach
     void setUp() {
         tokenEstimator = new SimpleTokenEstimator();
+    }
+
+    @AfterEach
+    void tearDown() {
+        // 恢复 WorkspaceContext 状态，不影响其他测试
+        WorkspaceContext.clear();
     }
 
     @Test
@@ -165,5 +182,92 @@ class RuleManagerTest {
         String result1 = manager.enhanceSystemPrompt("test");
         String result2 = manager.enhanceSystemPrompt("test");
         assertEquals(result1, result2);
+    }
+
+    @Test
+    @DisplayName("工作区切换 - 切换工作区后触发重新加载")
+    void testWorkspaceChangeTriggersReload() throws Exception {
+        Path ws1 = tempDir.resolve("project-a");
+        Path ws2 = tempDir.resolve("project-b");
+        Files.createDirectories(ws1.resolve(".hippo").resolve("rules"));
+        Files.createDirectories(ws2.resolve(".hippo").resolve("rules"));
+        Files.writeString(ws1.resolve(".hippo").resolve("rules").resolve("rules-a.md"), "rules from A");
+        Files.writeString(ws2.resolve(".hippo").resolve("rules").resolve("rules-b.md"), "rules from B");
+
+        RuleManager manager = new RuleManager(tokenEstimator);
+
+        // 设置工作区 A，加载项目 A 的规则
+        WorkspaceContext.setCurrentFolder(ws1.toString());
+        String resultA = manager.enhanceSystemPrompt("base");
+        assertTrue(resultA.contains("rules from A"), "应加载项目 A 规则");
+        assertTrue(resultA.contains("=== 项目规则 ==="));
+
+        // 切换工作区 B
+        WorkspaceContext.setCurrentFolder(ws2.toString());
+        String resultB = manager.enhanceSystemPrompt("base");
+        assertTrue(resultB.contains("rules from B"), "应重新加载为项目 B 规则");
+        assertFalse(resultB.contains("rules from A"), "应不再包含项目 A 规则");
+    }
+
+    @Test
+    @DisplayName("工作区切换 - 相同工作区不重复加载")
+    void testSameWorkspaceNoReload() throws Exception {
+        Path ws = tempDir.resolve("my-project");
+        Files.createDirectories(ws.resolve(".hippo").resolve("rules"));
+        Files.writeString(ws.resolve(".hippo").resolve("rules").resolve("my.md"), "original");
+
+        RuleManager manager = new RuleManager(tokenEstimator);
+
+        WorkspaceContext.setCurrentFolder(ws.toString());
+        manager.enhanceSystemPrompt("base");
+
+        // 获取缓存后的 token 数
+        int cachedTokens = manager.getTotalTokens();
+
+        // 再次调用（同一工作区），应使用缓存
+        manager.enhanceSystemPrompt("base");
+        assertEquals(cachedTokens, manager.getTotalTokens(), "同一工作区应使用缓存");
+    }
+
+    @Test
+    @DisplayName("输出格式 - 项目规则和全局规则分开注入")
+    void testTwoSectionOutput() throws Exception {
+        // 创建带项目规则的临时工作区
+        Path workspace = tempDir.resolve("test-project");
+        Files.createDirectories(workspace.resolve(".hippo").resolve("rules"));
+        Files.writeString(workspace.resolve(".hippo").resolve("rules").resolve("project.md"),
+                "project rules content");
+
+        WorkspaceContext.setCurrentFolder(workspace.toString());
+
+        RuleManager manager = new RuleManager(tokenEstimator);
+        String result = manager.enhanceSystemPrompt("base prompt");
+
+        int projectSection = result.indexOf("=== 项目规则 ===");
+        int globalSection = result.indexOf("=== 全局规则 ===");
+
+        assertTrue(projectSection >= 0, "应包含项目规则段落");
+        // 全局规则不存在时为 -1，这是合法的（没有用户级规则）
+        // 如果存在全局规则段，应在项目规则段之后
+        if (globalSection >= 0) {
+            assertTrue(globalSection > projectSection, "项目规则应在全局规则之前");
+        }
+        assertTrue(result.contains("project rules content"), "应包含项目规则内容");
+        assertTrue(result.contains("base prompt"), "base prompt 应保留");
+    }
+
+    @Test
+    @DisplayName("输出格式 - 无项目规则时只有 base prompt，不含项目规则段落")
+    void testNoRulesOutput() {
+        // 使用空的工作区目录，无项目规则
+        WorkspaceContext.setCurrentFolder(tempDir.toString());
+
+        RuleManager manager = new RuleManager(tokenEstimator);
+        String result = manager.enhanceSystemPrompt("hello");
+
+        // 无项目规则时不应有项目规则段落标记
+        assertFalse(result.contains("=== 项目规则 ==="));
+        // base prompt 应保留
+        assertTrue(result.contains("hello"));
     }
 }

@@ -13,6 +13,7 @@
   --bg-code:       #f3f4f6;
   --bg-hover:      #f0f1f3;
   --bg-active:     #e5e7eb;
+  --bg-overlay:    #ffffff;
 
   --border:        #e5e7eb;
   --text-primary:  #111827;
@@ -95,6 +96,7 @@
   --bg-code:       #2a2a32;
   --bg-hover:      #2e2e36;
   --bg-active:     #383840;
+  --bg-overlay:    #222227;
 
   --border:        #37373f;
   --text-primary:  #e8e8ee;

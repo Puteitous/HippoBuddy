@@ -11,6 +11,7 @@ import com.example.agent.web.handler.GitStatusHandler;
 import com.example.agent.web.handler.MemoryApiHandler;
 import com.example.agent.web.handler.RawFileHandler;
 import com.example.agent.web.handler.MetricsApiHandler;
+import com.example.agent.web.handler.RulesApiHandler;
 import com.example.agent.web.handler.SessionApiHandler;
 import com.example.agent.web.handler.StaticFileHandler;
 import com.example.agent.web.handler.SystemPromptApiHandler;
@@ -79,6 +80,8 @@ public class DashboardServer {
             server.createContext("/api/sessions", new SessionApiHandler());
             server.createContext("/api/memories", new MemoryApiHandler());
             server.createContext("/api/metrics", new MetricsApiHandler());
+            server.createContext("/api/rules/list", new RulesApiHandler());
+            server.createContext("/api/rules/create", new RulesApiHandler());
             server.createContext("/api/system-prompts", new SystemPromptApiHandler());
             server.createContext("/api/files", new FileApiHandler());
             server.createContext("/api/git/status", new GitStatusHandler());

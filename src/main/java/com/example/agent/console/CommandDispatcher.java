@@ -840,32 +840,59 @@ public class CommandDispatcher {
     }
 
     private void handleShowRules() {
-        ui.println(ConsoleStyle.cyan("\n📚 已加载的规则文件:"));
-        ui.println(ConsoleStyle.cyan("═══════════════════════════════════════"));
-        
-        java.util.List<java.nio.file.Path> ruleFiles = RuleLoader.findAllRuleFiles();
-        
-        ui.println(ConsoleStyle.cyan("\n📋 规则文件 (" + ruleFiles.size() + "):"));
-        for (java.nio.file.Path file : ruleFiles) {
-            ui.println("   - " + file.getFileName());
+        String workspacePath = com.example.agent.desktop.WorkspaceContext.getCurrentFolder();
+
+        java.util.List<java.nio.file.Path> projectFiles = RuleLoader.findProjectRuleFiles(workspacePath);
+        java.util.List<java.nio.file.Path> userFiles = RuleLoader.findUserRuleFiles();
+
+        // 去重：如果项目级和用户级指向同一目录，只显示项目级
+        if (!projectFiles.isEmpty() && !userFiles.isEmpty()) {
+            java.nio.file.Path projectDir = projectFiles.get(0).getParent().toAbsolutePath().normalize();
+            java.nio.file.Path userDir = userFiles.get(0).getParent().toAbsolutePath().normalize();
+            if (projectDir.equals(userDir)) {
+                userFiles = java.util.Collections.emptyList();
+            }
         }
-        
+
+        ui.println(ConsoleStyle.cyan("\n📚 规则文件"));
+        ui.println(ConsoleStyle.cyan("═══════════════════════════════════════"));
+
+        if (!projectFiles.isEmpty()) {
+            ui.println(ConsoleStyle.cyan("\n📁 项目规则 (.hippo/rules/):"));
+            for (java.nio.file.Path file : projectFiles) {
+                ui.println("   - " + file.getFileName());
+            }
+        }
+
+        if (!userFiles.isEmpty()) {
+            ui.println(ConsoleStyle.cyan("\n📁 全局规则 (~/.hippo/rules/):"));
+            for (java.nio.file.Path file : userFiles) {
+                ui.println("   - " + file.getFileName());
+            }
+        }
+
+        if (projectFiles.isEmpty() && userFiles.isEmpty()) {
+            ui.println(ConsoleStyle.gray("\n暂无规则文件。"));
+        }
+
         RuleManager ruleManager = context.getRuleManager();
         int totalTokens = ruleManager.getTotalTokens();
-        ui.println(ConsoleStyle.cyan("\n💡 总计 Token: " + totalTokens));
+        int totalFiles = projectFiles.size() + userFiles.size();
+        ui.println(ConsoleStyle.cyan("\n📊 合计: " + totalFiles + " 个文件, " + totalTokens + " tokens"));
         ui.println(ConsoleStyle.gray("\n提示: 编辑文件后执行 /reload 热重载"));
         ui.println(ConsoleStyle.cyan("═══════════════════════════════════════\n"));
     }
-    
+
     private void handleReloadRules() {
         ui.println(ConsoleStyle.cyan("\n🔄 正在重新加载规则..."));
-        
+
+        String workspacePath = com.example.agent.desktop.WorkspaceContext.getCurrentFolder();
         RuleManager ruleManager = context.getRuleManager();
         ruleManager.reload();
-        
-        int ruleCount = RuleLoader.countRuleFiles();
+
+        int ruleCount = RuleLoader.countRuleFiles(workspacePath);
         int totalTokens = ruleManager.getTotalTokens();
-        
+
         ui.println(ConsoleStyle.success("✅ 重载完成!"));
         ui.println("   - 规则文件: " + ruleCount + " 个");
         ui.println("   - 总计 Token: " + totalTokens);

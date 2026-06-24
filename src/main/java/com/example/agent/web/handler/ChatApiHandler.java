@@ -2,7 +2,9 @@ package com.example.agent.web.handler;
 
 import com.example.agent.application.ConversationService;
 import com.example.agent.core.di.ServiceLocator;
+import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.domain.conversation.Conversation;
+import com.example.agent.domain.rule.RuleLoader;
 import com.example.agent.llm.exception.LlmException;
 import com.example.agent.llm.model.Message;
 import com.example.agent.web.orchestrator.WebAgentOrchestrator;
@@ -81,6 +83,15 @@ public class ChatApiHandler implements HttpHandler {
             String systemPromptOverride = json.has("systemPrompt") ? json.get("systemPrompt").asText() : null;
             String editMessageId = json.has("editMessageId") ? json.get("editMessageId").asText() : null;
 
+            // 解析手动引用的规则列表
+            java.util.List<String> selectedRules = java.util.Collections.emptyList();
+            if (json.has("selectedRules") && json.get("selectedRules").isArray()) {
+                selectedRules = new java.util.ArrayList<>();
+                for (com.fasterxml.jackson.databind.JsonNode n : json.get("selectedRules")) {
+                    selectedRules.add(n.asText());
+                }
+            }
+
             if (userMessage.isEmpty()) {
                 sseWriter.sendSseEvent("error", "{\"message\":\"消息不能为空\"}");
                 return;
@@ -136,6 +147,28 @@ public class ChatApiHandler implements HttpHandler {
 
                 Message userMsg = conversationService.addUserMessage(conversation, userMessage);
                 sseWriter.sendSseEvent("message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
+            }
+
+            // 注入手动引用的规则内容（作为 system 消息）
+            if (!selectedRules.isEmpty()) {
+                String workspacePath = WorkspaceContext.getCurrentFolder();
+                StringBuilder ruleContent = new StringBuilder();
+                int loadedCount = 0;
+                for (String ruleId : selectedRules) {
+                    String content = RuleLoader.readRuleContent(ruleId, workspacePath);
+                    if (content != null) {
+                        ruleContent.append("<!-- 手动引用规则: ").append(ruleId).append(".md -->\n");
+                        ruleContent.append(content).append("\n\n");
+                        loadedCount++;
+                    } else {
+                        logger.warn("引用的规则文件不存在: {}", ruleId);
+                    }
+                }
+                if (loadedCount > 0) {
+                    String header = "用户手动引用了以下规则，请在处理消息时遵循这些规则：\n\n";
+                    conversation.addMessage(com.example.agent.llm.model.Message.system(header + ruleContent.toString()));
+                    logger.info("注入手动引用规则 {} 个", loadedCount);
+                }
             }
 
             orchestrator.execute(sessionId, conversation, sseWriter);

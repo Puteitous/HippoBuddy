@@ -8,6 +8,7 @@ import { RenderPipeline } from './RenderPipeline.js';
 import { EventRouter } from './EventRouter.js';
 import { MessageSession } from './MessageSession.js';
 import { getFileIconInfo } from '../utils/file-icons.js';
+import { RuleSelector } from './rule-selector.js';
 
 export class ChatPanel {
   constructor(container, chatService, chatUI) {
@@ -75,6 +76,13 @@ export class ChatPanel {
 
     this.eventRouter = this._createEventRouter();
 
+    // 规则选择器
+    this._ruleSelector = new RuleSelector({
+      onRulesChange: (selectedIds) => {
+        // 选中变化时无需额外操作，sendMessage 时读取即可
+      }
+    });
+
     this.init();
   }
   
@@ -88,6 +96,9 @@ export class ChatPanel {
     };
     
     this.bindEvents();
+
+    // 将规则选择器按钮添加到输入区域
+    this._injectRuleSelectorButton();
 
     // 监听文本选中快捷操作 → 插入输入框
     this._unsubscribeSelectionAction = EventBus.on('selection:add-to-input', ({ text, refType, filePath, startLine, endLine, selectedText }) => {
@@ -451,6 +462,31 @@ export class ChatPanel {
     return document.getElementById(id) || document.getElementById('inputRefs') || document.getElementById('heroInputRefs');
   }
 
+  _injectRuleSelectorButton() {
+    // 聊天输入区
+    const inputRow = document.querySelector('.input-row');
+    if (inputRow && this._ruleSelector) {
+      inputRow.appendChild(this._ruleSelector.getButtonElement());
+    }
+    // Hero 输入区（可能动态创建）
+    this._observeHeroInput();
+  }
+
+  _observeHeroInput() {
+    const tryInject = () => {
+      const heroWrapper = document.querySelector('.hero-input-wrapper');
+      if (heroWrapper && !heroWrapper.querySelector('.rule-selector-btn')) {
+        const btn = this._ruleSelector?.getButtonElement();
+        if (btn && !btn.parentNode) {
+          heroWrapper.appendChild(btn);
+        }
+      }
+    };
+    tryInject();
+    const observer = new MutationObserver(() => tryInject());
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   /**
    * 发送消息
    */
@@ -519,11 +555,14 @@ export class ChatPanel {
       this.sendMessage(this.lastUserMessage);
     };
 
+    const selectedRules = this._ruleSelector?.getSelectedRuleIds() || [];
+
     await session.start({
       sessionId: appState.currentSessionId,
       content,
       signal: this.currentAbortController?.signal,
       systemPrompt: appState.getSystemPrompt(),
+      selectedRules,
       useExecuteRequest: false,
       onMessageId: (id) => {
         if (this._lastUserMsgDiv) {

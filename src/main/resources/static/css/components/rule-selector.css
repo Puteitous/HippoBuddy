@@ -1,0 +1,362 @@
+/* ==========================================
+   规则选择器 — 按钮 + 面板 + 新建规则弹窗
+   ========================================== */
+
+/* ===== 触发按钮 ===== */
+.rule-selector-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.rule-selector-btn:hover {
+  background: var(--bg-code);
+  color: var(--text-primary);
+}
+
+.rule-selector-btn:active {
+  transform: scale(0.92);
+}
+
+.rule-selector-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* ===== 面板 ===== */
+.rule-selector-panel {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 8px;
+}
+
+.rule-selector-header {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 4px 8px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.rule-selector-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.rule-selector-group {
+  margin-bottom: 4px;
+}
+
+.rule-selector-group-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  padding: 4px 8px;
+  font-weight: 500;
+}
+
+.rule-selector-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.rule-selector-item:hover {
+  background: var(--bg-code);
+}
+
+.rule-selector-item.selected {
+  background: var(--bg-selected);
+}
+
+.rule-selector-item input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.rule-selector-item-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.rule-selector-item-name {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.rule-selector-item-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-top: 1px;
+  line-height: 1.3;
+}
+
+.rule-selector-item input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── 底部操作栏 ── */
+.rule-selector-footer {
+  border-top: 1px solid var(--border);
+  padding: 6px 4px 2px;
+  margin-top: 4px;
+}
+
+.rule-selector-create-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.rule-selector-create-btn:hover {
+  background: var(--bg-code);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+/* ==========================================
+   新建规则弹窗
+   ========================================== */
+
+.rule-create-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  animation: ruleCreateFadeIn 0.15s ease-out;
+}
+
+@keyframes ruleCreateFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.rule-create-modal {
+  background: var(--bg-app);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  width: 400px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 0;
+  animation: ruleCreateSlideIn 0.15s ease-out;
+}
+
+@keyframes ruleCreateSlideIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rule-create-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 20px 24px 0;
+}
+
+.rule-create-form {
+  padding: 16px 24px 8px;
+}
+
+.rule-create-field {
+  margin-bottom: 14px;
+}
+
+.rule-create-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.rule-create-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-code);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.rule-create-input:focus {
+  border-color: var(--text-muted);
+}
+
+.rule-create-input::placeholder {
+  color: var(--text-muted);
+}
+
+.rule-create-textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-code);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-family: var(--font-mono);
+  outline: none;
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.rule-create-textarea:focus {
+  border-color: var(--text-muted);
+}
+
+.rule-create-textarea::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+}
+
+.rule-create-help {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.3;
+}
+
+/* ── Toggle 按钮组（mode / scope） ── */
+.rule-create-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.rule-create-toggle-btn {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.rule-create-toggle-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.rule-create-toggle-btn.active {
+  background: var(--text-primary);
+  color: var(--bg-app);
+  font-weight: 500;
+}
+
+.rule-create-toggle-btn:not(.active):hover {
+  background: var(--bg-hover);
+}
+
+/* ── 按钮区 ── */
+.rule-create-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 8px 24px 20px;
+}
+
+.rule-create-btn {
+  padding: 7px 20px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.rule-create-btn-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.rule-create-btn-cancel:hover {
+  background: var(--bg-code);
+  color: var(--text-primary);
+}
+
+.rule-create-btn-save {
+  background: var(--text-primary);
+  color: var(--bg-app);
+  border-color: var(--text-primary);
+}
+
+.rule-create-btn-save:hover {
+  opacity: 0.85;
+}
+
+.rule-create-btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── 错误提示 ── */
+.rule-create-error {
+  margin: 0 24px 12px;
+  padding: 8px 12px;
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
