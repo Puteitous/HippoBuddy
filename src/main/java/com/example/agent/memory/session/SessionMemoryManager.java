@@ -58,7 +58,6 @@ public class SessionMemoryManager {
         } else {
             this.memoryFilePath = WorkspaceManager.getSessionMemoryPath(sessionId);
         }
-        ensureDirectory();
     }
 
     public void write(String content) {

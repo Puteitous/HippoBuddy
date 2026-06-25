@@ -56,7 +56,26 @@ public class FileApiHandler implements HttpHandler {
     }
 
     private void handleGetChanges(HttpExchange exchange) throws IOException {
-        List<FileChangeTracker.FileChange> changes = FileChangeTracker.getRecentChanges(50);
+        // 解析可选的 sessionId 查询参数：/api/files/changes?sessionId=xxx
+        String query = exchange.getRequestURI().getQuery();
+        String sessionId = null;
+        if (query != null) {
+            String[] params = query.split("&");
+            for (String param : params) {
+                String[] kv = param.split("=", 2);
+                if (kv.length == 2 && "sessionId".equals(kv[0])) {
+                    sessionId = java.net.URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                }
+            }
+        }
+
+        List<FileChangeTracker.FileChange> changes;
+        if (sessionId != null && !sessionId.isEmpty()) {
+            changes = FileChangeTracker.getRecentChanges(50, sessionId);
+        } else {
+            changes = FileChangeTracker.getRecentChanges(50);
+        }
+
         List<Map<String, Object>> jsonList = new ArrayList<>();
         for (FileChangeTracker.FileChange c : changes) {
             Map<String, Object> item = new HashMap<>();

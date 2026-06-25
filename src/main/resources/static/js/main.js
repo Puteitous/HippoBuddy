@@ -157,7 +157,7 @@ function init() {
     chatContainer,
     messageInput: elements.messageInput,
     onCreateNewSession: () => createNewSession(),
-    onUpdateFileChanges: () => fileChangeManager?.updateFileChanges()
+    onUpdateFileChanges: () => fileChangeManager?.updateFileChanges(appState.currentSessionId)
   });
   
   // 4. 初始化对话导航
@@ -227,7 +227,7 @@ function init() {
     chatService.invalidateMessageCache(appState.currentSessionId);
     tokenMonitor.scheduleUpdate();
     metricsPanel.updateMetrics();
-    fileChangeManager.updateFileChanges();
+    fileChangeManager.updateFileChanges(appState.currentSessionId);
   });
   
   EventBus.on('session:auto-name', ({ sessionId }) => {
@@ -253,7 +253,7 @@ function init() {
   if (activityBar) {
     activityBar.onPanelOpen('token', () => tokenMonitor?.updateTokenStats());
     activityBar.onPanelOpen('monitor', () => metricsPanel?.updateMetrics());
-    activityBar.onPanelOpen('files', () => fileChangeManager?.updateFileChanges());
+    activityBar.onPanelOpen('files', () => fileChangeManager?.updateFileChanges(appState.currentSessionId));
 
     // 会话面板折叠/展开 — 工具栏按钮 & 逃生工具栏
     const toolbarEscape = document.getElementById('toolbarEscape');
@@ -627,7 +627,7 @@ async function createNewSession() {
   updateHistoryDropdown();
   // 清空前会话的文件变更缓存
   if (fileChangeManager) fileChangeManager._lastChangeSnapshot = null;
-  fileChangeManager?.updateFileChanges();
+  fileChangeManager?.updateFileChanges(currentSessionId);
 }
 
 async function switchSession(sessionId) {
@@ -704,7 +704,7 @@ async function switchSession(sessionId) {
     // 刷新文件变更列表（后端已在 handleGetMessages 中加载了目标会话的变更）
     // 重置文件变更快照，确保不会触发不必要的文件树刷新
     if (fileChangeManager) fileChangeManager._lastChangeSnapshot = null;
-    fileChangeManager?.updateFileChanges();
+    fileChangeManager?.updateFileChanges(sessionId);
   } catch (e) {
     document.querySelector('.chat-panel')?.classList.remove('has-messages');
     chatContainer.classList.remove('switching');

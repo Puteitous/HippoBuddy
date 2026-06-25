@@ -3,6 +3,7 @@ import { showToast } from './toast.js';
 import { diffModalManager } from './diff-modal.js';
 import { EventBus } from './event-bus.js';
 import { getFileIconInfo } from './file-icons.js';
+import { appState } from '../state/app-state.js';
 
 export class FileChangeManager {
   constructor() {
@@ -111,9 +112,14 @@ export class FileChangeManager {
     }
   }
 
-  async updateFileChanges() {
+  async updateFileChanges(sessionId) {
     try {
-      const changes = await apiGet('/api/files/changes');
+      // 如果未传 sessionId，从 appState 获取当前会话 ID
+      sessionId = sessionId || appState.currentSessionId;
+      const url = sessionId
+        ? `/api/files/changes?sessionId=${encodeURIComponent(sessionId)}`
+        : '/api/files/changes';
+      const changes = await apiGet(url);
 
       // 右侧面板 DOM 可能已被移除，安全查找
       const list = document.getElementById('fileChangesList');

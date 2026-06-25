@@ -225,6 +225,29 @@ public class FileChangeTracker {
         return all.subList(0, end);
     }
 
+    /**
+     * 按会话 ID 查询最近的变更记录，只返回指定会话的变更。
+     * 如果 sessionId 为 null 或空，返回空列表。
+     * 如果指定会话没有变更记录，也返回空列表。
+     */
+    public static List<FileChange> getRecentChanges(int limit, String sessionId) {
+        ensureInitialized();
+        if (sessionId == null || sessionId.isEmpty()) {
+            return List.of();
+        }
+        Map<String, List<FileChange>> sessionChanges = changesBySession.get(sessionId);
+        if (sessionChanges == null) {
+            return List.of();
+        }
+        List<FileChange> all = new ArrayList<>();
+        for (List<FileChange> list : sessionChanges.values()) {
+            all.addAll(list);
+        }
+        all.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
+        int end = Math.min(limit, all.size());
+        return all.subList(0, end);
+    }
+
     public static FileChange getLastChange(String filePath) {
         ensureInitialized();
         String normalizedPath = normalizePath(filePath);

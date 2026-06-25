@@ -464,4 +464,125 @@ class FileChangeTrackerTest {
             FileChangeTracker.clearCurrentSessionId();
         }
     }
+
+    // ==================== getRecentChanges(limit, sessionId) ====================
+
+    @Test
+    void testGetRecentChangesBySessionFilter() throws InterruptedException {
+        FileChangeTracker.setStorageDirForTest(tempDir);
+        String fileA = tempDir.resolve("session_a.txt").toString();
+        String fileB = tempDir.resolve("session_b.txt").toString();
+
+        // 会话 A 记录 3 条变更
+        FileChangeTracker.setCurrentSessionId("session-A");
+        try {
+            FileChangeTracker.recordChange(fileA, "a0", "a1", "write_file");
+            Thread.sleep(5);
+            FileChangeTracker.recordChange(fileA, "a1", "a2", "edit_file");
+            Thread.sleep(5);
+            FileChangeTracker.recordChange(fileA, "a2", "a3", "edit_file");
+        } finally {
+            FileChangeTracker.clearCurrentSessionId();
+        }
+
+        // 会话 B 记录 2 条变更
+        FileChangeTracker.setCurrentSessionId("session-B");
+        try {
+            FileChangeTracker.recordChange(fileB, "b0", "b1", "write_file");
+            Thread.sleep(5);
+            FileChangeTracker.recordChange(fileB, "b1", "b2", "edit_file");
+        } finally {
+            FileChangeTracker.clearCurrentSessionId();
+        }
+
+        // 查询会话 A → 只返回 3 条
+        List<FileChangeTracker.FileChange> changesA = FileChangeTracker.getRecentChanges(50, "session-A");
+        assertEquals(3, changesA.size(), "会话 A 应有 3 条变更");
+        for (FileChangeTracker.FileChange c : changesA) {
+            assertEquals("session-A", c.sessionId, "所有变更应属于会话 A");
+        }
+
+        // 查询会话 B → 只返回 2 条
+        List<FileChangeTracker.FileChange> changesB = FileChangeTracker.getRecentChanges(50, "session-B");
+        assertEquals(2, changesB.size(), "会话 B 应有 2 条变更");
+        for (FileChangeTracker.FileChange c : changesB) {
+            assertEquals("session-B", c.sessionId, "所有变更应属于会话 B");
+        }
+
+        // 无参查询 → 返回全部 5 条
+        List<FileChangeTracker.FileChange> all = FileChangeTracker.getRecentChanges(50);
+        assertEquals(5, all.size(), "无参查询应返回所有会话的变更");
+    }
+
+    @Test
+    void testGetRecentChangesBySessionNoChanges() {
+        FileChangeTracker.setStorageDirForTest(tempDir);
+
+        // 查询一个从未记录过变更的会话 ID
+        List<FileChangeTracker.FileChange> changes = FileChangeTracker.getRecentChanges(50, "non-existent-session");
+        assertNotNull(changes);
+        assertTrue(changes.isEmpty(), "不存在的会话应返回空列表");
+    }
+
+    @Test
+    void testGetRecentChangesBySessionNullId() {
+        FileChangeTracker.setStorageDirForTest(tempDir);
+
+        // null sessionId → 返回空列表
+        List<FileChangeTracker.FileChange> changesNull = FileChangeTracker.getRecentChanges(50, (String) null);
+        assertNotNull(changesNull);
+        assertTrue(changesNull.isEmpty(), "null sessionId 应返回空列表");
+
+        // 空字符串 sessionId → 返回空列表
+        List<FileChangeTracker.FileChange> changesEmpty = FileChangeTracker.getRecentChanges(50, "");
+        assertNotNull(changesEmpty);
+        assertTrue(changesEmpty.isEmpty(), "空字符串 sessionId 应返回空列表");
+    }
+
+    @Test
+    void testGetRecentChangesBySessionLimit() {
+        FileChangeTracker.setStorageDirForTest(tempDir);
+        FileChangeTracker.setCurrentSessionId("session-limit");
+        try {
+            for (int i = 0; i < 10; i++) {
+                FileChangeTracker.recordChange(
+                    tempDir.resolve("file" + i + ".txt").toString(),
+                    "old" + i, "new" + i, "write_file");
+            }
+        } finally {
+            FileChangeTracker.clearCurrentSessionId();
+        }
+
+        // 按会话查询 + limit 限制
+        List<FileChangeTracker.FileChange> limited = FileChangeTracker.getRecentChanges(3, "session-limit");
+        assertEquals(3, limited.size(), "应受 limit 参数限制");
+    }
+
+    @Test
+    void testCreateNewSessionShowsNoChanges() {
+        FileChangeTracker.setStorageDirForTest(tempDir);
+
+        // 模拟：旧会话（session-old）已有变更
+        FileChangeTracker.setCurrentSessionId("session-old");
+        try {
+            String filePath = tempDir.resolve("old_file.txt").toString();
+            FileChangeTracker.recordChange(filePath, "old", "new", "write_file");
+        } finally {
+            FileChangeTracker.clearCurrentSessionId();
+        }
+
+        // 模拟：创建新会话（session-new），还没有任何变更
+        // 查询新会话 → 应返回空列表
+        List<FileChangeTracker.FileChange> newSessionChanges =
+            FileChangeTracker.getRecentChanges(50, "session-new");
+        assertNotNull(newSessionChanges);
+        assertTrue(newSessionChanges.isEmpty(),
+            "新创建的会话没有产生任何变更，查询应返回空列表");
+
+        // 验证旧会话的变更仍然可查（不受影响）
+        List<FileChangeTracker.FileChange> oldSessionChanges =
+            FileChangeTracker.getRecentChanges(50, "session-old");
+        assertFalse(oldSessionChanges.isEmpty(),
+            "旧会话的变更应不受新会话创建的影响");
+    }
 }
