@@ -523,13 +523,35 @@ export class ChatPanel {
     return document.getElementById(id) || document.getElementById('inputRefs') || document.getElementById('heroInputRefs');
   }
 
+  /** 注入上下文选择器按钮到当前可见的输入区 */
   _injectContextSelectorButton() {
+    if (!this._contextSelector) return;
+    const btn = this._contextSelector.getButtonElement();
+
+    // 优先注入到 hero 操作栏（空状态模式）
+    const heroSlot = document.getElementById('heroContextSelector');
+    if (heroSlot?.isConnected) {
+      if (btn.parentNode !== heroSlot) {
+        heroSlot.prepend(btn);
+      }
+      return;
+    }
+
+    // 降级到聊天底部状态栏（有消息模式）
     const statusBarLeft = document.querySelector('.status-bar-left');
-    if (statusBarLeft && this._contextSelector) {
-      statusBarLeft.insertBefore(
-        this._contextSelector.getButtonElement(),
-        statusBarLeft.firstChild
-      );
+    if (statusBarLeft) {
+      statusBarLeft.insertBefore(btn, statusBarLeft.firstChild);
+    }
+  }
+
+  /** 重新注入上下文选择器（在 hero 重建后调用） */
+  reInjectContextSelector() {
+    this._injectContextSelectorButton();
+    // 同步 hero 模型按钮的显示文本
+    const heroModelBtn = document.getElementById('heroModelQuickSelect');
+    const bottomModelBtn = document.getElementById('modelQuickSelect');
+    if (heroModelBtn && bottomModelBtn) {
+      heroModelBtn.textContent = bottomModelBtn.textContent;
     }
   }
 
@@ -580,6 +602,9 @@ export class ChatPanel {
     this._lastUserMessageId = tempId;
     const { msgDiv } = this.chatUI.appendUserMessage(content, tempId, true);
     this._lastUserMsgDiv = msgDiv;
+
+    // hero 已被移除，将上下文选择器注入到底部状态栏
+    this._injectContextSelectorButton();
     
     this.setSendingState(true);
     if (this.elements.messageInput) {
@@ -1727,6 +1752,9 @@ export class ChatPanel {
       }
 
     }
+
+    // 切换到有消息的会话后，将上下文选择器注入到底部状态栏
+    this._injectContextSelectorButton();
 
     this.chatUI.scrollToBottom();
   }

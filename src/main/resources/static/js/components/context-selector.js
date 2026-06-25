@@ -126,7 +126,11 @@ export class ContextSelector {
     this._panel.className = 'context-selector-panel';
     this._render();
 
-    const parent = document.querySelector('.input-inner') || document.body;
+    // 会话态使用 .input-inner（可见），hero 态使用 .empty-hero-input-area（可见）
+    const inputInner = document.querySelector('.input-inner');
+    const parent = (inputInner && inputInner.offsetParent)
+      ? inputInner
+      : document.querySelector('.empty-hero-input-area') || document.body;
     parent.appendChild(this._panel);
     this._positionPanel();
 

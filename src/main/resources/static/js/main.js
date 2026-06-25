@@ -383,6 +383,25 @@ function bindGlobalEvents() {
   document.getElementById('chatNewBtn')?.addEventListener('click', createNewSession);
   
   // 工作区清除由 workspace-manager.js 处理，此处不再重复绑定
+
+  // 实时保存 hero 界面输入（通过事件委托，因为 heroInput 会动态创建和销毁）
+  chatContainer.addEventListener('input', (e) => {
+    if (e.target.id === 'heroInput') {
+      appState.heroDraft = e.target.value;
+    }
+  });
+
+  // hero 模型选择按钮（与底部栏共享同一个 modelDropdown 实例）
+  chatContainer.addEventListener('click', (e) => {
+    const heroTrigger = e.target.closest('#heroModelQuickSelect');
+    if (heroTrigger && modelDropdown) {
+      e.preventDefault();
+      const origTrigger = modelDropdown._trigger;
+      modelDropdown._trigger = heroTrigger;
+      modelDropdown.toggle();
+      modelDropdown._trigger = origTrigger;
+    }
+  });
   
   // 聊天面板头部 - 历史会话下拉点击外部关闭
   document.addEventListener('click', (e) => {
@@ -586,6 +605,18 @@ async function createNewSession() {
   currentSessionId = await sessionManager.createNewSession();
   appState.currentSessionId = currentSessionId; // 同步到 appState
   chatUI.clear();
+  chatPanel?.reInjectContextSelector();
+
+  // 恢复 hero 输入内容（appState.heroDraft 由 input 事件实时保存）
+  if (appState.heroDraft) {
+    requestAnimationFrame(() => {
+      const newHeroInput = document.getElementById('heroInput');
+      if (newHeroInput) {
+        newHeroInput.value = appState.heroDraft;
+      }
+    });
+  }
+
   if (elements.messageInput) {
     elements.messageInput.value = '';
     elements.messageInput.style.height = 'auto';
@@ -594,10 +625,7 @@ async function createNewSession() {
   try { localStorage.setItem('hippo-last-session-id', currentSessionId); } catch(e) {}
   updateChatPanelTitle(currentSessionId);
   updateHistoryDropdown();
-  // 清空前会话的文件变更（通知后端切换上下文，变更记录归零）
-  try {
-    await chatService.getSessionMessages(currentSessionId);
-  } catch(e) {}
+  // 清空前会话的文件变更缓存
   if (fileChangeManager) fileChangeManager._lastChangeSnapshot = null;
   fileChangeManager?.updateFileChanges();
 }
@@ -622,6 +650,7 @@ async function switchSession(sessionId) {
     const messages = await chatService.getSessionMessages(sessionId);
     
     if (messages.length === 0) {
+      document.querySelector('.chat-panel')?.classList.remove('has-messages');
       chatContainer.classList.remove('switching');
       chatContainer.innerHTML = `
         <div class="empty-state">
@@ -632,6 +661,12 @@ async function switchSession(sessionId) {
             <div class="hero-input-wrapper">
               <div class="empty-hero-input-refs" id="heroInputRefs"></div>
               <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
+            </div>
+            <div class="hero-input-actions">
+              <div class="hero-input-actions-left" id="heroContextSelector">
+                <span class="hero-actions-divider"></span>
+                <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">加载中...</button>
+              </div>
               <button class="hero-send-btn" id="heroSendBtn" title="发送">
                 <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="8" y1="15" x2="8" y2="1"/>
@@ -645,8 +680,9 @@ async function switchSession(sessionId) {
             <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
             <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
           </div>
-          <div class="empty-hero-hint">Enter 发送 · Shift+Enter 换行</div>
+          <div>Enter 发送 · Shift+Enter 换行</div>
         </div>`;
+      chatPanel?.reInjectContextSelector();
       if (elements.messageInput) {
         elements.messageInput.value = '';
         elements.messageInput.style.height = 'auto';
@@ -670,6 +706,7 @@ async function switchSession(sessionId) {
     if (fileChangeManager) fileChangeManager._lastChangeSnapshot = null;
     fileChangeManager?.updateFileChanges();
   } catch (e) {
+    document.querySelector('.chat-panel')?.classList.remove('has-messages');
     chatContainer.classList.remove('switching');
     updateChatPanelTitle(sessionId);
     chatContainer.innerHTML = `
@@ -681,20 +718,27 @@ async function switchSession(sessionId) {
           <div class="hero-input-wrapper">
             <div class="empty-hero-input-refs" id="heroInputRefs"></div>
             <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
-          <button class="hero-send-btn" id="heroSendBtn" title="发送">
+          </div>
+          <div class="hero-input-actions">
+            <div class="hero-input-actions-left" id="heroContextSelector">
+              <span class="hero-actions-divider"></span>
+              <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">加载中...</button>
+            </div>
+            <button class="hero-send-btn" id="heroSendBtn" title="发送">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="8" y1="15" x2="8" y2="1"/>
               <polyline points="2 7 8 1 14 7"/>
             </svg>
           </button>
+          </div>
         </div>
-      </div>
       <div class="empty-hero-suggestions">
         <button class="empty-hero-suggestion" data-prompt="分析一下这个项目的结构和主要功能">分析项目结构</button>
         <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
         <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
       </div>
     </div>`;
+    chatPanel?.reInjectContextSelector();
   }
   
   requestAnimationFrame(() => {
@@ -1344,6 +1388,13 @@ function applyModelConfigToDropdown(data) {
   } else {
     modelDropdown.setItems(items);
     modelDropdown.setSelectedValue(provider && model ? currentCombo : '');
+  }
+
+  // 同步 hero 模型选择按钮的显示文本
+  const heroTrigger = document.getElementById('heroModelQuickSelect');
+  if (heroTrigger && modelDropdown) {
+    const item = modelDropdown.getSelectedItem();
+    heroTrigger.textContent = item ? item.label : '加载中...';
   }
 }
 

@@ -355,12 +355,16 @@ public class SessionApiHandler implements HttpHandler {
         Conversation conversation = com.example.agent.web.session.WebSessionManager.getInstance().getSessions().get(sessionId);
 
         // 会话未加载时（如重启后首次访问），尝试从 JSONL 恢复
+        // 只有磁盘上确有 JSONL 文件时才加载，避免为不存在的新会话创建空目录
         if (conversation == null) {
-            try {
-                conversation = com.example.agent.web.session.WebSessionManager.getInstance()
-                    .getOrCreateConversation(sessionId, null);
-            } catch (Exception e) {
-                logger.debug("从 JSONL 加载会话失败：sessionId={}", sessionId);
+            Path jsonl = jsonlReader.findJsonlFile(sessionId);
+            if (jsonl != null) {
+                try {
+                    conversation = com.example.agent.web.session.WebSessionManager.getInstance()
+                        .getOrCreateConversation(sessionId, null);
+                } catch (Exception e) {
+                    logger.debug("从 JSONL 加载会话失败：sessionId={}", sessionId);
+                }
             }
         }
 

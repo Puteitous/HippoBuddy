@@ -353,22 +353,46 @@ input, textarea {
 }
 
 .empty-hero-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
   width: 100%;
-  max-width: 540px;
+  max-width: 860px;
   margin-top: 16px;
+  background: var(--bg-white);
+  border: 0.8px solid rgba(77, 107, 153, 0.18);
+  border-radius: var(--radius-lg);
+  box-shadow: rgba(24, 24, 24, 0.04) 0px 3px 8px 0px, rgba(24, 24, 24, 0.06) 0px 6px 24px -1px;
+  min-height: 100px;
+}
+
+[data-theme="dark"] .empty-hero-input-area {
+  border-color: rgba(153, 173, 204, 0.18);
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 8px 0px, rgba(0, 0, 0, 0.3) 0px 6px 24px -1px;
+  background: var(--bg-app);
+}
+
+.empty-hero-input-area:focus-within {
+  border-color: rgba(77, 107, 153, 0.35);
+  box-shadow: rgba(24, 24, 24, 0.06) 0px 3px 8px 0px, rgba(24, 24, 24, 0.08) 0px 6px 24px -1px;
+}
+
+[data-theme="dark"] .empty-hero-input-area:focus-within {
+  border-color: rgba(153, 173, 204, 0.35);
 }
 
 .empty-hero-input {
   width: 100%;
-  padding: 12px 44px 4px 16px;
-  border: 2px solid var(--border);
-  border-radius: var(--radius-lg);
+  padding: 12px 16px 4px 16px;
+  border: none;
+  border-radius: 0;
   font-size: var(--font-size-xl);
   font-family: inherit;
-  background: var(--bg-app);
+  background: transparent;
   color: var(--text-primary);
   outline: none;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), height 0.2s ease;
+  transition: height 0.2s ease;
   resize: none;
   line-height: 1.6;
   min-height: 56px;
@@ -380,25 +404,45 @@ input, textarea {
   mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 10px), transparent 100%);
 }
 
-
-
 .hero-input-wrapper {
-  position: relative;
   display: flex;
   flex-direction: column;
 }
 
+/* ── Hero 输入区底部操作栏 ── */
+.hero-input-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 8px 8px;
+  user-select: none;
+  min-height: 28px;
+}
+
+.hero-input-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* hero 操作栏垂直分隔线 */
+.hero-actions-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+
 .hero-send-btn {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
   width: 32px;
   height: 32px;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   background: var(--bg-app);
   color: var(--text-secondary);
   cursor: pointer;
@@ -426,18 +470,6 @@ input, textarea {
 .hero-send-btn:hover svg {
   transform: translateY(-1px);
 }
-
-/* Hero 输入框为空时隐藏发送按钮；有引用卡片时强制显示 */
-.hero-input-wrapper:has(.empty-hero-input:placeholder-shown) .hero-send-btn {
-  visibility: hidden;
-  opacity: 0;
-}
-
-.hero-input-wrapper:has(.empty-hero-input-refs:not(:empty)) .hero-send-btn {
-  visibility: visible;
-  opacity: 1;
-}
-
 
 
 .empty-hero-input:focus {
@@ -536,13 +568,6 @@ input, textarea {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.empty-hero-hint {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  margin-top: 16px;
-  opacity: 0.6;
 }
 
 /* ===== 全局滚动条美化 ===== */
