@@ -63,6 +63,12 @@
     border-radius: 0 2px 2px 0;
 }
 
+/* ========== Activity Bar 弹性分隔 ========== */
+.activity-bar-spacer {
+    flex: 1;
+    min-height: 4px;
+}
+
 /* ========== Activity 浮动面板 ========== */
 .activity-floating-panel {
     position: absolute;

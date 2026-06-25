@@ -319,6 +319,12 @@ export class FileTree {
         { action: 'show-in-explorer', label: '在资源管理器中显示', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>' }
       );
     }
+    if (window.HippoDesktop?.openTerminal) {
+      items.push(
+        { separator: true },
+        { action: 'open-in-terminal', label: '在终端中打开', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 4 8 8 4 12"/><line x1="11" y1="12" x2="13" y2="12"/></svg>' }
+      );
+    }
     return items.map(item => {
       if (item.separator) return '<div class="file-tree-context-separator"></div>';
       return `<div class="file-tree-context-item" data-action="${item.action}">
@@ -448,6 +454,13 @@ export class FileTree {
       case 'show-in-explorer':
         if (api?.showItemInFolder) {
           api.showItemInFolder(targetPath).catch(() => {});
+        }
+        break;
+      case 'open-in-terminal':
+        if (api?.openTerminal) {
+          // 如果是目录，在该目录打开；如果是文件，在父目录打开
+          const termDir = this._ctxIsDir ? targetPath : targetPath.substring(0, targetPath.lastIndexOf('/'));
+          api.openTerminal(termDir).catch(() => {});
         }
         break;
     }

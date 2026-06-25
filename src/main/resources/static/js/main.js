@@ -140,6 +140,16 @@ function init() {
     });
   }
 
+  // 注册打开终端动作
+  if (activityBar) {
+    activityBar.onAction('openTerminal', () => {
+      const HippoDesktop = window.HippoDesktop;
+      if (HippoDesktop && HippoDesktop.isAvailable) {
+        HippoDesktop.openTerminal().catch(() => {});
+      }
+    });
+  }
+
   // 1. 初始化主题
   initTheme();
   

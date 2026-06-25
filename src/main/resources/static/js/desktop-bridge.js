@@ -311,6 +311,11 @@ const HippoDesktop = (() => {
     // ===== 外部链接 =====
     openExternal(url) {
       return send('openExternal', { url });
+    },
+
+    // ===== 原生终端 =====
+    openTerminal(path) {
+      return send('openTerminal', { path });
     }
   };
 

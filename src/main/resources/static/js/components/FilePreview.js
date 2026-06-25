@@ -57,6 +57,9 @@ export class FilePreview {
     this._diffCompartment = new Compartment();
     /** @private AI 修改前的文件原始内容（用于 diff 对比） */
     this._originalContent = null;
+
+    /** @private Map<string, number> 文件路径 → 上次滚动位置 */
+    this._scrollPositions = new Map();
     /** @private 二进制预览类型：'image' | 'pdf' | 'spreadsheet' | 'docx' | null */
     this._binaryViewType = null;
 
@@ -96,6 +99,11 @@ export class FilePreview {
     if (this._dirty) {
       this._dirty = false;
       this._onDirtyChange(this._currentPath, false);
+    }
+
+    // 切换文件前保存当前文件的滚动位置
+    if (this._view && this._currentPath) {
+      this._scrollPositions.set(this._currentPath, this._view.scrollDOM.scrollTop);
     }
 
     this._currentPath = filePath;
@@ -199,6 +207,7 @@ export class FilePreview {
     this._content = '';
     this._dirty = false;
     this._originalContent = null;
+    this._scrollPositions.clear();
     delete this._container.dataset.currentPath;
     this._updateSaveBtn();
   }
@@ -360,6 +369,15 @@ export class FilePreview {
         if (this._searchPanel) this._searchPanel.openFind();
       }
     };
+
+    // 恢复上次滚动位置
+    if (filePath && this._scrollPositions.has(filePath)) {
+      requestAnimationFrame(() => {
+        if (this._view) {
+          this._view.scrollDOM.scrollTop = this._scrollPositions.get(filePath);
+        }
+      });
+    }
 
     this._startThemeObserver();
   }
