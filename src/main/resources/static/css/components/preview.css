@@ -642,7 +642,6 @@
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
   background: var(--bg-sidebar);
   flex-shrink: 0;
 }
@@ -651,77 +650,76 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  padding: 4px;
   border: none;
-  border-radius: 4px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
   flex-shrink: 0;
 }
 
 .browser-nav-btn:hover {
-  background: var(--bg-code);
   color: var(--text-primary);
 }
 
 .browser-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
+  background: transparent !important;
+  cursor: default !important;
 }
 
 .browser-nav-btn:disabled:hover {
-  background: transparent;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .browser-url-bar {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 0;
   min-width: 0;
+  height: 28px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: border-color 0.15s;
+}
+
+.browser-url-bar:focus-within {
+  border-color: var(--accent);
 }
 
 .browser-url-input {
   flex: 1;
-  height: 28px;
-  padding: 0 10px;
+  height: 100%;
+  padding: 0 8px;
   font-size: 12px;
   font-family: var(--font-mono, monospace);
   color: var(--text-primary);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border);
-  border-radius: 4px 0 0 4px;
+  background: transparent;
+  border: none;
   outline: none;
-  transition: border-color 0.15s;
   min-width: 0;
 }
 
-.browser-url-input:focus {
-  border-color: var(--accent);
-}
-
 .browser-go-btn {
-  height: 28px;
-  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 100%;
+  padding: 0;
   font-size: 12px;
-  color: var(--text-primary);
-  background: var(--bg-code);
-  border: 1px solid var(--border);
-  border-left: none;
-  border-radius: 0 4px 4px 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 0 14px 14px 0;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: color 0.15s, background 0.15s;
   flex-shrink: 0;
 }
 
 .browser-go-btn:hover {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .browser-open-btn {
@@ -733,7 +731,7 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   flex-shrink: 0;

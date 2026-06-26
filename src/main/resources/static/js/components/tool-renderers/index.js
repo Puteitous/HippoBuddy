@@ -203,6 +203,14 @@ export function renderToolTimelineRow(tool) {
 
   const toolSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a4 4 0 0 0-3.5 5.7L2 12.2 3.8 14l4.5-4.5A4 4 0 1 0 10 2z"/><line x1="10" y1="6" x2="12" y2="4"/></svg>';
 
+  // 复制按钮（bash 悬浮时显示）
+  let copyBtnHtml = '';
+  if (name === 'bash' && summary) {
+    const escapedSummary = escapeHtml(summary);
+    const copySvg = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><line x1="6" y1="6" x2="10" y2="6"/><line x1="6" y1="8" x2="10" y2="8"/><line x1="6" y1="10" x2="8" y2="10"/></svg>';
+    copyBtnHtml = `<span class="tool-timeline-copy-btn" data-cmd="${escapedSummary}" onclick="event.stopPropagation();const t=this;const os=t.innerHTML;navigator.clipboard.writeText(t.getAttribute('data-cmd')).then(()=>{t.textContent='\\u2713';setTimeout(()=>t.innerHTML=os,1200)})" title="复制命令">${copySvg}</span>`;
+  }
+
   // 查看变更按钮（edit_file/write_file 成功时显示）
   let viewBtnHtml = '';
   if (status === 'success' && (name === 'edit_file' || name === 'write_file')) {
@@ -223,10 +231,11 @@ export function renderToolTimelineRow(tool) {
       <div class="tool-timeline-row" onclick="window.toggleToolTimeline(this)">
         <span class="tool-timeline-dot">${toolSvg}</span>
         <span class="tool-timeline-name">${escapeHtml(name)}</span>
-        <span class="tool-timeline-summary"${summaryFilePath ? ` onclick="event.stopPropagation();window.HippoWorkspace?.navigateToFile?.('${escapeHtml(jsPath)}')" data-file-path="${escapeHtml(summaryFilePath)}"` : ''}>${escapeHtml(truncateText(summary, 60))}</span>
+        <span class="tool-timeline-summary"${summaryFilePath ? ` onclick="event.stopPropagation();window.HippoWorkspace?.navigateToFile?.('${escapeHtml(jsPath)}')" data-file-path="${escapeHtml(summaryFilePath)}"` : ''}>${escapeHtml(summary)}</span>
         <span class="tool-timeline-status ${status}">${statusSvg}</span>
+        ${copyBtnHtml}
         ${viewBtnHtml}
-        <span class="tool-timeline-arrow">◀</span>
+        <span class="tool-timeline-arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 12 6 8 10 4"/></svg></span>
       </div>
       <div class="tool-timeline-detail">${detailHTML}</div>
     </div>`;

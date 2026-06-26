@@ -70,6 +70,21 @@ export class CustomDropdown {
     return this._items.find(item => item.value === this._selectedValue) || null;
   }
 
+  /** 更换 trigger DOM 元素（用于 hero 重建等场景） */
+  setTrigger(newTrigger) {
+    // 清理旧 trigger 上的标记和事件
+    this._trigger.classList.remove('dd-trigger', 'dd-open');
+    this._trigger.removeEventListener('click', this._onTriggerClick);
+    // 更新为新 trigger
+    this._trigger = newTrigger;
+    this._trigger.classList.add('dd-trigger');
+    this._trigger.addEventListener('click', this._onTriggerClick = (e) => {
+      e.stopPropagation();
+      this.toggle();
+    });
+    this._renderLabel();
+  }
+
   /** 打开下拉 */
   open() {
     if (this._isOpen) return;
@@ -110,13 +125,18 @@ export class CustomDropdown {
 
   _renderLabel() {
     const item = this.getSelectedItem();
-    this._trigger.textContent = item ? item.label : '';
+    if (item) {
+      this._trigger.textContent = item.label;
+    }
   }
 
   _renderMenu() {
     // 移除旧菜单
     const old = document.getElementById(this._id);
-    if (old) old.remove();
+    if (old) {
+      clearTimeout(old._closeTimer);
+      old.remove();
+    }
 
     this._menu = document.createElement('div');
     this._menu.id = this._id;

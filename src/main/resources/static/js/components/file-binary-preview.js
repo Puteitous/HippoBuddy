@@ -767,7 +767,7 @@ export class BinaryPreview {
           </button>
         </div>
         <iframe class="web-preview-iframe" src="${url}"
-          sandbox="allow-scripts allow-same-origin"
+          sandbox="allow-scripts"
           loading="lazy"
           title="${escapeHtml(fileName)}"></iframe>
       </div>`;

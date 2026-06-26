@@ -236,11 +236,11 @@ export class FilePreview {
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 4 10 8 6 12"/></svg>
           </button>
           <button class="browser-nav-btn browser-refresh-btn" data-action="refresh" title="刷新">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="14 8 12 10 10 8"/><path d="M12 10a6 6 0 1 1-2-7"/></svg>
+            <!-- icon666.com - MILLIONS OF FREE VECTOR ICONS --><svg viewBox="0 0 128 128" width="14" height="14" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><g id="icon"><path id="XMLID_151_" d="m118.527 58.378-18.441 18.731c-1.003 1.021-2.374 1.594-3.806 1.594-1.43 0-2.803-.572-3.804-1.594l-18.443-18.731c-2.068-2.102-2.043-5.481.059-7.548 2.101-2.073 5.479-2.045 7.552.058l10.308 10.47c-1.336-19.379-17.244-34.733-36.615-34.733-20.248 0-36.72 16.768-36.72 37.377s16.472 37.374 36.72 37.374c7.452 0 14.626-2.256 20.736-6.525 2.421-1.689 5.748-1.098 7.437 1.319 1.688 2.422 1.095 5.747-1.321 7.437-7.917 5.525-17.202 8.448-26.852 8.448-26.136 0-47.398-21.56-47.398-48.053 0-26.497 21.263-48.055 47.398-48.055 24.611 0 44.897 19.121 47.177 43.48l8.406-8.539c2.072-2.103 5.45-2.129 7.553-.058 2.098 2.066 2.126 5.446.054 7.548z"/></g></svg>
           </button>
           <div class="browser-url-bar">
             <input type="text" class="browser-url-input" value="${displayUrl}" spellcheck="false" autofocus>
-            <button class="browser-go-btn" title="前往">前往</button>
+            <button class="browser-go-btn" title="前往"><!-- icon666.com - MILLIONS OF FREE VECTOR ICONS --><svg fill="none" viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="m20.4861 3.83591c.0785-.20173-.1203-.40049-.322-.32204l-16.51278 6.42163c-.2079.0809-.21254.3733-.00731.4608l6.3397 2.7002c.41389.1763.74349.5059.91979.9198l2.7002 6.3397c.0875.2052.3799.2006.4608-.0073zm-.863-1.71324c1.4121-.54916 2.8034.84215 2.2542 2.25427l-6.4216 16.51276c-.5659 1.4553-2.6134 1.4878-3.2253.0512l-2.70022-6.3397c-.02519-.0591-.07228-.1062-.1314-.1314l-6.33971-2.7002c-1.43659-.6119-1.40407-2.65935.05123-3.2253z" fill="currentColor" fill-rule="evenodd"/></svg></button>
           </div>
           <button class="browser-open-btn" title="在系统浏览器中打开">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -260,10 +260,10 @@ export class FilePreview {
                </div>
              </div>
              <iframe class="browser-iframe" style="display:none;" src="about:blank"
-               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+               sandbox="allow-scripts allow-forms allow-popups"
                loading="lazy" title="${displayUrl}"></iframe>`
           : `<iframe class="browser-iframe" src="${encodedUrl}"
-               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+               sandbox="allow-scripts allow-forms allow-popups"
                loading="lazy" title="${displayUrl}"></iframe>`
         }
       </div>`;

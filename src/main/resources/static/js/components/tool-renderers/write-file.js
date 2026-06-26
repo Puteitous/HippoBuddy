@@ -44,7 +44,7 @@ export function renderWriteFileCard(tool) {
         </span>
         <span class="tool-title">写入文件</span>
         <span class="tool-status-badge ${statusClass}">${statusHtml}</span>
-        <span class="arrow">▶</span>
+        <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 12 10 8 6 4"/></svg></span>
       </div>
       <div class="tool-call-details">
         <div class="writefile-path" data-file-path="${escapeHtml(filePath)}">${fileSvg} ${escapeHtml(filePath)}</div>

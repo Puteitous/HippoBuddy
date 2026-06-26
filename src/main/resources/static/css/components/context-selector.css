@@ -64,6 +64,18 @@
   z-index: 1000;
   padding: 0;
   min-width: 240px;
+  animation: context-selector-fadein 0.15s ease-out;
+}
+
+@keyframes context-selector-fadein {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .context-selector-header {

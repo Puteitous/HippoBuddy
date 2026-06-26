@@ -44,6 +44,7 @@ const HippoWorkspace = (() => {
     previewArea: document.getElementById('filePreviewArea'),
     previewContent: document.getElementById('filePreviewContent'),
     previewPath: document.getElementById('filePreviewPath'),
+    previewToolbar: document.getElementById('filePreviewToolbar'),
     viewSwitcher: document.getElementById('sidebarViewSwitcher'),
     viewBtns: null,
     workspaceIndicator: document.getElementById('workspaceIndicator'),
@@ -472,13 +473,16 @@ const HippoWorkspace = (() => {
     if (filePath && filePath.startsWith('url:')) {
       const url = filePath.slice(4);
       filePreview.showBrowser(url);
-      // 显示预览面板，不显示面包屑路径
+      // 显示预览面板，隐藏文件路径工具栏
       if (els.previewPanel) {
         els.previewPanel.classList.remove('hidden');
       }
       if (els.previewPath) {
         els.previewPath.textContent = url;
         els.previewPath.title = url;
+      }
+      if (els.previewToolbar) {
+        els.previewToolbar.style.display = 'none';
       }
       return;
     }
@@ -506,6 +510,9 @@ const HippoWorkspace = (() => {
       els.previewPath.innerHTML = relativePath.split('/').join('<span class="sep">></span>');
       els.previewPath.title = filePath;
     }
+    if (els.previewToolbar) {
+      els.previewToolbar.style.display = '';
+    }
     if (els.previewPanel) {
       els.previewPanel.classList.remove('hidden');
     }
@@ -513,6 +520,9 @@ const HippoWorkspace = (() => {
 
   function hidePreview() {
     filePreview.clear();
+    if (els.previewToolbar) {
+      els.previewToolbar.style.display = '';
+    }
     if (els.previewPanel) {
       els.previewPanel.classList.add('hidden');
     }

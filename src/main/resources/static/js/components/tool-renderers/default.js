@@ -37,7 +37,7 @@ export function renderDefaultToolCard(tool) {
         <span class="tool-icon">${wrenchSvg}</span>
         <span class="tool-name">${escapeHtml(tool.name)}</span>
         <span class="tool-status ${tool.result || 'running'}">${statusDisplay}</span>
-        <span class="arrow">▶</span>
+        <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 12 10 8 6 4"/></svg></span>
       </div>
       <div class="tool-call-details">
         ${argsDisplay}

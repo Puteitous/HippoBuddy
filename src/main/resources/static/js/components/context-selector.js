@@ -28,6 +28,8 @@ export class ContextSelector {
     this._panel = null;
     this._btn = null;
     this._level = 'menu'; // 'menu' | 'rules' | 'skills'
+    this._closeTimer = null;
+    this._sticky = false;   // true = 点击固定，hover 不关闭
 
     this._createButton();
   }
@@ -83,6 +85,8 @@ export class ContextSelector {
     this._btn.title = '引用上下文';
     this._btn.innerHTML = this._getButtonHTML(0);
     this._btn.addEventListener('click', () => this._togglePanel());
+    this._btn.addEventListener('mouseenter', () => this._onButtonEnter());
+    this._btn.addEventListener('mouseleave', () => this._onButtonLeave());
   }
 
   _getButtonHTML(count) {
@@ -106,7 +110,11 @@ export class ContextSelector {
 
   async _togglePanel() {
     if (this._panel && this._panel.parentNode) {
-      this._closePanel();
+      if (this._sticky) {
+        this._closePanel();
+      } else {
+        this._sticky = true;
+      }
       return;
     }
 
@@ -118,7 +126,46 @@ export class ContextSelector {
     }
 
     this._level = 'menu';
+    this._sticky = true;
     this._openPanel();
+  }
+
+  _onButtonEnter() {
+    if (this._panel) return; // 已打开，不需要重复操作
+    this._openPanelFromHover();
+  }
+
+  _onButtonLeave() {
+    if (!this._panel || this._sticky) return;
+    this._scheduleClose();
+  }
+
+  async _openPanelFromHover() {
+    if (!this._loaded && !this._loading) {
+      this._loading = true;
+      await this._loadData();
+      this._loading = false;
+      this._loaded = true;
+    }
+    // 异步加载期间用户已移开鼠标，不再弹出
+    if (this._closeTimer) return;
+    this._level = 'menu';
+    this._sticky = false;
+    this._openPanel();
+  }
+
+  _scheduleClose() {
+    this._cancelScheduledClose();
+    this._closeTimer = setTimeout(() => {
+      this._closePanel();
+    }, 250);
+  }
+
+  _cancelScheduledClose() {
+    if (this._closeTimer) {
+      clearTimeout(this._closeTimer);
+      this._closeTimer = null;
+    }
   }
 
   _openPanel() {
@@ -134,6 +181,12 @@ export class ContextSelector {
     parent.appendChild(this._panel);
     this._positionPanel();
 
+    // 面板 hover 控制：鼠标移入面板取消关闭，移出后非 sticky 时延迟关闭
+    this._panel.addEventListener('mouseenter', () => this._cancelScheduledClose());
+    this._panel.addEventListener('mouseleave', () => {
+      if (!this._sticky) this._scheduleClose();
+    });
+
     this._outsideClickHandler = (e) => {
       if (!this._panel.contains(e.target) && e.target !== this._btn) {
         this._closePanel();
@@ -143,6 +196,8 @@ export class ContextSelector {
   }
 
   _closePanel() {
+    this._cancelScheduledClose();
+    this._sticky = false;
     if (this._outsideClickHandler) {
       document.removeEventListener('click', this._outsideClickHandler);
       this._outsideClickHandler = null;

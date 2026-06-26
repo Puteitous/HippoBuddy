@@ -411,15 +411,12 @@ function bindGlobalEvents() {
     }
   });
 
-  // hero 模型选择按钮（与底部栏共享同一个 modelDropdown 实例）
+  // hero 模型选择按钮（独立实例，与底部互不干扰）
   chatContainer.addEventListener('click', (e) => {
     const heroTrigger = e.target.closest('#heroModelQuickSelect');
-    if (heroTrigger && modelDropdown) {
+    if (heroTrigger && heroModelDropdown) {
       e.preventDefault();
-      const origTrigger = modelDropdown._trigger;
-      modelDropdown._trigger = heroTrigger;
-      modelDropdown.toggle();
-      modelDropdown._trigger = origTrigger;
+      heroModelDropdown.toggle();
     }
   });
   
@@ -626,6 +623,7 @@ async function createNewSession() {
   appState.currentSessionId = currentSessionId; // 同步到 appState
   chatUI.clear();
   chatPanel?.reInjectContextSelector();
+  refreshHeroModelDropdown();
 
   // 恢复 hero 输入内容（appState.heroDraft 由 input 事件实时保存）
   if (appState.heroDraft) {
@@ -703,6 +701,7 @@ async function switchSession(sessionId) {
           <div>Enter 发送 · Shift+Enter 换行</div>
         </div>`;
       chatPanel?.reInjectContextSelector();
+      refreshHeroModelDropdown();
       if (elements.messageInput) {
         elements.messageInput.value = '';
         elements.messageInput.style.height = 'auto';
@@ -759,6 +758,7 @@ async function switchSession(sessionId) {
       </div>
     </div>`;
     chatPanel?.reInjectContextSelector();
+    refreshHeroModelDropdown();
   }
   
   requestAnimationFrame(() => {
@@ -1375,13 +1375,32 @@ function saveModelConfigToCache(data) {
   }
 }
 
-/** 用数据更新下拉框 */
+/** 用数据更新下拉框（底部 + hero 各一个独立实例） */
 function applyModelConfigToDropdown(data) {
   const provider = data.provider || '';
   const model = data.model || '';
   const currentCombo = provider + ':' + model;
   const items = buildModelDropdownItems(data);
+  const heroTrigger = document.getElementById('heroModelQuickSelect');
 
+  // 共享的选中回调
+  const onSelect = (item) => {
+    if (item.value === ADD_MODEL_VALUE) {
+      openConfigModal();
+      setTimeout(() => loadQuickModelConfig(), 100);
+      return;
+    }
+    if (!item.value) return;
+    const colonIdx = item.value.indexOf(':');
+    if (colonIdx > 0) {
+      saveQuickModelConfig(
+        item.value.substring(0, colonIdx),
+        item.value.substring(colonIdx + 1)
+      );
+    }
+  };
+
+  // 底部栏实例
   if (!modelDropdown) {
     if (!modelQuickSelectTrigger) return;
     modelDropdown = new CustomDropdown({
@@ -1389,37 +1408,39 @@ function applyModelConfigToDropdown(data) {
       items,
       selectedValue: provider && model ? currentCombo : '',
       offsetX: -9,
-      onSelect: (item) => {
-        if (item.value === ADD_MODEL_VALUE) {
-          openConfigModal();
-          setTimeout(() => loadQuickModelConfig(), 100);
-          return;
-        }
-        if (!item.value) return;
-        const colonIdx = item.value.indexOf(':');
-        if (colonIdx > 0) {
-          saveQuickModelConfig(
-            item.value.substring(0, colonIdx),
-            item.value.substring(colonIdx + 1)
-          );
-        }
-      },
+      onSelect,
     });
   } else {
     modelDropdown.setItems(items);
     modelDropdown.setSelectedValue(provider && model ? currentCombo : '');
   }
 
-  // 同步 hero 模型选择按钮的显示文本
-  const heroTrigger = document.getElementById('heroModelQuickSelect');
-  if (heroTrigger && modelDropdown) {
-    const item = modelDropdown.getSelectedItem();
-    heroTrigger.textContent = item ? item.label : '加载中...';
+  // hero 实例
+  if (!heroModelDropdown) {
+    if (!heroTrigger) return;
+    heroModelDropdown = new CustomDropdown({
+      trigger: heroTrigger,
+      items,
+      selectedValue: provider && model ? currentCombo : '',
+      onSelect,
+    });
+  } else {
+    heroModelDropdown.setItems(items);
+    heroModelDropdown.setSelectedValue(provider && model ? currentCombo : '');
   }
 }
 
 const ADD_MODEL_VALUE = '__add_model__';
 let modelDropdown = null;
+let heroModelDropdown = null;
+
+/** hero 界面重建后，刷新 heroModelDropdown 的 trigger 引用 */
+function refreshHeroModelDropdown() {
+  const heroTrigger = document.getElementById('heroModelQuickSelect');
+  if (heroTrigger && heroModelDropdown) {
+    heroModelDropdown.setTrigger(heroTrigger);
+  }
+}
 
 /** 构建下拉选项列表 */
 function buildModelDropdownItems(data) {
