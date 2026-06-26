@@ -140,6 +140,16 @@ function init() {
     });
   }
 
+  // 注册打开浏览器动作
+  if (activityBar) {
+    activityBar.onAction('openBrowser', () => {
+      const ws = window.HippoWorkspace;
+      if (ws && ws.openWebBrowser) {
+        ws.openWebBrowser('about:blank');
+      }
+    });
+  }
+
   // 注册打开终端动作
   if (activityBar) {
     activityBar.onAction('openTerminal', () => {

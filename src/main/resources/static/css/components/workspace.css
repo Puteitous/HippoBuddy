@@ -193,6 +193,25 @@
     background: transparent;
 }
 
+/* Web 标签（内嵌浏览器）特殊样式 */
+.file-tab.web-tab {
+    color: var(--text-secondary);
+}
+
+.file-tab.web-tab.active {
+    color: var(--accent);
+}
+
+.web-tab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.web-tab-icon svg {
+    display: block;
+}
+
 .file-tab-icon {
     flex-shrink: 0;
     width: 14px;

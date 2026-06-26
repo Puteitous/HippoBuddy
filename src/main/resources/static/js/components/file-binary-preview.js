@@ -38,6 +38,12 @@ export function isPptxFile(filePath) {
   return filePath && filePath.toLowerCase().endsWith('.pptx');
 }
 
+export function isHtmlFile(filePath) {
+  if (!filePath) return false;
+  const ext = filePath.split('.').pop().toLowerCase();
+  return ['html', 'htm'].includes(ext);
+}
+
 // ==================== 工具函数 ====================
 
 /** 转义 HTML 特殊字符 */
@@ -732,6 +738,53 @@ export class BinaryPreview {
         <p>PPTX 解析失败: ${escapeHtml(err.message)}</p>
       </div>`;
       this._onError(err);
+    }
+  }
+
+  // ==================== HTML Web 预览 ====================
+
+  /**
+   * 渲染 HTML 文件预览 — 通过 iframe 加载渲染后的页面效果。
+   *
+   * 工具栏包含文件名和"在浏览器中打开"按钮。
+   */
+  showWebPreview(filePath) {
+    const encodedPath = encodeURIComponent(filePath);
+    const url = `/api/file/raw?path=${encodedPath}`;
+    const fileName = filePath.split('/').pop() || filePath;
+
+    this._container.innerHTML = `
+      <div class="file-web-preview">
+        <div class="web-preview-toolbar">
+          <span class="web-preview-filename">${escapeHtml(fileName)}</span>
+          <button class="web-preview-open-btn" title="在系统浏览器中打开">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3"/>
+              <path d="M10 2h4v4"/>
+              <path d="M14 2L8 8"/>
+            </svg>
+            在浏览器中打开
+          </button>
+        </div>
+        <iframe class="web-preview-iframe" src="${url}"
+          sandbox="allow-scripts allow-same-origin"
+          loading="lazy"
+          title="${escapeHtml(fileName)}"></iframe>
+      </div>`;
+
+    // 绑定"在浏览器中打开"按钮
+    const openBtn = this._container.querySelector('.web-preview-open-btn');
+    if (openBtn && window.HippoDesktop && window.HippoDesktop.openExternal) {
+      openBtn.addEventListener('click', () => {
+        window.HippoDesktop.openExternal(url).catch(() => {
+          window.open(url, '_blank');
+        });
+      });
+    } else if (openBtn) {
+      // Web 端降级：直接 window.open
+      openBtn.addEventListener('click', () => {
+        window.open(url, '_blank');
+      });
     }
   }
 

@@ -352,6 +352,32 @@ const HippoWorkspace = (() => {
       }
     },
 
+    /**
+     * 打开内嵌浏览器标签页
+     * @param {string} url - 完整 URL
+     * @param {string} [displayName] - 标签显示名，默认自动从 URL 提取
+     */
+    async openWebBrowser(url, displayName) {
+      if (!url) return;
+      // 自动补全协议（跳过已有协议和 about: 这类特殊 URL）
+      let fullUrl = url.trim();
+      if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(fullUrl)) {
+        fullUrl = 'https://' + fullUrl;
+      }
+      // 切换到文件视图确保能显示预览
+      switchView('files');
+      await fileTabs.openWebTab(fullUrl, displayName);
+    },
+
+    /**
+     * 浏览器地址栏 URL 变更回调（由 FilePreview._bindBrowserEvents 调用）
+     * 用于更新 web 标签的 key，使下次切换时能命中
+     */
+    onBrowserUrlChange(url) {
+      // showBrowser 时已更新 _currentPath，只需重新持久化
+      _saveWorkspaceSession();
+    },
+
     /** 刷新文件树（保留展开状态），AI 工具调用后自动调用 */
     refreshFileTree() {
       fileTree.refresh();
@@ -442,6 +468,20 @@ const HippoWorkspace = (() => {
   }
 
   async function handleTabSelect(filePath) {
+    // 检测是否为 web 标签
+    if (filePath && filePath.startsWith('url:')) {
+      const url = filePath.slice(4);
+      filePreview.showBrowser(url);
+      // 显示预览面板，不显示面包屑路径
+      if (els.previewPanel) {
+        els.previewPanel.classList.remove('hidden');
+      }
+      if (els.previewPath) {
+        els.previewPath.textContent = url;
+        els.previewPath.title = url;
+      }
+      return;
+    }
     await fileTree.revealFile(filePath);
     showPreview(filePath);
   }

@@ -108,33 +108,61 @@ export class FileTabs {
 
   // ==================== 打开 / 切换 ====================
 
-  /** 打开（或切换到）一个 tab */
+  /** 打开（或切换到）一个文件 tab */
   async openTab(filePath, displayName) {
-    const existing = this._tabs.get(filePath);
+    return this._openTabInternal(filePath, displayName, false);
+  }
+
+  /**
+   * 打开（或切换到）一个 web 标签页
+   * @param {string} url - 完整 URL
+   * @param {string} [displayName] - 标签显示名，默认取 URL 的 host
+   */
+  async openWebTab(url, displayName) {
+    const key = 'url:' + url;
+    return this._openTabInternal(key, displayName || this._getUrlDisplayName(url), true);
+  }
+
+  /** @private 内部打开 tab 逻辑 */
+  async _openTabInternal(key, displayName, isWeb) {
+    const existing = this._tabs.get(key);
     if (existing) {
-      await this._selectTab(filePath);
+      await this._selectTab(key);
       return;
     }
 
     const tabEl = document.createElement('div');
-    tabEl.className = 'file-tab';
-    tabEl.dataset.path = filePath;
+    tabEl.className = 'file-tab' + (isWeb ? ' web-tab' : '');
+    tabEl.dataset.path = key;
+    if (isWeb) tabEl.dataset.isWeb = 'true';
 
-    // Icon — 使用与文件树一致的 Material Icon Theme 图标
-    const fileName = displayName || this._getDisplayName(filePath);
-    const { iconFile } = getFileIconInfo(fileName);
-    const iconEl = document.createElement('img');
-    iconEl.className = 'file-tab-icon';
-    iconEl.src = 'icons/' + iconFile;
-    iconEl.draggable = false;
-    iconEl.alt = '';
-    tabEl.appendChild(iconEl);
+    if (isWeb) {
+      // Web 标签 — 使用 globe SVG 图标
+      const iconEl = document.createElement('span');
+      iconEl.className = 'file-tab-icon web-tab-icon';
+      iconEl.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="8" r="6"/>
+        <path d="M2 8h12"/>
+        <path d="M8 2a6 6 0 0 1 2 6 6 6 0 0 1-2 6"/>
+      </svg>`;
+      tabEl.appendChild(iconEl);
+    } else {
+      // 文件标签 — 使用 Material Icon Theme 图标
+      const fileName = displayName || this._getDisplayName(key);
+      const { iconFile } = getFileIconInfo(fileName);
+      const iconEl = document.createElement('img');
+      iconEl.className = 'file-tab-icon';
+      iconEl.src = 'icons/' + iconFile;
+      iconEl.draggable = false;
+      iconEl.alt = '';
+      tabEl.appendChild(iconEl);
+    }
 
     // Name
     const nameEl = document.createElement('span');
     nameEl.className = 'file-tab-name';
-    nameEl.textContent = displayName || this._getDisplayName(filePath);
-    nameEl.title = filePath;
+    nameEl.textContent = displayName || this._getDisplayName(key);
+    nameEl.title = key;
     tabEl.appendChild(nameEl);
 
     // Close button
@@ -143,20 +171,20 @@ export class FileTabs {
     closeEl.textContent = '✕';
     closeEl.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await this.closeTab(filePath);
+      await this.closeTab(key);
     });
     tabEl.appendChild(closeEl);
 
     // Click to select
     tabEl.addEventListener('click', async () => {
-      await this._selectTab(filePath);
+      await this._selectTab(key);
     });
 
     // 中键关闭
     tabEl.addEventListener('auxclick', async (e) => {
       if (e.button === 1) {
         e.preventDefault();
-        await this.closeTab(filePath);
+        await this.closeTab(key);
       }
     });
 
@@ -164,16 +192,16 @@ export class FileTabs {
     tabEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this._showContextMenu(e, filePath);
+      this._showContextMenu(e, key);
     });
 
     // 拖拽
-    this._setupDragEvents(tabEl, filePath);
+    this._setupDragEvents(tabEl, key);
 
     this._container.appendChild(tabEl);
-    this._tabs.set(filePath, tabEl);
-    this._order.push(filePath);
-    await this._selectTab(filePath);
+    this._tabs.set(key, tabEl);
+    this._order.push(key);
+    await this._selectTab(key);
 
     // 滚动标签到可见
     tabEl.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
@@ -440,6 +468,26 @@ export class FileTabs {
   _getDisplayName(filePath) {
     const parts = filePath.replace(/\\/g, '/').split('/');
     return parts[parts.length - 1] || filePath;
+  }
+
+  /** @private 从 URL 提取显示名（host + path 简写） */
+  _getUrlDisplayName(url) {
+    try {
+      const u = new URL(url);
+      let name = u.hostname;
+      // 如果路径部分有意义（非 / 且简短），追加简写路径
+      if (u.pathname && u.pathname !== '/') {
+        const pathParts = u.pathname.replace(/\/$/,'').split('/').filter(Boolean);
+        if (pathParts.length <= 2) {
+          name += u.pathname;
+        } else {
+          name += '/' + pathParts[0] + '/…/' + pathParts[pathParts.length - 1];
+        }
+      }
+      return name;
+    } catch {
+      return url;
+    }
   }
 
   /**
