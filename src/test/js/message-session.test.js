@@ -221,35 +221,50 @@ describe('MessageSession.js', () => {
   describe('healStuckCards', () => {
     it('标记待确认的卡片为已取消', () => {
       session.getSegments().push({ type: 'tool', name: 'bash', result: null, confirmationData: { confirmId: 'cf-1' } });
-      const changed = session.healStuckCards();
-      expect(changed).toBe(true);
+      const modified = session.healStuckCards();
+      expect(modified.length).toBe(1);
+      expect(modified[0]).toMatchObject({ name: 'bash', toStatus: 'cancelled' });
       expect(session.getSegments()[0].result).toBe('cancelled');
     });
 
     it('标记有进度的卡片为已中断', () => {
       session.getSegments().push({ type: 'tool', name: 'bash', result: null, progressLines: ['进度1'] });
-      const changed = session.healStuckCards();
-      expect(changed).toBe(true);
+      const modified = session.healStuckCards();
+      expect(modified.length).toBe(1);
+      expect(modified[0]).toMatchObject({ name: 'bash', toStatus: 'interrupted' });
       expect(session.getSegments()[0].result).toBe('interrupted');
     });
 
     it('空壳卡片标记为已取消', () => {
       session.getSegments().push({ type: 'tool', name: 'bash', result: null });
-      const changed = session.healStuckCards();
-      expect(changed).toBe(true);
+      const modified = session.healStuckCards();
+      expect(modified.length).toBe(1);
+      expect(modified[0]).toMatchObject({ name: 'bash', toStatus: 'cancelled' });
       expect(session.getSegments()[0].result).toBe('cancelled');
     });
 
     it('已有结果的卡片不处理', () => {
       session.getSegments().push({ type: 'tool', name: 'bash', result: 'success' });
-      const changed = session.healStuckCards();
-      expect(changed).toBe(false);
+      const modified = session.healStuckCards();
+      expect(modified.length).toBe(0);
     });
 
     it('没有工具卡片时不触发修改', () => {
       session.getSegments().push({ type: 'text', content: 'hello' });
-      const changed = session.healStuckCards();
-      expect(changed).toBe(false);
+      const modified = session.healStuckCards();
+      expect(modified.length).toBe(0);
+    });
+
+    it('混合场景：已成功的跳过，stuck 的标记为取消', () => {
+      session.getSegments().push({ type: 'tool', name: 'edit_file', result: 'success' });
+      session.getSegments().push({ type: 'tool', name: 'bash', result: null });
+      session.getSegments().push({ type: 'tool', name: 'write_file', result: 'success' });
+      const modified = session.healStuckCards();
+      expect(modified.length).toBe(1);
+      expect(modified[0]).toMatchObject({ name: 'bash', toStatus: 'cancelled' });
+      // 已成功的不会被改
+      expect(session.getSegments()[0].result).toBe('success');
+      expect(session.getSegments()[2].result).toBe('success');
     });
   });
 

@@ -94,9 +94,9 @@ public class FileFilter {
         if (ignoredDirectories.isIgnored(path)) {
             return false;
         }
-        if (Files.isRegularFile(path) && ignoredExtensions.isIgnored(path)) {
-            return false;
-        }
+        // 不检查 IgnoredExtensions：list_directory 的目的是展示目录内容
+        // 用户应当看到所有文件（包括图片等非文本文件），
+        // 是否可操作由 glob 的 shouldSearch 来把关
         if (respectGitignore && gitignoreMatcher.isIgnored(path)) {
             return false;
         }

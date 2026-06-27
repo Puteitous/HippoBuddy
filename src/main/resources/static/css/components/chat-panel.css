@@ -468,7 +468,7 @@
     color: var(--text-secondary);
     background: var(--bg-code);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: 9999px;
     line-height: 1.6;
     cursor: default;
 }
@@ -564,7 +564,7 @@
     pointer-events: none;
     background: var(--bg-code);
     border: 1px solid #d1d5db;
-    border-radius: var(--radius-sm);
+    border-radius: 9999px;
 }
 
 [data-theme="dark"] .message.user .input-ref-chip {

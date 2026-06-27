@@ -646,7 +646,7 @@ describe('ChatPanel.js', () => {
         start: vi.fn().mockResolvedValue(undefined),
         getSegments: () => [],
         getCurrentText: () => '',
-        healStuckCards: vi.fn().mockReturnValue(false)
+        healStuckCards: vi.fn().mockReturnValue([])
       };
       chatPanel.currentAbortController = new AbortController();
 
@@ -706,7 +706,7 @@ describe('ChatPanel.js', () => {
         handleToolProgress() {},
         handleToolConfirmation() {},
         getContentDiv() { return null; },
-        healStuckCards: vi.fn().mockReturnValue(false)
+        healStuckCards: vi.fn().mockReturnValue([])
       };
     }
 

@@ -471,7 +471,16 @@ export class ChatPanel {
     });
   }
 
-
+  /**
+   * 清空当前可见的引用卡片栏
+   */
+  _clearRefs() {
+    const bar = this._getActiveRefsBar();
+    if (bar) {
+      bar.innerHTML = '';
+      bar.style.display = 'none';
+    }
+  }
 
   /**
    * 移除 chip 时同步通知 ContextSelector 取消勾选
@@ -570,6 +579,7 @@ export class ChatPanel {
       this.elements.messageInput.style.height = 'auto';
     }
     
+    this._clearRefs();
     this._contextSelector.clearSelection();
     
     this.lastUserMessage = content;
@@ -1337,43 +1347,53 @@ export class ChatPanel {
     const session = this._activeSession;
     if (!session) return;
 
-    if (session.healStuckCards()) {
-      const contentDiv = this._activeSession?.getContentDiv();
-      if (contentDiv) {
-        // 直接操作 DOM，不触发 RenderPipeline 全量重建
-        // flush → doRender 有 await renderMarkdown，会被后续新消息覆盖
-        const statusSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><line x1="5" y1="5" x2="11" y2="11"/></svg>';
-        contentDiv.querySelectorAll('.tool-timeline-item').forEach(item => {
-          const cur = item.dataset.toolStatus;
-          if (cur === 'running' || cur === 'pending_confirmation') {
-            const hasProgress = !!item.querySelector('.tool-timeline-detail .timeline-detail-progress, .tool-timeline-detail .timeline-detail-status');
-            const isCancelled = !hasProgress;
-            item.dataset.toolStatus = isCancelled ? 'cancelled' : 'interrupted';
-            item.classList.remove('expanded');
-            const detail = item.querySelector('.tool-timeline-detail');
-            if (detail) {
-              detail.style.maxHeight = '0';
-              detail.innerHTML = isCancelled
-                ? '<div class="timeline-detail-status cancelled">已取消（未确认）</div>'
-                : '<div class="timeline-detail-status interrupted">执行中断</div>';
-            }
-            const statusEl = item.querySelector('.tool-timeline-status');
-            if (statusEl) {
-              statusEl.className = `tool-timeline-status ${isCancelled ? 'cancelled' : 'interrupted'}`;
-              statusEl.innerHTML = statusSvg;
-            }
-          }
-        });
-        // 收起 ask_user 卡片
-        contentDiv.querySelectorAll('.tool-card.ask-user-card.expanded').forEach(card => {
-          const details = card.querySelector('.tool-call-details');
-          if (details) {
-            details.style.maxHeight = '0';
-            card.classList.remove('expanded');
-          }
-        });
+    const modified = session.healStuckCards();
+    if (modified.length === 0) return;
+
+    const contentDiv = this._activeSession?.getContentDiv();
+    if (!contentDiv) return;
+
+    // 收集所有 tool segment，按索引与 DOM 中的 .tool-timeline-item 顺序对应
+    const toolSegments = session.getSegments().filter(s => s.type === 'tool');
+    const stuckStatuses = new Map(); // DOM 索引 → 目标状态
+    toolSegments.forEach((seg, i) => {
+      if (seg.result === 'cancelled' || seg.result === 'interrupted') {
+        stuckStatuses.set(i, seg.result);
       }
-    }
+    });
+    if (stuckStatuses.size === 0) return;
+
+    // 直接操作 DOM，不触发 RenderPipeline 全量重建
+    // flush → doRender 有 await renderMarkdown，会被后续新消息覆盖
+    const statusSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><line x1="5" y1="5" x2="11" y2="11"/></svg>';
+    contentDiv.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
+      const targetStatus = stuckStatuses.get(idx);
+      if (!targetStatus) return; // ← 核心修复：只改数据层确认 stuck 的，不碰已成功的
+
+      const isCancelled = targetStatus === 'cancelled';
+      item.dataset.toolStatus = targetStatus;
+      item.classList.remove('expanded');
+      const detail = item.querySelector('.tool-timeline-detail');
+      if (detail) {
+        detail.style.maxHeight = '0';
+        detail.innerHTML = isCancelled
+          ? '<div class="timeline-detail-status cancelled">已取消（未确认）</div>'
+          : '<div class="timeline-detail-status interrupted">执行中断</div>';
+      }
+      const statusEl = item.querySelector('.tool-timeline-status');
+      if (statusEl) {
+        statusEl.className = `tool-timeline-status ${targetStatus}`;
+        statusEl.innerHTML = statusSvg;
+      }
+    });
+    // 收起 ask_user 卡片
+    contentDiv.querySelectorAll('.tool-card.ask-user-card.expanded').forEach(card => {
+      const details = card.querySelector('.tool-call-details');
+      if (details) {
+        details.style.maxHeight = '0';
+        card.classList.remove('expanded');
+      }
+    });
   }
 
   /**

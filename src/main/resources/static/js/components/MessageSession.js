@@ -393,23 +393,28 @@ export class MessageSession {
     this._segments[index] = segment;
   }
 
+  /**
+   * 自愈：将所有未完成的 tool segment 标记为 cancelled 或 interrupted。
+   * @returns {Array<{name: string, fromStatus: string|null, toStatus: string}>} 被修改的 segment 列表
+   */
   healStuckCards() {
-    let changed = false;
+    const modified = [];
     for (const seg of this._segments) {
       if (seg.type !== 'tool' || seg.result) continue;
+      const fromStatus = seg.result;
       if (seg.confirmationData) {
         seg.result = 'cancelled';
         seg.confirmationData = null;
-        changed = true;
+        modified.push({ name: seg.name, fromStatus, toStatus: 'cancelled' });
       } else if (seg.progressLines && seg.progressLines.length > 0) {
         seg.result = 'interrupted';
-        changed = true;
+        modified.push({ name: seg.name, fromStatus, toStatus: 'interrupted' });
       } else {
         seg.result = 'cancelled';
-        changed = true;
+        modified.push({ name: seg.name, fromStatus, toStatus: 'cancelled' });
       }
     }
-    return changed;
+    return modified;
   }
 
   pushTextSegment() {
