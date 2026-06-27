@@ -133,7 +133,7 @@ body.desktop-window {
     margin-left: 2px;
     height: 28px;
     background: var(--bg-code);
-    border-radius: 6px;
+    border-radius: 999px;
     max-width: 240px;
     overflow: hidden;
     flex-shrink: 1;
@@ -429,7 +429,7 @@ body.desktop-window {
 }
 
 .chat-panel-title {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     font-weight: 500;
     color: var(--text-secondary);
     user-select: none;
@@ -446,10 +446,11 @@ body.desktop-window {
     color: var(--text-muted);
     user-select: none;
     margin-right: 6px;
-    padding: 1px 8px;
+    margin-top: 3px;
+    padding: 0 8px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    line-height: 1.6;
+    line-height: 1.2;
 }
 
 /* ========== 聊天面板头部操作按钮 ========== */

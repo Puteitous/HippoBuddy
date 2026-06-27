@@ -135,7 +135,7 @@ export class FileChangeManager {
         const abList = document.getElementById('abFileChangesList');
         if (abList) abList.innerHTML = '';
         if (abEmpty) abEmpty.style.display = 'block';
-        if (statusBarFiles) statusBarFiles.textContent = '0';
+        if (statusBarFiles) statusBarFiles.textContent = '';
         return;
       }
 

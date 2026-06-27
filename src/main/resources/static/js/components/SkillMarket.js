@@ -57,7 +57,7 @@ const FEATURED_SKILLS = [
     desc: '代码审查 — 五轴审查：正确性/可读性/架构/安全/性能',
     source: 'addyosmani/agent-skills',
     category: '开发',
-    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/code-review/SKILL.md',
+    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/code-review-and-quality/SKILL.md',
   },
   {
     name: 'tdd-workflow',
@@ -75,31 +75,17 @@ const FEATURED_SKILLS = [
   },
   {
     name: 'security-audit',
-    desc: '安全审计 — OWASP Top 10 检查、漏洞扫描、SAST 配置',
-    source: 'trailofbits/skills',
+    desc: '安全审计与加固 — OWASP Top 10 检查、漏洞扫描、威胁建模',
+    source: 'addyosmani/agent-skills',
     category: '安全',
-    skillUrl: 'https://raw.githubusercontent.com/trailofbits/skills/main/skills/security-review/SKILL.md',
+    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/security-and-hardening/SKILL.md',
   },
   {
     name: 'api-design',
     desc: 'API 设计 — RESTful 规范、请求验证、错误处理、文档生成',
-    source: 'antigravity-awesome-skills',
+    source: 'addyosmani/agent-skills',
     category: '开发',
-    skillUrl: 'https://raw.githubusercontent.com/sickn33/antigravity-awesome-skills/main/skills/api-design/SKILL.md',
-  },
-  {
-    name: 'git-workflow',
-    desc: 'Git 工作流 — 分支策略、提交规范、冲突解决、版本管理',
-    source: 'anthropics/skills',
-    category: '工具',
-    skillUrl: 'https://raw.githubusercontent.com/anthropics/skills/main/skills/git-tools/SKILL.md',
-  },
-  {
-    name: 'testing',
-    desc: '测试策略 — 单元测试/集成测试/E2E 测试覆盖与最佳实践',
-    source: 'antigravity-awesome-skills',
-    category: '测试',
-    skillUrl: 'https://raw.githubusercontent.com/sickn33/antigravity-awesome-skills/main/skills/testing-strategy/SKILL.md',
+    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/api-and-interface-design/SKILL.md',
   },
   {
     name: 'performance',
@@ -111,23 +97,16 @@ const FEATURED_SKILLS = [
   {
     name: 'devops',
     desc: 'DevOps 实践 — CI/CD 配置、Docker/K8s、监控告警',
-    source: 'antigravity-awesome-skills',
+    source: 'addyosmani/agent-skills',
     category: 'DevOps',
-    skillUrl: 'https://raw.githubusercontent.com/sickn33/antigravity-awesome-skills/main/skills/devops-practices/SKILL.md',
+    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/ci-cd-and-automation/SKILL.md',
   },
   {
     name: 'react-patterns',
     desc: 'React 模式 — Hooks 规范、状态管理、性能优化、组件设计',
     source: 'vercel-labs/agent-skills',
     category: '前端',
-    skillUrl: 'https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-patterns/SKILL.md',
-  },
-  {
-    name: 'python-best-practices',
-    desc: 'Python 最佳实践 — 类型注解、项目结构、测试、性能',
-    source: 'antigravity-awesome-skills',
-    category: '语言',
-    skillUrl: 'https://raw.githubusercontent.com/sickn33/antigravity-awesome-skills/main/skills/python-best-practices/SKILL.md',
+    skillUrl: 'https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-best-practices/SKILL.md',
   },
   {
     name: 'database-design',
@@ -138,7 +117,7 @@ const FEATURED_SKILLS = [
   },
 ];
 
-const CATEGORIES = ['全部', '开发', '前端', '安全', '测试', 'DevOps', '工具', '数据', '语言'];
+const CATEGORIES = ['全部', '开发', '前端', '安全', 'DevOps', '数据'];
 
 export class SkillMarket {
   constructor() {
@@ -149,6 +128,7 @@ export class SkillMarket {
     this._searchQuery = '';
     this._activeSource = null; // 浏览某来源仓库的技能列表
     this._showInstalled = false; // 是否显示已安装列表
+    this._savedCategory = '全部'; // 进入已安装模式前保存的活跃分类
   }
 
   async open() {
@@ -188,7 +168,13 @@ export class SkillMarket {
     try {
       const resp = await fetch('/api/skills/list');
       const data = await resp.json();
-      const all = [...(data.projectSkills || []), ...(data.userSkills || [])];
+      const all = [];
+      for (const s of (data.projectSkills || [])) {
+        all.push({ ...s, source: 'project' });
+      }
+      for (const s of (data.userSkills || [])) {
+        all.push({ ...s, source: 'user' });
+      }
       this._installedSkills = all;
       this._installedNames = new Set(all.map(s => {
         const n = s.name || s.fileName.replace(/\.md$/, '');
@@ -238,8 +224,10 @@ export class SkillMarket {
       // 浏览某个来源仓库的全部技能
       content.appendChild(this._renderSourceDetail());
     } else {
-      // 首页：推荐来源 + 精选技能
-      content.appendChild(this._renderSources());
+      // 仅在「全部」分类时显示推荐来源
+      if (this._activeCategory === '全部') {
+        content.appendChild(this._renderSources());
+      }
       content.appendChild(this._renderFeatured());
     }
 
@@ -289,22 +277,32 @@ export class SkillMarket {
     installedBtn.addEventListener('click', () => {
       this._showInstalled = !this._showInstalled;
       if (this._showInstalled) {
-        // 切换到已安装模式，清除其他状态
+        // 进入已安装模式，保存当前分类
+        this._savedCategory = this._activeCategory;
         this._activeSource = null;
-        // 刷新已安装列表
         this._loadInstalledSkills().then(() => this._renderContent());
       } else {
-        // 退出已安装模式，重置到「全部」
-        this._activeCategory = '全部';
+        // 退出已安装模式，恢复之前选中的分类
+        this._activeCategory = this._savedCategory || '全部';
       }
       tabs.querySelectorAll('.skill-market-cat-btn').forEach(b => b.classList.remove('active'));
-      installedBtn.classList.add('active');
-      // 隐藏/显示分类按钮
-      tabs.querySelectorAll('.skill-market-cat-filter').forEach(b => b.style.display = this._showInstalled ? 'none' : '');
-      // 退出已安装模式时亮起「全部」
+      if (this._showInstalled) {
+        installedBtn.classList.add('active');
+      }
       if (!this._showInstalled) {
-        const allBtn = tabs.querySelector('.skill-market-cat-filter');
-        if (allBtn) allBtn.classList.add('active');
+        // 亮起之前选中的分类按钮
+        const catBtns = tabs.querySelectorAll('.skill-market-cat-filter');
+        let found = false;
+        catBtns.forEach(b => {
+          if (b.textContent.trim() === this._activeCategory) {
+            b.classList.add('active');
+            found = true;
+          }
+        });
+        if (!found) {
+          const allBtn = tabs.querySelector('.skill-market-cat-filter');
+          if (allBtn) allBtn.classList.add('active');
+        }
       }
       this._renderContent();
     });
@@ -320,8 +318,12 @@ export class SkillMarket {
       btn.className = 'skill-market-cat-btn skill-market-cat-filter' + (cat === this._activeCategory && !this._showInstalled ? ' active' : '');
       btn.textContent = cat;
       btn.addEventListener('click', () => {
-        if (this._showInstalled) return;
         this._activeCategory = cat;
+        // 点击分类时自动退出已安装模式，切换到该分类的精选浏览
+        if (this._showInstalled) {
+          this._showInstalled = false;
+          this._activeSource = null;
+        }
         tabs.querySelectorAll('.skill-market-cat-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this._renderContent();
@@ -342,7 +344,10 @@ export class SkillMarket {
     } else if (this._activeSource) {
       content.appendChild(this._renderSourceDetail());
     } else {
-      content.appendChild(this._renderSources());
+      // 仅在「全部」分类时显示推荐来源
+      if (this._activeCategory === '全部') {
+        content.appendChild(this._renderSources());
+      }
       content.appendChild(this._renderFeatured());
     }
   }
@@ -429,7 +434,10 @@ export class SkillMarket {
     });
 
     if (skills.length === 0) {
-      container.innerHTML += '<div class="skill-market-empty">该来源暂无匹配的技能</div>';
+      const empty = document.createElement('div');
+      empty.className = 'skill-market-empty';
+      empty.textContent = '该来源暂无匹配的技能';
+      container.appendChild(empty);
     } else {
       container.appendChild(this._renderSkillGrid(skills));
     }
@@ -556,14 +564,24 @@ export class SkillMarket {
       `;
       tip.querySelector('#skillMarketBrowseMore').addEventListener('click', () => {
         this._showInstalled = false;
+        this._activeCategory = this._savedCategory || '全部';
         this._renderContent();
         // 同时更新 tab 状态
         const tabs = this._overlay?.querySelector('.skill-market-cats');
         if (tabs) {
           tabs.querySelectorAll('.skill-market-cat-btn').forEach(b => b.classList.remove('active'));
-          tabs.querySelectorAll('.skill-market-cat-filter').forEach(b => b.style.display = '');
-          const allBtn = tabs.querySelector('.skill-market-cat-filter');
-          if (allBtn) allBtn.classList.add('active');
+          const catBtns = tabs.querySelectorAll('.skill-market-cat-filter');
+          let found = false;
+          catBtns.forEach(b => {
+            if (b.textContent.trim() === this._activeCategory) {
+              b.classList.add('active');
+              found = true;
+            }
+          });
+          if (!found) {
+            const allBtn = tabs.querySelector('.skill-market-cat-filter');
+            if (allBtn) allBtn.classList.add('active');
+          }
         }
       });
       container.appendChild(tip);

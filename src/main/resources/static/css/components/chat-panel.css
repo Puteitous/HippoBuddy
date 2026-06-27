@@ -627,7 +627,6 @@
     padding: 0 8px 8px 8px;
     user-select: none;
     min-height: 28px;
-    overflow: hidden;
 }
 
 .status-bar-left {
@@ -635,7 +634,6 @@
     align-items: center;
     gap: 6px;
     min-width: 0;
-    overflow: hidden;
 }
 
 .status-bar-item {
@@ -667,10 +665,6 @@
     flex-shrink: 0;
 }
 
-.status-bar-label {
-    color: var(--text-muted);
-}
-
 .status-bar-value {
     color: var(--text-secondary);
     font-weight: 500;
@@ -687,6 +681,10 @@
 
 .status-bar-item {
     position: relative;
+}
+
+#statusBarFiles {
+    overflow: visible;
 }
 
 .status-bar-files-popover {

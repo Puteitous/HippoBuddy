@@ -57,9 +57,15 @@ export class ContextSelector {
       const rule = this._rules.find(r => r.id === id);
       if (rule) this._onRuleToggle?.(rule, false);
     }
+    // 通知每个已选中的技能被取消
+    for (const path of this._selectedSkillPaths) {
+      const skill = this._skills.find(s => s.filePath === path);
+      if (skill) this._onSkillToggle?.(skill, false);
+    }
     this._selectedRuleIds.clear();
     this._selectedSkillPaths.clear();
     this._updateButtonLabel();
+    this._syncPanelSelection();
   }
 
   /** 取消选中指定 ID 的规则（供 refs 栏关闭卡片时调用） */
@@ -70,11 +76,24 @@ export class ContextSelector {
     if (rule) this._onRuleToggle?.(rule, false);
     this._updateButtonLabel();
     this._onRulesChange?.(this.getSelectedRuleIds());
+    this._syncPanelSelection();
+  }
+
+  /** 取消选中指定路径的技能（供 refs 栏关闭卡片时调用） */
+  deselectSkill(filePath) {
+    if (!this._selectedSkillPaths.has(filePath)) return;
+    this._selectedSkillPaths.delete(filePath);
+    const skill = this._skills.find(s => s.filePath === filePath);
+    if (skill) this._onSkillToggle?.(skill, false);
+    this._updateButtonLabel();
+    this._syncPanelSelection();
   }
 
   destroy() {
     this._btn?.remove();
     this._panel?.remove();
+    this._btn = null;
+    this._panel = null;
   }
 
   // ==================== 按钮 ====================
@@ -347,6 +366,7 @@ export class ContextSelector {
     for (const rule of rules) {
       const item = document.createElement('div');
       item.className = 'context-selector-item';
+      item.dataset.ruleId = rule.id;
       if (this._selectedRuleIds.has(rule.id)) {
         item.classList.add('selected');
       }
@@ -457,6 +477,7 @@ export class ContextSelector {
     for (const skill of skills) {
       const item = document.createElement('div');
       item.className = 'context-selector-item';
+      item.dataset.skillPath = skill.filePath;
       if (this._selectedSkillPaths.has(skill.filePath)) {
         item.classList.add('selected');
       }
@@ -543,6 +564,28 @@ export class ContextSelector {
       }
     } catch (e) {
       console.warn('加载上下文数据失败:', e);
+    }
+  }
+
+  /**
+   * 同步面板复选框状态（panel 打开时，外部 deselect 后更新 checkox）
+   */
+  _syncPanelSelection() {
+    if (!this._panel || !this._panel.parentNode) return;
+    for (const item of this._panel.querySelectorAll('.context-selector-item')) {
+      const cb = item.querySelector('input[type="checkbox"]');
+      if (!cb) continue;
+      const ruleId = item.dataset.ruleId;
+      const skillPath = item.dataset.skillPath;
+      if (ruleId) {
+        const selected = this._selectedRuleIds.has(ruleId);
+        cb.checked = selected;
+        item.classList.toggle('selected', selected);
+      } else if (skillPath) {
+        const selected = this._selectedSkillPaths.has(skillPath);
+        cb.checked = selected;
+        item.classList.toggle('selected', selected);
+      }
     }
   }
 }

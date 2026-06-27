@@ -85,7 +85,7 @@ export class ChatPanel {
         const bar = this._getActiveRefsBar();
         if (!bar) return;
         if (selected) {
-          this._addRefChip(bar, skill.filePath, 'file', skill.filePath);
+          this._addRefChip(bar, skill.filePath, 'file', skill.filePath, null, null, { skillPath: skill.filePath });
         } else {
           const chip = bar.querySelector(`[data-file-path="${skill.filePath.replace(/\\/g, '/')}"]`);
           if (chip) chip.remove();
@@ -178,8 +178,10 @@ export class ChatPanel {
         const refsBar = this._getActiveRefsBar();
         if (refsBar && refsBar.children.length > 0) {
           e.preventDefault();
-          refsBar.lastElementChild.remove();
+          const chip = refsBar.lastElementChild;
+          chip.remove();
           if (refsBar.children.length === 0) refsBar.style.display = 'none';
+          this._notifyChipRemoved(chip);
         }
       }
     });
@@ -220,8 +222,10 @@ export class ChatPanel {
           const refsBar = this._getActiveRefsBar();
           if (refsBar && refsBar.children.length > 0) {
             e.preventDefault();
-            refsBar.lastElementChild.remove();
+            const chip = refsBar.lastElementChild;
+            chip.remove();
             if (refsBar.children.length === 0) refsBar.style.display = 'none';
+            this._notifyChipRemoved(chip);
           }
         }
       });
@@ -432,6 +436,7 @@ export class ChatPanel {
       chip.dataset.refType = options?.ruleId ? 'rule' : 'file';
       chip.dataset.filePath = filePath.replace(/\\/g, '/');
       if (options?.ruleId) chip.dataset.ruleId = options.ruleId;
+      if (options?.skillPath) chip.dataset.skillPath = options.skillPath;
       if (startLine != null) chip.dataset.startLine = startLine;
       if (endLine != null) chip.dataset.endLine = endLine;
       if (selectedText) chip.dataset.selectedText = selectedText;
@@ -451,10 +456,7 @@ export class ChatPanel {
       chip.remove();
       // 卡片清空后隐藏栏
       if (bar.children.length === 0) bar.style.display = 'none';
-      // 规则卡片关闭时同步取消选中
-      if (options?.ruleId) {
-        this._contextSelector?.deselectRule(options.ruleId);
-      }
+      this._notifyChipRemoved(chip);
     });
     chip.appendChild(closeBtn);
     bar.appendChild(chip);
@@ -469,41 +471,16 @@ export class ChatPanel {
     });
   }
 
-  /**
-   * 清空当前可见的引用卡片栏
-   */
-  _clearRefs() {
-    const bar = this._getActiveRefsBar();
-    if (bar) {
-      bar.innerHTML = '';
-      bar.style.display = 'none';
-    }
-  }
+
 
   /**
-   * 发送后重新构建技能 chip：_clearRefs 清空了 refs 栏，
-   * 但 ContextSelector 的 _selectedSkillPaths 依然保留，
-   * 需要把仍选中的技能重新添加到 refs 栏。
+   * 移除 chip 时同步通知 ContextSelector 取消勾选
    */
-  _syncSkillChips() {
-    const paths = this._contextSelector?.getSelectedSkillPaths() || [];
-    if (paths.length === 0) return;
-    const bar = this._getActiveRefsBar();
-    if (!bar) return;
-    for (const filePath of paths) {
-      this._addRefChip(bar, filePath, 'file', filePath);
-    }
-  }
-
-  /** 发送后重新构建规则 chip（同 _syncSkillChips 逻辑） */
-  _syncRuleChips() {
-    const rules = this._contextSelector?.getSelectedRules() || [];
-    if (rules.length === 0) return;
-    const bar = this._getActiveRefsBar();
-    if (!bar) return;
-    for (const rule of rules) {
-      if (bar.querySelector(`[data-rule-id="${rule.id}"]`)) continue;
-      this._addRuleRefChip(bar, rule);
+  _notifyChipRemoved(chip) {
+    if (chip.dataset.ruleId) {
+      this._contextSelector?.deselectRule(chip.dataset.ruleId);
+    } else if (chip.dataset.skillPath) {
+      this._contextSelector?.deselectSkill(chip.dataset.skillPath);
     }
   }
 
@@ -532,19 +509,21 @@ export class ChatPanel {
     if (!this._contextSelector) return;
     const btn = this._contextSelector.getButtonElement();
 
-    // 优先注入到 hero 操作栏（空状态模式）
+    // 有消息模式 → 注入到底部状态栏（hero 可能正在 fade-out，不能用 isConnected 判断）
+    if (this._isSession()) {
+      const statusBarLeft = document.querySelector('.status-bar-left');
+      if (statusBarLeft) {
+        statusBarLeft.insertBefore(btn, statusBarLeft.firstChild);
+      }
+      return;
+    }
+
+    // 空状态 → 注入到 hero 操作栏
     const heroSlot = document.getElementById('heroContextSelector');
     if (heroSlot?.isConnected) {
       if (btn.parentNode !== heroSlot) {
         heroSlot.prepend(btn);
       }
-      return;
-    }
-
-    // 降级到聊天底部状态栏（有消息模式）
-    const statusBarLeft = document.querySelector('.status-bar-left');
-    if (statusBarLeft) {
-      statusBarLeft.insertBefore(btn, statusBarLeft.firstChild);
     }
   }
 
@@ -591,9 +570,7 @@ export class ChatPanel {
       this.elements.messageInput.style.height = 'auto';
     }
     
-    this._clearRefs();
-    this._syncSkillChips();
-    this._syncRuleChips();
+    this._contextSelector.clearSelection();
     
     this.lastUserMessage = content;
     EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId });

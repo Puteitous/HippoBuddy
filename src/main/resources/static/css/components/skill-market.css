@@ -452,11 +452,13 @@
 .skill-market-btn-ghost {
     background: transparent;
     color: var(--text-secondary);
+    border: 1px solid transparent;
 }
 
 .skill-market-btn-ghost:hover {
     background: var(--bg-hover);
-    color: var(--text-primary);
+    color: var(--accent);
+    border-color: var(--border-color);
 }
 
 /* ── Empty state ── */

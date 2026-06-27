@@ -742,6 +742,7 @@ async function switchSession(sessionId) {
         chatContainer.querySelectorAll('.message-row.animate-in').forEach(el => el.classList.remove('animate-in'));
       });
       document.querySelector('.chat-panel')?.classList.add('has-messages');
+      chatPanel?.reInjectContextSelector();
     }
     
     // 保存为上次活跃会话
