@@ -61,6 +61,14 @@ public class JavaGrepBackend implements GrepBackend {
 
     private List<SearchResult> doSearch(Path basePath, Pattern pattern, GrepOptions options,
                                         FileFilter fileFilter) throws IOException {
+        // 如果 path 是单个文件，直接搜索该文件（不走目录遍历）
+        if (Files.isRegularFile(basePath)) {
+            if (matchesFilePattern(basePath, options.getFilePattern())) {
+                return searchInFile(basePath, pattern, options);
+            }
+            return Collections.emptyList();
+        }
+
         List<Path> files = fileFilter.walkFiles(basePath, MAX_DEPTH)
                 .filter(p -> matchesFilePattern(p, options.getFilePattern()))
                 .collect(Collectors.toList());

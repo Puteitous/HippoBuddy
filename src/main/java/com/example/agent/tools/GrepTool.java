@@ -36,7 +36,8 @@ public class GrepTool implements ToolExecutor {
     @Override
     public String getDescription() {
         return "在文件内容中搜索匹配的文本模式。支持正则表达式，可以指定文件类型过滤。" +
-               "返回匹配的文件名、行号和行内容。支持上下文行（context_before/context_after）、" +
+               "path 参数支持文件或目录：传文件则只搜索该文件内容，传目录则递归搜索子文件。" +
+               "支持上下文行（context_before/context_after）、" +
                "多行匹配（multiline）、输出模式切换（output_mode）和结果分页（offset）。" +
                "用于查找代码、配置、日志等。只能搜索项目目录内的文件。";
     }
@@ -53,7 +54,7 @@ public class GrepTool implements ToolExecutor {
                     },
                     "path": {
                         "type": "string",
-                        "description": "搜索的起始目录（默认为项目根目录）"
+                        "description": "搜索路径：文件或目录均可。传文件则只搜索该文件内容，传目录则递归搜索子文件（默认为项目根目录）"
                     },
                     "file_pattern": {
                         "type": "string",
@@ -195,12 +196,10 @@ public class GrepTool implements ToolExecutor {
         if (!Files.exists(basePath)) {
             throw new ToolExecutionException("搜索路径不存在: " + basePath);
         }
-        if (!Files.isDirectory(basePath)) {
-            throw new ToolExecutionException("搜索路径不是目录: " + basePath);
-        }
         if (!Files.isReadable(basePath)) {
             throw new ToolExecutionException("搜索路径不可读: " + basePath);
         }
+        // 宽松模式：path 可以是目录或文件，不强制要求是目录
     }
 
     private String formatResults(List<SearchResult> results, GrepOptions options) {

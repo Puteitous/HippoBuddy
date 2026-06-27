@@ -158,14 +158,17 @@ class GrepToolTest {
     }
 
     @Test
-    void testSearchFilePathInsteadOfDirectory() {
+    void testSearchFilePathInsteadOfDirectory() throws Exception {
+        // path 传文件：宽松模式，应成功搜索该文件
         ObjectNode args = objectMapper.createObjectNode();
-        args.put("pattern", "test");
+        args.put("pattern", "project");
         args.put("path", "pom.xml");
-        
-        assertThrows(ToolExecutionException.class, () -> {
-            tool.execute(args);
-        });
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("project"));
+        assertTrue(result.contains("pom.xml"));
     }
 
     @Test
@@ -384,5 +387,90 @@ class GrepToolTest {
         
         assertNotNull(result);
         assertTrue(result.contains("pom.xml"));
+    }
+
+    // ──────── 单文件搜索（path 传文件）────────
+
+    @Test
+    void testSearchSingleFileMatch() throws Exception {
+        // 单文件匹配到内容
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", "project");
+        args.put("path", "pom.xml");
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("project"));
+        assertTrue(result.contains("pom.xml"));
+        assertFalse(result.contains("未找到匹配的内容"));
+    }
+
+    @Test
+    void testSearchSingleFileNoMatch() throws Exception {
+        // 单文件未匹配到内容
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", "ZZZZZZZZZZZZZZZZ_not_exist");
+        args.put("path", "pom.xml");
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("未找到匹配的内容"));
+    }
+
+    @Test
+    void testSearchSingleFileWithMatchingFilePattern() throws Exception {
+        // 单文件 + filePattern 匹配（文件类型符合）
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", "project");
+        args.put("path", "pom.xml");
+        args.put("file_pattern", "*.xml");
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("project"));
+        assertTrue(result.contains("pom.xml"));
+    }
+
+    @Test
+    void testSearchSingleFileWithNonMatchingFilePattern() throws Exception {
+        // 单文件 + filePattern 不匹配（文件类型不符合）
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", "project");
+        args.put("path", "pom.xml");
+        args.put("file_pattern", "*.js");
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("未找到匹配的内容"));
+    }
+
+    @Test
+    void testSearchSingleFileNonExistent() {
+        // 单文件不存在，应抛异常
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", "test");
+        args.put("path", "non_existent_file.xyz");
+
+        assertThrows(ToolExecutionException.class, () -> {
+            tool.execute(args);
+        });
+    }
+
+    @Test
+    void testSearchSingleJavaFile() throws Exception {
+        // 搜索一个具体的 Java 源文件
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("pattern", "GrepTool");
+        args.put("path", "src/main/java/com/example/agent/tools/GrepTool.java");
+
+        String result = tool.execute(args);
+
+        assertNotNull(result);
+        assertTrue(result.contains("GrepTool"));
+        assertFalse(result.contains("未找到匹配的内容"));
     }
 }

@@ -58,6 +58,14 @@ public class NativeGrepBackend implements GrepBackend {
     @Override
     public List<SearchResult> search(GrepOptions options) throws ToolExecutionException {
         try {
+            // 单文件搜索时，在 Java 层提前应用 filePattern 过滤
+            // （ripgrep 对显式传入的文件路径会忽略 --glob 参数）
+            if (options.getSearchPath() != null && Files.isRegularFile(options.getSearchPath())) {
+                if (!matchesFilePattern(options.getSearchPath(), options.getFilePattern())) {
+                    return Collections.emptyList();
+                }
+            }
+
             Path rgPath = getRgExecutable();
             ProcessBuilder processBuilder = buildProcess(rgPath, options);
             
@@ -198,7 +206,10 @@ public class NativeGrepBackend implements GrepBackend {
         
         // 注意: offset 是应用层分页参数，在 search() 中处理，不透传到 ripgrep
         
-        if (options.getFilePattern() != null && !options.getFilePattern().isEmpty()) {
+        // 单文件时 filePattern 已在 search() 中通过 Java 层过滤，不传 --glob 给 ripgrep
+        // （ripgrep 对显式传入的文件路径会忽略 --glob 参数）
+        if (options.getFilePattern() != null && !options.getFilePattern().isEmpty()
+                && !(options.getSearchPath() != null && Files.isRegularFile(options.getSearchPath()))) {
             command.add("--glob");
             command.add(options.getFilePattern());
         }
@@ -210,15 +221,25 @@ public class NativeGrepBackend implements GrepBackend {
         command.add(options.getPattern());
         
         if (options.getSearchPath() != null) {
-            command.add(options.getSearchPath().toString());
+            Path searchPath = options.getSearchPath();
+            // 如果 path 是单个文件，传文件全路径，workdir 设为父目录
+            if (Files.isRegularFile(searchPath)) {
+                command.add(searchPath.toAbsolutePath().normalize().toString());
+            } else {
+                command.add(searchPath.toString());
+            }
         } else {
             command.add(".");
         }
-        
+
         ProcessBuilder pb = new ProcessBuilder(command);
-        pb.directory(options.getSearchPath() != null 
-            ? options.getSearchPath().toFile() 
-            : new File("."));
+        if (options.getSearchPath() != null && Files.isRegularFile(options.getSearchPath())) {
+            pb.directory(options.getSearchPath().toAbsolutePath().normalize().getParent().toFile());
+        } else if (options.getSearchPath() != null) {
+            pb.directory(options.getSearchPath().toFile());
+        } else {
+            pb.directory(new File("."));
+        }
         pb.redirectErrorStream(true);
         
         return pb;
@@ -304,5 +325,55 @@ public class NativeGrepBackend implements GrepBackend {
         }
         
         return results;
+    }
+
+    /**
+     * 检查文件路径是否匹配 filePattern（glob 模式）。
+     * 与 JavaGrepBackend.matchesFilePattern 保持逻辑一致。
+     */
+    private boolean matchesFilePattern(Path path, String filePattern) {
+        if (filePattern == null || filePattern.isEmpty()) {
+            return true;
+        }
+
+        String fileName = path.getFileName().toString();
+        String normalizedPattern = filePattern.startsWith("*") ? filePattern : "*" + filePattern;
+
+        try {
+            return fileName.matches(convertGlobToRegex(normalizedPattern));
+        } catch (Exception e) {
+            return fileName.toLowerCase().contains(filePattern.toLowerCase());
+        }
+    }
+
+    private String convertGlobToRegex(String glob) {
+        StringBuilder regex = new StringBuilder();
+        for (char c : glob.toCharArray()) {
+            switch (c) {
+                case '*':
+                    regex.append(".*");
+                    break;
+                case '?':
+                    regex.append(".");
+                    break;
+                case '.':
+                case '\\':
+                case '(':
+                case ')':
+                case '[':
+                case ']':
+                case '{':
+                case '}':
+                case '^':
+                case '$':
+                case '|':
+                case '+':
+                    regex.append("\\").append(c);
+                    break;
+                default:
+                    regex.append(c);
+            }
+        }
+        return regex.toString();
     }
 }
