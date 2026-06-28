@@ -9,6 +9,20 @@ llm:
   # 思考模式（适用于 DeepSeek R1 等推理模型）
   thinking_enabled: true      # 是否启用思考模式（仅对支持思考模式的模型有效）
   reasoning_effort: high      # 思考强度：high（默认）/ max
+
+# 外部运行时路径配置（可选）
+# 当诊断工具因系统 PATH 不完整找不到 CLI 工具时，
+# 可通过这里指定可执行文件路径来解决。
+# 支持 node、python、go 三种运行时，覆盖 JS/TS/JSON/HTML/CSS/Python/Go 诊断。
+# 配置后会自动将所在目录追加到子进程 PATH 环境变量前面。
+runtimes:
+  # node: "C:/Program Files/nodejs/node.exe"    # Windows
+  # node: /usr/local/bin/node                    # macOS / Linux
+  # python: "C:/Python312/python.exe"
+  # python: /usr/bin/python3
+  # go: "C:/Go/bin/go.exe"
+  # go: /usr/local/go/bin/go
+
 tools:
   bash:
     enabled: true

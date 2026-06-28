@@ -136,6 +136,7 @@ public final class CoreModule {
         registry.register(new TodoWriteTool(ServiceLocator.get(TodoManager.class)));
         registry.register(new WebSearchTool(Config.getInstance().getTools().getWebSearch()));
         registry.register(new WebFetchTool());
+        registry.register(new LintDiagnosticsTool());
 
         registry.getBlockerChain().add(new com.example.agent.core.blocker.SchemaValidationBlocker(registry));
         registry.getBlockerChain().add(new com.example.agent.core.blocker.ConcurrentEditBlocker());

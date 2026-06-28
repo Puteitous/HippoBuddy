@@ -39,6 +39,9 @@ public class Config {
     private WebConfig web = new WebConfig();
     private WorkspaceConfig workspace = new WorkspaceConfig();
 
+    @JsonProperty("runtimes")
+    private Map<String, String> runtimes = new HashMap<>();
+
     private transient ConfigLoader configLoader;
 
     public Config() {
@@ -140,6 +143,8 @@ public class Config {
                 this.memory = reloaded.memory;
                 this.web = reloaded.web;
                 this.workspace = reloaded.workspace;
+                this.runtimes = reloaded.runtimes != null
+                    ? new HashMap<>(reloaded.runtimes) : new HashMap<>();
                 this.loadFromEnvironment();
                 logger.info("Configuration reloaded from: {}", configFile.getAbsolutePath());
             } catch (IOException e) {
@@ -325,6 +330,10 @@ public class Config {
         this.workspace = workspace;
     }
 
+    public Map<String, String> getRuntimes() {
+        return runtimes;
+    }
+
     @JsonIgnore
     public String getConfigFilePath() {
         if (configLoader == null) {
@@ -348,6 +357,7 @@ public class Config {
                 ", memory=" + memory +
                 ", web=" + web +
                 ", workspace=" + workspace +
+                ", runtimes=" + runtimes +
                 '}';
     }
 }
