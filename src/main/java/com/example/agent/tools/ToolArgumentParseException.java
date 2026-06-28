@@ -39,9 +39,11 @@ public class ToolArgumentParseException extends Exception {
      * 构造适合喂回给 LLM 的纠错提示。
      */
     public String toLlmPrompt() {
-        return String.format(
-                "工具 %s 的参数 JSON 格式有误，请检查并修正后重新调用。\n错误信息：%s",
-                toolName, getMessage()
-        );
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("工具 %s 的参数 JSON 格式有误，请检查并修正后重新调用。\n", toolName));
+        sb.append(String.format("错误信息：%s\n", getMessage()));
+        sb.append("建议：请检查字符串字段的引号是否完整、特殊字符（双引号、反斜杠、换行符）是否正确转义。");
+        sb.append("对于 write_file 等包含长内容的工具，建议使用 append=true 分多次追加写入，以降低 JSON 格式错误的概率。");
+        return sb.toString();
     }
 }

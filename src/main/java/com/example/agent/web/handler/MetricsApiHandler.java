@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class MetricsApiHandler implements HttpHandler {
@@ -66,11 +67,23 @@ public class MetricsApiHandler implements HttpHandler {
                     tools.put("successfulCalls", eventCollector.getSuccessfulToolCalls());
                     tools.put("failedCalls", eventCollector.getFailedToolCalls());
 
+                    // JSON 解析错误统计
+                    tools.put("jsonParseErrors", eventCollector.getTotalJsonParseErrors());
+                    tools.put("jsonParseErrorTools", eventCollector.getToolsWithJsonParseErrorCount());
+                    tools.put("repeatedParseErrors", eventCollector.getRepeatedParseErrorCount());
+                    tools.put("rePromptRecovery", eventCollector.getRePromptRecoveryCount());
+
                     List<Map<String, Object>> toolDetails = new ArrayList<>();
                     eventCollector.getToolUsage().forEach((name, count) -> {
                         Map<String, Object> detail = new LinkedHashMap<>();
                         detail.put("name", name);
                         detail.put("count", count.get());
+                        // 每个工具的 JSON 解析错误次数
+                        Map<String, AtomicInteger> jsonErrors = eventCollector.getJsonParseErrorsByTool();
+                        detail.put("jsonParseErrors", jsonErrors.getOrDefault(name, new AtomicInteger(0)).get());
+                        // 最近一次错误详情
+                        Map<String, String> errorDetails = eventCollector.getLastJsonParseErrorDetail();
+                        detail.put("lastParseError", errorDetails.getOrDefault(name, ""));
                         toolDetails.add(detail);
                     });
                     toolDetails.sort((a, b) -> ((Integer) b.get("count")).compareTo((Integer) a.get("count")));

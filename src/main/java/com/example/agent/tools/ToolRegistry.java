@@ -112,6 +112,9 @@ public class ToolRegistry {
             
             return result;
         } catch (ToolArgumentParseException e) {
+            int argLen = argumentsJson != null ? argumentsJson.length() : 0;
+            logger.warn("工具 [{}] JSON 解析失败: arguments 长度={}, 错误={}",
+                    toolName, argLen, e.getMessage());
             EventBus.publish(new ToolExecutedEvent(
                     toolName,
                     false,
