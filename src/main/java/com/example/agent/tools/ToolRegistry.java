@@ -80,13 +80,9 @@ public class ToolRegistry {
             throw new ToolExecutionException("未知的工具: " + toolName);
         }
 
-        if (argumentsJson == null || argumentsJson.trim().isEmpty()) {
-            argumentsJson = "{}";
-        }
-
         long startMs = System.currentTimeMillis();
         try {
-            JsonNode arguments = objectMapper.readTree(argumentsJson);
+            JsonNode arguments = ToolArgumentParser.parse(argumentsJson, toolName);
             
             com.example.agent.core.blocker.HookResult hookResult = blockerChain.check(toolName, arguments);
             if (!hookResult.isAllowed()) {
@@ -115,6 +111,14 @@ public class ToolRegistry {
             ));
             
             return result;
+        } catch (ToolArgumentParseException e) {
+            EventBus.publish(new ToolExecutedEvent(
+                    toolName,
+                    false,
+                    System.currentTimeMillis() - startMs,
+                    "参数 JSON 格式错误: " + e.getMessage()
+            ));
+            throw new ToolExecutionException(e.toLlmPrompt(), e);
         } catch (ToolExecutionException e) {
             EventBus.publish(new ToolExecutedEvent(
                     toolName,
@@ -130,7 +134,7 @@ public class ToolRegistry {
                     System.currentTimeMillis() - startMs,
                     e.getMessage()
             ));
-            throw new ToolExecutionException("解析参数失败: " + e.getMessage(), e);
+            throw new ToolExecutionException("参数 JSON 格式错误，请检查并修正。错误: " + e.getMessage(), e);
         }
     }
 }

@@ -3,7 +3,6 @@ package com.example.agent.tools.concurrent;
 import com.example.agent.core.logging.LoggingContext;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.progress.ToolExecutionCallback;
-import com.example.agent.tools.ToolArgumentSanitizer;
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolExecutionException;
 import com.example.agent.tools.ToolRegistry;
@@ -197,23 +196,20 @@ public class ConcurrentToolExecutor {
             
             logger.debug("开始执行");
             
-            String fixedArguments = ToolArgumentSanitizer.fixJsonArguments(toolName, arguments);
-            
-            // 双重验证：确保修复后的 JSON 是有效的
+            // 直接解析参数，不做启发式修复
             JsonNode argumentsNode;
             try {
-                argumentsNode = objectMapper.readTree(fixedArguments);
+                argumentsNode = objectMapper.readTree(arguments);
             } catch (Exception e) {
-                logger.error("JSON 参数解析失败（即使经过修复）: {}", e.getMessage());
-                logger.error("原始参数：{}", arguments);
-                logger.error("修复后参数：{}", fixedArguments);
+                logger.error("JSON 参数解析失败: {}", e.getMessage());
+                logger.error("原始参数：{}", truncate(arguments, 100));
                 
-                // 尝试最后一次宽容解析
+                // 尝试宽容模式解析（仅开启 Jackson 原生 lenient 特性）
                 try {
                     objectMapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
                     objectMapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
                     objectMapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_COMMENTS, true);
-                    argumentsNode = objectMapper.readTree(fixedArguments);
+                    argumentsNode = objectMapper.readTree(arguments);
                     logger.warn("⚠️ 使用宽容模式解析成功，继续执行");
                 } catch (Exception e2) {
                     long executionTime = System.currentTimeMillis() - startTime;
@@ -224,14 +220,13 @@ public class ConcurrentToolExecutor {
                             .toolName(toolName)
                             .success(false)
                             .errorMessage("JSON 参数格式错误：" + e2.getMessage() + 
-                                " | 原始：" + truncate(arguments, 100) + 
-                                " | 修复：" + truncate(fixedArguments, 100))
+                                " | 原始：" + truncate(arguments, 100))
                             .executionTimeMs(executionTime)
                             .build();
                 }
             }
             
-            String result = toolRegistry.execute(toolName, fixedArguments);
+            String result = toolRegistry.execute(toolName, arguments);
             
             long executionTime = System.currentTimeMillis() - startTime;
             logger.debug("执行完成, duration={}ms", executionTime);

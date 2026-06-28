@@ -10,7 +10,7 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.llm.model.Usage;
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.subagent.event.SubAgentProgressEvent;
-import com.example.agent.tools.ToolArgumentSanitizer;
+
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.tools.concurrent.ConcurrentToolExecutor;
@@ -388,8 +388,7 @@ public class SubAgentRunner implements Runnable {
 
             if (permission == SubAgentPermission.MEMORY_EXTRACTOR || permission == SubAgentPermission.MEMORY_CONSOLIDATOR) {
                 try {
-                    String fixedArguments = ToolArgumentSanitizer.fixJsonArguments(toolName, arguments);
-                    JsonNode args = objectMapper.readTree(fixedArguments);
+                    JsonNode args = objectMapper.readTree(arguments);
                     String filePath = null;
                     if (args.has("path")) {
                         filePath = args.get("path").asText();
@@ -422,8 +421,7 @@ public class SubAgentRunner implements Runnable {
             while (toolRetryCount < MAX_TOOL_ERROR_RETRIES) {
                 try {
                     ToolExecutor executor = toolRegistry.getExecutor(toolName);
-                    String fixedArguments = ToolArgumentSanitizer.fixJsonArguments(toolName, arguments);
-                    JsonNode args = objectMapper.readTree(fixedArguments);
+                    JsonNode args = objectMapper.readTree(arguments);
 
                     task.addLog("执行工具: " + toolName + (toolRetryCount > 0 ? " (重试 " + toolRetryCount + " 次)" : ""));
                     publishProgress("执行工具: " + toolName);

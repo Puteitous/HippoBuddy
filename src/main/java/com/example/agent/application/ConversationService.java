@@ -26,7 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import com.example.agent.session.SessionData;
 import com.example.agent.session.SessionTranscript;
-import com.example.agent.tools.ToolArgumentSanitizer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -523,7 +523,7 @@ public class ConversationService {
             effectiveMessages = components.memoryRetriever.prepareContextHeader(effectiveMessages);
         }
         
-        return ToolArgumentSanitizer.sanitizeContext(effectiveMessages);
+        return effectiveMessages;
     }
 
     public List<Message> getMessagesForUI(Conversation conversation) {
