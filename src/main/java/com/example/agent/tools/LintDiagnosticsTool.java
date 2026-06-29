@@ -52,8 +52,7 @@ public class LintDiagnosticsTool implements ToolExecutor {
     @Override
     public String getDescription() {
         return "对指定文件或目录进行语法诊断检查。支持 Java、JavaScript、TypeScript、Python、" +
-            "Go、Rust、HTML、CSS、JSON。检测缺少括号、分号、花括号不匹配等语法错误。\n" +
-            "基于 Tree-sitter WASM，无需安装任何 CLI 工具。";
+            "Go、Rust、HTML、CSS、JSON。检测缺少括号、分号、花括号不匹配等语法错误。\n";
     }
 
     @Override
@@ -93,7 +92,7 @@ public class LintDiagnosticsTool implements ToolExecutor {
     @Override
     public String execute(JsonNode arguments) throws ToolExecutionException {
         String pathStr = getRequiredParam(arguments, "path");
-        Path targetPath = PathSecurityUtils.validateAndResolve(pathStr);
+        Path targetPath = Path.of(pathStr);
         if (!Files.exists(targetPath)) {
             throw new ToolExecutionException("路径不存在: " + pathStr);
         }
@@ -258,11 +257,14 @@ public class LintDiagnosticsTool implements ToolExecutor {
         if (srcIdx >= 0) {
             return path.substring(srcIdx);
         }
-        // 取最后两级
+        // 取最后两级（用 lastIndexOf 代替 split，避免反斜杠正则问题）
         String sep = path.contains("/") ? "/" : "\\";
-        String[] parts = path.split(sep);
-        if (parts.length > 2) {
-            return parts[parts.length - 2] + sep + parts[parts.length - 1];
+        int lastSep = path.lastIndexOf(sep);
+        if (lastSep > 0) {
+            int secondLastSep = path.lastIndexOf(sep, lastSep - 1);
+            if (secondLastSep >= 0) {
+                return path.substring(secondLastSep + 1);
+            }
         }
         return path;
     }

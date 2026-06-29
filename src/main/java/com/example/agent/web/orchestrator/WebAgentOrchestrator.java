@@ -31,6 +31,7 @@ import com.example.agent.web.session.SessionCancelManager;
 import com.example.agent.web.session.SessionManager;
 import com.example.agent.web.session.SessionTokenStats;
 import com.example.agent.web.session.WebSessionManager;
+import com.example.agent.web.util.MessageSanitizer;
 import com.example.agent.web.util.SseWriter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,12 +42,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 public class WebAgentOrchestrator {
 
@@ -147,12 +146,7 @@ public class WebAgentOrchestrator {
             List<Map<String, Object>> streamToolCalls = new ArrayList<>();
             boolean[] hasAskUser = {false};
 
-            if (cleanupOrphanToolCalls(messages)) {
-                // 同步修复 conversation 存储中的消息，避免下一轮重复检出同一个孤立 tool_calls
-                List<Message> convMessages = new ArrayList<>(conversation.getMessages());
-                cleanupOrphanToolCalls(convMessages);
-                conversation.getContextWindow().replaceMessages(convMessages);
-            }
+            MessageSanitizer.removeOrphanToolCalls(messages);
 
             sseWriter.sendSseEvent("thinking", "{\"turn\":" + (turn + 1) + "}");
 
@@ -664,137 +658,6 @@ public class WebAgentOrchestrator {
         }
 
         return nonSystemMessages;
-    }
-
-    private boolean cleanupOrphanToolCalls(List<Message> messages) {
-        return cleanupOrphanToolCalls(messages, null);
-    }
-
-    private boolean cleanupOrphanToolCalls(List<Message> messages, Conversation conversation) {
-        if (messages == null || messages.isEmpty()) {
-            return false;
-        }
-
-        boolean foundOrphan = false;
-
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            Message msg = messages.get(i);
-            if (!msg.isAssistant() || msg.getToolCalls() == null || msg.getToolCalls().isEmpty()) {
-                continue;
-            }
-
-            List<ToolCall> toolCalls = msg.getToolCalls();
-            Set<String> toolCallIds = toolCalls.stream()
-                .map(ToolCall::getId)
-                .filter(id -> id != null && !id.isEmpty())
-                .collect(Collectors.toSet());
-
-            if (toolCallIds.isEmpty()) {
-                continue;
-            }
-
-            boolean adjacentBroken = false;
-            if (i + 1 < messages.size()) {
-                Message nextMsg = messages.get(i + 1);
-                adjacentBroken = !nextMsg.isTool()
-                    || nextMsg.getToolCallId() == null
-                    || !toolCallIds.contains(nextMsg.getToolCallId());
-            }
-
-            if (adjacentBroken) {
-                logger.warn("检测到 tool_calls 相邻性被破坏 (assistant消息索引={}), tool_calls({}) 后不是紧跟着 tool 消息, role={}",
-                    i, toolCallIds.size(), i + 1 < messages.size() ? messages.get(i + 1).getRole() : "N/A");
-                for (ToolCall tc : toolCalls) {
-                    String toolName = tc.getFunction() != null ? tc.getFunction().getName() : "unknown";
-                    logger.warn("  孤立的 ToolCall: id={}, name={}", tc.getId(), toolName);
-                }
-
-                Message fixedMsg = msg.shallowCopy();
-                if (fixedMsg.getContent() == null || fixedMsg.getContent().isBlank()) {
-                    StringBuilder fixContent = new StringBuilder();
-                    for (ToolCall tc : toolCalls) {
-                        String toolName = tc.getFunction() != null ? tc.getFunction().getName() : "unknown";
-                        fixContent.append("\n  - 待执行的操作: ").append(toolName);
-                    }
-                    fixedMsg.setContent("[会话中断] 检测到未完成的工具调用：" + fixContent.toString());
-                }
-                fixedMsg.setToolCalls(null);
-                messages.set(i, fixedMsg);
-                foundOrphan = true;
-                continue;
-            }
-
-            Set<String> respondedIds = new HashSet<>();
-            for (int j = i + 1; j < messages.size(); j++) {
-                Message m = messages.get(j);
-                if (m.isTool() && m.getToolCallId() != null && toolCallIds.contains(m.getToolCallId())) {
-                    respondedIds.add(m.getToolCallId());
-                }
-            }
-
-            boolean allResponded = toolCallIds.stream().allMatch(respondedIds::contains);
-            if (!allResponded) {
-                logger.warn("检测到孤立 tool_calls (assistant消息索引={}), 共 {} 个调用, 仅有 {} 个有响应。将清空 tool_calls 避免 API 400 错误",
-                    i, toolCallIds.size(), respondedIds.size());
-                for (ToolCall tc : toolCalls) {
-                    String toolName = tc.getFunction() != null ? tc.getFunction().getName() : "unknown";
-                    boolean responded = tc.getId() != null && respondedIds.contains(tc.getId());
-                    logger.warn("  孤立 ToolCall: id={}, name={}, 有响应={}", tc.getId(), toolName, responded);
-                }
-
-                Message fixedMsg = msg.shallowCopy();
-                if (fixedMsg.getContent() == null || fixedMsg.getContent().isBlank()) {
-                    StringBuilder fixContent = new StringBuilder();
-                    for (ToolCall tc : toolCalls) {
-                        String toolName = tc.getFunction() != null ? tc.getFunction().getName() : "unknown";
-                        fixContent.append("\n  - 待执行的操作: ").append(toolName);
-                    }
-                    fixedMsg.setContent("[会话中断] 检测到未完成的工具调用：" + fixContent.toString());
-                }
-                fixedMsg.setToolCalls(null);
-                messages.set(i, fixedMsg);
-                foundOrphan = true;
-            }
-        }
-
-        if (foundOrphan) {
-            logger.info("已清理孤立 tool_calls，避免后续 API 调用失败");
-        }
-
-        List<Message> toRemove = new ArrayList<>();
-        for (int i = 0; i < messages.size(); i++) {
-            Message msg = messages.get(i);
-            if (!msg.isTool() || msg.getToolCallId() == null || msg.getToolCallId().isEmpty()) {
-                continue;
-            }
-
-            boolean hasPreceding = false;
-            for (int j = i - 1; j >= Math.max(0, i - 10); j--) {
-                Message prev = messages.get(j);
-                if (prev.isAssistant() && prev.getToolCalls() != null) {
-                    boolean match = prev.getToolCalls().stream()
-                        .anyMatch(tc -> msg.getToolCallId().equals(tc.getId()));
-                    if (match) {
-                        hasPreceding = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!hasPreceding) {
-                logger.warn("检测到孤儿 tool 消息 (索引={}), tool_call_id={}, name={}, 无匹配的 assistant(tool_calls) 在前面，将移除",
-                    i, msg.getToolCallId(), msg.getName());
-                toRemove.add(msg);
-            }
-        }
-
-        if (!toRemove.isEmpty()) {
-            messages.removeAll(toRemove);
-            logger.info("已移除 {} 条孤儿 tool 消息，避免 DeepSeek API 400 错误", toRemove.size());
-            foundOrphan = true;
-        }
-
-        return foundOrphan;
     }
 
     private static String extractCommandName(String command) {
