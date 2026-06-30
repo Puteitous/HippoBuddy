@@ -43,57 +43,61 @@ export class ContextSettingsPage {
       <p class="settings-page-desc">配置上下文窗口大小和截断策略，控制发送给 LLM 的上下文量</p>
       <hr class="settings-page-divider">
 
-      <div class="settings-form">
-        <div class="settings-field">
-          <label class="settings-field-label" for="ctxMaxTokens">
-            Max Tokens <span class="settings-field-hint">(上下文窗口上限，最小 1000)</span>
-          </label>
-          <input class="settings-input" id="ctxMaxTokens" type="number" min="1000" step="1000" placeholder="30000">
-        </div>
+      <div class="settings-field-group-title">上下文窗口</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field">
+            <label class="settings-field-label" for="ctxMaxTokens">
+              Max Tokens <span class="settings-field-hint">(上下文窗口上限，最小 1000)</span>
+            </label>
+            <input class="settings-input" id="ctxMaxTokens" type="number" min="1000" step="1000" placeholder="30000">
+          </div>
 
-        <div class="settings-field">
-          <label class="settings-field-label" for="ctxMaxMessages">
-            最大消息数 <span class="settings-field-hint">(保留的消息条数上限，最小 2)</span>
-          </label>
-          <input class="settings-input" id="ctxMaxMessages" type="number" min="2" step="1" placeholder="20">
-        </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="ctxMaxMessages">
+              最大消息数 <span class="settings-field-hint">(保留的消息条数上限，最小 2)</span>
+            </label>
+            <input class="settings-input" id="ctxMaxMessages" type="number" min="2" step="1" placeholder="20">
+          </div>
 
-        <div class="settings-field">
-          <label class="settings-field-label" for="ctxKeepRecentTurns">
-            保留最近轮次 <span class="settings-field-hint">(截断时至少保留的对话轮数，最小 1)</span>
-          </label>
-          <input class="settings-input" id="ctxKeepRecentTurns" type="number" min="1" step="1" placeholder="6">
-        </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="ctxKeepRecentTurns">
+              保留最近轮次 <span class="settings-field-hint">(截断时至少保留的对话轮数，最小 1)</span>
+            </label>
+            <input class="settings-input" id="ctxKeepRecentTurns" type="number" min="1" step="1" placeholder="6">
+          </div>
 
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">上下文策略</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="ctxPolicy">
-              ${POLICY_ITEMS.map(p => `
-                <button class="settings-toggle-btn" data-value="${p.value}">${p.label}</button>
-              `).join('')}
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">上下文策略</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="ctxPolicy">
+                ${POLICY_ITEMS.map(p => `
+                  <button class="settings-toggle-btn" data-value="${p.value}">${p.label}</button>
+                `).join('')}
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <hr class="settings-page-divider">
+      <div class="settings-field-group-title">工具结果截断</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field">
+            <label class="settings-field-label" for="ctxToolMaxTokens">
+              工具结果 Max Tokens <span class="settings-field-hint">(工具调用结果截断上限，最小 100)</span>
+            </label>
+            <input class="settings-input" id="ctxToolMaxTokens" type="number" min="100" step="100" placeholder="8000">
+          </div>
 
-        <h3 style="font-size:13px;font-weight:600;margin:0 0 12px 0;color:var(--text-primary);">工具结果截断</h3>
-
-        <div class="settings-field">
-          <label class="settings-field-label" for="ctxToolMaxTokens">
-            工具结果 Max Tokens <span class="settings-field-hint">(工具调用结果截断上限，最小 100)</span>
-          </label>
-          <input class="settings-input" id="ctxToolMaxTokens" type="number" min="100" step="100" placeholder="8000">
-        </div>
-
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">截断方式</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="ctxTruncateStrategy">
-              ${TRUNCATE_STRATEGIES.map(s => `
-                <button class="settings-toggle-btn" data-value="${s.value}">${s.label}</button>
-              `).join('')}
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">截断方式</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="ctxTruncateStrategy">
+                ${TRUNCATE_STRATEGIES.map(s => `
+                  <button class="settings-toggle-btn" data-value="${s.value}">${s.label}</button>
+                `).join('')}
+              </div>
             </div>
           </div>
         </div>

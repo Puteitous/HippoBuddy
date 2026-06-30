@@ -18,6 +18,8 @@ export class GeneralSettingsPage {
       <h2 class="settings-page-title">通用设置</h2>
       <p class="settings-page-desc">界面、行为等通用偏好设置</p>
       <hr class="settings-page-divider">
+      <div class="settings-field-group-title">基本偏好</div>
+      <div class="settings-field-group">
       <div class="settings-form">
         <div class="settings-field-horizontal">
           <label class="settings-field-label">主题模式</label>
@@ -42,6 +44,7 @@ export class GeneralSettingsPage {
             </button>
           </div>
         </div>
+      </div>
       </div>
     `;
 

@@ -184,7 +184,7 @@
 }
 
 .settings-page-desc {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     color: var(--text-muted);
     margin: 0 0 28px;
     line-height: 1.5;
@@ -223,9 +223,9 @@
 }
 
 .settings-field-label {
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    font-weight: 550;
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    font-weight: 600;
 }
 
 .settings-field-horizontal .settings-field-label {
@@ -252,7 +252,7 @@
     padding: 9px 13px;
     border: 1.5px solid var(--border-color);
     border-radius: var(--radius-md);
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-lg);
     background: var(--bg-white);
     color: var(--text-primary);
     outline: none;
@@ -395,7 +395,7 @@
 }
 
 .settings-model-empty {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     color: var(--text-muted);
     padding: 20px 4px;
     text-align: center;
@@ -436,7 +436,7 @@
 }
 
 .settings-model-item-provider {
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     line-height: 1.2;
 }
@@ -502,7 +502,7 @@
 }
 
 .settings-item-list-header h3 {
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-lg);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
@@ -524,7 +524,7 @@
     background: var(--bg-white);
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-mm);
     transition: all var(--transition-fast);
     white-space: nowrap;
     font-family: inherit;
@@ -586,7 +586,7 @@
 }
 
 .settings-item-group-label {
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-xx);
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -594,7 +594,7 @@
 }
 
 .settings-item-group-count {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--text-muted);
     background: var(--bg-white);
@@ -663,7 +663,7 @@
 }
 
 .settings-item-meta {
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     margin-top: 2px;
     line-height: 1.3;
@@ -712,7 +712,7 @@
 .settings-items-empty {
     text-align: center;
     color: var(--text-muted);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     padding: 36px 16px;
     line-height: 1.6;
 }
@@ -721,7 +721,7 @@
 .settings-items-error {
     text-align: center;
     color: var(--error-color);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     padding: 8px 14px;
     background: var(--error-bg);
     border-radius: var(--radius-md);
@@ -731,7 +731,7 @@
 .settings-loading {
     text-align: center;
     color: var(--text-muted);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     padding: 36px 16px;
 }
 
@@ -754,7 +754,7 @@
 }
 
 .settings-editor-title {
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-lg);
     font-weight: 550;
     color: var(--text-primary);
 }
@@ -829,7 +829,7 @@
 }
 
 .settings-editor-status {
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-sm);
     padding: 8px 14px;
     line-height: 1.4;
 }
@@ -849,6 +849,55 @@
     background: var(--error-bg);
 }
 
+/* ========== 字段分组卡片 ========== */
+.settings-field-group {
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+}
+
+[data-theme="dark"] .settings-field-group {
+    background: var(--bg-canvas);
+}
+
+/* 分组标题 — 位于卡片外部，作为 section heading */
+.settings-field-group-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 28px;
+    margin-bottom: 10px;
+}
+
+.settings-field-group-title:first-child {
+    margin-top: 0;
+}
+
+/* 分组内的表单更紧凑 */
+.settings-field-group .settings-form {
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+}
+
+/* 卡片内输入框融入卡片背景，边框稍深以保持边界 */
+.settings-field-group .settings-input,
+.settings-field-group .settings-input-wrap {
+    background: var(--bg-canvas);
+}
+
+.settings-field-group .settings-input {
+    border-color: var(--text-muted);
+}
+
+.settings-field-group .settings-input:focus {
+    border-color: var(--text-primary);
+}
+
 /* ── 内联 toggle 按钮 ── */
 .settings-toggle-group {
     display: inline-flex;
@@ -864,7 +913,7 @@
     border: none;
     background: transparent;
     color: var(--text-muted);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);

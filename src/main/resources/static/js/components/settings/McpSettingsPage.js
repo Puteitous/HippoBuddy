@@ -102,62 +102,62 @@ export class McpSettingsPage {
     form.style.display = 'block';
     form.innerHTML = `
       <!-- ===== 基本设置 ===== -->
-      <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;">基本设置</h3>
-      <div class="settings-form">
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">启用 MCP</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="mcpEnabled">
-              <button class="settings-toggle-btn ${mcp.enabled !== false ? 'active' : ''}" data-value="true">开</button>
-              <button class="settings-toggle-btn ${mcp.enabled === false ? 'active' : ''}" data-value="false">关</button>
+      <div class="settings-field-group-title">基本设置</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">启用 MCP</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="mcpEnabled">
+                <button class="settings-toggle-btn ${mcp.enabled !== false ? 'active' : ''}" data-value="true">开</button>
+                <button class="settings-toggle-btn ${mcp.enabled === false ? 'active' : ''}" data-value="false">关</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">自动连接</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="mcpAutoConnect">
-              <button class="settings-toggle-btn ${mcp.auto_connect !== false ? 'active' : ''}" data-value="true">开</button>
-              <button class="settings-toggle-btn ${mcp.auto_connect === false ? 'active' : ''}" data-value="false">关</button>
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">自动连接</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="mcpAutoConnect">
+                <button class="settings-toggle-btn ${mcp.auto_connect !== false ? 'active' : ''}" data-value="true">开</button>
+                <button class="settings-toggle-btn ${mcp.auto_connect === false ? 'active' : ''}" data-value="false">关</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">自动重连</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="mcpAutoReconnect">
-              <button class="settings-toggle-btn ${mcp.auto_reconnect !== false ? 'active' : ''}" data-value="true">开</button>
-              <button class="settings-toggle-btn ${mcp.auto_reconnect === false ? 'active' : ''}" data-value="false">关</button>
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">自动重连</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="mcpAutoReconnect">
+                <button class="settings-toggle-btn ${mcp.auto_reconnect !== false ? 'active' : ''}" data-value="true">开</button>
+                <button class="settings-toggle-btn ${mcp.auto_reconnect === false ? 'active' : ''}" data-value="false">关</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="mcpMaxReconnect">
-            最大重连次数 <span class="settings-field-hint">(0 = 不限制)</span>
-          </label>
-          <input class="settings-input" id="mcpMaxReconnect" type="number" min="0" value="${mcp.max_reconnect_attempts ?? 5}">
-        </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="mcpReconnectDelay">
-            重连间隔 <span class="settings-field-hint">(秒)</span>
-          </label>
-          <input class="settings-input" id="mcpReconnectDelay" type="number" min="1" value="${mcp.reconnect_delay_seconds ?? 5}">
-        </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="mcpConnTimeout">
-            连接超时 <span class="settings-field-hint">(毫秒)</span>
-          </label>
-          <input class="settings-input" id="mcpConnTimeout" type="number" min="1000" step="1000" value="${mcp.connection_timeout ?? 30000}">
-        </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="mcpReqTimeout">
-            请求超时 <span class="settings-field-hint">(毫秒)</span>
-          </label>
-          <input class="settings-input" id="mcpReqTimeout" type="number" min="1000" step="1000" value="${mcp.request_timeout ?? 60000}">
+          <div class="settings-field">
+            <label class="settings-field-label" for="mcpMaxReconnect">
+              最大重连次数 <span class="settings-field-hint">(0 = 不限制)</span>
+            </label>
+            <input class="settings-input" id="mcpMaxReconnect" type="number" min="0" value="${mcp.max_reconnect_attempts ?? 5}">
+          </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="mcpReconnectDelay">
+              重连间隔 <span class="settings-field-hint">(秒)</span>
+            </label>
+            <input class="settings-input" id="mcpReconnectDelay" type="number" min="1" value="${mcp.reconnect_delay_seconds ?? 5}">
+          </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="mcpConnTimeout">
+              连接超时 <span class="settings-field-hint">(毫秒)</span>
+            </label>
+            <input class="settings-input" id="mcpConnTimeout" type="number" min="1000" step="1000" value="${mcp.connection_timeout ?? 30000}">
+          </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="mcpReqTimeout">
+              请求超时 <span class="settings-field-hint">(毫秒)</span>
+            </label>
+            <input class="settings-input" id="mcpReqTimeout" type="number" min="1000" step="1000" value="${mcp.request_timeout ?? 60000}">
+          </div>
         </div>
       </div>
-
-      <hr class="settings-page-divider">
 
       <!-- ===== 服务器列表 ===== -->
       <div class="settings-item-list-header">

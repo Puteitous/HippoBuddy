@@ -32,112 +32,114 @@ export class SessionSettingsPage {
       <p class="settings-page-desc">配置会话保存行为和自动清理策略</p>
       <hr class="settings-page-divider">
 
-      <div class="settings-form">
-        <!-- ── 基本行为 ── -->
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">自动保存</label>
-          <div class="settings-field-body">
-            <label class="settings-switch">
-              <input type="checkbox" id="sessAutoSave">
-              <span class="settings-switch-slider"></span>
+      <div class="settings-field-group-title">基本行为</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">自动保存</label>
+            <div class="settings-field-body">
+              <label class="settings-switch">
+                <input type="checkbox" id="sessAutoSave">
+                <span class="settings-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">持久化会话</label>
+            <div class="settings-field-body">
+              <label class="settings-switch">
+                <input type="checkbox" id="sessPersistSessions">
+                <span class="settings-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">自动恢复上次会话</label>
+            <div class="settings-field-body">
+              <label class="settings-switch">
+                <input type="checkbox" id="sessAutoResume">
+                <span class="settings-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-field">
+            <label class="settings-field-label" for="sessMaxHistory">
+              历史记录条数 <span class="settings-field-hint">(CLI 历史保留条数)</span>
             </label>
+            <input class="settings-input" id="sessMaxHistory" type="number" min="0" step="10" placeholder="50">
+          </div>
+
+          <div class="settings-field">
+            <label class="settings-field-label" for="sessMaxSavedSessions">
+              最大保存会话数 <span class="settings-field-hint">(0 = 禁用, 最大值 1000)</span>
+            </label>
+            <input class="settings-input" id="sessMaxSavedSessions" type="number" min="0" max="1000" step="50" placeholder="1000">
+          </div>
+
+          <div class="settings-field">
+            <label class="settings-field-label" for="sessResumeTimeout">
+              恢复超时 <span class="settings-field-hint">(自动恢复上次会话的超时小时数)</span>
+            </label>
+            <input class="settings-input" id="sessResumeTimeout" type="number" min="0" step="1" placeholder="72">
           </div>
         </div>
+      </div>
 
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">持久化会话</label>
-          <div class="settings-field-body">
-            <label class="settings-switch">
-              <input type="checkbox" id="sessPersistSessions">
-              <span class="settings-switch-slider"></span>
+      <div class="settings-field-group-title">后台清理</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">启用后台清理</label>
+            <div class="settings-field-body">
+              <label class="settings-switch">
+                <input type="checkbox" id="sessEnableCleanup">
+                <span class="settings-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-field">
+            <label class="settings-field-label" for="sessCleanupPeriod">
+              清理周期 <span class="settings-field-hint">(天, 1–365)</span>
             </label>
+            <input class="settings-input" id="sessCleanupPeriod" type="number" min="1" max="365" step="1" placeholder="30">
+          </div>
+
+          <div class="settings-field">
+            <label class="settings-field-label" for="sessTombstoneThreshold">
+              碎片阈值 <span class="settings-field-hint">(WAL 碎片超过此值(MB)时触发清理)</span>
+            </label>
+            <input class="settings-input" id="sessTombstoneThreshold" type="number" min="1" step="5" placeholder="50">
           </div>
         </div>
+      </div>
 
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">自动恢复上次会话</label>
-          <div class="settings-field-body">
-            <label class="settings-switch">
-              <input type="checkbox" id="sessAutoResume">
-              <span class="settings-switch-slider"></span>
+      <div class="settings-field-group-title">路径配置</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field">
+            <label class="settings-field-label" for="sessHistoryFile">
+              历史文件路径 <span class="settings-field-hint">(CLI 历史存储位置)</span>
             </label>
+            <input class="settings-input" id="sessHistoryFile" type="text" placeholder=".hippo/cli-history">
           </div>
-        </div>
 
-        <div class="settings-field">
-          <label class="settings-field-label" for="sessMaxHistory">
-            历史记录条数 <span class="settings-field-hint">(CLI 历史保留条数)</span>
-          </label>
-          <input class="settings-input" id="sessMaxHistory" type="number" min="0" step="10" placeholder="50">
-        </div>
-
-        <div class="settings-field">
-          <label class="settings-field-label" for="sessMaxSavedSessions">
-            最大保存会话数 <span class="settings-field-hint">(0 = 禁用, 最大值 1000)</span>
-          </label>
-          <input class="settings-input" id="sessMaxSavedSessions" type="number" min="0" max="1000" step="50" placeholder="1000">
-        </div>
-
-        <div class="settings-field">
-          <label class="settings-field-label" for="sessResumeTimeout">
-            恢复超时 <span class="settings-field-hint">(自动恢复上次会话的超时小时数)</span>
-          </label>
-          <input class="settings-input" id="sessResumeTimeout" type="number" min="0" step="1" placeholder="72">
-        </div>
-
-        <hr class="settings-page-divider">
-
-        <!-- ── 后台清理 ── -->
-        <h3 style="font-size:13px;font-weight:600;margin:0 0 12px 0;color:var(--text-primary);">后台清理</h3>
-
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">启用后台清理</label>
-          <div class="settings-field-body">
-            <label class="settings-switch">
-              <input type="checkbox" id="sessEnableCleanup">
-              <span class="settings-switch-slider"></span>
+          <div class="settings-field">
+            <label class="settings-field-label" for="sessSessionDir">
+              会话目录 <span class="settings-field-hint">(会话文件存储目录)</span>
             </label>
+            <input class="settings-input" id="sessSessionDir" type="text" placeholder="logs/sessions">
           </div>
-        </div>
 
-        <div class="settings-field">
-          <label class="settings-field-label" for="sessCleanupPeriod">
-            清理周期 <span class="settings-field-hint">(天, 1–365)</span>
-          </label>
-          <input class="settings-input" id="sessCleanupPeriod" type="number" min="1" max="365" step="1" placeholder="30">
-        </div>
-
-        <div class="settings-field">
-          <label class="settings-field-label" for="sessTombstoneThreshold">
-            碎片阈值 <span class="settings-field-hint">(WAL 碎片超过此值(MB)时触发清理)</span>
-          </label>
-          <input class="settings-input" id="sessTombstoneThreshold" type="number" min="1" step="5" placeholder="50">
-        </div>
-
-        <hr class="settings-page-divider">
-
-        <!-- ── 路径配置 ── -->
-        <h3 style="font-size:13px;font-weight:600;margin:0 0 12px 0;color:var(--text-primary);">路径配置</h3>
-
-        <div class="settings-field">
-          <label class="settings-field-label" for="sessHistoryFile">
-            历史文件路径 <span class="settings-field-hint">(CLI 历史存储位置)</span>
-          </label>
-          <input class="settings-input" id="sessHistoryFile" type="text" placeholder=".hippo/cli-history">
-        </div>
-
-        <div class="settings-field">
-          <label class="settings-field-label" for="sessSessionDir">
-            会话目录 <span class="settings-field-hint">(会话文件存储目录)</span>
-          </label>
-          <input class="settings-input" id="sessSessionDir" type="text" placeholder="logs/sessions">
-        </div>
-
-        <div class="settings-field">
-          <label class="settings-field-label" for="sessSaveDir">
-            保存目录 <span class="settings-field-hint">(可选，覆盖默认保存位置)</span>
-          </label>
-          <input class="settings-input" id="sessSaveDir" type="text" placeholder="留空使用默认">
+          <div class="settings-field">
+            <label class="settings-field-label" for="sessSaveDir">
+              保存目录 <span class="settings-field-hint">(可选，覆盖默认保存位置)</span>
+            </label>
+            <input class="settings-input" id="sessSaveDir" type="text" placeholder="留空使用默认">
+          </div>
         </div>
       </div>
 

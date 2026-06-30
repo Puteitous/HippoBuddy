@@ -198,13 +198,13 @@
 }
 
 .skill-market-cat-btn.active {
-    background: var(--accent);
-    color: #fff;
+    background: var(--text-primary);
+    color: var(--bg-app);
     font-weight: 500;
 }
 
 .skill-market-cat-btn.active:hover {
-    background: var(--accent-hover);
+    opacity: 0.85;
 }
 
 /* ── Content area (scrollable) ── */
@@ -268,8 +268,8 @@
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 8px;
-    background: var(--accent);
-    color: #fff;
+    background: var(--text-primary);
+    color: var(--bg-app);
     font-weight: 500;
     line-height: 1.4;
 }
@@ -416,37 +416,45 @@
 }
 
 .skill-market-btn-primary {
-    background: var(--accent);
-    color: #fff;
+    background: var(--text-primary);
+    color: var(--bg-app);
 }
 
 .skill-market-btn-primary:hover {
-    background: var(--accent-hover);
+    opacity: 0.85;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
 }
 
 .skill-market-btn-primary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .skill-market-btn-installed {
-    background: var(--color-success-bg, #e6f7e6);
-    color: var(--color-success, #2e7d32);
+    background: var(--text-primary);
+    color: var(--bg-app);
     cursor: default;
+    opacity: 0.75;
 }
 
 [data-theme="dark"] .skill-market-btn-installed {
-    background: rgba(46, 125, 50, 0.15);
-    color: #81c784;
+    background: var(--text-primary);
+    color: var(--bg-app);
+    opacity: 0.7;
 }
 
 .skill-market-btn-secondary {
     background: var(--bg-hover);
     color: var(--text-primary);
+    border: 1px solid var(--border-color);
 }
 
 .skill-market-btn-secondary:hover {
     background: var(--border-color);
+    border-color: var(--text-muted);
 }
 
 .skill-market-btn-ghost {
@@ -457,7 +465,7 @@
 
 .skill-market-btn-ghost:hover {
     background: var(--bg-hover);
-    color: var(--accent);
+    color: var(--text-primary);
     border-color: var(--border-color);
 }
 
@@ -659,8 +667,8 @@
     font-size: 10px;
     padding: 1px 5px;
     border-radius: 6px;
-    background: var(--accent);
-    color: #fff;
+    background: var(--text-primary);
+    color: var(--bg-app);
 }
 
 .skill-market-installed-item-source {

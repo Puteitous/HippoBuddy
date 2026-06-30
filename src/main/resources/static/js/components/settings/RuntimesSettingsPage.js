@@ -116,8 +116,11 @@ export class RuntimesSettingsPage {
 
     form.style.display = 'block';
     form.innerHTML = `
-      <div class="settings-form">
-        ${itemsHtml}
+      <div class="settings-field-group-title">运行时路径</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          ${itemsHtml}
+        </div>
       </div>
       <p style="margin:12px 0 0 0;font-size:12px;color:var(--text-muted);">
         留空的运行时会使用系统 PATH 中的同名命令。桌面端可通过文件夹图标选择可执行文件。

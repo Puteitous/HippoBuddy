@@ -1,9 +1,10 @@
 /**
  * FilePreviewDiff — CodeMirror 6 内联 diff 标记插件
  *
- * 在编辑器中通过行背景色 + 左侧边框显示 AI 对文件的修改：
- * - 绿色左边框 + 淡绿色背景 = 新增行
- * - 红色左边框 + 淡红色背景 = 修改行
+ * 在编辑器中通过行背景色标记 AI 对文件的修改：
+ * - 淡绿色背景 = AI 影响的行（新增或修改）
+ *
+ * 用户如需查看精确的逐行 diff（+/-），可点击工具卡片"查看变更"。
  *
  * 用法：
  *   import { createDiffExtension } from './FilePreviewDiff.js'
@@ -198,8 +199,9 @@ function extractLineTypes(changes) {
     if (c.type === 'equal') {
       curIdx++
     } else if (c.type === 'insert') {
-      // 前一条为 delete → 属于修改而非纯粹新增
-      types.set(curIdx, i > 0 && changes[i - 1].type === 'delete' ? 'modified' : 'added')
+      // 统一标记为 added（绿色），表示"AI 影响了这行"
+      // 具体是新增还是修改，用户点工具"查看变更"看 unified diff 即可
+      types.set(curIdx, 'added')
       curIdx++
     }
     // delete 行不在当前文档中，跳过

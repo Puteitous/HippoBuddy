@@ -109,103 +109,105 @@ export class ToolsSettingsPage {
     form.style.display = 'block';
     form.innerHTML = `
       <!-- ===== Bash ===== -->
-      <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;">${KEY_LABELS.bash}</h3>
-      <div class="settings-form">
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">启用</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="toolsBashEnabled">
-              <button class="settings-toggle-btn ${bash.enabled !== false ? 'active' : ''}" data-value="true">开</button>
-              <button class="settings-toggle-btn ${bash.enabled === false ? 'active' : ''}" data-value="false">关</button>
+      <div class="settings-field-group-title">${KEY_LABELS.bash}</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">启用</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="toolsBashEnabled">
+                <button class="settings-toggle-btn ${bash.enabled !== false ? 'active' : ''}" data-value="true">开</button>
+                <button class="settings-toggle-btn ${bash.enabled === false ? 'active' : ''}" data-value="false">关</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">需确认</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="toolsBashConfirm">
-              <button class="settings-toggle-btn ${bash.require_confirmation !== false ? 'active' : ''}" data-value="true">开</button>
-              <button class="settings-toggle-btn ${bash.require_confirmation === false ? 'active' : ''}" data-value="false">关</button>
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">需确认</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="toolsBashConfirm">
+                <button class="settings-toggle-btn ${bash.require_confirmation !== false ? 'active' : ''}" data-value="true">开</button>
+                <button class="settings-toggle-btn ${bash.require_confirmation === false ? 'active' : ''}" data-value="false">关</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="toolsBashWhitelist">
-            命令白名单 <span class="settings-field-hint">(逗号分隔，留空=允许全部)</span>
-          </label>
-          <textarea class="settings-input" id="toolsBashWhitelist" rows="3" placeholder="git, mvn, npm, docker, ls, cat, grep"
-            style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;">${whitelistStr}</textarea>
+          <div class="settings-field">
+            <label class="settings-field-label" for="toolsBashWhitelist">
+              命令白名单 <span class="settings-field-hint">(逗号分隔，留空=允许全部)</span>
+            </label>
+            <textarea class="settings-input" id="toolsBashWhitelist" rows="3" placeholder="git, mvn, npm, docker, ls, cat, grep"
+              style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;">${whitelistStr}</textarea>
+          </div>
         </div>
       </div>
-
-      <hr class="settings-page-divider">
 
       <!-- ===== File ===== -->
-      <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;">${KEY_LABELS.file}</h3>
-      <div class="settings-form">
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">启用</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="toolsFileEnabled">
-              <button class="settings-toggle-btn ${file.enabled !== false ? 'active' : ''}" data-value="true">开</button>
-              <button class="settings-toggle-btn ${file.enabled === false ? 'active' : ''}" data-value="false">关</button>
+      <div class="settings-field-group-title">${KEY_LABELS.file}</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">启用</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="toolsFileEnabled">
+                <button class="settings-toggle-btn ${file.enabled !== false ? 'active' : ''}" data-value="true">开</button>
+                <button class="settings-toggle-btn ${file.enabled === false ? 'active' : ''}" data-value="false">关</button>
+              </div>
+            </div>
+          </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="toolsFileMaxSize">
+              最大文件大小 <span class="settings-field-hint">(如 10MB, 1GB)</span>
+            </label>
+            <input class="settings-input" id="toolsFileMaxSize" type="text" value="${file.max_file_size || '10MB'}">
+          </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="toolsFileAllowedPaths">
+              允许路径 <span class="settings-field-hint">(逗号分隔)</span>
+            </label>
+            <input class="settings-input" id="toolsFileAllowedPaths" type="text" value="${allowedPathsStr}" placeholder=".">
+          </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="toolsFileBlockedExts">
+              阻止扩展名 <span class="settings-field-hint">(逗号分隔，如 .env, .pem)</span>
+            </label>
+            <input class="settings-input" id="toolsFileBlockedExts" type="text" value="${blockedExtsStr}" placeholder=".env, .pem, .key">
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Web Search ===== -->
+      <div class="settings-field-group-title">${KEY_LABELS.web_search}</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field">
+            <label class="settings-field-label" for="toolsWebProvider">搜索 Provider</label>
+            <input class="settings-input" id="toolsWebProvider" type="text" value="${webSearch.provider || ''}" placeholder="brave">
+          </div>
+          <div class="settings-field">
+            <label class="settings-field-label" for="toolsWebApiKey">API Key</label>
+            <div class="settings-input-wrap">
+              <input class="settings-input" id="toolsWebApiKey" type="password" value="${webSearch.api_key || ''}" placeholder="输入 API Key">
+              <button class="settings-input-btn" id="toolsWebApiKeyToggle" title="显示/隐藏">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="toolsFileMaxSize">
-            最大文件大小 <span class="settings-field-hint">(如 10MB, 1GB)</span>
-          </label>
-          <input class="settings-input" id="toolsFileMaxSize" type="text" value="${file.max_file_size || '10MB'}">
-        </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="toolsFileAllowedPaths">
-            允许路径 <span class="settings-field-hint">(逗号分隔)</span>
-          </label>
-          <input class="settings-input" id="toolsFileAllowedPaths" type="text" value="${allowedPathsStr}" placeholder=".">
-        </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="toolsFileBlockedExts">
-            阻止扩展名 <span class="settings-field-hint">(逗号分隔，如 .env, .pem)</span>
-          </label>
-          <input class="settings-input" id="toolsFileBlockedExts" type="text" value="${blockedExtsStr}" placeholder=".env, .pem, .key">
-        </div>
       </div>
-
-      <hr class="settings-page-divider">
-
-      <!-- ===== Web Search ===== -->
-      <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;">${KEY_LABELS.web_search}</h3>
-      <div class="settings-form">
-        <div class="settings-field">
-          <label class="settings-field-label" for="toolsWebProvider">搜索 Provider</label>
-          <input class="settings-input" id="toolsWebProvider" type="text" value="${webSearch.provider || ''}" placeholder="brave">
-        </div>
-        <div class="settings-field">
-          <label class="settings-field-label" for="toolsWebApiKey">API Key</label>
-          <div class="settings-input-wrap">
-            <input class="settings-input" id="toolsWebApiKey" type="password" value="${webSearch.api_key || ''}" placeholder="输入 API Key">
-            <button class="settings-input-btn" id="toolsWebApiKeyToggle" title="显示/隐藏">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <hr class="settings-page-divider">
 
       <!-- ===== SubAgent ===== -->
-      <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:600;">${KEY_LABELS.subagent}</h3>
-      <div class="settings-form">
-        <div class="settings-field-horizontal">
-          <label class="settings-field-label">启用</label>
-          <div class="settings-field-body">
-            <div class="settings-toggle-group" id="toolsSubagentEnabled">
-              <button class="settings-toggle-btn ${subagent.enabled ? 'active' : ''}" data-value="true">开</button>
-              <button class="settings-toggle-btn ${!subagent.enabled ? 'active' : ''}" data-value="false">关</button>
+      <div class="settings-field-group-title">${KEY_LABELS.subagent}</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">启用</label>
+            <div class="settings-field-body">
+              <div class="settings-toggle-group" id="toolsSubagentEnabled">
+                <button class="settings-toggle-btn ${subagent.enabled ? 'active' : ''}" data-value="true">开</button>
+                <button class="settings-toggle-btn ${!subagent.enabled ? 'active' : ''}" data-value="false">关</button>
+              </div>
             </div>
           </div>
         </div>

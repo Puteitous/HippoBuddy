@@ -57,9 +57,9 @@ export class ModelSettingsPage {
         </div>
       </div>
 
-      <hr class="settings-page-divider">
-
-      <div class="settings-form" id="settingsModelForm">
+      <div class="settings-field-group-title">模型参数</div>
+      <div class="settings-field-group">
+        <div class="settings-form" id="settingsModelForm">
         <div class="settings-field">
           <label class="settings-field-label">Provider</label>
           <div class="settings-provider-wrap">
@@ -92,6 +92,7 @@ export class ModelSettingsPage {
           </label>
           <input class="settings-input" id="settingsMaxTokens" type="number" min="0" placeholder="0">
         </div>
+      </div>
       </div>
       <div class="settings-save-bar">
         <button class="settings-save-btn" id="settingsModelSave">保存配置</button>
