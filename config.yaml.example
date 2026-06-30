@@ -1,19 +1,20 @@
 llm:
   provider: dashscope
   api_key: ${DASHSCOPE_API_KEY:-your-api-key-here}
-  model: your-model
+  model: qwen3.5-plus
   base_url: https://dashscope.aliyuncs.com
-  max_tokens: 2048
+  max_tokens: 0                     # 0 表示使用模型默认值
   temperature: 0.7
   timeout: 60000
   # 思考模式（适用于 DeepSeek R1 等推理模型）
-  thinking_enabled: true      # 是否启用思考模式（仅对支持思考模式的模型有效）
-  reasoning_effort: high      # 思考强度：high（默认）/ max
+  thinking_enabled: true            # 是否启用思考模式（仅对支持思考模式的模型有效）
+  reasoning_effort: high            # 思考强度：high（默认）/ max
+  response_format:                  # 响应格式（可选）：text / json_object
+  # 模型历史快照（自动维护，保存切换过的模型配置，用于快速切换）
+  model_history: []
 
 # 外部运行时路径配置（可选）
-# 当诊断工具因系统 PATH 不完整找不到 CLI 工具时，
-# 可通过这里指定可执行文件路径来解决。
-# 支持 node、python、go 三种运行时，覆盖 JS/TS/JSON/HTML/CSS/Python/Go 诊断。
+# 当系统 PATH 不完整时，可通过这里指定可执行文件路径。
 # 配置后会自动将所在目录追加到子进程 PATH 环境变量前面。
 runtimes:
   # node: "C:/Program Files/nodejs/node.exe"    # Windows
@@ -47,13 +48,11 @@ tools:
       - .key
       - .p12
       - .jks
-
   web_search:
-    provider: tavily     # brave | tavily
+    provider: brave               # brave | tavily
     api_key: "your-api-key"
     # Brave Search 免费注册: https://brave.com/search/api/（月 2,000 次）
     # Tavily 免费注册: https://tavily.com/（月 1,000 basic + 100 advanced）
-
   subagent:
     # Sub-Agent 并行任务（默认关闭）
     # 启用后注册 fork_agent / fork_agents / list_subagents / cancel_subagent 工具
@@ -62,7 +61,15 @@ tools:
 session:
   auto_save: true
   max_history: 50
-  # 注意：cli-history 现在自动按项目分组存储在 .hippo/projects/*/cli-history
+  history_file: ".hippo/cli-history"   # CLI 历史记录文件路径
+  save_directory:                      # 会话保存目录（可选，不设置则使用默认）
+  persist_sessions: true               # 是否持久化会话到磁盘
+  max_saved_sessions: 1000             # 最大保存会话数
+  auto_resume: true                    # 启动时自动检查可恢复会话
+  resume_timeout_hours: 72             # 超过此时间的会话自动标记为 IGNORED
+  enable_background_cleanup: true      # 启用后台清理
+  cleanup_period_days: 30              # 清理周期（天）
+  tombstone_threshold_mb: 50           # 墓碑文件阈值（超过此大小触发清理）
 
 ui:
   theme: dark
@@ -78,98 +85,63 @@ web:
 context:
   policy: simple
   max_tokens: 30000
-  # 兜底压缩策略
+  max_messages: 20
+  keep_recent_turns: 6
   tool_result:
-    max_tokens: 2000
-    truncate_strategy: tail
+    max_tokens: 8000                  # 单次工具结果最大 token 数（仅用于用于压缩时候截断策略）
+    truncate_strategy: tail           # 截断策略：tail（保留尾部）/ head（保留头部）
 
 rule:
-  # 规则文件支持分层加载，按优先级：
-  # 1. 项目根目录: .hipporules, HIPPO.md
-  # 2. 项目目录: .hippo/rules/*.md
-  # 3. 用户全局: ~/.hippo/rules/*.md
-  max_tokens: 8000             # Rule 最大 token 数
-  inject_at_startup: true      # 启动时注入
-
-cache:
-  at_reference_enabled: true   # 启用 @ 引用
-  max_refs_per_message: 5      # 单条消息最多引用文件数
-  max_file_tokens: 4000        # 单文件最大 token 数
-  cache_ttl_seconds: 300       # 文件缓存时间（秒）
-
-index:
-  enabled: true                # 启用代码索引
-  max_results: 3               # 最大检索结果数
-  max_tokens: 5000             # 检索结果最大 token 数
-
-intent:
-  enabled: true
-  recognition:
-    mode: hybrid                    # hybrid | rule | llm
-    llm_enabled: true               # 是否启用 LLM 意图识别
-    prefer_llm: false               # 是否优先使用 LLM
-    high_confidence_threshold: 0.85 # 高置信度阈值
-    low_confidence_threshold: 0.50  # 低置信度阈值
-    fallback_to_rules: true         # 失败时回退到规则
-  
-planning:
-  mode: composite                 # composite | simple | llm
-  prefer_llm: false               # 是否优先使用 LLM 规划
-  high_confidence_threshold: 0.85 # 高置信度阈值
-  low_confidence_threshold: 0.50  # 低置信度阈值
-  enable_complex_intent_detection: true  # 启用复杂意图检测
+  # 规则文件从 .hippo/rules/*.md 加载
+  max_tokens: 8000                    # Rule 最大 token 数
+  inject_at_startup: true             # 启动时注入
 
 tokenizer:
-  type: tiktoken        # tiktoken / simple
-  model: gpt-4          # 模型名称
-  cache_enabled: true   # 缓存开关
-  cache_max_size: 1000  # 缓存最大条目数
+  type: tiktoken                      # tiktoken / simple
+  cache_enabled: true                 # 缓存开关
+  cache_max_size: 1000                # 缓存最大条目数
 
-session:
-  persist_sessions: true      # 是否持久化会话
-  max_saved_sessions: 50      # 最大保存会话数
-  # 注意：现在自动按工作目录分组存储在 .hippo/projects/{hash}/sessions/
-  # session_directory 配置已废弃，由 WorkspaceManager 自动管理
-  auto_resume: true           # 启动时自动检查可恢复会话
-  resume_timeout_hours: 72    # 超过 72 小时的会话自动标记为 IGNORED
-
-# 长期记忆提取配置
-# 开启后，系统会定期从对话中提取重要信息作为长期记忆保存
-# 默认关闭，如需启用请设置 extraction_enabled: true
 memory:
+  # 长期记忆提取配置
+  # 系统会定期从对话中提取重要信息作为长期记忆保存
   extraction_enabled: false           # 启用长期记忆提取（默认关闭）
   extraction_interval: 5              # 每 N 轮对话触发一次提取
   session_extraction_enabled: true    # 启用会话内记忆提取（默认开启）
 
-# LSP 语言服务器配置（高级代码理解能力）
-# 启用后会获得 IDE 级别的代码理解能力：跳转到定义、查找引用、代码文档等
-# 安装 jdtls: 下载 Eclipse JDT LS 并将 bin 目录加入 PATH
-# 下载地址: https://download.eclipse.org/jdtls/milestones/
-lsp:
-  enabled: true               # 全局启用 LSP 功能（推荐启用！）
-  
-  servers:
-    java:
-      enabled: true
-      # jdtls 启动命令（Windows 自动用 .bat，Linux/Mac 用 shell 脚本）
-      command: jdtls
-      args:
-        - "-configuration"
-        - "${user_home}/.jdtls/config"    # jdtls 配置目录（自动创建）
-        - "-data"
-        - "${user_home}/.jdtls/workspace" # jdtls 工作区（自动创建）
-        # 可选：添加 JVM 参数调优
-        # - "-vmargs"
-        # - "-Xmx4G"
-        # - "-XX:+UseG1GC"
-      
-      # 可选：环境变量配置
-      # env:
-      #   JAVA_HOME: /path/to/jdk-17+
+mcp:
+  # MCP（Model Context Protocol）服务配置
+  enabled: true                       # 全局启用 MCP
+  auto_connect: true                  # 启动时自动连接
+  auto_reconnect: true                # 断开时自动重连
+  max_reconnect_attempts: 5           # 最大重连次数
+  reconnect_delay_seconds: 5          # 重连间隔（秒）
+  connection_timeout: 30000           # 连接超时（毫秒）
+  request_timeout: 60000              # 请求超时（毫秒）
+  servers: []                         # MCP 服务列表（在 config.yaml 中配置）
+  # servers:
+  #   - id: my-server
+  #     name: My MCP Server
+  #     type: stdio                    # stdio | sse
+  #     command: npx
+  #     args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+  #     env:
+  #       MY_VAR: value
 
-# 💡 LSP 故障排查:
-# 1. 确保 Java 版本 >= 17 (jdtls 要求)
-# 2. 命令行输入 jdtls --version 能执行
-# 3. 首次启动需要 60-120 秒建索引
-# 4. Windows 用户: 确保 jdtls.bat 在 PATH 中
-# 5. 有问题可设置 enabled: false 临时禁用
+lsp:
+  # LSP 语言服务器配置（高级代码理解能力：跳转到定义、查找引用等）
+  enabled: true                       # 全局启用 LSP 功能
+  timeout: 180                        # LSP 请求超时（秒）
+  servers:                            # 按语言 ID 配置服务器
+    # java:
+    #   enabled: true
+    #   command: jdtls
+    #   args:
+    #     - "-configuration"
+    #     - "${user_home}/.jdtls/config"
+    #     - "-data"
+    #     - "${user_home}/.jdtls/workspace"
+    #   env:
+    #     JAVA_HOME: /path/to/jdk-17+
+
+workspace:
+  default_workspace_path: ""          # 默认工作区路径（桌面端通过 UI 设置）

@@ -10,7 +10,6 @@ import com.example.agent.context.SessionCompactionState;
 import com.example.agent.context.compressor.AutoCompactTrigger;
 import com.example.agent.context.compressor.TruncateCompressor;
 import com.example.agent.context.config.ContextConfig;
-import com.example.agent.logging.CompactionMetricsCollector;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
@@ -187,10 +186,7 @@ public class ConversationService {
         AutoCompactTrigger autoCompactTrigger = new AutoCompactTrigger(
             contextWindow,
             tokenEstimator,
-            llmClient,
-            sessionId,
-            transcript,
-            compactionState
+            sessionId
         );
         autoCompactTrigger.register();
 
@@ -231,11 +227,6 @@ public class ConversationService {
         
         // 将 consolidator 注入到 MemoryStore，打通 AutoDream 触发链路
         globalMemoryStore.setConsolidator(memoryConsolidator);
-
-        autoCompactTrigger.setCompactionCompleteHook(messages -> {
-            logger.debug("✅ 压缩完成钩子触发，调度低优先级记忆提取");
-            sessionMemoryExtractor.requestExtractionAfterCompaction(messages);
-        });
 
         componentRegistry.put(sessionId, new ConversationComponents(
             warningInjector,
@@ -512,11 +503,6 @@ public class ConversationService {
     public List<Message> prepareForInference(Conversation conversation) {
         ConversationComponents components = getComponents(conversation);
         
-        if (components != null) {
-            components.autoCompactTrigger.startNewQueryLoop();
-            components.autoCompactTrigger.ensureResumeWindowIfNeeded();
-        }
-
         List<Message> effectiveMessages = conversation.getEffectiveMessages();
         
         if (components != null) {
@@ -531,17 +517,13 @@ public class ConversationService {
     }
 
     public String getCompactionStats(Conversation conversation) {
-        ConversationComponents components = getComponents(conversation);
-        return components != null 
-            ? components.autoCompactTrigger.getMetrics().getSummary() 
-            : "No compaction data available";
+        return getCompactionSummary(conversation);
     }
 
-    public CompactionMetricsCollector getCompactionMetrics(Conversation conversation) {
-        ConversationComponents components = getComponents(conversation);
-        return components != null 
-            ? components.autoCompactTrigger.getMetrics() 
-            : null;
+    public String getCompactionSummary(Conversation conversation) {
+        int used = conversation.getTokenCount();
+        int max = getConfig().getMaxTokens();
+        return String.format("上下文: %d / %d tokens (%.1f%%)", used, max, (double) used / max * 100);
     }
 
     public int getTokenCount(Conversation conversation) {

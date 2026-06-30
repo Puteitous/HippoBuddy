@@ -114,7 +114,7 @@ export class FilePreview {
         this._view.dom.style.display = 'none';
         if (this._searchPanel) this._searchPanel.close();
       }
-      this._updateSaveBtn();
+      this._updateSearchBtn();
       this._updateMdToggleBtn();
     });
   }
@@ -163,11 +163,11 @@ export class FilePreview {
     });
   }
 
-  /** @private 显示/隐藏刷新按钮 */
+  /** @private 显示/隐藏刷新按钮（仅二进制/Office/HTML 预览需要） */
   _updateRefreshBtn() {
     const btn = document.getElementById('previewRefreshBtn');
     if (!btn) return;
-    btn.style.display = this._currentPath ? '' : 'none';
+    btn.style.display = this._binaryViewType ? '' : 'none';
   }
 
   async show(filePath) {
@@ -185,13 +185,15 @@ export class FilePreview {
     this._currentPath = filePath;
     this._container.dataset.currentPath = filePath;
     this._dirty = false;
+    // 重置二进制预览类型，后续分支会按需重新赋值；避免切换到代码文件时残留旧值
+    this._binaryViewType = null;
 
     // ── URL 协议前缀 → 委托 showBrowser（防御性，防止误调用）──
     if (filePath && filePath.startsWith('url:')) {
       this._destroyEditor();
       this._binaryViewType = 'browser';
       this._browserPreview.show(filePath.slice(4));
-      this._updateSaveBtn();
+      this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
       this._updateStatusbar(filePath);
@@ -203,7 +205,7 @@ export class FilePreview {
       this._destroyEditor();
       this._binaryViewType = isImageFile(filePath) ? 'image' : 'pdf';
       this._binaryPreview.showImageOrPdf(filePath, this._binaryViewType);
-      this._updateSaveBtn();
+      this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
       this._updateStatusbar(filePath);
@@ -215,7 +217,7 @@ export class FilePreview {
       this._destroyEditor();
       this._binaryViewType = 'spreadsheet';
       this._binaryPreview.showSpreadsheet(filePath);
-      this._updateSaveBtn();
+      this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
       this._updateStatusbar(filePath);
@@ -227,7 +229,7 @@ export class FilePreview {
       this._destroyEditor();
       this._binaryViewType = 'docx';
       this._binaryPreview.showDocx(filePath);
-      this._updateSaveBtn();
+      this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
       this._updateStatusbar(filePath);
@@ -239,7 +241,7 @@ export class FilePreview {
       this._destroyEditor();
       this._binaryViewType = 'pptx';
       this._binaryPreview.showPptx(filePath);
-      this._updateSaveBtn();
+      this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
       this._updateStatusbar(filePath);
@@ -259,7 +261,7 @@ export class FilePreview {
 
     this._content = content;
     this._initEditor(content, filePath);
-    this._updateSaveBtn();
+    this._updateSearchBtn();
     this._updateMdToggleBtn();
     this._updateRefreshBtn();
     this._updateStatusbar(filePath);
@@ -290,7 +292,7 @@ export class FilePreview {
       this._dirty = false;
       this._originalContent = null; // 保存后清空原始内容基准，diff 标记自动清除
       this._onDirtyChange(this._currentPath, false);
-      this._updateSaveBtn();
+      this._updateSearchBtn();
       // 重新配置 diff 扩展为空（清除 gutter 标记和行背景色）
       if (this._view) {
         this._view.dispatch({
@@ -313,7 +315,7 @@ export class FilePreview {
     this._container.dataset.currentPath = this._currentPath;
     this._dirty = false;
     this._browserPreview.show(url);
-    this._updateSaveBtn();
+    this._updateSearchBtn();
     this._updateMdToggleBtn();
     this._updateRefreshBtn();
     this._updateStatusbar(this._currentPath);
@@ -328,7 +330,7 @@ export class FilePreview {
     this._originalContent = null;
     this._scrollPositions.clear();
     delete this._container.dataset.currentPath;
-    this._updateSaveBtn();
+    this._updateSearchBtn();
     this._updateRefreshBtn();
     this._updateStatusbar(null);
   }
@@ -431,12 +433,12 @@ export class FilePreview {
             if (this._dirty) {
               this._dirty = false;
               this._onDirtyChange(this._currentPath, false);
-              this._updateSaveBtn();
+              this._updateSearchBtn();
             }
           } else if (!this._dirty) {
             this._dirty = true;
             this._onDirtyChange(this._currentPath, true);
-            this._updateSaveBtn();
+            this._updateSearchBtn();
           }
         }
       },
@@ -573,38 +575,19 @@ export class FilePreview {
 
   // ==================== 按钮状态同步 ====================
 
-  _updateSaveBtn() {
-    const btn = document.getElementById('previewSaveBtn');
+  _updateSearchBtn() {
     const searchBtn = document.getElementById('previewSearchBtn');
-    if (!btn) return;
+    if (!searchBtn) return;
 
     if (this._currentPath) {
-      // 二进制文件（图片/PDF）不显示保存和搜索按钮
+      // 二进制文件（图片/PDF）不显示搜索按钮
       if (this._binaryViewType) {
-        btn.style.display = 'none';
-        if (searchBtn) searchBtn.style.display = 'none';
+        searchBtn.style.display = 'none';
         return;
       }
-      btn.style.display = '';
-      if (searchBtn) searchBtn.style.display = this._mdPreview.isPreview ? 'none' : '';
-      if (this._dirty) {
-        btn.innerHTML = `
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M13 4l-7 7L3 8"/>
-          </svg>`;
-        btn.title = '保存 (Ctrl+S)';
-        btn.classList.add('dirty');
-      } else {
-        btn.innerHTML = `
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M13 4l-7 7L3 8"/>
-          </svg>`;
-        btn.title = '已保存';
-        btn.classList.remove('dirty');
-      }
+      searchBtn.style.display = this._mdPreview.isPreview ? 'none' : '';
     } else {
-      btn.style.display = 'none';
-      if (searchBtn) searchBtn.style.display = 'none';
+      searchBtn.style.display = 'none';
     }
   }
 
@@ -651,7 +634,7 @@ export class FilePreview {
       </svg>
       <p>${this._escapeHtml(message)}</p>
     </div>`;
-    this._updateSaveBtn();
+    this._updateSearchBtn();
   }
 
   _escapeHtml(str) {

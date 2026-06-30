@@ -633,11 +633,6 @@ const HippoWorkspace = (() => {
     hidePreview();
   });
 
-  // 保存按钮
-  document.getElementById('previewSaveBtn')?.addEventListener('click', () => {
-    filePreview.save();
-  });
-
   // 聊天折叠
   document.getElementById('chatCollapseBtn')?.addEventListener('click', () => {
     chatPanel.classList.add('collapsed');

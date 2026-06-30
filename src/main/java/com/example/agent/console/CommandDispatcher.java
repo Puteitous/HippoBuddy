@@ -334,16 +334,8 @@ public class CommandDispatcher {
             ui.println(ConsoleStyle.boldCyan("║") + line3 + pad(LINE_WIDTH - line3.length()) + ConsoleStyle.boldCyan("║"));
         }
         
-        var metrics = conversationService.getCompactionMetrics(conversation);
-        if (metrics != null && metrics.getTotalCompactions() > 0) {
-            ui.println(ConsoleStyle.boldCyan("╠══════════════════════════════════════════════════════════╣"));
-            String header = ConsoleStyle.cyan("  🗜️  压缩统计");
-            ui.println(ConsoleStyle.boldCyan("║") + header + pad(LINE_WIDTH - header.length()) + ConsoleStyle.boldCyan("║"));
-            
-            String stats = String.format("     滑动窗口 %d 次, LLM摘要 %d 次", 
-                metrics.getSlidingWindowSuccess(), metrics.getLlmSummaryFallback());
-            ui.println(ConsoleStyle.boldCyan("║") + stats + pad(LINE_WIDTH - stats.length()) + ConsoleStyle.boldCyan("║"));
-        }
+        String summary = conversationService.getCompactionSummary(conversation);
+        ui.println(ConsoleStyle.boldCyan("║") + "  " + ConsoleStyle.gray(summary) + pad(LINE_WIDTH - summary.length() - 3) + ConsoleStyle.boldCyan("║"));
         
         ui.println(ConsoleStyle.boldCyan("╚══════════════════════════════════════════════════════════╝"));
         ui.println();

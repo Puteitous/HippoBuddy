@@ -19,15 +19,15 @@ public class BudgetWarningInjector implements BudgetListener {
     @Override
     public void onThresholdReached(BudgetThreshold threshold, int currentTokens, int maxTokens) {
         if (threshold == BudgetThreshold.SLIDING_WINDOW || threshold == BudgetThreshold.AUTO_COMPACT) {
-            injectCompactionPerformed();
+            injectNewSessionSuggestion();
         }
     }
 
-    private void injectCompactionPerformed() {
+    private void injectNewSessionSuggestion() {
         String content =
             "<system-reminder>\n" +
-            "上下文已自动压缩：早期对话历史已被摘要。\n" +
-            "关键上下文已保留。\n" +
+            "上下文即将写满。建议总结当前对话的关键信息，\n" +
+            "然后开启一个新会话继续工作。\n" +
             "</system-reminder>";
         contextWindow.injectWarning(Message.system(content));
     }

@@ -1,16 +1,13 @@
 package com.example.agent.context.compressor;
 
 import com.example.agent.context.SessionCompactionState;
-import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
-import com.example.agent.memory.SessionMemoryManager;
 import com.example.agent.service.TokenEstimator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ContextClipper {
 
@@ -21,55 +18,23 @@ public class ContextClipper {
     private static final Logger logger = LoggerFactory.getLogger(ContextClipper.class);
 
     private final TokenEstimator tokenEstimator;
-    private final SessionMemoryManager memoryManager;
-    private final LlmClient llmClient;
-    private final CompactForkExecutor forkExecutor;
-    private final String sessionId;
     private final int minTokens;
     private final int maxTokens;
     private final int minTextBlockMessages;
 
     public ContextClipper(TokenEstimator tokenEstimator) {
-        this(tokenEstimator, null, null, null, MIN_TOKENS_TARGET, MAX_TOKENS_TARGET, MIN_TEXT_BLOCK_MESSAGES);
-    }
-
-    public ContextClipper(TokenEstimator tokenEstimator, String sessionId, LlmClient llmClient) {
-        this(tokenEstimator, new SessionMemoryManager(sessionId), llmClient, sessionId, MIN_TOKENS_TARGET, MAX_TOKENS_TARGET, MIN_TEXT_BLOCK_MESSAGES);
-    }
-
-    public ContextClipper(TokenEstimator tokenEstimator, SessionMemoryManager memoryManager, LlmClient llmClient) {
-        this(tokenEstimator, memoryManager, llmClient, null, MIN_TOKENS_TARGET, MAX_TOKENS_TARGET, MIN_TEXT_BLOCK_MESSAGES);
-    }
-
-    public ContextClipper(TokenEstimator tokenEstimator, CompactForkExecutor forkExecutor) {
         this.tokenEstimator = tokenEstimator;
-        this.memoryManager = null;
-        this.llmClient = null;
-        this.sessionId = null;
-        this.forkExecutor = forkExecutor;
         this.minTokens = MIN_TOKENS_TARGET;
         this.maxTokens = MAX_TOKENS_TARGET;
         this.minTextBlockMessages = MIN_TEXT_BLOCK_MESSAGES;
     }
 
-    private ContextClipper(TokenEstimator tokenEstimator, SessionMemoryManager memoryManager, LlmClient llmClient, 
-                          String sessionId, int minTokens, int maxTokens, int minTextBlockMessages) {
-        this.tokenEstimator = tokenEstimator;
-        this.memoryManager = memoryManager;
-        this.llmClient = llmClient;
-        this.sessionId = sessionId;
-        this.forkExecutor = new CompactForkExecutor(llmClient, null, tokenEstimator);
-        this.minTokens = minTokens;
-        this.maxTokens = maxTokens;
-        this.minTextBlockMessages = minTextBlockMessages;
-    }
-
     public CompactionResult compact(List<Message> messages, int targetTokens, SessionCompactionState state) {
         if (messages == null) {
-            return new CompactionResult(new ArrayList<>(), 0, 0, 0, false, 0, false, false);
+            return new CompactionResult(new ArrayList<>(), 0, 0, 0, false, 0);
         }
         if (messages.size() <= 2) {
-            return new CompactionResult(new ArrayList<>(messages), 0, 0, 0, false, 0, false, false);
+            return new CompactionResult(new ArrayList<>(messages), 0, 0, 0, false, 0);
         }
 
         Message systemMessage = messages.get(0).isSystem() ? messages.get(0) : null;
@@ -94,11 +59,9 @@ public class ContextClipper {
         List<Message> truncatedMessages = reassemble(null, selected.turns);
 
         int deletedTurnCount = turns.size() - selected.turns.size();
-        boolean usedSessionMemory = false;
-        boolean usedLlmSummary = false;
 
         if (deletedTurnCount > 0) {
-            Message summaryHeader = createSummaryHeader(turns.subList(0, deletedTurnCount));
+            Message summaryHeader = createSummaryHeader(deletedTurnCount);
             if (summaryHeader != null) {
                 Message boundaryMarker = Message.system(String.format(
                     "--- SESSION COMPACTION BOUNDARY ---\n" +
@@ -107,10 +70,7 @@ public class ContextClipper {
                 ));
                 truncatedMessages.add(0, summaryHeader);
                 truncatedMessages.add(0, boundaryMarker);
-                usedSessionMemory = memoryManager != null && memoryManager.exists();
-                usedLlmSummary = !usedSessionMemory && llmClient != null;
-                
-                logger.debug("压缩结构: [BoundaryMarker] + [SessionMemory(User)] + [TailMessages]");
+                logger.debug("压缩结构: [BoundaryMarker] + [SummaryHeader] + [TailMessages]");
             }
         }
 
@@ -128,9 +88,7 @@ public class ContextClipper {
             turns.size(),
             originalTokenCount - finalTokenCount,
             selected.withinRange,
-            selected.textBlockCount,
-            usedSessionMemory,
-            usedLlmSummary
+            selected.textBlockCount
         );
     }
 
@@ -147,69 +105,14 @@ public class ContextClipper {
         return Math.max(0, turns.size() - 1);
     }
 
-    private Message createSummaryHeader(List<ConversationTurn> deletedTurns) {
-        String summaryContent;
-        String source;
-
-        if (memoryManager != null && memoryManager.exists()) {
-            summaryContent = memoryManager.read();
-            source = "✅ session-memory.md";
-        } else if (llmClient != null && !deletedTurns.isEmpty()) {
-            summaryContent = generateLlmSummary(deletedTurns);
-            source = "🔄 LLM 实时生成";
-        } else {
-            summaryContent = createFallbackSummary(deletedTurns);
-            source = "📝 自动摘要";
-        }
-
+    private Message createSummaryHeader(int deletedTurnCount) {
         String content = String.format(
-            "## [Sliding Window] 早期会话摘要\n\n" +
-            "> 来源：%s | 已合并 %d 轮早期对话\n\n" +
-            "%s\n\n" +
-            "---\n\n" +
-            "> 以上为早期会话摘要，最近对话完整保留",
-            source,
-            deletedTurns.size(),
-            summaryContent
-        );
-
-        return Message.user(content);
-    }
-
-    private String generateLlmSummary(List<ConversationTurn> deletedTurns) {
-        String compactionPrompt = 
-            "## 结构化摘要任务\n\n" +
-            "将删除的早期对话压缩成精准摘要，按 3 个维度组织：\n\n" +
-            "### 1. 关键决策\n" +
-            "### 2. 错误与修复\n" +
-            "### 3. 已完成进度\n\n" +
-            "基于完整上下文进行摘要，不要编造信息。";
-
-        try {
-            if (sessionId != null && llmClient != null) {
-                logger.info("🚀 ContextClipper 使用 Fork Agent 执行边界摘要压缩");
-                CompactForkExecutor.CompactResult result = forkExecutor.executeForkedCompaction(sessionId, compactionPrompt);
-                
-                if (result.isSuccess()) {
-                    logger.info("✅ Fork Agent 边界摘要成功 (Cache 模式: {})", 
-                        result.isUsedFork() ? "Fork+缓存共享" : "直接执行");
-                    return result.getSummary();
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("⚠️ Fork 摘要失败，回退到默认摘要: {}", e.getMessage());
-        }
-
-        return createFallbackSummary(deletedTurns);
-    }
-
-    private String createFallbackSummary(List<ConversationTurn> deletedTurns) {
-        return String.format(
-            "### 早期会话摘要\n\n" +
+            "## 早期会话摘要\n\n" +
             "- 已合并 %d 轮早期对话\n" +
             "- 最近对话完整保留",
-            deletedTurns.size()
+            deletedTurnCount
         );
+        return Message.user(content);
     }
 
     public static class BoundaryResult {
@@ -483,20 +386,15 @@ public class ContextClipper {
         private final int tokensSaved;
         private final boolean withinOptimalRange;
         private final int significantTextBlocks;
-        private final boolean usedSessionMemory;
-        private final boolean usedLlmSummary;
 
         public CompactionResult(List<Message> compactedMessages, int removedTurns, int totalTurns, int tokensSaved,
-                               boolean withinOptimalRange, int significantTextBlocks,
-                               boolean usedSessionMemory, boolean usedLlmSummary) {
+                               boolean withinOptimalRange, int significantTextBlocks) {
             this.compactedMessages = compactedMessages;
             this.removedTurns = removedTurns;
             this.totalTurns = totalTurns;
             this.tokensSaved = tokensSaved;
             this.withinOptimalRange = withinOptimalRange;
             this.significantTextBlocks = significantTextBlocks;
-            this.usedSessionMemory = usedSessionMemory;
-            this.usedLlmSummary = usedLlmSummary;
         }
 
         public List<Message> getCompactedMessages() { return compactedMessages; }
@@ -505,8 +403,6 @@ public class ContextClipper {
         public int getTokensSaved() { return tokensSaved; }
         public boolean isWithinOptimalRange() { return withinOptimalRange; }
         public int getSignificantTextBlocks() { return significantTextBlocks; }
-        public boolean isUsedSessionMemory() { return usedSessionMemory; }
-        public boolean isUsedLlmSummary() { return usedLlmSummary; }
 
         public List<Message> getMessages() { return compactedMessages; }
         public int getPreservedTextBlocks() { return significantTextBlocks; }

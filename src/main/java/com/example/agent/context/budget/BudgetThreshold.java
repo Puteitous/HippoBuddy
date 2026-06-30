@@ -2,11 +2,11 @@ package com.example.agent.context.budget;
 
 public enum BudgetThreshold {
 
-    WARNING_75(0.75, "⚠️ 上下文预算使用 75%，建议开始精简输出"),
-    WARNING_85(0.85, "🔶 上下文预算使用 85%，建议保存关键信息，即将压缩"),
-    SLIDING_WINDOW(0.90, "� 上下文预算使用 90%，执行滑动窗口截断"),
-    AUTO_COMPACT(0.95, "🚨 上下文预算使用 95%，执行智能摘要压缩"),
-    BLOCKING(0.975, "🛑 剩余空间不足 3000 tokens");
+    WARNING_75(0.75, "上下文使用 75%，注意控制输出长度"),
+    WARNING_85(0.85, "上下文使用 85%，建议总结当前会话并开启新会话"),
+    SLIDING_WINDOW(0.90, "上下文使用 90%，请及时总结并开启新会话"),
+    AUTO_COMPACT(0.95, "上下文即将写满"),
+    BLOCKING(0.975, "上下文即将用尽");
 
     private final double ratio;
     private final String message;

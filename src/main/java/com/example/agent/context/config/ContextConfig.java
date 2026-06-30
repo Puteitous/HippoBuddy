@@ -6,10 +6,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ContextConfig {
 
-    public static final int DEFAULT_MAX_TOKENS = 30000;
+    public static final int DEFAULT_MAX_TOKENS = 1000000;
     public static final int DEFAULT_MAX_MESSAGES = 20;
     public static final int DEFAULT_KEEP_RECENT_TURNS = 6;
-    public static final int DEFAULT_TOOL_RESULT_MAX_TOKENS = 8000;
+    public static final int DEFAULT_TOOL_RESULT_MAX_TOKENS = 80000;
     public static final String DEFAULT_POLICY = "simple";
 
     @JsonProperty("max_tokens")

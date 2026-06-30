@@ -145,12 +145,15 @@ public class ConversationLoop {
     private void processAgentLoop() {
         int emptyResponseRetries = 0;
         boolean completed = false;
+        // 跟踪本轮用户消息中的 LLM 调用次数，防止工具调用死循环
+        int llmCallCount = 0;
 
         try {
             while (!turnExecutor.isInterrupted()) {
-                if (conversationRound > DEFAULT_MAX_TURNS_PER_SESSION) {
-                    ui.println(ConsoleStyle.red("  └─ 达到最大轮次限制 (" + DEFAULT_MAX_TURNS_PER_SESSION + ")，强制终止"));
-                    logger.warn("会话达到最大轮次限制: {}", DEFAULT_MAX_TURNS_PER_SESSION);
+                llmCallCount++;
+                if (llmCallCount > DEFAULT_MAX_TURNS_PER_SESSION) {
+                    ui.println(ConsoleStyle.red("  └─ 达到最大 LLM 调用轮次限制 (" + DEFAULT_MAX_TURNS_PER_SESSION + ")，强制终止"));
+                    logger.warn("LLM 调用达到最大轮次限制: {}", DEFAULT_MAX_TURNS_PER_SESSION);
                     break;
                 }
 
