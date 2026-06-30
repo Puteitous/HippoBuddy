@@ -292,7 +292,7 @@ body.desktop-window {
     flex: 1;
     display: flex;
     overflow: hidden;
-    padding: 0 16px 16px 0;
+    padding: 0 16px 0 0;
     gap: 0;
     position: relative;
 }

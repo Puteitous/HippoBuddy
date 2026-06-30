@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="css/variables.css?v=20260527-1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/common.css?v=20260527-1">
     <link rel="stylesheet" href="css/cockpit.css?v=20260623-1">
     <link rel="stylesheet" href="css/components/splash.css?v=20260527-1">
@@ -328,6 +328,13 @@
                                 <circle cx="7" cy="7" r="3"/><line x1="9.5" y1="9.5" x2="13" y2="13"/>
                             </svg>
                         </button>
+                        <button class="preview-btn" id="previewRefreshBtn" title="重新加载" style="display:none;">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2"/>
+                                <polyline points="14 2 14 5 11 5"/>
+                                <polyline points="2 14 2 11 5 11"/>
+                            </svg>
+                        </button>
                         <button class="panel-toggle-btn" id="previewCollapseBtn" title="收起预览">
                             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="12 4 4 8 12 12"/>
@@ -479,6 +486,11 @@
             </svg>
         </button>
 
+    </div>
+
+    <!-- 全局底部状态栏 -->
+    <div class="file-preview-statusbar" id="filePreviewStatusbar" style="display:none;">
+        <span class="statusbar-right" id="statusbarRight"></span>
     </div>
 
     <!-- Diff 弹窗 -->

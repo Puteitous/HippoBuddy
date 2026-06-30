@@ -156,6 +156,11 @@
     border-bottom-left-radius: var(--radius-sm);
 }
 
+.message.assistant strong,
+.message.assistant b {
+    color: var(--text-primary);
+}
+
 .message-content {
     word-break: break-word;
 }
@@ -298,8 +303,8 @@
     line-height: 1.4;
 }
 
-.message.assistant h1 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
-.message.assistant h2 { font-size: 1.3em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+.message.assistant h1 { font-size: 1.5em; }
+.message.assistant h2 { font-size: 1.3em; }
 .message.assistant h3 { font-size: 1.1em; }
 
 .message.assistant table {
@@ -1221,7 +1226,6 @@
 .code-ln-nums {
     flex-shrink: 0;
     display: flex;
-    border-right: 1px solid var(--border-color);
 }
 
 .message.assistant .code-block-wrapper .code-ln-nums pre {

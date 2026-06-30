@@ -18,16 +18,26 @@
   padding: 0;
 }
 
-/* 图片缩放工具栏 */
+/* 图片缩放工具栏 — 浮动胶囊 */
 .img-zoom-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
+  gap: 2px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--bg-canvas) 94%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   flex-shrink: 0;
   user-select: none;
+  z-index: 2;
+  transition: opacity 0.2s;
 }
 
 .img-zoom-btn {
@@ -36,18 +46,19 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: none;
+  border-radius: 14px;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 15px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
   line-height: 1;
 }
 
 .img-zoom-btn:hover {
   background: var(--bg-code);
+  color: var(--text-primary);
 }
 
 .img-zoom-btn:active {
@@ -55,16 +66,17 @@
 }
 
 .img-zoom-reset {
-  margin-left: auto;
-  font-size: 14px;
-}
-
-.img-zoom-level {
-  min-width: 44px;
-  text-align: center;
+  width: auto;
+  min-width: 28px;
+  padding: 0 6px;
   font-size: 12px;
   font-family: var(--font-mono, monospace);
-  color: var(--text-secondary);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.img-zoom-reset:hover {
+  color: var(--text-primary);
 }
 
 /* 图片缩放视口 */
@@ -75,7 +87,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-code);
+  background: #ffffff;
   background-image:
     radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -116,27 +128,7 @@
   height: 100%;
 }
 
-/* 顶部信息栏 */
-.spreadsheet-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
-  flex-shrink: 0;
-}
 
-.spreadsheet-info .file-name {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.spreadsheet-info .sheet-count {
-  font-size: 12px;
-  color: var(--text-muted);
-}
 
 /* Sheet 标签栏 */
 .spreadsheet-sheet-tabs {
@@ -144,7 +136,7 @@
   overflow-x: auto;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
+  background: transparent;
   padding: 0 4px;
 }
 
@@ -167,26 +159,6 @@
 .sheet-tab.active {
   color: var(--text-primary);
   border-bottom-color: #007acc;
-}
-
-/* 顶部信息栏文件大小 */
-.spreadsheet-size {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: var(--font-mono, monospace);
-}
-
-.spreadsheet-size-warn {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--warning-text, #b8860b);
-  font-family: var(--font-mono, monospace);
-  cursor: help;
-}
-
-[data-theme="dark"] .spreadsheet-size-warn {
-  color: #d4a017;
 }
 
 /* 行数超限提示 */
@@ -269,34 +241,7 @@
   height: 100%;
 }
 
-.docx-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
-  flex-shrink: 0;
-}
 
-.docx-info .file-name {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.docx-info .docx-warning {
-  font-size: 12px;
-  cursor: help;
-}
-
-.docx-info .docx-warning.light {
-  color: #b8860b;
-}
-
-[data-theme="dark"] .docx-info .docx-warning.light {
-  color: #d4a017;
-}
 
 .docx-content {
   flex: 1;
@@ -344,16 +289,26 @@
 
 /* ========== PPTX 幻灯片预览 ========== */
 
-/* 缩放工具栏 */
-.pptx-zoom-toolbar {
+/* 浮动胶囊工具栏 */
+.pptx-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
+  gap: 2px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--bg-canvas) 94%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   flex-shrink: 0;
   user-select: none;
+  z-index: 2;
+  transition: opacity 0.2s;
 }
 
 .pptx-zoom-btn {
@@ -362,18 +317,19 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: none;
+  border-radius: 14px;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 15px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
   line-height: 1;
 }
 
 .pptx-zoom-btn:hover {
   background: var(--bg-code);
+  color: var(--text-primary);
 }
 
 .pptx-zoom-btn:active {
@@ -381,22 +337,26 @@
 }
 
 .pptx-zoom-reset {
-  margin-left: auto;
   width: auto;
   min-width: 28px;
   padding: 0 6px;
   font-size: 12px;
   font-family: var(--font-mono, monospace);
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
-.pptx-zoom-level {
-  min-width: 44px;
-  text-align: center;
-  font-size: 12px;
-  font-family: var(--font-mono, monospace);
-  color: var(--text-secondary);
+.pptx-zoom-reset:hover {
+  color: var(--text-primary);
+}
+
+/* 分隔线 */
+.pptx-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 /* 幻灯片容器 — 居中展示，缩放时允许滚动 */
@@ -407,7 +367,7 @@
   justify-content: center;
   min-height: 0;
   padding: 16px;
-  background: var(--bg-code);
+  background: #ffffff;
   overflow: auto;
 }
 
@@ -420,37 +380,23 @@
   transition: transform 0.15s ease;
 }
 
-/* 翻页导航条 */
-.pptx-navbar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-sidebar);
-  flex-shrink: 0;
-  user-select: none;
-}
-
 .pptx-nav-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 14px;
-  font-size: 13px;
-  color: var(--text-primary);
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 14px;
   background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s;
-  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
 }
 
 .pptx-nav-btn:hover {
   background: var(--bg-code);
-  border-color: var(--accent);
+  color: var(--text-primary);
 }
 
 .pptx-nav-btn:active {
@@ -462,11 +408,11 @@
 }
 
 .pptx-current-page {
-  min-width: 60px;
+  min-width: 32px;
   text-align: center;
-  font-size: 13px;
+  font-size: 11px;
   font-family: var(--font-mono, monospace);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -515,63 +461,6 @@
   border-color: var(--accent);
 }
 
-/* ========== 预览刷新按钮 ========== */
-
-.preview-refresh-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-left: auto;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.15s;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.pptx-refresh-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.15s;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.preview-refresh-btn:hover {
-  background: var(--bg-code);
-  color: var(--text-primary);
-  border-color: var(--accent);
-}
-
-.pptx-refresh-btn:hover {
-  background: var(--bg-code);
-  color: var(--text-primary);
-  border-color: var(--accent);
-}
-
-.preview-refresh-btn:active {
-  background: var(--border);
-}
-
-.pptx-refresh-btn:active {
-  background: var(--border);
-}
-
 /* ========== HTML Web 预览 ========== */
 
 .file-web-preview {
@@ -588,7 +477,7 @@
   gap: 12px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-sidebar);
+  background: transparent;
   flex-shrink: 0;
 }
 
@@ -642,7 +531,7 @@
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
-  background: var(--bg-sidebar);
+  background: transparent;
   flex-shrink: 0;
 }
 
@@ -777,4 +666,34 @@
   font-size: 14px;
   opacity: 0.5;
   user-select: none;
+}
+
+/* ========== 文件预览底部状态栏 ========== */
+
+.file-preview-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 12px;
+  height: 22px;
+  font-size: 11px;
+  background: var(--bg-canvas);
+  flex-shrink: 0;
+  user-select: none;
+  font-family: var(--font-mono, monospace);
+  gap: 12px;
+}
+
+.file-preview-statusbar .statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.file-preview-statusbar .statusbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }

@@ -145,7 +145,6 @@
     align-items: center;
     height: 36px;
     background: var(--bg-sidebar);
-    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     overflow: hidden;
 }
@@ -270,7 +269,7 @@
 }
 
 [data-theme="dark"] .file-preview-area {
-    background: #282c34;
+    background: var(--bg-chat);
 }
 
 .file-preview-toolbar {
@@ -314,6 +313,19 @@
 /* ── CodeMirror 6 容器 ─────────────────── */
 .file-preview-content .cm-editor {
     height: 100%;
+}
+
+.file-preview-content .cm-gutters {
+    background-color: var(--bg-app);
+    border-right: none;
+}
+
+[data-theme="dark"] .file-preview-content .cm-editor {
+    background: var(--bg-chat);
+}
+
+[data-theme="dark"] .file-preview-content .cm-gutters {
+    background-color: var(--bg-chat);
 }
 
 .file-preview-content .cm-editor .cm-scroller {
@@ -1424,8 +1436,8 @@
     line-height: 1.4;
 }
 
-.file-md-preview h1 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
-.file-md-preview h2 { font-size: 1.3em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+.file-md-preview h1 { font-size: 1.5em; }
+.file-md-preview h2 { font-size: 1.3em; }
 .file-md-preview h3 { font-size: 1.1em; }
 
 .file-md-preview table {

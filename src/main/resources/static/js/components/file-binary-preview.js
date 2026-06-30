@@ -53,17 +53,8 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-/** 格式化字节数 */
-function formatFileSize(bytes) {
-  if (!bytes || bytes === 0) return '';
-  if (bytes < 1024) return bytes + 'B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
-  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
-  return (bytes / (1024 * 1024 * 1024)).toFixed(1) + 'GB';
-}
-
 /** 判断是否为 CSV 文件 */
-function isCsvFile(filePath) {
+export function isCsvFile(filePath) {
   return filePath && filePath.toLowerCase().endsWith('.csv');
 }
 
@@ -102,6 +93,27 @@ function decodeCSVToString(arrayBuffer) {
 
 // ==================== BinaryPreview 类 ====================
 
+/** 检测 CSV 字节数组的实际编码 */
+function detectCSVEncoding(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  if (bytes.length === 0) return 'UTF-8';
+  if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+    return 'UTF-8 BOM';
+  }
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return 'UTF-8';
+  } catch (_) {
+    return 'GBK';
+  }
+}
+
+/** 更新全局底部状态栏的右侧文本 */
+function updateStatusbarText(text) {
+  const el = document.getElementById('statusbarRight');
+  if (el) el.textContent = text;
+}
+
 export class BinaryPreview {
   /**
    * @param {Object} options
@@ -126,11 +138,11 @@ export class BinaryPreview {
     const fileName = filePath.split('/').pop() || filePath;
 
     if (type === 'image') {
+      this._container.style.position = 'relative';
       this._container.innerHTML = `
         <div class="file-binary-preview image">
           <div class="img-zoom-toolbar">
             <button class="img-zoom-btn" data-action="zoom-out" title="缩小">−</button>
-            <span class="img-zoom-level">100%</span>
             <button class="img-zoom-btn" data-action="zoom-in" title="放大">+</button>
             <button class="img-zoom-btn img-zoom-reset" data-action="reset" title="重置">⟲</button>
           </div>
@@ -152,7 +164,6 @@ export class BinaryPreview {
   _initImageZoom() {
     const viewport = this._container.querySelector('.img-zoom-viewport');
     const img = viewport.querySelector('.img-zoomable');
-    const levelEl = this._container.querySelector('.img-zoom-level');
     if (!img || !viewport) return;
 
     // 清理之前的 ResizeObserver（防止泄漏）
@@ -176,7 +187,6 @@ export class BinaryPreview {
 
     const applyTransform = () => {
       img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-      levelEl.textContent = `${Math.round(scale * 100)}%`;
     };
 
     // 图片加载完成后自动适配视口
@@ -220,12 +230,7 @@ export class BinaryPreview {
     };
 
     const reset = () => {
-      scale = 1;
-      translateX = 0;
-      translateY = 0;
-      img.style.transition = 'transform 0.2s ease';
-      applyTransform();
-      setTimeout(() => { img.style.transition = ''; }, 200);
+      fitToViewport();
     };
 
     // 滚轮缩放
@@ -359,25 +364,11 @@ export class BinaryPreview {
         return { html: tableHtml, totalRows, isOverflow };
       };
 
-      const fileName = filePath.split('/').pop() || '';
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const firstRender = renderSheetTable(sheet, 0);
 
-      let html = `<div class="file-spreadsheet-preview">
-
-        <div class="spreadsheet-info">
-          <span class="file-name">${escapeHtml(fileName)}</span>
-          <span class="sheet-count">
-            ${workbook.SheetNames.length} 个 sheet · ${sheetName}（激活）
-          </span>
-          ${firstRender.isOverflow
-            ? `<span class="spreadsheet-size-warn" title="文件过大，仅显示前 ${DISPLAY_ROWS} 行">
-                 ${escapeHtml(formatFileSize(arrayBuffer.byteLength))}
-               </span>`
-            : `<span class="spreadsheet-size">${escapeHtml(formatFileSize(arrayBuffer.byteLength))}</span>`}
-          <button class="preview-refresh-btn" title="重新加载">↻</button>
-        </div>`;
+      let html = `<div class="file-spreadsheet-preview">`;
 
       if (workbook.SheetNames.length > 1) {
         html += `<div class="spreadsheet-sheet-tabs">
@@ -391,9 +382,17 @@ export class BinaryPreview {
       html += `<div class="spreadsheet-table-wrap">${firstRender.html}</div></div>`;
       this._container.innerHTML = html;
 
+      // 更新全局状态栏
+      if (isCsvFile(filePath)) {
+        const enc = detectCSVEncoding(arrayBuffer);
+        updateStatusbarText(`CSV · ${enc}`);
+      } else {
+        const ext = filePath.split('.').pop().toUpperCase();
+        updateStatusbarText(`${ext} · ${workbook.SheetNames.length} sheet${workbook.SheetNames.length > 1 ? 's' : ''}`);
+      }
+
       const tabs = this._container.querySelectorAll('.sheet-tab');
       const wrap = this._container.querySelector('.spreadsheet-table-wrap');
-      const infoSpan = this._container.querySelector('.spreadsheet-info .sheet-count');
       tabs.forEach(tab => {
         tab.addEventListener('click', () => {
           const idx = parseInt(tab.dataset.sheetIndex, 10);
@@ -404,18 +403,8 @@ export class BinaryPreview {
           const s = workbook.Sheets[name];
           const rendered = renderSheetTable(s, idx);
           wrap.innerHTML = rendered.html;
-
-          if (infoSpan) {
-            infoSpan.textContent = `${workbook.SheetNames.length} 个 sheet · ${name}（激活）`;
-          }
         });
       });
-
-      // 刷新按钮
-      const refreshBtn = this._container.querySelector('.preview-refresh-btn');
-      if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => this.showSpreadsheet(filePath, true));
-      }
 
     } catch (err) {
       console.error('BinaryPreview: spreadsheet parse failed', filePath, err);
@@ -464,16 +453,6 @@ export class BinaryPreview {
 
       this._container.innerHTML = `
         <div class="file-docx-preview">
-          <div class="docx-info">
-            <span class="file-name">${escapeHtml(filePath.split('/').pop() || '')}</span>
-            ${result.messages && result.messages.length > 0
-              ? `<span class="docx-warning light"
-                     title="${escapeHtml(result.messages.map(m => m.message).join('\n'))}">
-                   ⚠ ${result.messages.length} 条样式警告
-                 </span>`
-              : ''}
-            <button class="preview-refresh-btn" title="重新加载">↻</button>
-          </div>
           <div class="docx-content">
             ${result.value}
           </div>
@@ -483,10 +462,9 @@ export class BinaryPreview {
         console.info('BinaryPreview: mammoth.js 转换警告:', result.messages);
       }
 
-      const docxRefreshBtn = this._container.querySelector('.preview-refresh-btn');
-      if (docxRefreshBtn) {
-        docxRefreshBtn.addEventListener('click', () => this.showDocx(filePath, true));
-      }
+      // 更新全局状态栏
+      const warnCount = result.messages ? result.messages.length : 0;
+      updateStatusbarText(warnCount > 0 ? `DOCX · ⚠ ${warnCount} 条警告` : 'DOCX');
 
     } catch (err) {
       console.error('BinaryPreview: docx parse failed', filePath, err);
@@ -557,21 +535,35 @@ export class BinaryPreview {
       currentSlideIndex = 0;
       _pptxScale = 1;
 
+      // 更新全局状态栏
+      updateStatusbarText(`PPTX · ${totalSlides} 页`);
+
       // 构建 UI
       const container = this._container;
       container.innerHTML = '';
+      container.style.position = 'relative';
 
-      // 缩放工具栏
-      const zoomToolbar = document.createElement('div');
-      zoomToolbar.className = 'pptx-zoom-toolbar';
-      zoomToolbar.innerHTML = `
+      // 浮动胶囊工具栏（左侧缩放 + 右侧翻页）
+      const toolbar = document.createElement('div');
+      toolbar.className = 'pptx-toolbar';
+      toolbar.innerHTML = `
         <button class="pptx-zoom-btn" data-action="zoom-out" title="缩小">−</button>
-        <span class="pptx-zoom-level">100%</span>
         <button class="pptx-zoom-btn" data-action="zoom-in" title="放大">+</button>
-        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="重置缩放">1:1</button>
-        <button class="pptx-refresh-btn" title="重新加载">↻</button>
+        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="重置缩放">⟲</button>
+        <span class="pptx-toolbar-divider"></span>
+        <button class="pptx-nav-btn" data-action="prev" title="上一页 (←)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="10 3 5 8 10 13"/>
+          </svg>
+        </button>
+        <span class="pptx-current-page">1 / ${totalSlides}</span>
+        <button class="pptx-nav-btn" data-action="next" title="下一页 (→)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 3 11 8 6 13"/>
+          </svg>
+        </button>
       `;
-      container.appendChild(zoomToolbar);
+      container.appendChild(toolbar);
 
       // 幻灯片容器
       const slideWrap = document.createElement('div');
@@ -611,45 +603,39 @@ export class BinaryPreview {
       });
       resizeObserver.observe(slideWrap);
 
-      // 翻页导航 — 全部用字符串构建，避免 innerHTML += 导致引用失效
-      const navBar = document.createElement('div');
-      navBar.className = 'pptx-navbar';
-      navBar.innerHTML = `
-        <button class="pptx-nav-btn" data-action="prev" title="上一页 (←)">
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="10 3 5 8 10 13"/>
-          </svg>
-          上一页
-        </button>
-        <span class="pptx-current-page">1 / ${totalSlides}</span>
-        <button class="pptx-nav-btn" data-action="next" title="下一页 (→)">
-          下一页
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 3 11 8 6 13"/>
-          </svg>
-        </button>
-      `;
-
-      // 单页 PPT 隐藏导航
+      // 单页 PPT 隐藏翻页控件
       if (totalSlides <= 1) {
-        navBar.style.display = 'none';
+        const divider = toolbar.querySelector('.pptx-toolbar-divider');
+        const navBtns = toolbar.querySelectorAll('.pptx-nav-btn, .pptx-current-page');
+        if (divider) divider.style.display = 'none';
+        navBtns.forEach(el => el.style.display = 'none');
       }
 
-      container.appendChild(navBar);
-
-      // 获取页码元素引用（字符串构建后 querySelector 获取有效的 DOM 引用）
-      const currentPageEl = navBar.querySelector('.pptx-current-page');
-      const zoomLevelEl = zoomToolbar.querySelector('.pptx-zoom-level');
+      // 获取元素引用
+      const currentPageEl = toolbar.querySelector('.pptx-current-page');
 
       // 渲染第一页
       await renderSlide(viewer, canvas, 0, currentPageEl);
 
-      // ── 翻页事件 ──
-      navBar.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.pptx-nav-btn');
-        if (!btn) return;
+      // ── 统一工具栏事件（翻页 + 缩放）──
+      toolbar.addEventListener('click', async (e) => {
+        const zoomBtn = e.target.closest('.pptx-zoom-btn');
+        if (zoomBtn) {
+          const action = zoomBtn.dataset.action;
+          if (action === 'zoom-in') {
+            _pptxScale = Math.min(MAX_SCALE, _pptxScale * (1 + ZOOM_STEP));
+          } else if (action === 'zoom-out') {
+            _pptxScale = Math.max(MIN_SCALE, _pptxScale * (1 - ZOOM_STEP));
+          } else if (action === 'reset') {
+            _pptxScale = 1;
+          }
+          applyZoom(canvas, null);
+          return;
+        }
 
-        const action = btn.dataset.action;
+        const navBtn = e.target.closest('.pptx-nav-btn');
+        if (!navBtn) return;
+        const action = navBtn.dataset.action;
         if (action === 'prev' && currentSlideIndex > 0) {
           currentSlideIndex--;
           await renderSlide(viewer, canvas, currentSlideIndex, currentPageEl);
@@ -659,27 +645,6 @@ export class BinaryPreview {
         }
       });
 
-      // ── 缩放事件 ──
-      zoomToolbar.addEventListener('click', (e) => {
-        const btn = e.target.closest('.pptx-zoom-btn');
-        if (!btn) return;
-        const action = btn.dataset.action;
-        if (action === 'zoom-in') {
-          _pptxScale = Math.min(MAX_SCALE, _pptxScale * (1 + ZOOM_STEP));
-        } else if (action === 'zoom-out') {
-          _pptxScale = Math.max(MIN_SCALE, _pptxScale * (1 - ZOOM_STEP));
-        } else if (action === 'reset') {
-          _pptxScale = 1;
-        }
-        applyZoom(canvas, zoomLevelEl);
-      });
-
-      // ── 刷新事件 ──
-      const pptxRefreshBtn = zoomToolbar.querySelector('.pptx-refresh-btn');
-      if (pptxRefreshBtn) {
-        pptxRefreshBtn.addEventListener('click', () => this.showPptx(filePath, true));
-      }
-
       // ── 滚轮缩放 ──
       slideWrap.addEventListener('wheel', (e) => {
         if (e.ctrlKey || e.metaKey) {
@@ -687,7 +652,7 @@ export class BinaryPreview {
           const delta = e.deltaY > 0 ? -1 : 1;
           const newScale = _pptxScale * (1 + delta * ZOOM_STEP);
           _pptxScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
-          applyZoom(canvas, zoomLevelEl);
+          applyZoom(canvas, null);
         }
       }, { passive: false });
 
@@ -702,15 +667,15 @@ export class BinaryPreview {
         } else if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
           e.preventDefault();
           _pptxScale = Math.min(MAX_SCALE, _pptxScale * (1 + ZOOM_STEP));
-          applyZoom(canvas, zoomLevelEl);
+          applyZoom(canvas, null);
         } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
           e.preventDefault();
           _pptxScale = Math.max(MIN_SCALE, _pptxScale * (1 - ZOOM_STEP));
-          applyZoom(canvas, zoomLevelEl);
+          applyZoom(canvas, null);
         } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
           e.preventDefault();
           _pptxScale = 1;
-          applyZoom(canvas, zoomLevelEl);
+          applyZoom(canvas, null);
         }
       };
       document.addEventListener('keydown', keyHandler);

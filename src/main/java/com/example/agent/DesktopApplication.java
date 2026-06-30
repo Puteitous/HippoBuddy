@@ -269,6 +269,18 @@ public final class DesktopApplication {
                 "", 0
             );
 
+            // 禁用 JCEF 自带的拼写检查，去掉输入框下方的红色波浪线
+            browser.executeJavaScript(
+                "(function(){" +
+                "var disableSpellcheck=function(){" +
+                "document.querySelectorAll('input,textarea,[contenteditable]').forEach(function(el){el.spellcheck=false});" +
+                "};" +
+                "disableSpellcheck();" +
+                "new MutationObserver(disableSpellcheck).observe(document.body,{childList:true,subtree:true});" +
+                "})();",
+                "", 0
+            );
+
         } catch (Exception e) {
             logger.error("JCEF 初始化失败", e);
             System.exit(1);

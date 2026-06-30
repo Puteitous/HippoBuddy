@@ -18,6 +18,8 @@ import { SearchPanel } from './search-panel.js'
 import { renderMarkdown } from '../markdown-renderer.js'
 import { createDiffExtension } from './FilePreviewDiff.js'
 import { BinaryPreview, isImageFile, isPdfFile, isSpreadsheetFile, isDocxFile, isPptxFile } from './file-binary-preview.js'
+import { FilePreviewBrowser } from './file-preview-browser.js'
+import { FilePreviewMdPreview } from './file-preview-md.js'
 
 /**
  * 文本/代码文件 → CodeMirror 6 编辑器（可编辑，支持 Ctrl+S 保存）。
@@ -39,20 +41,6 @@ export class FilePreview {
     this._themeObserver = null;
     /** @private 搜索面板实例 */
     this._searchPanel = null;
-    /** @private MD 预览模式状态 */
-    this._mdPreviewMode = false;
-    /** @private MD 预览渲染容器 */
-    this._mdPreviewEl = null;
-    /** @private 当前编辑的图像内容（预览切换时重新渲染使用） */
-    this._contentForPreview = '';
-    /** @private TOC 侧边栏容器 */
-    this._tocEl = null;
-    /** @private TOC 滚动同步 IntersectionObserver */
-    this._tocObserver = null;
-    /** @private TOC 滚动同步 cleanup 回调 */
-    this._tocScrollCleanup = null;
-    /** @private TOC 折叠状态 */
-    this._tocCollapsed = true;
     /** @private Compartment 用于动态切换 diff 扩展 */
     this._diffCompartment = new Compartment();
     /** @private AI 修改前的文件原始内容（用于 diff 对比） */
@@ -69,12 +57,33 @@ export class FilePreview {
       onError: this._onError,
     });
 
+    /** @private Markdown 预览委托实例 */
+    this._mdPreview = new FilePreviewMdPreview({
+      container: this._container,
+      renderMarkdown,
+    });
+
+    /** @private 内嵌浏览器委托实例 */
+    this._browserPreview = new FilePreviewBrowser({
+      container: this._container,
+      onUrlChange: (url) => {
+        this._currentPath = 'url:' + url;
+        this._container.dataset.currentPath = this._currentPath;
+        const ws = window.HippoWorkspace;
+        if (ws && ws.onBrowserUrlChange) {
+          ws.onBrowserUrlChange(url);
+        }
+      },
+    });
+
     // 绑定搜索按钮
     this._registerSearchButton();
     // 绑定 MD 预览切换按钮
     this._registerMdToggleBtn();
     // 绑定 HTML 预览按钮
     this._registerHtmlPreviewBtn();
+    // 绑定刷新按钮
+    this._registerRefreshBtn();
   }
 
   get currentPath() { return this._currentPath; }
@@ -93,7 +102,21 @@ export class FilePreview {
   _registerMdToggleBtn() {
     const btn = document.getElementById('previewMdToggleBtn');
     if (!btn) return;
-    btn.addEventListener('click', () => this._toggleMdPreview());
+    btn.addEventListener('click', async () => {
+      if (!this._isMarkdown(this._currentPath) || !this._view) return;
+      const prevMode = this._mdPreview.isPreview;
+      const mode = await this._mdPreview.toggle(this._view.state.doc.toString());
+      // 编辑模式时恢复编辑器显示
+      if (prevMode) {
+        this._view.dom.style.display = '';
+        if (this._searchPanel) this._searchPanel.close();
+      } else {
+        this._view.dom.style.display = 'none';
+        if (this._searchPanel) this._searchPanel.close();
+      }
+      this._updateSaveBtn();
+      this._updateMdToggleBtn();
+    });
   }
 
   /** @private 绑定 HTML 预览按钮 — 在内部浏览器中预览渲染效果 */
@@ -130,6 +153,23 @@ export class FilePreview {
     });
   }
 
+  /** @private 绑定刷新按钮点击事件 */
+  _registerRefreshBtn() {
+    const btn = document.getElementById('previewRefreshBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (!this._currentPath) return;
+      this.show(this._currentPath);
+    });
+  }
+
+  /** @private 显示/隐藏刷新按钮 */
+  _updateRefreshBtn() {
+    const btn = document.getElementById('previewRefreshBtn');
+    if (!btn) return;
+    btn.style.display = this._currentPath ? '' : 'none';
+  }
+
   async show(filePath) {
     // 上游（FileTabs onBeforeSwitch）已处理脏检查弹窗，此处只清理旧 dirty 状态
     if (this._dirty) {
@@ -150,9 +190,11 @@ export class FilePreview {
     if (filePath && filePath.startsWith('url:')) {
       this._destroyEditor();
       this._binaryViewType = 'browser';
-      this.showBrowser(filePath.slice(4));
+      this._browserPreview.show(filePath.slice(4));
       this._updateSaveBtn();
       this._updateMdToggleBtn();
+      this._updateRefreshBtn();
+      this._updateStatusbar(filePath);
       return;
     }
 
@@ -163,6 +205,8 @@ export class FilePreview {
       this._binaryPreview.showImageOrPdf(filePath, this._binaryViewType);
       this._updateSaveBtn();
       this._updateMdToggleBtn();
+      this._updateRefreshBtn();
+      this._updateStatusbar(filePath);
       return;
     }
 
@@ -173,6 +217,8 @@ export class FilePreview {
       this._binaryPreview.showSpreadsheet(filePath);
       this._updateSaveBtn();
       this._updateMdToggleBtn();
+      this._updateRefreshBtn();
+      this._updateStatusbar(filePath);
       return;
     }
 
@@ -183,6 +229,8 @@ export class FilePreview {
       this._binaryPreview.showDocx(filePath);
       this._updateSaveBtn();
       this._updateMdToggleBtn();
+      this._updateRefreshBtn();
+      this._updateStatusbar(filePath);
       return;
     }
 
@@ -193,6 +241,8 @@ export class FilePreview {
       this._binaryPreview.showPptx(filePath);
       this._updateSaveBtn();
       this._updateMdToggleBtn();
+      this._updateRefreshBtn();
+      this._updateStatusbar(filePath);
       return;
     }
 
@@ -208,11 +258,11 @@ export class FilePreview {
     }
 
     this._content = content;
-    this._contentForPreview = content;
     this._initEditor(content, filePath);
-    this._mdPreviewMode = false;
     this._updateSaveBtn();
     this._updateMdToggleBtn();
+    this._updateRefreshBtn();
+    this._updateStatusbar(filePath);
     // HTML 文件显示预览按钮
     const htmlBtn = document.getElementById('previewHtmlToggleBtn');
     if (htmlBtn) {
@@ -252,10 +302,8 @@ export class FilePreview {
     }
   }
 
-  // ==================== Web 浏览器 ====================
-
   /**
-   * 渲染内嵌浏览器 — 地址栏 + iframe
+   * 打开内嵌浏览器（委托给 FilePreviewBrowser）
    * @param {string} url - 要加载的 URL
    */
   showBrowser(url) {
@@ -264,134 +312,11 @@ export class FilePreview {
     this._currentPath = 'url:' + url;
     this._container.dataset.currentPath = this._currentPath;
     this._dirty = false;
-
-    const encodedUrl = encodeURI(url);
-    const displayUrl = url;
-
-    this._container.innerHTML = `
-      <div class="file-browser-preview">
-        <div class="browser-toolbar">
-          <button class="browser-nav-btn" data-action="back" title="后退" disabled>
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="10 4 6 8 10 12"/></svg>
-          </button>
-          <button class="browser-nav-btn" data-action="forward" title="前进" disabled>
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 4 10 8 6 12"/></svg>
-          </button>
-          <button class="browser-nav-btn browser-refresh-btn" data-action="refresh" title="刷新">
-            <!-- icon666.com - MILLIONS OF FREE VECTOR ICONS --><svg viewBox="0 0 128 128" width="14" height="14" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><g id="icon"><path id="XMLID_151_" d="m118.527 58.378-18.441 18.731c-1.003 1.021-2.374 1.594-3.806 1.594-1.43 0-2.803-.572-3.804-1.594l-18.443-18.731c-2.068-2.102-2.043-5.481.059-7.548 2.101-2.073 5.479-2.045 7.552.058l10.308 10.47c-1.336-19.379-17.244-34.733-36.615-34.733-20.248 0-36.72 16.768-36.72 37.377s16.472 37.374 36.72 37.374c7.452 0 14.626-2.256 20.736-6.525 2.421-1.689 5.748-1.098 7.437 1.319 1.688 2.422 1.095 5.747-1.321 7.437-7.917 5.525-17.202 8.448-26.852 8.448-26.136 0-47.398-21.56-47.398-48.053 0-26.497 21.263-48.055 47.398-48.055 24.611 0 44.897 19.121 47.177 43.48l8.406-8.539c2.072-2.103 5.45-2.129 7.553-.058 2.098 2.066 2.126 5.446.054 7.548z"/></g></svg>
-          </button>
-          <div class="browser-url-bar">
-            <input type="text" class="browser-url-input" value="${displayUrl}" spellcheck="false" autofocus>
-            <button class="browser-go-btn" title="前往"><!-- icon666.com - MILLIONS OF FREE VECTOR ICONS --><svg fill="none" viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="m20.4861 3.83591c.0785-.20173-.1203-.40049-.322-.32204l-16.51278 6.42163c-.2079.0809-.21254.3733-.00731.4608l6.3397 2.7002c.41389.1763.74349.5059.91979.9198l2.7002 6.3397c.0875.2052.3799.2006.4608-.0073zm-.863-1.71324c1.4121-.54916 2.8034.84215 2.2542 2.25427l-6.4216 16.51276c-.5659 1.4553-2.6134 1.4878-3.2253.0512l-2.70022-6.3397c-.02519-.0591-.07228-.1062-.1314-.1314l-6.33971-2.7002c-1.43659-.6119-1.40407-2.65935.05123-3.2253z" fill="currentColor" fill-rule="evenodd"/></svg></button>
-          </div>
-          <button class="browser-open-btn" title="在系统浏览器中打开">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3"/>
-              <path d="M10 2h4v4"/>
-              <path d="M14 2L8 8"/>
-            </svg>
-          </button>
-        </div>
-        ${url === 'about:blank'
-          ? `<div class="browser-placeholder">
-               <div class="browser-placeholder-content">
-                 <svg viewBox="0 0 512 512" width="40" height="40" fill="currentColor" opacity="0.3">
-                   <path d="M437,75A256,256,0,0,0,75,437,256,256,0,0,0,437,75ZM256,492c-30.84,0-60.34-23.7-83.08-66.72-10.76-20.36-19.32-43.8-25.49-69.28H364.57c-6.17,25.48-14.73,48.92-25.49,69.28C316.34,468.3,286.84,492,256,492ZM143.16,336a450.51,450.51,0,0,1,0-160H368.84A439.33,439.33,0,0,1,376,256a439.33,439.33,0,0,1-7.16,80ZM256,20c30.84,0,60.34,23.7,83.08,66.72,10.76,20.36,19.32,43.8,25.49,69.28H147.43c6.17-25.48,14.73-48.92,25.49-69.28C195.66,43.7,225.16,20,256,20ZM389.15,176H478a236,236,0,0,1,0,160H389.15A460.57,460.57,0,0,0,396,256,460.57,460.57,0,0,0,389.15,176Zm80.58-20H385.1c-6.63-28.94-16.16-55.58-28.33-78.62-10.34-19.57-22.14-35.67-35-48A237.09,237.09,0,0,1,469.73,156ZM190.21,29.34c-12.84,12.37-24.64,28.47-35,48-12.17,23-21.7,49.68-28.33,78.62H42.27A237.09,237.09,0,0,1,190.21,29.34ZM34,176h88.88a470.58,470.58,0,0,0,0,160H34a236,236,0,0,1,0-160Zm8.3,180H126.9c6.63,28.94,16.16,55.58,28.33,78.62,10.34,19.57,22.14,35.67,35,48A237.09,237.09,0,0,1,42.27,356ZM321.79,482.66c12.84-12.37,24.64-28.47,35-48,12.17-23,21.7-49.68,28.33-78.62h84.63A237.09,237.09,0,0,1,321.79,482.66Z"/>
-                 </svg>
-                 <span class="browser-placeholder-text">在地址栏输入网址后回车</span>
-               </div>
-             </div>
-             <iframe class="browser-iframe" style="display:none;" src="about:blank"
-               sandbox="allow-scripts allow-forms allow-popups allow-modals"
-               loading="lazy" title="${displayUrl}"></iframe>`
-          : `<iframe class="browser-iframe" src="${encodedUrl}"
-               sandbox="allow-scripts allow-forms allow-popups allow-modals"
-               loading="lazy" title="${displayUrl}"></iframe>`
-        }
-      </div>`;
-
+    this._browserPreview.show(url);
     this._updateSaveBtn();
     this._updateMdToggleBtn();
-
-    // 绑定事件
-    this._bindBrowserEvents(url);
-  }
-
-  /** @private 绑定浏览器工具栏事件 */
-  _bindBrowserEvents(currentUrl) {
-    const container = this._container;
-    const iframe = container.querySelector('.browser-iframe');
-    const placeholder = container.querySelector('.browser-placeholder');
-    const urlInput = container.querySelector('.browser-url-input');
-    const goBtn = container.querySelector('.browser-go-btn');
-    const refreshBtn = container.querySelector('.browser-refresh-btn');
-    const backBtn = container.querySelector('[data-action="back"]');
-    const fwdBtn = container.querySelector('[data-action="forward"]');
-    const openBtn = container.querySelector('.browser-open-btn');
-
-    if (!urlInput) return;
-
-    // 地址栏回车 / 前往按钮
-    const navigate = () => {
-      let rawUrl = urlInput.value.trim();
-      if (!rawUrl) return;
-      // 自动补全协议
-      if (!/^https?:\/\//i.test(rawUrl)) {
-        rawUrl = 'https://' + rawUrl;
-        urlInput.value = rawUrl;
-      }
-      if (iframe) {
-        iframe.style.display = '';
-        iframe.src = rawUrl;
-      }
-      if (placeholder) placeholder.style.display = 'none';
-      // 更新当前 URL
-      this._currentPath = 'url:' + rawUrl;
-      this._container.dataset.currentPath = this._currentPath;
-      // 通知外部 URL 变更
-      const ws = window.HippoWorkspace;
-      if (ws && ws.onBrowserUrlChange) {
-        ws.onBrowserUrlChange(rawUrl);
-      }
-    };
-
-    urlInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') navigate();
-    });
-    if (goBtn) goBtn.addEventListener('click', navigate);
-
-    // 刷新
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => {
-        iframe.src = iframe.src;
-      });
-    }
-
-    // 后退 / 前进（尝试调用 iframe 的 history API）
-    if (backBtn) {
-      backBtn.addEventListener('click', () => {
-        try { iframe.contentWindow.history.back(); } catch {}
-      });
-    }
-    if (fwdBtn) {
-      fwdBtn.addEventListener('click', () => {
-        try { iframe.contentWindow.history.forward(); } catch {}
-      });
-    }
-
-    // 在系统浏览器中打开
-    if (openBtn) {
-      openBtn.addEventListener('click', () => {
-        const url = urlInput.value;
-        if (window.HippoDesktop && window.HippoDesktop.openExternal) {
-          window.HippoDesktop.openExternal(url).catch(() => {
-            window.open(url, '_blank');
-          });
-        } else {
-          window.open(url, '_blank');
-        }
-      });
-    }
+    this._updateRefreshBtn();
+    this._updateStatusbar(this._currentPath);
   }
 
   clear() {
@@ -404,6 +329,8 @@ export class FilePreview {
     this._scrollPositions.clear();
     delete this._container.dataset.currentPath;
     this._updateSaveBtn();
+    this._updateRefreshBtn();
+    this._updateStatusbar(null);
   }
 
   /**
@@ -521,12 +448,6 @@ export class FilePreview {
     // 初始化搜索面板
     this._searchPanel = new SearchPanel(this._view);
 
-    // ── MD 预览容器 ──
-    this._mdPreviewEl = document.createElement('div');
-    this._mdPreviewEl.className = 'file-md-preview';
-    this._mdPreviewEl.style.display = 'none';
-    this._container.appendChild(this._mdPreviewEl);
-
     // ── 拦截 Ctrl+F / Ctrl+H ──
     //
     // 使用 capture phase（第三个参数 true）在 CM6 内部 keymap 处理前拦截事件。
@@ -578,7 +499,7 @@ export class FilePreview {
   }
 
   _destroyEditor() {
-    this._stopTocScrollSync();
+    this._mdPreview.destroy();
     this._stopThemeObserver();
     this._container._cmPreviewView = null;
     if (this._view) {
@@ -589,7 +510,6 @@ export class FilePreview {
       this._view.destroy();
       this._view = null;
       this._searchPanel = null;
-      this._mdPreviewEl = null;
     }
     this._container.innerHTML = '';
   }
@@ -666,7 +586,7 @@ export class FilePreview {
         return;
       }
       btn.style.display = '';
-      if (searchBtn) searchBtn.style.display = this._mdPreviewMode ? 'none' : '';
+      if (searchBtn) searchBtn.style.display = this._mdPreview.isPreview ? 'none' : '';
       if (this._dirty) {
         btn.innerHTML = `
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -695,250 +615,6 @@ export class FilePreview {
     return filePath && filePath.toLowerCase().endsWith('.md');
   }
 
-  /** 切换 MD 预览/编辑模式 */
-  async _toggleMdPreview() {
-    if (!this._isMarkdown(this._currentPath) || !this._view) return;
-
-    if (this._mdPreviewMode) {
-      // 切回编辑模式
-      this._mdPreviewEl.style.display = 'none';
-      this._view.dom.style.display = '';
-      this._view.focus();
-      this._mdPreviewMode = false;
-      this._stopTocScrollSync();
-      this._tocEl = null;
-    } else {
-      // 切到预览模式
-      const content = this._view.state.doc.toString();
-      this._contentForPreview = content;
-      this._mdPreviewEl.innerHTML = '<div class="file-md-preview-loading">渲染中...</div>';
-      this._mdPreviewEl.style.display = '';
-      this._view.dom.style.display = 'none';
-      // 关闭搜索面板（预览模式下不可用）
-      if (this._searchPanel) this._searchPanel.close();
-
-      try {
-        const html = await renderMarkdown(content);
-
-        // 重置容器，构建 TOC + 内容双栏布局
-        this._mdPreviewEl.innerHTML = '';
-
-        // TOC 侧边栏
-        this._tocEl = document.createElement('div');
-        this._tocEl.className = 'file-md-toc';
-
-        // 内容区
-        const contentWrapper = document.createElement('div');
-        contentWrapper.className = 'file-md-content';
-        contentWrapper.innerHTML = html;
-
-        this._mdPreviewEl.appendChild(this._tocEl);
-        this._mdPreviewEl.appendChild(contentWrapper);
-
-        // 注入 heading ID，构建并渲染 TOC
-        this._buildAndRenderToc(contentWrapper);
-        this._startTocScrollSync(contentWrapper);
-      } catch (err) {
-        this._mdPreviewEl.innerHTML = `<div class="file-preview-placeholder" style="color:var(--error-text);">
-          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <p>渲染失败: ${this._escapeHtml(err.message)}</p>
-        </div>`;
-      }
-      this._mdPreviewMode = true;
-    }
-    this._updateSaveBtn();
-    this._updateMdToggleBtn();
-  }
-
-  /** 从内容区提取 heading、注入 ID、构建 TOC 树并渲染 */
-  _buildAndRenderToc(contentWrapper) {
-    const headings = contentWrapper.querySelectorAll('h1, h2, h3');
-    if (headings.length === 0) {
-      this._tocEl.style.display = 'none';
-      return;
-    }
-    this._tocEl.style.display = '';
-
-    const usedIds = new Set();
-    const tocItems = [];
-
-    headings.forEach((h, index) => {
-      const level = parseInt(h.tagName[1], 10); // 1, 2, 3
-      const text = h.textContent.trim();
-      if (!text) return;
-
-      // 生成唯一 ID
-      let id = text
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\u4e00-\u9fff\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-      if (!id) id = 'heading';
-      let uniqueId = id;
-      let counter = 1;
-      while (usedIds.has(uniqueId)) {
-        uniqueId = `${id}-${counter++}`;
-      }
-      usedIds.add(uniqueId);
-
-      h.id = uniqueId;
-      tocItems.push({ id: uniqueId, text, level });
-    });
-
-    // 渲染 TOC
-    let tocHtml = `<div class="file-md-toc-header">
-      <span class="file-md-toc-title">目录</span>
-      <button class="file-md-toc-toggle" title="收起目录">
-        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="10 3 5 8 10 13"/>
-        </svg>
-      </button>
-    </div>`;
-    let itemsHtml = '';
-    for (const item of tocItems) {
-      itemsHtml += `<a class="file-md-toc-item level-${item.level}" data-target="${item.id}" href="#${item.id}">${this._escapeHtml(item.text)}</a>`;
-    }
-    // 浮层面板（折叠 hover 时弹出）
-    const floatingHtml = `<div class="file-md-toc-floating">
-      <div class="file-md-toc-header">
-        <span class="file-md-toc-title">目录</span>
-      </div>
-      ${itemsHtml}
-    </div>`;
-    this._tocEl.innerHTML = tocHtml + itemsHtml + floatingHtml;
-    this._tocEl.classList.toggle('collapsed', this._tocCollapsed);
-
-    // 点击跳转（同时服务主面板和浮层面板中的 .file-md-toc-item）
-    this._tocEl.addEventListener('click', (e) => {
-      const link = e.target.closest('.file-md-toc-item');
-      if (!link) return;
-      e.preventDefault();
-      const targetId = link.dataset.target;
-      const target = document.getElementById(targetId);
-      if (target) {
-        // 同时高亮主面板和浮层面板中对应的项
-        this._tocEl.querySelectorAll('.file-md-toc-item').forEach(l => l.classList.remove('active'));
-        this._tocEl.querySelectorAll(`.file-md-toc-item[data-target="${targetId}"]`)
-          .forEach(l => l.classList.add('active'));
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    });
-
-    // 折叠/展开切换
-    this._tocEl.querySelector('.file-md-toc-toggle').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this._toggleToc();
-    });
-  }
-
-  /** 启动滚动同步：监听内容区 scroll，通过 offsetTop 算出当前章节 */
-  _startTocScrollSync(contentWrapper) {
-    this._stopTocScrollSync();
-
-    const headings = contentWrapper.querySelectorAll('h1, h2, h3');
-    if (headings.length === 0) return;
-
-    const tocLinks = this._tocEl ? this._tocEl.querySelectorAll('.file-md-toc-item') : null;
-    if (!tocLinks || tocLinks.length === 0) return;
-
-    let currentActiveId = null;
-    let lastChangeTime = 0;
-    const MIN_CHANGE_INTERVAL = 20; // 两次切换之间最小间隔 (ms)，避免快速滚动时闪烁
-
-    /** 根据所有 heading 的 offsetTop 计算当前应高亮的 heading */
-    const updateActive = () => {
-      const scrollTop = contentWrapper.scrollTop;
-      const headroom = 30; // 顶部预留偏移（px），让 heading 刚离开顶部时仍算"当前"
-      let activeHeading = null;
-
-      // 找最后一个 offsetTop ≤ scrollTop + headroom 的 heading
-      for (const h of headings) {
-        if (h.offsetTop <= scrollTop + headroom) {
-          activeHeading = h;
-        } else {
-          break; // headings 按 DOM 顺序排列
-        }
-      }
-
-      // 如果什么都没有（内容未滚动），选中第一个
-      if (!activeHeading && headings.length > 0) {
-        activeHeading = headings[0];
-      }
-
-      const newId = activeHeading ? activeHeading.id : null;
-      if (newId === currentActiveId) return; // 相同就不更新
-      if (newId === null) return; // 无效结果不更新
-
-      // 防抖：快速滚动时避免频繁切换
-      const now = Date.now();
-      if (currentActiveId !== null && now - lastChangeTime < MIN_CHANGE_INTERVAL) return;
-
-      currentActiveId = newId;
-      lastChangeTime = now;
-
-      // 更新 active 样式（同时高亮主面板和浮层面板中对应的项）
-      tocLinks.forEach(link => link.classList.remove('active'));
-      this._tocEl.querySelectorAll(`.file-md-toc-item[data-target="${newId}"]`)
-        .forEach(link => link.classList.add('active'));
-    };
-
-    // scroll 事件监听（requestAnimationFrame 节流）
-    let rafId = null;
-    const onScroll = () => {
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        updateActive();
-      });
-    };
-    contentWrapper.addEventListener('scroll', onScroll, { passive: true });
-    this._tocScrollCleanup = () => {
-      contentWrapper.removeEventListener('scroll', onScroll);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-
-    // 初始执行一次
-    updateActive();
-  }
-
-  /** 停止 TOC 滚动同步 */
-  _stopTocScrollSync() {
-    if (this._tocScrollCleanup) {
-      this._tocScrollCleanup();
-      this._tocScrollCleanup = null;
-    }
-    if (this._tocObserver) {
-      this._tocObserver.disconnect();
-      this._tocObserver = null;
-    }
-  }
-
-  /** 折叠/展开 TOC 侧边栏 */
-  _toggleToc() {
-    if (!this._tocEl) return;
-    this._tocCollapsed = !this._tocCollapsed;
-    this._tocEl.classList.toggle('collapsed', this._tocCollapsed);
-
-    // 更新 toggle 按钮图标
-    const btn = this._tocEl.querySelector('.file-md-toc-toggle');
-    if (btn) {
-      btn.title = this._tocCollapsed ? '展开目录' : '收起目录';
-      btn.innerHTML = this._tocCollapsed
-        ? `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 3 11 8 6 13"/>
-          </svg>`
-        : `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="10 3 5 8 10 13"/>
-          </svg>`;
-    }
-  }
-
   /** 更新 MD 预览切换按钮状态 */
   _updateMdToggleBtn() {
     const btn = document.getElementById('previewMdToggleBtn');
@@ -946,9 +622,9 @@ export class FilePreview {
 
     if (this._isMarkdown(this._currentPath) && this._view) {
       btn.style.display = '';
-      btn.classList.toggle('active', this._mdPreviewMode);
-      btn.title = this._mdPreviewMode ? '编辑模式' : '预览模式';
-      btn.innerHTML = this._mdPreviewMode
+      btn.classList.toggle('active', this._mdPreview.isPreview);
+      btn.title = this._mdPreview.isPreview ? '编辑模式' : '预览模式';
+      btn.innerHTML = this._mdPreview.isPreview
         ? `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 1.5H5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-11a1 1 0 0 0-1-1z"/>
             <line x1="5" y1="4" x2="11" y2="4"/>
@@ -982,5 +658,85 @@ export class FilePreview {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  /** 更新底部状态栏信息 */
+  _updateStatusbar(filePath) {
+    const statusbar = document.getElementById('filePreviewStatusbar');
+    const rightEl = document.getElementById('statusbarRight');
+    if (!statusbar || !rightEl) return;
+
+    if (!filePath) {
+      statusbar.style.display = 'none';
+      return;
+    }
+
+    statusbar.style.display = '';
+
+    const parts = [];
+
+    if (isImageFile(filePath) || isPdfFile(filePath)) {
+      const ext = filePath.split('.').pop().toUpperCase();
+      parts.push(ext);
+    } else if (isSpreadsheetFile(filePath)) {
+      // 详细信息由 BinaryPreview 解析完成后覆盖更新
+      parts.push(filePath.split('.').pop().toUpperCase());
+    } else if (isDocxFile(filePath)) {
+      // 详细信息由 BinaryPreview 解析完成后覆盖更新
+      parts.push('DOCX');
+    } else if (isPptxFile(filePath)) {
+      // 详细信息由 BinaryPreview 解析完成后覆盖更新
+      parts.push('PPTX');
+    } else if (filePath.startsWith('url:')) {
+      parts.push('Browser');
+    } else {
+      // 代码/文本文件
+      const lang = this._getLanguageLabel(filePath);
+      if (lang) parts.push(lang);
+      parts.push('UTF-8');
+      // 行数
+      if (this._view) {
+        const lineCount = this._view.state.doc.lines;
+        parts.push(`${lineCount} 行`);
+      }
+    }
+
+    rightEl.textContent = parts.join(' · ');
+  }
+
+  /** 获取文件扩展名对应的语言标签 */
+  _getLanguageLabel(filePath) {
+    const ext = filePath.split('.').pop().toLowerCase();
+    const map = {
+      js: 'JavaScript', jsx: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript',
+      mjs: 'JavaScript', cjs: 'JavaScript',
+      py: 'Python',
+      java: 'Java',
+      html: 'HTML', htm: 'HTML', vue: 'Vue', svelte: 'Svelte',
+      css: 'CSS', scss: 'SCSS', less: 'Less',
+      json: 'JSON',
+      md: 'Markdown', markdown: 'Markdown',
+      xml: 'XML', svg: 'SVG',
+      yaml: 'YAML', yml: 'YAML',
+      sql: 'SQL',
+      rs: 'Rust',
+      php: 'PHP',
+      go: 'Go',
+      c: 'C', h: 'C',
+      cpp: 'C++', hpp: 'C++', cc: 'C++', cxx: 'C++',
+      cs: 'C#',
+      rb: 'Ruby',
+      swift: 'Swift',
+      kt: 'Kotlin', kts: 'Kotlin',
+      sh: 'Shell', bash: 'Shell', zsh: 'Shell',
+      bat: 'Batch', cmd: 'Batch',
+      ps1: 'PowerShell',
+      dockerfile: 'Dockerfile',
+      gradle: 'Gradle',
+      toml: 'TOML',
+      ini: 'INI', cfg: 'INI',
+      conf: 'Config',
+    };
+    return map[ext] || ext.toUpperCase();
   }
 }
