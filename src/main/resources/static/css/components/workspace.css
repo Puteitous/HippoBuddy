@@ -133,8 +133,15 @@
     text-overflow: ellipsis;
 }
 
+/* 紧凑目录节点名称（单链合并 "a › b › c"） */
+.file-tree-name-compact {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    opacity: 0.92;
+}
+
 .file-tree-children {
-    padding-left: 16px;
+    padding-left: 12px;
     overflow: hidden;
 }
 

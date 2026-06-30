@@ -37,6 +37,8 @@ export class FileTree {
     this._gitStatus = null;
     this._refreshDebounceTimer = null;
     this._loadingDirs = new Set();
+    this._readDirCache = null;
+    this._compactMaxDepth = 5;
 
     // 右键菜单
     this._contextMenuEl = this._createContextMenu();
@@ -76,6 +78,7 @@ export class FileTree {
 
   /** 设置根路径并加载 */
   async loadRoot(rootPath) {
+    this._readDirCache = null;
     this._rootPath = rootPath.replace(/\\/g, '/').replace(/\/$/, '');
     this._expandedDirs.clear();
     this._activeFilePath = null;
@@ -146,6 +149,7 @@ export class FileTree {
   }
 
   async _doRefresh() {
+    this._readDirCache = null;
     const preservedDirs = new Set(this._expandedDirs);
     const preservedActive = this._activeFilePath;
     try {
@@ -425,7 +429,7 @@ export class FileTree {
         const confirmed = await this._showConfirmDialog({
           title: '删除' + type,
           message: `确定要删除 <strong>${name}</strong> 吗？`,
-          note: this._ctxIsDir ? '只能删除空文件夹' : undefined
+          note: '文件将被移入系统回收站'
         });
         if (!confirmed) return;
         try {
@@ -643,6 +647,56 @@ export class FileTree {
     return value.replace(/[!"#$%&'()*+,.\/:;<=>?@[\]^`{|}~ \\]/g, '\\$&');
   }
 
+  /**
+   * 缓存读取目录，避免 _resolveCompactChain 中重复 readDir
+   */
+  async _readDirCached(dirPath) {
+    if (!this._readDirCache) {
+      this._readDirCache = new Map();
+    }
+    if (this._readDirCache.has(dirPath)) {
+      return this._readDirCache.get(dirPath);
+    }
+    try {
+      const result = await window.HippoDesktop.readDir(dirPath);
+      const entries = result && result.entries ? result.entries : [];
+      this._readDirCache.set(dirPath, entries);
+      return entries;
+    } catch (err) {
+      this._readDirCache.set(dirPath, null);
+      return null;
+    }
+  }
+
+  /**
+   * 检测从 startPath 开始是否存在"单链"嵌套目录。
+   * 单链：每层只有 1 个子目录且没有文件，一直延伸到分叉处。
+   * 返回 { chain: string[], leafDir: string } 或 null。
+   * chain 不包含 startPath 本身的 name，只包含后续链上目录名。
+   */
+  async _resolveCompactChain(startPath) {
+    const names = [];
+    let currentPath = startPath;
+
+    for (let i = 0; i < this._compactMaxDepth; i++) {
+      const entries = await this._readDirCached(currentPath);
+      if (!entries) return null;
+
+      const dirs = entries.filter(e => e.isDirectory && !e.name.startsWith('.'));
+      const files = entries.filter(e => !e.isDirectory && !e.name.startsWith('.'));
+
+      // 有文件或多于 1 个子目录 → 不是单链，停止
+      if (files.length > 0) break;
+      if (dirs.length !== 1) break;
+
+      names.push(dirs[0].name);
+      currentPath = currentPath.replace(/\\/g, '/').replace(/\/$/, '') + '/' + dirs[0].name;
+    }
+
+    if (names.length === 0) return null;
+    return { chain: names, leafDir: currentPath };
+  }
+
   // ==================== Git 状态 ====================
 
   async _fetchAndApplyGitStatus() {
@@ -696,6 +750,10 @@ export class FileTree {
   // ==================== 渲染 ====================
 
   async _renderTree(dirPath, parentEl) {
+    // 初始化目录缓存，供 _resolveCompactChain 使用
+    if (!this._readDirCache) {
+      this._readDirCache = new Map();
+    }
     let entries;
     try {
       entries = await window.HippoDesktop.readDir(dirPath);
@@ -717,11 +775,136 @@ export class FileTree {
       nodeEl.className = 'file-tree-node';
       nodeEl.dataset.path = fullPath;
       if (entry.isDirectory) {
-        this._renderDirNode(entry, fullPath, nodeEl, parentEl);
+        // 尝试 compact 渲染（单链嵌套合并为一行）
+        const compact = await this._resolveCompactChain(fullPath);
+        if (compact) {
+          nodeEl.dataset.path = compact.leafDir;
+          this._renderCompactDirNode(entry, compact.chain, compact.leafDir, nodeEl, parentEl);
+        } else {
+          this._renderDirNode(entry, fullPath, nodeEl, parentEl);
+        }
       } else {
         this._renderFileNode(entry, fullPath, nodeEl, parentEl);
       }
     }
+  }
+
+  /**
+   * 渲染紧凑目录节点：将单链嵌套目录合并为 "a > b > c > d" 一行。
+   * @param {Object} entry - 原始目录条目（含 name）
+   * @param {string[]} chain - 后续链上的目录名列表
+   * @param {string} leafDir - 链最深层目录的完整路径
+   * @param {HTMLElement} nodeEl - 当前节点元素（data-path 已设为 leafDir）
+   * @param {HTMLElement} parentEl - 父容器
+   */
+  _renderCompactDirNode(entry, chain, leafDir, nodeEl, parentEl) {
+    nodeEl.dataset.isDir = 'true';
+    const isExpanded = this._expandedDirs.has(leafDir);
+
+    const toggleEl = document.createElement('span');
+    toggleEl.className = 'file-tree-toggle' + (isExpanded ? ' expanded' : '');
+    toggleEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 4 10 8 6 12"/></svg>';
+    nodeEl.appendChild(toggleEl);
+
+    const iconEl = document.createElement('span');
+    iconEl.className = 'file-tree-icon folder';
+    iconEl.innerHTML = isExpanded
+      ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity="0.1"/></svg>'
+      : '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
+    nodeEl.appendChild(iconEl);
+
+    // 显示 "entryName > child1 > child2 > child3"
+    const nameEl = document.createElement('span');
+    nameEl.className = 'file-tree-name file-tree-name-compact';
+    nameEl.textContent = entry.name + ' › ' + chain.join(' › ');
+    nodeEl.appendChild(nameEl);
+
+    const childrenEl = document.createElement('div');
+    childrenEl.className = 'file-tree-children';
+    childrenEl.style.display = isExpanded ? '' : 'none';
+
+    const toggleDir = async () => {
+      const expanded = this._expandedDirs.has(leafDir);
+      if (expanded) {
+        this._expandedDirs.delete(leafDir);
+        toggleEl.classList.remove('expanded');
+        iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
+        childrenEl.style.display = 'none';
+        childrenEl.innerHTML = '';
+        this._loadingDirs.delete(leafDir);
+      } else {
+        if (this._loadingDirs.has(leafDir)) return;
+        this._loadingDirs.add(leafDir);
+        this._expandedDirs.add(leafDir);
+        toggleEl.classList.add('expanded');
+        iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity="0.1"/></svg>';
+        childrenEl.style.display = '';
+        try {
+          await this._renderTree(leafDir, childrenEl);
+          this._applyGitStatusClasses();
+        } finally {
+          this._loadingDirs.delete(leafDir);
+        }
+      }
+    };
+
+    nodeEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.setActiveFile(leafDir);
+      toggleDir();
+    });
+
+    nodeEl.addEventListener('contextmenu', (e) => {
+      this._showContextMenu(e, leafDir, true);
+    });
+
+    nodeEl.draggable = true;
+    nodeEl.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', leafDir);
+      e.dataTransfer.setData('text/x-hippo-type', 'directory');
+      e.dataTransfer.effectAllowed = 'copyMove';
+    });
+
+    nodeEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      nodeEl.classList.add('drag-over');
+    });
+
+    nodeEl.addEventListener('dragleave', (e) => {
+      e.stopPropagation();
+      nodeEl.classList.remove('drag-over');
+    });
+
+    nodeEl.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      nodeEl.classList.remove('drag-over');
+
+      const sourcePath = e.dataTransfer.getData('text/plain');
+      if (!sourcePath) return;
+      if (sourcePath === leafDir || sourcePath.startsWith(leafDir + '/')) return;
+
+      const fileName = sourcePath.split('/').pop();
+      const destPath = leafDir + '/' + fileName;
+
+      try {
+        await window.HippoDesktop.rename(sourcePath, destPath);
+        this._doRefresh();
+        this._onRefresh();
+        showToast('已移动: ' + fileName, { type: 'success' });
+      } catch (err) {
+        showToast('移动失败: ' + err.message, { type: 'error' });
+      }
+    });
+
+    nodeEl.addEventListener('dragend', () => {
+      nodeEl.classList.remove('drag-over');
+    });
+
+    parentEl.appendChild(nodeEl);
+    parentEl.appendChild(childrenEl);
   }
 
   _renderDirNode(entry, fullPath, nodeEl, parentEl) {

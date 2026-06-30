@@ -33,7 +33,7 @@
 /* ========== 会话面板工具栏（session-header 上方） ========== */
 .session-toolbar {
     height: 36px;
-    margin: 6px 8px 0;
+    margin: 0 8px 0;
     padding: 0 4px;
     display: flex;
     align-items: center;

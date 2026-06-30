@@ -12,6 +12,10 @@ import org.cef.handler.CefMessageRouterHandlerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.sun.jna.platform.win32.Shell32;
+import com.sun.jna.platform.win32.ShellAPI;
+
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -227,26 +231,54 @@ public class FileHandler extends CefMessageRouterHandlerAdapter {
             callback.failure(400, "path is required");
             return;
         }
-        Path target = Paths.get(path);
-        if (!Files.exists(target)) {
+        File target = new File(path);
+        if (!target.exists()) {
             callback.failure(404, "Not found: " + path);
             return;
         }
-        if (Files.isDirectory(target)) {
-            // 只删除空目录，避免误删大量文件
-            try (var stream = Files.list(target)) {
-                if (stream.findAny().isPresent()) {
-                    callback.failure(400, "Directory is not empty: " + path);
-                    return;
-                }
-            }
-            Files.delete(target);
+        logger.info("删除请求: path={}, isDirectory={}, absolutePath={}", path, target.isDirectory(), target.getAbsolutePath());
+
+        boolean deleted = false;
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            deleted = moveToTrashWithDialog(target);
         } else {
-            Files.delete(target);
+            logger.info("非 Windows 系统，不支持的删除操作: {}", path);
         }
+
+        if (!deleted) {
+            callback.failure(403, "删除失败：无法将文件移入回收站，请手动删除。");
+            return;
+        }
+
         ObjectNode result = MAPPER.createObjectNode();
         result.put("path", path);
         callback.success(MAPPER.writeValueAsString(result));
+    }
+
+    /** Windows: 弹出原生删除确认对话框，用户确认后送回收站 */
+    private boolean moveToTrashWithDialog(File target) {
+        try {
+            ShellAPI.SHFILEOPSTRUCT fileop = new ShellAPI.SHFILEOPSTRUCT();
+            fileop.hwnd = null;
+            fileop.wFunc = ShellAPI.FO_DELETE;
+            // 双 null 终止的多字符串格式
+            fileop.pFrom = target.getAbsolutePath() + "\0\0";
+            // 只保留 FOF_ALLOWUNDO（进回收站），去掉所有静默标志，
+            // Windows 会弹出标准删除确认对话框，用户点"是"才删除
+            fileop.fFlags = ShellAPI.FOF_ALLOWUNDO;
+            int result = Shell32.INSTANCE.SHFileOperation(fileop);
+            boolean aborted = fileop.fAnyOperationsAborted;
+            boolean success = result == 0 && !aborted;
+            if (!success) {
+                logger.info("用户取消删除或操作失败: path={}, result={}, aborted={}", target.getAbsolutePath(), result, aborted);
+            } else {
+                logger.info("删除成功（已进回收站）: path={}", target.getAbsolutePath());
+            }
+            return success;
+        } catch (Exception e) {
+            logger.warn("Shell32 调用异常: {}", target.getAbsolutePath(), e);
+            return false;
+        }
     }
 
     private void handleShowItemInFolder(JsonNode json, CefQueryCallback callback) {
