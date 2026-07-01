@@ -94,6 +94,13 @@
   cursor: default;
 }
 
+[data-theme="dark"] .img-zoom-viewport {
+  background-color: var(--bg-app);
+  background-image:
+    radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
 .img-zoom-viewport img.img-zoomable {
   max-width: none;
   max-height: none;
@@ -369,6 +376,10 @@
   padding: 16px;
   background: #ffffff;
   overflow: auto;
+}
+
+[data-theme="dark"] .pptx-slide-container {
+  background: var(--bg-app);
 }
 
 .pptx-canvas {

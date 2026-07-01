@@ -11,10 +11,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -51,7 +50,7 @@ public class LintDiagnosticsTool implements ToolExecutor {
 
     @Override
     public String getDescription() {
-        return "对指定文件或目录进行语法诊断检查。支持 Java、JavaScript、TypeScript、Python、" +
+        return "对一个或多个文件/目录进行语法诊断检查。支持 Java、JavaScript、TypeScript、Python、" +
             "Go、Rust、HTML、CSS、JSON。检测缺少括号、分号、花括号不匹配等语法错误。\n";
     }
 
@@ -61,27 +60,29 @@ public class LintDiagnosticsTool implements ToolExecutor {
             {
                 "type": "object",
                 "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "要检查的文件或目录路径"
+                    "paths": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "要检查的文件或目录路径列表（传目录会递归扫描其下所有匹配文件）"
                     },
                     "language": {
                         "type": "string",
-                        "description": "语言类型，不传则从文件后缀推断",
+                        "description": "可选，指定只检查该语言。不传则自动检测所有支持的语言",
                         "enum": ["java","javascript","typescript","python","go","rust","html","css","json"]
                     }
                 },
-                "required": ["path"]
+                "required": ["paths"]
             }
             """;
     }
 
     @Override
     public List<String> getAffectedPaths(JsonNode arguments) {
-        if (arguments.has("path")) {
-            return Collections.singletonList(arguments.get("path").asText());
+        List<String> paths = new ArrayList<>();
+        if (arguments.has("paths") && arguments.get("paths").isArray()) {
+            arguments.get("paths").forEach(p -> paths.add(p.asText()));
         }
-        return Collections.emptyList();
+        return paths;
     }
 
     @Override
@@ -91,53 +92,47 @@ public class LintDiagnosticsTool implements ToolExecutor {
 
     @Override
     public String execute(JsonNode arguments) throws ToolExecutionException {
-        String pathStr = getRequiredParam(arguments, "path");
-        Path targetPath = Path.of(pathStr);
-        if (!Files.exists(targetPath)) {
-            throw new ToolExecutionException("路径不存在: " + pathStr);
+        // 读取 paths 数组
+        List<String> pathStrs = getPathsParam(arguments);
+        if (pathStrs.isEmpty()) {
+            throw new ToolExecutionException("缺少必需参数: paths（至少一个文件或目录路径）");
         }
 
-        String language = arguments.has("language") && !arguments.get("language").isNull()
-            ? arguments.get("language").asText().trim().toLowerCase() : null;
-        if (language == null || language.isEmpty()) {
-            language = detectLanguage(targetPath);
-            if (language == null) {
-                throw new ToolExecutionException("无法从路径推断语言，请通过 language 参数指定。支持: "
-                    + String.join(", ", LANGUAGE_EXTENSIONS.keySet()));
+        // 检查路径存在性
+        List<Path> targetPaths = new ArrayList<>();
+        for (String ps : pathStrs) {
+            Path p = Path.of(ps);
+            if (!Files.exists(p)) {
+                throw new ToolExecutionException("路径不存在: " + ps);
             }
+            targetPaths.add(p);
         }
+
+        // 可选的语言过滤
+        String languageFilter = arguments.has("language") && !arguments.get("language").isNull()
+            ? arguments.get("language").asText().trim().toLowerCase() : null;
 
         try {
-            List<Diagnostic> diagnostics = runDiagnostics(targetPath, language);
-            return formatResult(targetPath, language, diagnostics);
+            List<Diagnostic> diagnostics = runDiagnostics(targetPaths, languageFilter);
+            return formatResult(pathStrs, diagnostics);
         } catch (IOException e) {
             throw new ToolExecutionException("诊断失败: " + e.getMessage(), e);
         }
     }
 
-    private String getRequiredParam(JsonNode args, String name) throws ToolExecutionException {
-        if (!args.has(name) || args.get(name).isNull()) {
-            throw new ToolExecutionException("缺少必需参数: " + name);
+    /** 从参数中读取 paths 数组 */
+    private List<String> getPathsParam(JsonNode args) {
+        List<String> paths = new ArrayList<>();
+        if (args.has("paths") && args.get("paths").isArray()) {
+            for (JsonNode p : args.get("paths")) {
+                String s = p.asText().trim();
+                if (!s.isEmpty()) paths.add(s);
+            }
         }
-        String val = args.get(name).asText().trim();
-        if (val.isEmpty()) throw new ToolExecutionException("参数 " + name + " 不能为空");
-        return val;
+        return paths;
     }
 
     // ==================== 语言推断 ====================
-
-    private String detectLanguage(Path target) {
-        if (Files.isDirectory(target)) {
-            try (Stream<Path> files = Files.list(target)) {
-                return files.map(this::detectLanguageByExtension)
-                    .filter(Objects::nonNull)
-                    .findFirst().orElse(null);
-            } catch (IOException e) {
-                return null;
-            }
-        }
-        return detectLanguageByExtension(target);
-    }
 
     private String detectLanguageByExtension(Path file) {
         String name = file.getFileName().toString().toLowerCase();
@@ -149,58 +144,78 @@ public class LintDiagnosticsTool implements ToolExecutor {
         return null;
     }
 
-    private List<Path> collectFiles(Path target, String language) throws IOException {
-        List<String> exts = LANGUAGE_EXTENSIONS.get(language);
-        if (exts == null) return List.of();
-        if (Files.isRegularFile(target)) {
-            return List.of(target);
+    /**
+     * 按语言分组收集文件。如有 languageFilter 则只收集该语言的文件。
+     * 返回 Map<语言, List<文件路径>>。
+     */
+    private Map<String, List<Path>> collectFilesByLanguage(List<Path> targets, String languageFilter) throws IOException {
+        Map<String, List<Path>> result = new HashMap<>();
+        for (Path target : targets) {
+            if (Files.isRegularFile(target)) {
+                addFileToGroup(result, target, languageFilter);
+            } else if (Files.isDirectory(target)) {
+                try (Stream<Path> walk = Files.walk(target, 20)) {
+                    walk.filter(Files::isRegularFile)
+                        .forEach(f -> addFileToGroup(result, f, languageFilter));
+                }
+            }
         }
-        try (Stream<Path> walk = Files.walk(target, 20)) {
-            return walk.filter(Files::isRegularFile)
-                .filter(f -> {
-                    String name = f.getFileName().toString().toLowerCase();
-                    return exts.stream().anyMatch(name::endsWith);
-                })
-                .collect(Collectors.toList());
-        }
+        return result;
+    }
+
+    private void addFileToGroup(Map<String, List<Path>> groups, Path file, String languageFilter) {
+        String lang = detectLanguageByExtension(file);
+        if (lang == null) return;
+        if (languageFilter != null && !languageFilter.equals(lang)) return;
+        groups.computeIfAbsent(lang, k -> new ArrayList<>()).add(file);
     }
 
     // ==================== 核心诊断 ====================
 
-    private List<Diagnostic> runDiagnostics(Path target, String language) throws IOException {
+    private List<Diagnostic> runDiagnostics(List<Path> targets, String languageFilter) throws IOException {
         // 检查 Tree-sitter WASM 是否可用
         if (!TreeSitterWasmParser.isAvailable()) {
-            return List.of(new Diagnostic(target.toString(), 0, 0, "info",
+            String firstPath = targets.stream()
+                .map(Path::toString)
+                .findFirst().orElse("(unknown)");
+            return List.of(new Diagnostic(firstPath, 0, 0, "info",
                 "Tree-sitter WASM 解析器未加载，跳过诊断。"
                 + "请确认 resources/tree-sitter/ 目录中存在 tree-sitter-parser.wasm 文件。"));
         }
 
-        List<Path> files = collectFiles(target, language);
-        if (files.isEmpty()) return List.of();
+        // 按语言分组收集文件
+        Map<String, List<Path>> byLanguage = collectFilesByLanguage(targets, languageFilter);
+        if (byLanguage.isEmpty()) return List.of();
 
         List<Diagnostic> allDiagnostics = new ArrayList<>();
-        TreeSitterWasmParser parser = new TreeSitterWasmParser(language);
 
-        for (Path file : files) {
-            try {
-                String content = Files.readString(file);
-                ParseResult result = parser.parse(content);
-                if (!result.isValid()) {
-                    for (SyntaxError err : result.getErrors()) {
-                        allDiagnostics.add(new Diagnostic(
-                            file.toAbsolutePath().toString(),
-                            err.getLine(),
-                            err.getColumn(),
-                            "error",
-                            err.getMessage()
-                        ));
+        // 每种语言各创建一个 parser，分别解析
+        for (var entry : byLanguage.entrySet()) {
+            String lang = entry.getKey();
+            List<Path> files = entry.getValue();
+            TreeSitterWasmParser parser = new TreeSitterWasmParser(lang);
+
+            for (Path file : files) {
+                try {
+                    String content = Files.readString(file);
+                    ParseResult result = parser.parse(content);
+                    if (!result.isValid()) {
+                        for (SyntaxError err : result.getErrors()) {
+                            allDiagnostics.add(new Diagnostic(
+                                file.toAbsolutePath().toString(),
+                                err.getLine(),
+                                err.getColumn(),
+                                "error",
+                                err.getMessage()
+                            ));
+                        }
                     }
+                } catch (Exception e) {
+                    log.debug("Failed to parse {}: {}", file, e.getMessage());
+                    allDiagnostics.add(new Diagnostic(
+                        file.toAbsolutePath().toString(), 0, 0, "warning",
+                        "解析失败: " + e.getMessage()));
                 }
-            } catch (Exception e) {
-                log.debug("Failed to parse {}: {}", file, e.getMessage());
-                allDiagnostics.add(new Diagnostic(
-                    file.toAbsolutePath().toString(), 0, 0, "warning",
-                    "解析失败: " + e.getMessage()));
             }
         }
 
@@ -209,16 +224,22 @@ public class LintDiagnosticsTool implements ToolExecutor {
 
     // ==================== 输出格式化 ====================
 
-    private String formatResult(Path target, String language, List<Diagnostic> diagnostics) {
+    private String formatResult(List<String> inputPaths, List<Diagnostic> diagnostics) {
         StringBuilder sb = new StringBuilder();
-        boolean isDir = Files.isDirectory(target);
-        String targetName = isDir ? target.toString() : target.getFileName().toString();
+
+        // 生成简洁的路径描述：目录用末尾名+/，文件用文件名
+        String pathDesc = inputPaths.stream()
+            .map(p -> {
+                Path path = Path.of(p);
+                if (Files.isDirectory(path)) {
+                    return path.getFileName().toString() + "/";
+                }
+                return path.getFileName().toString();
+            })
+            .collect(Collectors.joining(", "));
 
         if (diagnostics.isEmpty()) {
-            sb.append("✅ ").append(targetName).append(" — 通过语法检查，未发现错误");
-            if (isDir) {
-                sb.append("（语言: ").append(language).append("）");
-            }
+            sb.append("✅ ").append(pathDesc).append(" — 通过语法检查，未发现错误");
             return sb.toString();
         }
 
@@ -226,7 +247,7 @@ public class LintDiagnosticsTool implements ToolExecutor {
         long errors = diagnostics.stream().filter(d -> "error".equals(d.severity)).count();
         long warnings = diagnostics.stream().filter(d -> "warning".equals(d.severity)).count();
 
-        sb.append("🔍 语法诊断结果 — ").append(targetName);
+        sb.append("🔍 语法诊断结果 — ").append(pathDesc);
         if (errors > 0) sb.append("  ").append(errors).append(" 个错误");
         if (warnings > 0) sb.append("  ").append(warnings).append(" 个警告");
         sb.append("\n\n");

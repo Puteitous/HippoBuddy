@@ -3,7 +3,10 @@ llm:
   api_key: ${DASHSCOPE_API_KEY:-your-api-key-here}
   model: qwen3.5-plus
   base_url: https://dashscope.aliyuncs.com
-  max_tokens: 0                     # 0 表示使用模型默认值
+  max_tokens: 0                     # 单次 LLM 调用输出上限（0=不限制，使用模型默认值）
+                                    # 限制范围：reasoning_content（思维链）+ content（回答）
+                                    # 不涉及：工具定义（tools 参数）、工具执行结果（属于后续请求的输入）
+                                    # 注意：tool_calls 指令本身会占用输出 token 额度，但占比很小
   temperature: 0.7
   timeout: 60000
   # 思考模式（适用于 DeepSeek R1 等推理模型）

@@ -88,7 +88,7 @@ export class ModelSettingsPage {
         </div>
         <div class="settings-field">
           <label class="settings-field-label" for="settingsMaxTokens">
-            Max Tokens <span class="settings-field-hint">(单次输出上限, 0=不限制)</span>
+            Max Tokens <span class="settings-field-hint">(单次输出上限, 含思维链+回答, 0=不限制)</span>
           </label>
           <input class="settings-input" id="settingsMaxTokens" type="number" min="0" placeholder="0">
         </div>

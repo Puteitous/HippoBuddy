@@ -108,28 +108,28 @@ export class McpSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label">启用 MCP</label>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="mcpEnabled">
-                <button class="settings-toggle-btn ${mcp.enabled !== false ? 'active' : ''}" data-value="true">开</button>
-                <button class="settings-toggle-btn ${mcp.enabled === false ? 'active' : ''}" data-value="false">关</button>
-              </div>
+              <label class="settings-switch">
+                <input type="checkbox" id="mcpEnabled" ${mcp.enabled !== false ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
             </div>
           </div>
           <div class="settings-field-horizontal">
             <label class="settings-field-label">自动连接</label>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="mcpAutoConnect">
-                <button class="settings-toggle-btn ${mcp.auto_connect !== false ? 'active' : ''}" data-value="true">开</button>
-                <button class="settings-toggle-btn ${mcp.auto_connect === false ? 'active' : ''}" data-value="false">关</button>
-              </div>
+              <label class="settings-switch">
+                <input type="checkbox" id="mcpAutoConnect" ${mcp.auto_connect !== false ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
             </div>
           </div>
           <div class="settings-field-horizontal">
             <label class="settings-field-label">自动重连</label>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="mcpAutoReconnect">
-                <button class="settings-toggle-btn ${mcp.auto_reconnect !== false ? 'active' : ''}" data-value="true">开</button>
-                <button class="settings-toggle-btn ${mcp.auto_reconnect === false ? 'active' : ''}" data-value="false">关</button>
-              </div>
+              <label class="settings-switch">
+                <input type="checkbox" id="mcpAutoReconnect" ${mcp.auto_reconnect !== false ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
             </div>
           </div>
           <div class="settings-field">
@@ -168,26 +168,6 @@ export class McpSettingsPage {
       </div>
       <div id="mcpServerList"></div>
     `;
-
-    // 绑定 toggle
-    document.querySelectorAll('#mcpEnabled .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#mcpEnabled .settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-    document.querySelectorAll('#mcpAutoConnect .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#mcpAutoConnect .settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-    document.querySelectorAll('#mcpAutoReconnect .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#mcpAutoReconnect .settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
 
     // 添加服务器按钮
     document.getElementById('mcpServerAdd')?.addEventListener('click', () => this._showServerEditor(null));
@@ -395,10 +375,10 @@ export class McpSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label">自动注册工具</label>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="mcpServerAutoReg">
-                <button class="settings-toggle-btn ${server.auto_register_tools !== false ? 'active' : ''}" data-value="true">开</button>
-                <button class="settings-toggle-btn ${server.auto_register_tools === false ? 'active' : ''}" data-value="false">关</button>
-              </div>
+              <label class="settings-switch">
+                <input type="checkbox" id="mcpServerAutoReg" ${server.auto_register_tools !== false ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
             </div>
           </div>
         </div>
@@ -414,14 +394,6 @@ export class McpSettingsPage {
         const t = btn.dataset.value;
         document.getElementById('mcpServerStdioFields').style.display = t === 'stdio' ? 'block' : 'none';
         document.getElementById('mcpServerSseFields').style.display = t === 'sse' ? 'block' : 'none';
-      });
-    });
-
-    // 绑定自动注册 toggle
-    document.querySelectorAll('#mcpServerAutoReg .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#mcpServerAutoReg .settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
       });
     });
 
@@ -487,7 +459,7 @@ export class McpSettingsPage {
     const commandInput = document.getElementById('mcpServerCommand');
     const argsInput = document.getElementById('mcpServerArgs');
     const urlInput = document.getElementById('mcpServerUrl');
-    const autoRegBtn = document.querySelector('#mcpServerAutoReg .settings-toggle-btn.active');
+    const autoRegChecked = document.getElementById('mcpServerAutoReg')?.checked;
     const statusEl = document.getElementById('mcpServerEditorStatus');
 
     const id = idInput?.value?.trim();
@@ -505,7 +477,7 @@ export class McpSettingsPage {
       id,
       name: nameInput?.value?.trim() || id,
       type,
-      auto_register_tools: autoRegBtn?.dataset.value !== 'false',
+      auto_register_tools: autoRegChecked ?? true,
     };
 
     if (type === 'stdio') {
@@ -571,17 +543,17 @@ export class McpSettingsPage {
       const values = {};
 
       // 基本设置
-      const enabled = document.querySelector('#mcpEnabled .settings-toggle-btn.active')?.dataset.value;
-      const autoConnect = document.querySelector('#mcpAutoConnect .settings-toggle-btn.active')?.dataset.value;
-      const autoReconnect = document.querySelector('#mcpAutoReconnect .settings-toggle-btn.active')?.dataset.value;
+      const enabled = document.getElementById('mcpEnabled')?.checked;
+      const autoConnect = document.getElementById('mcpAutoConnect')?.checked;
+      const autoReconnect = document.getElementById('mcpAutoReconnect')?.checked;
       const maxReconnectAttempts = parseInt(document.getElementById('mcpMaxReconnect')?.value, 10);
       const reconnectDelaySeconds = parseInt(document.getElementById('mcpReconnectDelay')?.value, 10);
       const connectionTimeout = parseInt(document.getElementById('mcpConnTimeout')?.value, 10);
       const requestTimeout = parseInt(document.getElementById('mcpReqTimeout')?.value, 10);
 
-      values.enabled = enabled !== 'false';
-      values.auto_connect = autoConnect !== 'false';
-      values.auto_reconnect = autoReconnect !== 'false';
+      values.enabled = enabled !== false;
+      values.auto_connect = autoConnect !== false;
+      values.auto_reconnect = autoReconnect !== false;
 
       if (!isNaN(maxReconnectAttempts)) values.max_reconnect_attempts = maxReconnectAttempts;
       if (!isNaN(reconnectDelaySeconds)) values.reconnect_delay_seconds = reconnectDelaySeconds;

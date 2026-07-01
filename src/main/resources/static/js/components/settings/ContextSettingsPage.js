@@ -62,7 +62,7 @@ export class ContextSettingsPage {
         <div class="settings-form">
           <div class="settings-field">
             <label class="settings-field-label" for="ctxToolMaxTokens">
-              工具结果截断上限 <span class="settings-field-hint">(单工具结果最大 token 数，最小 1000)</span>
+              工具结果截断上限 <span class="settings-field-hint">(单工具结果最大 token 数，最小 1000，read 工具不设限)</span>
             </label>
             <input class="settings-input" id="ctxToolMaxTokens" type="number" min="1000" step="1000" placeholder="20000">
           </div>

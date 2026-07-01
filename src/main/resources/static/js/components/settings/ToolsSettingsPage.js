@@ -115,19 +115,19 @@ export class ToolsSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label">启用</label>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="toolsBashEnabled">
-                <button class="settings-toggle-btn ${bash.enabled !== false ? 'active' : ''}" data-value="true">开</button>
-                <button class="settings-toggle-btn ${bash.enabled === false ? 'active' : ''}" data-value="false">关</button>
-              </div>
+              <label class="settings-switch">
+                <input type="checkbox" id="toolsBashEnabled" ${bash.enabled !== false ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
             </div>
           </div>
           <div class="settings-field-horizontal">
             <label class="settings-field-label">需确认</label>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="toolsBashConfirm">
-                <button class="settings-toggle-btn ${bash.require_confirmation !== false ? 'active' : ''}" data-value="true">开</button>
-                <button class="settings-toggle-btn ${bash.require_confirmation === false ? 'active' : ''}" data-value="false">关</button>
-              </div>
+              <label class="settings-switch">
+                <input type="checkbox" id="toolsBashConfirm" ${bash.require_confirmation !== false ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
             </div>
           </div>
           <div class="settings-field">
@@ -147,10 +147,10 @@ export class ToolsSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label">启用</label>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="toolsFileEnabled">
-                <button class="settings-toggle-btn ${file.enabled !== false ? 'active' : ''}" data-value="true">开</button>
-                <button class="settings-toggle-btn ${file.enabled === false ? 'active' : ''}" data-value="false">关</button>
-              </div>
+              <label class="settings-switch">
+                <input type="checkbox" id="toolsFileEnabled" ${file.enabled !== false ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
             </div>
           </div>
           <div class="settings-field">
@@ -204,10 +204,10 @@ export class ToolsSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label">启用</label>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="toolsSubagentEnabled">
-                <button class="settings-toggle-btn ${subagent.enabled ? 'active' : ''}" data-value="true">开</button>
-                <button class="settings-toggle-btn ${!subagent.enabled ? 'active' : ''}" data-value="false">关</button>
-              </div>
+              <label class="settings-switch">
+                <input type="checkbox" id="toolsSubagentEnabled" ${subagent.enabled ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
             </div>
           </div>
         </div>
@@ -226,32 +226,6 @@ export class ToolsSettingsPage {
           : `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
       });
     }
-
-    // 绑定 toggle
-    document.querySelectorAll('#toolsBashEnabled .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#toolsBashEnabled .settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-    document.querySelectorAll('#toolsBashConfirm .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#toolsBashConfirm .settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-    document.querySelectorAll('#toolsFileEnabled .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#toolsFileEnabled .settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-    document.querySelectorAll('#toolsSubagentEnabled .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#toolsSubagentEnabled .settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
 
     // 保存按钮
     this._saveBtn = document.getElementById('toolsSaveBtn');
@@ -272,23 +246,23 @@ export class ToolsSettingsPage {
       const values = {};
 
       // Bash
-      const bashEnabled = document.querySelector('#toolsBashEnabled .settings-toggle-btn.active')?.dataset.value;
-      const bashConfirm = document.querySelector('#toolsBashConfirm .settings-toggle-btn.active')?.dataset.value;
+      const bashEnabled = document.getElementById('toolsBashEnabled')?.checked;
+      const bashConfirm = document.getElementById('toolsBashConfirm')?.checked;
       const whitelistRaw = document.getElementById('toolsBashWhitelist')?.value || '';
       const whitelist = whitelistRaw.split(',').map(s => s.trim()).filter(Boolean);
       values.bash = {
-        enabled: bashEnabled === 'true',
-        require_confirmation: bashConfirm !== 'false',
+        enabled: bashEnabled !== false,
+        require_confirmation: bashConfirm !== false,
         whitelist,
       };
 
       // File
-      const fileEnabled = document.querySelector('#toolsFileEnabled .settings-toggle-btn.active')?.dataset.value;
+      const fileEnabled = document.getElementById('toolsFileEnabled')?.checked;
       const maxFileSize = document.getElementById('toolsFileMaxSize')?.value?.trim() || '10MB';
       const allowedPathsRaw = document.getElementById('toolsFileAllowedPaths')?.value || '';
       const blockedExtsRaw = document.getElementById('toolsFileBlockedExts')?.value || '';
       values.file = {
-        enabled: fileEnabled === 'true',
+        enabled: fileEnabled !== false,
         max_file_size: maxFileSize,
         allowed_paths: allowedPathsRaw.split(',').map(s => s.trim()).filter(Boolean),
         blocked_extensions: blockedExtsRaw.split(',').map(s => s.trim()).filter(Boolean),
@@ -302,9 +276,9 @@ export class ToolsSettingsPage {
       };
 
       // SubAgent
-      const subagentEnabled = document.querySelector('#toolsSubagentEnabled .settings-toggle-btn.active')?.dataset.value;
+      const subagentEnabled = document.getElementById('toolsSubagentEnabled')?.checked;
       values.subagent = {
-        enabled: subagentEnabled === 'true',
+        enabled: subagentEnabled === true,
       };
 
       const { HippoDesktop } = window;

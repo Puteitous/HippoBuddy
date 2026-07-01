@@ -2,7 +2,7 @@
  * SettingsPanel — 全屏设置面板外壳
  *
  * 左侧导航竖条 + 右侧内容区
- * 负责：生命周期（打开/关闭/销毁）、导航渲染与切换、宽度拖拽
+ * 负责：生命周期（打开/关闭/销毁）、导航渲染与切换
  * 每个页签由独立的 settings/*Page.js 渲染
  */
 import { ModelSettingsPage } from './settings/ModelSettingsPage.js';
@@ -48,6 +48,10 @@ export class SettingsPanel {
     this._chatPanel = document.querySelector('.chat-panel');
     this._currentPageInstance = null;
     this._skillsPageInstance = null;
+    this._previewWasHidden = true;
+
+    // 清理旧版残留 key
+    localStorage.removeItem('hippo-settings-width');
 
     this._init();
   }
@@ -57,23 +61,16 @@ export class SettingsPanel {
   open() {
     if (!this._overlay) this._init();
     if (this._chatPanel) this._chatPanel.style.display = 'none';
-    this._overlay.style.display = 'flex';
 
+    // 隐藏预览面板，记录原始状态
     const preview = document.querySelector('.preview-panel');
-    const isPreviewHidden = !preview || preview.classList.contains('hidden');
-    if (isPreviewHidden) {
-      this._overlay.style.width = '';
-      this._overlay.style.flex = '';
-    } else {
-      const savedWidth = localStorage.getItem('hippo-settings-width');
-      if (savedWidth) {
-        this._overlay.style.width = savedWidth + 'px';
-        this._overlay.style.flex = 'none';
-      } else {
-        this._overlay.style.width = '';
-        this._overlay.style.flex = '';
-      }
-    }
+    this._previewWasHidden = !preview || preview.classList.contains('hidden');
+    if (preview) preview.classList.add('hidden');
+
+    // 填满 main-container 剩余空间
+    this._overlay.style.display = 'flex';
+    this._overlay.style.width = '';
+    this._overlay.style.flex = '';
 
     this._switchPage(this._activePage);
   }
@@ -84,6 +81,11 @@ export class SettingsPanel {
     }
     if (this._chatPanel) {
       this._chatPanel.style.display = '';
+    }
+    // 恢复预览面板原始状态
+    if (!this._previewWasHidden) {
+      const preview = document.querySelector('.preview-panel');
+      if (preview) preview.classList.remove('hidden');
     }
   }
 
@@ -107,12 +109,13 @@ export class SettingsPanel {
     if (this._chatPanel) {
       this._chatPanel.style.display = '';
     }
+    // 恢复预览面板原始状态
+    if (!this._previewWasHidden) {
+      const preview = document.querySelector('.preview-panel');
+      if (preview) preview.classList.remove('hidden');
+    }
     if (this._onKeyDown) {
       document.removeEventListener('keydown', this._onKeyDown);
-    }
-    if (this._previewObserver) {
-      this._previewObserver.disconnect();
-      this._previewObserver = null;
     }
   }
 
@@ -130,47 +133,6 @@ export class SettingsPanel {
     closeBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>';
     closeBtn.addEventListener('click', () => this.close());
     this._overlay.appendChild(closeBtn);
-
-    // ── 宽度拖拽条（左侧边缘） ──
-    const resizer = document.createElement('div');
-    resizer.className = 'settings-resizer';
-    resizer.title = '拖拽调整宽度';
-    this._overlay.appendChild(resizer);
-
-    const savedWidth = localStorage.getItem('hippo-settings-width');
-    if (savedWidth) {
-      this._overlay.style.width = savedWidth + 'px';
-      this._overlay.style.flex = 'none';
-    }
-
-    resizer.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      resizer.classList.add('resizing');
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      const startX = e.clientX;
-      const startWidth = this._overlay.offsetWidth;
-
-      const onMove = (ev) => {
-        const diff = startX - ev.clientX;
-        const w = Math.max(420, Math.min(960, startWidth + diff));
-        this._overlay.style.width = w + 'px';
-        this._overlay.style.flex = 'none';
-      };
-
-      const onUp = () => {
-        resizer.classList.remove('resizing');
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        const w = parseInt(this._overlay.style.width, 10);
-        if (w && w > 0) localStorage.setItem('hippo-settings-width', String(w));
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
 
     // ── 主体 ──
     const body = document.createElement('div');
@@ -209,27 +171,6 @@ export class SettingsPanel {
     body.appendChild(content);
 
     this._overlay.appendChild(body);
-
-    // ── 监听预览面板显示/隐藏 ──
-    this._previewObserver = new MutationObserver(() => {
-      if (!this.isOpen()) return;
-      const preview = document.querySelector('.preview-panel');
-      const isHidden = !preview || preview.classList.contains('hidden');
-      if (isHidden) {
-        this._overlay.style.width = '';
-        this._overlay.style.flex = '';
-      } else {
-        const savedWidth = localStorage.getItem('hippo-settings-width');
-        if (savedWidth) {
-          this._overlay.style.width = savedWidth + 'px';
-          this._overlay.style.flex = 'none';
-        }
-      }
-    });
-    const previewTarget = document.querySelector('.preview-panel');
-    if (previewTarget) {
-      this._previewObserver.observe(previewTarget, { attributes: true, attributeFilter: ['class'] });
-    }
 
     // ── 键盘关闭 ──
     this._onKeyDown = (e) => {

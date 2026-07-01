@@ -127,6 +127,13 @@ export function renderToolTimelineRow(tool) {
   } else if (name === 'web_search') {
     const args = parseToolArgs(tool.args);
     summary = `"${args.query || ''}"`;
+  } else if (name === 'lint_diagnostics') {
+    const args = parseToolArgs(tool.args);
+    if (args.paths && Array.isArray(args.paths)) {
+      summary = args.paths.join(', ');
+    } else {
+      summary = '';
+    }
   } else if (name === 'web_fetch') {
     const args = parseToolArgs(tool.args);
     summary = args.url || '';
@@ -171,6 +178,11 @@ export function renderToolTimelineRow(tool) {
     const args = parseToolArgs(tool.args);
     summaryFilePath = args.path || '';
   } else if (name === 'delete_file') {
+    const args = parseToolArgs(tool.args);
+    if (args.paths && Array.isArray(args.paths)) {
+      summaryFilePath = args.paths[0] || '';
+    }
+  } else if (name === 'lint_diagnostics') {
     const args = parseToolArgs(tool.args);
     if (args.paths && Array.isArray(args.paths)) {
       summaryFilePath = args.paths[0] || '';
