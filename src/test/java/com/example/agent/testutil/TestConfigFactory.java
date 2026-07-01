@@ -2,7 +2,6 @@ package com.example.agent.testutil;
 
 import com.example.agent.config.Config;
 import com.example.agent.context.config.ContextConfig;
-import com.example.agent.context.config.ContextConfig.ToolResultConfig;
 
 import java.util.List;
 
@@ -34,36 +33,18 @@ public final class TestConfigFactory {
         public static ContextConfig createDefaultContextConfig() {
             ContextConfig config = new ContextConfig();
             config.setMaxTokens(30000);
-            config.setMaxMessages(20);
-            config.setKeepRecentTurns(6);
             return config;
         }
 
         public static ContextConfig createSmallContextConfig() {
             ContextConfig config = new ContextConfig();
             config.setMaxTokens(5000);
-            config.setMaxMessages(10);
-            config.setKeepRecentTurns(3);
-            
-            ToolResultConfig toolResultConfig = new ToolResultConfig();
-            toolResultConfig.setMaxTokens(1000);
-            toolResultConfig.setTruncateStrategy("tail");
-            config.setToolResult(toolResultConfig);
-            
             return config;
         }
 
         public static ContextConfig createLargeContextConfig() {
             ContextConfig config = new ContextConfig();
             config.setMaxTokens(100000);
-            config.setMaxMessages(100);
-            config.setKeepRecentTurns(20);
-            
-            ToolResultConfig toolResultConfig = new ToolResultConfig();
-            toolResultConfig.setMaxTokens(5000);
-            toolResultConfig.setTruncateStrategy("tail");
-            config.setToolResult(toolResultConfig);
-            
             return config;
         }
     }

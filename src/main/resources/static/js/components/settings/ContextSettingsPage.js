@@ -3,8 +3,6 @@
  *
  * 配置上下文窗口大小和截断策略：
  * - maxTokens（上下文窗口上限）
- * - maxMessages（消息条数上限）
- * - keepRecentTurns（保留最近几轮对话）
  * - policy（截断策略算法）
  * - toolResult: { maxTokens, truncateStrategy }
  *
@@ -51,20 +49,6 @@ export class ContextSettingsPage {
               Max Tokens <span class="settings-field-hint">(上下文窗口上限，最小 1000)</span>
             </label>
             <input class="settings-input" id="ctxMaxTokens" type="number" min="1000" step="1000" placeholder="30000">
-          </div>
-
-          <div class="settings-field">
-            <label class="settings-field-label" for="ctxMaxMessages">
-              最大消息数 <span class="settings-field-hint">(保留的消息条数上限，最小 2)</span>
-            </label>
-            <input class="settings-input" id="ctxMaxMessages" type="number" min="2" step="1" placeholder="20">
-          </div>
-
-          <div class="settings-field">
-            <label class="settings-field-label" for="ctxKeepRecentTurns">
-              保留最近轮次 <span class="settings-field-hint">(截断时至少保留的对话轮数，最小 1)</span>
-            </label>
-            <input class="settings-input" id="ctxKeepRecentTurns" type="number" min="1" step="1" placeholder="6">
           </div>
 
           <div class="settings-field-horizontal">
@@ -129,13 +113,9 @@ export class ContextSettingsPage {
       const tr = ctx.tool_result || {};
 
       const maxTokens = document.getElementById('ctxMaxTokens');
-      const maxMessages = document.getElementById('ctxMaxMessages');
-      const keepRecentTurns = document.getElementById('ctxKeepRecentTurns');
       const toolMaxTokens = document.getElementById('ctxToolMaxTokens');
 
       if (maxTokens) maxTokens.value = ctx.max_tokens ?? 30000;
-      if (maxMessages) maxMessages.value = ctx.max_messages ?? 20;
-      if (keepRecentTurns) keepRecentTurns.value = ctx.keep_recent_turns ?? 6;
       if (toolMaxTokens) toolMaxTokens.value = tr.max_tokens ?? 8000;
 
       // Policy
@@ -159,8 +139,6 @@ export class ContextSettingsPage {
 
   async _saveConfig() {
     const maxTokens = parseInt(document.getElementById('ctxMaxTokens')?.value, 10) || 30000;
-    const maxMessages = parseInt(document.getElementById('ctxMaxMessages')?.value, 10) || 20;
-    const keepRecentTurns = parseInt(document.getElementById('ctxKeepRecentTurns')?.value, 10) || 6;
     const toolMaxTokens = parseInt(document.getElementById('ctxToolMaxTokens')?.value, 10) || 8000;
     const policyBtn = document.querySelector('#ctxPolicy .settings-toggle-btn.active');
     const strategyBtn = document.querySelector('#ctxTruncateStrategy .settings-toggle-btn.active');
@@ -168,8 +146,6 @@ export class ContextSettingsPage {
     const values = {
       context: {
         max_tokens: Math.max(1000, maxTokens),
-        max_messages: Math.max(2, maxMessages),
-        keep_recent_turns: Math.max(1, keepRecentTurns),
         policy: policyBtn?.dataset.value || 'simple',
         tool_result: {
           max_tokens: Math.max(100, toolMaxTokens),

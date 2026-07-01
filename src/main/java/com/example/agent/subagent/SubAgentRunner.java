@@ -471,8 +471,7 @@ public class SubAgentRunner implements Runnable {
     }
 
     private void addToolResult(String toolCallId, String toolName, String content) {
-        String compressed = conversationService.getToolResultCompressor().compress(content);
-        task.getConversation().addMessage(Message.toolResult(toolCallId, toolName, compressed));
+        task.getConversation().addMessage(Message.toolResult(toolCallId, toolName, content));
         
         if (permission == SubAgentPermission.MEMORY_EXTRACTOR 
             && "edit_file".equals(toolName) 

@@ -261,8 +261,7 @@ public class AgentContext {
     }
 
     public void AgentContext(String toolCallId, String toolName, String content) {
-        String compressed = conversationService.getToolResultCompressor().compress(content);
-        conversation.addMessage(Message.toolResult(toolCallId, toolName, compressed));
+        conversation.addMessage(Message.toolResult(toolCallId, toolName, content));
     }
 
     public List<Message> prepareForInference() {

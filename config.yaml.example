@@ -83,13 +83,7 @@ web:
   port: 9090
 
 context:
-  policy: simple
   max_tokens: 30000
-  max_messages: 20
-  keep_recent_turns: 6
-  tool_result:
-    max_tokens: 8000                  # 单次工具结果最大 token 数（仅用于用于压缩时候截断策略）
-    truncate_strategy: tail           # 截断策略：tail（保留尾部）/ head（保留头部）
 
 rule:
   # 规则文件从 .hippo/rules/*.md 加载

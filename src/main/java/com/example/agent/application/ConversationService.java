@@ -3,14 +3,13 @@ package com.example.agent.application;
 import com.example.agent.config.Config;
 import com.example.agent.config.MemoryConfig;
 import com.example.agent.context.BudgetWarningInjector;
-import com.example.agent.context.Compressor;
 import com.example.agent.context.ContextWindow;
 import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.context.SessionCompactionState;
 import com.example.agent.context.compressor.AutoCompactTrigger;
-import com.example.agent.context.compressor.TruncateCompressor;
 import com.example.agent.context.config.ContextConfig;
 import com.example.agent.domain.conversation.Conversation;
+import com.example.agent.domain.truncation.TruncationService;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Usage;
@@ -42,7 +41,7 @@ public class ConversationService {
     private final TokenEstimator tokenEstimator;
     private final LlmClient llmClient;
     private final ContextConfig defaultConfig;
-    private final Compressor toolResultCompressor;
+    private final TruncationService truncationService;
     private final MemoryStore globalMemoryStore;
 
     private final Map<String, Conversation> conversationRegistry = new ConcurrentHashMap<>();
@@ -95,7 +94,7 @@ public class ConversationService {
         this.tokenEstimator = tokenEstimator;
         this.llmClient = llmClient;
         this.defaultConfig = config != null ? config : new ContextConfig();
-        this.toolResultCompressor = new TruncateCompressor(tokenEstimator, this.defaultConfig.getToolResult());
+        this.truncationService = new TruncationService(tokenEstimator);
         
         // 优先使用 DI 容器中的 MemoryStore（由 MemoryModule 初始化）
         // 避免创建多个 MemoryStore 实例导致索引不一致
@@ -444,8 +443,8 @@ public class ConversationService {
     }
 
     public void addToolResult(Conversation conversation, String toolCallId, String toolName, String content, boolean success) {
-        String compressed = toolResultCompressor.compress(content, toolName);
-        Message message = Message.toolResult(toolCallId, toolName, compressed);
+        String truncated = truncationService.truncateToolOutput(toolName, content);
+        Message message = Message.toolResult(toolCallId, toolName, truncated);
         message.setToolSuccess(success);
         addMessage(conversation, message, success);
     }
@@ -807,10 +806,6 @@ public class ConversationService {
 
     public void setMessageSyncListener(Consumer<Message> listener) {
         this.messageSyncListener = listener;
-    }
-
-    public Compressor getToolResultCompressor() {
-        return toolResultCompressor;
     }
 
     public int getMessageCount(Conversation conversation) {
