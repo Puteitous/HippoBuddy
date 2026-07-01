@@ -538,5 +538,11 @@ window.toggleToolCardDetails = function(headerEl) {
   }
 };
 
+window.toggleTreeNode = function(rowEl) {
+  const treeItem = rowEl.closest('.todo-tree-item');
+  if (!treeItem) return;
+  treeItem.classList.toggle('collapsed');
+};
+
 
 

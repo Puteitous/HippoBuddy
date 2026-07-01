@@ -262,6 +262,127 @@
     color: var(--text-muted);
 }
 
+/* ========== Todo 树结构（替代扁平列表） ========== */
+.todo-card .todo-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.todo-card .todo-tree-item {
+    display: flex;
+    flex-direction: column;
+}
+
+/* 层级缩进 */
+.todo-card .depth-0 > .todo-node-row { padding-left: 4px; }
+.todo-card .depth-1 > .todo-node-row { padding-left: 24px; }
+.todo-card .depth-2 > .todo-node-row { padding-left: 44px; }
+.todo-card .depth-3 > .todo-node-row { padding-left: 64px; }
+
+/* 节点行 */
+.todo-card .todo-node-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: default;
+    transition: background var(--transition-fast);
+}
+
+.todo-card .todo-node-row:hover {
+    background: var(--bg-light);
+}
+
+/* 有子节点的行可点击展开/折叠 */
+.todo-card .todo-node-row:has(> .todo-node-toggle) {
+    cursor: pointer;
+}
+
+/* 展开/折叠箭头区域 */
+.todo-card .todo-node-toggle {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: transform var(--transition-fast);
+}
+
+.todo-card .todo-tree-item.collapsed > .todo-node-row .todo-node-toggle {
+    transform: rotate(-90deg);
+}
+
+/* 占位（叶子节点保持对齐） */
+.todo-card .todo-node-toggle-placeholder {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+}
+
+.todo-card .todo-toggle-icon {
+    vertical-align: middle;
+}
+
+/* 子节点容器 */
+.todo-card .todo-tree-children {
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border-color);
+    margin-left: 12px;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+}
+
+/* 折叠时隐藏子节点 */
+.todo-card .todo-tree-item.collapsed > .todo-tree-children {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 子节点默认展开 */
+.todo-card .todo-tree-item:not(.collapsed) > .todo-tree-children {
+    max-height: 2000px;
+    opacity: 1;
+}
+
+/* 节点状态色 */
+.todo-card .todo-node-row.in-progress .todo-icon {
+    color: var(--warning-text);
+}
+
+.todo-card .todo-node-row.done .todo-content {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.todo-card .todo-node-row.done .todo-icon {
+    color: var(--success-text);
+}
+
+.todo-card .todo-node-row.pending .todo-icon {
+    color: var(--text-muted);
+}
+
+/* 会话链接按钮（预留） */
+.todo-card .todo-session-link {
+    flex-shrink: 0;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+    margin-left: auto;
+    padding: 0 4px;
+}
+
+.todo-card .todo-session-link:hover {
+    opacity: 1;
+}
+
 /* ========== AskUser 卡片 ========== */
 .ask-user-card {
     margin: 6px 0;

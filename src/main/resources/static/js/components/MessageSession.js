@@ -2,6 +2,7 @@ import { EventRouter } from './EventRouter.js';
 import { renderMarkdown } from '../markdown-renderer.js';
 import { escapeHtml } from '../utils.js';
 import { EventBus } from '../utils/event-bus.js';
+import { deepMergeTodoList, parseTodoArgs } from './tool-renderers/shared.js';
 
 export class MessageSession {
   constructor({ chatUI, renderPipeline, chatService, smartScroll }) {
@@ -15,6 +16,7 @@ export class MessageSession {
     this._reasoningSegment = null;
     this._hasReceivedData = false;
     this._runningToolCallIds = new Set();
+    this._todoTreeCache = null;
 
     this._contentDiv = null;
     this._btnContainer = null;
@@ -62,6 +64,7 @@ export class MessageSession {
         s._currentText = '';
         s._segments = [];
         s._reasoningSegment = null;
+        s._todoTreeCache = null;
         contentDiv.innerHTML = '';
       },
 
@@ -69,6 +72,7 @@ export class MessageSession {
         contentDiv.innerHTML = `<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🔄 ${escapeHtml(parsed.message)}</div>`;
         s._currentText = '';
         s._segments = [];
+        s._todoTreeCache = null;
       },
 
       sse_error: (parsed) => {
@@ -150,21 +154,15 @@ export class MessageSession {
         if (parsed.name === 'ask_user') {
         } else if (parsed.name === 'todo_write') {
           s._pushTextSegment();
-          const existingTodoIndex = s._segments.findIndex(
-            seg => seg.type === 'tool' && seg.name === 'todo_write' && !seg.result
-          );
-          const incomingTodos = s._chatUI.parseTodos(parsed.args);
-          const finalTodos = s._mergeTodos(existingTodoIndex, incomingTodos);
+          const { mode, todos } = parseTodoArgs(parsed.args);
+          const finalTodos = s._mergeTodos(todos, mode);
           parsed.args = JSON.stringify({ todos: finalTodos });
           const todoSegment = {
             type: 'tool', id: parsed.id || null, name: 'todo_write',
             args: parsed.args, result: null, error: null
           };
-          if (existingTodoIndex >= 0) {
-            s._segments[existingTodoIndex] = todoSegment;
-          } else {
-            s._segments.push(todoSegment);
-          }
+          // 每张 todo 卡片都是独立快照，始终 push 新段
+          s._segments.push(todoSegment);
           s._renderPipeline.flush(s._segments, s._currentText);
         } else {
           s._pushTextSegment();
@@ -432,6 +430,7 @@ export class MessageSession {
     this._currentText = '';
     this._segments = [];
     this._reasoningSegment = null;
+    this._todoTreeCache = null;
   }
 
   clearReasoning() {
@@ -580,32 +579,13 @@ export class MessageSession {
     });
   }
 
-  _mergeTodos(existingTodoIndex, incomingTodos) {
-    if (existingTodoIndex >= 0) {
-      const oldSegment = this._segments[existingTodoIndex];
-      const oldTodos = this._chatUI.parseTodos(oldSegment.args);
-      const todoMap = new Map();
-      oldTodos.forEach(todo => { todoMap.set(todo.id, { ...todo }); });
-      incomingTodos.forEach(newTodo => {
-        if (todoMap.has(newTodo.id)) {
-          const existing = todoMap.get(newTodo.id);
-          if (newTodo.content) existing.content = newTodo.content;
-          if (newTodo.status) existing.status = newTodo.status;
-        } else {
-          todoMap.set(newTodo.id, {
-            id: newTodo.id,
-            content: newTodo.content || '未命名任务',
-            status: newTodo.status || 'pending'
-          });
-        }
-      });
-      return Array.from(todoMap.values());
+  _mergeTodos(incomingTodos, mode) {
+    if (mode === 'replace') {
+      this._todoTreeCache = deepMergeTodoList([], incomingTodos);
+    } else {
+      this._todoTreeCache = deepMergeTodoList(this._todoTreeCache || [], incomingTodos);
     }
-    return incomingTodos.map(todo => ({
-      id: todo.id,
-      content: todo.content || '未命名任务',
-      status: todo.status || 'pending'
-    }));
+    return this._todoTreeCache;
   }
 
   _classifyError(error) {

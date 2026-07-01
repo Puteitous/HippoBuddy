@@ -1,15 +1,87 @@
 import { escapeHtml } from '../../utils.js';
 import { parseTodos } from './shared.js';
 
+/**
+ * 递归统计树中所有节点的完成数和总数。
+ */
+function countTreeStats(nodes) {
+  let completed = 0, total = 0;
+  for (const node of nodes) {
+    total++;
+    if (node.status === 'completed') completed++;
+    if (node.children && node.children.length > 0) {
+      const sub = countTreeStats(node.children);
+      completed += sub.completed;
+      total += sub.total;
+    }
+  }
+  return { completed, total };
+}
+
+/**
+ * 递归渲染树节点列表。
+ */
+function renderTree(nodes, depth) {
+  return nodes.map(node => renderTreeNode(node, depth)).join('');
+}
+
+function renderTreeNode(node, depth) {
+  const isCompleted = node.status === 'completed';
+  const isInProgress = node.status === 'in_progress';
+  const hasChildren = node.children && node.children.length > 0;
+
+  let statusClass = isCompleted ? 'done' : (isInProgress ? 'in-progress' : 'pending');
+  let iconSvg;
+  if (isCompleted) {
+    iconSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 7 11 12 5"/></svg>';
+  } else if (isInProgress) {
+    iconSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3" fill="currentColor"/></svg>';
+  } else {
+    iconSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/></svg>';
+  }
+
+  const content = node.content || '未命名任务';
+  const sessionLink = node.sessionId
+    ? `<span class="todo-session-link" title="跳转到关联会话">🔗</span>`
+    : '';
+
+  // 树节点：有子节点时可折叠
+  if (hasChildren) {
+    const toggleIcon = '<svg class="todo-toggle-icon" viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 4 10 8 6 12"/></svg>';
+    return `
+      <div class="todo-tree-item depth-${depth}">
+        <div class="todo-node-row ${statusClass}" onclick="window.toggleTreeNode(this)">
+          <span class="todo-node-toggle">${toggleIcon}</span>
+          <span class="todo-icon">${iconSvg}</span>
+          <span class="todo-content">${escapeHtml(content)}</span>
+          ${sessionLink}
+        </div>
+        <div class="todo-tree-children">
+          ${renderTree(node.children, depth + 1)}
+        </div>
+      </div>`;
+  }
+
+  // 叶子节点
+  return `
+    <div class="todo-tree-item depth-${depth}">
+      <div class="todo-node-row ${statusClass}">
+        <span class="todo-node-toggle-placeholder"></span>
+        <span class="todo-icon">${iconSvg}</span>
+        <span class="todo-content">${escapeHtml(content)}</span>
+        ${sessionLink}
+      </div>
+    </div>`;
+}
+
 export function renderTodoWriteCard(tool) {
   const todos = parseTodos(tool.args);
-  const completed = todos.filter(t => t.status === 'completed').length;
-  const total = todos.length;
+  const { completed, total } = countTreeStats(todos);
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const todoIcon = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1"/><polyline points="5 7 7 9 11 5"/></svg>';
-  const checkSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 7 11 12 5"/></svg>';
-  const dotSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/></svg>';
+
+  const treeHtml = renderTree(todos, 0);
 
   return `
     <div class="tool-card todo-card">
@@ -26,19 +98,8 @@ export function renderTodoWriteCard(tool) {
             <div class="progress-fill" style="width: ${progress}%"></div>
           </div>
         </div>` : ''}
-        <div class="todo-list">
-          ${todos.map(todo => {
-            const isCompleted = todo.status === 'completed';
-            const icon = isCompleted ? checkSvg : dotSvg;
-            const statusClass = isCompleted ? 'done' : 'pending';
-            const content = todo.content || '未命名任务';
-            return `
-              <div class="todo-item ${statusClass}">
-                <span class="todo-icon">${icon}</span>
-                <span class="todo-content">${escapeHtml(content)}</span>
-              </div>
-            `;
-          }).join('')}
+        <div class="todo-tree">
+          ${treeHtml}
         </div>
       </div>
     </div>

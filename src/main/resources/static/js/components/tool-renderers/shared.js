@@ -17,6 +17,53 @@ export function parseTodos(args) {
   }
 }
 
+/**
+ * 解析 todo_write 工具调用的参数，返回 { mode, todos }。
+ * mode 默认为 'merge'，todos 默认为 []。
+ */
+export function parseTodoArgs(args) {
+  try {
+    const parsed = typeof args === 'string' ? JSON.parse(args) : args;
+    return {
+      mode: parsed.mode || 'merge',
+      todos: parsed.todos || []
+    };
+  } catch (e) {
+    return { mode: 'merge', todos: [] };
+  }
+}
+
+/**
+ * 递归合并两个 todo 列表（按 id 深度合并）。
+ * oldList 中未在 newList 提及的节点保留不变。
+ * 用于前端流式增量更新 todo 树。
+ */
+export function deepMergeTodoList(oldList, newList) {
+  const map = new Map();
+  (oldList || []).forEach(todo => {
+    map.set(todo.id, { ...todo, children: todo.children ? [...todo.children] : undefined });
+  });
+  (newList || []).forEach(newTodo => {
+    if (map.has(newTodo.id)) {
+      const existing = map.get(newTodo.id);
+      if (newTodo.content !== undefined) existing.content = newTodo.content;
+      if (newTodo.status !== undefined) existing.status = newTodo.status;
+      if (newTodo.sessionId !== undefined) existing.sessionId = newTodo.sessionId;
+      if (newTodo.children !== undefined) {
+        existing.children = deepMergeTodoList(existing.children || [], newTodo.children);
+      }
+    } else {
+      map.set(newTodo.id, {
+        id: newTodo.id,
+        content: newTodo.content || '未命名任务',
+        status: newTodo.status || 'pending',
+        children: newTodo.children ? deepMergeTodoList([], newTodo.children) : undefined
+      });
+    }
+  });
+  return Array.from(map.values());
+}
+
 export function computeUnifiedDiff(oldText, newText) {
   const oldLines = (oldText || '').split('\n');
   const newLines = (newText || '').split('\n');

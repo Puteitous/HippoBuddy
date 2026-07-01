@@ -194,8 +194,8 @@ public class SchemaValidationBlocker implements Blocker {
         ));
         
         examples.put("todo_write", Map.of(
-            "title", "实现用户登录功能",
-            "description", "需要添加登录页面和后端接口"
+            "todos", "[{\"id\":\"1\",\"content\":\"实现用户认证模块\",\"status\":\"pending\",\"children\":[{\"id\":\"1.1\",\"content\":\"设计数据库表\",\"status\":\"pending\"},{\"id\":\"1.2\",\"content\":\"实现注册API\",\"status\":\"pending\"}]}]",
+            "mode", "replace"
         ));
         
         examples.put("recall_memory", Map.of(

@@ -9,6 +9,7 @@ import { EventRouter } from './EventRouter.js';
 import { MessageSession } from './MessageSession.js';
 import { getFileIconInfo } from '../utils/file-icons.js';
 import { ContextSelector } from './context-selector.js';
+import { parseTodoArgs } from './tool-renderers/shared.js';
 
 export class ChatPanel {
   constructor(container, chatService, chatUI) {
@@ -764,46 +765,16 @@ export class ChatPanel {
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
 
         if (parsed.name === 'todo_write') {
-          const incomingTodos = this.chatUI.parseTodos(parsed.args);
+          const { mode, todos } = parseTodoArgs(parsed.args);
           session.pushTextSegment();
-          const existingTodoIndex = session.getSegments().findIndex(
-            seg => seg.type === 'tool' && seg.name === 'todo_write' && !seg.result
-          );
-          let finalTodos;
-          if (existingTodoIndex >= 0) {
-            const oldSegment = session.getSegments()[existingTodoIndex];
-            const oldTodos = this.chatUI.parseTodos(oldSegment.args);
-            const todoMap = new Map();
-            oldTodos.forEach(todo => { todoMap.set(todo.id, { ...todo }); });
-            incomingTodos.forEach(newTodo => {
-              if (todoMap.has(newTodo.id)) {
-                const existing = todoMap.get(newTodo.id);
-                if (newTodo.content) existing.content = newTodo.content;
-                if (newTodo.status) existing.status = newTodo.status;
-              } else {
-                todoMap.set(newTodo.id, {
-                  id: newTodo.id, content: newTodo.content || '未命名任务',
-                  status: newTodo.status || 'pending'
-                });
-              }
-            });
-            finalTodos = Array.from(todoMap.values());
-          } else {
-            finalTodos = incomingTodos.map(todo => ({
-              id: todo.id, content: todo.content || '未命名任务',
-              status: todo.status || 'pending'
-            }));
-          }
+          const finalTodos = session._mergeTodos(todos, mode);
           parsed.args = JSON.stringify({ todos: finalTodos });
           const todoSegment = {
             type: 'tool', id: parsed.id || null, name: 'todo_write',
             args: parsed.args, result: null, error: null
           };
-          if (existingTodoIndex >= 0) {
-             session.updateTodoAtIndex(existingTodoIndex, todoSegment);
-          } else {
-            session.pushSegment(todoSegment);
-          }
+          // 每张 todo 卡片都是独立快照，始终 push 新段
+          session.pushSegment(todoSegment);
           this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
         } else if (parsed.name !== 'ask_user') {
           session.pushTextSegment();
