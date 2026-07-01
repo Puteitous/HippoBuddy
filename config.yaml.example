@@ -13,17 +13,6 @@ llm:
   # 模型历史快照（自动维护，保存切换过的模型配置，用于快速切换）
   model_history: []
 
-# 外部运行时路径配置（可选）
-# 当系统 PATH 不完整时，可通过这里指定可执行文件路径。
-# 配置后会自动将所在目录追加到子进程 PATH 环境变量前面。
-runtimes:
-  # node: "C:/Program Files/nodejs/node.exe"    # Windows
-  # node: /usr/local/bin/node                    # macOS / Linux
-  # python: "C:/Python312/python.exe"
-  # python: /usr/bin/python3
-  # go: "C:/Go/bin/go.exe"
-  # go: /usr/local/go/bin/go
-
 tools:
   bash:
     enabled: true
@@ -83,7 +72,9 @@ web:
   port: 9090
 
 context:
-  max_tokens: 30000
+  max_tokens: 1000000
+  per_tool_safe_limit: 20000        # 单工具结果截断上限（read工具不限制）
+  global_hard_limit: 32000          # 全局硬截断上限
 
 rule:
   # 规则文件从 .hippo/rules/*.md 加载

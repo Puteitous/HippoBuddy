@@ -261,6 +261,7 @@ export class MessageSession {
 
   async start({ sessionId, content, signal, systemPrompt, editMessageId, useExecuteRequest, onMessageId, onRetry, selectedRules }) {
     this._onMessageId = onMessageId || null;
+    this._sessionIdForLog = sessionId;
 
     this._segments = [];
     this._currentText = '';
@@ -282,6 +283,10 @@ export class MessageSession {
 
     const chunkHandler = (parsed) => {
       if (this._destroyed) return;
+      // SSE error 事件打日志
+      if (parsed.type === 'sse_error' || parsed.type === 'raw_error') {
+        console.error(`[SSE] 收到错误事件 type=${parsed.type} content="${parsed.message || parsed.content}" session=${this._sessionIdForLog || ''}`);
+      }
       this._eventRouter.handle(parsed, this._contentDiv, this._btnContainer);
     };
 
@@ -322,6 +327,7 @@ export class MessageSession {
 
     } catch (error) {
       if (error.name === 'AbortError' || error.constructor.name === 'AbortError') {
+        console.warn(`[MessageSession] 流被中止(AbortError) session=${this._sessionIdForLog || ''}`);
         if (this._currentText.trim()) {
           this._segments.push({ type: 'text', content: this._currentText });
         }
@@ -335,6 +341,7 @@ export class MessageSession {
         this._contentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
       } else {
         const { message, detail } = this._classifyError(error);
+        console.error(`[MessageSession] 流异常终止 session=${this._sessionIdForLog || ''} type=Error msg="${error.message}"`);
         this._contentDiv.innerHTML = `
           <div style="color: var(--error-color); padding: 8px;">
             <div style="font-weight: 600; margin-bottom: 4px;">❌ ${escapeHtml(message)}</div>
@@ -397,8 +404,16 @@ export class MessageSession {
    */
   healStuckCards() {
     const modified = [];
-    for (const seg of this._segments) {
-      if (seg.type !== 'tool' || seg.result) continue;
+    const toolSegs = this._segments.filter(s => s.type === 'tool');
+    const statusCounts = {};
+    for (const seg of toolSegs) {
+      const status = seg.result || 'running';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    }
+    console.warn(`[MessageSession] healStuckCards: ${toolSegs.length} tool segs, status=${JSON.stringify(statusCounts)} session=${this._sessionIdForLog || ''}`);
+
+    for (const seg of toolSegs) {
+      if (seg.result) continue;
       const fromStatus = seg.result;
       if (seg.confirmationData) {
         seg.result = 'cancelled';
@@ -411,6 +426,10 @@ export class MessageSession {
         seg.result = 'cancelled';
         modified.push({ name: seg.name, fromStatus, toStatus: 'cancelled' });
       }
+    }
+
+    if (modified.length > 0) {
+      console.warn(`[MessageSession] healStuckCards modified:`, JSON.stringify(modified));
     }
     return modified;
   }

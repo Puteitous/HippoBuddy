@@ -127,28 +127,16 @@ export class FilePreview {
       if (!this._currentPath) return;
       const displayName = this._currentPath.split('/').pop() || '预览';
       console.debug('[HTML预览] 点击预览按钮, path:', this._currentPath);
-      if (!window.HippoWorkspace || !window.HippoWorkspace.openWebBrowser) return;
-      // 通过 RawFileHandler 获取 HTML 内容，注入 <base> 标签使相对路径以服务器根目录为基准
-      try {
-        const resp = await fetch(`/api/file/raw?path=${encodeURIComponent(this._currentPath)}&t=${Date.now()}`);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const html = await resp.text();
-        // 注入 <base> 标签让相对路径（js/vendor/...）以服务器根目录为基准正确解析
-        const patched = html.replace(/<head\b[^>]*>/i, match => `${match}<base href="${window.location.origin}/">`);
-        // 先用 about:blank 创建 iframe 浏览器，地址栏保持干净
-        window.HippoWorkspace.openWebBrowser('about:blank', displayName);
-        // 等 iframe 创建完毕后通过 srcdoc 注入带 base 的 HTML
-        setTimeout(() => {
-          const iframe = this._container?.querySelector('.browser-iframe');
-          const placeholder = this._container?.querySelector('.browser-placeholder');
-          if (iframe) {
-            iframe.style.display = '';
-            iframe.srcdoc = patched;
-          }
-          if (placeholder) placeholder.style.display = 'none';
-        }, 100);
-      } catch (err) {
-        console.error('[HTML预览] 加载失败:', err);
+      // 桌面端：直接用 file:// 协议在系统浏览器中打开，浏览器会以文件所在目录为基准
+      // 解析相对路径（<script src="app.js"> → file:///F:/test/calculator/app.js），
+      // 无需经过 HTTP Server，无资源加载限制
+      if (window.HippoDesktop && window.HippoDesktop.openExternal) {
+        const fileUrl = 'file:///' + encodeURI(this._currentPath.replace(/\\/g, '/'));
+        window.HippoDesktop.openExternal(fileUrl);
+      } else if (window.HippoWorkspace && window.HippoWorkspace.openWebBrowser) {
+        // Web 端降级：通过 HTTP Server 获取 HTML 渲染
+        const previewUrl = `/api/file/raw?path=${encodeURIComponent(this._currentPath)}&t=${Date.now()}`;
+        window.HippoWorkspace.openWebBrowser(previewUrl, displayName);
       }
     });
   }

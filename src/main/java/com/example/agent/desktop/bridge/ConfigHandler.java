@@ -14,15 +14,12 @@ import org.cef.handler.CefMessageRouterHandlerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Bridge Handler — 读写配置和工作区路径。
  *
  * <p>
  * 除原有的工作区路径操作外，新增通用 {@code getConfig} / {@code updateConfig} action，
- * 支持前端通过 Bridge 读写任意配置节（session / context / tools / ui / mcp / runtimes 等）。
+ * 支持前端通过 Bridge 读写任意配置节（session / context / tools / ui / mcp 等）。
  * </p>
  *
  * <p>
@@ -133,7 +130,7 @@ public class ConfigHandler extends CefMessageRouterHandlerAdapter {
     // ===== 通用配置读写 =====
 
     /**
-     * 返回完整配置 JSON（各子配置节 + runtimes）。
+     * 返回完整配置 JSON。
      * 敏感字段（如 apiKey）会自动遮掩。
      */
     private void handleGetConfig(CefQueryCallback callback) throws Exception {
@@ -147,7 +144,6 @@ public class ConfigHandler extends CefMessageRouterHandlerAdapter {
         root.set("ui", MAPPER.valueToTree(config.getUi()));
         root.set("workspace", MAPPER.valueToTree(config.getWorkspace()));
         root.set("mcp", MAPPER.valueToTree(config.getMcp()));
-        root.set("runtimes", MAPPER.valueToTree(config.getRuntimes()));
 
         callback.success(MAPPER.writeValueAsString(root));
     }
@@ -189,16 +185,6 @@ public class ConfigHandler extends CefMessageRouterHandlerAdapter {
         }
         if (values.has("mcp")) {
             MAPPER.readerForUpdating(config.getMcp()).readValue(values.get("mcp"));
-        }
-        if (values.has("runtimes")) {
-            JsonNode rtNode = values.get("runtimes");
-            Map<String, String> runtimes = new HashMap<>();
-            if (rtNode.isObject()) {
-                rtNode.fieldNames().forEachRemaining(k ->
-                        runtimes.put(k, rtNode.get(k).asText()));
-            }
-            config.getRuntimes().clear();
-            config.getRuntimes().putAll(runtimes);
         }
 
         config.save();

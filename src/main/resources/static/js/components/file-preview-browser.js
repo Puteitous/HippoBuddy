@@ -53,10 +53,10 @@ export class FilePreviewBrowser {
                </div>
              </div>
              <iframe class="browser-iframe" style="display:none;" src="about:blank"
-               sandbox="allow-scripts allow-forms allow-popups allow-modals"
+               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                loading="lazy" title="${displayUrl}"></iframe>`
           : `<iframe class="browser-iframe" src="${encodedUrl}"
-               sandbox="allow-scripts allow-forms allow-popups allow-modals"
+               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                loading="lazy" title="${displayUrl}"></iframe>`
         }
       </div>`;

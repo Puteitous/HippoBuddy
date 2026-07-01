@@ -48,7 +48,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 8px;
+    padding: 1px 8px;
     border-radius: 4px;
     cursor: pointer;
     font-size: var(--font-size-md);

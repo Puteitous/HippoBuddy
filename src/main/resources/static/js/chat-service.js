@@ -112,6 +112,7 @@ export class ChatService {
       }
     }
 
+    console.error(`[ChatService] ${session} 重试耗尽, 最终错误:`, lastError?.message || '请求失败');
     throw lastError || new Error('请求失败');
   }
 
@@ -165,6 +166,7 @@ export class ChatService {
         if (!data) return;
 
         if (data === '[DONE]') {
+          _streamDone = true;
           hasContent = true;
           return;
         }
@@ -208,6 +210,8 @@ export class ChatService {
         }
       };
 
+      let _streamDone = false; // 是否看到 [DONE]
+
       const processSSELines = async (lines) => {
         for (const line of lines) {
           if (line.startsWith('event: ')) {
@@ -231,9 +235,18 @@ export class ChatService {
         flushDataBuffer();
       };
 
+      console.debug(`[SSE] 开始读取流 session=${session}`);
+
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          if (!_streamDone) {
+            console.warn(`[SSE] 流意外结束(未收到[DONE]) session=${session}`);
+          } else {
+            console.debug(`[SSE] 流正常结束(收到[DONE]) session=${session}`);
+          }
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
 
@@ -250,6 +263,9 @@ export class ChatService {
     } catch (error) {
       buffer = '';
       dataBuffer = '';
+      const isAbort = error.name === 'AbortError';
+      const isTimeout = error.message && (error.message.includes('超时') || error.message.includes('timeout') || error.message.includes('Timeout'));
+      console.warn(`[SSE] 流异常终止 session=${session} type=${isAbort ? 'Abort' : isTimeout ? 'Timeout' : 'Error'} msg="${error.message}" hasContent=${hasContent}`);
       if (hasContent) {
         return { hasContent: true };
       }

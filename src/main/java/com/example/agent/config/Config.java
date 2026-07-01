@@ -5,7 +5,6 @@ import com.example.agent.lsp.config.LspConfig;
 import com.example.agent.mcp.config.McpConfig;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -38,9 +37,6 @@ public class Config {
     private MemoryConfig memory = new MemoryConfig();
     private WebConfig web = new WebConfig();
     private WorkspaceConfig workspace = new WorkspaceConfig();
-
-    @JsonProperty("runtimes")
-    private Map<String, String> runtimes = new HashMap<>();
 
     private transient ConfigLoader configLoader;
 
@@ -143,8 +139,6 @@ public class Config {
                 this.memory = reloaded.memory;
                 this.web = reloaded.web;
                 this.workspace = reloaded.workspace;
-                this.runtimes = reloaded.runtimes != null
-                    ? new HashMap<>(reloaded.runtimes) : new HashMap<>();
                 this.loadFromEnvironment();
                 logger.info("Configuration reloaded from: {}", configFile.getAbsolutePath());
             } catch (IOException e) {
@@ -330,10 +324,6 @@ public class Config {
         this.workspace = workspace;
     }
 
-    public Map<String, String> getRuntimes() {
-        return runtimes;
-    }
-
     @JsonIgnore
     public String getConfigFilePath() {
         if (configLoader == null) {
@@ -357,7 +347,6 @@ public class Config {
                 ", memory=" + memory +
                 ", web=" + web +
                 ", workspace=" + workspace +
-                ", runtimes=" + runtimes +
                 '}';
     }
 }

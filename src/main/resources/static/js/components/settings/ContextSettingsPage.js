@@ -4,18 +4,11 @@
  * 配置上下文窗口大小和截断策略：
  * - maxTokens（上下文窗口上限）
  * - policy（截断策略算法）
- * - toolResult: { maxTokens, truncateStrategy }
+ * - perToolSafeLimit（单工具结果截断上限）
  *
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
  */
 import { showToast } from '../../utils/toast.js';
-
-/** 截断策略选项 */
-const TRUNCATE_STRATEGIES = [
-  { label: '保留末尾', value: 'tail' },
-  { label: '保留开头', value: 'head' },
-  { label: '保留中间', value: 'middle' },
-];
 
 /** 上下文策略选项 */
 const POLICY_ITEMS = [
@@ -69,20 +62,9 @@ export class ContextSettingsPage {
         <div class="settings-form">
           <div class="settings-field">
             <label class="settings-field-label" for="ctxToolMaxTokens">
-              工具结果 Max Tokens <span class="settings-field-hint">(工具调用结果截断上限，最小 100)</span>
+              工具结果截断上限 <span class="settings-field-hint">(单工具结果最大 token 数，最小 1000)</span>
             </label>
-            <input class="settings-input" id="ctxToolMaxTokens" type="number" min="100" step="100" placeholder="8000">
-          </div>
-
-          <div class="settings-field-horizontal">
-            <label class="settings-field-label">截断方式</label>
-            <div class="settings-field-body">
-              <div class="settings-toggle-group" id="ctxTruncateStrategy">
-                ${TRUNCATE_STRATEGIES.map(s => `
-                  <button class="settings-toggle-btn" data-value="${s.value}">${s.label}</button>
-                `).join('')}
-              </div>
-            </div>
+            <input class="settings-input" id="ctxToolMaxTokens" type="number" min="1000" step="1000" placeholder="20000">
           </div>
         </div>
       </div>
@@ -110,13 +92,12 @@ export class ContextSettingsPage {
       const config = await this._getConfig();
       this._config = config;
       const ctx = config.context || {};
-      const tr = ctx.tool_result || {};
 
       const maxTokens = document.getElementById('ctxMaxTokens');
       const toolMaxTokens = document.getElementById('ctxToolMaxTokens');
 
       if (maxTokens) maxTokens.value = ctx.max_tokens ?? 30000;
-      if (toolMaxTokens) toolMaxTokens.value = tr.max_tokens ?? 8000;
+      if (toolMaxTokens) toolMaxTokens.value = ctx.per_tool_safe_limit ?? 20000;
 
       // Policy
       const policyValue = ctx.policy || 'simple';
@@ -124,11 +105,6 @@ export class ContextSettingsPage {
         btn.classList.toggle('active', btn.dataset.value === policyValue);
       });
 
-      // Truncate strategy
-      const strategyValue = tr.truncate_strategy || 'tail';
-      document.querySelectorAll('#ctxTruncateStrategy .settings-toggle-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value === strategyValue);
-      });
     } catch (e) {
       console.warn('加载上下文配置失败:', e);
       showToast('加载配置失败', { type: 'error', duration: 3000 });
@@ -139,18 +115,14 @@ export class ContextSettingsPage {
 
   async _saveConfig() {
     const maxTokens = parseInt(document.getElementById('ctxMaxTokens')?.value, 10) || 30000;
-    const toolMaxTokens = parseInt(document.getElementById('ctxToolMaxTokens')?.value, 10) || 8000;
+    const perToolSafeLimit = parseInt(document.getElementById('ctxToolMaxTokens')?.value, 10) || 20000;
     const policyBtn = document.querySelector('#ctxPolicy .settings-toggle-btn.active');
-    const strategyBtn = document.querySelector('#ctxTruncateStrategy .settings-toggle-btn.active');
 
     const values = {
       context: {
         max_tokens: Math.max(1000, maxTokens),
         policy: policyBtn?.dataset.value || 'simple',
-        tool_result: {
-          max_tokens: Math.max(100, toolMaxTokens),
-          truncate_strategy: strategyBtn?.dataset.value || 'tail',
-        },
+        per_tool_safe_limit: Math.max(1000, perToolSafeLimit),
       },
     };
 
@@ -180,7 +152,7 @@ export class ContextSettingsPage {
     document.getElementById('ctxSave')?.addEventListener('click', () => this._saveConfig());
 
     // toggle 点击切换
-    document.querySelectorAll('#ctxPolicy .settings-toggle-btn, #ctxTruncateStrategy .settings-toggle-btn').forEach(btn => {
+    document.querySelectorAll('#ctxPolicy .settings-toggle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const group = btn.closest('.settings-toggle-group');
         group.querySelectorAll('.settings-toggle-btn').forEach(b => b.classList.remove('active'));

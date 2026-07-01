@@ -622,21 +622,26 @@ export class ChatPanel {
 
     const selectedRules = this._contextSelector?.getSelectedRuleIds() || [];
 
-    await session.start({
-      sessionId: appState.currentSessionId,
-      content,
-      signal: this.currentAbortController?.signal,
-      systemPrompt: appState.getSystemPrompt(),
-      selectedRules,
-      useExecuteRequest: false,
-      onMessageId: (id) => {
-        if (this._lastUserMsgDiv) {
-          this._lastUserMsgDiv.dataset.messageId = id;
-          this._lastUserMessageId = id;
-        }
-      },
-      onRetry
-    });
+    try {
+      await session.start({
+        sessionId: appState.currentSessionId,
+        content,
+        signal: this.currentAbortController?.signal,
+        systemPrompt: appState.getSystemPrompt(),
+        selectedRules,
+        useExecuteRequest: false,
+        onMessageId: (id) => {
+          if (this._lastUserMsgDiv) {
+            this._lastUserMsgDiv.dataset.messageId = id;
+            this._lastUserMessageId = id;
+          }
+        },
+        onRetry
+      });
+      console.debug(`[ChatPanel] session.start 正常完成 session=${appState.currentSessionId}`);
+    } catch (err) {
+      console.error(`[ChatPanel] session.start 抛出异常 session=${appState.currentSessionId}`, err);
+    }
 
     // SSE 流结束，启动兜底定时器检查 stuck tool（30s 后运行）
     this._startStuckTimer();
@@ -1251,6 +1256,7 @@ export class ChatPanel {
    * 停止生成
    */
   stopGeneration() {
+    console.warn(`[ChatPanel] stopGeneration (用户点击停止) session=${appState.currentSessionId}`);
     // 无论 currentAbortController 状态如何，都发送服务端终止请求
     // 解决前端状态已清空时停止按钮"无效"的问题
     const sessionId = appState.currentSessionId;
@@ -1332,15 +1338,23 @@ export class ChatPanel {
         stuckStatuses.set(i, seg.result);
       }
     });
+
+    // [诊断] 记录全量 tool segment 状态快照
+    const segSnapshots = toolSegments.map((s, i) => `[${i}]${s.name}=${s.result || 'running'}`);
+    console.warn(`[ChatPanel] _healStuckToolCards: segs=[${segSnapshots.join(', ')}] stuck=${stuckStatuses.size} modified=${modified.length} session=${appState.currentSessionId}`);
+
     if (stuckStatuses.size === 0) return;
 
     // 直接操作 DOM，不触发 RenderPipeline 全量重建
     // flush → doRender 有 await renderMarkdown，会被后续新消息覆盖
     const statusSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><line x1="5" y1="5" x2="11" y2="11"/></svg>';
+    const domModified = [];
     contentDiv.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
       const targetStatus = stuckStatuses.get(idx);
       if (!targetStatus) return; // ← 核心修复：只改数据层确认 stuck 的，不碰已成功的
 
+      const segInfo = toolSegments[idx] ? `${toolSegments[idx].name}` : `#${idx}`;
+      domModified.push(`${segInfo}→${targetStatus}`);
       const isCancelled = targetStatus === 'cancelled';
       item.dataset.toolStatus = targetStatus;
       item.classList.remove('expanded');
@@ -1357,6 +1371,8 @@ export class ChatPanel {
         statusEl.innerHTML = statusSvg;
       }
     });
+    console.warn(`[ChatPanel] _healStuckToolCards DOM modified: ${domModified.join(', ')}`);
+
     // 收起 ask_user 卡片
     contentDiv.querySelectorAll('.tool-card.ask-user-card.expanded').forEach(card => {
       const details = card.querySelector('.tool-call-details');

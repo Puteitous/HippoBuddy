@@ -1,5 +1,6 @@
 package com.example.agent.domain.truncation;
 
+import com.example.agent.context.config.ContextConfig;
 import com.example.agent.service.SimpleTokenEstimator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,8 +69,8 @@ class TruncationServiceBoundaryTest {
 
         assertNotNull(result);
         int tokens = tokenEstimator.estimateTextTokens(result);
-        assertTrue(tokens <= TruncationService.GLOBAL_HARD_LIMIT,
-            "截断后 tokens 应不超过硬限制 " + TruncationService.GLOBAL_HARD_LIMIT);
+        assertTrue(tokens <= ContextConfig.DEFAULT_GLOBAL_HARD_LIMIT,
+            "截断后 tokens 应不超过硬限制 " + ContextConfig.DEFAULT_GLOBAL_HARD_LIMIT);
     }
 
     @Test
@@ -133,8 +134,8 @@ class TruncationServiceBoundaryTest {
 
         assertNotNull(result);
         int tokens = tokenEstimator.estimateTextTokens(result);
-        assertTrue(tokens <= TruncationService.PER_TOOL_SAFE_LIMIT,
-            "工具输出默认应不超过安全限制 " + TruncationService.PER_TOOL_SAFE_LIMIT);
+        assertTrue(tokens <= ContextConfig.DEFAULT_PER_TOOL_SAFE_LIMIT,
+            "工具输出默认应不超过安全限制 " + ContextConfig.DEFAULT_PER_TOOL_SAFE_LIMIT);
     }
 
     @Test

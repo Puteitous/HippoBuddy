@@ -1,5 +1,6 @@
 package com.example.agent.domain.truncation;
 
+import com.example.agent.config.Config;
 import com.example.agent.domain.truncation.strategy.CodeTruncation;
 import com.example.agent.domain.truncation.strategy.DiffTruncation;
 import com.example.agent.domain.truncation.strategy.HeadTailTruncation;
@@ -16,15 +17,22 @@ import java.util.Map;
 public class TruncationService {
 
     private static final Logger logger = LoggerFactory.getLogger(TruncationService.class);
-    public static final int GLOBAL_HARD_LIMIT = 32000;
-    public static final int PER_TOOL_SAFE_LIMIT = 8000;
+    private final int perToolSafeLimit;
+    private final int globalHardLimit;
 
     private final TokenEstimator tokenEstimator;
     private final Map<ContentType, TruncationStrategy> strategies;
     private final TruncationStrategy defaultStrategy;
 
     public TruncationService(TokenEstimator tokenEstimator) {
+        this(tokenEstimator, Config.getInstance().getContext().getPerToolSafeLimit(),
+            Config.getInstance().getContext().getGlobalHardLimit());
+    }
+
+    TruncationService(TokenEstimator tokenEstimator, int perToolSafeLimit, int globalHardLimit) {
         this.tokenEstimator = tokenEstimator;
+        this.perToolSafeLimit = perToolSafeLimit;
+        this.globalHardLimit = globalHardLimit;
         this.strategies = new HashMap<>();
         this.defaultStrategy = new CodeTruncation(tokenEstimator);
         registerStrategy(ContentType.CODE, new CodeTruncation(tokenEstimator));
@@ -44,7 +52,7 @@ public class TruncationService {
         if (content == null || content.isEmpty()) {
             return content;
         }
-        int effectiveMax = Math.max(1, Math.min(maxTokens, GLOBAL_HARD_LIMIT));
+        int effectiveMax = Math.max(1, Math.min(maxTokens, globalHardLimit));
         int originalTokens = tokenEstimator.estimateTextTokens(content);
         if (originalTokens <= effectiveMax) {
             return content;
@@ -60,7 +68,7 @@ public class TruncationService {
     }
 
     public String truncateToolOutput(String toolName, String content) {
-        return truncateToolOutput(toolName, content, PER_TOOL_SAFE_LIMIT);
+        return truncateToolOutput(toolName, content, perToolSafeLimit);
     }
 
     public String truncateToolOutput(String toolName, String content, int maxTokens) {
@@ -74,7 +82,7 @@ public class TruncationService {
 
         boolean alreadyTruncated = content.contains("输出过长，已截断");
 
-        int effectiveMax = Math.max(1, Math.min(maxTokens, GLOBAL_HARD_LIMIT));
+        int effectiveMax = Math.max(1, Math.min(maxTokens, globalHardLimit));
         int originalTokens = tokenEstimator.estimateTextTokens(content);
         if (originalTokens <= effectiveMax) {
             return content;

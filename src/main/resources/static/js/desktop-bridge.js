@@ -321,7 +321,7 @@ const HippoDesktop = (() => {
     },
 
     // ===== 通用配置 =====
-    /** 读取完整配置（所有子配置节 + runtimes），apiKey 已遮掩。 */
+    /** 读取完整配置（所有子配置节），apiKey 已遮掩。 */
     getConfig() {
       return send('getConfig');
     },
