@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.Desktop;
+import java.io.File;
 import java.net.URI;
 
 /**
@@ -42,14 +43,33 @@ public class ExternalLinkHandler extends CefMessageRouterHandlerAdapter {
                 return true;
             }
 
-            logger.info("在系统浏览器中打开外部链接: {}", url);
+            logger.info("打开外部链接: {}", url);
 
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                Desktop.getDesktop().browse(new URI(url));
+            if (!Desktop.isDesktopSupported()) {
+                logger.warn("系统不支持 Desktop API");
+                callback.failure(500, "Desktop API not supported");
+                return true;
+            }
+
+            if (url.startsWith("file://")) {
+                // file:// 协议 → 用系统默认关联程序打开本地文件
+                URI fileUri = new URI(url);
+                File file = new File(fileUri);
+                if (!file.exists()) {
+                    callback.failure(404, "文件不存在: " + file.getAbsolutePath());
+                    return true;
+                }
+                Desktop.getDesktop().open(file);
                 callback.success("{}");
             } else {
-                logger.warn("系统不支持 Desktop.browse()，无法打开外部链接: {}", url);
-                callback.failure(500, "Desktop.browse() not supported");
+                // http/https 等 → 在系统默认浏览器中打开
+                if (!Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    logger.warn("系统不支持 Desktop.browse()，无法打开外部链接: {}", url);
+                    callback.failure(500, "Desktop.browse() not supported");
+                    return true;
+                }
+                Desktop.getDesktop().browse(new URI(url));
+                callback.success("{}");
             }
 
             return true;

@@ -414,12 +414,10 @@ export class MessageSession {
 
     for (const seg of toolSegs) {
       if (seg.result) continue;
+      // 跳过等待用户确认的弹窗，不属于卡死
+      if (seg.confirmationData) continue;
       const fromStatus = seg.result;
-      if (seg.confirmationData) {
-        seg.result = 'cancelled';
-        seg.confirmationData = null;
-        modified.push({ name: seg.name, fromStatus, toStatus: 'cancelled' });
-      } else if (seg.progressLines && seg.progressLines.length > 0) {
+      if (seg.progressLines && seg.progressLines.length > 0) {
         seg.result = 'interrupted';
         modified.push({ name: seg.name, fromStatus, toStatus: 'interrupted' });
       } else {

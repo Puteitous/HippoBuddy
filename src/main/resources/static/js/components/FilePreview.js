@@ -84,6 +84,8 @@ export class FilePreview {
     this._registerHtmlPreviewBtn();
     // 绑定刷新按钮
     this._registerRefreshBtn();
+    // 绑定在外部程序中打开按钮（Office 文件）
+    this._registerOpenInOfficeBtn();
   }
 
   get currentPath() { return this._currentPath; }
@@ -151,6 +153,39 @@ export class FilePreview {
     });
   }
 
+  /** @private 绑定在外部程序中打开按钮（Office 文件） */
+  _registerOpenInOfficeBtn() {
+    const btn = document.getElementById('previewOpenInOfficeBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (!this._currentPath) return;
+      if (window.HippoDesktop && window.HippoDesktop.openExternal) {
+        const fileUrl = 'file:///' + encodeURI(this._currentPath.replace(/\\/g, '/'));
+        window.HippoDesktop.openExternal(fileUrl);
+      }
+    });
+  }
+
+  /** @private 显示/隐藏 Office 打开按钮并更新 title */
+  _updateOpenInOfficeBtn() {
+    const btn = document.getElementById('previewOpenInOfficeBtn');
+    if (!btn) return;
+
+    const path = this._currentPath;
+    if (isDocxFile(path)) {
+      btn.style.display = '';
+      btn.title = '在 Word 中打开';
+    } else if (isSpreadsheetFile(path)) {
+      btn.style.display = '';
+      btn.title = '在 Excel 中打开';
+    } else if (isPptxFile(path)) {
+      btn.style.display = '';
+      btn.title = '在 PowerPoint 中打开';
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+
   /** @private 显示/隐藏刷新按钮（仅二进制/Office/HTML 预览需要） */
   _updateRefreshBtn() {
     const btn = document.getElementById('previewRefreshBtn');
@@ -184,6 +219,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
     }
@@ -196,6 +232,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
     }
@@ -208,6 +245,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
     }
@@ -220,6 +258,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
     }
@@ -232,6 +271,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
     }
@@ -252,6 +292,7 @@ export class FilePreview {
     this._updateSearchBtn();
     this._updateMdToggleBtn();
     this._updateRefreshBtn();
+    this._updateOpenInOfficeBtn();
     this._updateStatusbar(filePath);
     // HTML 文件显示预览按钮
     const htmlBtn = document.getElementById('previewHtmlToggleBtn');
@@ -320,6 +361,7 @@ export class FilePreview {
     delete this._container.dataset.currentPath;
     this._updateSearchBtn();
     this._updateRefreshBtn();
+    this._updateOpenInOfficeBtn();
     this._updateStatusbar(null);
   }
 
