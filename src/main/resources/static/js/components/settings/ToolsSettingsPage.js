@@ -10,6 +10,7 @@
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
  */
 import { showToast } from '../../utils/toast.js';
+import { CustomDropdown } from '../../utils/dropdown.js';
 
 const KEY_LABELS = {
   bash: 'Bash 命令执行',
@@ -18,11 +19,30 @@ const KEY_LABELS = {
   subagent: '子代理',
 };
 
+const FILE_MAX_SIZE_ITEMS = [
+  { label: '1 MB', value: '1MB' },
+  { label: '5 MB', value: '5MB' },
+  { label: '10 MB (默认)', value: '10MB' },
+  { label: '50 MB', value: '50MB' },
+  { label: '100 MB', value: '100MB' },
+  { label: '1 GB', value: '1GB' },
+];
+
+const WEB_PROVIDER_ITEMS = [
+  { label: 'Brave', value: 'brave' },
+  { label: 'Google', value: 'google' },
+  { label: 'Bing', value: 'bing' },
+  { label: 'SearXNG', value: 'searxng' },
+  { label: 'Tavily', value: 'tavily' },
+];
+
 export class ToolsSettingsPage {
   constructor() {
     this._config = null;
     this._saveBtn = null;
     this._saveStatus = null;
+    this._fileMaxSizeDropdown = null;
+    this._webProviderDropdown = null;
   }
 
   render(container) {
@@ -49,6 +69,8 @@ export class ToolsSettingsPage {
   }
 
   destroy() {
+    if (this._fileMaxSizeDropdown) this._fileMaxSizeDropdown.destroy();
+    if (this._webProviderDropdown) this._webProviderDropdown.destroy();
     this._config = null;
     this._saveBtn = null;
     this._saveStatus = null;
@@ -99,6 +121,7 @@ export class ToolsSettingsPage {
     const file = tools.file || {};
     const allowedPathsStr = (file.allowed_paths || []).join(', ');
     const blockedExtsStr = (file.blocked_extensions || []).join(', ');
+    const currentMaxSize = file.max_file_size || '10MB';
 
     // ── Web Search 配置 ──
     const webSearch = tools.web_search || {};
@@ -134,7 +157,7 @@ export class ToolsSettingsPage {
             <label class="settings-field-label" for="toolsBashWhitelist">
               命令白名单 <span class="settings-field-hint">(逗号分隔，留空=允许全部)</span>
             </label>
-            <textarea class="settings-input" id="toolsBashWhitelist" rows="3" placeholder="git, mvn, npm, docker, ls, cat, grep"
+            <textarea class="settings-input" id="toolsBashWhitelist" rows="2" placeholder="git, mvn, npm, docker, ls, cat, grep"
               style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;">${whitelistStr}</textarea>
           </div>
         </div>
@@ -153,23 +176,32 @@ export class ToolsSettingsPage {
               </label>
             </div>
           </div>
-          <div class="settings-field">
-            <label class="settings-field-label" for="toolsFileMaxSize">
-              最大文件大小 <span class="settings-field-hint">(如 10MB, 1GB)</span>
-            </label>
-            <input class="settings-input" id="toolsFileMaxSize" type="text" value="${file.max_file_size || '10MB'}">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>最大文件大小</div>
+              <div class="settings-field-hint">(单文件读取上限)</div>
+            </div>
+            <div class="settings-field-body">
+              <button class="settings-input settings-provider-btn" id="toolsFileMaxSize">${currentMaxSize}</button>
+            </div>
           </div>
-          <div class="settings-field">
-            <label class="settings-field-label" for="toolsFileAllowedPaths">
-              允许路径 <span class="settings-field-hint">(逗号分隔)</span>
-            </label>
-            <input class="settings-input" id="toolsFileAllowedPaths" type="text" value="${allowedPathsStr}" placeholder=".">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>允许路径</div>
+              <div class="settings-field-hint">(逗号分隔)</div>
+            </div>
+            <div class="settings-field-body" style="flex:1;">
+              <input class="settings-input" id="toolsFileAllowedPaths" type="text" value="${allowedPathsStr}" placeholder=".">
+            </div>
           </div>
-          <div class="settings-field">
-            <label class="settings-field-label" for="toolsFileBlockedExts">
-              阻止扩展名 <span class="settings-field-hint">(逗号分隔，如 .env, .pem)</span>
-            </label>
-            <input class="settings-input" id="toolsFileBlockedExts" type="text" value="${blockedExtsStr}" placeholder=".env, .pem, .key">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>阻止扩展名</div>
+              <div class="settings-field-hint">(逗号分隔，如 .env, .pem)</div>
+            </div>
+            <div class="settings-field-body" style="flex:1;">
+              <input class="settings-input" id="toolsFileBlockedExts" type="text" value="${blockedExtsStr}" placeholder=".env, .pem, .key">
+            </div>
           </div>
         </div>
       </div>
@@ -178,20 +210,27 @@ export class ToolsSettingsPage {
       <div class="settings-field-group-title">${KEY_LABELS.web_search}</div>
       <div class="settings-field-group">
         <div class="settings-form">
-          <div class="settings-field">
-            <label class="settings-field-label" for="toolsWebProvider">搜索 Provider</label>
-            <input class="settings-input" id="toolsWebProvider" type="text" value="${webSearch.provider || ''}" placeholder="brave">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>搜索 Provider</div>
+              <div class="settings-field-hint">(搜索引擎服务商)</div>
+            </div>
+            <div class="settings-field-body">
+              <button class="settings-input settings-provider-btn" id="toolsWebProvider">${webSearch.provider || 'brave'}</button>
+            </div>
           </div>
-          <div class="settings-field">
+          <div class="settings-field-horizontal">
             <label class="settings-field-label" for="toolsWebApiKey">API Key</label>
-            <div class="settings-input-wrap">
-              <input class="settings-input" id="toolsWebApiKey" type="password" value="${webSearch.api_key || ''}" placeholder="输入 API Key">
-              <button class="settings-input-btn" id="toolsWebApiKeyToggle" title="显示/隐藏">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
+            <div class="settings-field-body">
+              <div class="settings-input-wrap" style="width:220px;">
+                <input class="settings-input" id="toolsWebApiKey" type="password" value="${webSearch.api_key || ''}" placeholder="输入 API Key">
+                <button class="settings-input-btn" id="toolsWebApiKeyToggle" title="显示/隐藏">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -213,6 +252,18 @@ export class ToolsSettingsPage {
         </div>
       </div>
     `;
+
+    // 初始化下拉框
+    this._fileMaxSizeDropdown = new CustomDropdown({
+      trigger: document.getElementById('toolsFileMaxSize'),
+      items: FILE_MAX_SIZE_ITEMS,
+      placement: 'bottom-left',
+    });
+    this._webProviderDropdown = new CustomDropdown({
+      trigger: document.getElementById('toolsWebProvider'),
+      items: WEB_PROVIDER_ITEMS,
+      placement: 'bottom-left',
+    });
 
     // 绑定事件：API Key 显示/隐藏
     const toggleBtn = document.getElementById('toolsWebApiKeyToggle');
@@ -258,7 +309,7 @@ export class ToolsSettingsPage {
 
       // File
       const fileEnabled = document.getElementById('toolsFileEnabled')?.checked;
-      const maxFileSize = document.getElementById('toolsFileMaxSize')?.value?.trim() || '10MB';
+      const maxFileSize = this._fileMaxSizeDropdown?.getSelectedItem()?.value || '10MB';
       const allowedPathsRaw = document.getElementById('toolsFileAllowedPaths')?.value || '';
       const blockedExtsRaw = document.getElementById('toolsFileBlockedExts')?.value || '';
       values.file = {
@@ -269,7 +320,7 @@ export class ToolsSettingsPage {
       };
 
       // Web Search
-      const webProvider = document.getElementById('toolsWebProvider')?.value?.trim() || '';
+      const webProvider = this._webProviderDropdown?.getSelectedItem()?.value || '';
       values.web_search = {
         provider: webProvider,
         api_key: document.getElementById('toolsWebApiKey')?.value || '',

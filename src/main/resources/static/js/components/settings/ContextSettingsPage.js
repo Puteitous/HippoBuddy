@@ -9,17 +9,29 @@
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
  */
 import { showToast } from '../../utils/toast.js';
+import { CustomDropdown } from '../../utils/dropdown.js';
 
-/** 上下文策略选项 */
-const POLICY_ITEMS = [
-  { label: '简单截断', value: 'simple' },
-  { label: '滑动窗口', value: 'sliding' },
-  { label: '重要性排序', value: 'priority' },
+const MAX_TOKENS_ITEMS = [
+  { label: '200,000', value: '200000' },
+  { label: '400,000', value: '400000' },
+  { label: '600,000', value: '600000' },
+  { label: '800,000', value: '800000' },
+  { label: '1,000,000 (默认)', value: '1000000' },
+];
+
+const TOOL_MAX_TOKENS_ITEMS = [
+  { label: '5,000', value: '5000' },
+  { label: '10,000', value: '10000' },
+  { label: '20,000 (默认)', value: '20000' },
+  { label: '30,000', value: '30000' },
+  { label: '50,000', value: '50000' },
 ];
 
 export class ContextSettingsPage {
   constructor() {
     this._config = null;
+    this._maxTokensDropdown = null;
+    this._toolMaxTokensDropdown = null;
   }
 
   render(container) {
@@ -37,21 +49,13 @@ export class ContextSettingsPage {
       <div class="settings-field-group-title">上下文窗口</div>
       <div class="settings-field-group">
         <div class="settings-form">
-          <div class="settings-field">
-            <label class="settings-field-label" for="ctxMaxTokens">
-              Max Tokens <span class="settings-field-hint">(上下文窗口上限，最小 1000)</span>
-            </label>
-            <input class="settings-input" id="ctxMaxTokens" type="number" min="1000" step="1000" placeholder="30000">
-          </div>
-
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">上下文策略</label>
+            <div class="settings-field-label">
+              <div>Max Tokens</div>
+              <div class="settings-field-hint">上下文窗口上限</div>
+            </div>
             <div class="settings-field-body">
-              <div class="settings-toggle-group" id="ctxPolicy">
-                ${POLICY_ITEMS.map(p => `
-                  <button class="settings-toggle-btn" data-value="${p.value}">${p.label}</button>
-                `).join('')}
-              </div>
+              <button class="settings-input settings-provider-btn" id="ctxMaxTokens">30,000</button>
             </div>
           </div>
         </div>
@@ -60,11 +64,14 @@ export class ContextSettingsPage {
       <div class="settings-field-group-title">工具结果截断</div>
       <div class="settings-field-group">
         <div class="settings-form">
-          <div class="settings-field">
-            <label class="settings-field-label" for="ctxToolMaxTokens">
-              工具结果截断上限 <span class="settings-field-hint">(单工具结果最大 token 数，最小 1000，read 工具不设限)</span>
-            </label>
-            <input class="settings-input" id="ctxToolMaxTokens" type="number" min="1000" step="1000" placeholder="20000">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>工具结果截断上限</div>
+              <div class="settings-field-hint">单工具结果最大 token 数，read 工具不设限</div>
+            </div>
+            <div class="settings-field-body">
+              <button class="settings-input settings-provider-btn" id="ctxToolMaxTokens">20,000</button>
+            </div>
           </div>
         </div>
       </div>
@@ -76,11 +83,25 @@ export class ContextSettingsPage {
 
     container.appendChild(page);
 
+    // 初始化下拉框
+    this._maxTokensDropdown = new CustomDropdown({
+      trigger: document.getElementById('ctxMaxTokens'),
+      items: MAX_TOKENS_ITEMS,
+      placement: 'bottom-left',
+    });
+    this._toolMaxTokensDropdown = new CustomDropdown({
+      trigger: document.getElementById('ctxToolMaxTokens'),
+      items: TOOL_MAX_TOKENS_ITEMS,
+      placement: 'bottom-left',
+    });
+
     this._bindEvents();
     this._loadConfig();
   }
 
   destroy() {
+    if (this._maxTokensDropdown) this._maxTokensDropdown.destroy();
+    if (this._toolMaxTokensDropdown) this._toolMaxTokensDropdown.destroy();
     this._container = null;
     this._config = null;
   }
@@ -93,17 +114,8 @@ export class ContextSettingsPage {
       this._config = config;
       const ctx = config.context || {};
 
-      const maxTokens = document.getElementById('ctxMaxTokens');
-      const toolMaxTokens = document.getElementById('ctxToolMaxTokens');
-
-      if (maxTokens) maxTokens.value = ctx.max_tokens ?? 30000;
-      if (toolMaxTokens) toolMaxTokens.value = ctx.per_tool_safe_limit ?? 20000;
-
-      // Policy
-      const policyValue = ctx.policy || 'simple';
-      document.querySelectorAll('#ctxPolicy .settings-toggle-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value === policyValue);
-      });
+      this._maxTokensDropdown?.setSelectedValue(String(ctx.max_tokens ?? 30000));
+      this._toolMaxTokensDropdown?.setSelectedValue(String(ctx.per_tool_safe_limit ?? 20000));
 
     } catch (e) {
       console.warn('加载上下文配置失败:', e);
@@ -114,14 +126,12 @@ export class ContextSettingsPage {
   // ==================== 保存 ====================
 
   async _saveConfig() {
-    const maxTokens = parseInt(document.getElementById('ctxMaxTokens')?.value, 10) || 30000;
-    const perToolSafeLimit = parseInt(document.getElementById('ctxToolMaxTokens')?.value, 10) || 20000;
-    const policyBtn = document.querySelector('#ctxPolicy .settings-toggle-btn.active');
+    const maxTokens = parseInt(this._maxTokensDropdown?.getSelectedItem()?.value, 10) || 1000000;
+    const perToolSafeLimit = parseInt(this._toolMaxTokensDropdown?.getSelectedItem()?.value, 10) || 20000;
 
     const values = {
       context: {
         max_tokens: Math.max(1000, maxTokens),
-        policy: policyBtn?.dataset.value || 'simple',
         per_tool_safe_limit: Math.max(1000, perToolSafeLimit),
       },
     };
@@ -150,15 +160,6 @@ export class ContextSettingsPage {
 
   _bindEvents() {
     document.getElementById('ctxSave')?.addEventListener('click', () => this._saveConfig());
-
-    // toggle 点击切换
-    document.querySelectorAll('#ctxPolicy .settings-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const group = btn.closest('.settings-toggle-group');
-        group.querySelectorAll('.settings-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
   }
 
   // ==================== 数据访问 ====================

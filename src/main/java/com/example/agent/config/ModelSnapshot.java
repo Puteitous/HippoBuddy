@@ -29,6 +29,9 @@ public class ModelSnapshot {
     @JsonProperty("reasoning_effort")
     private String reasoningEffort = "high";
 
+    /** 是否在下拉框中显示，默认 true */
+    private boolean enabled = true;
+
     public ModelSnapshot() {
     }
 
@@ -42,6 +45,7 @@ public class ModelSnapshot {
         snap.maxTokens = config.getMaxTokens();
         snap.thinkingEnabled = config.isThinkingEnabled();
         snap.reasoningEffort = config.getReasoningEffort();
+        snap.enabled = true;
         return snap;
     }
 

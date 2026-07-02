@@ -17,6 +17,7 @@
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
  */
 import { showToast } from '../../utils/toast.js';
+import { CustomDropdown } from '../../utils/dropdown.js';
 import { ConfirmDialog } from '../../utils/modal.js';
 
 const SERVER_TYPES = [
@@ -24,12 +25,59 @@ const SERVER_TYPES = [
   { value: 'sse', label: 'SSE（HTTP 流）' },
 ];
 
+const MAX_RECONNECT_ITEMS = [
+  { label: '0 (不限制)', value: '0' },
+  { label: '3', value: '3' },
+  { label: '5 (默认)', value: '5' },
+  { label: '10', value: '10' },
+  { label: '20', value: '20' },
+];
+
+const RECONNECT_DELAY_ITEMS = [
+  { label: '1 秒', value: '1' },
+  { label: '3 秒', value: '3' },
+  { label: '5 秒 (默认)', value: '5' },
+  { label: '10 秒', value: '10' },
+  { label: '30 秒', value: '30' },
+];
+
+const CONN_TIMEOUT_ITEMS = [
+  { label: '5 秒', value: '5000' },
+  { label: '10 秒', value: '10000' },
+  { label: '30 秒 (默认)', value: '30000' },
+  { label: '60 秒', value: '60000' },
+  { label: '120 秒', value: '120000' },
+];
+
+const REQ_TIMEOUT_ITEMS = [
+  { label: '10 秒', value: '10000' },
+  { label: '30 秒', value: '30000' },
+  { label: '60 秒 (默认)', value: '60000' },
+  { label: '120 秒', value: '120000' },
+  { label: '300 秒', value: '300000' },
+];
+
+/** value 转换成 label 显示，含秒数友好的文案 */
+function _timeoutLabel(valueMs, items) {
+  const found = items.find(i => i.value === String(valueMs));
+  return found ? found.label : String(valueMs) + ' 毫秒';
+}
+
+function _reconnectLabel(value, items) {
+  const found = items.find(i => i.value === String(value));
+  return found ? found.label : String(value);
+}
+
 export class McpSettingsPage {
   constructor() {
     this._config = null;
     this._saveBtn = null;
     this._saveStatus = null;
     this._editingServer = null; // 正在编辑的服务器 index
+    this._maxReconnectDropdown = null;
+    this._reconnectDelayDropdown = null;
+    this._connTimeoutDropdown = null;
+    this._reqTimeoutDropdown = null;
   }
 
   render(container) {
@@ -56,6 +104,10 @@ export class McpSettingsPage {
   }
 
   destroy() {
+    if (this._maxReconnectDropdown) this._maxReconnectDropdown.destroy();
+    if (this._reconnectDelayDropdown) this._reconnectDelayDropdown.destroy();
+    if (this._connTimeoutDropdown) this._connTimeoutDropdown.destroy();
+    if (this._reqTimeoutDropdown) this._reqTimeoutDropdown.destroy();
     this._config = null;
     this._saveBtn = null;
     this._saveStatus = null;
@@ -132,29 +184,41 @@ export class McpSettingsPage {
               </label>
             </div>
           </div>
-          <div class="settings-field">
-            <label class="settings-field-label" for="mcpMaxReconnect">
-              最大重连次数 <span class="settings-field-hint">(0 = 不限制)</span>
-            </label>
-            <input class="settings-input" id="mcpMaxReconnect" type="number" min="0" value="${mcp.max_reconnect_attempts ?? 5}">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>最大重连次数</div>
+              <div class="settings-field-hint">(0 = 不限制)</div>
+            </div>
+            <div class="settings-field-body">
+              <button class="settings-input settings-provider-btn" id="mcpMaxReconnect">${_reconnectLabel(mcp.max_reconnect_attempts ?? 5, MAX_RECONNECT_ITEMS)}</button>
+            </div>
           </div>
-          <div class="settings-field">
-            <label class="settings-field-label" for="mcpReconnectDelay">
-              重连间隔 <span class="settings-field-hint">(秒)</span>
-            </label>
-            <input class="settings-input" id="mcpReconnectDelay" type="number" min="1" value="${mcp.reconnect_delay_seconds ?? 5}">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>重连间隔</div>
+              <div class="settings-field-hint">(秒)</div>
+            </div>
+            <div class="settings-field-body">
+              <button class="settings-input settings-provider-btn" id="mcpReconnectDelay">${_reconnectLabel(mcp.reconnect_delay_seconds ?? 5, RECONNECT_DELAY_ITEMS)}</button>
+            </div>
           </div>
-          <div class="settings-field">
-            <label class="settings-field-label" for="mcpConnTimeout">
-              连接超时 <span class="settings-field-hint">(毫秒)</span>
-            </label>
-            <input class="settings-input" id="mcpConnTimeout" type="number" min="1000" step="1000" value="${mcp.connection_timeout ?? 30000}">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>连接超时</div>
+              <div class="settings-field-hint">(毫秒)</div>
+            </div>
+            <div class="settings-field-body">
+              <button class="settings-input settings-provider-btn" id="mcpConnTimeout">${_timeoutLabel(mcp.connection_timeout ?? 30000, CONN_TIMEOUT_ITEMS)}</button>
+            </div>
           </div>
-          <div class="settings-field">
-            <label class="settings-field-label" for="mcpReqTimeout">
-              请求超时 <span class="settings-field-hint">(毫秒)</span>
-            </label>
-            <input class="settings-input" id="mcpReqTimeout" type="number" min="1000" step="1000" value="${mcp.request_timeout ?? 60000}">
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>请求超时</div>
+              <div class="settings-field-hint">(毫秒)</div>
+            </div>
+            <div class="settings-field-body">
+              <button class="settings-input settings-provider-btn" id="mcpReqTimeout">${_timeoutLabel(mcp.request_timeout ?? 60000, REQ_TIMEOUT_ITEMS)}</button>
+            </div>
           </div>
         </div>
       </div>
@@ -168,6 +232,28 @@ export class McpSettingsPage {
       </div>
       <div id="mcpServerList"></div>
     `;
+
+    // 初始化下拉框
+    this._maxReconnectDropdown = new CustomDropdown({
+      trigger: document.getElementById('mcpMaxReconnect'),
+      items: MAX_RECONNECT_ITEMS,
+      placement: 'bottom-left',
+    });
+    this._reconnectDelayDropdown = new CustomDropdown({
+      trigger: document.getElementById('mcpReconnectDelay'),
+      items: RECONNECT_DELAY_ITEMS,
+      placement: 'bottom-left',
+    });
+    this._connTimeoutDropdown = new CustomDropdown({
+      trigger: document.getElementById('mcpConnTimeout'),
+      items: CONN_TIMEOUT_ITEMS,
+      placement: 'bottom-left',
+    });
+    this._reqTimeoutDropdown = new CustomDropdown({
+      trigger: document.getElementById('mcpReqTimeout'),
+      items: REQ_TIMEOUT_ITEMS,
+      placement: 'bottom-left',
+    });
 
     // 添加服务器按钮
     document.getElementById('mcpServerAdd')?.addEventListener('click', () => this._showServerEditor(null));
@@ -546,10 +632,10 @@ export class McpSettingsPage {
       const enabled = document.getElementById('mcpEnabled')?.checked;
       const autoConnect = document.getElementById('mcpAutoConnect')?.checked;
       const autoReconnect = document.getElementById('mcpAutoReconnect')?.checked;
-      const maxReconnectAttempts = parseInt(document.getElementById('mcpMaxReconnect')?.value, 10);
-      const reconnectDelaySeconds = parseInt(document.getElementById('mcpReconnectDelay')?.value, 10);
-      const connectionTimeout = parseInt(document.getElementById('mcpConnTimeout')?.value, 10);
-      const requestTimeout = parseInt(document.getElementById('mcpReqTimeout')?.value, 10);
+      const maxReconnectAttempts = parseInt(this._maxReconnectDropdown?.getSelectedItem()?.value, 10);
+      const reconnectDelaySeconds = parseInt(this._reconnectDelayDropdown?.getSelectedItem()?.value, 10);
+      const connectionTimeout = parseInt(this._connTimeoutDropdown?.getSelectedItem()?.value, 10);
+      const requestTimeout = parseInt(this._reqTimeoutDropdown?.getSelectedItem()?.value, 10);
 
       values.enabled = enabled !== false;
       values.auto_connect = autoConnect !== false;

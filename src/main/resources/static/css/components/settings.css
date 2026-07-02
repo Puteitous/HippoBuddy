@@ -101,7 +101,7 @@
 }
 
 .settings-nav-item.active {
-    background: var(--bg-white);
+    background: var(--bg-canvas);
     color: var(--text-primary);
     font-weight: 600;
     box-shadow: var(--shadow-sm);
@@ -186,8 +186,10 @@
 
 .settings-field {
     display: flex;
-    flex-direction: column;
-    gap: 7px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 0;
 }
 
 .settings-field-horizontal {
@@ -195,8 +197,14 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 24px;
-    padding: 14px 0;
+    margin: 0 -20px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.15s ease;
+}
+
+.settings-field-horizontal:hover {
+    background: var(--bg-app);
 }
 
 .settings-field-horizontal:last-child {
@@ -209,21 +217,19 @@
     font-weight: 600;
 }
 
+.settings-field .settings-field-label,
 .settings-field-horizontal .settings-field-label {
     flex-shrink: 0;
     width: 140px;
-    padding-top: 7px;
 }
 
 .settings-field-hint {
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-md);
     color: var(--text-muted);
     font-weight: 400;
-    margin-left: 2px;
 }
 
 .settings-field-body {
-    flex: 1;
     min-width: 0;
 }
 
@@ -234,7 +240,7 @@
     border: 1.5px solid var(--border-color);
     border-radius: var(--radius-md);
     font-size: var(--font-size-lg);
-    background: var(--bg-white);
+    background: var(--bg-canvas);
     color: var(--text-primary);
     outline: none;
     box-sizing: border-box;
@@ -329,6 +335,7 @@
     appearance: none;
     -webkit-appearance: none;
     font-family: inherit;
+    width: 220px;
 }
 
 .settings-provider-btn::after {
@@ -361,15 +368,17 @@
 }
 
 /* ========== 模型历史列表 ========== */
+#settingsModelList {
+    background: var(--bg-canvas);
+    border-radius: var(--radius-lg);
+}
+
 .settings-model-list {
     max-height: 320px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 6px;
     margin-top: 6px;
-    padding: 8px;
-    background: var(--bg-canvas);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
 }
@@ -381,64 +390,89 @@
     text-align: center;
 }
 
+/* 表头 */
+.settings-model-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.settings-model-header-provider {
+    flex: 0 0 110px;
+}
+
+.settings-model-header-model {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-model-header-enabled {
+    flex: 0 0 32px;
+    text-align: left;
+    padding-left: 2px;
+}
+
+/* 每行 */
 .settings-model-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background var(--transition-fast);
     border-radius: var(--radius-md);
-    background: transparent;
-    border: 1px solid var(--border-color);
-    transition: all var(--transition-fast);
+}
+
+.settings-model-item:not(:last-child) {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-model-item:last-child {
+    border-bottom: none;
 }
 
 .settings-model-item:hover {
-    border-color: var(--text-muted);
+    background: var(--bg-app);
 }
 
 .settings-model-item.active {
-    border-color: var(--accent);
-    background: transparent;
+    background: rgba(0, 120, 255, 0.1);
 }
 
-.settings-model-item-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    flex: 1;
+[data-theme="dark"] .settings-model-item:hover {
+    background: var(--bg-hover);
+}
+
+[data-theme="dark"] .settings-model-item.active {
+    background: rgba(0, 120, 255, 0.15);
 }
 
 .settings-model-item-provider {
+    flex: 0 0 110px;
     font-size: var(--font-size-sm);
     color: var(--text-muted);
-    line-height: 1.2;
-}
-
-.settings-model-item-model {
-    font-size: var(--font-size-md);
-    color: var(--text-primary);
-    font-weight: 550;
-    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.settings-model-item-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity var(--transition-fast);
+.settings-model-item-model {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    font-weight: 550;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.settings-model-item:hover .settings-model-item-actions {
-    opacity: 1;
-}
-
-.settings-model-item-actions button {
+.settings-model-item-delete {
+    flex: 0 0 32px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -449,17 +483,7 @@
     border-radius: var(--radius-sm);
     cursor: pointer;
     color: var(--text-muted);
-    transition: all var(--transition-fast);
-}
-
-.settings-model-item-edit:hover {
-    color: #1a7f37;
-    background: rgba(26, 127, 55, 0.08);
-}
-
-[data-theme="dark"] .settings-model-item-edit:hover {
-    color: #56d364;
-    background: rgba(86, 211, 100, 0.1);
+    flex-shrink: 0;
 }
 
 .settings-model-item-delete:hover {
@@ -780,6 +804,10 @@
     border-bottom: 1px solid var(--border-color);
 }
 
+.settings-editor-fields .settings-input {
+    border-color: var(--text-muted);
+}
+
 .settings-editor-textarea {
     width: 100%;
     min-height: 320px;
@@ -831,7 +859,8 @@
     background: var(--bg-canvas);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: 16px 20px;
+    padding: 0 20px;
+    overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
 }
 
@@ -856,7 +885,7 @@
 
 /* 分组内的表单更紧凑 */
 .settings-field-group .settings-form {
-    gap: 14px;
+    gap: 0;
     margin: 0;
     padding: 0;
 }

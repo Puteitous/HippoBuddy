@@ -31,17 +31,20 @@ export class GeneralSettingsPage {
             </div>
           </div>
         </div>
-        <div class="settings-field desktop-only">
-          <label class="settings-field-label" for="settingsDefaultWorkspace">
-            默认工作区路径 <span class="settings-field-hint">(留空使用内置默认)</span>
-          </label>
-          <div class="settings-input-wrap">
-            <input class="settings-input" id="settingsDefaultWorkspace" type="text" placeholder="留空则使用内置默认路径">
-            <button class="settings-input-btn" id="settingsDefaultWorkspaceBrowse" title="选择文件夹">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-              </svg>
-            </button>
+        <div class="settings-field-horizontal desktop-only desktop-only-flex">
+          <div class="settings-field-label">
+            <div>默认工作区路径</div>
+            <div class="settings-field-hint">(留空使用内置默认)</div>
+          </div>
+          <div class="settings-field-body" style="flex:1;">
+            <div class="settings-input-wrap">
+              <input class="settings-input" id="settingsDefaultWorkspace" type="text" placeholder="留空则使用内置默认路径">
+              <button class="settings-input-btn" id="settingsDefaultWorkspaceBrowse" title="选择文件夹">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -69,12 +72,14 @@ export class GeneralSettingsPage {
 
     // ── 工作区路径 ──
     const browseBtn = document.getElementById('settingsDefaultWorkspaceBrowse');
-    if (browseBtn && window.HippoDesktop?.selectDirectory) {
+    if (browseBtn && window.HippoDesktop?.openFileDialog) {
       browseBtn.addEventListener('click', async () => {
         try {
-          const result = await window.HippoDesktop.selectDirectory();
+          const result = await window.HippoDesktop.openFileDialog();
           if (result?.path) {
-            document.getElementById('settingsDefaultWorkspace').value = result.path;
+            const input = document.getElementById('settingsDefaultWorkspace');
+            input.value = result.path;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
           }
         } catch (e) {
           // ignore
