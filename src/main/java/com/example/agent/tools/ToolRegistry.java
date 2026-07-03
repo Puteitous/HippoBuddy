@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.example.agent.core.AgentMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,8 +53,15 @@ public class ToolRegistry {
     }
 
     public List<Tool> toTools() {
+        return toTools(null);
+    }
+
+    public List<Tool> toTools(AgentMode mode) {
         List<Tool> tools = new ArrayList<>();
         for (ToolExecutor executor : executors.values()) {
+            if (mode != null && !mode.isToolAllowed(executor.getName())) {
+                continue;
+            }
             try {
                 String schemaJson = executor.getParametersSchema();
                 if (schemaJson == null || schemaJson.trim().isEmpty()) {

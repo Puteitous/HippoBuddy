@@ -2,11 +2,6 @@ package com.example.agent.prompt.model;
 
 public enum PromptType {
 
-    // ========== 旧版（保留向后兼容，逐渐废弃） ==========
-    BASE_CODING("base", "coding", "基础编程助手"),
-    BASE_RESEARCH("base", "research", "代码研究模式"),
-    BASE_CHAT("base", "chat", "聊天对话模式"),
-
     // ========== 核心层（始终注入） ==========
     CORE_ROLE("core", "role", "角色定义 + 自主决策原则"),
 
@@ -18,8 +13,6 @@ public enum PromptType {
     FEATURE_MEMORY("feature", "memory", "长期记忆系统指南"),
 
     // ========== 任务/专家/工具层（预留） ==========
-    TASK_REFACTOR("task", "refactor", "代码重构专家"),
-    TASK_DEBUG("task", "debug", "调试专家"),
     TASK_CODEGEN("task", "codegen", "代码生成专家"),
     TASK_REVIEW("task", "review", "代码审查专家"),
     TASK_ARCHITECTURE("task", "architecture", "架构设计专家"),

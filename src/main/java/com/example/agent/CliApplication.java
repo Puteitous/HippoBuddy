@@ -36,26 +36,15 @@ public class CliApplication {
 
     private static final Logger logger = LoggerFactory.getLogger(CliApplication.class);
 
+    /**
+     * @deprecated CLI 端已废弃，请使用桌面端（DesktopApplication）。
+     * 代码保留仅供引用，后续版本会彻底移除。
+     */
+    @Deprecated
     public static void main(String[] args) {
-        System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
-
-        boolean enableWeb = false;
-        int webPort = 0;
-        for (int i = 0; i < args.length; i++) {
-            switch (args[i]) {
-                case "--web":
-                    enableWeb = true;
-                    break;
-                case "--web-port":
-                    if (i + 1 < args.length) {
-                        webPort = Integer.parseInt(args[++i]);
-                    }
-                    break;
-            }
-        }
-
-        CliApplication app = new CliApplication();
-        app.run(enableWeb, webPort);
+        System.err.println("[Hippo Code] CLI 模式已废弃，请使用桌面端启动。");
+        System.err.println("[Hippo Code] 如需启动桌面端，请运行 DesktopApplication.main()。");
+        System.exit(1);
     }
 
     public void run(boolean enableWeb, int webPort) {
