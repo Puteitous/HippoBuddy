@@ -22,13 +22,17 @@
 }
 
 .splash-hippo {
-    font-size: 130px;
-    line-height: 1;
     z-index: 1;
     position: relative;
     transform: translateY(32vh);
     transition: transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     filter: drop-shadow(0 8px 32px rgba(0,0,0,0.12));
+}
+
+.splash-hippo svg {
+    width: 130px;
+    height: 130px;
+    display: block;
 }
 
 .splash-screen.splash-animating .splash-hippo {

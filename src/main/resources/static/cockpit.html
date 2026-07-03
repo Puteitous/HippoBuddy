@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hippo Cockpit</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦛</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='m42 9h20l-.859 4.293a5.332 5.332 0 0 1-.463 1.351 5.38 5.38 0 0 1-5.407 2.942l-1.071-.119-6.559-.91z' fill='%23786C68'/%3E%3Cpath d='m55.271 17.586-1.071-.119-6.559-.91-2.653-3.557h16.212l-.059.293a5.332 5.332 0 0 1-.463 1.351 5.38 5.38 0 0 1-5.407 2.942z' fill='%2369574F'/%3E%3Cpath d='m22 9h-20l.859 4.293a5.332 5.332 0 0 0 .463 1.351 5.38 5.38 0 0 0 5.407 2.942l1.071-.119 6.559-.91z' fill='%23786C68'/%3E%3Cpath d='m8.729 17.586 1.071-.119 6.559-.91 2.653-3.557h-16.212l.059.293a5.332 5.332 0 0 0 .463 1.351 5.38 5.38 0 0 0 5.407 2.942z' fill='%2369574F'/%3E%3Cpath d='m6.005 30.51a26 26 0 0 1 51.99 0' fill='%23786C68'/%3E%3Cpath d='m32 5c-.555 0-1.105.023-1.652.058-5.424 3.569-8.828 8.709-8.828 14.423a15.969 15.969 0 0 0 4.736 11.029h31.744a26 26 0 0 0-26-25.51z' fill='%23766F6B'/%3E%3Cpath d='m27.323 21.23c1.524-.152 3.086-.23 4.677-.23s3.153.078 4.677.23a6 6 0 0 1 11.323 2.695c8.412 3.365 14 9.307 14 16.075 0 10.493-13.431 19-30 19s-30-8.507-30-19c0-6.768 5.588-12.71 14-16.075a6 6 0 0 1 11.323-2.695z' fill='%23E2C8E4'/%3E%3Cpath d='m48 23.925a6 6 0 0 0-11.323-2.695c-1.524-.152-3.086-.23-4.677-.23s-3.153.078-4.677.23a6 6 0 0 0-11.323 2.695c-.3.12-.588.251-.882.377a44.541 44.541 0 0 0-.558 7.013 40.734 40.734 0 0 0 9.772 27.056 46.578 46.578 0 0 0 7.668.629c16.569 0 30-8.507 30-19 0-6.768-5.588-12.71-14-16.075z' fill='%23E3CCE5'/%3E%3Cg fill='%233A2727'%3E%3Cpath d='m24 13h5v2h-5z'/%3E%3Cpath d='m35 13h5v2h-5z'/%3E%3Ccircle cx='22' cy='24' r='2'/%3E%3Ccircle cx='42' cy='24' r='2'/%3E%3Cpath d='m36 54a5 5 0 0 1-4-2 5 5 0 0 1-9-3h2a3 3 0 0 0 6 0 1 1 0 0 1 2 0 3 3 0 0 0 6 0h2a5.006 5.006 0 0 1-5 5z'/%3E%3C/g%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/variables.css?v=20260527-1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,9 +39,31 @@
     <script defer src="js/mermaid-renderer.js"></script>
 </head>
 <body class="page-loading">
+    <!-- SVG 全局图标定义 -->
+    <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <g id="hippoIcon">
+                <path d="m42 9h20l-.859 4.293a5.332 5.332 0 0 1-.463 1.351 5.38 5.38 0 0 1-5.407 2.942l-1.071-.119-6.559-.91z" fill="#786C68"/>
+                <path d="m55.271 17.586-1.071-.119-6.559-.91-2.653-3.557h16.212l-.059.293a5.332 5.332 0 0 1-.463 1.351 5.38 5.38 0 0 1-5.407 2.942z" fill="#69574F"/>
+                <path d="m22 9h-20l.859 4.293a5.332 5.332 0 0 0 .463 1.351 5.38 5.38 0 0 0 5.407 2.942l1.071-.119 6.559-.91z" fill="#786C68"/>
+                <path d="m8.729 17.586 1.071-.119 6.559-.91 2.653-3.557h-16.212l.059.293a5.332 5.332 0 0 0 .463 1.351 5.38 5.38 0 0 0 5.407 2.942z" fill="#69574F"/>
+                <path d="m6.005 30.51a26 26 0 0 1 51.99 0" fill="#786C68"/>
+                <path d="m32 5c-.555 0-1.105.023-1.652.058-5.424 3.569-8.828 8.709-8.828 14.423a15.969 15.969 0 0 0 4.736 11.029h31.744a26 26 0 0 0-26-25.51z" fill="#766F6B"/>
+                <path d="m27.323 21.23c1.524-.152 3.086-.23 4.677-.23s3.153.078 4.677.23a6 6 0 0 1 11.323 2.695c8.412 3.365 14 9.307 14 16.075 0 10.493-13.431 19-30 19s-30-8.507-30-19c0-6.768 5.588-12.71 14-16.075a6 6 0 0 1 11.323-2.695z" fill="#E2C8E4"/>
+                <path d="m48 23.925a6 6 0 0 0-11.323-2.695c-1.524-.152-3.086-.23-4.677-.23s-3.153.078-4.677.23a6 6 0 0 0-11.323 2.695c-.3.12-.588.251-.882.377a44.541 44.541 0 0 0-.558 7.013 40.734 40.734 0 0 0 9.772 27.056 46.578 46.578 0 0 0 7.668.629c16.569 0 30-8.507 30-19 0-6.768-5.588-12.71-14-16.075z" fill="#E3CCE5"/>
+                <g fill="#3A2727">
+                    <path d="m24 13h5v2h-5z"/>
+                    <path d="m35 13h5v2h-5z"/>
+                    <circle cx="22" cy="24" r="2"/>
+                    <circle cx="42" cy="24" r="2"/>
+                    <path d="m36 54a5 5 0 0 1-4-2 5 5 0 0 1-9-3h2a3 3 0 0 0 6 0 1 1 0 0 1 2 0 3 3 0 0 0 6 0h2a5.006 5.006 0 0 1-5 5z"/>
+                </g>
+            </g>
+        </defs>
+    </svg>
     <!-- ===== 启动 Splash：河马出水 ===== -->
     <div class="splash-screen" id="splashScreen">
-        <div class="splash-hippo" id="splashHippo">🦛</div>
+        <div class="splash-hippo" id="splashHippo"><svg viewBox="0 0 64 64"><use href="#hippoIcon"/></svg></div>
         <div class="splash-wave-wrap">
             <div class="splash-wave splash-wave-back"></div>
             <div class="splash-wave splash-wave-front"></div>
@@ -64,7 +86,7 @@
     <!-- 顶部栏 -->
     <div class="header">
         <div class="header-brand">
-            <span class="header-brand-icon">🦛</span>
+            <span class="header-brand-icon"><svg viewBox="0 0 64 64" width="22" height="22"><use href="#hippoIcon"/></svg></span>
             <span class="header-brand-text">
                 <span class="brand-hippo">Hippo</span>
                 <span class="brand-code">Buddy</span>
@@ -384,7 +406,7 @@
             </div>
             <div class="chat-container" id="chatContainer">
                 <div class="empty-state">
-                    <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
+                    <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
                     <h1 class="empty-hero-title">HippoBuddy</h1>
                     <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
                     <div class="empty-hero-input-area">

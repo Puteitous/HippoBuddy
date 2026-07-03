@@ -25,7 +25,7 @@ export class ChatUI {
     document.querySelector('.chat-panel')?.classList.remove('has-messages');
     this.container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-hero-logo"><span class="hippo-char">🦛</span></div>
+        <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
         <h1 class="empty-hero-title">HippoBuddy</h1>
         <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
         <div class="empty-hero-input-area">
