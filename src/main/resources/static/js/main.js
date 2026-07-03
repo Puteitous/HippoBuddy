@@ -132,7 +132,11 @@ function init() {
   window.skillMarket = new SkillMarket();
   if (activityBar) {
     activityBar.onAction('skillMarket', () => {
-      window.skillMarket.open();
+      // 互斥：关闭设置面板
+      if (window.settingsPanel && window.settingsPanel.isOpen()) {
+        window.settingsPanel.close();
+      }
+      window.skillMarket.toggle();
     });
   }
 
@@ -183,7 +187,13 @@ function init() {
 
   // 7.3 初始化设置面板
   window.settingsPanel = new SettingsPanel();
-  document.getElementById('settingsBtn')?.addEventListener('click', () => window.settingsPanel.toggle());
+  document.getElementById('settingsBtn')?.addEventListener('click', () => {
+    // 互斥：关闭技能市场
+    if (window.skillMarket && window.skillMarket.isOpen()) {
+      window.skillMarket.close();
+    }
+    window.settingsPanel.toggle();
+  });
 
   // 8. 绑定全局事件
   bindGlobalEvents();

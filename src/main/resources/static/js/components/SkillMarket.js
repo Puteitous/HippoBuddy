@@ -1,8 +1,8 @@
 /**
- * SkillMarket — 技能市场覆盖层
+ * SkillMarket — 技能市场（嵌入主窗口）
  *
- * 独立覆盖层，不替换聊天面板，浏览/搜索/安装社区技能。
- * 安装后自动刷新 SettingsPanel 技能列表。
+ * 替换聊天面板位置，与设置面板同款布局。
+ * 浏览/搜索/安装社区技能，安装后自动刷新 SettingsPanel 技能列表。
  */
 import { apiPost } from '../utils.js';
 import { showToast } from '../utils/toast.js';
@@ -121,7 +121,7 @@ const CATEGORIES = ['全部', '开发', '前端', '安全', 'DevOps', '数据'];
 
 export class SkillMarket {
   constructor() {
-    this._overlay = null;
+    this._container = null;
     this._installedNames = new Set();
     this._installedSkills = []; // 完整的已安装技能列表（含非市场技能）
     this._activeCategory = '全部';
@@ -129,39 +129,56 @@ export class SkillMarket {
     this._activeSource = null; // 浏览某来源仓库的技能列表
     this._showInstalled = false; // 是否显示已安装列表
     this._savedCategory = '全部'; // 进入已安装模式前保存的活跃分类
+
+    this._mainContainer = document.querySelector('.main-container');
+    this._chatPanel = document.querySelector('.chat-panel');
   }
 
   async open() {
-    if (!this._overlay) this._init();
+    if (!this._container) this._init();
+    // 隐藏聊天面板
+    if (this._chatPanel) this._chatPanel.style.display = 'none';
     await this._loadInstalledSkills();
     this._render();
-    this._overlay.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    this._container.style.display = 'flex';
   }
 
   close() {
-    if (this._overlay) {
-      this._overlay.style.display = 'none';
-      document.body.style.overflow = '';
+    if (this._container) {
+      this._container.style.display = 'none';
+    }
+    if (this._chatPanel) {
+      this._chatPanel.style.display = '';
+    }
+  }
+
+  isOpen() {
+    return this._container && this._container.style.display !== 'none';
+  }
+
+  toggle() {
+    if (this.isOpen()) {
+      this.close();
+    } else {
+      this.open();
     }
   }
 
   // ==================== 内部 ====================
 
   _init() {
-    this._overlay = document.createElement('div');
-    this._overlay.className = 'skill-market-overlay';
-    this._overlay.style.display = 'none';
-    this._overlay.addEventListener('click', (e) => {
-      if (e.target === this._overlay) this.close();
-    });
+    this._container = document.createElement('div');
+    this._container.className = 'skill-market-container';
+    this._container.style.display = 'none';
     // Esc 关闭
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this._overlay && this._overlay.style.display === 'flex') {
+      if (e.key === 'Escape' && this._container && this._container.style.display === 'flex') {
         this.close();
       }
     });
-    document.body.appendChild(this._overlay);
+    if (this._mainContainer) {
+      this._mainContainer.appendChild(this._container);
+    }
   }
 
   async _loadInstalledSkills() {
@@ -187,11 +204,8 @@ export class SkillMarket {
   }
 
   _render() {
-    const overlay = this._overlay;
-    overlay.innerHTML = '';
-
-    const panel = document.createElement('div');
-    panel.className = 'skill-market-panel';
+    const container = this._container;
+    container.innerHTML = '';
 
     // Header
     const header = document.createElement('div');
@@ -202,7 +216,7 @@ export class SkillMarket {
       <button class="skill-market-close" title="关闭">✕</button>
     `;
     header.querySelector('.skill-market-close').addEventListener('click', () => this.close());
-    panel.appendChild(header);
+    container.appendChild(header);
 
     // Body
     const body = document.createElement('div');
@@ -232,8 +246,7 @@ export class SkillMarket {
     }
 
     body.appendChild(content);
-    panel.appendChild(body);
-    overlay.appendChild(panel);
+    container.appendChild(body);
   }
 
   _createSearchBar() {
@@ -335,7 +348,7 @@ export class SkillMarket {
 
   /** 只刷新 content 区域，不重建整个面板 */
   _renderContent() {
-    const content = this._overlay.querySelector('.skill-market-content');
+    const content = this._container.querySelector('.skill-market-content');
     if (!content) return;
     content.innerHTML = '';
 
@@ -366,38 +379,24 @@ export class SkillMarket {
       const card = document.createElement('div');
       card.className = 'skill-market-source-card';
 
-      const tagEl = document.createElement('span');
-      tagEl.className = 'skill-market-source-tag';
-      tagEl.textContent = src.tag;
-
       card.innerHTML = `
         <div class="skill-market-source-info">
           <div class="skill-market-source-name">${this._escapeHtml(src.name)}</div>
           <div class="skill-market-source-stars">⭐ ${src.stars}</div>
+          <a class="skill-market-source-github" href="${src.url}" target="_blank" title="在 GitHub 上查看">↗</a>
         </div>
         <div class="skill-market-source-desc">${this._escapeHtml(src.desc)}</div>
+        <div class="skill-market-source-actions">
+          <button class="skill-market-btn skill-market-btn-secondary">浏览</button>
+        </div>
       `;
-      card.prepend(tagEl);
 
-      const actions = document.createElement('div');
-      actions.className = 'skill-market-source-actions';
+      card.querySelector('.skill-market-source-actions .skill-market-btn')
+        .addEventListener('click', () => {
+          this._activeSource = src;
+          this._renderContent();
+        });
 
-      const browseBtn = document.createElement('button');
-      browseBtn.className = 'skill-market-btn skill-market-btn-secondary';
-      browseBtn.textContent = '浏览';
-      browseBtn.addEventListener('click', () => {
-        this._activeSource = src;
-        this._renderContent();
-      });
-      actions.appendChild(browseBtn);
-
-      const linkBtn = document.createElement('button');
-      linkBtn.className = 'skill-market-btn skill-market-btn-ghost';
-      linkBtn.textContent = 'GitHub ↗';
-      linkBtn.addEventListener('click', () => window.open(src.url, '_blank'));
-      actions.appendChild(linkBtn);
-
-      card.appendChild(actions);
       grid.appendChild(card);
     }
 
@@ -466,44 +465,62 @@ export class SkillMarket {
     const grid = document.createElement('div');
     grid.className = 'skill-market-grid';
 
+    const ICON_PLUS = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>';
+    const ICON_CHECK = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 7 12 13 4"/></svg>';
+
     for (const skill of skills) {
       const card = document.createElement('div');
       card.className = 'skill-market-skill-card';
+      card.tabIndex = 0;
 
       const isInstalled = this._isInstalled(skill.name);
 
       card.innerHTML = `
-        <div class="skill-market-skill-header">
-          <span class="skill-market-skill-icon">📄</span>
-          <div class="skill-market-skill-info">
+        <div class="skill-market-skill-row">
+          <div class="skill-market-skill-text">
             <div class="skill-market-skill-name">${this._escapeHtml(skill.name)}</div>
-            <div class="skill-market-skill-source">${this._escapeHtml(skill.source)}</div>
+            <div class="skill-market-skill-desc">${this._escapeHtml(skill.desc)}</div>
           </div>
-          <span class="skill-market-skill-cat">${skill.category}</span>
-        </div>
-        <div class="skill-market-skill-desc">${this._escapeHtml(skill.desc)}</div>
-        <div class="skill-market-skill-actions">
-          <button class="skill-market-btn ${isInstalled ? 'skill-market-btn-installed' : 'skill-market-btn-primary'}"
-            ${isInstalled ? 'disabled' : ''}
-            data-skill-name="${skill.name}">
-            ${isInstalled ? '✓ 已安装' : '安装'}
+          <button class="skill-market-plus-btn${isInstalled ? ' installed' : ''}"
+            data-skill-name="${skill.name}"
+            title="${isInstalled ? '已安装，点击卸载' : '安装'}">
+            ${isInstalled ? ICON_CHECK : ICON_PLUS}
           </button>
-          <button class="skill-market-btn skill-market-btn-ghost skill-market-preview-btn" data-skill-name="${skill.name}">预览</button>
         </div>
       `;
 
-      const installBtn = card.querySelector('.skill-market-btn-primary, .skill-market-btn-installed');
-      installBtn.addEventListener('click', () => {
-        if (!isInstalled) this._installSkill(skill);
+      // 点击卡片 → 预览
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.skill-market-plus-btn')) return;
+        this._previewSkill(skill);
       });
 
-      const previewBtn = card.querySelector('.skill-market-preview-btn');
-      previewBtn.addEventListener('click', () => this._previewSkill(skill));
+      // 点击加号 → 安装 / 卸载
+      const plusBtn = card.querySelector('.skill-market-plus-btn');
+      plusBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isInstalled) {
+          const installed = this._findInstalledSkill(skill.name);
+          if (installed) {
+            this._uninstallSkill({ name: skill.name, filePath: installed.filePath, skill });
+          }
+        } else {
+          this._installSkill(skill);
+        }
+      });
 
       grid.appendChild(card);
     }
 
     return grid;
+  }
+
+  _findInstalledSkill(name) {
+    const key = name.toLowerCase().replace(/\s+/g, '-');
+    return this._installedSkills.find(s => {
+      const n = s.name || (s.fileName && s.fileName.replace(/\.md$/, ''));
+      return n && n.toLowerCase().replace(/\s+/g, '-') === key;
+    });
   }
 
   _filteredSkills() {
@@ -567,7 +584,7 @@ export class SkillMarket {
         this._activeCategory = this._savedCategory || '全部';
         this._renderContent();
         // 同时更新 tab 状态
-        const tabs = this._overlay?.querySelector('.skill-market-cats');
+        const tabs = this._container?.querySelector('.skill-market-cats');
         if (tabs) {
           tabs.querySelectorAll('.skill-market-cat-btn').forEach(b => b.classList.remove('active'));
           const catBtns = tabs.querySelectorAll('.skill-market-cat-filter');
@@ -681,10 +698,10 @@ export class SkillMarket {
     );
     if (!confirmed) return;
 
-    const btn = this._overlay?.querySelector(`[data-skill-name="${skill.name}"]`);
+    const btn = this._container?.querySelector(`[data-skill-name="${skill.name}"]`);
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '安装中…';
+      btn.innerHTML = '<span style="opacity:0.5">...</span>';
     }
 
     try {
@@ -715,7 +732,8 @@ export class SkillMarket {
         showToast('安装失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
         if (btn) {
           btn.disabled = false;
-          btn.textContent = '安装';
+          const ICON_PLUS = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>';
+          btn.innerHTML = ICON_PLUS;
         }
       }
     } catch (e) {
