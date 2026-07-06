@@ -18,6 +18,9 @@ public class ToolsConfig {
     private FileToolConfig file = new FileToolConfig();
     private SubAgentToolConfig subagent = new SubAgentToolConfig();
 
+    @JsonProperty("delete_file")
+    private DeleteFileToolConfig deleteFile = new DeleteFileToolConfig();
+
     @JsonProperty("web_search")
     private WebSearchConfig webSearch = new WebSearchConfig();
 
@@ -225,5 +228,27 @@ public class ToolsConfig {
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
         }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class DeleteFileToolConfig {
+        @JsonProperty("require_confirmation")
+        private boolean requireConfirmation = true;
+
+        public boolean isRequireConfirmation() {
+            return requireConfirmation;
+        }
+
+        public void setRequireConfirmation(boolean requireConfirmation) {
+            this.requireConfirmation = requireConfirmation;
+        }
+    }
+
+    public DeleteFileToolConfig getDeleteFile() {
+        return deleteFile;
+    }
+
+    public void setDeleteFile(DeleteFileToolConfig deleteFile) {
+        this.deleteFile = deleteFile;
     }
 }

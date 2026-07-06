@@ -15,6 +15,7 @@ import { CustomDropdown } from '../../utils/dropdown.js';
 const KEY_LABELS = {
   bash: 'Bash 命令执行',
   file: '文件系统操作',
+  delete_file: '删除文件',
   web_search: 'Web 搜索',
   subagent: '子代理',
 };
@@ -122,6 +123,9 @@ export class ToolsSettingsPage {
     const allowedPathsStr = (file.allowed_paths || []).join(', ');
     const blockedExtsStr = (file.blocked_extensions || []).join(', ');
     const currentMaxSize = file.max_file_size || '10MB';
+
+    // ── Delete File 配置 ──
+    const deleteFile = tools.delete_file || {};
 
     // ── Web Search 配置 ──
     const webSearch = tools.web_search || {};
@@ -251,6 +255,22 @@ export class ToolsSettingsPage {
           </div>
         </div>
       </div>
+
+      <!-- ===== Delete File ===== -->
+      <div class="settings-field-group-title">${KEY_LABELS.delete_file}</div>
+      <div class="settings-field-group">
+        <div class="settings-form">
+          <div class="settings-field-horizontal">
+            <label class="settings-field-label">需确认</label>
+            <div class="settings-field-body">
+              <label class="settings-switch">
+                <input type="checkbox" id="toolsDeleteFileConfirm" ${deleteFile.require_confirmation !== false ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
     `;
 
     // 初始化下拉框
@@ -330,6 +350,12 @@ export class ToolsSettingsPage {
       const subagentEnabled = document.getElementById('toolsSubagentEnabled')?.checked;
       values.subagent = {
         enabled: subagentEnabled === true,
+      };
+
+      // Delete File
+      const deleteFileConfirm = document.getElementById('toolsDeleteFileConfirm')?.checked;
+      values.delete_file = {
+        require_confirmation: deleteFileConfirm !== false,
       };
 
       const { HippoDesktop } = window;

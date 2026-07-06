@@ -1,6 +1,7 @@
 package com.example.agent.web.orchestrator;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.config.Config;
 import com.example.agent.core.blocker.HookResult;
 import com.example.agent.core.blocker.RequestContext;
 import com.example.agent.core.di.ServiceLocator;
@@ -432,31 +433,38 @@ public class WebAgentOrchestrator {
                             }
 
                             if (hookResult.isConfirmationRequired()) {
-                                String confirmId = java.util.UUID.randomUUID().toString();
+                                // 检查配置：如果用户关闭了"需确认"开关，跳过确认直接执行
+                                if (!Config.getInstance().getTools().getBash().isRequireConfirmation()) {
+                                    logger.debug("bash 无需确认（配置关闭），直接执行: sessionId={}, command={}",
+                                        sessionId, command);
+                                    // 放行，走到下方的流式执行逻辑
+                                } else {
+                                    String confirmId = java.util.UUID.randomUUID().toString();
 
-                                PendingBashConfirmation pending = new PendingBashConfirmation(
-                                    confirmId, toolCall.getId(), toolName,
-                                    command, arguments, hookResult.getRiskLevel(), hookResult.getReason()
-                                );
-                                sessionManager.setPendingBashConfirmation(sessionId, pending);
+                                    PendingBashConfirmation pending = new PendingBashConfirmation(
+                                        confirmId, toolCall.getId(), toolName,
+                                        command, arguments, hookResult.getRiskLevel(), hookResult.getReason()
+                                    );
+                                    sessionManager.setPendingBashConfirmation(sessionId, pending);
 
-                                String confirmJson = buildBashConfirmJson(confirmId, command,
-                                    hookResult.getRiskLevel(), hookResult.getReason());
-                                sseWriter.sendSseEvent("tool_confirmation", confirmJson);
-                                logger.info("发送 tool_confirmation 事件: confirmId={}, command={}, riskLevel={}",
-                                    confirmId, command, hookResult.getRiskLevel());
-                                // 保存当前轮中尚未执行的剩余工具，确认弹窗关闭后继续执行
-                                // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，确认/拒绝一个不影响其他
-                                if (i < toolCalls.size() - 1) {
-                                    List<ToolCall> remaining = toolCalls.subList(i + 1, toolCalls.size());
-                                    String remainingIds = remaining.stream()
-                                        .map(tc -> tc.getId() + "(" + tc.getFunction().getName() + ")")
-                                        .collect(java.util.stream.Collectors.joining(", "));
-                                    remainingToolCalls.put(sessionId, remaining);
-                                    logger.info("暂存剩余工具调用: sessionId={}, 数量={}, 列表=[{}]",
-                                        sessionId, remaining.size(), remainingIds);
+                                    String confirmJson = buildBashConfirmJson(confirmId, command,
+                                        hookResult.getRiskLevel(), hookResult.getReason());
+                                    sseWriter.sendSseEvent("tool_confirmation", confirmJson);
+                                    logger.info("发送 tool_confirmation 事件: confirmId={}, command={}, riskLevel={}",
+                                        confirmId, command, hookResult.getRiskLevel());
+                                    // 保存当前轮中尚未执行的剩余工具，确认弹窗关闭后继续执行
+                                    // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，确认/拒绝一个不影响其他
+                                    if (i < toolCalls.size() - 1) {
+                                        List<ToolCall> remaining = toolCalls.subList(i + 1, toolCalls.size());
+                                        String remainingIds = remaining.stream()
+                                            .map(tc -> tc.getId() + "(" + tc.getFunction().getName() + ")")
+                                            .collect(java.util.stream.Collectors.joining(", "));
+                                        remainingToolCalls.put(sessionId, remaining);
+                                        logger.info("暂存剩余工具调用: sessionId={}, 数量={}, 列表=[{}]",
+                                            sessionId, remaining.size(), remainingIds);
+                                    }
+                                    return false;
                                 }
-                                return false;
                             }
                         }
                     }
@@ -525,30 +533,39 @@ public class WebAgentOrchestrator {
                         continue;
                     }
 
-                    // 需要用户确认
-                    String confirmId = java.util.UUID.randomUUID().toString();
+                    // 检查配置：是否需要用户确认
+                    boolean requireConfirm = Config.getInstance().getTools().getDeleteFile().isRequireConfirmation();
 
-                    String[] filePaths = preview.getFiles().toArray(new String[0]);
-                    String[] dirPaths = preview.getEmptyDirs().toArray(new String[0]);
-                    PendingDeleteConfirmation pending = new PendingDeleteConfirmation(
-                        confirmId, toolCall.getId(), toolName,
-                        args, filePaths, preview.totalCount()
-                    );
-                    sessionManager.setPendingDeleteConfirmation(sessionId, pending);
+                    if (requireConfirm) {
+                        // 需要用户确认
+                        String confirmId = java.util.UUID.randomUUID().toString();
 
-                    // 构建 SSE 确认消息
-                    String confirmJson = buildDeleteConfirmJson(confirmId, filePaths, dirPaths, preview.totalCount());
-                    sseWriter.sendSseEvent("tool_confirmation", confirmJson);
-                    logger.info("发送 delete_file 确认事件: confirmId={}, totalCount={} (files={}, dirs={})",
-                        confirmId, preview.totalCount(), preview.getFiles().size(), preview.getEmptyDirs().size());
+                        String[] filePaths = preview.getFiles().toArray(new String[0]);
+                        String[] dirPaths = preview.getEmptyDirs().toArray(new String[0]);
+                        PendingDeleteConfirmation pending = new PendingDeleteConfirmation(
+                            confirmId, toolCall.getId(), toolName,
+                            args, filePaths, preview.totalCount()
+                        );
+                        sessionManager.setPendingDeleteConfirmation(sessionId, pending);
 
-                    // 保存同一轮中尚未执行的剩余工具
-                    if (i < toolCalls.size() - 1) {
-                        List<ToolCall> remaining = toolCalls.subList(i + 1, toolCalls.size());
-                        remainingToolCalls.put(sessionId, remaining);
-                        logger.info("暂存剩余工具调用: sessionId={}, 数量={}", sessionId, remaining.size());
+                        // 构建 SSE 确认消息
+                        String confirmJson = buildDeleteConfirmJson(confirmId, filePaths, dirPaths, preview.totalCount());
+                        sseWriter.sendSseEvent("tool_confirmation", confirmJson);
+                        logger.info("发送 delete_file 确认事件: confirmId={}, totalCount={} (files={}, dirs={})",
+                            confirmId, preview.totalCount(), preview.getFiles().size(), preview.getEmptyDirs().size());
+
+                        // 保存同一轮中尚未执行的剩余工具
+                        if (i < toolCalls.size() - 1) {
+                            List<ToolCall> remaining = toolCalls.subList(i + 1, toolCalls.size());
+                            remainingToolCalls.put(sessionId, remaining);
+                            logger.info("暂存剩余工具调用: sessionId={}, 数量={}", sessionId, remaining.size());
+                        }
+                        return false;
                     }
-                    return false;
+
+                    // 不需要确认，直接执行（走下方统一的工具执行逻辑）
+                    logger.info("delete_file 无需确认，直接执行: sessionId={}, totalCount={}",
+                        sessionId, preview.totalCount());
                 }
 
                 // 设置 toolCallId 供 FileChangeTracker.recordChange 使用
