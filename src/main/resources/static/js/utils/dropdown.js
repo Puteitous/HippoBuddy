@@ -93,6 +93,9 @@ export class CustomDropdown {
     this._renderMenu();
     this._positionMenu();
     this._highlightSelected();
+    // 滚动时自动关闭下拉（标准下拉菜单 UX）
+    this._onScroll = () => this.close();
+    window.addEventListener('scroll', this._onScroll, { capture: true, passive: true });
   }
 
   /** 关闭下拉 */
@@ -103,6 +106,10 @@ export class CustomDropdown {
     if (this._menu) {
       this._menu.remove();
       this._menu = null;
+    }
+    if (this._onScroll) {
+      window.removeEventListener('scroll', this._onScroll, { capture: true, passive: true });
+      this._onScroll = null;
     }
   }
 

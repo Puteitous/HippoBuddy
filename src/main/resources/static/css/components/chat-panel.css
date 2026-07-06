@@ -285,7 +285,7 @@
 
 .message.assistant code {
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: var(--font-size-lg);
     background: var(--bg-code);
     padding: 2px 6px;
     border-radius: var(--radius-sm);
@@ -294,6 +294,7 @@
 
 .message.assistant p {
     margin: 10px 0;
+    font-size: var(--font-size-lg);
     line-height: 1.7;
 }
 
@@ -311,7 +312,7 @@
     border-collapse: collapse;
     width: 100%;
     margin: 12px 0;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-md);
 }
 
 .message.assistant table th, .message.assistant table td {
@@ -335,6 +336,7 @@
     padding: 8px 16px;
     background: var(--bg-code);
     color: var(--text-secondary);
+    font-size: var(--font-size-lg);
 }
 
 .message.assistant blockquote p {
@@ -344,10 +346,12 @@
 .message.assistant ul, .message.assistant ol {
     margin: 10px 0;
     padding-left: 24px;
+    font-size: var(--font-size-md);
 }
 
 .message.assistant li {
     margin: 6px 0;
+    font-size: var(--font-size-lg);
     line-height: 1.6;
 }
 
@@ -604,7 +608,7 @@
     flex: 1;
     border: none;
     background: transparent;
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
     font-family: inherit;
     color: var(--text-primary);
     outline: none;

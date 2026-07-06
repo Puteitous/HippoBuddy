@@ -8,6 +8,7 @@
  * - subagent: { enabled }
  *
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
+ * 自动保存：checkbox/dropdown 变更后立即保存，text input 失焦后保存。
  */
 import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
@@ -40,8 +41,6 @@ const WEB_PROVIDER_ITEMS = [
 export class ToolsSettingsPage {
   constructor() {
     this._config = null;
-    this._saveBtn = null;
-    this._saveStatus = null;
     this._fileMaxSizeDropdown = null;
     this._webProviderDropdown = null;
   }
@@ -59,10 +58,6 @@ export class ToolsSettingsPage {
 
       <div class="settings-loading" id="toolsLoading" style="display:block;">加载中...</div>
       <div id="toolsForm" style="display:none;"></div>
-      <div class="settings-save-bar" id="toolsSaveBar" style="display:none;">
-        <button class="settings-save-btn" id="toolsSaveBtn">保存配置</button>
-        <span class="settings-editor-status" id="toolsSaveStatus" style="display:none;"></span>
-      </div>
     `;
 
     container.appendChild(page);
@@ -73,8 +68,6 @@ export class ToolsSettingsPage {
     if (this._fileMaxSizeDropdown) this._fileMaxSizeDropdown.destroy();
     if (this._webProviderDropdown) this._webProviderDropdown.destroy();
     this._config = null;
-    this._saveBtn = null;
-    this._saveStatus = null;
   }
 
   async _loadConfig() {
@@ -108,7 +101,6 @@ export class ToolsSettingsPage {
   _renderForm() {
     const loading = document.getElementById('toolsLoading');
     const form = document.getElementById('toolsForm');
-    const saveBar = document.getElementById('toolsSaveBar');
     if (loading) loading.style.display = 'none';
     if (!form) return;
 
@@ -278,11 +270,13 @@ export class ToolsSettingsPage {
       trigger: document.getElementById('toolsFileMaxSize'),
       items: FILE_MAX_SIZE_ITEMS,
       placement: 'bottom-left',
+      onSelect: () => this._saveConfig(),
     });
     this._webProviderDropdown = new CustomDropdown({
       trigger: document.getElementById('toolsWebProvider'),
       items: WEB_PROVIDER_ITEMS,
       placement: 'bottom-left',
+      onSelect: () => this._saveConfig(),
     });
 
     // 绑定事件：API Key 显示/隐藏
@@ -298,21 +292,20 @@ export class ToolsSettingsPage {
       });
     }
 
-    // 保存按钮
-    this._saveBtn = document.getElementById('toolsSaveBtn');
-    this._saveStatus = document.getElementById('toolsSaveStatus');
-    if (this._saveBtn) {
-      this._saveBtn.addEventListener('click', () => this._saveConfig());
-    }
+    // 绑定 checkbox 自动保存
+    const checkboxIds = ['toolsBashEnabled', 'toolsBashConfirm', 'toolsFileEnabled', 'toolsSubagentEnabled', 'toolsDeleteFileConfirm'];
+    checkboxIds.forEach(id => {
+      document.getElementById(id)?.addEventListener('change', () => this._saveConfig());
+    });
 
-    if (saveBar) saveBar.style.display = '';
+    // 绑定 text input/textarea 失焦自动保存
+    const inputIds = ['toolsBashWhitelist', 'toolsFileAllowedPaths', 'toolsFileBlockedExts', 'toolsWebApiKey'];
+    inputIds.forEach(id => {
+      document.getElementById(id)?.addEventListener('blur', () => this._saveConfig());
+    });
   }
 
   async _saveConfig() {
-    if (!this._saveBtn) return;
-    this._saveBtn.disabled = true;
-    this._saveBtn.textContent = '保存中…';
-
     try {
       const values = {};
 
@@ -364,37 +357,9 @@ export class ToolsSettingsPage {
       } else {
         throw new Error('updateConfig 不可用');
       }
-
-      if (this._saveStatus) {
-        this._saveStatus.textContent = '✓ 配置已保存';
-        this._saveStatus.className = 'settings-editor-status settings-editor-status-success';
-        this._saveStatus.style.display = 'block';
-      }
-      if (this._saveBtn) {
-        this._saveBtn.textContent = '✓ 已保存';
-      }
-      setTimeout(() => {
-        if (this._saveBtn) {
-          this._saveBtn.disabled = false;
-          this._saveBtn.textContent = '保存配置';
-        }
-        if (this._saveStatus) {
-          this._saveStatus.style.display = 'none';
-        }
-        // 重新加载配置（刷新遮掩状态）
-        this._loadConfig();
-      }, 1200);
     } catch (e) {
       console.warn('保存工具配置失败:', e);
-      if (this._saveStatus) {
-        this._saveStatus.textContent = '⚠️ 保存失败: ' + e.message;
-        this._saveStatus.className = 'settings-editor-status settings-editor-status-error';
-        this._saveStatus.style.display = 'block';
-      }
-      if (this._saveBtn) {
-        this._saveBtn.disabled = false;
-        this._saveBtn.textContent = '保存配置';
-      }
+      showToast('保存失败: ' + e.message, { type: 'error', duration: 3000 });
     }
   }
 }

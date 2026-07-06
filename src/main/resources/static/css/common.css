@@ -387,7 +387,7 @@ input, textarea {
   padding: 12px 16px 4px 16px;
   border: none;
   border-radius: 0;
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-family: inherit;
   background: transparent;
   color: var(--text-primary);

@@ -15,6 +15,7 @@
  * - autoRegisterTools
  *
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
+ * 自动保存：checkbox/dropdown 变更后立即保存，服务器编辑单独保存。
  */
 import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
@@ -71,8 +72,6 @@ function _reconnectLabel(value, items) {
 export class McpSettingsPage {
   constructor() {
     this._config = null;
-    this._saveBtn = null;
-    this._saveStatus = null;
     this._editingServer = null; // 正在编辑的服务器 index
     this._maxReconnectDropdown = null;
     this._reconnectDelayDropdown = null;
@@ -93,10 +92,6 @@ export class McpSettingsPage {
 
       <div class="settings-loading" id="mcpLoading" style="display:block;">加载中...</div>
       <div id="mcpForm" style="display:none;"></div>
-      <div class="settings-save-bar" id="mcpSaveBar" style="display:none;">
-        <button class="settings-save-btn" id="mcpSaveBtn">保存配置</button>
-        <span class="settings-editor-status" id="mcpSaveStatus" style="display:none;"></span>
-      </div>
     `;
 
     container.appendChild(page);
@@ -109,8 +104,6 @@ export class McpSettingsPage {
     if (this._connTimeoutDropdown) this._connTimeoutDropdown.destroy();
     if (this._reqTimeoutDropdown) this._reqTimeoutDropdown.destroy();
     this._config = null;
-    this._saveBtn = null;
-    this._saveStatus = null;
     this._editingServer = null;
   }
 
@@ -145,7 +138,6 @@ export class McpSettingsPage {
   _renderForm() {
     const loading = document.getElementById('mcpLoading');
     const form = document.getElementById('mcpForm');
-    const saveBar = document.getElementById('mcpSaveBar');
     if (loading) loading.style.display = 'none';
     if (!form) return;
 
@@ -233,26 +225,36 @@ export class McpSettingsPage {
       <div id="mcpServerList"></div>
     `;
 
-    // 初始化下拉框
+    // 初始化下拉框（每个都绑定 onSelect 自动保存）
     this._maxReconnectDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpMaxReconnect'),
       items: MAX_RECONNECT_ITEMS,
       placement: 'bottom-left',
+      onSelect: () => this._saveConfig(),
     });
     this._reconnectDelayDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpReconnectDelay'),
       items: RECONNECT_DELAY_ITEMS,
       placement: 'bottom-left',
+      onSelect: () => this._saveConfig(),
     });
     this._connTimeoutDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpConnTimeout'),
       items: CONN_TIMEOUT_ITEMS,
       placement: 'bottom-left',
+      onSelect: () => this._saveConfig(),
     });
     this._reqTimeoutDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpReqTimeout'),
       items: REQ_TIMEOUT_ITEMS,
       placement: 'bottom-left',
+      onSelect: () => this._saveConfig(),
+    });
+
+    // 绑定 checkbox 自动保存
+    const checkboxIds = ['mcpEnabled', 'mcpAutoConnect', 'mcpAutoReconnect'];
+    checkboxIds.forEach(id => {
+      document.getElementById(id)?.addEventListener('change', () => this._saveConfig());
     });
 
     // 添加服务器按钮
@@ -260,15 +262,6 @@ export class McpSettingsPage {
 
     // 渲染服务器列表
     this._renderServerList();
-
-    // 保存按钮
-    this._saveBtn = document.getElementById('mcpSaveBtn');
-    this._saveStatus = document.getElementById('mcpSaveStatus');
-    if (this._saveBtn) {
-      this._saveBtn.addEventListener('click', () => this._saveConfig());
-    }
-
-    if (saveBar) saveBar.style.display = '';
   }
 
   _renderServerList() {
@@ -363,6 +356,8 @@ export class McpSettingsPage {
     servers.splice(index, 1);
     this._config.servers = servers;
     this._renderServerList();
+    // 删除后自动保存
+    this._saveConfig();
     showToast('已删除服务器: ' + name, { type: 'success', duration: 2000 });
   }
 
@@ -606,6 +601,8 @@ export class McpSettingsPage {
 
     this._config.servers = servers;
     this._closeServerEditor();
+    // 服务器变更后自动保存
+    this._saveConfig();
     showToast(isNew ? '✓ 服务器已添加' : '✓ 服务器已保存', { type: 'success', duration: 2000 });
   }
 
@@ -621,10 +618,6 @@ export class McpSettingsPage {
   }
 
   async _saveConfig() {
-    if (!this._saveBtn) return;
-    this._saveBtn.disabled = true;
-    this._saveBtn.textContent = '保存中…';
-
     try {
       const values = {};
 
@@ -655,37 +648,9 @@ export class McpSettingsPage {
       } else {
         throw new Error('updateConfig 不可用');
       }
-
-      if (this._saveStatus) {
-        this._saveStatus.textContent = '✓ 配置已保存';
-        this._saveStatus.className = 'settings-editor-status settings-editor-status-success';
-        this._saveStatus.style.display = 'block';
-      }
-      if (this._saveBtn) {
-        this._saveBtn.textContent = '✓ 已保存';
-      }
-      setTimeout(() => {
-        if (this._saveBtn) {
-          this._saveBtn.disabled = false;
-          this._saveBtn.textContent = '保存配置';
-        }
-        if (this._saveStatus) {
-          this._saveStatus.style.display = 'none';
-        }
-        // 重新加载配置，同步最新数据
-        this._loadConfig();
-      }, 1200);
     } catch (e) {
       console.warn('保存 MCP 配置失败:', e);
-      if (this._saveStatus) {
-        this._saveStatus.textContent = '⚠️ 保存失败: ' + e.message;
-        this._saveStatus.className = 'settings-editor-status settings-editor-status-error';
-        this._saveStatus.style.display = 'block';
-      }
-      if (this._saveBtn) {
-        this._saveBtn.disabled = false;
-        this._saveBtn.textContent = '保存配置';
-      }
+      showToast('保存失败: ' + e.message, { type: 'error', duration: 3000 });
     }
   }
 

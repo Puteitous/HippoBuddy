@@ -132,12 +132,17 @@ export class SkillMarket {
 
     this._mainContainer = document.querySelector('.main-container');
     this._chatPanel = document.querySelector('.chat-panel');
+    this._previewWasHidden = true;
   }
 
   async open() {
     if (!this._container) this._init();
     // 隐藏聊天面板
     if (this._chatPanel) this._chatPanel.style.display = 'none';
+    // 隐藏预览面板，记录原始状态
+    const preview = document.querySelector('.preview-panel');
+    this._previewWasHidden = !preview || preview.classList.contains('hidden');
+    if (preview) preview.classList.add('hidden');
     await this._loadInstalledSkills();
     this._render();
     this._container.style.display = 'flex';
@@ -149,6 +154,11 @@ export class SkillMarket {
     }
     if (this._chatPanel) {
       this._chatPanel.style.display = '';
+    }
+    // 恢复预览面板原始状态
+    if (!this._previewWasHidden) {
+      const preview = document.querySelector('.preview-panel');
+      if (preview) preview.classList.remove('hidden');
     }
   }
 

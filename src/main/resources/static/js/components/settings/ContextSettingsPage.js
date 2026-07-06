@@ -7,6 +7,7 @@
  * - perToolSafeLimit（单工具结果截断上限）
  *
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
+ * 自动保存：dropdown 选中后立即保存。
  */
 import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
@@ -75,10 +76,6 @@ export class ContextSettingsPage {
           </div>
         </div>
       </div>
-
-      <div class="settings-save-bar">
-        <button class="settings-save-btn" id="ctxSave">保存配置</button>
-      </div>
     `;
 
     container.appendChild(page);
@@ -88,14 +85,15 @@ export class ContextSettingsPage {
       trigger: document.getElementById('ctxMaxTokens'),
       items: MAX_TOKENS_ITEMS,
       placement: 'bottom-left',
+      onSelect: () => this._saveConfig(),
     });
     this._toolMaxTokensDropdown = new CustomDropdown({
       trigger: document.getElementById('ctxToolMaxTokens'),
       items: TOOL_MAX_TOKENS_ITEMS,
       placement: 'bottom-left',
+      onSelect: () => this._saveConfig(),
     });
 
-    this._bindEvents();
     this._loadConfig();
   }
 
@@ -136,30 +134,12 @@ export class ContextSettingsPage {
       },
     };
 
-    const saveBtn = document.getElementById('ctxSave');
-    if (saveBtn) {
-      saveBtn.disabled = true;
-      saveBtn.textContent = '保存中…';
-    }
-
     try {
       await this._updateConfig(values);
-      showToast('上下文配置已保存', { type: 'success', duration: 2000 });
     } catch (e) {
       console.warn('保存上下文配置失败:', e);
       showToast('保存失败: ' + e.message, { type: 'error', duration: 3000 });
-    } finally {
-      if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = '保存配置';
-      }
     }
-  }
-
-  // ==================== 事件绑定 ====================
-
-  _bindEvents() {
-    document.getElementById('ctxSave')?.addEventListener('click', () => this._saveConfig());
   }
 
   // ==================== 数据访问 ====================
