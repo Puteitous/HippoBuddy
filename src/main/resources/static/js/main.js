@@ -142,8 +142,14 @@ function init() {
 
   // 1. 初始化主题
   initTheme();
-  
-  // 2. 初始化会话管理器
+
+  // 2. 初始化面板布局
+  const savedLayout = localStorage.getItem('hippo-layout');
+  if (savedLayout === 'chat-left') {
+    document.querySelector('.main-container')?.classList.add('layout-chat-first');
+  }
+
+  // 3. 初始化会话管理器
   sessionManager = new SessionManager(sessionList, switchSession);
   window.sessionManagerInstance = sessionManager;
   

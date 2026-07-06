@@ -567,9 +567,11 @@ const HippoWorkspace = (() => {
       resizer.classList.add('resizing');
       const startX = e.clientX;
       const startWidth = chatPanel.offsetWidth;
+      // 判断布局方向：chat 在左时拖拽方向取反
+      const isSwapped = document.querySelector('.main-container')?.classList.contains('layout-chat-first');
 
       const onMove = (ev) => {
-        const diff = startX - ev.clientX;
+        const diff = isSwapped ? (ev.clientX - startX) : (startX - ev.clientX);
         const w = Math.max(320, Math.min(720, startWidth + diff));
         document.documentElement.style.setProperty('--chat-panel-width', w + 'px');
       };

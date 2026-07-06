@@ -393,6 +393,18 @@ body.desktop-window {
     display: none !important;
 }
 
+/* ========== 面板布局排序（order 实现视觉重排） ========== */
+
+/* 默认：预览左 → 聊天右 */
+.main-container .preview-panel { order: 1; }
+.main-container .panel-resizer  { order: 2; }
+.main-container .chat-panel    { order: 3; }
+
+/* 交换：聊天左 → 预览右 */
+.main-container.layout-chat-first .chat-panel    { order: 1; }
+.main-container.layout-chat-first .panel-resizer  { order: 2; }
+.main-container.layout-chat-first .preview-panel { order: 3; }
+
 /* ========== 面板折叠按钮 ========== */
 
 .panel-toggle-btn {

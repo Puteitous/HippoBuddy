@@ -47,6 +47,15 @@ export class GeneralSettingsPage {
             </div>
           </div>
         </div>
+        <div class="settings-field-horizontal desktop-only desktop-only-flex">
+          <label class="settings-field-label">面板布局</label>
+          <div class="settings-field-body">
+            <div class="settings-toggle-group" id="settingsLayoutToggle">
+              <button class="settings-toggle-btn" data-value="preview-left">预览在左</button>
+              <button class="settings-toggle-btn" data-value="chat-left">聊天在左</button>
+            </div>
+          </div>
+        </div>
       </div>
       </div>
     `;
@@ -101,6 +110,22 @@ export class GeneralSettingsPage {
         window.HippoDesktop.setDefaultWorkspace(workspaceInput.value.trim()).catch(() => {});
       });
     }
+
+    // ── 面板布局切换 ──
+    const mainContainer = document.querySelector('.main-container');
+    const currentLayout = localStorage.getItem('hippo-layout') || 'preview-left';
+    document.querySelectorAll('#settingsLayoutToggle .settings-toggle-btn').forEach(btn => {
+      if (btn.dataset.value === currentLayout) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#settingsLayoutToggle .settings-toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const layout = btn.dataset.value;
+        localStorage.setItem('hippo-layout', layout);
+        if (mainContainer) {
+          mainContainer.classList.toggle('layout-chat-first', layout === 'chat-left');
+        }
+      });
+    });
   }
 
   destroy() {
