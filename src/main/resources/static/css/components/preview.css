@@ -302,7 +302,7 @@
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 2px;
   padding: 4px 8px;
@@ -314,8 +314,18 @@
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   flex-shrink: 0;
   user-select: none;
-  z-index: 2;
+  z-index: 10;
   transition: opacity 0.2s;
+}
+
+.pptx-zoom-level {
+  min-width: 36px;
+  text-align: center;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: 4px;
 }
 
 .pptx-zoom-btn {
@@ -357,29 +367,30 @@
   color: var(--text-primary);
 }
 
-/* 分隔线 */
-.pptx-toolbar-divider {
-  width: 1px;
-  height: 18px;
-  background: var(--border);
-  margin: 0 4px;
-  flex-shrink: 0;
-}
-
-/* 幻灯片容器 — 居中展示，缩放时允许滚动 */
-.pptx-slide-container {
+/* 幻灯片滚动容器 — 纵向排列，居中展示 */
+.pptx-scroll-container {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-height: 0;
-  padding: 16px;
+  gap: 24px;
+  padding: 24px 16px 48px;
   background: #ffffff;
-  overflow: auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 
-[data-theme="dark"] .pptx-slide-container {
+[data-theme="dark"] .pptx-scroll-container {
   background: var(--bg-app);
+}
+
+/* 单页幻灯片 wrapper */
+.pptx-slide-page {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .pptx-canvas {
@@ -387,43 +398,26 @@
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   background: #ffffff;
   flex-shrink: 0;
-  transform-origin: top left;
-  transition: transform 0.15s ease;
+  transition: width 0.15s ease, height 0.15s ease;
 }
 
-.pptx-nav-btn {
-  display: inline-flex;
+/* 未渲染的幻灯片占位 */
+.pptx-slide-placeholder {
+  border-radius: 8px;
+  background: var(--bg-code);
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 14px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.pptx-nav-btn:hover {
-  background: var(--bg-code);
-  color: var(--text-primary);
-}
-
-.pptx-nav-btn:active {
-  background: var(--border);
-}
-
-.pptx-nav-btn svg {
+  color: var(--text-muted);
+  font-size: 13px;
   flex-shrink: 0;
 }
 
-.pptx-current-page {
-  min-width: 32px;
-  text-align: center;
+/* 页码标签 */
+.pptx-slide-number {
   font-size: 11px;
-  font-family: var(--font-mono, monospace);
   color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
   font-variant-numeric: tabular-nums;
 }
 
