@@ -584,6 +584,20 @@
     font-size: var(--font-size-md);
 }
 
+.diff-binary-notice {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-size: var(--font-size-md);
+}
+
+.diff-binary-notice::before {
+    content: "📄";
+    display: block;
+    font-size: 32px;
+    margin-bottom: 12px;
+}
+
 .diff-rollback-warning {
     margin: 8px 12px;
     padding: 8px 12px;

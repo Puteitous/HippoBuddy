@@ -82,6 +82,7 @@ public class FileApiHandler implements HttpHandler {
             item.put("filePath", c.filePath);
             item.put("toolName", c.toolName);
             item.put("timestamp", c.timestamp);
+            item.put("binary", c.binary);
             jsonList.add(item);
         }
         sendJson(exchange, 200, objectMapper.writeValueAsString(jsonList));
@@ -141,10 +142,13 @@ public class FileApiHandler implements HttpHandler {
                 changeItem.put("timestamp", c.timestamp);
                 changeItem.put("index", ci);
                 changeItem.put("toolCallId", c.toolCallId != null ? c.toolCallId : "");
-                String original = c.originalContent != null ? c.originalContent : "";
-                String modified = c.newContent != null ? c.newContent : "";
-                changeItem.put("changes", buildDiffList(original, modified));
-                changeItem.put("wordDiff", buildWordDiffList(original, modified));
+                changeItem.put("binary", c.binary);
+                if (!c.binary) {
+                    String original = c.originalContent != null ? c.originalContent : "";
+                    String modified = c.newContent != null ? c.newContent : "";
+                    changeItem.put("changes", buildDiffList(original, modified));
+                    changeItem.put("wordDiff", buildWordDiffList(original, modified));
+                }
                 if (toolCallId != null && !toolCallId.isEmpty() && toolCallId.equals(c.toolCallId)) {
                     targetIndex = ci;
                     toolCallIdMatched = true;
@@ -174,10 +178,13 @@ public class FileApiHandler implements HttpHandler {
         response.put("filePath", targetChange.filePath);
         response.put("toolName", targetChange.toolName);
         response.put("timestamp", targetChange.timestamp);
-        String original = targetChange.originalContent != null ? targetChange.originalContent : "";
-        String modified = targetChange.newContent != null ? targetChange.newContent : "";
-        response.put("changes", buildDiffList(original, modified));
-        response.put("wordDiff", buildWordDiffList(original, modified));
+        response.put("binary", targetChange.binary);
+        if (!targetChange.binary) {
+            String original = targetChange.originalContent != null ? targetChange.originalContent : "";
+            String modified = targetChange.newContent != null ? targetChange.newContent : "";
+            response.put("changes", buildDiffList(original, modified));
+            response.put("wordDiff", buildWordDiffList(original, modified));
+        }
 
         sendJson(exchange, 200, objectMapper.writeValueAsString(response));
     }

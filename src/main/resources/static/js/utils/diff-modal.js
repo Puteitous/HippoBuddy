@@ -188,10 +188,20 @@ export class DiffModalManager {
     const c = this.allChanges[index];
     this.currentToolCallId = c.toolCallId || '';
     this.renderDiff(c);
+
+    // 二进制文件：隐藏回滚按钮
+    if (this.rollbackBtn) {
+      this.rollbackBtn.style.display = c.binary ? 'none' : 'inline-block';
+    }
   }
 
   renderDiff(data) {
     if (!this.contentPanel) return;
+
+    if (data.binary) {
+      this.contentPanel.innerHTML = '<div class="diff-binary-notice">此文件为二进制文件，无法显示差异</div>';
+      return;
+    }
 
     if (!data.changes || data.changes.length === 0) {
       this.contentPanel.innerHTML = '<div class="diff-empty">无变更内容</div>';

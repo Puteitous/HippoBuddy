@@ -35,7 +35,25 @@ public class DeleteFileTool implements ToolExecutor {
     /** 单次删除操作的最大文件数，超过直接拒绝 */
     private static final int MAX_DELETE_COUNT = 50;
 
+    private static final Set<String> BINARY_EXTENSIONS = Set.of(
+        "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg",
+        "zip", "rar", "7z", "tar", "gz",
+        "exe", "dll", "so", "dylib",
+        "mp3", "mp4", "avi", "mov", "wmv", "flv",
+        "class", "jar", "war",
+        "ttf", "otf", "woff", "woff2", "eot",
+        "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+        "pdf"
+    );
+
     public DeleteFileTool() {
+    }
+
+    private static boolean isBinaryExtension(Path path) {
+        String fileName = path.getFileName().toString();
+        int dot = fileName.lastIndexOf('.');
+        if (dot < 0) return false;
+        return BINARY_EXTENSIONS.contains(fileName.substring(dot + 1).toLowerCase());
     }
 
     @Override
@@ -160,7 +178,8 @@ public class DeleteFileTool implements ToolExecutor {
                 // 先读原内容用于变更追踪
                 String originalContent = "";
                 byte[] originalBytes = null;
-                if (Files.exists(file) && Files.isRegularFile(file)) {
+                boolean binary = isBinaryExtension(file);
+                if (!binary && Files.exists(file) && Files.isRegularFile(file)) {
                     try {
                         originalContent = Files.readString(file, StandardCharsets.UTF_8);
                     } catch (java.nio.charset.MalformedInputException e) {
@@ -179,7 +198,8 @@ public class DeleteFileTool implements ToolExecutor {
                     originalBytes,
                     "",
                     "delete_file",
-                    false
+                    false,
+                    FileChangeTracker.getCurrentSessionId(), FileChangeTracker.getCurrentToolCallId(), binary
                 );
 
                 // 执行删除

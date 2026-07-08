@@ -194,12 +194,24 @@ public class FileChangeTracker {
      * @param originalBytes 非 null 时表示原始字节，回滚时直接写回；null 表示回滚时用 originalContent UTF-8 写入。
      */
     public static void recordChange(String filePath, String originalContent, byte[] originalBytes, String newContent, String toolName, boolean newFile) {
-        ensureInitialized();
-        String sessionId = getCurrentSessionId();
-        String toolCallId = getCurrentToolCallId();
-        FileChange change = new FileChange(filePath, originalContent, newContent, toolName, System.currentTimeMillis(), newFile, sessionId, originalBytes, toolCallId);
+        recordChange(filePath, originalContent, originalBytes, newContent, toolName, newFile, null, "", false);
+    }
 
-        Map<String, List<FileChange>> sessionChanges = getOrCreateSessionChanges(sessionId);
+    public static void recordChange(String filePath, String originalContent, byte[] originalBytes, String newContent, String toolName, boolean newFile, String toolCallId) {
+        recordChange(filePath, originalContent, originalBytes, newContent, toolName, newFile, getCurrentSessionId(), toolCallId, false);
+    }
+
+    /**
+     * 记录文件变更（完整参数版），支持 binary 标记。
+     * @param binary true 表示二进制文件，不保存内容/diff，仅记录元数据。
+     */
+    public static void recordChange(String filePath, String originalContent, byte[] originalBytes, String newContent, String toolName, boolean newFile, String sessionId, String toolCallId, boolean binary) {
+        ensureInitialized();
+        String sid = (sessionId != null && !sessionId.isEmpty()) ? sessionId : getCurrentSessionId();
+        String tcid = (toolCallId != null && !toolCallId.isEmpty()) ? toolCallId : getCurrentToolCallId();
+        FileChange change = new FileChange(filePath, originalContent, newContent, toolName, System.currentTimeMillis(), newFile, sid, originalBytes, tcid, binary);
+
+        Map<String, List<FileChange>> sessionChanges = getOrCreateSessionChanges(sid);
         String normalizedKey = normalizePath(filePath);
         List<FileChange> list = sessionChanges.computeIfAbsent(normalizedKey, k -> new CopyOnWriteArrayList<>());
         list.add(change);
@@ -316,6 +328,12 @@ public class FileChangeTracker {
         }
         logger.debug("rollbackByToolCallId: 找到目标变更, newFile={}, filePath={}", target.newFile, target.filePath);
 
+        // 二进制文件不可回滚（未存储原始内容）
+        if (target.binary) {
+            logger.warn("rollbackByToolCallId: 二进制文件不支持回滚, filePath={}", target.filePath);
+            return false;
+        }
+
         try {
             if (target.newFile) {
                 logger.debug("rollbackByToolCallId: 新建文件, 删除文件: {}", target.filePath);
@@ -358,6 +376,12 @@ public class FileChangeTracker {
         ensureInitialized();
         FileChange change = getLastChange(filePath);
         if (change == null) return false;
+
+        // 二进制文件不可回滚（未存储原始内容）
+        if (change.binary) {
+            logger.warn("rollback: 二进制文件不支持回滚, filePath={}", change.filePath);
+            return false;
+        }
 
         String sessionId = change.sessionId;
         Map<String, List<FileChange>> sessionChanges = changesBySession.get(sessionId);
@@ -668,20 +692,25 @@ public class FileChangeTracker {
         public final boolean newFile;
         public final String sessionId;
         public final String toolCallId;
+        public final boolean binary;
 
         public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile) {
-            this(filePath, originalContent, newContent, toolName, timestamp, newFile, "", null);
+            this(filePath, originalContent, newContent, toolName, timestamp, newFile, "", (byte[]) null, "", false);
         }
 
         public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile, String sessionId) {
-            this(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, null);
+            this(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, (byte[]) null, "", false);
         }
 
         public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile, String sessionId, byte[] originalBytes) {
-            this(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, originalBytes, "");
+            this(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, originalBytes, "", false);
         }
 
         public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile, String sessionId, byte[] originalBytes, String toolCallId) {
+            this(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, originalBytes, toolCallId, false);
+        }
+
+        public FileChange(String filePath, String originalContent, String newContent, String toolName, long timestamp, boolean newFile, String sessionId, byte[] originalBytes, String toolCallId, boolean binary) {
             this.filePath = filePath;
             this.originalContent = originalContent;
             this.originalBytes = originalBytes;
@@ -691,11 +720,12 @@ public class FileChangeTracker {
             this.newFile = newFile;
             this.sessionId = sessionId != null ? sessionId : "";
             this.toolCallId = toolCallId != null ? toolCallId : "";
+            this.binary = binary;
         }
 
         public String toJson() {
             String bytesField = "";
-            if (originalBytes != null) {
+            if (originalBytes != null && !binary) {
                 bytesField = ",\"originalBytes\":\"" + Base64.getEncoder().encodeToString(originalBytes) + "\"";
             }
             return "{\"filePath\":\"" + escapeJson(filePath) +
@@ -705,7 +735,8 @@ public class FileChangeTracker {
                 "\",\"timestamp\":" + timestamp +
                 ",\"newFile\":" + newFile +
                 ",\"sessionId\":\"" + escapeJson(sessionId) + "\"" +
-                ",\"toolCallId\":\"" + escapeJson(toolCallId) + "\""
+                ",\"toolCallId\":\"" + escapeJson(toolCallId) + "\"" +
+                ",\"binary\":" + binary
                 + bytesField + "}";
         }
 
@@ -718,16 +749,19 @@ public class FileChangeTracker {
             boolean newFile = extractJsonBoolean(json, "newFile");
             String sessionId = extractJsonString(json, "sessionId");
             String toolCallId = extractJsonString(json, "toolCallId");
+            boolean binary = extractJsonBoolean(json, "binary");
             byte[] originalBytes = null;
-            String bytesStr = extractJsonString(json, "originalBytes");
-            if (bytesStr != null && !bytesStr.isEmpty()) {
-                try {
-                    originalBytes = Base64.getDecoder().decode(bytesStr);
-                } catch (IllegalArgumentException e) {
-                    logger.warn("跳过损坏的 originalBytes: {}", e.getMessage());
+            if (!binary) {
+                String bytesStr = extractJsonString(json, "originalBytes");
+                if (bytesStr != null && !bytesStr.isEmpty()) {
+                    try {
+                        originalBytes = Base64.getDecoder().decode(bytesStr);
+                    } catch (IllegalArgumentException e) {
+                        logger.warn("跳过损坏的 originalBytes: {}", e.getMessage());
+                    }
                 }
             }
-            return new FileChange(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, originalBytes, toolCallId);
+            return new FileChange(filePath, originalContent, newContent, toolName, timestamp, newFile, sessionId, originalBytes, toolCallId, binary);
         }
 
         private static String extractJsonString(String json, String key) {

@@ -203,6 +203,7 @@ export class FileChangeManager {
         }
 
         const itemClass = c.toolName === 'delete_file' ? ' file-change-item-deleted' : '';
+        const rollbackHtml = c.binary ? '' : '<button class="file-change-rollback">回滚</button>';
         return `
           <div class="file-change-item${itemClass}" data-path="${escapeHtml(c.filePath)}" style="cursor:pointer;">
             <span class="file-change-icon">${icon}</span>
@@ -210,7 +211,7 @@ export class FileChangeManager {
               <span class="file-change-basename">${escapeHtml(fileName)}</span>
               <span class="file-change-path">${escapeHtml(dirPath)}</span>
             </div>
-            <button class="file-change-rollback">回滚</button>
+            ${rollbackHtml}
             <span class="file-change-status ${statusClass}">${statusLetter}</span>
           </div>
         `;

@@ -139,6 +139,14 @@ public class WriteOfficeFileTool implements ToolExecutor {
 
             String action = exists ? "覆盖" : "创建";
             String relativePath = PathSecurityUtils.getRelativePath(path);
+
+            // 记录二进制文件变更（仅元数据，不存内容/diff）
+            FileChangeTracker.recordChange(
+                path.toAbsolutePath().toString(),
+                "", null, "", "write_office_file", !exists,
+                FileChangeTracker.getCurrentSessionId(), FileChangeTracker.getCurrentToolCallId(), true
+            );
+
             return result + "（" + action + "）\n文件: " + relativePath;
 
         } catch (ToolExecutionException e) {
