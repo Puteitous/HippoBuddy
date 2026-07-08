@@ -586,7 +586,7 @@ function updateChatPanelTitle(sessionId, fallbackTitle, fallbackProject) {
     if (!projectEl) {
       projectEl = document.createElement('span');
       projectEl.className = 'chat-panel-project';
-      groupEl.insertBefore(projectEl, groupEl.firstChild);
+      groupEl.appendChild(projectEl);
     }
     projectEl.textContent = dirName;
   } else if (projectEl) {

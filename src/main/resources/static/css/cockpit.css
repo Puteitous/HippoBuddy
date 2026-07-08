@@ -446,6 +446,9 @@ body.desktop-window {
     color: var(--text-secondary);
     user-select: none;
 }
+[data-theme="dark"] .chat-panel-title {
+    color: var(--text-primary);
+}
 
 .chat-panel-title-group {
     display: flex;
@@ -457,7 +460,7 @@ body.desktop-window {
     font-size: var(--font-size-xs);
     color: var(--text-muted);
     user-select: none;
-    margin-right: 6px;
+    margin-left: 6px;
     margin-top: 3px;
     padding: 0 8px;
     border: 1px solid var(--border);
