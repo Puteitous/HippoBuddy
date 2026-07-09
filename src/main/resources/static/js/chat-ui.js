@@ -206,14 +206,26 @@ export class ChatUI {
     });
     btnContainer.appendChild(forkBtn);
 
+    // ── 文件产物指示器（初始隐藏，由 MessageSession 在 tool result 到达时更新） ──
+    const fileIndicator = document.createElement('span');
+    fileIndicator.className = 'message-file-indicator';
+    fileIndicator.style.display = 'none';
+    const fileIndicatorText = document.createElement('span');
+    fileIndicatorText.className = 'file-indicator-text';
+    fileIndicator.appendChild(fileIndicatorText);
+    const filePopover = document.createElement('div');
+    filePopover.className = 'message-file-popover';
+    fileIndicator.appendChild(filePopover);
+
     footer.appendChild(btnContainer);
+    footer.appendChild(fileIndicator);
 
     msgDiv.appendChild(footer);
     
     this.container.appendChild(row);
     requestAnimationFrame(() => row.classList.add('animate-in'));
     this.scrollToBottom();
-    return { contentDiv, copyBtn, retryBtn, btnContainer, msgDiv, messageRow: row };
+    return { contentDiv, copyBtn, retryBtn, btnContainer, msgDiv, messageRow: row, fileIndicator };
   }
 
   async appendAssistantMessageFromHistory(content, timestamp) {

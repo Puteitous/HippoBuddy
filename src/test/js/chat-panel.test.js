@@ -45,6 +45,7 @@ describe('ChatPanel.js', () => {
         retryBtn: document.createElement('button'),
         btnContainer: document.createElement('div'),
         msgDiv: document.createElement('div'),
+        fileIndicator: document.createElement('span'),
       }),
       scrollToBottom: vi.fn(),
       renderToolCard: vi.fn().mockReturnValue('<div class="tool-card">tool</div>'),

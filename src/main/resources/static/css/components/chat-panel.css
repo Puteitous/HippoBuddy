@@ -215,6 +215,110 @@
     border: none;
 }
 
+/* ========== 文件产物指示器 ========== */
+.message-file-indicator {
+    position: relative;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: default;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    transition: background 0.12s, color 0.12s;
+    user-select: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.message-file-indicator:hover {
+    background: var(--bg-code, rgba(0,0,0,0.04));
+    color: var(--text-secondary);
+}
+
+/* ========== 文件产物 hover popover ========== */
+.message-file-popover {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    min-width: 200px;
+    max-width: 280px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bg-surface, #fff);
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: var(--radius-md, 6px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    padding: 4px 0;
+    z-index: 100;
+}
+.message-file-popover.show {
+    display: block;
+}
+.message-file-popover .popover-file-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    margin: 0 4px;
+    border-radius: var(--radius-sm, 4px);
+    cursor: pointer;
+    transition: background 0.12s;
+    font-size: 12px;
+    line-height: 1.3;
+}
+.message-file-popover .popover-file-item:hover {
+    background: var(--bg-code, rgba(0,0,0,0.04));
+}
+.message-file-popover .popover-file-item .file-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+.message-file-popover .popover-file-item .file-status {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    line-height: 1;
+}
+.message-file-popover .popover-file-item .file-status.status-added {
+    color: var(--success-color);
+}
+.message-file-popover .popover-file-item .file-status.status-modified {
+    color: var(--warning-color, #d49433);
+}
+.message-file-popover .popover-file-item .file-status.status-deleted {
+    color: var(--error-color);
+}
+
+[data-theme="dark"] .message-file-popover {
+    background: var(--bg-surface, #1e1e1e);
+    border-color: var(--border, #333);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+[data-theme="dark"] .message-file-popover .popover-file-item:hover {
+    background: var(--bg-code, #2a2a2a);
+}
+
+.message-file-popover .popover-file-icon {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.message-file-popover .popover-file-overflow {
+    padding: 5px 10px;
+    margin: 0 4px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+    cursor: default;
+}
+
 .message-action-btn {
     font-size: var(--font-size-md);
     padding: 4px;

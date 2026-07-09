@@ -1708,6 +1708,69 @@ export class ChatPanel {
           const rawMarkdown = segments.filter(s => s.type === 'text').map(s => s.content).join('');
           contentDiv.dataset.markdown = rawMarkdown;
 
+          // ── 文件产物指示器 ──
+          const filesFromSegments = ChatPanel._extractFilesFromSegments(segments);
+          const fileIndicator = document.createElement('span');
+          fileIndicator.className = 'message-file-indicator';
+          const filePopover = document.createElement('div');
+          filePopover.className = 'message-file-popover';
+
+          if (filesFromSegments.length > 0) {
+            fileIndicator.textContent = `📄 ${filesFromSegments.length}`;
+            fileIndicator.title = '查看本轮文件产物';
+
+            // 构建 popover 内容（最多显示 10 条）
+            const MAX_VISIBLE = 10;
+            const visibleFiles = filesFromSegments.slice(0, MAX_VISIBLE);
+            const overflow = filesFromSegments.length - MAX_VISIBLE;
+            let popoverHtml = '';
+            for (const f of visibleFiles) {
+              const fileName = f.path.split(/[/\\]/).pop();
+              const { iconFile } = getFileIconInfo(fileName);
+              let statusLetter = f.action;
+              let statusClass = 'status-added';
+              if (f.action === 'D') statusClass = 'status-deleted';
+              else if (f.action === 'M') statusClass = 'status-modified';
+
+              popoverHtml += `<div class="popover-file-item" data-path="${escapeHtml(f.path)}">
+                <img class="popover-file-icon" src="icons/${iconFile}" draggable="false" alt="">
+                <span class="file-name">${escapeHtml(fileName)}</span>
+                <span class="file-status ${statusClass}">${statusLetter}</span>
+              </div>`;
+            }
+            if (overflow > 0) {
+              popoverHtml += `<div class="popover-file-overflow">还有 ${overflow} 个文件变更</div>`;
+            }
+            filePopover.innerHTML = popoverHtml;
+
+            // hover 显隐
+            let popoverTimer = null;
+            const showPopover = () => {
+              if (popoverTimer) clearTimeout(popoverTimer);
+              popoverTimer = setTimeout(() => filePopover.classList.add('show'), 200);
+            };
+            const hidePopover = () => {
+              if (popoverTimer) clearTimeout(popoverTimer);
+              popoverTimer = setTimeout(() => filePopover.classList.remove('show'), 200);
+            };
+            fileIndicator.addEventListener('mouseenter', showPopover);
+            fileIndicator.addEventListener('mouseleave', hidePopover);
+            filePopover.addEventListener('mouseenter', showPopover);
+            filePopover.addEventListener('mouseleave', hidePopover);
+
+            // 点击文件项打开 diff
+            filePopover.addEventListener('click', (e) => {
+              const item = e.target.closest('.popover-file-item');
+              if (item) {
+                const path = item.dataset.path;
+                filePopover.classList.remove('show');
+                import('../utils/diff-modal.js').then(m => m.diffModalManager.show(path));
+              }
+            });
+
+            fileIndicator.appendChild(filePopover);
+          }
+
           copyBtn.onclick = () => {
             const textToCopy = contentDiv.dataset.markdown || contentDiv.innerText;
             navigator.clipboard.writeText(textToCopy).then(() => {
@@ -1723,6 +1786,9 @@ export class ChatPanel {
           const footer = document.createElement('div');
           footer.className = 'message-footer';
           footer.appendChild(btnContainer);
+          if (filesFromSegments.length > 0) {
+            footer.appendChild(fileIndicator);
+          }
           msgDiv.appendChild(footer);
           fragment.appendChild(rowEl);
         }
@@ -1745,6 +1811,49 @@ export class ChatPanel {
     this._injectContextSelectorButton();
 
     this.chatUI.scrollToBottom();
+  }
+
+  /**
+   * 从 segments 中提取本轮产出的文件列表
+   * @param {Array} segments
+   * @returns {Array<{path:string, action:string, toolName:string}>}
+   */
+  static _extractFilesFromSegments(segments) {
+    const files = [];
+    for (const seg of segments) {
+      if (seg.type !== 'tool') continue;
+      // 只统计已完成的工具
+      if (seg.result !== 'success' && seg.result !== 'error') continue;
+      let args = seg.args;
+      if (!args) continue;
+      // 历史消息中 args 可能是 JSON 字符串（后端 FunctionCall.arguments 为 String 类型）
+      if (typeof args === 'string') {
+        try { args = JSON.parse(args); } catch (e) { continue; }
+      }
+
+      let paths = [];
+      if (seg.name === 'delete_file') {
+        paths = Array.isArray(args.paths) ? args.paths : [];
+      } else if (['write_file', 'edit_file', 'write_office_file', 'read_file', 'read_office_file'].includes(seg.name)) {
+        paths = args.path ? [args.path] :
+                args.filePath ? [args.filePath] :
+                args.file_path ? [args.file_path] :
+                [];
+      }
+
+      for (const p of paths) {
+        let action = 'M';
+        if (seg.name === 'delete_file') action = 'D';
+        else if (seg.name === 'write_file' || seg.name === 'write_office_file') action = 'A';
+        files.push({ path: p, action, toolName: seg.name });
+      }
+    }
+    // 去重：同一文件在同一轮中被多次写入只保留一次（以最新 action 为准）
+    const seen = new Map();
+    for (const f of files) {
+      seen.set(f.path, f);
+    }
+    return Array.from(seen.values());
   }
 
   /**

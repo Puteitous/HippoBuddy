@@ -116,6 +116,7 @@ describe('ChatUI', () => {
       expect(result.copyBtn).not.toBeNull();
       expect(result.retryBtn).not.toBeNull();
       expect(result.msgDiv).toBe(msgDiv);
+      expect(result.fileIndicator).not.toBeNull();
     });
 
     it('使用自定义初始 HTML', () => {

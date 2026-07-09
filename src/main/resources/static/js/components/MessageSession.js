@@ -1,6 +1,7 @@
 import { EventRouter } from './EventRouter.js';
 import { renderMarkdown } from '../markdown-renderer.js';
 import { escapeHtml } from '../utils.js';
+import { getFileIconInfo } from '../utils/file-icons.js';
 import { EventBus } from '../utils/event-bus.js';
 import { deepMergeTodoList, parseTodoArgs } from './tool-renderers/shared.js';
 
@@ -205,6 +206,8 @@ export class MessageSession {
             _emitFileEventsFromToolResult(parsed);
           }
         }
+        // segments 有更新，刷新文件产物指示器
+        s._updateFileIndicator();
       },
 
       tool_progress: (parsed) => {
@@ -273,6 +276,7 @@ export class MessageSession {
     this._btnContainer = result.btnContainer;
     this._copyBtn = result.copyBtn;
     this._retryBtn = result.retryBtn;
+    this._fileIndicator = result.fileIndicator;
     this._renderPipeline.setContainer(this._contentDiv);
 
     this._setupCopyButton();
@@ -505,6 +509,7 @@ export class MessageSession {
 
   handleToolResult(parsed) {
     const resultId = parsed.tool_call_id || parsed.id;
+    console.log(`[FileIndicator] handleToolResult called`, JSON.stringify({ resultId, name: parsed.name, success: parsed.success, hasSession: !!this, hasFileIndicator: !!this._fileIndicator }));
     if (resultId) {
       this._runningToolCallIds.delete(resultId);
     }
@@ -531,6 +536,76 @@ export class MessageSession {
     // 文件操作工具执行后刷新文件树 + 预览面板（确认 SSE 流路径）
     if (parsed.success) {
       _emitFileEventsFromToolResult(parsed);
+    }
+
+    // segments 有更新，刷新文件产物指示器
+    this._updateFileIndicator();
+  }
+
+  _updateFileIndicator() {
+    if (!this._fileIndicator) {
+      console.warn(`[FileIndicator] _fileIndicator is null, skipping`);
+      return;
+    }
+    const files = _extractFilesFromSegments(this._segments);
+    console.log(`[FileIndicator] _updateFileIndicator files=${files.length} segments=${this._segments.length}`, JSON.stringify(files.map(f => ({ path: f.path, action: f.action }))));
+    if (files.length === 0) {
+      this._fileIndicator.style.display = 'none';
+      return;
+    }
+    this._fileIndicator.style.display = '';
+    const textEl = this._fileIndicator.querySelector('.file-indicator-text');
+    if (textEl) textEl.textContent = `📄 ${files.length}`;
+    this._fileIndicator.title = '查看本轮文件产物';
+
+    // 重建 popover 内容（最多显示 10 条）
+    const popover = this._fileIndicator.querySelector('.message-file-popover');
+    if (!popover) return;
+    const MAX_VISIBLE = 10;
+    const visibleFiles = files.slice(0, MAX_VISIBLE);
+    const overflow = files.length - MAX_VISIBLE;
+    let html = '';
+    for (const f of visibleFiles) {
+      const fileName = f.path.split(/[/\\]/).pop();
+      const { iconFile } = getFileIconInfo(fileName);
+      let statusClass = 'status-added';
+      if (f.action === 'D') statusClass = 'status-deleted';
+      else if (f.action === 'M') statusClass = 'status-modified';
+
+      html += `<div class="popover-file-item" data-path="${escapeHtml(f.path)}">
+        <img class="popover-file-icon" src="icons/${iconFile}" draggable="false" alt="">
+        <span class="file-name">${escapeHtml(fileName)}</span>
+        <span class="file-status ${statusClass}">${f.action}</span>
+      </div>`;
+    }
+    if (overflow > 0) {
+      html += `<div class="popover-file-overflow">还有 ${overflow} 个文件变更</div>`;
+    }
+    popover.innerHTML = html;
+
+    // hover 事件（只绑一次）
+    if (!this._fileIndicator._popoverBound) {
+      this._fileIndicator._popoverBound = true;
+      let popoverTimer = null;
+      const showPopover = () => {
+        if (popoverTimer) clearTimeout(popoverTimer);
+        popoverTimer = setTimeout(() => popover.classList.add('show'), 200);
+      };
+      const hidePopover = () => {
+        if (popoverTimer) clearTimeout(popoverTimer);
+        popoverTimer = setTimeout(() => popover.classList.remove('show'), 200);
+      };
+      this._fileIndicator.addEventListener('mouseenter', showPopover);
+      this._fileIndicator.addEventListener('mouseleave', hidePopover);
+      popover.addEventListener('mouseenter', showPopover);
+      popover.addEventListener('mouseleave', hidePopover);
+      popover.addEventListener('click', (e) => {
+        const item = e.target.closest('.popover-file-item');
+        if (item) {
+          popover.classList.remove('show');
+          import('../utils/diff-modal.js').then(m => m.diffModalManager.show(item.dataset.path));
+        }
+      });
     }
   }
 
@@ -640,7 +715,50 @@ export class MessageSession {
     this._reasoningSegment = null;
     this._contentDiv = null;
     this._btnContainer = null;
+    this._fileIndicator = null;
   }
+}
+
+/**
+ * 从 segments 中提取本轮产出的文件列表
+ * @param {Array} segments
+ * @returns {Array<{path:string, action:string}>}
+ */
+function _extractFilesFromSegments(segments) {
+  const files = [];
+  for (const seg of segments) {
+    if (seg.type !== 'tool') continue;
+    if (seg.result !== 'success' && seg.result !== 'error') continue;
+    let args = seg.args;
+    if (!args) continue;
+    // 历史消息中 args 可能是 JSON 字符串（后端 FunctionCall.arguments 为 String 类型）
+    if (typeof args === 'string') {
+      try { args = JSON.parse(args); } catch (e) { continue; }
+    }
+
+    let paths = [];
+    if (seg.name === 'delete_file') {
+      paths = Array.isArray(args.paths) ? args.paths : [];
+    } else if (['write_file', 'edit_file', 'write_office_file', 'read_file', 'read_office_file'].includes(seg.name)) {
+      paths = args.path ? [args.path] :
+              args.filePath ? [args.filePath] :
+              args.file_path ? [args.file_path] :
+              [];
+    }
+
+    for (const p of paths) {
+      let action = 'M';
+      if (seg.name === 'delete_file') action = 'D';
+      else if (seg.name === 'write_file' || seg.name === 'write_office_file') action = 'A';
+      files.push({ path: p, action });
+    }
+  }
+  // 去重
+  const seen = new Map();
+  for (const f of files) {
+    seen.set(f.path, f);
+  }
+  return Array.from(seen.values());
 }
 
 /**

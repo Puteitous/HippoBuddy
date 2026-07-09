@@ -21,7 +21,8 @@ describe('MessageSession.js', () => {
         btnContainer,
         copyBtn,
         retryBtn,
-        msgDiv: document.createElement('div')
+        msgDiv: document.createElement('div'),
+        fileIndicator: document.createElement('span')
       }),
       scrollToBottom: vi.fn(),
       parseTodos: vi.fn().mockReturnValue([])

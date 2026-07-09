@@ -23,8 +23,7 @@ class ContextClipperTest {
     @BeforeEach
     void setUp() {
         tokenEstimator = TokenEstimatorFactory.getDefault();
-        CompactForkExecutor mockForkExecutor = new CompactForkExecutor(null, null, tokenEstimator);
-        clipper = new ContextClipper(tokenEstimator, mockForkExecutor);
+        clipper = new ContextClipper(tokenEstimator);
     }
 
     @Nested
