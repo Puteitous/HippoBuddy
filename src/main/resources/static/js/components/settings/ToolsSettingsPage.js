@@ -269,12 +269,14 @@ export class ToolsSettingsPage {
     this._fileMaxSizeDropdown = new CustomDropdown({
       trigger: document.getElementById('toolsFileMaxSize'),
       items: FILE_MAX_SIZE_ITEMS,
+      selectedValue: currentMaxSize,
       placement: 'bottom-left',
       onSelect: () => this._saveConfig(),
     });
     this._webProviderDropdown = new CustomDropdown({
       trigger: document.getElementById('toolsWebProvider'),
       items: WEB_PROVIDER_ITEMS,
+      selectedValue: webSearch.provider || '',
       placement: 'bottom-left',
       onSelect: () => this._saveConfig(),
     });

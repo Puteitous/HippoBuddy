@@ -226,27 +226,32 @@ export class McpSettingsPage {
     `;
 
     // 初始化下拉框（每个都绑定 onSelect 自动保存）
+    const mcp = this._config;
     this._maxReconnectDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpMaxReconnect'),
       items: MAX_RECONNECT_ITEMS,
+      selectedValue: String(mcp.max_reconnect_attempts ?? 5),
       placement: 'bottom-left',
       onSelect: () => this._saveConfig(),
     });
     this._reconnectDelayDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpReconnectDelay'),
       items: RECONNECT_DELAY_ITEMS,
+      selectedValue: String(mcp.reconnect_delay_seconds ?? 5),
       placement: 'bottom-left',
       onSelect: () => this._saveConfig(),
     });
     this._connTimeoutDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpConnTimeout'),
       items: CONN_TIMEOUT_ITEMS,
+      selectedValue: String(mcp.connection_timeout ?? 30000),
       placement: 'bottom-left',
       onSelect: () => this._saveConfig(),
     });
     this._reqTimeoutDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpReqTimeout'),
       items: REQ_TIMEOUT_ITEMS,
+      selectedValue: String(mcp.request_timeout ?? 60000),
       placement: 'bottom-left',
       onSelect: () => this._saveConfig(),
     });
