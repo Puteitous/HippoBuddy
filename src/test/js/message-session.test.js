@@ -220,12 +220,12 @@ describe('MessageSession.js', () => {
   });
 
   describe('healStuckCards', () => {
-    it('标记待确认的卡片为已取消', () => {
+    it('待确认的卡片不应被篡改', () => {
       session.getSegments().push({ type: 'tool', name: 'bash', result: null, confirmationData: { confirmId: 'cf-1' } });
       const modified = session.healStuckCards();
-      expect(modified.length).toBe(1);
-      expect(modified[0]).toMatchObject({ name: 'bash', toStatus: 'cancelled' });
-      expect(session.getSegments()[0].result).toBe('cancelled');
+      expect(modified.length).toBe(0);
+      expect(session.getSegments()[0].result).toBeNull();
+      expect(session.getSegments()[0].confirmationData).toEqual({ confirmId: 'cf-1' });
     });
 
     it('标记有进度的卡片为已中断', () => {
@@ -352,20 +352,18 @@ describe('MessageSession.js', () => {
 
   describe('mergeTodos', () => {
     it('首次创建时补充缺失字段', () => {
-      const result = session._mergeTodos(-1, [{ id: 't1', content: '任务1', status: 'pending' }]);
+      const result = session._mergeTodos([{ id: 't1', content: '任务1', status: 'pending' }], 'merge');
       expect(result).toEqual([{ id: 't1', content: '任务1', status: 'pending' }]);
     });
 
     it('更新时保留旧任务', () => {
-      session.getSegments().push({
-        type: 'tool', name: 'todo_write',
-        args: JSON.stringify({ todos: [{ id: 't1', content: '旧任务', status: 'pending' }] }),
-        result: null
-      });
-      const result = session._mergeTodos(0, [
+      // 初始化缓存（模拟首次创建）
+      session._mergeTodos([{ id: 't1', content: '旧任务', status: 'pending' }], 'merge');
+      // 合并新数据，更新旧任务 + 添加新任务
+      const result = session._mergeTodos([
         { id: 't1', content: '新任务', status: 'completed' },
         { id: 't2', content: '新任务2', status: 'pending' }
-      ]);
+      ], 'merge');
       expect(result.length).toBe(2);
       expect(result[0].content).toBe('新任务');
       expect(result[0].status).toBe('completed');

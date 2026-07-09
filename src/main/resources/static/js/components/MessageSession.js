@@ -18,6 +18,7 @@ export class MessageSession {
     this._hasReceivedData = false;
     this._runningToolCallIds = new Set();
     this._todoTreeCache = null;
+    this._streamCompleted = false;
 
     this._contentDiv = null;
     this._btnContainer = null;
@@ -329,6 +330,9 @@ export class MessageSession {
       }
       this._smartScroll?.();
 
+      this._streamCompleted = true;
+      this._updateFileIndicator();
+
     } catch (error) {
       if (error.name === 'AbortError' || error.constructor.name === 'AbortError') {
         console.warn(`[MessageSession] 流被中止(AbortError) session=${this._sessionIdForLog || ''}`);
@@ -343,6 +347,8 @@ export class MessageSession {
         this._renderPipeline.setContainer(this._contentDiv);
         await this._renderPipeline.renderFinal(this._segments, '');
         this._contentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
+        this._streamCompleted = true;
+        this._updateFileIndicator();
       } else {
         const { message, detail } = this._classifyError(error);
         console.error(`[MessageSession] 流异常终止 session=${this._sessionIdForLog || ''} type=Error msg="${error.message}"`);
@@ -351,6 +357,8 @@ export class MessageSession {
             <div style="font-weight: 600; margin-bottom: 4px;">❌ ${escapeHtml(message)}</div>
             ${detail ? `<div style="font-size: 12px; opacity: 0.7;">${escapeHtml(detail)}</div>` : ''}
           </div>`;
+        this._streamCompleted = true;
+        this._updateFileIndicator();
       }
 
       if (this._btnContainer && !this._pendingInteraction) this._btnContainer.style.display = 'flex';
@@ -418,7 +426,7 @@ export class MessageSession {
 
     for (const seg of toolSegs) {
       if (seg.result) continue;
-      // 跳过等待用户确认的弹窗，不属于卡死
+      // 待确认的卡片不属于卡死，跳过（用户未响应或自动确认配置尚未处理）
       if (seg.confirmationData) continue;
       const fromStatus = seg.result;
       if (seg.progressLines && seg.progressLines.length > 0) {
@@ -509,7 +517,6 @@ export class MessageSession {
 
   handleToolResult(parsed) {
     const resultId = parsed.tool_call_id || parsed.id;
-    console.log(`[FileIndicator] handleToolResult called`, JSON.stringify({ resultId, name: parsed.name, success: parsed.success, hasSession: !!this, hasFileIndicator: !!this._fileIndicator }));
     if (resultId) {
       this._runningToolCallIds.delete(resultId);
     }
@@ -543,19 +550,17 @@ export class MessageSession {
   }
 
   _updateFileIndicator() {
-    if (!this._fileIndicator) {
-      console.warn(`[FileIndicator] _fileIndicator is null, skipping`);
-      return;
-    }
+    if (!this._fileIndicator) return;
     const files = _extractFilesFromSegments(this._segments);
-    console.log(`[FileIndicator] _updateFileIndicator files=${files.length} segments=${this._segments.length}`, JSON.stringify(files.map(f => ({ path: f.path, action: f.action }))));
     if (files.length === 0) {
       this._fileIndicator.style.display = 'none';
       return;
     }
-    this._fileIndicator.style.display = '';
+    // 流未完成时不显示指示器（避免用户看到中间态）
+    const show = this._streamCompleted || this._pendingInteraction;
+    this._fileIndicator.style.display = show ? '' : 'none';
     const textEl = this._fileIndicator.querySelector('.file-indicator-text');
-    if (textEl) textEl.textContent = `📄 ${files.length}`;
+    if (textEl) textEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="padding-top: 1px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${files.length}`;
     this._fileIndicator.title = '查看本轮文件产物';
 
     // 重建 popover 内容（最多显示 10 条）
@@ -739,7 +744,7 @@ function _extractFilesFromSegments(segments) {
     let paths = [];
     if (seg.name === 'delete_file') {
       paths = Array.isArray(args.paths) ? args.paths : [];
-    } else if (['write_file', 'edit_file', 'write_office_file', 'read_file', 'read_office_file'].includes(seg.name)) {
+    } else if (['write_file', 'edit_file', 'write_office_file'].includes(seg.name)) {
       paths = args.path ? [args.path] :
               args.filePath ? [args.filePath] :
               args.file_path ? [args.file_path] :

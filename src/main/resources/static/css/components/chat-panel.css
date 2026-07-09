@@ -162,6 +162,7 @@
 }
 
 .message-content {
+    font-size: var(--font-size-lg);
     word-break: break-word;
 }
 
@@ -231,6 +232,9 @@
 .message-file-indicator:hover {
     background: var(--bg-code, rgba(0,0,0,0.04));
     color: var(--text-secondary);
+}
+.message-file-indicator svg {
+    vertical-align: -2px;
 }
 
 /* ========== 文件产物 hover popover ========== */

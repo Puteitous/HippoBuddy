@@ -381,7 +381,7 @@
 }
 
 .metrics-item {
-    background: var(--bg-secondary);
+    background: var(--bg-canvas);
     border-radius: var(--radius-sm);
     padding: 6px 8px;
     display: flex;

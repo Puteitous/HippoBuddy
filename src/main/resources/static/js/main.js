@@ -723,7 +723,7 @@ async function switchSession(sessionId) {
           <div class="empty-hero-input-area">
             <div class="hero-input-wrapper">
               <div class="empty-hero-input-refs" id="heroInputRefs"></div>
-              <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
+              <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1" spellcheck="false"></textarea>
             </div>
             <div class="hero-input-actions">
               <div class="hero-input-actions-left" id="heroContextSelector">
@@ -784,7 +784,7 @@ async function switchSession(sessionId) {
         <div class="empty-hero-input-area">
           <div class="hero-input-wrapper">
             <div class="empty-hero-input-refs" id="heroInputRefs"></div>
-            <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1"></textarea>
+            <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1" spellcheck="false"></textarea>
           </div>
           <div class="hero-input-actions">
             <div class="hero-input-actions-left" id="heroContextSelector">

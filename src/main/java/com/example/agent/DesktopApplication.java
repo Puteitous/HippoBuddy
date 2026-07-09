@@ -270,13 +270,16 @@ public final class DesktopApplication {
             );
 
             // 禁用 JCEF 自带的拼写检查，去掉输入框下方的红色波浪线
+            // 使用 DOMContentLoaded 确保 body 存在后再注册 MutationObserver
             browser.executeJavaScript(
                 "(function(){" +
-                "var disableSpellcheck=function(){" +
-                "document.querySelectorAll('input,textarea,[contenteditable]').forEach(function(el){el.spellcheck=false});" +
+                "var d=function(){" +
+                "document.querySelectorAll('input,textarea,[contenteditable]').forEach(function(e){e.spellcheck=false})" +
                 "};" +
-                "disableSpellcheck();" +
-                "new MutationObserver(disableSpellcheck).observe(document.body,{childList:true,subtree:true});" +
+                "if(document.body){d();new MutationObserver(d).observe(document.body,{childList:true,subtree:true})}" +
+                "else{document.addEventListener('DOMContentLoaded',function(){" +
+                "d();new MutationObserver(d).observe(document.body,{childList:true,subtree:true})" +
+                "})}" +
                 "})();",
                 "", 0
             );

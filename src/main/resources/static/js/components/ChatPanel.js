@@ -1716,7 +1716,7 @@ export class ChatPanel {
           filePopover.className = 'message-file-popover';
 
           if (filesFromSegments.length > 0) {
-            fileIndicator.textContent = `📄 ${filesFromSegments.length}`;
+            fileIndicator.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="padding-top: 1px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${filesFromSegments.length}`;
             fileIndicator.title = '查看本轮文件产物';
 
             // 构建 popover 内容（最多显示 10 条）
@@ -1834,7 +1834,7 @@ export class ChatPanel {
       let paths = [];
       if (seg.name === 'delete_file') {
         paths = Array.isArray(args.paths) ? args.paths : [];
-      } else if (['write_file', 'edit_file', 'write_office_file', 'read_file', 'read_office_file'].includes(seg.name)) {
+      } else if (['write_file', 'edit_file', 'write_office_file'].includes(seg.name)) {
         paths = args.path ? [args.path] :
                 args.filePath ? [args.filePath] :
                 args.file_path ? [args.file_path] :
