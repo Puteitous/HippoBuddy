@@ -1,25 +1,23 @@
 /**
  * ooxml-bridge.js — @silurus/ooxml 统一桥接层
  *
- * 提供 PptxViewer / DocxViewer / XlsxViewer 的动态加载和统一生命周期管理。
- * 被 FilePreview → BinaryPreview 调用，替代原有的 PptxViewJS / mammoth.js / SheetJS。
+ * 提供 PptxScrollViewer / DocxScrollViewer / XlsxViewer 的动态加载
+ * 和统一生命周期管理。替代原有的 PptxViewJS / mammoth.js / SheetJS。
  *
- * Silurus 的 .wasm 文件通过 new URL("...", import.meta.url) 同目录解析，
- * 所以只需确保 .wasm 文件与 .mjs/.js chunk 文件在同一目录下。
+ * WASM 文件使用内容 hash 命名以实现强缓存（由 build-ooxml.mjs 生成），
+ * 桥接层通过 wasmUrl 选项告知引擎加载带 hash 的 WASM 文件。
  *
  * 使用方式：
- *   // PptxPresentation（headless，滚动视图逐页渲染）
- *   import { getPptxPresentation } from './ooxml-bridge.js'
- *   const pres = await getPptxPresentation(url)
- *   await pres.renderSlide(canvas, 0, { width: 960 })
- *
- *   // PptxViewer（单 Canvas，自带导航）
- *   import { previewPptx } from './ooxml-bridge.js'
- *   const stop = await previewPptx(canvas, url)
- *   // 不再需要时：stop()
+ *   // PptxScrollViewer（自包含滚动视图）
+ *   import { createPptxScrollViewer } from './ooxml-bridge.js'
+ *   const viewer = await createPptxScrollViewer(container, url)
  */
 
+import { math as silurusMath } from '../vendor/ooxml/math.mjs'
+import wasmManifest from '../vendor/ooxml/wasm-manifest.mjs'
+
 const VENDOR_BASE = '../vendor/ooxml'
+const VENDOR_WASM_PATH = '/js/vendor/ooxml/'
 
 /** @type {Promise<typeof import('../vendor/ooxml/pptx.mjs')> | null} */
 let _pptxModule = null
@@ -79,6 +77,47 @@ export async function createXlsxViewer(container, url, opts = {}) {
   const mod = await getXlsxModule()
   const viewer = new mod.XlsxViewer(container, {
     onError: (err) => console.error('[ooxml] XLSX error:', err),
+    wasmUrl: VENDOR_WASM_PATH + wasmManifest.xlsx,
+    ...opts,
+  })
+  await viewer.load(url)
+  return viewer
+}
+
+/**
+ * 创建 PptxScrollViewer 实例（自包含滚动视图，内置工具栏 + 缩放 + 文字选取）。
+ * 替代自定义的 showPptxSilurus 滚动容器 + IntersectionObserver + 工具栏实现。
+ *
+ * @param {HTMLElement} container - 目标容器
+ * @param {string} url - PPTX 文件 URL
+ * @param {object} [opts] - 透传给 PptxScrollViewer 的选项
+ * @returns {Promise<instance>}
+ */
+export async function createPptxScrollViewer(container, url, opts = {}) {
+  const mod = await getPptxModule()
+  const viewer = new mod.PptxScrollViewer(container, {
+    enableTextSelection: true,
+    wasmUrl: VENDOR_WASM_PATH + wasmManifest.pptx,
+    ...opts,
+  })
+  await viewer.load(url)
+  return viewer
+}
+
+/**
+ * 创建 DocxScrollViewer 实例（自包含滚动视图，内置工具栏 + 缩放 + 文字选取）。
+ * 替代自定义的 showDocxSilurus 滚动容器 + IntersectionObserver + 工具栏实现。
+ *
+ * @param {HTMLElement} container - 目标容器
+ * @param {string} url - DOCX 文件 URL
+ * @param {object} [opts] - 透传给 DocxScrollViewer 的选项
+ * @returns {Promise<instance>}
+ */
+export async function createDocxScrollViewer(container, url, opts = {}) {
+  const mod = await getDocxModule()
+  const viewer = new mod.DocxScrollViewer(container, {
+    enableTextSelection: true,
+    wasmUrl: VENDOR_WASM_PATH + wasmManifest.docx,
     ...opts,
   })
   await viewer.load(url)
@@ -175,6 +214,8 @@ export async function previewXlsx(container, url, opts = {}) {
  * 预加载 Silurus 模块（可选，用于提前触发模块下载）。
  * 在应用初始化时可以调用此函数，减少首次打开 Office 文件时的等待时间。
  */
+export { silurusMath as math }
+
 export function preloadModules(types = ['pptx', 'docx', 'xlsx']) {
   if (types.includes('pptx')) getPptxModule()
   if (types.includes('docx')) getDocxModule()

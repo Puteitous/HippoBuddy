@@ -297,7 +297,7 @@
     white-space: nowrap;
     flex: 1;
     padding-left: 4px;
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-sans);
 }
 
 .file-preview-path .sep {

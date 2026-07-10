@@ -207,6 +207,9 @@ export class FilePreview {
 
     this._currentPath = filePath;
     this._container.dataset.currentPath = filePath;
+    // 单调递增 generation，用于 Silurus 路径守卫防止同文件竞态
+    this._sessionGen = (this._sessionGen || 0) + 1;
+    this._container.dataset.sessionGen = String(this._sessionGen);
     this._dirty = false;
     // 重置二进制预览类型，后续分支会按需重新赋值；避免切换到代码文件时残留旧值
     this._binaryViewType = null;

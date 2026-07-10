@@ -68,9 +68,16 @@ public class StaticFileHandler implements HttpHandler {
 
         exchange.getResponseHeaders().set("Content-Type", mimeType);
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
-        exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
-        exchange.getResponseHeaders().set("Pragma", "no-cache");
-        exchange.getResponseHeaders().set("Expires", "0");
+
+        // 带内容 hash 的 .wasm 文件（如 pptx_parser_bg.a1b2c3d4.wasm）不可变，
+        // 使用强缓存，浏览器无需重新验证。
+        if (path.endsWith(".wasm")) {
+            exchange.getResponseHeaders().set("Cache-Control", "public, max-age=31536000, immutable");
+        } else {
+            exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
+            exchange.getResponseHeaders().set("Pragma", "no-cache");
+            exchange.getResponseHeaders().set("Expires", "0");
+        }
         exchange.sendResponseHeaders(200, content.length);
         exchange.getResponseBody().write(content);
         exchange.close();
