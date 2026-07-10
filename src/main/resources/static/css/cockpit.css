@@ -503,8 +503,8 @@ body.desktop-window {
     position: absolute;
     top: 100%;
     right: -8px;
-    min-width: 180px;
-    max-width: 220px;
+    min-width: 250px;
+    max-width: 250px;
     max-height: 360px;
     overflow-y: auto;
     background: var(--bg-sidebar);

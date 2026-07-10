@@ -17,7 +17,7 @@ import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark, vsCo
 import { SearchPanel } from './search-panel.js'
 import { renderMarkdown } from '../markdown-renderer.js'
 import { createDiffExtension } from './FilePreviewDiff.js'
-import { BinaryPreview, isImageFile, isPdfFile, isSpreadsheetFile, isDocxFile, isPptxFile } from './file-binary-preview.js'
+import { BinaryPreview, isImageFile, isPdfFile, isSpreadsheetFile, isDocxFile, isPptxFile, isBinaryFile } from './file-binary-preview.js'
 import { FilePreviewBrowser } from './file-preview-browser.js'
 import { FilePreviewMdPreview } from './file-preview-md.js'
 
@@ -285,6 +285,19 @@ export class FilePreview {
       this._destroyEditor();
       this._binaryViewType = 'pptx';
       this._binaryPreview.showPptxSilurus(filePath);
+      this._updateSearchBtn();
+      this._updateMdToggleBtn();
+      this._updateRefreshBtn();
+      this._updateOpenInOfficeBtn();
+      this._updateStatusbar(filePath);
+      return;
+    }
+
+    // ── 其他二进制文件（zip/exe/dll/jar 等）→ 只读提示，不解析预览 ──
+    if (isBinaryFile(filePath)) {
+      this._destroyEditor();
+      this._binaryViewType = 'binary';
+      this._container.innerHTML = this._buildBinaryPlaceholder(filePath);
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
@@ -684,6 +697,39 @@ export class FilePreview {
     this._updateSearchBtn();
   }
 
+  /** @private 构建二进制文件占位提示 HTML */
+  _buildBinaryPlaceholder(filePath) {
+    const ext = filePath.split('.').pop().toUpperCase();
+    const fileName = filePath.split(/[/\\]/).pop();
+    const canShowInFolder = typeof window.HippoDesktop !== 'undefined'
+      && window.HippoDesktop
+      && typeof window.HippoDesktop.showItemInFolder === 'function';
+    const escapedFileName = this._escapeHtml(fileName);
+    const escapedExt = this._escapeHtml(ext);
+    // 路径中的反斜杠在 JS 字符串字面量中需转义，同时转义单引号
+    const escapedPath = this._escapeHtml(filePath).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return `<div class="file-preview-placeholder">
+      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+      <p><strong>${escapedFileName}</strong></p>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">
+        ${escapedExt} 文件无法在编辑器中预览，请在本地打开
+      </p>
+      ${canShowInFolder
+        ? `<button class="file-preview-open-folder-btn" onclick="(async () => { try { await window.HippoDesktop.showItemInFolder('${escapedPath}'); } catch(e) { console.error(e); } })()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            在文件管理器中查看
+          </button>`
+        : ''
+      }
+    </div>`;
+  }
+
   _escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
@@ -719,6 +765,8 @@ export class FilePreview {
       parts.push('PPTX');
     } else if (filePath.startsWith('url:')) {
       parts.push('Browser');
+    } else if (this._binaryViewType === 'binary') {
+      parts.push(filePath.split('.').pop().toUpperCase());
     } else {
       // 代码/文本文件
       const lang = this._getLanguageLabel(filePath);

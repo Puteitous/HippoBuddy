@@ -879,21 +879,25 @@ export class ChatPanel {
     if (existing) existing.remove();
 
     const speeches = [
-      '代码写得不错嘛 🦛',
+      '代码写得不错嘛 👍',
       '好热🫠',
       '想泡水💧',
       '饿了吗🍉',
-      '今天吃什么',
+      '今天吃什么 🍗',
       '又在写 bug 了？',
       '你好呀 👋',
-      '让我看看…',
+      '让我看看… 👀',
       '这个我熟！',
       '要帮忙吗？',
       '💤 有点困…',
       '该下班了 🕐',
       '正在思考中… 🤔',
       '快夸我快夸我',
-      '🦛 哼！',
+      '👿 哼！',
+      '好一个屁屁哦，😯',
+      '世界上最安静的动物会是什么嘞🤔',
+      '为什么蜘蛛侠喜欢穿紧身衣嘞🤔',
+      'Let‘s go!, Let‘s go! 🚀',
     ];
 
     const text = speeches[Math.floor(Math.random() * speeches.length)];

@@ -44,6 +44,34 @@ export function isPptxFile(filePath) {
   return filePath && filePath.toLowerCase().endsWith('.pptx');
 }
 
+/**
+ * 判断是否为二进制文件（不应在 CodeMirror 中解析显示）。
+ * 包括：压缩包、可执行文件、编译产物、磁盘映像、数据库文件等。
+ */
+export function isBinaryFile(filePath) {
+  if (!filePath) return false;
+  const ext = filePath.split('.').pop().toLowerCase();
+  const binaryExts = new Set([
+    // 压缩 / 归档
+    'zip', 'tar', 'gz', 'bz2', 'xz', 'rar', '7z', 'zst', 'tgz', 'tzst', 'lz4',
+    // 可执行文件
+    'exe', 'dll', 'so', 'dylib', 'wasm',
+    // Java
+    'class', 'jar', 'war', 'ear',
+    // Python 编译
+    'pyc', 'pyo',
+    // 目标文件
+    'o', 'obj', 'lib', 'a', 'la',
+    // 磁盘映像 / 安装包
+    'iso', 'img', 'dmg', 'deb', 'rpm', 'msi', 'pkg',
+    // 数据库
+    'db', 'sqlite', 'sqlite3',
+    // 其他纯二进制
+    'bin', 'dat',
+  ]);
+  return binaryExts.has(ext);
+}
+
 export function isHtmlFile(filePath) {
   if (!filePath) return false;
   const ext = filePath.split('.').pop().toLowerCase();
