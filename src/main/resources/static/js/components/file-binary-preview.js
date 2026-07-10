@@ -10,7 +10,13 @@
  *   - js/vendor/jszip.min.js（ZIP 解压，PPTX 依赖）
  *   - js/vendor/chart.umd.min.js（Chart.js，PPTX 图表渲染）
  *   - js/vendor/pptx-preview.js（PptxViewJS）
+ *
+ * Silurus 集成（POC）：
+ *   - js/vendor/ooxml/ 下的 @silurus/ooxml 包
+ *   - 通过 ooxml-bridge.js 动态导入
  */
+
+import { getPptxPresentation, getDocxDocument, createXlsxViewer } from './ooxml-bridge.js'
 
 // ==================== 静态检测函数 ====================
 
@@ -420,7 +426,52 @@ export class BinaryPreview {
     }
   }
 
-  // ==================== DOCX 预览 ====================
+  // ==================== XLSX 预览（Silurus @silurus/ooxml）====================
+
+  /**
+   * 使用 @silurus/ooxml 渲染 XLSX 预览。
+   * XlsxViewer 自包含 Canvas + tab 栏，直接挂载到容器。
+   *
+   * 和现有的 showSpreadsheet 不同：
+   *   - SheetJS 版本将数据转为 HTML 表格，无样式
+   *   - Silurus 版本使用 Canvas 渲染，保留单元格样式/图表/格式
+   */
+  async showXlsxSilurus(filePath, _forceRefresh) {
+    const encodedPath = encodeURIComponent(filePath);
+    const cacheBust = _forceRefresh ? `&_t=${Date.now()}` : '';
+    const url = `/api/file/raw?path=${encodedPath}${cacheBust}`;
+
+    try {
+      this._container.innerHTML = `<div class="file-binary-preview loading">加载 XLSX 文件中（Silurus 引擎）...</div>`;
+
+      // 清理容器，留给 XlsxViewer 管理
+      this._container.innerHTML = '';
+      this._container.style.position = 'relative';
+
+      const viewer = await createXlsxViewer(this._container, url);
+
+      // 更新状态栏
+      const sheetCount = viewer.sheetCount ?? '?';
+      updateStatusbarText(`XLSX (Silurus) · ${sheetCount} sheet(s)`);
+
+      // 存储引用以便清理
+      this._container._silurusViewer = viewer;
+
+    } catch (err) {
+      console.error('BinaryPreview: Silurus xlsx parse failed', filePath, err);
+      this._container.innerHTML = `<div class="file-preview-placeholder">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p>XLSX 解析失败 (Silurus): ${escapeHtml(err.message)}</p>
+      </div>`;
+      this._onError(err);
+    }
+  }
+
+  // ==================== DOCX 预览（mammoth.js）====================
 
   /** 通过 mammoth.js 将 DOCX 渲染为 HTML */
   async showDocx(filePath, _forceRefresh) {
@@ -475,6 +526,260 @@ export class BinaryPreview {
           <line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
         <p>文档解析失败: ${escapeHtml(err.message)}</p>
+      </div>`;
+      this._onError(err);
+    }
+  }
+
+  // ==================== DOCX 预览（Silurus @silurus/ooxml）====================
+
+  /**
+   * 使用 @silurus/ooxml 渲染 DOCX 预览。
+   * Canvas 逐页渲染 + 垂直滚动，替换 mammoth.js 的 HTML 转换。
+   *
+   * DocxDocument 作为 headless 引擎，每页渲染到独立 Canvas，
+   * 与 showPptxSilurus 相同的 UI 模式。
+   */
+  async showDocxSilurus(filePath, _forceRefresh) {
+    const encodedPath = encodeURIComponent(filePath);
+    const cacheBust = _forceRefresh ? `&_t=${Date.now()}` : '';
+    const url = `/api/file/raw?path=${encodedPath}${cacheBust}`;
+
+    let _scale = 1;
+    const MIN_SCALE = 0.25;
+    const MAX_SCALE = 4;
+    const ZOOM_STEP = 0.25;
+
+    try {
+      this._container.innerHTML = `<div class="file-binary-preview loading">加载 DOCX 文件中（Silurus 引擎）...</div>`;
+
+      const doc = await getDocxDocument(url);
+      const totalPages = doc.pageCount;
+
+      updateStatusbarText(`DOCX (Silurus) · ${totalPages} 页`);
+
+      const container = this._container;
+      container.innerHTML = '';
+      container.style.position = 'relative';
+
+      // 吸顶工具栏
+      const toolbar = document.createElement('div');
+      toolbar.className = 'pptx-toolbar'; // 复用 PPTX 样式
+      toolbar.innerHTML = `
+        <button class="pptx-zoom-btn" data-action="zoom-out" title="缩小">−</button>
+        <button class="pptx-zoom-btn" data-action="zoom-in" title="放大">+</button>
+        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="重置缩放">⟲</button>
+        <span class="pptx-zoom-level">100%</span>
+      `;
+      container.appendChild(toolbar);
+
+      const scrollWrap = document.createElement('div');
+      scrollWrap.className = 'pptx-scroll-container';
+      container.appendChild(scrollWrap);
+
+      const zoomLevelEl = toolbar.querySelector('.pptx-zoom-level');
+
+      // ── 计算 Canvas 基准尺寸 ──
+      // DOCX 页面通常为 A4 比例 (210×297mm)
+      const PAGE_ASPECT = 297 / 210;
+
+      const calcCanvasSize = () => {
+        const wrapWidth = scrollWrap.clientWidth;
+        const availW = Math.max(200, wrapWidth - 48);
+        const maxCanvasW = Math.min(availW, 900);
+        const dpr = window.devicePixelRatio || 1;
+        return {
+          w: Math.round(maxCanvasW * dpr),
+          h: Math.round(maxCanvasW * PAGE_ASPECT * dpr),
+          styleW: maxCanvasW,
+          styleH: maxCanvasW * PAGE_ASPECT,
+        };
+      };
+
+      // ── 渲染单页 ──
+      const renderPage = async (canvas, pageIndex) => {
+        try {
+          const size = calcCanvasSize();
+          const dpr = window.devicePixelRatio || 1;
+          const areaW = Math.round(size.styleW * dpr);
+          const areaH = Math.round(size.styleH * dpr);
+          if (canvas.width !== areaW || canvas.height !== areaH) {
+            canvas.width = areaW;
+            canvas.height = areaH;
+          }
+          canvas.style.width = `${size.styleW}px`;
+          canvas.style.height = `${size.styleH}px`;
+
+          await doc.renderPage(canvas, pageIndex, { width: Math.round(size.styleW) });
+          canvas.dataset.rendered = 'true';
+        } catch (err) {
+          console.error('BinaryPreview: Silurus docx render page failed', pageIndex, err);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#f5f5f5';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#999';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`第 ${pageIndex + 1} 页渲染失败`, canvas.width / 2, canvas.height / 2);
+          }
+        }
+      };
+
+      // ── 创建所有页面 ──
+      const initSize = calcCanvasSize();
+      const pages = [];
+
+      for (let i = 0; i < totalPages; i++) {
+        const page = document.createElement('div');
+        page.className = 'pptx-slide-page'; // 复用样式
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'pptx-canvas';
+        canvas.dataset.pageIndex = i;
+        canvas.width = initSize.w;
+        canvas.height = initSize.h;
+        canvas.style.width = `${initSize.styleW}px`;
+        canvas.style.height = `${initSize.styleH}px`;
+        canvas.style.display = 'none';
+
+        const placeholder = document.createElement('div');
+        placeholder.className = 'pptx-slide-placeholder';
+        placeholder.style.width = `${initSize.styleW}px`;
+        placeholder.style.height = `${initSize.styleH}px`;
+        placeholder.textContent = `第 ${i + 1} 页`;
+
+        const numLabel = document.createElement('div');
+        numLabel.className = 'pptx-slide-number';
+        numLabel.textContent = `${i + 1} / ${totalPages}`;
+
+        page.appendChild(placeholder);
+        page.appendChild(canvas);
+        page.appendChild(numLabel);
+        scrollWrap.appendChild(page);
+
+        pages.push({ page, canvas, placeholder, rendered: false });
+      }
+
+      // ── IntersectionObserver ──
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(async (entry) => {
+          if (!entry.isIntersecting) return;
+          const pageEl = entry.target;
+          const idx = parseInt(pageEl.dataset.pageIndex, 10);
+          const pg = pages[idx];
+          if (!pg || pg.rendered) return;
+          pg.rendered = true;
+          io.unobserve(pageEl);
+          await renderPage(pg.canvas, idx);
+          pg.canvas.style.display = '';
+          pg.placeholder.style.display = 'none';
+        });
+      }, { root: scrollWrap, rootMargin: '300px 0px' });
+
+      pages.forEach((pg, i) => {
+        pg.page.dataset.pageIndex = i;
+        io.observe(pg.page);
+      });
+
+      // 强制渲染前 3 页
+      const initialRenderCount = Math.min(3, totalPages);
+      for (let i = 0; i < initialRenderCount; i++) {
+        const pg = pages[i];
+        pg.rendered = true;
+        io.unobserve(pg.page);
+        await renderPage(pg.canvas, i);
+        pg.canvas.style.display = '';
+        pg.placeholder.style.display = 'none';
+      }
+
+      // ── 缩放（复用 PPTX 的逻辑）──
+      let _resizeGuard = false;
+      const applyZoom = () => {
+        _resizeGuard = true;
+        pages.forEach(pg => {
+          const w = Math.round(initSize.styleW * _scale);
+          const h = Math.round(initSize.styleH * _scale);
+          pg.canvas.style.width = `${w}px`;
+          pg.canvas.style.height = `${h}px`;
+          pg.placeholder.style.width = `${w}px`;
+          pg.placeholder.style.height = `${h}px`;
+        });
+        if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(_scale * 100)}%`;
+        setTimeout(() => { _resizeGuard = false; }, 60);
+      };
+
+      let _resizeTimer;
+      const resizeObserver = new ResizeObserver(() => {
+        if (_resizeGuard) return;
+        clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(() => {
+          const newSize = calcCanvasSize();
+          pages.forEach(pg => {
+            if (pg.rendered) {
+              const w = Math.round(newSize.styleW * _scale);
+              const h = Math.round(newSize.styleH * _scale);
+              pg.canvas.style.width = `${w}px`;
+              pg.canvas.style.height = `${h}px`;
+            }
+            pg.placeholder.style.width = `${newSize.styleW}px`;
+            pg.placeholder.style.height = `${newSize.styleH}px`;
+          });
+          Object.assign(initSize, newSize);
+        }, 200);
+      });
+      resizeObserver.observe(scrollWrap);
+
+      toolbar.addEventListener('click', (e) => {
+        const btn = e.target.closest('.pptx-zoom-btn');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action === 'zoom-in') _scale = Math.min(MAX_SCALE, _scale * (1 + ZOOM_STEP));
+        else if (action === 'zoom-out') _scale = Math.max(MIN_SCALE, _scale * (1 - ZOOM_STEP));
+        else if (action === 'reset') _scale = 1;
+        applyZoom();
+      });
+
+      scrollWrap.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const delta = e.deltaY > 0 ? -1 : 1;
+          _scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, _scale * (1 + delta * ZOOM_STEP)));
+          applyZoom();
+        }
+      }, { passive: false });
+
+      const keyHandler = (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+          e.preventDefault(); _scale = Math.min(MAX_SCALE, _scale * (1 + ZOOM_STEP)); applyZoom();
+        } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+          e.preventDefault(); _scale = Math.max(MIN_SCALE, _scale * (1 - ZOOM_STEP)); applyZoom();
+        } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+          e.preventDefault(); _scale = 1; applyZoom();
+        }
+      };
+      document.addEventListener('keydown', keyHandler);
+
+      const cleanupObserver = new MutationObserver(() => {
+        if (!document.body.contains(container)) {
+          document.removeEventListener('keydown', keyHandler);
+          resizeObserver.disconnect(); io.disconnect(); cleanupObserver.disconnect();
+          try { doc.destroy(); } catch {}
+        }
+      });
+      cleanupObserver.observe(document.body, { childList: true, subtree: true });
+
+      container._silurusDoc = doc;
+
+    } catch (err) {
+      console.error('BinaryPreview: Silurus docx parse failed', filePath, err);
+      this._container.innerHTML = `<div class="file-preview-placeholder">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p>DOCX 解析失败 (Silurus): ${escapeHtml(err.message)}</p>
       </div>`;
       this._onError(err);
     }
@@ -745,6 +1050,296 @@ export class BinaryPreview {
           <line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
         <p>PPTX 解析失败: ${escapeHtml(err.message)}</p>
+      </div>`;
+      this._onError(err);
+    }
+  }
+
+  // ==================== PPTX 预览（Silurus @silurus/ooxml）====================
+
+  /**
+   * 使用 @silurus/ooxml 渲染 PPTX 预览（POC 阶段）。
+   * 保持与 showPptx 相同的 UI 风格（垂直滚动 + 渐进渲染 + 缩放），
+   * 但使用 Silurus 的 Rust/WASM 解析器 + Canvas 渲染，精度更高。
+   *
+   * 需要先运行 `node scripts/build-ooxml.mjs` 将 WASM 和 JS 文件复制到 vendor 目录。
+   */
+  async showPptxSilurus(filePath, _forceRefresh) {
+    const encodedPath = encodeURIComponent(filePath);
+    const cacheBust = _forceRefresh ? `&_t=${Date.now()}` : '';
+    const url = `/api/file/raw?path=${encodedPath}${cacheBust}`;
+
+    let _scale = 1;
+    const MIN_SCALE = 0.25;
+    const MAX_SCALE = 4;
+    const ZOOM_STEP = 0.25;
+
+    try {
+      // 加载状态
+      this._container.innerHTML = `<div class="file-binary-preview loading">加载 PPTX 文件中（Silurus 引擎）...</div>`;
+
+      // 加载 Silurus PptxPresentation（headless 引擎）
+      const pres = await getPptxPresentation(url);
+      const totalSlides = pres.slideCount;
+      const slideWEmu = pres.slideWidth;
+      const slideHEmu = pres.slideHeight;
+
+      // 更新状态栏
+      updateStatusbarText(`PPTX (Silurus) · ${totalSlides} 页`);
+
+      // ── 构建 UI ──
+      const container = this._container;
+      container.innerHTML = '';
+      container.style.position = 'relative';
+
+      // 吸顶工具栏
+      const toolbar = document.createElement('div');
+      toolbar.className = 'pptx-toolbar';
+      toolbar.innerHTML = `
+        <button class="pptx-zoom-btn" data-action="zoom-out" title="缩小">−</button>
+        <button class="pptx-zoom-btn" data-action="zoom-in" title="放大">+</button>
+        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="重置缩放">⟲</button>
+        <span class="pptx-zoom-level">100%</span>
+      `;
+      container.appendChild(toolbar);
+
+      // 滚动容器
+      const scrollWrap = document.createElement('div');
+      scrollWrap.className = 'pptx-scroll-container';
+      container.appendChild(scrollWrap);
+
+      const zoomLevelEl = toolbar.querySelector('.pptx-zoom-level');
+
+      // ── 计算 Canvas 基准尺寸 ──
+      const EMU_PER_INCH = 914400;
+      const PPTX_SLIDE_DPI = 72;
+      // PPTX 的 EMU→px 转换（标准：1pt = 1/72 inch, 1 EMU = 1/914400 inch）
+      const emuToPx = (emu) => emu / EMU_PER_INCH * PPTX_SLIDE_DPI;
+
+      const calcCanvasSize = () => {
+        const wrapWidth = scrollWrap.clientWidth;
+        const availW = Math.max(200, wrapWidth - 48);
+        const maxCanvasW = Math.min(availW, 960);
+        const aspectRatio = slideHEmu / slideWEmu;
+        const dpr = window.devicePixelRatio || 1;
+        return {
+          w: Math.round(maxCanvasW * dpr),
+          h: Math.round(maxCanvasW * aspectRatio * dpr),
+          styleW: maxCanvasW,
+          styleH: maxCanvasW * aspectRatio,
+        };
+      };
+
+      // ── 渲染单页幻灯片 ──
+      const renderSlide = async (canvas, slideIndex) => {
+        try {
+          const size = calcCanvasSize();
+          // 调整 Canvas 像素缓冲尺寸（匹配当前 dpr）
+          const dpr = window.devicePixelRatio || 1;
+          const areaW = Math.round(size.styleW * dpr);
+          const areaH = Math.round(size.styleH * dpr);
+          if (canvas.width !== areaW || canvas.height !== areaH) {
+            canvas.width = areaW;
+            canvas.height = areaH;
+          }
+          canvas.style.width = `${size.styleW}px`;
+          canvas.style.height = `${size.styleH}px`;
+
+          await pres.renderSlide(canvas, slideIndex, { width: Math.round(size.styleW) });
+          canvas.dataset.rendered = 'true';
+        } catch (err) {
+          console.error('BinaryPreview: Silurus render slide failed', slideIndex, err);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#f5f5f5';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#999';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`第 ${slideIndex + 1} 页渲染失败`, canvas.width / 2, canvas.height / 2);
+          }
+        }
+      };
+
+      // ── 创建所有幻灯片页面 ──
+      const initSize = calcCanvasSize();
+      const slidePages = [];
+
+      for (let i = 0; i < totalSlides; i++) {
+        const page = document.createElement('div');
+        page.className = 'pptx-slide-page';
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'pptx-canvas';
+        canvas.dataset.slideIndex = i;
+        canvas.width = initSize.w;
+        canvas.height = initSize.h;
+        canvas.style.width = `${initSize.styleW}px`;
+        canvas.style.height = `${initSize.styleH}px`;
+        canvas.style.display = 'none';
+
+        const placeholder = document.createElement('div');
+        placeholder.className = 'pptx-slide-placeholder';
+        placeholder.style.width = `${initSize.styleW}px`;
+        placeholder.style.height = `${initSize.styleH}px`;
+        placeholder.textContent = `第 ${i + 1} 页`;
+
+        const numLabel = document.createElement('div');
+        numLabel.className = 'pptx-slide-number';
+        numLabel.textContent = `${i + 1} / ${totalSlides}`;
+
+        page.appendChild(placeholder);
+        page.appendChild(canvas);
+        page.appendChild(numLabel);
+        scrollWrap.appendChild(page);
+
+        slidePages.push({ page, canvas, placeholder, rendered: false });
+      }
+
+      // ── IntersectionObserver 渐进渲染 ──
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(async (entry) => {
+          if (!entry.isIntersecting) return;
+          const pageEl = entry.target;
+          const idx = parseInt(pageEl.dataset.slideIndex, 10);
+          const slide = slidePages[idx];
+          if (!slide || slide.rendered) return;
+
+          slide.rendered = true;
+          io.unobserve(pageEl);
+          await renderSlide(slide.canvas, idx);
+          slide.canvas.style.display = '';
+          slide.placeholder.style.display = 'none';
+        });
+      }, {
+        root: scrollWrap,
+        rootMargin: '300px 0px',
+      });
+
+      slidePages.forEach((slide, i) => {
+        slide.page.dataset.slideIndex = i;
+        io.observe(slide.page);
+      });
+
+      // 强制渲染前 3 页
+      const initialRenderCount = Math.min(3, totalSlides);
+      for (let i = 0; i < initialRenderCount; i++) {
+        const slide = slidePages[i];
+        slide.rendered = true;
+        io.unobserve(slide.page);
+        await renderSlide(slide.canvas, i);
+        slide.canvas.style.display = '';
+        slide.placeholder.style.display = 'none';
+      }
+
+      // ── 统一缩放 ──
+      let _resizeGuard = false;
+
+      const applyZoom = () => {
+        _resizeGuard = true;
+        slidePages.forEach(slide => {
+          const w = Math.round(initSize.styleW * _scale);
+          const h = Math.round(initSize.styleH * _scale);
+          slide.canvas.style.width = `${w}px`;
+          slide.canvas.style.height = `${h}px`;
+          slide.placeholder.style.width = `${w}px`;
+          slide.placeholder.style.height = `${h}px`;
+        });
+        if (zoomLevelEl) {
+          zoomLevelEl.textContent = `${Math.round(_scale * 100)}%`;
+        }
+        setTimeout(() => { _resizeGuard = false; }, 60);
+      };
+
+      // ── ResizeObserver ──
+      let _resizeTimer;
+      const resizeObserver = new ResizeObserver(() => {
+        if (_resizeGuard) return;
+        clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(() => {
+          const newSize = calcCanvasSize();
+          slidePages.forEach(slide => {
+            if (slide.rendered) {
+              const w = Math.round(newSize.styleW * _scale);
+              const h = Math.round(newSize.styleH * _scale);
+              slide.canvas.style.width = `${w}px`;
+              slide.canvas.style.height = `${h}px`;
+            }
+            slide.placeholder.style.width = `${newSize.styleW}px`;
+            slide.placeholder.style.height = `${newSize.styleH}px`;
+          });
+          Object.assign(initSize, newSize);
+        }, 200);
+      });
+      resizeObserver.observe(scrollWrap);
+
+      // ── 工具栏缩放 ──
+      toolbar.addEventListener('click', (e) => {
+        const zoomBtn = e.target.closest('.pptx-zoom-btn');
+        if (!zoomBtn) return;
+        const action = zoomBtn.dataset.action;
+        if (action === 'zoom-in') {
+          _scale = Math.min(MAX_SCALE, _scale * (1 + ZOOM_STEP));
+        } else if (action === 'zoom-out') {
+          _scale = Math.max(MIN_SCALE, _scale * (1 - ZOOM_STEP));
+        } else if (action === 'reset') {
+          _scale = 1;
+        }
+        applyZoom();
+      });
+
+      // ── Ctrl+滚轮缩放 ──
+      scrollWrap.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const delta = e.deltaY > 0 ? -1 : 1;
+          _scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, _scale * (1 + delta * ZOOM_STEP)));
+          applyZoom();
+        }
+      }, { passive: false });
+
+      // ── 键盘快捷键 ──
+      const keyHandler = (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+          e.preventDefault();
+          _scale = Math.min(MAX_SCALE, _scale * (1 + ZOOM_STEP));
+          applyZoom();
+        } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+          e.preventDefault();
+          _scale = Math.max(MIN_SCALE, _scale * (1 - ZOOM_STEP));
+          applyZoom();
+        } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+          e.preventDefault();
+          _scale = 1;
+          applyZoom();
+        }
+      };
+      document.addEventListener('keydown', keyHandler);
+
+      // ── 清理 ──
+      const cleanupObserver = new MutationObserver(() => {
+        if (!document.body.contains(container)) {
+          document.removeEventListener('keydown', keyHandler);
+          resizeObserver.disconnect();
+          io.disconnect();
+          cleanupObserver.disconnect();
+          try { pres.destroy(); } catch {}
+        }
+      });
+      cleanupObserver.observe(document.body, { childList: true, subtree: true });
+
+      // 存储 presentation 引用以便后续清理
+      container._silurusPres = pres;
+
+    } catch (err) {
+      console.error('BinaryPreview: Silurus pptx parse failed', filePath, err);
+      this._container.innerHTML = `<div class="file-preview-placeholder">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p>PPTX 解析失败 (Silurus): ${escapeHtml(err.message)}</p>
       </div>`;
       this._onError(err);
     }

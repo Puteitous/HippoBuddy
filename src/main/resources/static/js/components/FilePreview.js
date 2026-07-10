@@ -237,7 +237,21 @@ export class FilePreview {
       return;
     }
 
-    // ── 表格文件（XLSX/XLS/CSV）→ 委托 BinaryPreview ──
+    // ── XLSX 文件 → 委托 BinaryPreview（Silurus 引擎）──
+    // .xls 和 .csv 仍走旧的 SheetJS 路径
+    if (filePath && filePath.toLowerCase().endsWith('.xlsx')) {
+      this._destroyEditor();
+      this._binaryViewType = 'spreadsheet';
+      this._binaryPreview.showXlsxSilurus(filePath);
+      this._updateSearchBtn();
+      this._updateMdToggleBtn();
+      this._updateRefreshBtn();
+      this._updateOpenInOfficeBtn();
+      this._updateStatusbar(filePath);
+      return;
+    }
+
+    // ── XLS / CSV → 委托 BinaryPreview（SheetJS 旧路径）──
     if (isSpreadsheetFile(filePath)) {
       this._destroyEditor();
       this._binaryViewType = 'spreadsheet';
@@ -250,11 +264,11 @@ export class FilePreview {
       return;
     }
 
-    // ── DOCX 文件 → 委托 BinaryPreview ──
+    // ── DOCX 文件 → 委托 BinaryPreview（Silurus 引擎）──
     if (isDocxFile(filePath)) {
       this._destroyEditor();
       this._binaryViewType = 'docx';
-      this._binaryPreview.showDocx(filePath);
+      this._binaryPreview.showDocxSilurus(filePath);
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
@@ -263,11 +277,11 @@ export class FilePreview {
       return;
     }
 
-    // ── PPTX 文件 → 委托 BinaryPreview ──
+    // ── PPTX 文件 → 委托 BinaryPreview（Silurus 引擎）──
     if (isPptxFile(filePath)) {
       this._destroyEditor();
       this._binaryViewType = 'pptx';
-      this._binaryPreview.showPptx(filePath);
+      this._binaryPreview.showPptxSilurus(filePath);
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();

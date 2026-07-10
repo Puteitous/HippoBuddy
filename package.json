@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "build:cm": "node scripts/build-codemirror.mjs",
+    "build:ooxml": "node scripts/build-ooxml.mjs",
+    "build:vendor": "node scripts/build-codemirror.mjs && node scripts/build-ooxml.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -44,6 +46,7 @@
     "@codemirror/language": "$@codemirror/language"
   },
   "dependencies": {
-    "@fsegurai/codemirror-theme-vscode-light": "^6.2.6"
+    "@fsegurai/codemirror-theme-vscode-light": "^6.2.6",
+    "@silurus/ooxml": "^0.71.0"
   }
 }

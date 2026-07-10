@@ -226,7 +226,6 @@ export class McpSettingsPage {
     `;
 
     // 初始化下拉框（每个都绑定 onSelect 自动保存）
-    const mcp = this._config;
     this._maxReconnectDropdown = new CustomDropdown({
       trigger: document.getElementById('mcpMaxReconnect'),
       items: MAX_RECONNECT_ITEMS,

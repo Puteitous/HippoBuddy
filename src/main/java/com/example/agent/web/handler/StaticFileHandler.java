@@ -81,8 +81,10 @@ public class StaticFileHandler implements HttpHandler {
             return "text/html; charset=UTF-8";
         } else if (path.endsWith(".css")) {
             return "text/css; charset=UTF-8";
-        } else if (path.endsWith(".js")) {
+        } else if (path.endsWith(".js") || path.endsWith(".mjs")) {
             return "application/javascript; charset=UTF-8";
+        } else if (path.endsWith(".wasm")) {
+            return "application/wasm";
         } else if (path.endsWith(".json")) {
             return "application/json; charset=UTF-8";
         } else if (path.endsWith(".png")) {
