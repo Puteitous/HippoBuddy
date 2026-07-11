@@ -718,8 +718,37 @@ async function switchSession(sessionId) {
       chatContainer.innerHTML = `
         <div class="empty-state">
           <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
-          <h1 class="empty-hero-title">HippoBuddy</h1>
-          <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
+          <div class="empty-hero-heading">
+            <h1 class="empty-hero-title">HippoBuddy</h1>
+            <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
+          </div>
+          <div class="empty-hero-mode-selector" id="heroModeSelector">
+            <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
+              <button class="mode-btn" data-mode="chat" title="聊天模式 — 只读探索，不动手">
+                <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
+                </svg>
+                聊天
+              </button>
+              <button class="mode-btn" data-mode="office" title="办公模式 — 文档/表格/演示文稿">
+                <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
+                  <path d="M9 1v4h4"/>
+                  <line x1="5" y1="8" x2="11" y2="8"/>
+                  <line x1="5" y1="10" x2="9" y2="10"/>
+                </svg>
+                办公
+              </button>
+              <button class="mode-btn active" data-mode="coding" title="代码模式 — 全栈工程师">
+                <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 3.5 2 8 6 12.5"/>
+                  <polyline points="10 3.5 14 8 10 12.5"/>
+                </svg>
+                代码
+              </button>
+            </span>
+          </div>
+          <div class="empty-hero-presets" id="heroPresets"></div>
           <div class="empty-hero-input-area">
             <div class="hero-input-wrapper">
               <div class="empty-hero-input-refs" id="heroInputRefs"></div>
@@ -737,11 +766,6 @@ async function switchSession(sessionId) {
                 </svg>
               </button>
             </div>
-          </div>
-          <div class="empty-hero-suggestions">
-            <button class="empty-hero-suggestion" data-prompt="分析一下这个项目的结构和主要功能">分析项目结构</button>
-            <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
-            <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
           </div>
           <div>Enter 发送 · Shift+Enter 换行</div>
         </div>`;
@@ -779,8 +803,37 @@ async function switchSession(sessionId) {
     chatContainer.innerHTML = `
       <div class="empty-state">
         <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
-        <h1 class="empty-hero-title">HippoBuddy</h1>
-        <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
+        <div class="empty-hero-heading">
+          <h1 class="empty-hero-title">HippoBuddy</h1>
+          <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
+        </div>
+        <div class="empty-hero-mode-selector" id="heroModeSelector">
+          <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
+            <button class="mode-btn" data-mode="chat" title="聊天模式 — 只读探索，不动手">
+              <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
+              </svg>
+              聊天
+            </button>
+            <button class="mode-btn" data-mode="office" title="办公模式 — 文档/表格/演示文稿">
+              <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
+                <path d="M9 1v4h4"/>
+                <line x1="5" y1="8" x2="11" y2="8"/>
+                <line x1="5" y1="10" x2="9" y2="10"/>
+              </svg>
+              办公
+            </button>
+            <button class="mode-btn active" data-mode="coding" title="代码模式 — 全栈工程师">
+              <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 3.5 2 8 6 12.5"/>
+                <polyline points="10 3.5 14 8 10 12.5"/>
+              </svg>
+              代码
+            </button>
+          </span>
+        </div>
+        <div class="empty-hero-presets" id="heroPresets"></div>
         <div class="empty-hero-input-area">
           <div class="hero-input-wrapper">
             <div class="empty-hero-input-refs" id="heroInputRefs"></div>
@@ -799,11 +852,6 @@ async function switchSession(sessionId) {
           </button>
           </div>
         </div>
-      <div class="empty-hero-suggestions">
-        <button class="empty-hero-suggestion" data-prompt="分析一下这个项目的结构和主要功能">分析项目结构</button>
-        <button class="empty-hero-suggestion" data-prompt="解释当前代码的工作原理">解释代码</button>
-        <button class="empty-hero-suggestion" data-prompt="为这段代码生成单元测试">生成测试</button>
-      </div>
     </div>`;
     chatPanel?.reInjectContextSelector();
     refreshHeroModelDropdown();

@@ -172,6 +172,7 @@ public class PromptLibrary {
         return switch (type) {
             case MODE_CODING -> mode == TaskMode.CODING;
             case MODE_CHAT -> mode == TaskMode.CHAT;
+            case MODE_OFFICE -> mode == TaskMode.OFFICE;
             default -> false;
         };
     }

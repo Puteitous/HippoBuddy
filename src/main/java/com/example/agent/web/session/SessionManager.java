@@ -57,6 +57,14 @@ public interface SessionManager {
 
     // ============================
 
+    // === Mode 存储 ===
+
+    void setMode(String sessionId, String mode);
+
+    String getMode(String sessionId);
+
+    // =================
+
     boolean tryAcquireSessionLock(String sessionId, long timeout, TimeUnit unit) throws InterruptedException;
 
     void releaseSessionLock(String sessionId);

@@ -29,6 +29,22 @@ public enum AgentMode {
             "lsp_hover", "lsp_document_symbol", "lsp_workspace_symbol",
             "lsp_goto_definition", "lsp_find_references"
         )
+    ),
+
+    OFFICE("📊", "办公模式", "办公效率助手，擅长文档/表格/演示文稿处理",
+        Set.of(
+            "read_file", "read_office_file", "write_office_file",
+            "write_file", "edit_file", "undo_file", "delete_file",
+            "list_directory", "glob", "grep",
+            "ask_user",
+            "bash",
+            "todo_write",
+            "web_search", "web_fetch",
+            "lint_diagnostics",
+            "fork_agent", "fork_agents", "list_subagents", "cancel_subagent",
+            "lsp_hover", "lsp_document_symbol", "lsp_workspace_symbol",
+            "lsp_goto_definition", "lsp_find_references"
+        )
     );
 
     private final String icon;

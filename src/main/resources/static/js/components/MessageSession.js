@@ -263,7 +263,7 @@ export class MessageSession {
     });
   }
 
-  async start({ sessionId, content, signal, systemPrompt, editMessageId, useExecuteRequest, onMessageId, onRetry, selectedRules }) {
+  async start({ sessionId, content, signal, systemPrompt, editMessageId, useExecuteRequest, onMessageId, onRetry, selectedRules, mode }) {
     this._onMessageId = onMessageId || null;
     this._sessionIdForLog = sessionId;
 
@@ -302,7 +302,7 @@ export class MessageSession {
         );
       } else {
         await this._chatService.sendMessage(
-          sessionId, content, chunkHandler, signal, systemPrompt, editMessageId || null, selectedRules
+          sessionId, content, chunkHandler, signal, systemPrompt, editMessageId || null, selectedRules, mode
         );
       }
 

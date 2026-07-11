@@ -8,6 +8,7 @@ public enum PromptType {
     // ========== 模式层 ==========
     MODE_CODING("mode", "coding", "构建模式 - 工程师角色，全权限执行"),
     MODE_CHAT("mode", "chat", "顾问模式 - 只读探索"),
+    MODE_OFFICE("mode", "office", "办公模式 - 办公效率助手，擅长文档处理"),
 
     // ========== 功能层 ==========
     FEATURE_MEMORY("feature", "memory", "长期记忆系统指南"),

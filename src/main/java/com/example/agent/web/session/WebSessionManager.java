@@ -38,6 +38,7 @@ public class WebSessionManager implements SessionManager {
     private static final Map<String, PendingBashConfirmation> pendingBashConfirmations = new ConcurrentHashMap<>();
     private static final Map<String, PendingDeleteConfirmation> pendingDeleteConfirmations = new ConcurrentHashMap<>();
     private static final Map<String, Set<String>> sessionAutoAllowRules = new ConcurrentHashMap<>();
+    private static final Map<String, String> sessionModes = new ConcurrentHashMap<>();
     private static final Map<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -101,6 +102,22 @@ public class WebSessionManager implements SessionManager {
         Set<String> rules = sessionAutoAllowRules.get(sessionId);
         return rules != null && rules.contains(commandName);
     }
+
+    // === Mode 存储 ===
+
+    @Override
+    public void setMode(String sessionId, String mode) {
+        if (sessionId != null) {
+            sessionModes.put(sessionId, mode);
+        }
+    }
+
+    @Override
+    public String getMode(String sessionId) {
+        return sessionModes.get(sessionId);
+    }
+
+    // =================
 
     @Override
     public boolean hasPendingBashConfirmation(String sessionId) {

@@ -208,6 +208,7 @@ public class AgentContext {
             com.example.agent.prompt.model.TaskMode taskMode = switch (newMode) {
                 case CHAT -> com.example.agent.prompt.model.TaskMode.CHAT;
                 case CODING -> com.example.agent.prompt.model.TaskMode.CODING;
+                case OFFICE -> com.example.agent.prompt.model.TaskMode.OFFICE;
             };
             String prompt = promptService.getBasePrompt(taskMode);
             String enhancedPrompt = ruleManager.enhanceSystemPrompt(prompt);

@@ -26,6 +26,13 @@ prompts:
     priority: 80
     description: "顾问模式 - 只读探索，提供建议不执行"
 
+  - type: MODE_OFFICE
+    file: mode/office.md
+    version: "1.0.0"
+    enabled: true
+    priority: 80
+    description: "办公模式 - 办公效率助手，擅长文档处理"
+
 config:
   defaultBase: CODING
   maxExpertPrompts: 2

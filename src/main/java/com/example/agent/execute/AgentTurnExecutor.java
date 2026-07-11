@@ -53,7 +53,7 @@ public class AgentTurnExecutor {
 
         ChatResponse response = llmClient.chatStream(
                 conversationService.getContextForInference(conversation),
-                toolRegistry.toTools(),
+                toolRegistry.toTools(context.getCurrentMode()),
                 chunk -> {
                     if (interrupted) {
                         throw new RuntimeException("Interrupted");

@@ -338,6 +338,12 @@ input, textarea {
   border-color: var(--border);
 }
 
+.empty-hero-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
 .empty-hero-title {
   font-size: 26px;
   font-weight: 700;
@@ -347,9 +353,10 @@ input, textarea {
 }
 
 .empty-hero-subtitle {
-  font-size: var(--font-size-lg);
+  font-size: 12px;
   color: var(--text-muted);
-  margin: 0 0 4px;
+  margin: 0 0 3px 8px;
+  white-space: nowrap;
 }
 
 .empty-hero-input-area {
@@ -489,32 +496,6 @@ input, textarea {
   color: var(--text-muted);
 }
 
-.empty-hero-suggestions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: 12px;
-}
-
-.empty-hero-suggestion {
-  padding: 6px 14px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: inherit;
-}
-
-.empty-hero-suggestion:hover {
-  background: var(--bg-code);
-  border-color: var(--text-muted);
-  color: var(--text-primary);
-}
-
 /* ===== 新建会话空状态入场动画 ===== */
 
 .empty-state.animate .empty-hero-logo {
@@ -531,12 +512,17 @@ input, textarea {
   animation-delay: 0.25s;
 }
 
-.empty-state.animate .empty-hero-input-area {
+.empty-state.animate .empty-hero-mode-selector {
   animation: empty-fade-up 0.5s ease both;
-  animation-delay: 0.35s;
+  animation-delay: 0.30s;
 }
 
-.empty-state.animate .empty-hero-suggestions {
+.empty-state.animate .empty-hero-presets {
+  animation: empty-fade-up 0.5s ease both;
+  animation-delay: 0.375s;
+}
+
+.empty-state.animate .empty-hero-input-area {
   animation: empty-fade-up 0.5s ease both;
   animation-delay: 0.45s;
 }

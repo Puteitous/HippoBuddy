@@ -38,6 +38,9 @@ export const AppState = {
   tokenHistory: [],
   maxTrendPoints: 30,
   
+  // ========== 模式状态 ==========
+  mode: localStorage.getItem('hippo-agent-mode') || 'coding',
+  
   // ========== 主题状态 ==========
   currentTheme: _loadTheme(),
   
@@ -65,6 +68,8 @@ export const AppState = {
       } catch (e) {
         console.warn('保存 Token 历史失败:', e);
       }
+    } else if (key === 'mode') {
+      localStorage.setItem('hippo-agent-mode', value);
     }
   },
   
@@ -133,6 +138,16 @@ export const AppState = {
   // 设置系统提示词
   setSystemPrompt(prompt) {
     this.setState('currentSystemPrompt', prompt);
+  },
+  
+  // 获取当前模式
+  getMode() {
+    return this.mode;
+  },
+  
+  // 设置模式
+  setMode(mode) {
+    this.setState('mode', mode);
   },
   
   // 添加 Token 历史记录

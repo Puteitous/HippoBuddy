@@ -81,6 +81,42 @@ public class ChatApiHandler implements HttpHandler {
                        (json.has("session") ? json.get("session").asText() : "default");
             String userMessage = json.has("message") ? json.get("message").asText() : "";
             String systemPromptOverride = json.has("systemPrompt") ? json.get("systemPrompt").asText() : null;
+            String mode = json.has("mode") ? json.get("mode").asText() : null;
+            sessionManager.setMode(sessionId, mode);
+            // 当没有自定义 systemPrompt 且指定了非 coding 模式时，
+            // 使用 PromptService 组装对应模式的提示词（含规则/技能/工作区增强）
+            if ((systemPromptOverride == null || systemPromptOverride.isBlank())
+                    && mode != null && !mode.isBlank() && !"coding".equals(mode)) {
+                try {
+                    com.example.agent.prompt.model.TaskMode taskMode =
+                        com.example.agent.prompt.model.TaskMode.valueOf(mode.toUpperCase());
+                    com.example.agent.prompt.PromptService promptService =
+                        ServiceLocator.get(com.example.agent.prompt.PromptService.class);
+                    String basePrompt = promptService.getSystemPrompt(
+                        com.example.agent.prompt.PromptService.TaskContext.forMode(taskMode));
+                    // 注入项目规则（同 getDefaultSystemPrompt 逻辑）
+                    com.example.agent.domain.rule.RuleManager ruleManager =
+                        ServiceLocator.getOrNull(com.example.agent.domain.rule.RuleManager.class);
+                    if (ruleManager != null) {
+                        basePrompt = ruleManager.enhanceSystemPrompt(basePrompt);
+                    }
+                    // 注入技能目录
+                    com.example.agent.domain.skill.SkillManager skillManager =
+                        ServiceLocator.getOrNull(com.example.agent.domain.skill.SkillManager.class);
+                    if (skillManager != null) {
+                        basePrompt = skillManager.enhanceSystemPrompt(basePrompt);
+                    }
+                    // 追加工作区路径
+                    String workspacePath = com.example.agent.desktop.WorkspaceContext.getCurrentFolder();
+                    if (workspacePath != null && !workspacePath.isBlank()) {
+                        basePrompt += "\n\n## 当前工作区\n用户已选择以下文件夹作为当前工作区。Agent 的所有文件操作应以此目录为根目录：\n"
+                            + workspacePath;
+                    }
+                    systemPromptOverride = basePrompt;
+                } catch (Exception e) {
+                    logger.warn("无法解析 mode={}, 使用默认提示词", mode);
+                }
+            }
             String editMessageId = json.has("editMessageId") ? json.get("editMessageId").asText() : null;
 
             // 解析手动引用的规则列表

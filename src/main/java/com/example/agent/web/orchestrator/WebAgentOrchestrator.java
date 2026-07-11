@@ -1,5 +1,6 @@
 package com.example.agent.web.orchestrator;
 
+import com.example.agent.core.AgentMode;
 import com.example.agent.application.ConversationService;
 import com.example.agent.config.Config;
 import com.example.agent.core.blocker.HookResult;
@@ -115,7 +116,10 @@ public class WebAgentOrchestrator {
         // 每轮新 Agent 循环开始时，清理上一轮因确认弹窗残留的剩余工具队列
         remainingToolCalls.remove(sessionId);
 
-        List<Tool> tools = toolRegistry.toTools();
+        // 从 session 读取模式，默认 CODING
+        AgentMode mode = resolveMode(sessionManager.getMode(sessionId));
+
+        List<Tool> tools = toolRegistry.toTools(mode);
 
         for (int turn = 0; turn < MAX_TURNS; turn++) {
             if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
@@ -316,7 +320,7 @@ public class WebAgentOrchestrator {
                 return;
             }
 
-            boolean allToolsCompleted = executeToolCalls(toolCalls, conversation, sseWriter, sessionId);
+            boolean allToolsCompleted = executeToolCalls(toolCalls, conversation, sseWriter, sessionId, mode);
 
             toolRegistry.getBlockerChain().onTurnComplete();
 
@@ -363,7 +367,7 @@ public class WebAgentOrchestrator {
         sseWriter.sendSseEvent("done", "{}");
     }
 
-    private boolean executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId) {
+    private boolean executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId, AgentMode mode) {
         for (int i = 0; i < toolCalls.size(); i++) {
             ToolCall toolCall = toolCalls.get(i);
             if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
@@ -377,6 +381,17 @@ public class WebAgentOrchestrator {
 
             String toolName = toolCall.getFunction().getName();
             String arguments = toolCall.getFunction().getArguments();
+
+            // 模式权限检查：当前模式不允许的工具直接拒绝
+            if (mode != null && !mode.isToolAllowed(toolName)) {
+                String msg = String.format("[%s] 模式下不允许使用工具 '%s'",
+                    mode.getDisplayName(), toolName);
+                logger.warn("模式权限拦截: sessionId={}, tool={}, mode={}", sessionId, toolName, mode);
+                getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + msg, false);
+                sseWriter.sendSseEvent("tool_result",
+                    buildToolResultJson(toolCall.getId(), toolName, false, null, msg, arguments, toolCall.getId()));
+                continue;
+            }
 
             if (!"ask_user".equals(toolName)) {
                 logger.debug("executeToolCalls 发送 tool_start: toolCallId={}, toolName={} (sessionId={})",
@@ -626,6 +641,9 @@ public class WebAgentOrchestrator {
      * 调用方（ToolConfirmHandler）不需要关心内部编排顺序。
      */
     public void continueAfterConfirmation(String sessionId, Conversation conversation, SseWriter sseWriter) throws LlmException {
+        // 从 session 读取模式（确认弹窗期间模式不变）
+        AgentMode mode = resolveMode(sessionManager.getMode(sessionId));
+
         // 执行确认前暂存的剩余工具调用
         // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，拒绝一个不影响其他
         List<ToolCall> remaining = remainingToolCalls.remove(sessionId);
@@ -635,7 +653,7 @@ public class WebAgentOrchestrator {
                 .collect(java.util.stream.Collectors.joining(", "));
             logger.info("确认弹窗关闭，开始执行剩余工具 (sessionId={}, 数量={}, 列表=[{}])",
                 sessionId, remaining.size(), remainingIds);
-            executeToolCalls(remaining, conversation, sseWriter, sessionId);
+            executeToolCalls(remaining, conversation, sseWriter, sessionId, mode);
             // 执行剩余工具时又触发了新的确认弹窗（如第二个 bash/delete_file 也需确认），
             // 等待用户确认，不进入下一轮 Agent 循环
             if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
@@ -691,6 +709,22 @@ public class WebAgentOrchestrator {
             return cmd.toLowerCase();
         }
         return command.toLowerCase();
+    }
+
+    /**
+     * 将 session 中存储的 mode 字符串解析为 AgentMode 枚举。
+     * null / 空 / 无法识别时返回默认的 CODING 模式。
+     */
+    private static AgentMode resolveMode(String modeStr) {
+        if (modeStr == null || modeStr.isBlank()) {
+            return AgentMode.CODING;
+        }
+        try {
+            return AgentMode.valueOf(modeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("无法识别的 mode: {}, 使用默认 CODING 模式", modeStr);
+            return AgentMode.CODING;
+        }
     }
 
     // ========== JSON 构建辅助（使用 ObjectMapper，杜绝手拼） ==========

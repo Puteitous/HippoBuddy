@@ -11,6 +11,28 @@ import { getFileIconInfo } from '../utils/file-icons.js';
 import { ContextSelector } from './context-selector.js';
 import { parseTodoArgs } from './tool-renderers/shared.js';
 
+// ── 多模式预设提示词 ──
+const MODE_PRESETS = {
+  chat: [
+    { label: '💡 头脑风暴', prompt: '我们来一次头脑风暴，主题是：' },
+    { label: '✍️ 润色文案', prompt: '请帮我润色以下内容，使其更流畅专业：\n\n' },
+    { label: '📖 解释概念', prompt: '请用通俗易懂的方式解释一下：' },
+    { label: '🌐 翻译', prompt: '请将以下内容翻译成中文：\n\n' },
+  ],
+  office: [
+    { label: '📝 写周报', prompt: '请根据以下内容帮我写一份周报：\n\n' },
+    { label: '📊 分析数据', prompt: '请分析以下数据，给出关键洞察和建议：\n\n' },
+    { label: '📑 PPT大纲', prompt: '请帮我做一个关于以下主题的PPT大纲：\n\n' },
+    { label: '📋 会议纪要', prompt: '请根据以下会议记录整理一份会议纪要：\n\n' },
+  ],
+  coding: [
+    { label: '🔍 代码审查', prompt: '请审查以下代码，指出潜在问题和改进建议：\n\n```\n\n```' },
+    { label: '🧪 生成测试', prompt: '请为以下代码生成单元测试：\n\n```\n\n```' },
+    { label: '📖 解释代码', prompt: '请解释以下代码的工作原理：\n\n```\n\n```' },
+    { label: '🔧 重构优化', prompt: '请对以下代码进行重构和优化：\n\n```\n\n```' },
+  ],
+};
+
 export class ChatPanel {
   constructor(container, chatService, chatUI) {
     this.container = container;
@@ -119,6 +141,10 @@ export class ChatPanel {
     };
     
     this.bindEvents();
+    this._bindModeEvents();
+
+    // 初始化模式 UI
+    this._syncModeUI(appState.getMode());
 
     // 将上下文选择器按钮添加到输入区域
     this._injectContextSelectorButton();
@@ -514,6 +540,68 @@ export class ChatPanel {
     return document.getElementById(id) || document.getElementById('inputRefs') || document.getElementById('heroInputRefs');
   }
 
+  // ── 模式切换 ────────────────────────────
+
+  /** 绑定模式切换事件 */
+  _bindModeEvents() {
+    document.addEventListener('click', (e) => {
+      // 模式按钮
+      const modeBtn = e.target.closest('.mode-btn');
+      if (modeBtn) {
+        const mode = modeBtn.dataset.mode;
+        if (!mode || mode === appState.getMode()) return;
+        appState.setMode(mode);
+        this._syncModeUI(mode);
+        return;
+      }
+      // 预设提示词按钮
+      const presetBtn = e.target.closest('.mode-preset-btn');
+      if (presetBtn) {
+        const prompt = presetBtn.dataset.prompt;
+        if (!prompt) return;
+        this._fillPresetToInput(prompt);
+      }
+    });
+  }
+
+  /** 同步模式 UI（高亮激活按钮 + 更新预设标签） */
+  _syncModeUI(mode) {
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    this._renderPresets(mode);
+  }
+
+  /** 渲染当前模式的预设提示词标签 */
+  _renderPresets(mode) {
+    const container = document.getElementById('heroPresets');
+    if (!container) return;
+    const presets = MODE_PRESETS[mode] || MODE_PRESETS.coding;
+    container.innerHTML = presets.map(p =>
+      `<button class="mode-preset-btn" data-prompt="${this._escapeAttr(p.prompt)}">${p.label}</button>`
+    ).join('');
+  }
+
+  /** 点击预设标签 → 填充到 hero 输入框并聚焦 */
+  _fillPresetToInput(prompt) {
+    const input = document.getElementById('heroInput');
+    if (!input) return;
+    input.value = prompt;
+    input.style.height = 'auto';
+    input.style.height = input.scrollHeight + 'px';
+    input.focus();
+    input.setSelectionRange(prompt.length, prompt.length);
+    // 保存草稿
+    if (typeof appState.heroDraft !== 'undefined') {
+      appState.heroDraft = prompt;
+    }
+  }
+
+  /** 转义 HTML 属性，防 XSS */
+  _escapeAttr(str) {
+    return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   /** 注入上下文选择器按钮到当前可见的输入区 */
   _injectContextSelectorButton() {
     if (!this._contextSelector) return;
@@ -540,6 +628,8 @@ export class ChatPanel {
   /** 重新注入上下文选择器（在 hero 重建后调用） */
   reInjectContextSelector() {
     this._injectContextSelectorButton();
+    // 同步模式 UI（重建后 #heroPresets 为空，需重新填充预设标签）
+    this._syncModeUI(appState.getMode());
     // 同步 hero 模型按钮的显示文本
     const heroModelBtn = document.getElementById('heroModelQuickSelect');
     const bottomModelBtn = document.getElementById('modelQuickSelect');
@@ -628,6 +718,7 @@ export class ChatPanel {
         content,
         signal: this.currentAbortController?.signal,
         systemPrompt: appState.getSystemPrompt(),
+        mode: appState.getMode(),
         selectedRules,
         useExecuteRequest: false,
         onMessageId: (id) => {

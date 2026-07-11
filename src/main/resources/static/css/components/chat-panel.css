@@ -794,6 +794,156 @@
     flex-shrink: 0;
 }
 
+/* ── 模式选择胶囊 ── */
+
+.mode-capsule {
+    display: inline-flex;
+    background: var(--bg-code);
+    border-radius: 999px;
+    padding: 2px;
+    gap: 1px;
+}
+
+.mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border: none;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.4;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-muted);
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.mode-btn:hover {
+    color: var(--text-secondary);
+}
+
+.mode-btn.active {
+    background: var(--bg-white);
+    color: var(--text-primary);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+[data-theme="dark"] .mode-btn.active {
+    background: var(--bg-hover);
+}
+
+.mode-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ── Hero 区域模式选择器（独立于输入框上方） ── */
+
+.empty-hero-mode-selector {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+.hero-mode-capsule {
+    background: rgba(128, 128, 128, 0.08);
+    backdrop-filter: blur(8px);
+    padding: 3px;
+}
+
+[data-theme="dark"] .hero-mode-capsule {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.hero-mode-capsule .mode-btn {
+    padding: 5px 14px;
+    font-size: 13px;
+    gap: 5px;
+}
+
+.hero-mode-capsule .mode-btn.active {
+    background: var(--bg-white);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+}
+
+[data-theme="dark"] .hero-mode-capsule .mode-btn.active {
+    background: rgba(255, 255, 255, 0.10);
+}
+
+/* ── 模式预设提示词标签 ── */
+
+.empty-hero-presets {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 20px;
+    margin-bottom: 4px;
+    min-height: 0;
+    user-select: none;
+}
+
+.mode-preset-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 13px;
+    line-height: 1.4;
+    font-family: inherit;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    opacity: 0;
+    animation: preset-slide-in 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.mode-preset-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+    background: var(--bg-code);
+}
+
+.mode-preset-btn:nth-child(1) { animation-delay: 0.03s; }
+.mode-preset-btn:nth-child(2) { animation-delay: 0.08s; }
+.mode-preset-btn:nth-child(3) { animation-delay: 0.13s; }
+.mode-preset-btn:nth-child(4) { animation-delay: 0.18s; }
+
+.mode-preset-btn:active {
+    transform: scale(0.96);
+}
+
+[data-theme="dark"] .mode-preset-btn {
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+[data-theme="dark"] .mode-preset-btn:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+@keyframes preset-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 /* ── 文件变更悬浮面板 ── */
 
 .status-bar-item {
