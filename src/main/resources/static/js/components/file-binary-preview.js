@@ -510,10 +510,8 @@ export class BinaryPreview {
         },
         onSheetChange: (index) => {
           _currentSheetName = _sheetNames[index] ?? '';
-          // 选中清除后更新状态栏
-          if (!viewer.selection) {
-            updateStatusbarSimple();
-          }
+          // 初始化期间 viewer 不可访问，onSelectionChange 会覆盖更新
+          updateStatusbarSimple();
         },
         onSelectionChange: (selection) => {
           if (!selection) {
