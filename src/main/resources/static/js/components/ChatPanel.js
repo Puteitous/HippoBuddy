@@ -551,7 +551,7 @@ export class ChatPanel {
         const mode = modeBtn.dataset.mode;
         if (!mode || mode === appState.getMode()) return;
         appState.setMode(mode);
-        this._syncModeUI(mode);
+        this._syncModeUI(mode, true);
         return;
       }
       // 预设提示词按钮
@@ -564,12 +564,65 @@ export class ChatPanel {
     });
   }
 
-  /** 同步模式 UI（高亮激活按钮 + 更新预设标签） */
-  _syncModeUI(mode) {
+  /** 同步模式 UI（高亮激活按钮 + 更新标语 + 更新预设标签） */
+  _syncModeUI(mode, animate = false) {
     document.querySelectorAll('.mode-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.mode === mode);
     });
+    if (animate) {
+      this._animateTitleSwitch(mode);
+    } else {
+      const sloganMap = { chat: "Let's Chat!", office: "Let's Work!", coding: "Let's Code!" };
+      const titleLast = document.querySelector('.title-last');
+      if (titleLast) titleLast.textContent = sloganMap[mode] || "Let's Code!";
+    }
     this._renderPresets(mode);
+  }
+
+  /** 切换标题标语：旧文字淡出 → 更新 → 新文字飞入 */
+  _animateTitleSwitch(newMode) {
+    const sloganMap = { chat: "Let's Chat!", office: "Let's Work!", coding: "Let's Code!" };
+    const titleLast = document.querySelector('.title-last');
+    if (!titleLast) return;
+
+    const newText = sloganMap[newMode] || "Let's Code!";
+    if (titleLast.textContent === newText) return;
+
+    const MAX_W = '300px';
+
+    // 1. 旧文字淡出 + 右滑 + 折叠宽度 → title-first 自然居中
+    titleLast.style.transition = 'opacity 0.12s ease, transform 0.18s ease, max-width 0.2s ease';
+    titleLast.style.maxWidth = MAX_W;
+    void titleLast.offsetWidth; // 强制 reflow，让 max-width 生效
+    titleLast.style.opacity = '0';
+    titleLast.style.transform = 'translateX(20px)';
+    titleLast.style.maxWidth = '0';
+
+    setTimeout(() => {
+      // 2. 更新文字，重置到右侧起始位置（宽度折叠为 0）
+      titleLast.textContent = newText;
+      titleLast.style.transition = 'none';
+      titleLast.style.maxWidth = '0';
+      titleLast.style.opacity = '0';
+      titleLast.style.transform = 'translateX(100px)';
+
+      // 3. 强制 reflow
+      void titleLast.offsetWidth;
+
+      // 4. 飞入 + 弹性回弹 + 展开宽度 → 整体居中
+      titleLast.style.transition = 'opacity 0.22s ease, transform 0.65s cubic-bezier(0.22, 1, 0.36, 1), max-width 0.25s ease 0.05s';
+      titleLast.style.maxWidth = MAX_W;
+      titleLast.style.opacity = '1';
+      titleLast.style.transform = 'translateX(0)';
+
+      // 5. 清理 inline style
+      setTimeout(() => {
+        titleLast.style.transition = '';
+        titleLast.style.maxWidth = '';
+        titleLast.style.transform = '';
+        titleLast.style.opacity = '';
+      }, 600);
+    }, 220);
   }
 
   /** 渲染当前模式的预设提示词标签 */

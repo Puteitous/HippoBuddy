@@ -352,6 +352,17 @@ input, textarea {
   margin: 0;
 }
 
+.empty-hero-title .title-first,
+.empty-hero-title .title-last {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.empty-hero-title .title-last {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .empty-hero-subtitle {
   font-size: 12px;
   color: var(--text-muted);
@@ -502,14 +513,13 @@ input, textarea {
   animation: empty-hippo-drop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-.empty-state.animate .empty-hero-title {
-  animation: empty-fade-up 0.5s ease both;
-  animation-delay: 0.15s;
+.empty-state.animate .title-first {
+  animation: title-fade-in 0.45s ease both;
 }
 
-.empty-state.animate .empty-hero-subtitle {
-  animation: empty-fade-up 0.5s ease both;
-  animation-delay: 0.25s;
+.empty-state.animate .title-last {
+  animation: title-impact 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.45s;
 }
 
 .empty-state.animate .empty-hero-mode-selector {
@@ -553,6 +563,41 @@ input, textarea {
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes title-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes title-impact {
+  0% {
+    opacity: 0;
+    transform: translateX(120px);
+    max-width: 0;
+  }
+  40% {
+    opacity: 1;
+    transform: translateX(-5px);
+    max-width: 300px;
+  }
+  65% {
+    transform: translateX(3px);
+  }
+  85% {
+    transform: translateX(-1px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    max-width: 300px;
   }
 }
 

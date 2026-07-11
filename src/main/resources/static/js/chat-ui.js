@@ -27,8 +27,7 @@ export class ChatUI {
       <div class="empty-state">
         <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
         <div class="empty-hero-heading">
-          <h1 class="empty-hero-title">HippoBuddy</h1>
-          <p class="empty-hero-subtitle">你的 AI 桌面伙伴</p>
+          <h1 class="empty-hero-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
         </div>
         <div class="empty-hero-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">

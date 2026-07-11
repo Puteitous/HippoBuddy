@@ -57,7 +57,8 @@ describe('ChatUI', () => {
       container.innerHTML = '<div>some content</div>';
       chatUI.clear();
       expect(container.innerHTML).toContain('empty-state');
-      expect(container.innerHTML).toContain('你的 AI 桌面伙伴');
+      expect(container.innerHTML).toContain('title-first');
+      expect(container.innerHTML).toContain('title-last');
     });
   });
 
