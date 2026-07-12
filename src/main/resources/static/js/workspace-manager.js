@@ -10,7 +10,7 @@
  *   - window.HippoDesktop（桌面端 bridge）
  *   - FileTree, FileTabs, FilePreview 组件
  *
- * Web 端没有 cefQuery，本模块自动降级。
+ * Web 端没有 Electron 桌面能力，本模块自动降级。
  */
 
 import { FileTree } from './components/FileTree.js';
@@ -21,11 +21,13 @@ import { ConfirmDialog } from './utils/modal.js';
 import { showBottomToast } from './utils/toast.js';
 
 const HippoWorkspace = (() => {
-  if (typeof window.cefQuery === 'undefined') {
+  const isDesktop = window.electronAPI && window.electronAPI.isElectron;
+
+  if (!isDesktop) {
     return { isAvailable: false };
   }
 
-  // JCEF 环境：覆盖 .desktop-only 的 display:none
+  // Electron 环境：覆盖 .desktop-only 的 display:none
   (function enableDesktopUI() {
     const s = document.createElement('style');
     s.textContent = '.desktop-only { display: initial !important; }';

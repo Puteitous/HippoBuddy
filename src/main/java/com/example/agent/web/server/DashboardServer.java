@@ -7,6 +7,7 @@ import com.example.agent.web.handler.ChatApiHandler;
 import com.example.agent.web.handler.ConfigApiHandler;
 import com.example.agent.web.handler.DiffOriginalHandler;
 import com.example.agent.web.handler.FileApiHandler;
+import com.example.agent.web.handler.WorkspaceApiHandler;
 import com.example.agent.web.handler.GitStatusHandler;
 import com.example.agent.web.handler.MemoryApiHandler;
 import com.example.agent.web.handler.RawFileHandler;
@@ -99,6 +100,7 @@ public class DashboardServer {
             server.createContext("/api/diff/original", new DiffOriginalHandler());
             server.createContext("/api/file/raw", new RawFileHandler());
             server.createContext("/api/config", new ConfigApiHandler());
+            server.createContext("/api/workspace", new WorkspaceApiHandler());
             server.createContext("/chat", new StaticFileHandler("/static"));
             server.createContext("/cockpit", new StaticFileHandler("/static"));
             server.createContext("/", new StaticFileHandler("/static"));

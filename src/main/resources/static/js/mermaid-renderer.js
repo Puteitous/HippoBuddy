@@ -62,9 +62,8 @@ function _getCleanSvgString(svgEl) {
  * @param {string} mimeType - MIME 类型
  */
 async function _downloadBlob(blob, suggestedName, mimeType) {
-  // JCEF 环境下：showSaveFilePicker 和 blob URL 导航都可能在 native 层
-  // segfault（JS try/catch 无法拦截），完全绕过 CEF 下载机制，
-  // 改用 Java bridge 弹出原生系统另存为对话框。
+  // Electron 环境下：showSaveFilePicker 和 blob URL 导航都可能在 native 层
+  // 存在兼容问题，改用桌面桥弹出原生系统另存为对话框。
   if (window.HippoDesktop?.isAvailable) {
     try {
       const buf = await blob.arrayBuffer();

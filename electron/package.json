@@ -1,0 +1,14 @@
+{
+  "name": "hippo-buddy-desktop",
+  "version": "1.0.0",
+  "description": "Hippo Buddy Desktop — Electron shell",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0"
+  }
+}
