@@ -1,14 +1,71 @@
 {
   "name": "hippo-buddy-desktop",
   "version": "1.0.0",
-  "description": "Hippo Buddy Desktop — Electron shell",
+  "description": "Hippo Buddy Desktop — AI Agent 桌面端",
   "main": "main.js",
   "private": true,
+  "author": "HippoBuddy",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "build:jar": "cd .. && mvn package -DskipTests",
+    "pack": "electron-builder --win --x64",
+    "pack:all": "electron-builder"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
-    "electron": "^35.0.0"
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.example.hippobuddy",
+    "productName": "HippoBuddy",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": ".",
+        "filter": ["**/*"]
+      }
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "hippobuddy",
+      "repo": "hippo-code",
+      "releaseType": "draft"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

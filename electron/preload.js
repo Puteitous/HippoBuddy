@@ -16,6 +16,34 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+///** 最大化状态变化回调（缓存一个，避免累加监听器） */
+let _maximizedCallback = null;
+ipcRenderer.on('window:maximized-changed', (_event, maximized) => {
+  if (_maximizedCallback) _maximizedCallback(maximized);
+});
+
+/** 更新事件回调缓存 */
+let _updateCallbacks = {};
+
+ipcRenderer.on('update:checking', () => {
+  _updateCallbacks.onChecking?.();
+});
+ipcRenderer.on('update:available', (_event, info) => {
+  _updateCallbacks.onAvailable?.(info);
+});
+ipcRenderer.on('update:not-available', (_event, info) => {
+  _updateCallbacks.onNotAvailable?.(info);
+});
+ipcRenderer.on('update:error', (_event, msg) => {
+  _updateCallbacks.onError?.(msg);
+});
+ipcRenderer.on('update:download-progress', (_event, progress) => {
+  _updateCallbacks.onDownloadProgress?.(progress);
+});
+ipcRenderer.on('update:downloaded', (_event, info) => {
+  _updateCallbacks.onDownloaded?.(info);
+});
+
 contextBridge.exposeInMainWorld('electronAPI', {
   // ===== 环境信息 =====
   platform: process.platform,
@@ -29,6 +57,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => ipcRenderer.invoke('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   getWindowState: () => ipcRenderer.invoke('window:getState'),
+
+  // 最大化状态变化事件（替代轮询）
+  onMaximizedChanged: (callback) => { _maximizedCallback = callback; },
+  removeMaximizedChangedListener: () => { _maximizedCallback = null; },
 
   // ===== 文件操作 =====
   readDir: (path) => ipcRenderer.invoke('fs:readDir', path),
@@ -54,4 +86,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ===== 终端 =====
   openTerminal: (path) => ipcRenderer.invoke('terminal:open', path),
+
+  // ===== 自动更新 =====
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
+  onUpdateChecking: (cb) => { _updateCallbacks.onChecking = cb; },
+  onUpdateAvailable: (cb) => { _updateCallbacks.onAvailable = cb; },
+  onUpdateNotAvailable: (cb) => { _updateCallbacks.onNotAvailable = cb; },
+  onUpdateError: (cb) => { _updateCallbacks.onError = cb; },
+  onUpdateDownloadProgress: (cb) => { _updateCallbacks.onDownloadProgress = cb; },
+  onUpdateDownloaded: (cb) => { _updateCallbacks.onDownloaded = cb; },
+  removeAllUpdateListeners: () => { _updateCallbacks = {}; },
+
+  // ===== 原生通知 =====
+  showNotification: (title, body, icon) =>
+    ipcRenderer.invoke('notification:show', { title, body, icon }),
 });

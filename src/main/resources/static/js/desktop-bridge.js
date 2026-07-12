@@ -106,7 +106,17 @@ const HippoDesktop = (() => {
       });
     }
 
-    setInterval(syncMaximizeState, 1000);
+    // 最大化状态事件推送（替代 1s 轮询）
+    window.electronAPI.onMaximizedChanged((maximized) => {
+      const btn = document.getElementById('winMaximize');
+      if (btn && typeof maximized === 'boolean') {
+        btn.classList.toggle('is-maximized', maximized);
+        btn.title = maximized ? '还原' : '最大化';
+      }
+      document.body.classList.toggle('window-maximized', maximized);
+    });
+
+    // 初始同步 + resize 兜底（用户拖拽还原时 Electron 可能不触发 unmaximize）
     setTimeout(syncMaximizeState, 500);
     window.addEventListener('resize', syncMaximizeState);
   }
@@ -239,6 +249,43 @@ const HippoDesktop = (() => {
     // ===== 原生终端 =====
     openTerminal(path) {
       return window.electronAPI?.openTerminal(path);
+    },
+
+    // ===== 自动更新 =====
+    checkForUpdates() {
+      return window.electronAPI?.checkForUpdates();
+    },
+    downloadUpdate() {
+      return window.electronAPI?.downloadUpdate();
+    },
+    quitAndInstall() {
+      return window.electronAPI?.quitAndInstall();
+    },
+    onUpdateChecking(cb) {
+      window.electronAPI?.onUpdateChecking(cb);
+    },
+    onUpdateAvailable(cb) {
+      window.electronAPI?.onUpdateAvailable(cb);
+    },
+    onUpdateNotAvailable(cb) {
+      window.electronAPI?.onUpdateNotAvailable(cb);
+    },
+    onUpdateError(cb) {
+      window.electronAPI?.onUpdateError(cb);
+    },
+    onUpdateDownloadProgress(cb) {
+      window.electronAPI?.onUpdateDownloadProgress(cb);
+    },
+    onUpdateDownloaded(cb) {
+      window.electronAPI?.onUpdateDownloaded(cb);
+    },
+    removeAllUpdateListeners() {
+      window.electronAPI?.removeAllUpdateListeners();
+    },
+
+    // ===== 原生通知 =====
+    showNotification(title, body, icon) {
+      return window.electronAPI?.showNotification(title, body, icon);
     }
   };
 

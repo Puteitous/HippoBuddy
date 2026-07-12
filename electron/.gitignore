@@ -1,0 +1,11 @@
+# electron-builder 缓存（下载的 NSIS、winCodeSign 等工具，体积巨大）
+.builder-cache/
+
+# Electron 下载缓存
+.electron-cache/
+
+# 打包产物
+release/
+
+# 构建时生成的资源目录
+resources/

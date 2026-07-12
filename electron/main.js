@@ -14,38 +14,215 @@
  * Phase 3：移除 JCEF 代码
  */
 
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { fileURLToPath } = require('url');
 const { spawn, exec } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 
 const PORT = parseInt(process.env.HIPPO_PORT || '9090', 10);
 const DEV = process.argv.includes('--dev');
 
 let mainWindow = null;
+let backendProcess = null;
+let tray = null;
+
+// ============================================================================
+// 窗口状态持久化
+// ============================================================================
+
+const STATE_FILE = 'window-state.json';
+
+function getStatePath() {
+  return path.join(app.getPath('userData'), STATE_FILE);
+}
+
+function loadWindowState() {
+  try {
+    const data = fs.readFileSync(getStatePath(), 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+/** 保存窗口状态（防抖） */
+let _saveTimer = null;
+function saveWindowState() {
+  if (!mainWindow) return;
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    try {
+      const maximized = mainWindow.isMaximized();
+      const bounds = mainWindow.getBounds();
+      const state = { maximized, x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+      fs.mkdirSync(path.dirname(getStatePath()), { recursive: true });
+      fs.writeFileSync(getStatePath(), JSON.stringify(state, null, 2), 'utf-8');
+    } catch { /* 静默忽略 */ }
+  }, 300);
+}
+
+// ============================================================================
+// Java 后端进程管理
+// ============================================================================
+
+function startBackend() {
+  return new Promise((resolve, reject) => {
+    // 优先查找已运行的进程（用户手动启动的情况）
+    const http = require('http');
+    const req = http.get(`http://localhost:${PORT}/cockpit`, (res) => {
+      if (res.statusCode === 200) {
+        console.log('[backend] 检测到后端已在运行');
+        resolve();
+      } else {
+        reject(new Error('后端异常'));
+      }
+    });
+    req.on('error', () => {
+      // 未运行 → 自启
+      launchBackend(resolve, reject);
+    });
+    req.setTimeout(2000, () => { req.destroy(); reject(new Error('超时')); });
+  });
+}
+
+function launchBackend(resolve, reject) {
+  if (app.isPackaged) {
+    launchPackagedBackend(resolve, reject);
+  } else {
+    launchDevBackend(resolve, reject);
+  }
+}
+
+/** 开发模式：用 Maven 编译 + 执行 */
+function launchDevBackend(resolve, reject) {
+  const isWin = process.platform === 'win32';
+  const mvnCmd = isWin ? 'mvn.cmd' : 'mvn';
+  const cwd = path.resolve(__dirname, '..');
+
+  const proc = spawn(mvnCmd, [
+    'compile', 'exec:java',
+    '-Dexec.mainClass=com.example.agent.DesktopApplication',
+  ], {
+    cwd,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    shell: isWin, // Windows 上 .cmd 文件需要 shell
+  });
+
+  attachBackendHandlers(proc, resolve, reject);
+}
+
+/** 生产模式：用打包的 JRE / 系统 Java 执行 JAR */
+function launchPackagedBackend(resolve, reject) {
+  const resourcesPath = process.resourcesPath;
+  const jarPath = path.join(resourcesPath, 'hippo-agent.jar');
+  const mainClass = 'com.example.agent.DesktopApplication';
+
+  // 优先使用内置 JRE，其次系统 Java
+  const bundledJava = path.join(resourcesPath, 'jre', 'bin',
+    process.platform === 'win32' ? 'java.exe' : 'java');
+  const javaCmd = fs.existsSync(bundledJava) ? bundledJava
+    : (process.platform === 'win32' ? 'java.exe' : 'java');
+
+  if (!fs.existsSync(jarPath)) {
+    reject(new Error(`JAR 文件不存在: ${jarPath}`));
+    return;
+  }
+
+  const proc = spawn(javaCmd, ['-cp', jarPath, mainClass], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+
+  attachBackendHandlers(proc, resolve, reject);
+}
+
+/** 后端进程的通用输出/退出处理 */
+function attachBackendHandlers(proc, resolve, reject) {
+  backendProcess = proc;
+  console.log(`[backend] 启动 Java 后端 (PID=${proc.pid})`);
+
+  let resolved = false;
+
+  proc.stdout.on('data', (data) => {
+    const text = data.toString();
+    process.stdout.write(`[backend:out] ${text}`);
+    if (!resolved && (text.includes('HTTP Server 已就绪') || text.includes('Hippo Cockpit'))) {
+      resolved = true;
+      console.log('[backend] 后端就绪');
+      resolve();
+    }
+  });
+
+  proc.stderr.on('data', (data) => {
+    process.stderr.write(`[backend:err] ${data}`);
+  });
+
+  proc.on('error', (err) => {
+    console.error('[backend] 启动失败:', err.message);
+    if (!resolved) { resolved = true; reject(err); }
+  });
+
+  proc.on('exit', (code) => {
+    console.log(`[backend] 进程退出 (code=${code})`);
+    backendProcess = null;
+    if (!resolved) { resolved = true; reject(new Error(`后端退出 code=${code}`)); }
+  });
+}
+
+function stopBackend() {
+  if (!backendProcess) return;
+
+  const pid = backendProcess.pid;
+  console.log(`[backend] 停止 Java 后端 (PID=${pid})`);
+
+  if (process.platform === 'win32') {
+    // Windows: 用 spawnSync 确保 taskkill 完成后再退出
+    require('child_process').spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+  } else {
+    try { backendProcess.kill('SIGTERM'); } catch { /* 忽略 */ }
+  }
+
+  backendProcess = null;
+}
 
 // ============================================================================
 // 窗口创建
 // ============================================================================
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+  // 恢复上次窗口状态
+  const savedState = loadWindowState();
+  const windowOptions = {
+    width: savedState?.width || 1280,
+    height: savedState?.height || 800,
     minWidth: 800,
     minHeight: 500,
+    x: savedState?.x,
+    y: savedState?.y,
     frame: false,
     backgroundColor: '#edeff2',
     show: false,
-    icon: path.join(__dirname, '..', 'assets', 'hippo.ico'),
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
     },
-  });
+  };
+
+  mainWindow = new BrowserWindow(windowOptions);
+
+  // 若上次是最大化状态，窗口创建后最大化
+  if (savedState?.maximized) {
+    mainWindow.maximize();
+  }
 
   const url = `http://localhost:${PORT}/cockpit`;
   console.log(`[main] Loading: ${url}`);
@@ -57,9 +234,35 @@ function createWindow() {
     tryLoadWithRetry(url);
   }
 
+  // ready-to-show 时正常显示窗口
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
+
+  // 兜底：5 秒后无论后端是否就绪都显示窗口（避免窗口创建后一直 hidden）
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isVisible()) {
+      console.log('[main] 兜底显示窗口（后端可能尚未就绪，进入重试循环）');
+      mainWindow.show();
+    }
+  }, 5000);
+
+  // 最大化/还原状态 → 推送到渲染进程（替代轮询）
+  mainWindow.on('maximize', () => {
+    saveWindowState();
+    mainWindow.webContents.send('window:maximized-changed', true);
+  });
+  mainWindow.on('unmaximize', () => {
+    saveWindowState();
+    mainWindow.webContents.send('window:maximized-changed', false);
+  });
+
+  // 窗口移动/缩放 → 持久化
+  mainWindow.on('resize', saveWindowState);
+  mainWindow.on('move', saveWindowState);
+
+  // 关闭前保存状态
+  mainWindow.on('close', saveWindowState);
 
   // 外部链接 → 系统浏览器
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -73,6 +276,9 @@ function createWindow() {
       shell.openExternal(url);
     }
   });
+
+  // 配置自动更新
+  setupAutoUpdater();
 }
 
 /** 带重试的后端连接 */
@@ -120,7 +326,10 @@ ipcMain.handle('window:maximize', () => {
 });
 
 ipcMain.handle('window:close', () => {
-  if (mainWindow) mainWindow.close();
+  if (mainWindow) {
+    // 最小化到托盘而不是关闭
+    mainWindow.hide();
+  }
 });
 
 ipcMain.handle('window:isMaximized', () => {
@@ -370,17 +579,240 @@ ipcMain.handle('terminal:open', async (_event, dirPath) => {
 });
 
 // ============================================================================
+// 系统托盘
+// ============================================================================
+
+/** 创建系统托盘图标 */
+function createTrayIcon() {
+  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+  if (fs.existsSync(iconPath)) {
+    return nativeImage.createFromPath(iconPath).resize({ width: 32, height: 32 });
+  }
+  // fallback: 32×32 蓝色圆形
+  const size = 32;
+  const buf = Buffer.alloc(size * size * 4);
+  const cx = size / 2, cy = size / 2, r = size / 2 - 1;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const offset = (y * size + x) * 4;
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy <= r * r) {
+        buf[offset] = 0x4F; buf[offset + 1] = 0x7C; buf[offset + 2] = 0xFF; buf[offset + 3] = 0xFF;
+      } else {
+        buf[offset + 3] = 0;
+      }
+    }
+  }
+  return nativeImage.createFromBuffer(buf, { width: size, height: size });
+}
+
+function createTray() {
+  if (tray) return;
+
+  tray = new Tray(createTrayIcon());
+  tray.setToolTip('HippoBuddy');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示窗口',
+      click: () => { mainWindow?.show(); mainWindow?.focus(); },
+    },
+    { type: 'separator' },
+    {
+      label: '检查更新',
+      click: () => {
+        mainWindow?.webContents.send('update:checking');
+        autoUpdater.checkForUpdates();
+      },
+    },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => {
+        app.isQuitting = true;
+        if (tray) { tray.destroy(); tray = null; }
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  // 左键单击切换窗口可见性
+  tray.on('click', () => {
+    if (mainWindow?.isVisible()) {
+      mainWindow.hide();
+    } else {
+      mainWindow?.show();
+      mainWindow?.focus();
+    }
+  });
+}
+
+// ============================================================================
+// 原生通知
+// ============================================================================
+
+ipcMain.handle('notification:show', async (_event, { title, body, icon }) => {
+  if (!Notification.isSupported()) return { success: false, reason: '不支持通知' };
+  const notif = new Notification({
+    title: title || 'HippoBuddy',
+    body: body || '',
+    icon: icon || undefined,
+  });
+  notif.on('click', () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+  notif.show();
+  return { success: true };
+});
+
+// ============================================================================
+// 自动更新
+// ============================================================================
+
+/** 配置 autoUpdater（生产模式才启用） */
+function setupAutoUpdater() {
+  if (!app.isPackaged) {
+    console.log('[updater] 开发模式，跳过自动更新');
+    return;
+  }
+
+  // 日志
+  autoUpdater.logger = console;
+  autoUpdater.autoDownload = false; // 先通知用户，由用户决定是否下载
+  autoUpdater.allowPrerelease = false;
+
+  // ----- 事件监听 -----
+
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[updater] 正在检查更新…');
+    mainWindow?.webContents.send('update:checking');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[updater] 发现新版本:', info.version);
+    mainWindow?.webContents.send('update:available', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes,
+    });
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[updater] 当前已是最新版本:', info.version);
+    mainWindow?.webContents.send('update:not-available', {
+      version: info.version,
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[updater] 更新检查出错:', err.message);
+    mainWindow?.webContents.send('update:error', err.message);
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('update:download-progress', {
+      bytesPerSecond: progress.bytesPerSecond,
+      percent: progress.percent,
+      total: progress.total,
+      transferred: progress.transferred,
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[updater] 新版本已下载:', info.version);
+    mainWindow?.webContents.send('update:downloaded', {
+      version: info.version,
+      releaseNotes: info.releaseNotes,
+    });
+    // 系统通知
+    if (Notification.isSupported()) {
+      const notif = new Notification({
+        title: '更新已就绪',
+        body: `HippoBuddy ${info.version} 已下载完成，点击安装并重启。`,
+      });
+      notif.on('click', () => {
+        mainWindow?.show();
+        mainWindow?.focus();
+        mainWindow?.webContents.send('update:downloaded', {
+          version: info.version,
+          releaseNotes: info.releaseNotes,
+        });
+      });
+      notif.show();
+    }
+  });
+}
+
+// ---------- IPC: 更新控制 ----------
+
+ipcMain.handle('update:check', async () => {
+  try {
+    autoUpdater.checkForUpdates();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('update:download', async () => {
+  try {
+    autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('update:quitAndInstall', async () => {
+  setImmediate(() => autoUpdater.quitAndInstall());
+  return { success: true };
+});
+
+// ============================================================================
 // 应用生命周期
 // ============================================================================
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  try {
+    // 1. 启动 Java 后端
+    await startBackend();
+  } catch (err) {
+    console.error('[main] 后端启动失败:', err.message);
+    // 即使后端启动失败也尝试加载，用户可能已手动启动
+  }
+  // 2. 创建窗口
+  createWindow();
+  // 3. 创建系统托盘
+  createTray();
+});
 
 app.on('window-all-closed', () => {
-  app.quit();
+  // 有托盘时保留在后台，不退出
+  if (!tray) {
+    app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  app.isQuitting = true;
+});
+
+app.on('will-quit', () => {
+  stopBackend();
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
 });
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  } else {
+    mainWindow?.show();
+    mainWindow?.focus();
   }
 });
