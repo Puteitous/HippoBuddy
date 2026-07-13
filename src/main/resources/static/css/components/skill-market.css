@@ -280,20 +280,11 @@
     font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
 }
 
-.skill-market-source-stars {
-    font-size: 11px;
-    color: var(--text-muted);
-}
-
 .skill-market-source-desc {
     font-size: 12px;
     color: var(--text-secondary);
     line-height: 1.5;
     margin-bottom: 10px;
-}
-
-.skill-market-source-actions {
-    margin-top: 8px;
 }
 
 /* ── Source Detail (back) ── */
@@ -605,7 +596,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    background: var(--bg-input);
+    background: var(--bg-canvas);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     transition: border-color var(--transition-fast);
@@ -637,29 +628,21 @@
     flex-wrap: wrap;
 }
 
-.skill-market-installed-item-badge {
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: 6px;
-    background: var(--text-primary);
-    color: var(--bg-app);
-}
-
-.skill-market-installed-item-source {
-    color: var(--text-muted);
-}
-
 .skill-market-btn-uninstall {
     flex-shrink: 0;
     font-size: 11px;
     padding: 3px 10px;
     color: var(--color-error, #d32f2f);
-    opacity: 0.6;
+    opacity: 0;
     transition: opacity var(--transition-fast);
 }
 
+.skill-market-installed-item:hover .skill-market-btn-uninstall {
+    opacity: 0.6;
+}
+
 .skill-market-btn-uninstall:hover {
-    opacity: 1;
+    opacity: 1 !important;
     background: rgba(211, 47, 47, 0.08);
 }
 
@@ -667,20 +650,3 @@
     background: rgba(211, 47, 47, 0.15);
 }
 
-/* ── 已安装提示：还有未安装的精选技能 ── */
-.skill-market-installed-tip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background: var(--bg-input);
-    border: 1px dashed var(--border-color);
-    border-radius: var(--radius-md);
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-top: 16px;
-}
-
-.skill-market-installed-tip strong {
-    color: var(--text-primary);
-}

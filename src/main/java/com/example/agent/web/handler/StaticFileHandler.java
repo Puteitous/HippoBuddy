@@ -104,6 +104,8 @@ public class StaticFileHandler implements HttpHandler {
             return "image/svg+xml";
         } else if (path.endsWith(".ico")) {
             return "image/x-icon";
+        } else if (path.endsWith(".md")) {
+            return "text/markdown; charset=UTF-8";
         } else if (path.endsWith(".woff")) {
             return "font/woff";
         } else if (path.endsWith(".woff2")) {

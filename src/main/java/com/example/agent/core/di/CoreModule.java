@@ -137,6 +137,7 @@ public final class CoreModule {
         registry.register(new WebSearchTool(Config.getInstance().getTools().getWebSearch()));
         registry.register(new WebFetchTool());
         registry.register(new LintDiagnosticsTool());
+        registry.register(new SkillTool());
 
         registry.getBlockerChain().add(new com.example.agent.core.blocker.SchemaValidationBlocker(registry));
         registry.getBlockerChain().add(new com.example.agent.core.blocker.ConcurrentEditBlocker());

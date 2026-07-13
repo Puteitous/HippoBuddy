@@ -57,63 +57,70 @@ const FEATURED_SKILLS = [
     desc: '代码审查 — 五轴审查：正确性/可读性/架构/安全/性能',
     source: 'addyosmani/agent-skills',
     category: '开发',
-    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/code-review-and-quality/SKILL.md',
+    skillUrl: '/skills/featured/code-review.md',
   },
   {
     name: 'tdd-workflow',
     desc: 'TDD 工作流 — Red → Green → Refactor 全流程引导',
     source: 'addyosmani/agent-skills',
     category: '开发',
-    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/test-driven-development/SKILL.md',
+    skillUrl: '/skills/featured/tdd-workflow.md',
   },
   {
     name: 'debugging',
     desc: '调试与错误恢复 — 六阶段诊断：构建反馈循环到复盘',
     source: 'addyosmani/agent-skills',
     category: '开发',
-    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/debugging-and-error-recovery/SKILL.md',
+    skillUrl: '/skills/featured/debugging.md',
   },
   {
     name: 'security-audit',
     desc: '安全审计与加固 — OWASP Top 10 检查、漏洞扫描、威胁建模',
     source: 'addyosmani/agent-skills',
     category: '安全',
-    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/security-and-hardening/SKILL.md',
+    skillUrl: '/skills/featured/security-audit.md',
   },
   {
     name: 'api-design',
     desc: 'API 设计 — RESTful 规范、请求验证、错误处理、文档生成',
     source: 'addyosmani/agent-skills',
     category: '开发',
-    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/api-and-interface-design/SKILL.md',
+    skillUrl: '/skills/featured/api-design.md',
   },
   {
     name: 'performance',
     desc: '性能优化 — 加载性能、渲染优化、数据库查询优化',
     source: 'addyosmani/agent-skills',
     category: '开发',
-    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/performance-optimization/SKILL.md',
+    skillUrl: '/skills/featured/performance.md',
   },
   {
     name: 'devops',
     desc: 'DevOps 实践 — CI/CD 配置、Docker/K8s、监控告警',
     source: 'addyosmani/agent-skills',
     category: 'DevOps',
-    skillUrl: 'https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/ci-cd-and-automation/SKILL.md',
+    skillUrl: '/skills/featured/devops.md',
   },
   {
     name: 'react-patterns',
     desc: 'React 模式 — Hooks 规范、状态管理、性能优化、组件设计',
     source: 'vercel-labs/agent-skills',
     category: '前端',
-    skillUrl: 'https://raw.githubusercontent.com/vercel-labs/agent-skills/main/skills/react-best-practices/SKILL.md',
+    skillUrl: '/skills/featured/react-patterns.md',
   },
   {
     name: 'database-design',
     desc: '数据库设计 — 表结构设计、索引优化、迁移策略、ORM 使用',
     source: 'antigravity-awesome-skills',
     category: '数据',
-    skillUrl: 'https://raw.githubusercontent.com/sickn33/antigravity-awesome-skills/main/skills/database-design/SKILL.md',
+    skillUrl: '/skills/featured/database-design.md',
+  },
+  {
+    name: 'incremental-implementation',
+    desc: '增量实施 — 薄垂直切片实现，每步可测试可提交，避免大段一次性编码',
+    source: 'addyosmani/agent-skills',
+    category: '开发',
+    skillUrl: '/skills/featured/incremental-implementation.md',
   },
 ];
 
@@ -296,7 +303,7 @@ export class SkillMarket {
     // 已安装按钮（特殊，置于最前）
     const installedBtn = document.createElement('button');
     installedBtn.className = 'skill-market-cat-btn skill-market-installed-btn' + (this._showInstalled ? ' active' : '');
-    installedBtn.textContent = '📦 已安装';
+    installedBtn.textContent = '已安装';
     installedBtn.addEventListener('click', () => {
       this._showInstalled = !this._showInstalled;
       if (this._showInstalled) {
@@ -392,20 +399,10 @@ export class SkillMarket {
       card.innerHTML = `
         <div class="skill-market-source-info">
           <div class="skill-market-source-name">${this._escapeHtml(src.name)}</div>
-          <div class="skill-market-source-stars">⭐ ${src.stars}</div>
           <a class="skill-market-source-github" href="${src.url}" target="_blank" title="在 GitHub 上查看">↗</a>
         </div>
         <div class="skill-market-source-desc">${this._escapeHtml(src.desc)}</div>
-        <div class="skill-market-source-actions">
-          <button class="skill-market-btn skill-market-btn-secondary">浏览</button>
-        </div>
       `;
-
-      card.querySelector('.skill-market-source-actions .skill-market-btn')
-        .addEventListener('click', () => {
-          this._activeSource = src;
-          this._renderContent();
-        });
 
       grid.appendChild(card);
     }
@@ -580,39 +577,6 @@ export class SkillMarket {
       container.appendChild(this._renderInstalledGroup('全局技能', userSkills));
     }
 
-    // 如果还有来自市场但尚未安装的精选技能，显示推荐
-    const notInstalled = FEATURED_SKILLS.filter(s => !this._isInstalled(s.name));
-    if (notInstalled.length > 0) {
-      const tip = document.createElement('div');
-      tip.className = 'skill-market-installed-tip';
-      tip.innerHTML = `
-        <span>还有 <strong>${notInstalled.length}</strong> 个精选技能未安装</span>
-        <button class="skill-market-btn skill-market-btn-secondary" id="skillMarketBrowseMore">去浏览 →</button>
-      `;
-      tip.querySelector('#skillMarketBrowseMore').addEventListener('click', () => {
-        this._showInstalled = false;
-        this._activeCategory = this._savedCategory || '全部';
-        this._renderContent();
-        // 同时更新 tab 状态
-        const tabs = this._container?.querySelector('.skill-market-cats');
-        if (tabs) {
-          tabs.querySelectorAll('.skill-market-cat-btn').forEach(b => b.classList.remove('active'));
-          const catBtns = tabs.querySelectorAll('.skill-market-cat-filter');
-          let found = false;
-          catBtns.forEach(b => {
-            if (b.textContent.trim() === this._activeCategory) {
-              b.classList.add('active');
-              found = true;
-            }
-          });
-          if (!found) {
-            const allBtn = tabs.querySelector('.skill-market-cat-filter');
-            if (allBtn) allBtn.classList.add('active');
-          }
-        }
-      });
-      container.appendChild(tip);
-    }
 
     return container;
   }
@@ -643,24 +607,27 @@ export class SkillMarket {
 
       item.innerHTML = `
         <div class="skill-market-installed-item-info">
-          <div class="skill-market-installed-item-name">📄 ${this._escapeHtml(name)}</div>
+          <div class="skill-market-installed-item-name">${this._escapeHtml(name)}</div>
           <div class="skill-market-installed-item-meta">
             ${skill.description ? this._escapeHtml(skill.description) : ''}
-            ${isMarket ? '<span class="skill-market-installed-item-badge">市场</span>' : ''}
-            <span class="skill-market-installed-item-source">${skill.source === 'project' ? '项目级' : '用户级'}</span>
           </div>
         </div>
-        <button class="skill-market-btn skill-market-btn-ghost skill-market-btn-uninstall"
-          data-skill-name="${name}" data-file-path="${this._escapeHtml(skill.filePath)}"
-          title="卸载">卸载</button>
+        <button class="skill-market-btn skill-market-btn-ghost skill-market-btn-uninstall" title="卸载">卸载</button>
       `;
 
-      item.querySelector('.skill-market-btn-uninstall').addEventListener('click', (e) => {
-        const btn = e.currentTarget;
-        this._uninstallSkill({
-          name: btn.dataset.skillName,
-          filePath: btn.dataset.filePath,
+      // 点击卡片 → 预览
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.skill-market-btn-uninstall')) return;
+        this._previewSkill({
+          name,
+          skillUrl: `/api/file/raw?path=${encodeURIComponent(skill.filePath)}`,
         });
+      });
+
+      // 点击卸载按钮
+      item.querySelector('.skill-market-btn-uninstall').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._uninstallSkill({ name, filePath: skill.filePath });
       });
 
       list.appendChild(item);

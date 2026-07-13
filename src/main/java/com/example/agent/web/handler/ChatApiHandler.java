@@ -100,12 +100,6 @@ public class ChatApiHandler implements HttpHandler {
                     if (ruleManager != null) {
                         basePrompt = ruleManager.enhanceSystemPrompt(basePrompt);
                     }
-                    // 注入技能目录
-                    com.example.agent.domain.skill.SkillManager skillManager =
-                        ServiceLocator.getOrNull(com.example.agent.domain.skill.SkillManager.class);
-                    if (skillManager != null) {
-                        basePrompt = skillManager.enhanceSystemPrompt(basePrompt);
-                    }
                     // 追加工作区路径
                     String workspacePath = com.example.agent.desktop.WorkspaceContext.getCurrentFolder();
                     if (workspacePath != null && !workspacePath.isBlank()) {
