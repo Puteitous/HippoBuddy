@@ -73,7 +73,7 @@ function startBackend() {
     const http = require('http');
     const req = http.get(`http://localhost:${PORT}/cockpit`, (res) => {
       if (res.statusCode === 200) {
-        console.log('[backend] 检测到后端已在运行');
+        console.log('[backend] Backend already running');
         resolve();
       } else {
         reject(new Error('后端异常'));
@@ -142,7 +142,7 @@ function launchPackagedBackend(resolve, reject) {
 /** 后端进程的通用输出/退出处理 */
 function attachBackendHandlers(proc, resolve, reject) {
   backendProcess = proc;
-  console.log(`[backend] 启动 Java 后端 (PID=${proc.pid})`);
+  console.log(`[backend] Starting Java backend (PID=${proc.pid})`);
 
   let resolved = false;
 
@@ -151,7 +151,7 @@ function attachBackendHandlers(proc, resolve, reject) {
     process.stdout.write(`[backend:out] ${text}`);
     if (!resolved && (text.includes('HTTP Server 已就绪') || text.includes('Hippo Cockpit'))) {
       resolved = true;
-      console.log('[backend] 后端就绪');
+      console.log('[backend] Backend ready');
       resolve();
     }
   });
@@ -161,12 +161,12 @@ function attachBackendHandlers(proc, resolve, reject) {
   });
 
   proc.on('error', (err) => {
-    console.error('[backend] 启动失败:', err.message);
+    console.error('[backend] Launch failed:', err.message);
     if (!resolved) { resolved = true; reject(err); }
   });
 
   proc.on('exit', (code) => {
-    console.log(`[backend] 进程退出 (code=${code})`);
+    console.log(`[backend] Process exited (code=${code})`);
     backendProcess = null;
     if (!resolved) { resolved = true; reject(new Error(`后端退出 code=${code}`)); }
   });
@@ -176,7 +176,7 @@ function stopBackend() {
   if (!backendProcess) return;
 
   const pid = backendProcess.pid;
-  console.log(`[backend] 停止 Java 后端 (PID=${pid})`);
+  console.log(`[backend] Stopping Java backend (PID=${pid})`);
 
   if (process.platform === 'win32') {
     // Windows: 用 spawnSync 确保 taskkill 完成后再退出
@@ -208,7 +208,7 @@ function createWindow() {
     frame: false,
     backgroundColor: '#edeff2',
     show: false,
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: path.join(__dirname, 'assets', 'icon2.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -242,7 +242,7 @@ function createWindow() {
   // 兜底：5 秒后无论后端是否就绪都显示窗口（避免窗口创建后一直 hidden）
   setTimeout(() => {
     if (mainWindow && !mainWindow.isVisible()) {
-      console.log('[main] 兜底显示窗口（后端可能尚未就绪，进入重试循环）');
+      console.log('[main] Fallback: showing window (backend may not be ready yet, retrying)');
       mainWindow.show();
     }
   }, 5000);
@@ -285,10 +285,10 @@ function createWindow() {
 function tryLoadWithRetry(url, retries = 60) {
   mainWindow.loadURL(url).catch(() => {
     if (retries > 0) {
-      console.log(`[main] 等待后端就绪... (剩余 ${retries} 次)`);
+      console.log(`[main] Waiting for backend... (${retries} retries left)`);
       setTimeout(() => tryLoadWithRetry(url, retries - 1), 1000);
     } else {
-      console.error(`[main] 后端连接失败: ${url}`);
+      console.error(`[main] Backend connection failed: ${url}`);
       mainWindow.loadURL(
         `data:text/html;charset=utf-8,` +
         `<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:#edeff2">` +
@@ -584,7 +584,7 @@ ipcMain.handle('terminal:open', async (_event, dirPath) => {
 
 /** 创建系统托盘图标 */
 function createTrayIcon() {
-  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+  const iconPath = path.join(__dirname, 'assets', 'icon2.png');
   if (fs.existsSync(iconPath)) {
     return nativeImage.createFromPath(iconPath).resize({ width: 32, height: 32 });
   }
@@ -638,13 +638,14 @@ function createTray() {
 
   tray.setContextMenu(contextMenu);
 
-  // 左键单击切换窗口可见性
+  // 左键单击切换窗口可见性（需检查窗口是否已销毁）
   tray.on('click', () => {
-    if (mainWindow?.isVisible()) {
-      mainWindow.hide();
+    const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+    if (win?.isVisible()) {
+      win.hide();
     } else {
-      mainWindow?.show();
-      mainWindow?.focus();
+      win?.show();
+      win?.focus();
     }
   });
 }
@@ -675,7 +676,7 @@ ipcMain.handle('notification:show', async (_event, { title, body, icon }) => {
 /** 配置 autoUpdater（生产模式才启用） */
 function setupAutoUpdater() {
   if (!app.isPackaged) {
-    console.log('[updater] 开发模式，跳过自动更新');
+    console.log('[updater] Dev mode, skipping auto-update');
     return;
   }
 
@@ -687,12 +688,12 @@ function setupAutoUpdater() {
   // ----- 事件监听 -----
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('[updater] 正在检查更新…');
+    console.log('[updater] Checking for updates…');
     mainWindow?.webContents.send('update:checking');
   });
 
   autoUpdater.on('update-available', (info) => {
-    console.log('[updater] 发现新版本:', info.version);
+    console.log('[updater] New version available:', info.version);
     mainWindow?.webContents.send('update:available', {
       version: info.version,
       releaseDate: info.releaseDate,
@@ -701,14 +702,14 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    console.log('[updater] 当前已是最新版本:', info.version);
+    console.log('[updater] Already up to date:', info.version);
     mainWindow?.webContents.send('update:not-available', {
       version: info.version,
     });
   });
 
   autoUpdater.on('error', (err) => {
-    console.error('[updater] 更新检查出错:', err.message);
+    console.error('[updater] Update check error:', err.message);
     mainWindow?.webContents.send('update:error', err.message);
   });
 
@@ -722,7 +723,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log('[updater] 新版本已下载:', info.version);
+    console.log('[updater] New version downloaded:', info.version);
     mainWindow?.webContents.send('update:downloaded', {
       version: info.version,
       releaseNotes: info.releaseNotes,
@@ -775,15 +776,12 @@ ipcMain.handle('update:quitAndInstall', async () => {
 // 应用生命周期
 // ============================================================================
 
-app.whenReady().then(async () => {
-  try {
-    // 1. 启动 Java 后端
-    await startBackend();
-  } catch (err) {
-    console.error('[main] 后端启动失败:', err.message);
-    // 即使后端启动失败也尝试加载，用户可能已手动启动
-  }
-  // 2. 创建窗口
+app.whenReady().then(() => {
+  // 1. 后台启动 Java 后端（不阻塞窗口创建）
+  startBackend().catch(err => {
+    console.error('[main] Backend launch failed:', err.message);
+  });
+  // 2. 立即创建窗口（tryLoadWithRetry 会在后台等后端就绪）
   createWindow();
   // 3. 创建系统托盘
   createTray();

@@ -12,7 +12,7 @@
 
 param(
     [switch]$All,
-    [switch]$SkipJre       # 跳过 jlink，使用已有 JRE（调试用）
+    [switch]$SkipJre      # skip jlink (debug only)
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,7 +24,12 @@ Write-Host "  HippoBuddy Build Script" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # ---- 0. Check JDK version (jlink requires JDK 9+) ----
-$javaVersion = java -version 2>&1 | Select-String -Pattern '"(.*?)"' | ForEach-Object { $_.Matches.Groups[1].Value }
+$oldPref = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+$raw = java -version 2>&1 | ForEach-Object { "$_" }
+$ErrorActionPreference = $oldPref
+$output = [string]($raw -join "`n")
+$javaVersion = if ($output -match '"(.*?)"') { $matches[1] } else { "unknown" }
 Write-Host "[info] JDK version: $javaVersion" -ForegroundColor Gray
 
 # ---- 1. Cache mirrors (CN mirror for faster downloads) ----

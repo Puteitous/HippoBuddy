@@ -1,7 +1,7 @@
 {
   "name": "hippo-buddy-desktop",
   "version": "1.0.0",
-  "description": "Hippo Buddy Desktop — AI Agent 桌面端",
+  "description": "HippoBuddy",
   "main": "main.js",
   "private": true,
   "author": "HippoBuddy",
@@ -23,13 +23,15 @@
   "build": {
     "appId": "com.example.hippobuddy",
     "productName": "HippoBuddy",
+    "icon": "assets/icon2.png",
     "directories": {
       "output": "release"
     },
     "files": [
       "main.js",
       "preload.js",
-      "package.json"
+      "package.json",
+      "assets/**/*"
     ],
     "extraResources": [
       {
