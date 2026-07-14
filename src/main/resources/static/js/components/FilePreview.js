@@ -486,6 +486,11 @@ export class FilePreview {
       parent: this._container,
       dispatch: (tr) => {
         this._view.update([tr]);
+        // 选中文字时隐藏 .cm-activeLine（避免和选中背景视觉冲突）
+        if (tr.selection) {
+          const hasSelection = this._view.state.selection.ranges.some(r => !r.empty);
+          this._container.classList.toggle('has-selection', hasSelection);
+        }
         if (tr.docChanged) {
           const currentContent = this._view.state.doc.toString();
           if (currentContent === this._content) {
@@ -578,7 +583,8 @@ export class FilePreview {
 
   /** 当前是否为深色主题 */
   _isDarkTheme() {
-    return document.documentElement.getAttribute('data-theme') === 'dark';
+    const theme = document.documentElement.getAttribute('data-theme');
+    return theme === 'dark' || theme === 'midnight';
   }
 
   /** 获取浅色主题，vsCodeLight 不可用时降级到 defaultHighlightStyle */

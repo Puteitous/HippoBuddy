@@ -66,8 +66,9 @@
 }
 
 .file-tree-node.active {
-    background: rgba(108, 168, 215, 0.12);
+    background: var(--bg-canvas);
     color: var(--accent);
+    border-radius: 20px;
 }
 
 .file-tree-node.drag-over {
@@ -189,7 +190,7 @@
 }
 
 .file-tab:hover {
-    background: var(--bg-code);
+    background: var(--bg-canvas);
     color: var(--text-secondary);
     border-radius: 4px;
 }
@@ -326,14 +327,44 @@
 .file-preview-content .cm-gutters {
     background-color: var(--bg-app);
     border-right: none;
+    padding-right: 0;
 }
 
-[data-theme="dark"] .file-preview-content .cm-editor {
+[data-theme="dark"] .file-preview-content .cm-editor,
+[data-theme="midnight"] .file-preview-content .cm-editor {
     background: var(--bg-chat);
 }
 
-[data-theme="dark"] .file-preview-content .cm-gutters {
+/* 隐藏 CM 自绘的全宽选中背景（中间行会铺满整行宽度） */
+.file-preview-content .cm-selectionBackground {
+    background: transparent !important;
+}
+
+/* 使用浏览器原生 ::selection 渲染选中（精确覆盖文字字符，不铺满行宽） */
+.file-preview-content .cm-content ::selection {
+    background: var(--selection-bg) !important;
+}
+
+/* 深色模式下 activeLine 颜色 */
+[data-theme="dark"] .file-preview-content .cm-activeLine,
+[data-theme="midnight"] .file-preview-content .cm-activeLine {
+    background: rgb(44, 49, 58) !important;
+}
+
+/* 选中文字时隐藏 active line 行高亮（必须放在 activeLine 颜色规则之后，确保覆盖） */
+.file-preview-content.has-selection .cm-activeLine {
+    background: transparent !important;
+}
+
+[data-theme="dark"] .file-preview-content .cm-gutters,
+[data-theme="midnight"] .file-preview-content .cm-gutters {
     background-color: var(--bg-chat);
+}
+
+/* 深色模式下 activeLineGutter 行号文字高亮 */
+[data-theme="dark"] .file-preview-content .cm-activeLineGutter,
+[data-theme="midnight"] .file-preview-content .cm-activeLineGutter {
+    color: var(--text-primary) !important;
 }
 
 .file-preview-content .cm-editor .cm-scroller {

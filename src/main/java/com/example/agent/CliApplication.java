@@ -77,10 +77,6 @@ public class CliApplication {
 
             SessionStorage sessionStorage = SessionStorageFactory.create(context.getConfig().getSession());
 
-            if (context.getConfig().getSession().isEnableBackgroundCleanup()) {
-                sessionStorage.startBackgroundCleanup();
-            }
-
             CommandDispatcher dispatcher = new CommandDispatcher(context, ui, inputHandler, sessionStorage);
 
             if (!dispatcher.validateConfig()) {
@@ -182,8 +178,6 @@ public class CliApplication {
 
     private void checkAndPromptResume(AgentUi ui, SessionStorage sessionStorage,
                                        ConversationLoop conversationLoop, InputHandler inputHandler) {
-        sessionStorage.cleanupExpiredSessions(72);
-
         Optional<SessionData> latestSession = sessionStorage.findLatestResumableSession();
 
         if (!latestSession.isPresent()) {

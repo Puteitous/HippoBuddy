@@ -16,7 +16,7 @@ public class SessionConfig {
     private static final int DEFAULT_RESUME_TIMEOUT_HOURS = 72;
     private static final int MIN_MAX_SAVED_SESSIONS = 0;
     private static final int MAX_MAX_SAVED_SESSIONS = 1000;
-    private static final int DEFAULT_CLEANUP_PERIOD_DAYS = 30;
+    private static final int DEFAULT_CLEANUP_PERIOD_DAYS = 90;
     private static final boolean DEFAULT_ENABLE_BACKGROUND_CLEANUP = true;
     private static final int DEFAULT_TOMBSTONE_THRESHOLD_MB = 50;
     private static final int MIN_CLEANUP_PERIOD_DAYS = 1;

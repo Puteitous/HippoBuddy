@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -32,7 +31,7 @@ public class SessionStorage {
     private static final String INVALID_FILENAME_CHARS = "<>:\"/\\|?*";
     private static final long TOMBSTONE_THRESHOLD_BYTES = 50L * 1024 * 1024;
     private static final long READ_SKIP_THRESHOLD_BYTES = 50L * 1024 * 1024;
-    private static final int DEFAULT_EXPIRE_HOURS = 24 * 30;
+    private static final int DEFAULT_EXPIRE_HOURS = 24 * 90;
     private static final long BACKGROUND_CLEANUP_DELAY_MS = 5000;
 
     private final Path storageDirectory;
@@ -427,50 +426,27 @@ public class SessionStorage {
         return true;
     }
 
+    /**
+     * 按数量清理旧会话（已在 saveSession 中自动调用）。
+     * 时间驱动清理已禁用，改为纯数量策略。
+     */
     public void cleanupExpiredSessions() {
-        cleanupExpiredSessions(this.expireHours);
+        // 已禁用：改用 cleanupOldSessions() 数量策略
     }
 
+    /**
+     * 按数量清理旧会话（已在 saveSession 中自动调用）。
+     * 时间驱动清理已禁用，改为纯数量策略。
+     */
     public void cleanupExpiredSessions(int timeoutHours) {
-        if (timeoutHours <= 0) {
-            return;
-        }
-
-        List<SessionData> sessions = listSessions();
-        LocalDateTime cutoff = LocalDateTime.now().minusHours(timeoutHours);
-        int cleanedCount = 0;
-        
-        for (SessionData session : sessions) {
-            if (session.getLastActiveAt().isBefore(cutoff)) {
-                deleteSession(session.getSessionId());
-                cleanedCount++;
-            }
-        }
-        
-        if (cleanedCount > 0) {
-            logger.info("时间驱动清理：删除了 {} 个超过 {} 天未活动的会话", 
-                cleanedCount, timeoutHours / 24);
-        }
+        // 已禁用：改用 cleanupOldSessions() 数量策略
     }
 
+    /**
+     * 后台清理已禁用（时间驱动清理已禁用）。
+     */
     public void startBackgroundCleanup() {
-        CompletableFuture.runAsync(() -> {
-            try {
-                Thread.sleep(BACKGROUND_CLEANUP_DELAY_MS);
-                ensureDirectoryExists();
-                if (directoryAvailable) {
-                    logger.info("后台过期会话清理任务启动...");
-                    cleanupExpiredSessions();
-                    logger.info("后台过期会话清理完成");
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                logger.info("后台清理任务被中断");
-            } catch (Exception e) {
-                logger.warn("后台清理任务执行异常，已忽略", e);
-            }
-        });
-        logger.debug("后台清理任务已调度，将在{}ms后执行", BACKGROUND_CLEANUP_DELAY_MS);
+        // 已禁用：改用 saveSession 触发的 cleanupOldSessions() 数量策略
     }
 
     public static String sanitizeSessionId(String sessionId) {

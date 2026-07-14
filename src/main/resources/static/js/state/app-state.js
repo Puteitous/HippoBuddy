@@ -3,9 +3,9 @@
 // 可靠的主题读取：localStorage → cookie 后备
 function _loadTheme() {
   const fromLS = localStorage.getItem('hippo-theme');
-  if (fromLS === 'dark' || fromLS === 'light') return fromLS;
+  if (fromLS === 'dark' || fromLS === 'light' || fromLS === 'midnight') return fromLS;
   // cookie 后备
-  const match = document.cookie.match(/\bhippo-theme=(dark|light)\b/);
+  const match = document.cookie.match(/\bhippo-theme=(dark|light|midnight)\b/);
   return match ? match[1] : 'light';
 }
 
@@ -123,11 +123,17 @@ export const AppState = {
     return this.currentTheme;
   },
   
-  // 切换主题
+  // 快速切换主题（light ↔ dark，midnight 视为 dark 切到 light）
   toggleTheme() {
-    const next = this.currentTheme === 'dark' ? 'light' : 'dark';
+    const next = this.currentTheme === 'dark' || this.currentTheme === 'midnight' ? 'light' : 'dark';
     this.setState('currentTheme', next);
     return next;
+  },
+
+  // 设置指定主题（light / dark / midnight）
+  setTheme(theme) {
+    this.setState('currentTheme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
   },
   
   // 获取系统提示词

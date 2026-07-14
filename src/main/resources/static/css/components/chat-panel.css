@@ -291,7 +291,7 @@
     color: var(--success-color);
 }
 .message-file-popover .popover-file-item .file-status.status-modified {
-    color: var(--warning-color, #d49433);
+    color: #d49433;
 }
 .message-file-popover .popover-file-item .file-status.status-deleted {
     color: var(--error-color);
@@ -1036,7 +1036,7 @@
 }
 
 .popover-file-item .file-status.status-modified {
-    color: var(--warning-color, #d49433);
+    color: #d49433;
 }
 
 .popover-file-item .file-status.status-deleted {

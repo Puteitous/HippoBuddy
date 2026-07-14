@@ -224,7 +224,8 @@ let _lastTheme = '';
 
 /** 获取当前主题 */
 function _getTheme() {
-  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default';
+  const theme = document.documentElement.getAttribute('data-theme');
+  return theme === 'dark' || theme === 'midnight' ? 'dark' : 'default';
 }
 
 async function _loadMermaid() {

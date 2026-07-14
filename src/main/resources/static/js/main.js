@@ -345,21 +345,24 @@ const ICON_SUN  = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 function initTheme() {
   const savedTheme = appState.getTheme();
   document.documentElement.setAttribute('data-theme', savedTheme);
-  elements.themeToggle.innerHTML = savedTheme === 'dark' ? ICON_SUN : ICON_MOON;
+  elements.themeToggle.innerHTML = savedTheme === 'dark' || savedTheme === 'midnight' ? ICON_SUN : ICON_MOON;
   applyHljsTheme(savedTheme);
+
+  // 订阅主题变化（来自设置面板等外部变更）
+  appState.subscribe('currentTheme', (theme) => {
+    document.documentElement.setAttribute('data-theme', theme);
+    elements.themeToggle.innerHTML = theme === 'dark' || theme === 'midnight' ? ICON_SUN : ICON_MOON;
+    applyHljsTheme(theme);
+  });
 }
 
 function applyHljsTheme(theme) {
   const lightSheet = document.getElementById('hljs-light-theme');
   const darkSheet = document.getElementById('hljs-dark-theme');
   
-  if (theme === 'dark') {
-    lightSheet.disabled = true;
-    darkSheet.disabled = false;
-  } else {
-    lightSheet.disabled = false;
-    darkSheet.disabled = true;
-  }
+  const isDark = theme === 'dark' || theme === 'midnight';
+  lightSheet.disabled = isDark;
+  darkSheet.disabled = !isDark;
 }
 
 // ========== SSE 连接 ==========
@@ -394,7 +397,7 @@ function bindGlobalEvents() {
   elements.themeToggle?.addEventListener('click', () => {
     const next = appState.toggleTheme();
     document.documentElement.setAttribute('data-theme', next);
-    elements.themeToggle.innerHTML = next === 'dark' ? ICON_SUN : ICON_MOON;
+    elements.themeToggle.innerHTML = next === 'dark' || next === 'midnight' ? ICON_SUN : ICON_MOON;
     applyHljsTheme(next);
   });
 

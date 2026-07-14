@@ -8,11 +8,12 @@
  * - maxSavedSessions（最大保存会话数）
  * - autoResume（自动恢复上次会话）
  * - resumeTimeoutHours（自动恢复超时）
- * - 后台清理：周期/阈值
  * - 目录配置：historyFile / saveDirectory / sessionDirectory
  *
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
  * 自动保存：checkbox/dropdown 变更后立即保存，text input 失焦后保存。
+ *
+ * 清理策略：按最大保存会话数（maxSavedSessions）清理，时间驱动清理已禁用。
  */
 import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
@@ -39,30 +40,13 @@ const RESUME_TIMEOUT_ITEMS = [
   { label: '168 小时 (7 天)', value: '168' },
 ];
 
-const CLEANUP_PERIOD_ITEMS = [
-  { label: '7 天', value: '7' },
-  { label: '14 天', value: '14' },
-  { label: '30 天 (默认)', value: '30' },
-  { label: '60 天', value: '60' },
-  { label: '90 天', value: '90' },
-];
-
-const TOMBSTONE_THRESHOLD_ITEMS = [
-  { label: '10 MB', value: '10' },
-  { label: '20 MB', value: '20' },
-  { label: '50 MB (默认)', value: '50' },
-  { label: '100 MB', value: '100' },
-  { label: '200 MB', value: '200' },
-];
-
 export class SessionSettingsPage {
   constructor() {
     this._config = null;
     this._maxHistoryDropdown = null;
     this._maxSavedSessionsDropdown = null;
     this._resumeTimeoutDropdown = null;
-    this._cleanupPeriodDropdown = null;
-    this._tombstoneThresholdDropdown = null;
+
   }
 
   render(container) {
@@ -142,41 +126,6 @@ export class SessionSettingsPage {
         </div>
       </div>
 
-      <div class="settings-field-group-title">后台清理</div>
-      <div class="settings-field-group">
-        <div class="settings-form">
-          <div class="settings-field-horizontal">
-            <label class="settings-field-label">启用后台清理</label>
-            <div class="settings-field-body">
-              <label class="settings-switch">
-                <input type="checkbox" id="sessEnableCleanup">
-                <span class="settings-switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="settings-field-horizontal">
-            <div class="settings-field-label">
-              <div>清理周期</div>
-              <div class="settings-field-hint">天, 1–365</div>
-            </div>
-            <div class="settings-field-body">
-              <button class="settings-input settings-provider-btn" id="sessCleanupPeriod">30 天</button>
-            </div>
-          </div>
-
-          <div class="settings-field-horizontal">
-            <div class="settings-field-label">
-              <div>碎片阈值</div>
-              <div class="settings-field-hint">WAL 碎片超过此值(MB)时触发清理</div>
-            </div>
-            <div class="settings-field-body">
-              <button class="settings-input settings-provider-btn" id="sessTombstoneThreshold">50 MB</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="settings-field-group-title">路径配置</div>
       <div class="settings-field-group">
         <div class="settings-form">
@@ -234,21 +183,8 @@ export class SessionSettingsPage {
       placement: 'bottom-left',
       onSelect: () => this._saveConfig(),
     });
-    this._cleanupPeriodDropdown = new CustomDropdown({
-      trigger: document.getElementById('sessCleanupPeriod'),
-      items: CLEANUP_PERIOD_ITEMS,
-      placement: 'bottom-left',
-      onSelect: () => this._saveConfig(),
-    });
-    this._tombstoneThresholdDropdown = new CustomDropdown({
-      trigger: document.getElementById('sessTombstoneThreshold'),
-      items: TOMBSTONE_THRESHOLD_ITEMS,
-      placement: 'bottom-left',
-      onSelect: () => this._saveConfig(),
-    });
-
     // 绑定 checkbox 自动保存
-    const checkboxIds = ['sessAutoSave', 'sessPersistSessions', 'sessAutoResume', 'sessEnableCleanup'];
+    const checkboxIds = ['sessAutoSave', 'sessPersistSessions', 'sessAutoResume'];
     checkboxIds.forEach(id => {
       document.getElementById(id)?.addEventListener('change', () => this._saveConfig());
     });
@@ -266,8 +202,6 @@ export class SessionSettingsPage {
     if (this._maxHistoryDropdown) this._maxHistoryDropdown.destroy();
     if (this._maxSavedSessionsDropdown) this._maxSavedSessionsDropdown.destroy();
     if (this._resumeTimeoutDropdown) this._resumeTimeoutDropdown.destroy();
-    if (this._cleanupPeriodDropdown) this._cleanupPeriodDropdown.destroy();
-    if (this._tombstoneThresholdDropdown) this._tombstoneThresholdDropdown.destroy();
     this._container = null;
     this._config = null;
   }
@@ -283,13 +217,9 @@ export class SessionSettingsPage {
       this._setCheckbox('sessAutoSave', sess.auto_save);
       this._setCheckbox('sessPersistSessions', sess.persist_sessions);
       this._setCheckbox('sessAutoResume', sess.auto_resume);
-      this._setCheckbox('sessEnableCleanup', sess.enable_background_cleanup);
-
       this._maxHistoryDropdown?.setSelectedValue(String(sess.max_history ?? 50));
       this._maxSavedSessionsDropdown?.setSelectedValue(String(sess.max_saved_sessions ?? 1000));
       this._resumeTimeoutDropdown?.setSelectedValue(String(sess.resume_timeout_hours ?? 72));
-      this._cleanupPeriodDropdown?.setSelectedValue(String(sess.cleanup_period_days ?? 30));
-      this._tombstoneThresholdDropdown?.setSelectedValue(String(sess.tombstone_threshold_mb ?? 50));
 
       this._setInput('sessHistoryFile', sess.history_file);
       this._setInput('sessSessionDir', sess.session_directory);
@@ -308,13 +238,10 @@ export class SessionSettingsPage {
         auto_save: document.getElementById('sessAutoSave')?.checked ?? true,
         persist_sessions: document.getElementById('sessPersistSessions')?.checked ?? true,
         auto_resume: document.getElementById('sessAutoResume')?.checked ?? true,
-        enable_background_cleanup: document.getElementById('sessEnableCleanup')?.checked ?? true,
 
         max_history: parseInt(this._maxHistoryDropdown?.getSelectedItem()?.value, 10) || 50,
         max_saved_sessions: parseInt(this._maxSavedSessionsDropdown?.getSelectedItem()?.value, 10) || 1000,
         resume_timeout_hours: parseInt(this._resumeTimeoutDropdown?.getSelectedItem()?.value, 10) || 72,
-        cleanup_period_days: parseInt(this._cleanupPeriodDropdown?.getSelectedItem()?.value, 10) || 30,
-        tombstone_threshold_mb: parseInt(this._tombstoneThresholdDropdown?.getSelectedItem()?.value, 10) || 50,
 
         history_file: document.getElementById('sessHistoryFile')?.value?.trim() || '.hippo/cli-history',
         session_directory: document.getElementById('sessSessionDir')?.value?.trim() || 'logs/sessions',

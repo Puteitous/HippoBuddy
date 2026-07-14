@@ -5,8 +5,8 @@
 }
 
 ::selection {
-  background: rgb(32, 55, 99);
-  color: #fff;
+  background: var(--selection-bg);
+  color: inherit;
 }
 
 body {

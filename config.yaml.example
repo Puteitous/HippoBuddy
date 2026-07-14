@@ -59,9 +59,6 @@ session:
   max_saved_sessions: 1000             # 最大保存会话数
   auto_resume: true                    # 启动时自动检查可恢复会话
   resume_timeout_hours: 72             # 超过此时间的会话自动标记为 IGNORED
-  enable_background_cleanup: true      # 启用后台清理
-  cleanup_period_days: 30              # 清理周期（天）
-  tombstone_threshold_mb: 50           # 墓碑文件阈值（超过此大小触发清理）
 
 ui:
   theme: dark

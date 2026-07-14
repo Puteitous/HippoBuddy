@@ -3,6 +3,8 @@
  *
  * 主题切换、默认工作区路径
  */
+import { appState } from '../../state/app-state.js';
+
 export class GeneralSettingsPage {
   constructor() {
   }
@@ -27,6 +29,7 @@ export class GeneralSettingsPage {
             <div class="settings-toggle-group" id="settingsThemeToggle">
               <button class="settings-toggle-btn" data-value="light">浅色</button>
               <button class="settings-toggle-btn" data-value="dark">深色</button>
+              <button class="settings-toggle-btn" data-value="midnight">Midnight</button>
               <button class="settings-toggle-btn" data-value="system">跟随系统</button>
             </div>
           </div>
@@ -72,10 +75,10 @@ export class GeneralSettingsPage {
         const theme = btn.dataset.value;
         if (theme === 'system') {
           document.documentElement.removeAttribute('data-theme');
+          localStorage.setItem('hippo-theme', 'system');
         } else {
-          document.documentElement.setAttribute('data-theme', theme);
+          appState.setTheme(theme);
         }
-        localStorage.setItem('hippo-theme', theme);
       });
     });
 

@@ -38,13 +38,9 @@
     display: flex;
     align-items: center;
     gap: 1px;
-    background: #fff;
+    background: var(--bg-app);
     border-radius: 20px;
     flex-shrink: 0;
-}
-
-[data-theme="dark"] .session-toolbar {
-    background: var(--bg-code);
 }
 
 .toolbar-btn {
@@ -112,9 +108,10 @@
     display: flex;
     align-items: center;
     gap: 1px;
-    background: #fff;
+    background: var(--bg-app);
     border-radius: 16px;
     flex-shrink: 0;
+    margin-left: -800px;
 }
 
 .toolbar-escape .toolbar-btn {
@@ -127,9 +124,7 @@
     height: 14px;
 }
 
-[data-theme="dark"] .toolbar-escape {
-    background: var(--bg-code);
-}
+
 
 .session-header {
     height: 36px;

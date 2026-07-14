@@ -8,9 +8,9 @@
   /* --- 新变量体系 --- */
   --bg-canvas:     #edeff2;
   --bg-app:        #ffffff;
-  --bg-sidebar:    #f8f9fa;
+  --bg-sidebar:    #ffffff;
   --bg-chat:       #ffffff;
-  --bg-code:       #f3f4f6;
+  --bg-code:       #ffffff;
   --bg-hover:      #edeff2;
   --bg-active:     #e5e7eb;
   --bg-secondary:  #f8f9fa;
@@ -22,6 +22,7 @@
   --text-muted:    #9ca3af;
 
   --accent:        #787c82;
+  --selection-bg:  rgb(173, 214, 255);
 
   /* --- 向后兼容别名（旧变量映射到新值） --- */
   --bg-white:      var(--bg-app);
@@ -86,15 +87,61 @@
   --transition-normal: 0.3s;
 }
 
+/* ========== 默认深色主题（原 Obsidian） ========== */
 [data-theme="dark"] {
-  /* --- 新变量体系（暗色） ---
-     统一深色背景
-     --- */
+  --bg-canvas:     #262626;
+  --bg-app:        #171717;
+  --bg-sidebar:    #171717;
+  --bg-chat:       #171717;
+  --bg-code:       #171717;
+  --bg-hover:      #313131;
+  --bg-active:     #363636;
+  --bg-secondary:  #1a1a1a;
+  --bg-overlay:    #2a2a2a;
+
+  --border:        #3a3a3a;
+  --text-primary:  #e0e0e0;
+  --text-secondary:#a0a0a0;
+  --text-muted:    #6e6e6e;
+
+  --accent:        #9ca3af;
+  --selection-bg:  rgb(32, 55, 99);
+
+  /* --- 向后兼容别名 --- */
+  --bg-white:      var(--bg-app);
+  --bg-light:      var(--bg-sidebar);
+  --bg-lighter:    var(--bg-sidebar);
+  --border-color:  var(--border);
+  --border-code:   var(--border);
+  --text-light:    #6e6e6e;
+
+  --primary-color: var(--accent);
+  --primary-hover: #b0b4ba;
+
+  --success-color: #66bb6a;
+  --success-bg:    #1b3a1e;
+  --success-text:  #81c784;
+
+  --error-color:   #ef5350;
+  --error-bg:      #3a1a1a;
+  --error-text:    #ef5350;
+  --error-hover:   #d32f2f;
+
+  --warning-color: #ff9800;
+  --warning-bg:    #3a2a10;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.45);
+}
+
+/* ========== Midnight 暗色主题（原默认深色，偏蓝冷调） ========== */
+[data-theme="midnight"] {
   --bg-canvas:     #232a35;
   --bg-app:        #181d27;
   --bg-sidebar:    #181d27;
   --bg-chat:       #181d27;
-  --bg-code:       #232a35;
+  --bg-code:       #181d27;
   --bg-hover:      #232a35;
   --bg-active:     #181d27;
   --bg-secondary:  #181d27;
@@ -106,8 +153,9 @@
   --text-muted:    #737380;
 
   --accent:        #9ca0a6;
+  --selection-bg:  rgb(32, 55, 99);
 
-  /* --- 向后兼容别名（暗色） --- */
+  /* --- 向后兼容别名 --- */
   --bg-white:      var(--bg-app);
   --bg-light:      var(--bg-sidebar);
   --bg-lighter:    var(--bg-sidebar);
