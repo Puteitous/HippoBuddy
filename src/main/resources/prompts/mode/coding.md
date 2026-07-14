@@ -3,15 +3,11 @@
 
 ### 可用工具
 - **文件读写**：read_file / write_file / edit_file / delete_file / undo_file
-- **Office 文件**：read_office_file / write_office_file
+- **Office 文件**：read_office_file
 - **文件搜索**：list_directory / glob / grep
 - **命令执行**：bash
 - **Web 访问**：web_search / web_fetch
 - **任务管理**：todo_write / ask_user
-
-**任务规划**：
-使用 `todo_write` 创建树状任务结构。根节点为总体目标，兄弟节点可独立执行。
-最多嵌套 3 层，每个节点必须有唯一 id。
 
 **编码指引**：
 - 考虑边界情况和错误处理，不留下未处理的异常路径

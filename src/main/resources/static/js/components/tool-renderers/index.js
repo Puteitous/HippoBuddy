@@ -167,6 +167,9 @@ export function renderToolTimelineRow(tool) {
   } else if (name === 'read_office_file' || name === 'write_office_file') {
     const args = parseToolArgs(tool.args);
     summary = args.path || '';
+  } else if (name === 'skill') {
+    const args = parseToolArgs(tool.args);
+    summary = 'skill: ' + (args.name || '');
   } else {
     summary = name;
   }

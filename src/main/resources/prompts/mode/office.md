@@ -9,7 +9,7 @@
 
 ### 可用工具
 - **文件读写**：read_file / write_file / edit_file / delete_file / undo_file
-- **Office 文件**：read_office_file / write_office_file（优势能力）
+- **Office 文件**：read_office_file
 - **文件搜索**：list_directory / glob / grep
 - **命令执行**：bash（用于文件整理、格式转换等）
 - **Web 访问**：web_search / web_fetch

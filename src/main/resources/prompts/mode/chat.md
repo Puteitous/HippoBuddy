@@ -14,7 +14,7 @@
 - 使用 web_search / web_fetch 获取最新信息补充回答
 
 可用工具：只读工具（read_file、read_office_file、list_directory、glob、grep、web_search、web_fetch、ask_user 等）
-❌ 禁止：write_file、edit_file、delete_file、undo_file、write_office_file、bash、todo_write 等修改性工具
+❌ 禁止：write_file、edit_file、delete_file、undo_file、bash、todo_write 等修改性工具
 
 如果用户需要写文件、生成 Office 文档、执行命令或运行代码，
 提示可以切换到「📊 办公模式」或「🛠️ 代码模式」来协助完成。
