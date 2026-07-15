@@ -216,6 +216,11 @@
     border: none;
 }
 
+/* 等待用户确认时隐藏 message-footer，对话未完成不应显示操作按钮 */
+.message.assistant.pending-confirm .message-footer {
+    display: none;
+}
+
 /* ========== 文件产物指示器 ========== */
 .message-file-indicator {
     position: relative;

@@ -199,6 +199,7 @@ export class MessageSession {
           if (parsed.args) existingTool.args = parsed.args;
           existingTool.confirmationData = null;
           existingTool.progressLines = null;
+          s._togglePendingConfirmClass();
           s._renderPipeline.flush(s._segments, s._currentText);
           s._renderPipeline.scheduleRender(s._segments, s._currentText);
 
@@ -241,6 +242,7 @@ export class MessageSession {
             };
             s._renderPipeline.flush(s._segments, s._currentText);
             s._renderPipeline.scheduleRender(s._segments, s._currentText);
+            s._togglePendingConfirmClass();
           }
         } else {
           // bash 确认
@@ -257,6 +259,7 @@ export class MessageSession {
             bashSegment._savedCommand = parsed.command;
             s._renderPipeline.flush(s._segments, s._currentText);
             s._renderPipeline.scheduleRender(s._segments, s._currentText);
+            s._togglePendingConfirmClass();
           }
         }
       }
@@ -538,6 +541,7 @@ export class MessageSession {
       if (parsed.args) existingTool.args = parsed.args;
       existingTool.confirmationData = null;
       existingTool.progressLines = null;
+      this._togglePendingConfirmClass();
     }
 
     // 文件操作工具执行后刷新文件树 + 预览面板（确认 SSE 流路径）
@@ -653,6 +657,17 @@ export class MessageSession {
         bashSegment._savedCommand = parsed.command;
       }
     }
+    this._togglePendingConfirmClass();
+  }
+
+  _togglePendingConfirmClass() {
+    // 检查是否有工具正在等待用户确认，更新 msgDiv 的 pending-confirm 类
+    const hasPendingConfirm = this._segments.some(s =>
+      s.type === 'tool' && s.confirmationData && !s.result
+    );
+    const msgDiv = this._contentDiv?.closest('.message.assistant');
+    if (!msgDiv) return;
+    msgDiv.classList.toggle('pending-confirm', hasPendingConfirm);
   }
 
   _pushTextSegment() {

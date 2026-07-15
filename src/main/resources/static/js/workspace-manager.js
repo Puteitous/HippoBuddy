@@ -574,7 +574,7 @@ const HippoWorkspace = (() => {
 
       const onMove = (ev) => {
         const diff = isSwapped ? (ev.clientX - startX) : (startX - ev.clientX);
-        const w = Math.max(320, Math.min(720, startWidth + diff));
+        const w = Math.max(320, Math.min(960, startWidth + diff));
         document.documentElement.style.setProperty('--chat-panel-width', w + 'px');
       };
 

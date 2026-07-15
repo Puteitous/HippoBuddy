@@ -34,6 +34,25 @@ export const AppState = {
   userScrolledUp: false,
   lastUserMessage: '',
   
+  // ========== 会话输入草稿 ==========
+  _sessionInputDrafts: new Map(),  // sessionId → 输入框内容
+
+  saveSessionInputDraft(sessionId, text) {
+    if (text && text.trim()) {
+      this._sessionInputDrafts.set(sessionId, text);
+    } else {
+      this._sessionInputDrafts.delete(sessionId); // 空内容不占位
+    }
+  },
+
+  getSessionInputDraft(sessionId) {
+    return this._sessionInputDrafts.get(sessionId) || '';
+  },
+
+  clearSessionInputDraft(sessionId) {
+    this._sessionInputDrafts.delete(sessionId);
+  },
+  
   // ========== Token 统计状态 ==========
   tokenHistory: [],
   maxTrendPoints: 30,

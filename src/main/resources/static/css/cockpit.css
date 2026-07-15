@@ -274,7 +274,6 @@ body.desktop-window {
     flex-direction: column;
     min-width: 0;
     position: relative;
-    margin-left: 8px;
 }
 
 /* 预览面板显示时，聊天面板缩到右侧固定宽度 */
@@ -346,7 +345,6 @@ body.desktop-window {
     overflow: hidden;
     background: var(--bg-white);
     border-radius: var(--radius-lg);
-    margin-left: 8px;
 }
 
 /* 用 common.css 中的 .desktop-only-flex 对抗桌面端注入（双类名防御）
@@ -503,7 +501,7 @@ body.desktop-window {
 .chat-history-item.active {
     color: var(--text-primary);
     background: var(--bg-active);
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .chat-history-item .history-item-name {

@@ -37,6 +37,13 @@ export class ChatUI {
               </svg>
               聊天
             </button>
+            <button class="mode-btn active" data-mode="coding" title="代码模式 — 全栈工程师">
+              <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 3.5 2 8 6 12.5"/>
+                <polyline points="10 3.5 14 8 10 12.5"/>
+              </svg>
+              代码
+            </button>
             <button class="mode-btn" data-mode="office" title="办公模式 — 文档/表格/演示文稿">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
@@ -45,13 +52,6 @@ export class ChatUI {
                 <line x1="5" y1="10" x2="9" y2="10"/>
               </svg>
               办公
-            </button>
-            <button class="mode-btn active" data-mode="coding" title="代码模式 — 全栈工程师">
-              <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 3.5 2 8 6 12.5"/>
-                <polyline points="10 3.5 14 8 10 12.5"/>
-              </svg>
-              代码
             </button>
           </span>
         </div>

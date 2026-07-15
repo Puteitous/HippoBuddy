@@ -232,13 +232,12 @@ export class DiffModalManager {
 
     this.contentPanel.innerHTML = `<div class="diff-content">${html}</div>`;
 
-    // 滚动到第一个变更行（added 或 removed）
-    requestAnimationFrame(() => {
-      const firstChange = this.contentPanel.querySelector('.diff-line.added, .diff-line.removed');
-      if (firstChange) {
-        firstChange.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      }
-    });
+    // 立即定位到第一个变更行，与 innerHTML 在同一帧内完成，避免闪烁
+    const firstChange = this.contentPanel.querySelector('.diff-line.added, .diff-line.removed');
+    if (firstChange) {
+      const panel = this.contentPanel;
+      panel.scrollTop = Math.max(0, firstChange.offsetTop - panel.clientHeight / 2 + firstChange.offsetHeight / 2);
+    }
   }
 
   showRollbackWarning() {

@@ -241,6 +241,7 @@ export class ChatPanel {
           if (content) {
             this.elements.messageInput.value = '';
             this.elements.messageInput.style.height = 'auto';
+            appState.clearSessionInputDraft(appState.currentSessionId); // ✨ 发送后清除草稿
             this.sendMessage(content);
           }
         }
@@ -593,7 +594,14 @@ export class ChatPanel {
 
     const newText = sloganMap[newMode] || "Let's Code!";
     // 只有不处于活跃动画且文字相同时才跳过，防止快速切回时卡在淡出态
-    if (!this._titleAnimTimer && titleLast.textContent === newText) return;
+    if (!this._titleAnimTimer && titleLast.textContent === newText) {
+      // 清理前一次动画中断后残留的 inline style
+      titleLast.style.transition = '';
+      titleLast.style.maxWidth = '';
+      titleLast.style.transform = '';
+      titleLast.style.opacity = '';
+      return;
+    }
 
     const MAX_W = '300px';
 
@@ -728,7 +736,7 @@ export class ChatPanel {
     this._clearStuckTimer();
     this._runningToolCallIds.clear();
 
-    this._healStuckToolCards();
+    this._healStuckToolCards(true);
 
     if (this.elements.messageInput) {
       this.elements.messageInput.value = '';
@@ -1167,6 +1175,11 @@ export class ChatPanel {
         detail.style.maxHeight = '0';
       }
       item.classList.remove('expanded');
+      // 确认完成后恢复 footer 显示
+      const msgDiv = item.closest('.message.assistant');
+      if (msgDiv) {
+        msgDiv.classList.remove('pending-confirm');
+      }
     }
   }
 
@@ -1453,7 +1466,7 @@ export class ChatPanel {
     this.chatService.stopGeneration(this.currentAbortController);
 
     // 自愈：停止生成时标记所有未完成的 tool 卡片
-    this._healStuckToolCards();
+    this._healStuckToolCards(true);
     this._clearStuckTimer();
   }
 
@@ -1479,16 +1492,29 @@ export class ChatPanel {
   /**
    * 自愈：标记所有未完成的 tool 卡片为已取消或中断
    * 用户忽略了确认弹窗，或停止了生成，需要修复 UI 状态
+   * @param {boolean} fromStopBtn - 是否来自用户主动点击停止按钮（true 时也清理待确认的卡片）
    */
-  _healStuckToolCards() {
+  _healStuckToolCards(fromStopBtn = false) {
     const session = this._activeSession;
     if (!session) return;
 
-    const modified = session.healStuckCards();
-    if (modified.length === 0) return;
-
     const contentDiv = this._activeSession?.getContentDiv();
     if (!contentDiv) return;
+
+    // 用户主动停止时，也把等待确认的卡片标记为已取消
+    if (fromStopBtn) {
+      const toolSegments = session.getSegments().filter(s => s.type === 'tool');
+      for (const seg of toolSegments) {
+        if (seg.confirmationData && !seg.result) {
+          seg.confirmationData = null;
+          seg.result = 'cancelled';
+          seg.error = '用户中断了对话';
+        }
+      }
+    }
+
+    const modified = session.healStuckCards();
+    if (modified.length === 0 && !fromStopBtn) return;
 
     // 收集所有 tool segment，按索引与 DOM 中的 .tool-timeline-item 顺序对应
     const toolSegments = session.getSegments().filter(s => s.type === 'tool');
@@ -1503,7 +1529,13 @@ export class ChatPanel {
     const segSnapshots = toolSegments.map((s, i) => `[${i}]${s.name}=${s.result || 'running'}`);
     console.warn(`[ChatPanel] _healStuckToolCards: segs=[${segSnapshots.join(', ')}] stuck=${stuckStatuses.size} modified=${modified.length} session=${appState.currentSessionId}`);
 
-    if (stuckStatuses.size === 0) return;
+    if (stuckStatuses.size === 0) {
+      // 没有 stuck 的卡片，但可能来自停止按钮清理了 pending confirm，只需恢复 footer
+      if (fromStopBtn) {
+        this._restoreFooterAfterHeal(contentDiv);
+      }
+      return;
+    }
 
     // 直接操作 DOM，不触发 RenderPipeline 全量重建
     // flush → doRender 有 await renderMarkdown，会被后续新消息覆盖
@@ -1533,6 +1565,9 @@ export class ChatPanel {
     });
     console.warn(`[ChatPanel] _healStuckToolCards DOM modified: ${domModified.join(', ')}`);
 
+    // 恢复 footer 显示
+    this._restoreFooterAfterHeal(contentDiv);
+
     // 收起 ask_user 卡片
     contentDiv.querySelectorAll('.tool-card.ask-user-card.expanded').forEach(card => {
       const details = card.querySelector('.tool-call-details');
@@ -1541,6 +1576,16 @@ export class ChatPanel {
         card.classList.remove('expanded');
       }
     });
+  }
+
+  /**
+   * 在自愈操作后恢复消息 footer 的显示
+   */
+  _restoreFooterAfterHeal(contentDiv) {
+    const msgDiv = contentDiv.closest('.message.assistant');
+    if (msgDiv) {
+      msgDiv.classList.remove('pending-confirm');
+    }
   }
 
   /**
@@ -1950,6 +1995,15 @@ export class ChatPanel {
             footer.appendChild(fileIndicator);
           }
           msgDiv.appendChild(footer);
+
+          // 检查是否有工具正在等待用户确认 → 隐藏 footer（对话未完成不应显示操作按钮）
+          const hasPendingConfirm = segments.some(s =>
+            s.type === 'tool' && s.confirmationData && !s.result
+          );
+          if (hasPendingConfirm) {
+            msgDiv.classList.add('pending-confirm');
+          }
+
           fragment.appendChild(rowEl);
         }
       }
