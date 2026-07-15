@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/github/v/release/Puteitous/HippoBuddy?logo=github" alt="Release">
   <img src="https://img.shields.io/github/stars/Puteitous/HippoBuddy?style=flat&logo=github" alt="Stars">
   <img src="https://img.shields.io/badge/license-MIT-555555" alt="License">
-  <img src="https://img.shields.io/badge/platform-Desktop%20%7C%20Web%20%7C%20CLI-555555" alt="Platform">
+  <img src="https://img.shields.io/badge/platform-Desktop%20%7C%20Web-555555" alt="Platform">
   <img src="https://img.shields.io/github/last-commit/Puteitous/HippoBuddy" alt="Last Commit">
 </p>
 
@@ -47,7 +47,7 @@ HippoBuddy is a **workspace-centric** AI desktop buddy. Open a folder and collab
 - **Visible File Changes** — Every modification is diff-able, revertible, reviewable
 - **Secure by Design** — Confirmation dialogs for risky operations, concurrent edit detection, sandbox
 - **Desktop Native** — Local filesystem access, frameless window, drag-and-drop
-- **Three Runtimes** — Desktop window / Web Dashboard / Terminal CLI share the same core
+- **Two Runtimes** — Desktop window / Web Dashboard share the same core
 
 ---
 
@@ -65,8 +65,7 @@ mvn package -DskipTests                 # Package
 
 | Entry       | Command                                        | Description            |
 | ----------- | ---------------------------------------------- | ---------------------- |
-| CLI         | `java com.example.agent.CliApplication`        | Terminal interactive   |
-| CLI + Web   | Add `--web` flag                               | Terminal + Web Dashboard |
+| ~~CLI~~     | ~~`java com.example.agent.CliApplication`~~    | ~~❌ Deprecated~~          |
 | Web         | `java com.example.agent.WebApplication`        | Web-only service       |
 | Desktop     | `java com.example.agent.DesktopApplication`    | Desktop window         |
 
@@ -85,16 +84,10 @@ llm:
 
 ---
 
-## CLI Commands
-
-| Command     | Description      |
-| ----------- | ---------------- |
-| `/help`     | Help             |
-| `/clear`    | Clear screen     |
-| `/reset`    | Reset session    |
-| `/tokens`   | Token statistics |
-| `/mode`     | Switch mode      |
-| `/exit`     | Exit             |
+> ⚠️ **CLI terminal entry is deprecated** and will be fully removed in a future version. Please use Desktop or Web mode.
+>
+> CLI code (`CliApplication.java`, `CommandDispatcher.java`) has been removed in the current version.
+> You can find them in Git history.
 
 ---
 
@@ -102,7 +95,6 @@ llm:
 
 ```
 src/main/java/com/example/agent/
-├── CliApplication.java           CLI entry
 ├── WebApplication.java           Web entry
 ├── DesktopApplication.java       Desktop entry
 ├── core/                         Core (context, security, event bus)
@@ -113,7 +105,7 @@ src/main/java/com/example/agent/
 ├── mcp/                          MCP protocol integration
 ├── lsp/                          LSP language services
 ├── memory/                       Long-term memory system
-├── console/                      Terminal interaction
+├── progress/                     Progress display (Diff, Spinner, ToolCard)
 └── config/                       Configuration center
 ```
 

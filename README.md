@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/github/v/release/Puteitous/HippoBuddy?logo=github" alt="Release">
   <img src="https://img.shields.io/github/stars/Puteitous/HippoBuddy?style=flat&logo=github" alt="Stars">
   <img src="https://img.shields.io/badge/license-MIT-555555" alt="License">
-  <img src="https://img.shields.io/badge/platform-Desktop%20%7C%20Web%20%7C%20CLI-555555" alt="Platform">
+  <img src="https://img.shields.io/badge/platform-Desktop%20%7C%20Web-555555" alt="Platform">
   <img src="https://img.shields.io/github/last-commit/Puteitous/HippoBuddy" alt="Last Commit">
 </p>
 
@@ -47,7 +47,7 @@ HippoBuddy 是一个以**工作区文件夹为核心**的 AI 桌面伙伴。打�
 - **文件变更可视** — 每次修改可 diff、可回撤、可审查
 - **安全可控** — 危险操作弹窗确认，并发编辑检测，沙箱隔离
 - **桌面原生** — 本地文件系统、无标题栏窗口、拖拽操作
-- **三端统一** — 桌面窗口 / Web Dashboard / 终端 CLI 共用同一核心
+- **双端统一** — 桌面窗口 / Web Dashboard 共用同一核心
 
 ---
 
@@ -65,8 +65,7 @@ mvn package -DskipTests                 # 打包
 
 | 入口        | 命令                                          | 说明                 |
 | ----------- | --------------------------------------------- | -------------------- |
-| CLI         | `java com.example.agent.CliApplication`       | 终端交互模式         |
-| CLI + Web   | 加 `--web` 参数                               | 终端 + Web Dashboard |
+| ~~CLI~~     | ~~`java com.example.agent.CliApplication`~~   | ~~❌ 已废弃~~            |
 | Web         | `java com.example.agent.WebApplication`       | 纯 Web 服务          |
 | Desktop     | `java com.example.agent.DesktopApplication`   | 桌面窗口             |
 
@@ -85,16 +84,10 @@ llm:
 
 ---
 
-## CLI 端核心命令
-
-| 命令        | 说明       |
-| ----------- | --------   |
-| `/help`     | 帮助       |
-| `/clear`    | 清屏       |
-| `/reset`    | 重置会话   |
-| `/tokens`   | Token 统计 |
-| `/mode`     | 切换工作模式 |
-| `/exit`     | 退出       |
+> ⚠️ **CLI 终端入口已废弃**，后续版本将彻底移除。请使用桌面端（Desktop）或 Web 端启动。
+> 
+> CLI 相关代码（`CliApplication.java`、`CommandDispatcher.java`）已在当前版本中移除。
+> Git 历史中可回溯查看。
 
 ---
 
@@ -102,7 +95,6 @@ llm:
 
 ```
 src/main/java/com/example/agent/
-├── CliApplication.java           CLI 入口
 ├── WebApplication.java           Web 入口
 ├── DesktopApplication.java       桌面端入口
 ├── core/                         核心模块（上下文、安全拦截、事件总线）
@@ -113,7 +105,7 @@ src/main/java/com/example/agent/
 ├── mcp/                          MCP 协议集成
 ├── lsp/                          LSP 语言服务
 ├── memory/                       长期记忆系统
-├── console/                      终端交互
+├── progress/                     进度展示（Diff、Spinner、ToolCard）
 └── config/                       配置中心
 ```
 
