@@ -7,8 +7,6 @@ import org.junit.jupiter.api.DisplayName;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.BeforeAll;
-
 /**
  * CodeTruncation 策略边缘场景测试
  *
@@ -21,17 +19,6 @@ class CodeTruncationEdgeTest {
 
     private CodeTruncation codeTruncation;
     private SimpleTokenEstimator tokenEstimator;
-
-    @BeforeAll
-    static void checkLsp4j() {
-        // 检查 LSP4J 类是否已被加载
-        try {
-            Class.forName("org.eclipse.lsp4j.jsonrpc.json.StreamMessageProducer");
-            System.out.println("LSP4J 已被加载");
-        } catch (ClassNotFoundException e) {
-            System.out.println("LSP4J 未加载");
-        }
-    }
 
     @BeforeEach
     void setUp() {

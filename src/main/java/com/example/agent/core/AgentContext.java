@@ -59,7 +59,6 @@ public class AgentContext {
     private EventMetricsCollector eventMetricsCollector;
     private RuleManager ruleManager;
     private McpServiceManager mcpServiceManager;
-    // private LspServiceManager lspServiceManager; // 已移除，见 AgentMode/prompt
     private com.example.agent.memory.MemoryRetriever memoryRetriever;
     private AgentMode currentMode = AgentMode.CODING;
     private final java.util.List<java.util.function.Consumer<AgentMode>> modeChangeListeners = new java.util.ArrayList<>();
@@ -166,10 +165,6 @@ public class AgentContext {
         // 初始化 MCP 服务管理器
         this.mcpServiceManager = new McpServiceManager(config, toolRegistry);
         this.mcpServiceManager.initialize();
-
-        // LSP 服务管理器已移除 — 不再对 LLM 暴露 LSP 工具
-        // this.lspServiceManager = new LspServiceManager(config, toolRegistry);
-        // this.lspServiceManager.initialize();
 
         // 初始化记忆模块（带主备切换自动化）
         Path memoryRoot = WorkspaceManager.getUserMemoryDir();

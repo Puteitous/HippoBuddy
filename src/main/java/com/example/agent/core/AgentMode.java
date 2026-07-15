@@ -10,9 +10,7 @@ public enum AgentMode {
             "list_directory", "glob", "grep",
             "ask_user",
             "skill",
-            "web_search", "web_fetch",
-            "lsp_hover", "lsp_document_symbol", "lsp_workspace_symbol",
-            "lsp_goto_definition", "lsp_find_references"
+            "web_search", "web_fetch"
         )
     ),
 
@@ -27,9 +25,7 @@ public enum AgentMode {
             "skill",
             "web_search", "web_fetch",
             "lint_diagnostics",
-            "fork_agent", "fork_agents", "list_subagents", "cancel_subagent",
-            "lsp_hover", "lsp_document_symbol", "lsp_workspace_symbol",
-            "lsp_goto_definition", "lsp_find_references"
+            "fork_agent", "fork_agents", "list_subagents", "cancel_subagent"
         )
     ),
 
@@ -44,9 +40,7 @@ public enum AgentMode {
             "skill",
             "web_search", "web_fetch",
             "lint_diagnostics",
-            "fork_agent", "fork_agents", "list_subagents", "cancel_subagent",
-            "lsp_hover", "lsp_document_symbol", "lsp_workspace_symbol",
-            "lsp_goto_definition", "lsp_find_references"
+            "fork_agent", "fork_agents", "list_subagents", "cancel_subagent"
         )
     );
 

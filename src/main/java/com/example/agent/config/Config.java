@@ -1,7 +1,6 @@
 package com.example.agent.config;
 
 import com.example.agent.context.config.ContextConfig;
-import com.example.agent.lsp.config.LspConfig;
 import com.example.agent.mcp.config.McpConfig;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -33,7 +32,6 @@ public class Config {
     private RuleConfig rule = new RuleConfig();
 
     private McpConfig mcp = new McpConfig();
-    private LspConfig lsp = new LspConfig();
     private MemoryConfig memory = new MemoryConfig();
     private WebConfig web = new WebConfig();
     private WorkspaceConfig workspace = new WorkspaceConfig();
@@ -135,7 +133,6 @@ public class Config {
                 this.rule = reloaded.rule;
 
                 this.mcp = reloaded.mcp;
-                this.lsp = reloaded.lsp;
                 this.memory = reloaded.memory;
                 this.web = reloaded.web;
                 this.workspace = reloaded.workspace;
@@ -278,17 +275,6 @@ public class Config {
 
     public void setMcp(McpConfig mcp) {
         this.mcp = mcp;
-    }
-
-    public LspConfig getLsp() {
-        if (lsp == null) {
-            lsp = new LspConfig();
-        }
-        return lsp;
-    }
-
-    public void setLsp(LspConfig lsp) {
-        this.lsp = lsp;
     }
 
     public MemoryConfig getMemory() {

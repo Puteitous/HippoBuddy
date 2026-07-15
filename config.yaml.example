@@ -96,21 +96,5 @@ mcp:
   #     env:
   #       MY_VAR: value
 
-lsp:
-  # LSP 语言服务器配置（高级代码理解能力：跳转到定义、查找引用等）
-  enabled: true                       # 全局启用 LSP 功能
-  timeout: 180                        # LSP 请求超时（秒）
-  servers:                            # 按语言 ID 配置服务器
-    # java:
-    #   enabled: true
-    #   command: jdtls
-    #   args:
-    #     - "-configuration"
-    #     - "${user_home}/.jdtls/config"
-    #     - "-data"
-    #     - "${user_home}/.jdtls/workspace"
-    #   env:
-    #     JAVA_HOME: /path/to/jdk-17+
-
 workspace:
   default_workspace_path: ""          # 默认工作区路径（桌面端通过 UI 设置）

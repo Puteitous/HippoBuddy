@@ -10,8 +10,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.AfterAll;
-
 /**
  * TruncationService 边界条件测试
  *
@@ -179,22 +177,6 @@ class TruncationServiceBoundaryTest {
         return sb.toString();
     }
 
-    @AfterAll
-    static void killLsp4jThreads() throws Exception {
-        // 给 JVM 一点时间让测试收尾
-        Thread.sleep(100);
-
-        // 强制中断所有 pool- 开头的非 daemon 线程
-        Thread.getAllStackTraces().keySet().stream()
-                .filter(t -> t.getName().startsWith("pool-") && !t.isDaemon())
-                .forEach(t -> {
-                    System.err.println("Killing thread: " + t.getName());
-                    t.interrupt();
-                });
-
-        // 给一点时间让它们响应中断
-        Thread.sleep(500);
-    }
 }
 
 
