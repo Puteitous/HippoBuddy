@@ -1094,6 +1094,14 @@
     background: var(--bg-code);
 }
 
+/* 无详情时（如 read_file），行不可点击，隐藏 hover 效果 */
+.tool-timeline-item.no-detail .tool-timeline-row {
+    cursor: default;
+}
+.tool-timeline-item.no-detail .tool-timeline-row:hover {
+    background: transparent;
+}
+
 .tool-timeline-dot {
     flex-shrink: 0;
     width: 18px;
@@ -1128,18 +1136,6 @@
     flex-shrink: 0;
     font-size: 11px;
     line-height: 1;
-}
-
-.tool-timeline-arrow {
-    flex-shrink: 0;
-    font-size: 8px;
-    color: var(--text-muted);
-    transition: transform var(--transition-fast);
-    line-height: 1;
-}
-
-.tool-timeline-item.expanded .tool-timeline-arrow {
-    transform: rotate(-90deg);
 }
 
 /* ── Timeline 查看变更按钮 ── */
@@ -1292,20 +1288,6 @@
     padding: 4px 0;
 }
 
-.timeline-detail-diff {
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    margin: 4px 0;
-}
-
-.timeline-detail-file-content {
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    margin: 4px 0;
-}
-
 .tool-timeline-status {
     display: flex;
     align-items: center;
@@ -1364,6 +1346,48 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
+}
+
+/* ── grep/glob 元信息 ── */
+.timeline-detail-grep-pattern {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--accent);
+    word-break: break-all;
+}
+
+.timeline-detail-grep-filter {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.timeline-detail-grep-count,
+.timeline-detail-glob-count {
+    color: var(--text-secondary);
+}
+
+.timeline-detail-grep-empty,
+.timeline-detail-glob-empty,
+.timeline-detail-empty {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* timeline-detail-meta 内各 span 间距 */
+.timeline-detail-meta > span + span {
+    margin-left: 8px;
+}
+
+/* ── web 工具元信息 ── */
+.timeline-detail-web-count {
+    color: var(--text-secondary);
+}
+
+.timeline-detail-web-truncated {
+    font-size: var(--font-size-xs);
+    color: var(--warning-color, #d97706);
+    font-style: italic;
 }
 
 .timeline-detail-exit.success {

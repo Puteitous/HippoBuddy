@@ -469,6 +469,8 @@ const HippoWorkspace = (() => {
   // ========== 文件选择流 ==========
 
   async function handleFileSelect(filePath) {
+    // 用户主动点击文件，清除折叠状态，恢复预览显示
+    localStorage.removeItem('hippo-preview-collapsed');
     const displayName = filePath.split('/').pop() || filePath;
     await fileTabs.openTab(filePath, displayName);
     await fileTree.revealFile(filePath);
@@ -478,6 +480,8 @@ const HippoWorkspace = (() => {
   }
 
   async function handleTabSelect(filePath) {
+    // 用户主动切换标签，清除折叠状态，恢复预览显示
+    localStorage.removeItem('hippo-preview-collapsed');
     // 检测是否为 web 标签
     if (filePath && filePath.startsWith('url:')) {
       const url = filePath.slice(4);
@@ -512,6 +516,10 @@ const HippoWorkspace = (() => {
   // ========== 预览控制 ==========
 
   function showPreview(filePath) {
+    // 如果用户上次主动收起了预览面板，则保持隐藏（刷新/重启后生效）
+    if (localStorage.getItem('hippo-preview-collapsed') === 'true') {
+      return;
+    }
     filePreview.show(filePath);
     if (els.previewPath) {
       // 显示相对于工作区根目录的路径，IDE 面包屑风格 (xx > xx > xx)
@@ -635,6 +643,7 @@ const HippoWorkspace = (() => {
   // 预览折叠
   document.getElementById('previewCollapseBtn')?.addEventListener('click', () => {
     hidePreview();
+    localStorage.setItem('hippo-preview-collapsed', 'true');
   });
 
   // 聊天折叠

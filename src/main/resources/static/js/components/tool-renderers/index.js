@@ -3,7 +3,8 @@ import { parseToolArgs, countDiffStats } from './shared.js';
 import { renderBashCard, renderBashDetail } from './bash.js';
 import { renderEditFileCard, renderEditFileDetail } from './edit-file.js';
 import { renderWriteFileCard, renderWriteFileDetail } from './write-file.js';
-import { renderReadFileDetail, renderGrepDetail, renderGlobDetail, renderSearchDetail } from './file-search.js';
+import { renderReadFileDetail, renderGrepDetail, renderGlobDetail, renderListDirectoryDetail, renderSearchDetail } from './file-search.js';
+import { renderWebSearchDetail, renderWebFetchDetail } from './web.js';
 import { renderTodoWriteCard } from './todo-write.js';
 import { renderAskUserCard } from './ask-user.js';
 import { renderConfirmationDetail } from './confirmation.js';
@@ -89,8 +90,17 @@ export function renderToolTimelineDetailContent(tool) {
   if (name === 'glob') {
     return renderGlobDetail(tool);
   }
+  if (name === 'list_directory') {
+    return renderListDirectoryDetail(tool);
+  }
   if (name === 'SearchCodebase') {
     return renderSearchDetail(tool);
+  }
+  if (name === 'web_search') {
+    return renderWebSearchDetail(tool);
+  }
+  if (name === 'web_fetch') {
+    return renderWebFetchDetail(tool);
   }
   return renderDefaultToolDetail(tool);
 }
@@ -241,17 +251,19 @@ export function renderToolTimelineRow(tool) {
   // 须替换为正斜杠以确保路径完整传递。
   const jsPath = summaryFilePath ? summaryFilePath.replace(/\\/g, '/') : '';
 
+  // 详情为空时（如 read_file），隐藏展开箭头和详情区域
+  const hasDetail = detailHTML && detailHTML.trim().length > 0;
+
   return `
-    <div class="tool-timeline-item" data-tool-name="${escapeHtml(name)}" data-tool-status="${status}">
-      <div class="tool-timeline-row" onclick="window.toggleToolTimeline(this)">
+    <div class="tool-timeline-item${hasDetail ? '' : ' no-detail'}" data-tool-name="${escapeHtml(name)}" data-tool-status="${status}">
+      <div class="tool-timeline-row"${hasDetail ? ' onclick="window.toggleToolTimeline(this)"' : ''}>
         <span class="tool-timeline-dot">${toolSvg}</span>
         <span class="tool-timeline-name">${escapeHtml(name)}</span>
         <span class="tool-timeline-summary"${summaryFilePath ? ` onclick="event.stopPropagation();window.HippoWorkspace?.navigateToFile?.('${escapeHtml(jsPath)}')" data-file-path="${escapeHtml(summaryFilePath)}"` : ''}>${escapeHtml(summary)}</span>
         <span class="tool-timeline-status ${status}">${statusSvg}</span>
         ${copyBtnHtml}
         ${viewBtnHtml}
-        <span class="tool-timeline-arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 12 6 8 10 4"/></svg></span>
       </div>
-      <div class="tool-timeline-detail">${detailHTML}</div>
+      ${hasDetail ? `<div class="tool-timeline-detail">${detailHTML}</div>` : ''}
     </div>`;
 }

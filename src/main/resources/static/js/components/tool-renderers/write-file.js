@@ -64,13 +64,10 @@ export function renderWriteFileCard(tool) {
   `;
 }
 
-export function renderWriteFileDetail(tool) {
-  const args = parseToolArgs(tool.args);
-  const content = args.content || '';
-  const diffLines = computeUnifiedDiff('', content);
-
-  let html = `<div class="timeline-detail-diff">`;
-  html += renderUnifiedDiff(diffLines);
-  html += `</div>`;
-  return html;
+/**
+ * write_file 的摘要行已展示文件路径和 +N 统计，
+ * 并附有「查看变更」按钮可查看完整内容，展开详情无需额外内容。
+ */
+export function renderWriteFileDetail(_tool) {
+  return '';
 }

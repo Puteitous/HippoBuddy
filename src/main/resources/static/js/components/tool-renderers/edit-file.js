@@ -58,15 +58,10 @@ export function renderEditFileCard(tool) {
   `;
 }
 
-export function renderEditFileDetail(tool) {
-  const args = parseToolArgs(tool.args);
-  const oldText = args.old_text || '';
-  const newText = args.new_text || '';
-
-  const diffLines = computeUnifiedDiff(oldText, newText);
-
-  let html = `<div class="timeline-detail-diff">`;
-  html += renderUnifiedDiff(diffLines);
-  html += `</div>`;
-  return html;
+/**
+ * edit_file 的摘要行已展示文件路径和 +X -Y 统计，
+ * 并附有「查看变更」按钮可查看完整 diff，展开详情无需额外内容。
+ */
+export function renderEditFileDetail(_tool) {
+  return '';
 }
