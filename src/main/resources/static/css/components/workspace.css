@@ -66,7 +66,7 @@
 }
 
 .file-tree-node.active {
-    background: var(--bg-canvas);
+    background: rgba(108, 168, 215, 0.12);
     color: var(--accent);
     border-radius: 20px;
 }
