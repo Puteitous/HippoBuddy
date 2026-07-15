@@ -655,6 +655,32 @@ describe('ChatPanel.js', () => {
 
       expect(startSpy).toHaveBeenCalled();
     });
+
+    it('sendMessage 开始时清除上一轮的 stuck 定时器，避免跨轮误伤', async () => {
+      const clearSpy = vi.spyOn(chatPanel, '_clearStuckTimer');
+
+      // 先启动一个定时器（模拟上一轮留下的）
+      chatPanel._startStuckTimer();
+      const oldTimer = chatPanel._stuckTimer;
+      expect(oldTimer).not.toBeNull();
+
+      // 模拟发送新消息
+      mockChatService.sendMessage.mockResolvedValue({ hasContent: true });
+      chatPanel._activeSession = {
+        start: vi.fn().mockResolvedValue(undefined),
+        getSegments: () => [],
+        getCurrentText: () => '',
+        healStuckCards: vi.fn().mockReturnValue([])
+      };
+      chatPanel.currentAbortController = new AbortController();
+
+      await chatPanel.sendMessage('hello');
+
+      // _clearStuckTimer 应该在 sendMessage 开头被调用
+      expect(clearSpy).toHaveBeenCalled();
+      // 旧的定时器引用已被清除（_stuckTimer 现在是 sendMessage 末尾新设的，不是 oldTimer）
+      expect(chatPanel._stuckTimer).not.toBe(oldTimer);
+    });
   });
 
   describe('集成测试：损坏 JSON 的 tool_result 降级链路', () => {

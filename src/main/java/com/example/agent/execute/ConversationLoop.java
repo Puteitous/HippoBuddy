@@ -32,9 +32,7 @@ public class ConversationLoop {
     private static final int MAX_EMPTY_RESPONSE_RETRIES = 3;
     private static final int DEFAULT_MAX_TURNS_PER_SESSION = 50;
 
-    private final List<StopHook> stopHooks = List.of(
-        new TaskCompletionHook()
-    );
+    private final List<StopHook> stopHooks = List.of();
 
     private final AgentContext context;
     private final AgentTurnExecutor turnExecutor;

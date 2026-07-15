@@ -154,6 +154,9 @@ export class ModelSettingsPage {
       activeIndex = 0;
     }
 
+    // 保存当前列表数据，供打开编辑器时按 key 查找
+    this._modelListData = models;
+
     // 表头
     const headerHtml = `
       <div class="settings-model-header">
@@ -191,7 +194,7 @@ export class ModelSettingsPage {
 
       card.addEventListener('click', (e) => {
         if (e.target.closest('.settings-model-item-delete')) return;
-        this._showModelEditor(i);
+        this._showModelEditor(m);
       });
     });
 
@@ -223,31 +226,14 @@ export class ModelSettingsPage {
 
   // ==================== 打开编辑器 ====================
 
-  _showModelEditor(index) {
+  _showModelEditor(model) {
     const listEl = document.getElementById('settingsModelList');
     if (!listEl) return;
 
-    // 从 DOM 缓存的 models 已不可用，重新加载后打开编辑器
-    // 直接读 data 属性
-    this._editingIndex = index;
-    this._loadModelConfigForEdit();
-  }
-
-  async _loadModelConfigForEdit() {
-    try {
-      const data = await apiGet('/api/config/llm');
-      const models = data.modelHistory || [];
-      const model = models[this._editingIndex];
-      if (!model) {
-        this._editingIndex = -1;
-        this._renderModelHistoryList(data);
-        return;
-      }
-      this._renderModelEditor(model, false);
-    } catch (e) {
-      console.warn('加载模型配置失败:', e);
-      showToast('加载失败', { type: 'error', duration: 3000 });
-    }
+    // 直接使用传入的 model 对象，避免索引漂移
+    this._editingModel = model;
+    this._editingIndex = this._modelListData?.indexOf(model) ?? -1;
+    this._renderModelEditor(model, false);
   }
 
   _showCreateModel() {

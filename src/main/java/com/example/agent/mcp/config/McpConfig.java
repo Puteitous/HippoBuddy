@@ -25,9 +25,6 @@ public class McpConfig {
     @JsonProperty("reconnect_delay_seconds")
     private int reconnectDelaySeconds = 5;
 
-    @JsonProperty("connection_timeout")
-    private int connectionTimeout = 30000;
-
     @JsonProperty("request_timeout")
     private int requestTimeout = 60000;
 
@@ -149,14 +146,6 @@ public class McpConfig {
 
     public void setReconnectDelaySeconds(int reconnectDelaySeconds) {
         this.reconnectDelaySeconds = reconnectDelaySeconds;
-    }
-
-    public int getConnectionTimeout() {
-        return connectionTimeout;
-    }
-
-    public void setConnectionTimeout(int connectionTimeout) {
-        this.connectionTimeout = connectionTimeout;
     }
 
     public int getRequestTimeout() {

@@ -10,10 +10,7 @@ public class SessionConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(SessionConfig.class);
     private static final int DEFAULT_MAX_HISTORY = 50;
-    private static final String DEFAULT_HISTORY_FILE = ".hippo/cli-history";
     private static final int DEFAULT_MAX_SAVED_SESSIONS = 1000;
-    private static final String DEFAULT_SESSION_DIRECTORY = "logs/sessions";
-    private static final int DEFAULT_RESUME_TIMEOUT_HOURS = 72;
     private static final int MIN_MAX_SAVED_SESSIONS = 0;
     private static final int MAX_MAX_SAVED_SESSIONS = 1000;
     private static final int DEFAULT_CLEANUP_PERIOD_DAYS = 90;
@@ -22,17 +19,8 @@ public class SessionConfig {
     private static final int MIN_CLEANUP_PERIOD_DAYS = 1;
     private static final int MAX_CLEANUP_PERIOD_DAYS = 365;
 
-    @JsonProperty("auto_save")
-    private boolean autoSave = true;
-    
     @JsonProperty("max_history")
     private int maxHistory = DEFAULT_MAX_HISTORY;
-    
-    @JsonProperty("history_file")
-    private String historyFile = DEFAULT_HISTORY_FILE;
-    
-    @JsonProperty("save_directory")
-    private String saveDirectory;
     
     @JsonProperty("persist_sessions")
     private boolean persistSessions = true;
@@ -40,14 +28,8 @@ public class SessionConfig {
     @JsonProperty("max_saved_sessions")
     private int maxSavedSessions = DEFAULT_MAX_SAVED_SESSIONS;
     
-    @JsonProperty("session_directory")
-    private String sessionDirectory = DEFAULT_SESSION_DIRECTORY;
-    
     @JsonProperty("auto_resume")
     private boolean autoResume = true;
-    
-    @JsonProperty("resume_timeout_hours")
-    private int resumeTimeoutHours = DEFAULT_RESUME_TIMEOUT_HOURS;
 
     @JsonProperty("cleanup_period_days")
     private int cleanupPeriodDays = DEFAULT_CLEANUP_PERIOD_DAYS;
@@ -61,14 +43,6 @@ public class SessionConfig {
     public SessionConfig() {
     }
 
-    public boolean isAutoSave() {
-        return autoSave;
-    }
-
-    public void setAutoSave(boolean autoSave) {
-        this.autoSave = autoSave;
-    }
-
     public int getMaxHistory() {
         return maxHistory;
     }
@@ -80,22 +54,6 @@ public class SessionConfig {
         } else {
             this.maxHistory = maxHistory;
         }
-    }
-
-    public String getHistoryFile() {
-        return historyFile;
-    }
-
-    public void setHistoryFile(String historyFile) {
-        this.historyFile = historyFile;
-    }
-
-    public String getSaveDirectory() {
-        return saveDirectory;
-    }
-
-    public void setSaveDirectory(String saveDirectory) {
-        this.saveDirectory = saveDirectory;
     }
 
     public boolean isPersistSessions() {
@@ -127,38 +85,12 @@ public class SessionConfig {
         }
     }
 
-    public String getSessionDirectory() {
-        return sessionDirectory;
-    }
-
-    public void setSessionDirectory(String sessionDirectory) {
-        if (sessionDirectory == null || sessionDirectory.trim().isEmpty()) {
-            logger.warn("sessionDirectory 为空，使用默认值: {}", DEFAULT_SESSION_DIRECTORY);
-            this.sessionDirectory = DEFAULT_SESSION_DIRECTORY;
-        } else {
-            this.sessionDirectory = sessionDirectory.trim();
-        }
-    }
-
     public boolean isAutoResume() {
         return autoResume;
     }
 
     public void setAutoResume(boolean autoResume) {
         this.autoResume = autoResume;
-    }
-
-    public int getResumeTimeoutHours() {
-        return resumeTimeoutHours;
-    }
-
-    public void setResumeTimeoutHours(int resumeTimeoutHours) {
-        if (resumeTimeoutHours < 0) {
-            logger.warn("resumeTimeoutHours 不能为负数，使用默认值: {}", DEFAULT_RESUME_TIMEOUT_HOURS);
-            this.resumeTimeoutHours = DEFAULT_RESUME_TIMEOUT_HOURS;
-        } else {
-            this.resumeTimeoutHours = resumeTimeoutHours;
-        }
     }
 
     public int getCleanupPeriodDays() {
@@ -207,16 +139,6 @@ public class SessionConfig {
             maxSavedSessions = DEFAULT_MAX_SAVED_SESSIONS;
         }
         
-        if (sessionDirectory == null || sessionDirectory.trim().isEmpty()) {
-            logger.warn("配置验证: sessionDirectory 为空，已重置为默认值");
-            sessionDirectory = DEFAULT_SESSION_DIRECTORY;
-        }
-        
-        if (historyFile == null || historyFile.trim().isEmpty()) {
-            logger.warn("配置验证: historyFile 为空，已重置为默认值");
-            historyFile = DEFAULT_HISTORY_FILE;
-        }
-        
         if (maxSavedSessions == 0 && persistSessions) {
             logger.warn("配置验证: maxSavedSessions 为 0 但 persistSessions 为 true，会话持久化将被禁用");
         }
@@ -237,15 +159,10 @@ public class SessionConfig {
     @Override
     public String toString() {
         return "SessionConfig{" +
-                "autoSave=" + autoSave +
-                ", maxHistory=" + maxHistory +
-                ", historyFile='" + historyFile + '\'' +
-                ", saveDirectory='" + saveDirectory + '\'' +
+                "maxHistory=" + maxHistory +
                 ", persistSessions=" + persistSessions +
                 ", maxSavedSessions=" + maxSavedSessions +
-                ", sessionDirectory='" + sessionDirectory + '\'' +
                 ", autoResume=" + autoResume +
-                ", resumeTimeoutHours=" + resumeTimeoutHours +
                 ", cleanupPeriodDays=" + cleanupPeriodDays +
                 ", enableBackgroundCleanup=" + enableBackgroundCleanup +
                 ", tombstoneThresholdMb=" + tombstoneThresholdMb +

@@ -22,7 +22,7 @@ public class DeleteFileTool implements ToolExecutor {
         ".hippo"
     );
 
-    /** 受保护的文件扩展名（blockedExtensions 的补充，执行时硬拦截） */
+    /** 受保护的文件扩展名（执行时硬拦截，不可删除） */
     private static final Set<String> PROTECTED_EXTENSIONS = Set.of(
         ".env", ".pem", ".key", ".p12", ".jks", ".keystore"
     );

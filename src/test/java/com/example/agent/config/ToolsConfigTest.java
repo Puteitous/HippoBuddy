@@ -34,21 +34,6 @@ class ToolsConfigTest {
     }
 
     @Test
-    void testDefaultFileConfig() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        
-        assertTrue(file.isEnabled());
-        assertEquals("10MB", file.getMaxFileSize());
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-        assertNotNull(file.getAllowedPaths());
-        assertTrue(file.getAllowedPaths().contains("."));
-        assertNotNull(file.getBlockedExtensions());
-        assertTrue(file.getBlockedExtensions().contains(".env"));
-        assertTrue(file.getBlockedExtensions().contains(".pem"));
-        assertTrue(file.getBlockedExtensions().contains(".key"));
-    }
-
-    @Test
     void testIsCommandAllowedWhenDisabled() {
         ToolsConfig.BashToolConfig bash = toolsConfig.getBash();
         bash.setEnabled(false);
@@ -169,141 +154,6 @@ class ToolsConfigTest {
     }
 
     @Test
-    void testParseFileSizeBytes() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("1024B");
-        assertEquals(1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeKilobytes() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("10KB");
-        assertEquals(10 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeMegabytes() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("10MB");
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeGigabytes() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("1GB");
-        assertEquals(1024L * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeCaseInsensitive() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("10mb");
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-        
-        file.setMaxFileSize("10Mb");
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeWithSpaces() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("  10 MB  ");
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeNull() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize(null);
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeEmpty() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("");
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeInvalidFormat() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("invalid");
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizeInvalidNumber() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("abcMB");
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testParseFileSizePlainNumber() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setMaxFileSize("1024");
-        assertEquals(1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
-    void testIsExtensionBlockedWithBlockedExtension() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        
-        assertTrue(file.isExtensionBlocked("config.env"));
-        assertTrue(file.isExtensionBlocked("cert.pem"));
-        assertTrue(file.isExtensionBlocked("private.key"));
-        assertTrue(file.isExtensionBlocked("keystore.p12"));
-        assertTrue(file.isExtensionBlocked("truststore.jks"));
-    }
-
-    @Test
-    void testIsExtensionBlockedWithAllowedExtension() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        
-        assertFalse(file.isExtensionBlocked("main.java"));
-        assertFalse(file.isExtensionBlocked("config.yaml"));
-        assertFalse(file.isExtensionBlocked("data.json"));
-        assertFalse(file.isExtensionBlocked("README.md"));
-    }
-
-    @Test
-    void testIsExtensionBlockedWithNoExtension() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        
-        assertFalse(file.isExtensionBlocked("Makefile"));
-        assertFalse(file.isExtensionBlocked("Dockerfile"));
-    }
-
-    @Test
-    void testIsExtensionBlockedCaseInsensitive() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        
-        assertTrue(file.isExtensionBlocked("CONFIG.ENV"));
-        assertTrue(file.isExtensionBlocked("Config.Pem"));
-        assertTrue(file.isExtensionBlocked("PRIVATE.KEY"));
-    }
-
-    @Test
-    void testIsExtensionBlockedWithEmptyBlockedExtensions() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setBlockedExtensions(Collections.emptyList());
-        
-        assertFalse(file.isExtensionBlocked("config.env"));
-        assertFalse(file.isExtensionBlocked("cert.pem"));
-    }
-
-    @Test
-    void testIsExtensionBlockedWithNullBlockedExtensions() {
-        ToolsConfig.FileToolConfig file = toolsConfig.getFile();
-        file.setBlockedExtensions(null);
-        
-        assertFalse(file.isExtensionBlocked("config.env"));
-    }
-
-    @Test
     void testBashConfigSetters() {
         ToolsConfig.BashToolConfig bash = new ToolsConfig.BashToolConfig();
         
@@ -316,21 +166,6 @@ class ToolsConfigTest {
         assertEquals(2, bash.getWhitelist().size());
         assertTrue(bash.getWhitelist().contains("git"));
         assertTrue(bash.getWhitelist().contains("npm"));
-    }
-
-    @Test
-    void testFileConfigSetters() {
-        ToolsConfig.FileToolConfig file = new ToolsConfig.FileToolConfig();
-        
-        file.setEnabled(false);
-        file.setMaxFileSize("20MB");
-        file.setAllowedPaths(Arrays.asList("/home", "/tmp"));
-        file.setBlockedExtensions(Arrays.asList(".secret"));
-        
-        assertFalse(file.isEnabled());
-        assertEquals("20MB", file.getMaxFileSize());
-        assertEquals(2, file.getAllowedPaths().size());
-        assertEquals(1, file.getBlockedExtensions().size());
     }
 
     @Test

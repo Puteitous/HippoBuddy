@@ -29,17 +29,6 @@ tools:
       - grep
       - find
     require_confirmation: true
-  file:
-    enabled: true
-    allowed_paths:
-      - .
-    max_file_size: 10MB
-    blocked_extensions:
-      - .env
-      - .pem
-      - .key
-      - .p12
-      - .jks
   web_search:
     provider: brave               # brave | tavily
     api_key: "your-api-key"
@@ -51,14 +40,10 @@ tools:
     enabled: false
 
 session:
-  auto_save: true
   max_history: 50
-  history_file: ".hippo/cli-history"   # CLI 历史记录文件路径
-  save_directory:                      # 会话保存目录（可选，不设置则使用默认）
   persist_sessions: true               # 是否持久化会话到磁盘
   max_saved_sessions: 1000             # 最大保存会话数
   auto_resume: true                    # 启动时自动检查可恢复会话
-  resume_timeout_hours: 72             # 超过此时间的会话自动标记为 IGNORED
 
 ui:
   theme: dark
@@ -100,7 +85,6 @@ mcp:
   auto_reconnect: true                # 断开时自动重连
   max_reconnect_attempts: 5           # 最大重连次数
   reconnect_delay_seconds: 5          # 重连间隔（秒）
-  connection_timeout: 30000           # 连接超时（毫秒）
   request_timeout: 60000              # 请求超时（毫秒）
   servers: []                         # MCP 服务列表（在 config.yaml 中配置）
   # servers:

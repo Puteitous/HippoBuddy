@@ -1832,11 +1832,11 @@
 
 /* ── Diff 行背景色（统一绿色） ── */
 .cm-diff-line-added {
-    background: rgba(45, 164, 78, 0.15) !important;
+    background: rgba(45, 164, 78, 0.20) !important;
 }
 
 [data-theme="dark"] .cm-diff-line-added {
-    background: rgba(45, 164, 78, 0.15) !important;
+    background: rgba(45, 164, 78, 0.20) !important;
 }
 
 /* ══════════════════════════════════════════════════

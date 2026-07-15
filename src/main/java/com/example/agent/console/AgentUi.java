@@ -123,7 +123,6 @@ public class AgentUi {
         println();
         println(ConsoleStyle.boldCyan("  [工具配置]"));
         println(ConsoleStyle.green("  Bash: ") + (config.getTools().getBash().isEnabled() ? "启用" : "禁用"));
-        println(ConsoleStyle.green("  File: ") + (config.getTools().getFile().isEnabled() ? "启用" : "禁用"));
         println();
         println(ConsoleStyle.boldCyan("  [MCP 服务]"));
         println(ConsoleStyle.green("  启用: ") + (config.getMcp().isEnabled() ? "是" : "否"));
@@ -138,7 +137,6 @@ public class AgentUi {
         }
         println();
         println(ConsoleStyle.boldCyan("  [会话配置]"));
-        println(ConsoleStyle.green("  自动保存: ") + (config.getSession().isAutoSave() ? "是" : "否"));
         println(ConsoleStyle.green("  最大历史: ") + config.getSession().getMaxHistory());
         println();
         println(ConsoleStyle.boldCyan("  [UI 配置]"));

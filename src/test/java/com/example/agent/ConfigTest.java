@@ -124,10 +124,6 @@ class ConfigTest {
         assertTrue(tools.getBash().isRequireConfirmation());
         assertTrue(tools.getBash().getWhitelist().contains("git"));
         assertTrue(tools.getBash().getWhitelist().contains("mvn"));
-        
-        assertTrue(tools.getFile().isEnabled());
-        assertEquals("10MB", tools.getFile().getMaxFileSize());
-        assertTrue(tools.getFile().getBlockedExtensions().contains(".env"));
     }
 
     @Test
@@ -135,9 +131,7 @@ class ConfigTest {
         Config config = createConfigInstance();
         SessionConfig session = config.getSession();
         
-        assertTrue(session.isAutoSave());
         assertEquals(50, session.getMaxHistory());
-        assertEquals(".agent_history", session.getHistoryFile());
     }
 
     @Test
@@ -215,31 +209,6 @@ class ConfigTest {
     }
 
     @Test
-    void testFileToolExtensionBlocked() throws Exception {
-        Config config = createConfigInstance();
-        ToolsConfig.FileToolConfig file = config.getTools().getFile();
-        
-        assertTrue(file.isExtensionBlocked("config.env"));
-        assertTrue(file.isExtensionBlocked("secret.key"));
-        assertFalse(file.isExtensionBlocked("Main.java"));
-        assertFalse(file.isExtensionBlocked("README.md"));
-    }
-
-    @Test
-    void testFileToolMaxFileSizeParsing() throws Exception {
-        Config config = createConfigInstance();
-        ToolsConfig.FileToolConfig file = config.getTools().getFile();
-        
-        assertEquals(10 * 1024 * 1024, file.getMaxFileSizeBytes());
-        
-        file.setMaxFileSize("5MB");
-        assertEquals(5 * 1024 * 1024, file.getMaxFileSizeBytes());
-        
-        file.setMaxFileSize("1GB");
-        assertEquals(1L * 1024 * 1024 * 1024, file.getMaxFileSizeBytes());
-    }
-
-    @Test
     void testYamlSerialization() throws Exception {
         Config config = createConfigInstance();
         config.getLlm().setApiKey("test-key-123");
@@ -275,11 +244,7 @@ class ConfigTest {
                 enabled: false
                 whitelist: [git, npm]
                 require_confirmation: false
-              file:
-                enabled: true
-                max_file_size: 5MB
             session:
-              auto_save: false
               max_history: 100
             ui:
               theme: light
@@ -300,9 +265,6 @@ class ConfigTest {
         assertFalse(config.getTools().getBash().isEnabled());
         assertFalse(config.getTools().getBash().isRequireConfirmation());
         
-        assertEquals("5MB", config.getTools().getFile().getMaxFileSize());
-        
-        assertFalse(config.getSession().isAutoSave());
         assertEquals(100, config.getSession().getMaxHistory());
         
         assertEquals("light", config.getUi().getTheme());

@@ -4,7 +4,7 @@
  * 配置 MCP 服务：
  * - enabled / autoConnect / autoReconnect
  * - maxReconnectAttempts / reconnectDelaySeconds
- * - connectionTimeout / requestTimeout
+ * - requestTimeout
  * - servers[] — 服务器列表 CRUD
  *
  * 每个服务器条目：
@@ -42,14 +42,6 @@ const RECONNECT_DELAY_ITEMS = [
   { label: '30 秒', value: '30' },
 ];
 
-const CONN_TIMEOUT_ITEMS = [
-  { label: '5 秒', value: '5000' },
-  { label: '10 秒', value: '10000' },
-  { label: '30 秒 (默认)', value: '30000' },
-  { label: '60 秒', value: '60000' },
-  { label: '120 秒', value: '120000' },
-];
-
 const REQ_TIMEOUT_ITEMS = [
   { label: '10 秒', value: '10000' },
   { label: '30 秒', value: '30000' },
@@ -75,7 +67,6 @@ export class McpSettingsPage {
     this._editingServer = null; // 正在编辑的服务器 index
     this._maxReconnectDropdown = null;
     this._reconnectDelayDropdown = null;
-    this._connTimeoutDropdown = null;
     this._reqTimeoutDropdown = null;
   }
 
@@ -101,7 +92,6 @@ export class McpSettingsPage {
   destroy() {
     if (this._maxReconnectDropdown) this._maxReconnectDropdown.destroy();
     if (this._reconnectDelayDropdown) this._reconnectDelayDropdown.destroy();
-    if (this._connTimeoutDropdown) this._connTimeoutDropdown.destroy();
     if (this._reqTimeoutDropdown) this._reqTimeoutDropdown.destroy();
     this._config = null;
     this._editingServer = null;
@@ -196,15 +186,6 @@ export class McpSettingsPage {
           </div>
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
-              <div>连接超时</div>
-              <div class="settings-field-hint">(毫秒)</div>
-            </div>
-            <div class="settings-field-body">
-              <button class="settings-input settings-provider-btn" id="mcpConnTimeout">${_timeoutLabel(mcp.connection_timeout ?? 30000, CONN_TIMEOUT_ITEMS)}</button>
-            </div>
-          </div>
-          <div class="settings-field-horizontal">
-            <div class="settings-field-label">
               <div>请求超时</div>
               <div class="settings-field-hint">(毫秒)</div>
             </div>
@@ -237,13 +218,6 @@ export class McpSettingsPage {
       trigger: document.getElementById('mcpReconnectDelay'),
       items: RECONNECT_DELAY_ITEMS,
       selectedValue: String(mcp.reconnect_delay_seconds ?? 5),
-      placement: 'bottom-left',
-      onSelect: () => this._saveConfig(),
-    });
-    this._connTimeoutDropdown = new CustomDropdown({
-      trigger: document.getElementById('mcpConnTimeout'),
-      items: CONN_TIMEOUT_ITEMS,
-      selectedValue: String(mcp.connection_timeout ?? 30000),
       placement: 'bottom-left',
       onSelect: () => this._saveConfig(),
     });
@@ -631,7 +605,6 @@ export class McpSettingsPage {
       const autoReconnect = document.getElementById('mcpAutoReconnect')?.checked;
       const maxReconnectAttempts = parseInt(this._maxReconnectDropdown?.getSelectedItem()?.value, 10);
       const reconnectDelaySeconds = parseInt(this._reconnectDelayDropdown?.getSelectedItem()?.value, 10);
-      const connectionTimeout = parseInt(this._connTimeoutDropdown?.getSelectedItem()?.value, 10);
       const requestTimeout = parseInt(this._reqTimeoutDropdown?.getSelectedItem()?.value, 10);
 
       values.enabled = enabled !== false;
@@ -640,7 +613,6 @@ export class McpSettingsPage {
 
       if (!isNaN(maxReconnectAttempts)) values.max_reconnect_attempts = maxReconnectAttempts;
       if (!isNaN(reconnectDelaySeconds)) values.reconnect_delay_seconds = reconnectDelaySeconds;
-      if (!isNaN(connectionTimeout)) values.connection_timeout = connectionTimeout;
       if (!isNaN(requestTimeout)) values.request_timeout = requestTimeout;
 
       // 服务器列表（来自当前状态）

@@ -724,7 +724,8 @@ export class ChatPanel {
       return;
     }
 
-    // 新消息开始，清理跨轮残留的 runningToolCallIds
+    // 新消息开始，清理跨轮残留的 runningToolCallIds 和上一轮的 stuck 定时器
+    this._clearStuckTimer();
     this._runningToolCallIds.clear();
 
     this._healStuckToolCards();

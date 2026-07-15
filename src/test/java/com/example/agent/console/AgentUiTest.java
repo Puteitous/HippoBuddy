@@ -50,16 +50,12 @@ class AgentUiTest {
         // Mock ToolsConfig
         ToolsConfig toolsConfig = mock(ToolsConfig.class);
         ToolsConfig.BashToolConfig bashConfig = mock(ToolsConfig.BashToolConfig.class);
-        ToolsConfig.FileToolConfig fileConfig = mock(ToolsConfig.FileToolConfig.class);
         when(bashConfig.isEnabled()).thenReturn(true);
-        when(fileConfig.isEnabled()).thenReturn(true);
         when(toolsConfig.getBash()).thenReturn(bashConfig);
-        when(toolsConfig.getFile()).thenReturn(fileConfig);
         when(config.getTools()).thenReturn(toolsConfig);
         
         // Mock SessionConfig
         SessionConfig sessionConfig = mock(SessionConfig.class);
-        when(sessionConfig.isAutoSave()).thenReturn(true);
         when(sessionConfig.getMaxHistory()).thenReturn(100);
         when(config.getSession()).thenReturn(sessionConfig);
         

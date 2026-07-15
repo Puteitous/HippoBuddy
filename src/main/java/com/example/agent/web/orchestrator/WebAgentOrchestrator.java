@@ -10,7 +10,6 @@ import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.truncation.TruncationService;
 import com.example.agent.execute.AgentTurnResult;
 import com.example.agent.execute.StopHook;
-import com.example.agent.execute.TaskCompletionHook;
 import com.example.agent.llm.client.AbstractLlmClient;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.client.LlmClientFactory;
@@ -53,11 +52,9 @@ public class WebAgentOrchestrator {
 
     private static final Logger logger = LoggerFactory.getLogger(WebAgentOrchestrator.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final int MAX_TURNS = 20;
+    private static final int MAX_TURNS = 50;
 
-    private static final List<StopHook> stopHooks = List.of(
-        new TaskCompletionHook()
-    );
+    private static final List<StopHook> stopHooks = List.of();
 
     private static final TruncationService truncationService = new TruncationService(TokenEstimatorFactory.getDefault());
     private static final SessionCancelManager cancelManager = SessionCancelManager.getInstance();

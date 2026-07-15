@@ -3,9 +3,9 @@
  *
  * 配置内置工具行为：
  * - bash: { enabled, whitelist, requireConfirmation }
- * - file: { enabled, allowedPaths, maxFileSize, blockedExtensions }
  * - webSearch: { provider, apiKey }
  * - subagent: { enabled }
+ * - delete_file: { requireConfirmation }
  *
  * 通过 HippoDesktop.getConfig() / updateConfig() 读写配置。
  * 自动保存：checkbox/dropdown 变更后立即保存，text input 失焦后保存。
@@ -15,20 +15,10 @@ import { CustomDropdown } from '../../utils/dropdown.js';
 
 const KEY_LABELS = {
   bash: 'Bash 命令执行',
-  file: '文件系统操作',
   delete_file: '删除文件',
   web_search: 'Web 搜索',
   subagent: '子代理',
 };
-
-const FILE_MAX_SIZE_ITEMS = [
-  { label: '1 MB', value: '1MB' },
-  { label: '5 MB', value: '5MB' },
-  { label: '10 MB (默认)', value: '10MB' },
-  { label: '50 MB', value: '50MB' },
-  { label: '100 MB', value: '100MB' },
-  { label: '1 GB', value: '1GB' },
-];
 
 const WEB_PROVIDER_ITEMS = [
   { label: 'Brave', value: 'brave' },
@@ -41,7 +31,6 @@ const WEB_PROVIDER_ITEMS = [
 export class ToolsSettingsPage {
   constructor() {
     this._config = null;
-    this._fileMaxSizeDropdown = null;
     this._webProviderDropdown = null;
   }
 
@@ -65,7 +54,6 @@ export class ToolsSettingsPage {
   }
 
   destroy() {
-    if (this._fileMaxSizeDropdown) this._fileMaxSizeDropdown.destroy();
     if (this._webProviderDropdown) this._webProviderDropdown.destroy();
     this._config = null;
   }
@@ -110,12 +98,6 @@ export class ToolsSettingsPage {
     const bash = tools.bash || {};
     const whitelistStr = (bash.whitelist || []).join(', ');
 
-    // ── File 配置 ──
-    const file = tools.file || {};
-    const allowedPathsStr = (file.allowed_paths || []).join(', ');
-    const blockedExtsStr = (file.blocked_extensions || []).join(', ');
-    const currentMaxSize = file.max_file_size || '10MB';
-
     // ── Delete File 配置 ──
     const deleteFile = tools.delete_file || {};
 
@@ -155,49 +137,6 @@ export class ToolsSettingsPage {
             </label>
             <textarea class="settings-input" id="toolsBashWhitelist" rows="2" placeholder="git, mvn, npm, docker, ls, cat, grep"
               style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;">${whitelistStr}</textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== File ===== -->
-      <div class="settings-field-group-title">${KEY_LABELS.file}</div>
-      <div class="settings-field-group">
-        <div class="settings-form">
-          <div class="settings-field-horizontal">
-            <label class="settings-field-label">启用</label>
-            <div class="settings-field-body">
-              <label class="settings-switch">
-                <input type="checkbox" id="toolsFileEnabled" ${file.enabled !== false ? 'checked' : ''}>
-                <span class="settings-switch-slider"></span>
-              </label>
-            </div>
-          </div>
-          <div class="settings-field-horizontal">
-            <div class="settings-field-label">
-              <div>最大文件大小</div>
-              <div class="settings-field-hint">(单文件读取上限)</div>
-            </div>
-            <div class="settings-field-body">
-              <button class="settings-input settings-provider-btn" id="toolsFileMaxSize">${currentMaxSize}</button>
-            </div>
-          </div>
-          <div class="settings-field-horizontal">
-            <div class="settings-field-label">
-              <div>允许路径</div>
-              <div class="settings-field-hint">(逗号分隔)</div>
-            </div>
-            <div class="settings-field-body" style="flex:1;">
-              <input class="settings-input" id="toolsFileAllowedPaths" type="text" value="${allowedPathsStr}" placeholder=".">
-            </div>
-          </div>
-          <div class="settings-field-horizontal">
-            <div class="settings-field-label">
-              <div>阻止扩展名</div>
-              <div class="settings-field-hint">(逗号分隔，如 .env, .pem)</div>
-            </div>
-            <div class="settings-field-body" style="flex:1;">
-              <input class="settings-input" id="toolsFileBlockedExts" type="text" value="${blockedExtsStr}" placeholder=".env, .pem, .key">
-            </div>
           </div>
         </div>
       </div>
@@ -266,13 +205,6 @@ export class ToolsSettingsPage {
     `;
 
     // 初始化下拉框
-    this._fileMaxSizeDropdown = new CustomDropdown({
-      trigger: document.getElementById('toolsFileMaxSize'),
-      items: FILE_MAX_SIZE_ITEMS,
-      selectedValue: currentMaxSize,
-      placement: 'bottom-left',
-      onSelect: () => this._saveConfig(),
-    });
     this._webProviderDropdown = new CustomDropdown({
       trigger: document.getElementById('toolsWebProvider'),
       items: WEB_PROVIDER_ITEMS,
@@ -295,13 +227,13 @@ export class ToolsSettingsPage {
     }
 
     // 绑定 checkbox 自动保存
-    const checkboxIds = ['toolsBashEnabled', 'toolsBashConfirm', 'toolsFileEnabled', 'toolsSubagentEnabled', 'toolsDeleteFileConfirm'];
+    const checkboxIds = ['toolsBashEnabled', 'toolsBashConfirm', 'toolsSubagentEnabled', 'toolsDeleteFileConfirm'];
     checkboxIds.forEach(id => {
       document.getElementById(id)?.addEventListener('change', () => this._saveConfig());
     });
 
     // 绑定 text input/textarea 失焦自动保存
-    const inputIds = ['toolsBashWhitelist', 'toolsFileAllowedPaths', 'toolsFileBlockedExts', 'toolsWebApiKey'];
+    const inputIds = ['toolsBashWhitelist', 'toolsWebApiKey'];
     inputIds.forEach(id => {
       document.getElementById(id)?.addEventListener('blur', () => this._saveConfig());
     });
@@ -320,18 +252,6 @@ export class ToolsSettingsPage {
         enabled: bashEnabled !== false,
         require_confirmation: bashConfirm !== false,
         whitelist,
-      };
-
-      // File
-      const fileEnabled = document.getElementById('toolsFileEnabled')?.checked;
-      const maxFileSize = this._fileMaxSizeDropdown?.getSelectedItem()?.value || '10MB';
-      const allowedPathsRaw = document.getElementById('toolsFileAllowedPaths')?.value || '';
-      const blockedExtsRaw = document.getElementById('toolsFileBlockedExts')?.value || '';
-      values.file = {
-        enabled: fileEnabled !== false,
-        max_file_size: maxFileSize,
-        allowed_paths: allowedPathsRaw.split(',').map(s => s.trim()).filter(Boolean),
-        blocked_extensions: blockedExtsRaw.split(',').map(s => s.trim()).filter(Boolean),
       };
 
       // Web Search

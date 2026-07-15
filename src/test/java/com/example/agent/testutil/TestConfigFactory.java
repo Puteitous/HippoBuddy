@@ -53,17 +53,9 @@ public final class TestConfigFactory {
         public static final List<String> DEFAULT_WHITELIST = List.of(
                 "git", "mvn", "npm", "docker", "ls", "cat", "grep", "find"
         );
-
-        public static final List<String> DEFAULT_BLOCKED_EXTENSIONS = List.of(
-                ".env", ".pem", ".key", ".p12", ".jks"
-        );
-
-        public static final List<String> DEFAULT_ALLOWED_PATHS = List.of(".");
     }
 
     public static class Session {
         public static final int DEFAULT_MAX_HISTORY = 50;
-        public static final String DEFAULT_HISTORY_FILE = ".agent_history_test";
-        public static final boolean DEFAULT_AUTO_SAVE = true;
     }
 }
