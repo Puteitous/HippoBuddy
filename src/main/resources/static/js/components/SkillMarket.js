@@ -612,7 +612,9 @@ export class SkillMarket {
             ${skill.description ? this._escapeHtml(skill.description) : ''}
           </div>
         </div>
-        <button class="skill-market-btn skill-market-btn-ghost skill-market-btn-uninstall" title="卸载">卸载</button>
+        <button class="skill-market-btn skill-market-btn-ghost skill-market-btn-uninstall" title="卸载">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       `;
 
       // 点击卡片 → 预览

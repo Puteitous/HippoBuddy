@@ -187,14 +187,6 @@ test.describe('Hippo Cockpit 集成测试', () => {
     await expect(compactBtn).toContainText('压缩');
   });
 
-  test('SSE 状态指示器存在', async ({ page }) => {
-    await page.goto('/cockpit');
-
-    const sseStatus = page.locator('#sseStatus');
-    await expect(sseStatus).toBeAttached();
-    await expect(sseStatus).toContainText('SSE');
-  });
-
   test('Token 详情按钮可点击打开弹窗', async ({ page }) => {
     await page.goto('/cockpit');
 

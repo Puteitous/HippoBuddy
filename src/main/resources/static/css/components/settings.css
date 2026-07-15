@@ -415,7 +415,7 @@
 }
 
 [data-theme="dark"] .settings-model-item:hover {
-    background: var(--bg-hover);
+    background: var(--bg-app);
 }
 
 [data-theme="dark"] .settings-model-item.active {

@@ -15,7 +15,7 @@ import { ChatPanel } from './components/ChatPanel.js';
 import { ChatNav } from './components/ChatNav.js';
 import { TokenMonitor } from './components/TokenMonitor.js';
 import { MetricsPanel } from './components/MetricsPanel.js';
-import { SSEClient } from './sse-client.js';
+
 import { diffModalManager } from './utils/diff-modal.js';
 import { FileChangeManager } from './utils/file-change-manager.js';
 import { EventBus } from './utils/event-bus.js';
@@ -59,7 +59,7 @@ let activityBar;
 // ========== DOM 元素 ==========
 const elements = {
   themeToggle: document.getElementById('themeToggle'),
-  sseStatus: document.getElementById('sseStatus'),
+
   compactBtn: document.getElementById('compactBtn'),
   messageInput: document.getElementById('messageInput'),
   sendBtn: document.getElementById('sendBtn'),
@@ -177,9 +177,6 @@ function init() {
   
   // 6. 预暖 markdown 渲染器（后台初始化，加速首次会话切换）
   renderMarkdown(' ').catch(() => {});
-  
-  // 7. 初始化 SSE 连接
-  initSSE();
   
   // 7. 初始化文件变更监控
   fileChangeManager = new FileChangeManager();
@@ -363,32 +360,6 @@ function applyHljsTheme(theme) {
   const isDark = theme === 'dark' || theme === 'midnight';
   lightSheet.disabled = isDark;
   darkSheet.disabled = !isDark;
-}
-
-// ========== SSE 连接 ==========
-let sseClient;
-
-function initSSE() {
-  sseClient = new SSEClient('/sse/memory-events');
-  sseClient.connect();
-  
-  sseClient.onOpen(() => {
-    if (elements.sseStatus) {
-      elements.sseStatus.className = 'sse-status connected';
-      elements.sseStatus.textContent = 'SSE 已连接';
-    }
-  });
-  
-  sseClient.onError((attempts) => {
-    if (elements.sseStatus) {
-      elements.sseStatus.className = 'sse-status disconnected';
-      if (attempts >= sseClient.maxReconnectAttempts) {
-        elements.sseStatus.textContent = '连接失败，请刷新页面';
-      } else {
-        elements.sseStatus.textContent = `SSE 断开，重连中 (${attempts}/${sseClient.maxReconnectAttempts})`;
-      }
-    }
-  });
 }
 
 // ========== 全局事件绑定 ==========

@@ -188,8 +188,8 @@
 }
 
 .skill-market-cat-btn.active {
-    background: var(--text-primary);
-    color: var(--bg-app);
+    background: var(--bg-canvas);
+    color: var(--text-primary);
     font-weight: 500;
 }
 
@@ -630,8 +630,13 @@
 
 .skill-market-btn-uninstall {
     flex-shrink: 0;
-    font-size: 11px;
-    padding: 3px 10px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: var(--radius-sm);
     color: var(--color-error, #d32f2f);
     opacity: 0;
     transition: opacity var(--transition-fast);

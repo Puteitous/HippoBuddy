@@ -64,43 +64,6 @@ body.desktop-window {
     gap: 2px;
 }
 
-.header .sse-status {
-    font-size: var(--font-size-xs);
-    padding: 4px 10px 4px 8px;
-    border-radius: 20px;
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    margin-left: 4px;
-}
-
-.header .sse-status::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.header .sse-status.connected {
-    background: var(--success-bg);
-    color: var(--success-text);
-}
-
-.header .sse-status.connected::before {
-    background: var(--success-text);
-}
-
-.header .sse-status.disconnected {
-    background: var(--error-bg);
-    color: var(--error-text);
-}
-
-.header .sse-status.disconnected::before {
-    background: var(--error-text);
-}
-
 .header-icon-btn {
     background: transparent;
     border: none;
