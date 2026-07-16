@@ -120,15 +120,41 @@ function launchPackagedBackend(resolve, reject) {
   const jarPath = path.join(resourcesPath, 'hippo-agent.jar');
   const mainClass = 'com.example.agent.DesktopApplication';
 
-  // 优先使用内置 JRE，其次系统 Java
-  const bundledJava = path.join(resourcesPath, 'jre', 'bin',
-    process.platform === 'win32' ? 'java.exe' : 'java');
-  const javaCmd = fs.existsSync(bundledJava) ? bundledJava
-    : (process.platform === 'win32' ? 'java.exe' : 'java');
-
   if (!fs.existsSync(jarPath)) {
     reject(new Error(`JAR 文件不存在: ${jarPath}`));
     return;
+  }
+
+  // 优先使用内置 JRE，其次系统 Java
+  const bundledJava = path.join(resourcesPath, 'jre', 'bin',
+    process.platform === 'win32' ? 'java.exe' : 'java');
+  const hasBundledJre = fs.existsSync(bundledJava);
+
+  let javaCmd;
+  if (hasBundledJre) {
+    javaCmd = bundledJava;
+  } else {
+    // 回退到系统 Java — 先检查版本
+    const sysJava = process.platform === 'win32' ? 'java.exe' : 'java';
+    let version = 0;
+    try {
+      const { execSync } = require('child_process');
+      const raw = execSync(`"${sysJava}" -version 2>&1`).toString();
+      const m = raw.match(/version "(\d+)/);
+      version = m ? parseInt(m[1], 10) : 0;
+    } catch {
+      reject(new Error(
+        '未找到系统 Java（java.exe），请安装 JDK 21+，或重新打包以内置 JRE。'
+      ));
+      return;
+    }
+    if (version < 21) {
+      reject(new Error(
+        `系统 Java 版本过低（${version}），需要 JDK 21+。请升级 Java 或重新打包以内置 JRE。`
+      ));
+      return;
+    }
+    javaCmd = sysJava;
   }
 
   const proc = spawn(javaCmd, ['-cp', jarPath, mainClass], {

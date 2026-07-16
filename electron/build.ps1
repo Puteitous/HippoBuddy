@@ -67,10 +67,14 @@ if (-not $SkipJre) {
 
     Write-Host "      Analyzing module dependencies (jdeps)..." -ForegroundColor Gray
     try {
-        $jdepsOut = java -jar "$Env:JAVA_HOME\lib\jdeps.jar" --print-module-deps --ignore-missing-deps $JarFile 2>&1
+        $jdepsOut = & jdeps --print-module-deps --ignore-missing-deps $JarFile 2>&1
         if ($LASTEXITCODE -eq 0) {
-            $ModuleList = ($jdepsOut | Out-String).Trim()
-            Write-Host "      jdeps result: $ModuleList" -ForegroundColor Gray
+            $autoModules = ($jdepsOut | Out-String).Trim()
+            Write-Host "      jdeps result: $autoModules" -ForegroundColor Gray
+            # 以 jdeps 检测结果为基，补充运行期可能需要的模块
+            $extra = @('java.logging', 'jdk.crypto.ec', 'jdk.crypto.cryptoki')
+            $combined = ($autoModules -split ',' ) + $extra | Select-Object -Unique
+            $ModuleList = ($combined | Where-Object { $_ -match '\S' }) -join ','
         }
     } catch {
         Write-Host "      jdeps failed, falling back to default module list" -ForegroundColor DarkYellow
@@ -80,17 +84,19 @@ if (-not $SkipJre) {
     if (-not $ModuleList) {
         $ModuleList = @(
             'java.base',              # Core
+            'java.desktop',           # AWT headless (WebApplication) + POI PPT 渲染
+            'java.instrument',        # 字节码操作库
             'java.logging',           # SLF4J / Logback
-            'java.xml',               # Jackson / POI
-            'java.net.http',          # OkHttp / HTTP client
-            'jdk.httpserver',         # com.sun.net.httpserver (DashboardServer)
             'java.management',        # Logback JMX
             'java.naming',            # JNDI (transitive deps)
-            'jdk.unsupported',        # sun.misc.Unsafe (Jackson/OkHttp)
+            'java.net.http',          # OkHttp / HTTP client
+            'java.security.jgss',     # 安全认证 (HTTP client)
             'java.sql',               # Transitive deps
+            'java.xml',               # Jackson / POI
+            'java.xml.crypto',        # XML 加密 (POI)
             'jdk.crypto.ec',          # HTTPS / TLS
             'jdk.crypto.cryptoki',    # HTTPS / TLS
-            'java.compiler'           # jsoup and others
+            'jdk.httpserver'          # com.sun.net.httpserver (DashboardServer)
         ) -join ','
         Write-Host "      Using default module list: $ModuleList" -ForegroundColor Gray
     }

@@ -1446,6 +1446,10 @@
     animation-play-state: paused;
 }
 
+.chat-panel.has-messages {
+    margin-bottom: 8px;
+}
+
 .chat-panel.has-messages #inputContainer {
     animation: input-container-enter 0.35s ease both;
 }
