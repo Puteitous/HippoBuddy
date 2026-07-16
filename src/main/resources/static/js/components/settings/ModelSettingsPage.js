@@ -37,6 +37,14 @@ const MAX_TOKENS_ITEMS = [
   { label: '131,072', value: '131072' },
 ];
 
+const REASONING_EFFORT_ITEMS = [
+  { label: 'high (默认)', value: 'high' },
+  { label: 'max', value: 'max' },
+];
+
+/** 支持思考模式的 Provider 列表 */
+const THINKING_SUPPORTED_PROVIDERS = ['deepseek', 'openai', 'anthropic'];
+
 export class ModelSettingsPage {
   constructor() {
     this._providerDropdown = null;
@@ -99,6 +107,16 @@ export class ModelSettingsPage {
       this._maxTokensDropdown.destroy();
       this._maxTokensDropdown = null;
     }
+    if (this._reasoningEffortDropdown) {
+      this._reasoningEffortDropdown.destroy();
+      this._reasoningEffortDropdown = null;
+    }
+  }
+
+  /** 判断指定 Provider 是否支持思考模式 */
+  _isThinkingSupported(provider) {
+    if (!provider) return false;
+    return THINKING_SUPPORTED_PROVIDERS.includes(provider.trim().toLowerCase());
   }
 
   // ==================== 加载列表 ====================
@@ -253,12 +271,15 @@ export class ModelSettingsPage {
 
     const title = isNew ? '添加模型' : ('编辑模型: ' + (model.provider || '') + ' · ' + (model.model || model.name || ''));
     const saveText = isNew ? '创建' : '保存';
-    const provider = model?.provider || 'dashscope';
+    const provider = model?.provider || 'deepseek';
     const modelName = model?.model || model?.name || '';
     const baseUrl = model?.baseUrl || '';
     const maxTokens = model?.maxTokens ?? 16384;
     const hasApiKey = model?.hasApiKey;
     const apiKeyValue = model?.apiKeyMasked || '';
+    const thinkingEnabled = model?.thinkingEnabled !== undefined ? model.thinkingEnabled : true;
+    const reasoningEffort = model?.reasoningEffort || 'high';
+    const isThinkingSupported = this._isThinkingSupported(provider);
 
     listEl.innerHTML = `
       <div class="settings-editor">
@@ -279,7 +300,7 @@ export class ModelSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label" for="modelEditModel">Model</label>
             <div class="settings-field-body">
-              <input class="settings-input" id="modelEditModel" type="text" value="${modelName}" placeholder="例如 qwen3.5-plus" style="width:220px;">
+              <input class="settings-input" id="modelEditModel" type="text" value="${modelName}" placeholder="例如 deepseek-v4-flash" style="width:220px;">
             </div>
           </div>
           <div class="settings-field-horizontal">
@@ -299,7 +320,7 @@ export class ModelSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label" for="modelEditBaseUrl">Base URL</label>
             <div class="settings-field-body">
-              <input class="settings-input" id="modelEditBaseUrl" type="text" value="${baseUrl}" placeholder="https://dashscope.aliyuncs.com" style="width:220px;">
+              <input class="settings-input" id="modelEditBaseUrl" type="text" value="${baseUrl}" placeholder="https://api.deepseek.com" style="width:220px;">
             </div>
           </div>
           <div class="settings-field-horizontal">
@@ -309,6 +330,29 @@ export class ModelSettingsPage {
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="modelEditMaxTokens">${maxTokens}</button>
+            </div>
+          </div>
+
+          <!-- 思考模式配置（仅支持思考模式的 Provider 显示） -->
+          <div class="settings-field-horizontal" id="modelEditThinkingSection" style="${isThinkingSupported ? '' : 'display:none;'}">
+            <div class="settings-field-label">
+              <div>Thinking Mode</div>
+              <div class="settings-field-hint">思考链推理，提高回答准确性</div>
+            </div>
+            <div class="settings-field-body">
+              <label class="settings-switch">
+                <input type="checkbox" id="modelEditThinkingEnabled" ${thinkingEnabled ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="settings-field-horizontal" id="modelEditReasoningSection" style="${isThinkingSupported ? '' : 'display:none;'}">
+            <div class="settings-field-label">
+              <div>Reasoning Effort</div>
+              <div class="settings-field-hint">思考强度（仅 Thinking Mode 开启时有效）</div>
+            </div>
+            <div class="settings-field-body">
+              <button class="settings-input settings-provider-btn" id="modelEditReasoningEffort">${reasoningEffort}</button>
             </div>
           </div>
         </div>
@@ -323,6 +367,14 @@ export class ModelSettingsPage {
         trigger: providerBtn,
         items: PROVIDER_ITEMS,
         placement: 'bottom-left',
+        onSelect: (item) => {
+          // Provider 变更时：显示/隐藏思考模式配置区
+          const supported = this._isThinkingSupported(item.value);
+          const thinkingSection = document.getElementById('modelEditThinkingSection');
+          const reasoningSection = document.getElementById('modelEditReasoningSection');
+          if (thinkingSection) thinkingSection.style.display = supported ? '' : 'none';
+          if (reasoningSection) reasoningSection.style.display = supported ? '' : 'none';
+        },
       });
       this._providerDropdown.setSelectedValue(provider);
     }
@@ -337,6 +389,19 @@ export class ModelSettingsPage {
       });
       this._maxTokensDropdown.setSelectedValue(String(maxTokens));
     }
+
+    // 初始化 Reasoning Effort 下拉
+    const reasoningBtn = document.getElementById('modelEditReasoningEffort');
+    if (reasoningBtn) {
+      this._reasoningEffortDropdown = new CustomDropdown({
+        trigger: reasoningBtn,
+        items: REASONING_EFFORT_ITEMS,
+        placement: 'bottom-left',
+      });
+      this._reasoningEffortDropdown.setSelectedValue(reasoningEffort);
+    }
+
+
 
     // API Key 显示/隐藏
     const toggleBtn = document.getElementById('modelEditApiKeyToggle');
@@ -360,7 +425,7 @@ export class ModelSettingsPage {
   }
 
   async _handleSaveEditor(isNew) {
-    const provider = this._providerDropdown?.getSelectedItem()?.value || 'dashscope';
+    const provider = this._providerDropdown?.getSelectedItem()?.value || 'deepseek';
     const modelValue = document.getElementById('modelEditModel')?.value?.trim() || '';
     const baseUrl = document.getElementById('modelEditBaseUrl')?.value?.trim() || '';
     const maxTokens = this._maxTokensDropdown?.getSelectedItem()?.value
@@ -386,6 +451,18 @@ export class ModelSettingsPage {
       maxTokens,
       apiKey: apiKeyInput?.value || '',
     };
+
+    // 思考模式参数（仅支持的 Provider 才发送）
+    if (this._isThinkingSupported(provider)) {
+      const thinkingCheckbox = document.getElementById('modelEditThinkingEnabled');
+      if (thinkingCheckbox) {
+        body.thinkingEnabled = thinkingCheckbox.checked;
+      }
+      const effortDropdown = this._reasoningEffortDropdown;
+      if (effortDropdown) {
+        body.reasoningEffort = effortDropdown.getSelectedItem()?.value || 'high';
+      }
+    }
 
     if (apiKeyInput?.dataset.masked === 'true') {
       delete body.apiKey;

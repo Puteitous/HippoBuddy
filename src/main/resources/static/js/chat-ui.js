@@ -140,7 +140,6 @@ export class ChatUI {
     const timeDiv = document.createElement('div');
     timeDiv.className = 'message-time';
     timeDiv.textContent = formatTime(new Date());
-    msgDiv.appendChild(timeDiv);
 
     const btnContainer = document.createElement('div');
     btnContainer.className = 'message-actions';
@@ -161,9 +160,16 @@ export class ChatUI {
     });
     btnContainer.appendChild(copyBtn);
 
-    // btnContainer 先 append，让它在 msgDiv 左侧
-    row.appendChild(btnContainer);
-    row.appendChild(msgDiv);
+    const footer = document.createElement('div');
+    footer.className = 'message-footer';
+    footer.appendChild(btnContainer);
+    footer.appendChild(timeDiv);
+
+    const msgWrap = document.createElement('div');
+    msgWrap.className = 'message-user-wrap';
+    msgWrap.appendChild(msgDiv);
+    msgWrap.appendChild(footer);
+    row.appendChild(msgWrap);
     
     this.container.appendChild(row);
     if (animate) {
@@ -240,8 +246,8 @@ export class ChatUI {
     filePopover.className = 'message-file-popover';
     fileIndicator.appendChild(filePopover);
 
+    btnContainer.appendChild(fileIndicator);
     footer.appendChild(btnContainer);
-    footer.appendChild(fileIndicator);
 
     msgDiv.appendChild(footer);
     

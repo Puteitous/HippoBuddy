@@ -1,8 +1,8 @@
 llm:
-  provider: dashscope
-  api_key: ${DASHSCOPE_API_KEY:-your-api-key-here}
-  model: qwen3.5-plus
-  base_url: https://dashscope.aliyuncs.com
+  provider: deepseek
+  api_key: ${DEEPSEEK_API_KEY:-your-api-key-here}
+  model: deepseek-v4-flash
+  base_url: https://api.deepseek.com
   max_tokens: 0                     # 单次 LLM 调用输出上限（0=不限制，使用模型默认值）
                                     # 限制范围：reasoning_content（思维链）+ content（回答）
                                     # 不涉及：工具定义（tools 参数）、工具执行结果（属于后续请求的输入）

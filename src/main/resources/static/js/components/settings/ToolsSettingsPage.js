@@ -126,8 +126,8 @@ export class ToolsSettingsPage {
             <label class="settings-field-label" for="toolsBashWhitelist">
               命令白名单 <span class="settings-field-hint">(逗号分隔，留空=允许全部)</span>
             </label>
-            <textarea class="settings-input" id="toolsBashWhitelist" rows="2" placeholder="git, mvn, npm, docker, ls, cat, grep"
-              style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;">${whitelistStr}</textarea>
+            <textarea class="settings-input" id="toolsBashWhitelist" rows="1" placeholder="git, mvn, npm, docker, ls, cat, grep"
+              style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;width:480px;margin-left:auto;">${whitelistStr}</textarea>
           </div>
         </div>
       </div>

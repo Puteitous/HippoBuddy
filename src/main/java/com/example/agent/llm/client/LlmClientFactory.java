@@ -218,7 +218,7 @@ public class LlmClientFactory {
             case OLLAMA:
                 return OllamaLlmClient.getDefaultModelStatic();
             case DEEPSEEK:
-                return "deepseek-chat";
+                return "deepseek-v4-flash";
             case ZHIPU:
                 return "GLM-4.7-Flash";
             case MOONSHOT:

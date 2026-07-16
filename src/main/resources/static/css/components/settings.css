@@ -228,6 +228,7 @@
     font-size: var(--font-size-md);
     color: var(--text-muted);
     font-weight: 400;
+    white-space: nowrap;
 }
 
 .settings-field-body {

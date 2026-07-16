@@ -1787,7 +1787,6 @@ export class ChatPanel {
             const timeDiv = document.createElement('div');
             timeDiv.className = 'message-time';
             timeDiv.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-            userMsgDiv.appendChild(timeDiv);
 
             const btnContainer = document.createElement('div');
             btnContainer.className = 'message-actions';
@@ -1808,9 +1807,16 @@ export class ChatPanel {
             });
             btnContainer.appendChild(copyBtn);
 
-            // btnContainer 先 append，让它在 msgDiv 左侧
-            userRow.appendChild(btnContainer);
-            userRow.appendChild(userMsgDiv);
+            const footer = document.createElement('div');
+            footer.className = 'message-footer';
+            footer.appendChild(btnContainer);
+            footer.appendChild(timeDiv);
+
+            const msgWrap = document.createElement('div');
+            msgWrap.className = 'message-user-wrap';
+            msgWrap.appendChild(userMsgDiv);
+            msgWrap.appendChild(footer);
+            userRow.appendChild(msgWrap);
             fragment.appendChild(userRow);
           }
           continue;
@@ -1985,10 +1991,10 @@ export class ChatPanel {
 
           const footer = document.createElement('div');
           footer.className = 'message-footer';
-          footer.appendChild(btnContainer);
           if (filesFromSegments.length > 0) {
-            footer.appendChild(fileIndicator);
+            btnContainer.appendChild(fileIndicator);
           }
+          footer.appendChild(btnContainer);
           msgDiv.appendChild(footer);
 
           // 检查是否有工具正在等待用户确认 → 隐藏 footer（对话未完成不应显示操作按钮）

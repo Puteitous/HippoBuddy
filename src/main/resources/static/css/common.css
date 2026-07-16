@@ -580,19 +580,11 @@ input, textarea {
 @keyframes title-impact {
   0% {
     opacity: 0;
-    transform: translateX(120px);
+    transform: translateX(60px);
     max-width: 0;
   }
-  40% {
+  60% {
     opacity: 1;
-    transform: translateX(-5px);
-    max-width: 300px;
-  }
-  65% {
-    transform: translateX(3px);
-  }
-  85% {
-    transform: translateX(-1px);
   }
   100% {
     opacity: 1;

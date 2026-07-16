@@ -15,7 +15,7 @@ public class LlmConfig {
     private static final double DEFAULT_TEMPERATURE = 0.7;
     private static final int DEFAULT_TIMEOUT = 60000;
 
-    private String provider = "dashscope";
+    private String provider;
     
     @JsonProperty("api_key")
     private String apiKey;
@@ -23,10 +23,10 @@ public class LlmConfig {
     @JsonProperty("server_cache")
     private boolean serverCache = false;
     
-    private String model = "qwen3.5-plus";
+    private String model;
     
     @JsonProperty("base_url")
-    private String baseUrl = "https://dashscope.aliyuncs.com";
+    private String baseUrl;
     
     @JsonProperty("max_tokens")
     private int maxTokens = DEFAULT_MAX_TOKENS;

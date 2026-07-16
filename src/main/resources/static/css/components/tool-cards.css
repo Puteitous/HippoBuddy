@@ -1726,7 +1726,7 @@
 }
 
 .rollback-inline-file .file-status-letter.action-restore {
-    color: #1565c0;
+    color: rgb(212, 148, 51);
 }
 
 .rollback-inline-file .file-icon {
