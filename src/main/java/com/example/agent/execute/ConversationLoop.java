@@ -280,8 +280,7 @@ public class ConversationLoop {
         }
         
         if (context == null || context.getConfig() == null || 
-            context.getConfig().getSession() == null ||
-            !context.getConfig().getSession().isPersistSessions()) {
+            context.getConfig().getSession() == null) {
             return;
         }
         

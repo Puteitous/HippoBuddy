@@ -46,7 +46,7 @@
   --error-text:    #c62828;
   --error-hover:   #b71c1c;
 
-  --warning-color: #ff9800;
+  --warning-color: rgb(212, 148, 51);
   --warning-bg:    #fff3e0;
 
   /* --- 阴影 --- */

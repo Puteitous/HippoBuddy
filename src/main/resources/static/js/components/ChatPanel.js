@@ -426,7 +426,7 @@ export class ChatPanel {
         const ref = hasLines
           ? `@${c.dataset.filePath}:${sl}-${el}`
           : `@${c.dataset.filePath}`;
-        // 二进制文件预览带选中文字 → 追加在 @path 后面
+        // 带选中文字（行数≤50的代码选区 / 二进制文件预览）→ 追加在 @path 后面
         if (c.dataset.selectedText) {
           return ref + '\n```\n' + c.dataset.selectedText + '\n```';
         }
@@ -1525,10 +1525,6 @@ export class ChatPanel {
       }
     });
 
-    // [诊断] 记录全量 tool segment 状态快照
-    const segSnapshots = toolSegments.map((s, i) => `[${i}]${s.name}=${s.result || 'running'}`);
-    console.warn(`[ChatPanel] _healStuckToolCards: segs=[${segSnapshots.join(', ')}] stuck=${stuckStatuses.size} modified=${modified.length} session=${appState.currentSessionId}`);
-
     if (stuckStatuses.size === 0) {
       // 没有 stuck 的卡片，但可能来自停止按钮清理了 pending confirm，只需恢复 footer
       if (fromStopBtn) {
@@ -1563,7 +1559,6 @@ export class ChatPanel {
         statusEl.innerHTML = statusSvg;
       }
     });
-    console.warn(`[ChatPanel] _healStuckToolCards DOM modified: ${domModified.join(', ')}`);
 
     // 恢复 footer 显示
     this._restoreFooterAfterHeal(contentDiv);

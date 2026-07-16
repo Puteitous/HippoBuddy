@@ -81,12 +81,21 @@ export function initSelectionActions() {
           const cmView = previewContent._cmPreviewView;
           if (filePath && cmView) {
             const { startLine, endLine } = calcLineNumbers(cmView, selection);
+            // 行数 ≤ 50 时直接把选中文本内容嵌入，省去 LLM 一次 read_file
+            const LINE_THRESHOLD = 50;
+            const lineCount = endLine - startLine + 1;
+            let selectedContent;
+            if (lineCount <= LINE_THRESHOLD) {
+              const sel = cmView.state.selection.main;
+              selectedContent = cmView.state.sliceDoc(sel.from, sel.to);
+            }
             EventBus.emit('selection:add-to-input', {
               text: `${filePath}:${startLine}-${endLine}`,
               refType: 'file',
               filePath,
               startLine,
-              endLine
+              endLine,
+              selectedText: selectedContent
             });
             hideBtn();
             if (selection) selection.removeAllRanges();

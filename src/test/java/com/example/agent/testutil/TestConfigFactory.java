@@ -56,6 +56,5 @@ public final class TestConfigFactory {
     }
 
     public static class Session {
-        public static final int DEFAULT_MAX_HISTORY = 50;
     }
 }

@@ -127,14 +127,6 @@ class ConfigTest {
     }
 
     @Test
-    void testSessionConfigDefaults() throws Exception {
-        Config config = createConfigInstance();
-        SessionConfig session = config.getSession();
-        
-        assertEquals(50, session.getMaxHistory());
-    }
-
-    @Test
     void testUiConfigDefaults() throws Exception {
         Config config = createConfigInstance();
         UiConfig ui = config.getUi();
@@ -245,7 +237,6 @@ class ConfigTest {
                 whitelist: [git, npm]
                 require_confirmation: false
             session:
-              max_history: 100
             ui:
               theme: light
               prompt: "ai>"
@@ -264,8 +255,6 @@ class ConfigTest {
         
         assertFalse(config.getTools().getBash().isEnabled());
         assertFalse(config.getTools().getBash().isRequireConfirmation());
-        
-        assertEquals(100, config.getSession().getMaxHistory());
         
         assertEquals("light", config.getUi().getTheme());
         assertEquals("ai>", config.getUi().getPrompt());

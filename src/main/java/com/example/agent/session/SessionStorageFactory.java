@@ -32,7 +32,7 @@ public class SessionStorageFactory {
         int expireHours = config.getCleanupPeriodDays() * 24;
         long tombstoneThresholdBytes = (long) config.getTombstoneThresholdMb() * 1024 * 1024;
 
-        if (!config.isPersistSessions() || maxSavedSessions == 0) {
+        if (maxSavedSessions == 0) {
             logger.info("会话持久化已禁用，创建内存-only SessionStorage (maxSavedSessions={})", maxSavedSessions);
             expireHours = -1;
         }

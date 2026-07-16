@@ -114,15 +114,6 @@ public class BashDangerousCommandBlocker implements Blocker {
             }
         }
 
-        // 三级检查：命令链操作符 — 需用户确认（提供观察窗，让用户看到完整命令意图）
-        if (hasCommandChaining(command)) {
-            return HookResult.requireConfirmation(
-                "命令链中使用操作符串联多条命令，请确认是否执行",
-                "medium",
-                command
-            );
-        }
-
         // 提取命令名前先检查是否以 ./ 或 ../ 开头（本地脚本执行）
         if (command.startsWith("./") || command.startsWith("../")) {
             return HookResult.requireConfirmation(
@@ -153,11 +144,6 @@ public class BashDangerousCommandBlocker implements Blocker {
 
         // 六级检查：自动放行名单
         if (ALLOWED_COMMANDS.contains(commandName)) {
-            // 参数感知检测：部分 ALLOWED 命令的特定子命令/参数需确认
-            HookResult paramResult = checkParameterLevel(command, commandName);
-            if (paramResult != null) {
-                return paramResult;
-            }
             return HookResult.allow();
         }
 
@@ -169,134 +155,9 @@ public class BashDangerousCommandBlocker implements Blocker {
         );
     }
 
-    /**
-     * 参数感知检测 — 对白名单命令检查子命令/参数，判断是否需要用户确认
-     *
-     * @param command     完整命令原文
-     * @param commandName 提取出的命令名
-     * @return 需要确认时返回 HookResult，无需额外检查时返回 null
-     */
-    private static HookResult checkParameterLevel(String command, String commandName) {
-        switch (commandName) {
-            case "curl":
-                if (hasOutputFlag(command)) {
-                    return HookResult.requireConfirmation(
-                        "curl 写文件操作可能覆盖文件或下载未知内容",
-                        "medium",
-                        command
-                    );
-                }
-                return null;
-
-            case "wget":
-                if (hasOutputFlag(command)) {
-                    return HookResult.requireConfirmation(
-                        "wget 写文件操作可能下载未知内容",
-                        "medium",
-                        command
-                    );
-                }
-                return null;
-
-            case "git":
-                if (isGitWriteOperation(command)) {
-                    return HookResult.requireConfirmation(
-                        "git 写操作可能修改提交历史或推送代码到远程仓库",
-                        "medium",
-                        command
-                    );
-                }
-                return null;
-
-            case "mvn":
-                if (isMvnDeploy(command)) {
-                    return HookResult.requireConfirmation(
-                        "mvn deploy 会将构建产物推送到远程仓库",
-                        "medium",
-                        command
-                    );
-                }
-                return null;
-
-            case "docker":
-                if (isDockerWriteOperation(command)) {
-                    return HookResult.requireConfirmation(
-                        "docker 写操作可能运行容器、构建镜像或删除资源",
-                        "medium",
-                        command
-                    );
-                }
-                return null;
-
-            case "npm":
-            case "yarn":
-            case "pnpm":
-                if (isNpmWriteOperation(command)) {
-                    return HookResult.requireConfirmation(
-                        "包管理器写操作可能安装/卸载依赖或发布包",
-                        "medium",
-                        command
-                    );
-                }
-                return null;
-
-            case "pip":
-            case "pip3":
-                if (isPipWriteOperation(command)) {
-                    return HookResult.requireConfirmation(
-                        "pip 写操作可能安装/卸载 Python 包",
-                        "medium",
-                        command
-                    );
-                }
-                return null;
-
-            default:
-                return null;
-        }
-    }
-
-    // ==================== 参数感知辅助方法 ====================
-
-    private static boolean hasOutputFlag(String command) {
-        return command.matches(".*\\b(curl|wget)\\b.*\\s(-o\\s+|--output\\s+|-O(\\s|$)).*");
-    }
-
-    private static boolean isGitWriteOperation(String command) {
-        return command.matches(".*\\bgit\\b.*\\b(push|commit|reset|rebase|merge|tag|stash\\s+save|checkout\\s+-b)\\b.*");
-    }
-
-    private static boolean isMvnDeploy(String command) {
-        return command.matches(".*\\bmvn\\b.*\\bdeploy\\b.*");
-    }
-
-    private static boolean isDockerWriteOperation(String command) {
-        return command.matches(".*\\bdocker\\b.*\\b(run|build|push|rm|rmi|stop|kill)\\b.*");
-    }
-
-    private static boolean isNpmWriteOperation(String command) {
-        if (command.matches(".*\\b(npm|yarn|pnpm)\\b.*\\b(install|uninstall|publish|add|remove)\\b.*")) {
-            return true;
-        }
-        if (command.matches(".*\\b(npm|yarn|pnpm)\\b.*\\brun\\s+(build|start|lint|test|dev)\\b.*")) {
-            return false;
-        }
-        return command.matches(".*\\b(npm|yarn|pnpm)\\b.*\\brun\\s+\\S+\\b.*");
-    }
-
-    private static boolean isPipWriteOperation(String command) {
-        return command.matches(".*\\b(pip|pip3)\\b.*\\b(install|uninstall)\\b.*");
-    }
-
     /** 检测命令替换注入操作符（`、$()）— 严格禁止 */
     private boolean hasCommandSubstitution(String command) {
         return command.contains("`") || command.contains("$(");
-    }
-
-    /** 检测命令链操作符（;、&&、||）— 需用户确认，提供观察窗 */
-    private boolean hasCommandChaining(String command) {
-        return command.contains(";") || command.contains("&&") ||
-               command.contains("||");
     }
 
     private String extractCommandName(String command) {

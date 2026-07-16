@@ -137,7 +137,6 @@ public class AgentUi {
         }
         println();
         println(ConsoleStyle.boldCyan("  [会话配置]"));
-        println(ConsoleStyle.green("  最大历史: ") + config.getSession().getMaxHistory());
         println();
         println(ConsoleStyle.boldCyan("  [UI 配置]"));
         println(ConsoleStyle.green("  主题: ") + config.getUi().getTheme());

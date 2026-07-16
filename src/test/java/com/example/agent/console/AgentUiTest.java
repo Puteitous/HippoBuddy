@@ -56,7 +56,6 @@ class AgentUiTest {
         
         // Mock SessionConfig
         SessionConfig sessionConfig = mock(SessionConfig.class);
-        when(sessionConfig.getMaxHistory()).thenReturn(100);
         when(config.getSession()).thenReturn(sessionConfig);
         
         // Mock UiConfig

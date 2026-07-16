@@ -102,6 +102,9 @@ export function renderToolTimelineDetailContent(tool) {
   if (name === 'web_fetch') {
     return renderWebFetchDetail(tool);
   }
+  if (name === 'undo_file') {
+    return '';
+  }
   return renderDefaultToolDetail(tool);
 }
 
@@ -174,6 +177,9 @@ export function renderToolTimelineRow(tool) {
         diffStatsHtml = `<span class="timeline-diff-stats"><span class="diff-add">+${lineCount}</span></span>`;
       }
     }
+  } else if (name === 'undo_file') {
+    const args = parseToolArgs(tool.args);
+    summary = args.path || '';
   } else if (name === 'read_office_file' || name === 'write_office_file') {
     const args = parseToolArgs(tool.args);
     summary = args.path || '';
@@ -187,6 +193,7 @@ export function renderToolTimelineRow(tool) {
   // 提取文件路径（用于 timeline summary 可点击跳转）
   let summaryFilePath = '';
   if (name === 'read_file' || name === 'edit_file' || name === 'write_file'
+      || name === 'undo_file'
       || name === 'read_office_file' || name === 'write_office_file') {
     const args = parseToolArgs(tool.args);
     summaryFilePath = args.path || '';
@@ -232,7 +239,7 @@ export function renderToolTimelineRow(tool) {
   let copyBtnHtml = '';
   if (name === 'bash' && summary) {
     const escapedSummary = escapeHtml(summary);
-    const copySvg = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><line x1="6" y1="6" x2="10" y2="6"/><line x1="6" y1="8" x2="10" y2="8"/><line x1="6" y1="10" x2="8" y2="10"/></svg>';
+    const copySvg = '<svg viewBox="0 0 48 48" width="12" height="12" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 12.4316V7.8125C13 6.2592 14.2592 5 15.8125 5H40.1875C41.7408 5 43 6.2592 43 7.8125V32.1875C43 33.7408 41.7408 35 40.1875 35H35.5163"/><path d="M32.1875 13H7.8125C6.2592 13 5 14.2592 5 15.8125V40.1875C5 41.7408 6.2592 43 7.8125 43H32.1875C33.7408 43 35 41.7408 35 40.1875V15.8125C35 14.2592 33.7408 13 32.1875 13Z"/></svg>';
     copyBtnHtml = `<span class="tool-timeline-copy-btn" data-cmd="${escapedSummary}" onclick="event.stopPropagation();const t=this;const os=t.innerHTML;navigator.clipboard.writeText(t.getAttribute('data-cmd')).then(()=>{t.textContent='\\u2713';setTimeout(()=>t.innerHTML=os,1200)})" title="复制命令">${copySvg}</span>`;
   }
 
@@ -244,6 +251,18 @@ export function renderToolTimelineRow(tool) {
     if (fp) {
       const jsFp = fp.replace(/\\/g, '/');
       viewBtnHtml = `<span class="tool-timeline-view-btn" onclick="event.stopPropagation();window.showFileDiff('${escapeHtml(jsFp)}','${escapeHtml(tool.id||'')}')">查看</span>`;
+    }
+  }
+
+  // 如果文件路径以工作区根路径开头，精简为相对路径显示（更简洁易读）
+  const pathTools = ['read_file', 'edit_file', 'write_file', 'undo_file',
+                     'read_office_file', 'write_office_file', 'delete_file',
+                     'lint_diagnostics', 'list_directory'];
+  if (pathTools.includes(name) && summary && window.HippoWorkspace?.currentPath) {
+    const root = window.HippoWorkspace.currentPath.replace(/\\/g, '/') + '/';
+    const normSummary = summary.replace(/\\/g, '/');
+    if (normSummary.startsWith(root)) {
+      summary = normSummary.slice(root.length);
     }
   }
 
@@ -260,8 +279,8 @@ export function renderToolTimelineRow(tool) {
         <span class="tool-timeline-dot">${toolSvg}</span>
         <span class="tool-timeline-name">${escapeHtml(name)}</span>
         <span class="tool-timeline-summary"${summaryFilePath ? ` onclick="event.stopPropagation();window.HippoWorkspace?.navigateToFile?.('${escapeHtml(jsPath)}')" data-file-path="${escapeHtml(summaryFilePath)}"` : ''}>${escapeHtml(summary)}</span>
+                ${copyBtnHtml}
         <span class="tool-timeline-status ${status}">${statusSvg}</span>
-        ${copyBtnHtml}
         ${viewBtnHtml}
       </div>
       ${hasDetail ? `<div class="tool-timeline-detail">${detailHTML}</div>` : ''}

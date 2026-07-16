@@ -114,15 +114,6 @@ export class ToolsSettingsPage {
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">启用</label>
-            <div class="settings-field-body">
-              <label class="settings-switch">
-                <input type="checkbox" id="toolsBashEnabled" ${bash.enabled !== false ? 'checked' : ''}>
-                <span class="settings-switch-slider"></span>
-              </label>
-            </div>
-          </div>
-          <div class="settings-field-horizontal">
             <label class="settings-field-label">需确认</label>
             <div class="settings-field-body">
               <label class="settings-switch">
@@ -227,7 +218,7 @@ export class ToolsSettingsPage {
     }
 
     // 绑定 checkbox 自动保存
-    const checkboxIds = ['toolsBashEnabled', 'toolsBashConfirm', 'toolsSubagentEnabled', 'toolsDeleteFileConfirm'];
+    const checkboxIds = ['toolsBashConfirm', 'toolsSubagentEnabled', 'toolsDeleteFileConfirm'];
     checkboxIds.forEach(id => {
       document.getElementById(id)?.addEventListener('change', () => this._saveConfig());
     });
@@ -244,12 +235,10 @@ export class ToolsSettingsPage {
       const values = {};
 
       // Bash
-      const bashEnabled = document.getElementById('toolsBashEnabled')?.checked;
       const bashConfirm = document.getElementById('toolsBashConfirm')?.checked;
       const whitelistRaw = document.getElementById('toolsBashWhitelist')?.value || '';
       const whitelist = whitelistRaw.split(',').map(s => s.trim()).filter(Boolean);
       values.bash = {
-        enabled: bashEnabled !== false,
         require_confirmation: bashConfirm !== false,
         whitelist,
       };

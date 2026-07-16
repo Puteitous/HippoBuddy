@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 public class SessionConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(SessionConfig.class);
-    private static final int DEFAULT_MAX_HISTORY = 50;
     private static final int DEFAULT_MAX_SAVED_SESSIONS = 1000;
     private static final int MIN_MAX_SAVED_SESSIONS = 0;
     private static final int MAX_MAX_SAVED_SESSIONS = 1000;
@@ -19,17 +18,8 @@ public class SessionConfig {
     private static final int MIN_CLEANUP_PERIOD_DAYS = 1;
     private static final int MAX_CLEANUP_PERIOD_DAYS = 365;
 
-    @JsonProperty("max_history")
-    private int maxHistory = DEFAULT_MAX_HISTORY;
-    
-    @JsonProperty("persist_sessions")
-    private boolean persistSessions = true;
-    
     @JsonProperty("max_saved_sessions")
     private int maxSavedSessions = DEFAULT_MAX_SAVED_SESSIONS;
-    
-    @JsonProperty("auto_resume")
-    private boolean autoResume = true;
 
     @JsonProperty("cleanup_period_days")
     private int cleanupPeriodDays = DEFAULT_CLEANUP_PERIOD_DAYS;
@@ -41,27 +31,6 @@ public class SessionConfig {
     private int tombstoneThresholdMb = DEFAULT_TOMBSTONE_THRESHOLD_MB;
 
     public SessionConfig() {
-    }
-
-    public int getMaxHistory() {
-        return maxHistory;
-    }
-
-    public void setMaxHistory(int maxHistory) {
-        if (maxHistory < 0) {
-            logger.warn("maxHistory 不能为负数，使用默认值: {}", DEFAULT_MAX_HISTORY);
-            this.maxHistory = DEFAULT_MAX_HISTORY;
-        } else {
-            this.maxHistory = maxHistory;
-        }
-    }
-
-    public boolean isPersistSessions() {
-        return persistSessions;
-    }
-
-    public void setPersistSessions(boolean persistSessions) {
-        this.persistSessions = persistSessions;
     }
 
     public int getMaxSavedSessions() {
@@ -83,14 +52,6 @@ public class SessionConfig {
                 logger.info("maxSavedSessions 设置为 0，会话持久化将被禁用");
             }
         }
-    }
-
-    public boolean isAutoResume() {
-        return autoResume;
-    }
-
-    public void setAutoResume(boolean autoResume) {
-        this.autoResume = autoResume;
     }
 
     public int getCleanupPeriodDays() {
@@ -129,18 +90,13 @@ public class SessionConfig {
     }
 
     public void validate() {
-        if (maxHistory < 0) {
-            logger.warn("配置验证: maxHistory 为负数，已重置为默认值");
-            maxHistory = DEFAULT_MAX_HISTORY;
-        }
-        
         if (maxSavedSessions < MIN_MAX_SAVED_SESSIONS || maxSavedSessions > MAX_MAX_SAVED_SESSIONS) {
             logger.warn("配置验证: maxSavedSessions 超出范围，已重置为默认值");
             maxSavedSessions = DEFAULT_MAX_SAVED_SESSIONS;
         }
         
-        if (maxSavedSessions == 0 && persistSessions) {
-            logger.warn("配置验证: maxSavedSessions 为 0 但 persistSessions 为 true，会话持久化将被禁用");
+        if (maxSavedSessions == 0) {
+            logger.info("配置验证: maxSavedSessions 为 0，会话持久化将禁用");
         }
 
         if (cleanupPeriodDays < MIN_CLEANUP_PERIOD_DAYS || cleanupPeriodDays > MAX_CLEANUP_PERIOD_DAYS) {
@@ -159,10 +115,7 @@ public class SessionConfig {
     @Override
     public String toString() {
         return "SessionConfig{" +
-                "maxHistory=" + maxHistory +
-                ", persistSessions=" + persistSessions +
-                ", maxSavedSessions=" + maxSavedSessions +
-                ", autoResume=" + autoResume +
+                "maxSavedSessions=" + maxSavedSessions +
                 ", cleanupPeriodDays=" + cleanupPeriodDays +
                 ", enableBackgroundCleanup=" + enableBackgroundCleanup +
                 ", tombstoneThresholdMb=" + tombstoneThresholdMb +

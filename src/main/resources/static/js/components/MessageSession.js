@@ -425,8 +425,6 @@ export class MessageSession {
       const status = seg.result || 'running';
       statusCounts[status] = (statusCounts[status] || 0) + 1;
     }
-    console.warn(`[MessageSession] healStuckCards: ${toolSegs.length} tool segs, status=${JSON.stringify(statusCounts)} session=${this._sessionIdForLog || ''}`);
-
     for (const seg of toolSegs) {
       if (seg.result) continue;
       // 待确认的卡片不属于卡死，跳过（用户未响应或自动确认配置尚未处理）
@@ -442,7 +440,6 @@ export class MessageSession {
     }
 
     if (modified.length > 0) {
-      console.warn(`[MessageSession] healStuckCards modified:`, JSON.stringify(modified));
     }
     return modified;
   }

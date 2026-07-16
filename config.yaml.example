@@ -40,10 +40,7 @@ tools:
     enabled: false
 
 session:
-  max_history: 50
-  persist_sessions: true               # 是否持久化会话到磁盘
-  max_saved_sessions: 1000             # 最大保存会话数
-  auto_resume: true                    # 启动时自动检查可恢复会话
+  max_saved_sessions: 1000             # 最大保存会话数（0 = 禁用持久化）
 
 ui:
   theme: dark
@@ -65,11 +62,6 @@ rule:
   # 规则文件从 .hippo/rules/*.md 加载
   max_tokens: 8000                    # Rule 最大 token 数
   inject_at_startup: true             # 启动时注入
-
-tokenizer:
-  type: tiktoken                      # tiktoken / simple
-  cache_enabled: true                 # 缓存开关
-  cache_max_size: 1000                # 缓存最大条目数
 
 memory:
   # 长期记忆提取配置

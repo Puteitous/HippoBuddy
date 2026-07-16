@@ -28,7 +28,6 @@ public class Config {
     private UiConfig ui = new UiConfig();
     private ContextConfig context = new ContextConfig();
 
-    private TokenEstimatorConfig tokenizer = new TokenEstimatorConfig();
     private RuleConfig rule = new RuleConfig();
 
     private McpConfig mcp = new McpConfig();
@@ -129,7 +128,6 @@ public class Config {
                 this.ui = reloaded.ui;
                 this.context = reloaded.context;
 
-                this.tokenizer = reloaded.tokenizer;
                 this.rule = reloaded.rule;
 
                 this.mcp = reloaded.mcp;
@@ -246,16 +244,6 @@ public class Config {
         this.context = context;
     }
 
-
-
-    public TokenEstimatorConfig getTokenizer() {
-        return tokenizer;
-    }
-
-    public void setTokenizer(TokenEstimatorConfig tokenizer) {
-        this.tokenizer = tokenizer;
-    }
-
     public RuleConfig getRule() {
         return rule;
     }
@@ -326,8 +314,6 @@ public class Config {
                 ", session=" + session +
                 ", ui=" + ui +
                 ", context=" + context +
-
-                ", tokenizer=" + tokenizer +
                 ", rule=" + rule +
 
                 ", memory=" + memory +

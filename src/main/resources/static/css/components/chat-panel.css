@@ -684,7 +684,7 @@
 .message.user .input-ref-chip {
     cursor: default;
     pointer-events: none;
-    background: var(--bg-code);
+    background: var(--bg-canvas);
     border: 1px solid #d1d5db;
     border-radius: 9999px;
 }

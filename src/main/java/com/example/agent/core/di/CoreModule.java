@@ -54,7 +54,7 @@ public final class CoreModule {
         ServiceLocator.registerSingleton(RetryPolicy.class, RetryPolicy.defaultPolicy());
         logger.info("✅ [Level 1] 基础服务: Config, RetryPolicy");
 
-        TokenEstimator tokenEstimator = TokenEstimatorFactory.create(config);
+        TokenEstimator tokenEstimator = TokenEstimatorFactory.getDefault();
         ServiceLocator.registerSingleton(TokenEstimator.class, tokenEstimator);
         logger.info("✅ [Level 1] 基础服务: TokenEstimator");
 

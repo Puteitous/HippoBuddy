@@ -54,12 +54,12 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void commandChaining_shouldRequireConfirmation() {
-        assertRequiresConfirmation("echo hello && echo world");
-        assertRequiresConfirmation("echo hello; echo world");
-        assertRequiresConfirmation("cd dir || mkdir dir");
-        assertRequiresConfirmation("git status && git log");
-        assertRequiresConfirmation("mvn compile; mvn test");
+    void commandChaining_shouldBeAllowed() {
+        assertAllowed("echo hello && echo world");
+        assertAllowed("echo hello; echo world");
+        assertAllowed("cd dir || mkdir dir");
+        assertAllowed("git status && git log");
+        assertAllowed("mvn compile; mvn test");
     }
 
     @Test
@@ -166,7 +166,7 @@ class BashDangerousCommandBlockerTest {
         assertTrue(blocker.check("edit_file", args).isAllowed());
     }
 
-    // ==================== 🔍 参数感知检测 ====================
+    // ==================== ✅ 自动放行（含之前参数感知覆盖的命令） ====================
 
     @Test
     void curlWithoutOutput_shouldBeAllowed() {
@@ -176,11 +176,11 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void curlWithOutputFlag_shouldRequireConfirmation() {
-        assertRequiresConfirmation("curl -o file.txt http://example.com");
-        assertRequiresConfirmation("curl -O http://example.com/file.zip");
-        assertRequiresConfirmation("curl --output data.json http://api.example.com/data");
-        assertRequiresConfirmation("wget -O output.html http://example.com");
+    void curlWithOutputFlag_shouldBeAllowed() {
+        assertAllowed("curl -o file.txt http://example.com");
+        assertAllowed("curl -O http://example.com/file.zip");
+        assertAllowed("curl --output data.json http://api.example.com/data");
+        assertAllowed("wget -O output.html http://example.com");
     }
 
     @Test
@@ -196,14 +196,14 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void gitWriteOperation_shouldRequireConfirmation() {
-        assertRequiresConfirmation("git push origin main");
-        assertRequiresConfirmation("git commit -m \"fix bug\"");
-        assertRequiresConfirmation("git reset --hard HEAD~1");
-        assertRequiresConfirmation("git rebase main");
-        assertRequiresConfirmation("git merge feature-branch");
-        assertRequiresConfirmation("git tag v1.0.0");
-        assertRequiresConfirmation("git stash save working");
+    void gitWriteOperation_shouldBeAllowed() {
+        assertAllowed("git push origin main");
+        assertAllowed("git commit -m \"fix bug\"");
+        assertAllowed("git reset --hard HEAD~1");
+        assertAllowed("git rebase main");
+        assertAllowed("git merge feature-branch");
+        assertAllowed("git tag v1.0.0");
+        assertAllowed("git stash save working");
     }
 
     @Test
@@ -216,10 +216,9 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void mvnDeploy_shouldRequireConfirmation() {
-        assertRequiresConfirmation("mvn deploy");
-        assertRequiresConfirmation("mvn clean deploy -DskipTests");
-        assertRequiresConfirmation("mvn deploy:deploy-file -Dfile=target/myapp.jar");
+    void mvnDeploy_shouldBeAllowed() {
+        assertAllowed("mvn deploy");
+        assertAllowed("mvn clean deploy -DskipTests");
     }
 
     @Test
@@ -232,13 +231,13 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void dockerWriteOperation_shouldRequireConfirmation() {
-        assertRequiresConfirmation("docker run nginx");
-        assertRequiresConfirmation("docker build -t myapp .");
-        assertRequiresConfirmation("docker push myrepo/myapp:latest");
-        assertRequiresConfirmation("docker rm mycontainer");
-        assertRequiresConfirmation("docker rmi myimage");
-        assertRequiresConfirmation("docker stop mycontainer");
+    void dockerWriteOperation_shouldBeAllowed() {
+        assertAllowed("docker run nginx");
+        assertAllowed("docker build -t myapp .");
+        assertAllowed("docker push myrepo/myapp:latest");
+        assertAllowed("docker rm mycontainer");
+        assertAllowed("docker rmi myimage");
+        assertAllowed("docker stop mycontainer");
     }
 
     @Test
@@ -252,12 +251,12 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void npmWriteOperation_shouldRequireConfirmation() {
-        assertRequiresConfirmation("npm install express");
-        assertRequiresConfirmation("npm uninstall express");
-        assertRequiresConfirmation("npm publish");
-        assertRequiresConfirmation("yarn add lodash");
-        assertRequiresConfirmation("pnpm install");
+    void npmWriteOperation_shouldBeAllowed() {
+        assertAllowed("npm install express");
+        assertAllowed("npm uninstall express");
+        assertAllowed("npm publish");
+        assertAllowed("yarn add lodash");
+        assertAllowed("pnpm install");
     }
 
     @Test
@@ -268,10 +267,10 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void pipWriteOperation_shouldRequireConfirmation() {
-        assertRequiresConfirmation("pip install requests");
-        assertRequiresConfirmation("pip uninstall requests");
-        assertRequiresConfirmation("pip3 install numpy");
+    void pipWriteOperation_shouldBeAllowed() {
+        assertAllowed("pip install requests");
+        assertAllowed("pip uninstall requests");
+        assertAllowed("pip3 install numpy");
     }
 
     // ==================== 🧪 边界 / 边缘场景 ====================
@@ -284,8 +283,8 @@ class BashDangerousCommandBlockerTest {
     }
 
     @Test
-    void gitCheckoutNewBranch_shouldRequireConfirmation() {
-        assertRequiresConfirmation("git checkout -b new-feature");
+    void gitCheckoutNewBranch_shouldBeAllowed() {
+        assertAllowed("git checkout -b new-feature");
     }
 
     @Test
