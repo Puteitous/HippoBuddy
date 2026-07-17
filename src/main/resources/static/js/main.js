@@ -30,6 +30,7 @@ import { CustomDropdown } from './utils/dropdown.js';
 import { ConfirmDialog } from './utils/modal.js';
 import { SettingsPanel } from './components/SettingsPanel.js';
 import { SkillMarket } from './components/SkillMarket.js';
+import { OnboardingTour } from './components/OnboardingTour.js';
 
 // ========== 全局状态 ==========
 let currentSessionId = null;
@@ -331,6 +332,11 @@ function init() {
 
   // 15. 安排 splash 结束 + 页面内容渐入
   splashScreen.scheduleCleanup();
+  
+  // 16. 新手指引（首次启动时展示）
+  const onboardingTour = new OnboardingTour();
+  // 延迟启动，等 splash 动画完成、DOM 完全就绪
+  setTimeout(() => onboardingTour.start(), 3000);
   
   console.log('✅ Hippo Cockpit initialized');
 }

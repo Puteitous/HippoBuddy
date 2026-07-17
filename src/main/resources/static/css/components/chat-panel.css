@@ -1446,7 +1446,7 @@
     animation-play-state: paused;
 }
 
-.chat-panel.has-messages {
+.chat-panel {
     margin-bottom: 8px;
 }
 

@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Maven-3.9-C71A36?logo=apache-maven&logoColor=white" alt="Maven">
   <img src="https://img.shields.io/github/v/release/Puteitous/HippoBuddy?logo=github" alt="Release">
   <img src="https://img.shields.io/github/stars/Puteitous/HippoBuddy?style=flat&logo=github" alt="Stars">
-  <img src="https://img.shields.io/badge/license-MIT-555555" alt="License">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-555555" alt="License">
   <img src="https://img.shields.io/badge/platform-Desktop%20%7C%20Web-555555" alt="Platform">
   <img src="https://img.shields.io/github/last-commit/Puteitous/HippoBuddy" alt="Last Commit">
 </p>

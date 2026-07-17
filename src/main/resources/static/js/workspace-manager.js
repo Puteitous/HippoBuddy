@@ -264,6 +264,64 @@ const HippoWorkspace = (() => {
 
   // ========== 公开 API ==========
 
+  // ── 默认工作区欢迎文件 ──
+  const WELCOME_FILE_NAME = '👋 欢迎使用 HippoBuddy.md';
+  const WELCOME_FILE_CONTENT = `# 🦛 欢迎使用 HippoBuddy！
+
+> *你的 AI 编程搭档，让写代码像聊天一样自然。*
+
+---
+
+## 🚀 快速上手
+
+### 1️⃣ 开始对话
+
+在右侧聊天面板中描述你的需求，按 \`Enter\` 发送。例如：
+
+> *"帮我写一个 Python 的快速排序算法"*
+> *"分析这个项目的代码结构"*
+> *"给这段代码写单元测试"*
+
+### 2️⃣ 打开项目文件夹
+
+点击顶部工具栏的 **📂 文件夹图标**，选择你的项目目录。
+
+支持：**Java** · **Python** · **JavaScript** · **TypeScript** · **Go** · **Rust** 等主流语言。
+
+### 3️⃣ 探索功能
+
+| 区域 | 功能 |
+|---|---|
+| 🔧 **右侧工具栏** | Token 统计 · 实时监控 · 文件变更 · 终端 · 浏览器 · 技能市场 |
+| 📋 **左侧会话列表** | 管理对话历史 · 重命名 · 分叉讨论 |
+| ⚙️ **顶部设置** | 切换 AI 模型 · 主题切换 · 系统设置 |
+
+---
+
+## 💡 小技巧
+
+- **拖拽文件** 到输入框，AI 可以读取并分析
+- **选中代码** 后点击 💡 图标，快速解释或优化
+- **会话分叉**：点击会话右上角分叉按钮，从某条消息继续探索
+- **暗色模式**：点击顶部 🌙 图标切换
+
+---
+
+## 📚 需要帮助？
+
+试试直接提问，比如：
+
+- *"这个怎么用？"*
+- *"帮我写个 Hello World"*
+- *"如何打开我的项目文件夹？"*
+
+或点击右侧聊天面板上方的 **快捷建议** 按钮一键开始。
+
+---
+
+*Happy Coding! 🎉*
+`;
+
   const api = {
     get isAvailable() { return true; },
     get currentPath() { return _currentRoot; },
@@ -311,6 +369,29 @@ const HippoWorkspace = (() => {
 
       // 恢复上次打开的标签页和预览
       _restoreWorkspaceSession();
+
+      // ── 默认工作区：首次启动时创建并打开欢迎文件 ──
+      if (isDefault && fileTabs.count === 0 && window.HippoDesktop?.writeFile) {
+        const welcomePath = _currentRoot + '/' + WELCOME_FILE_NAME;
+        // 用 localStorage 标记是否已展示过（清除数据或重置后重新展示）
+        const welcomeKey = 'hippo-welcome-shown-' + _currentRoot.replace(/[\\/:]/g, '_');
+        if (!localStorage.getItem(welcomeKey)) {
+          try {
+            // 检查文件是否已存在
+            const dir = await window.HippoDesktop.readDir(_currentRoot);
+            const exists = dir?.entries?.some(e => e.name === WELCOME_FILE_NAME);
+            if (!exists) {
+              await window.HippoDesktop.writeFile(welcomePath, WELCOME_FILE_CONTENT);
+            }
+            // 标记已展示（但不清除，这样即使用户删了文件，重新打开默认工作区也不会再次创建）
+            localStorage.setItem(welcomeKey, '1');
+            // 打开欢迎文件
+            await handleFileSelect(welcomePath);
+          } catch (e) {
+            console.warn('[Workspace] 创建欢迎文件失败:', e);
+          }
+        }
+      }
     },
 
     async clearWorkspace() {
