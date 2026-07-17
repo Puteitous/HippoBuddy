@@ -1,14 +1,14 @@
-<h1 align="center">🦛 HippoBuddy</h1>
+<h1 align="center">HippoBuddy</h1>
 
-<p align="center">原生桌面 · 多标签工作台 · 以工作区为核心的 AI 桌面伙伴</p>
+<p align="center">AI-powered desktop assistant for chat, coding, and office productivity.</p>
 
 <p align="center">
-  简体中文 ｜ <a href="./docs/README.en.md">English</a>
+  <a href="./docs/README.zh.md">简体中文</a> ｜ English
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white" alt="Java 21">
-  <img src="https://img.shields.io/badge/Maven-3.9-C71A36?logo=apache-maven&logoColor=white" alt="Maven">
+  <img src="https://img.shields.io/badge/Electron-32-47848F?logo=electron&logoColor=white" alt="Electron">
   <img src="https://img.shields.io/github/v/release/Puteitous/HippoBuddy?logo=github" alt="Release">
   <img src="https://img.shields.io/github/stars/Puteitous/HippoBuddy?style=flat&logo=github" alt="Stars">
   <img src="https://img.shields.io/badge/license-Apache%202.0-555555" alt="License">
@@ -17,104 +17,103 @@
 </p>
 
 <p align="center">
-  <img src="./image-1.png" alt="HippoBuddy 界面预览" width="100%">
+  <img src="../image.png" alt="HippoBuddy Screenshot" width="100%">
 </p>
-
-<p align="center">
-  <img src="./image.png" alt="HippoBuddy 界面预览" width="100%">
-</p>
-
-HippoBuddy 是一个以**工作区文件夹为核心**的 AI 桌面伙伴。打开一个文件夹，就能和 Agent 一起写代码、改文件、跑脚本、整理文档、分析项目。支持 DeepSeek / Claude / GPT 等主流模型，数据全在本地。
-
-> 不是 IDE，不是自动化机器人，是你桌上一起干活的小伙伴。
 
 ---
 
-## 它能做什么
+## Download
 
-- **编写与修改代码** — 用 Agent 理解项目上下文，自动生成、修改、重构代码
-- **文件操作与管理** — 读、写、编辑、删除文件，支持回滚与 diff 确认
-- **运行命令与脚本** — 在终端执行命令，查看输出并根据结果继续工作
-- **阅读多种文档** — 支持 Markdown、Word、Excel、PDF 等格式预览
-- **分析项目结构** — 理解项目全貌，给出架构建议或生成文档
-- **知识关联** — 跨会话长期记忆，自动提取关键信息并沉淀
+| Platform | Download |
+|---|---|
+| **Windows** | [HippoBuddy Setup 1.0.0.exe](https://github.com/Puteitous/Hippo-Code/releases) |
+| macOS / Linux | Coming soon |
 
-## 核心特性
-
-- **多标签页工作台** — 文件预览、对话、工具面板独立共存，不互相覆盖
-- **多模型自由切换** — DeepSeek / Claude / GPT / Ollama 本地模型，不绑定
-- **交互式协作** — 看着 Agent 干活，随时介入修正，不是黑盒自动化
-- **文件变更可视** — 每次修改可 diff、可回撤、可审查
-- **安全可控** — 危险操作弹窗确认，并发编辑检测，沙箱隔离
-- **桌面原生** — 本地文件系统、无标题栏窗口、拖拽操作
-- **双端统一** — 桌面窗口 / Web Dashboard 共用同一核心
+Built-in JRE -- download, install, and go. No Java setup required.
 
 ---
 
-## 快速开始
+## Features
+
+| Feature | Description |
+|---|---|
+| **Smart Chat** | Chat / Code / Office modes, switch anytime |
+| **AI Coding** | Understand project context, generate & refactor code |
+| **File Ops** | Read, write, edit, delete with diff & rollback |
+| **Sessions** | Create, rename, delete, fork discussions |
+| **Toolbox** | Token stats, terminal, browser, live monitor |
+| **Onboarding** | Spotlight tour on first launch |
+
+---
+
+## Quick Start
+
+### Desktop (Recommended)
+
+Download installer -> Install -> Launch -> Start using
+
+### From Source
 
 ```bash
-mvn compile -q                          # 编译
-mvn test -q                             # 运行测试
-mvn package -DskipTests                 # 打包
+# Compile
+mvn compile -q
+
+# Run Web
+mvn exec:java -Dexec.mainClass="com.example.agent.WebApplication"
+
+# Run Desktop
+mvn exec:java -Dexec.mainClass="com.example.agent.DesktopApplication"
 ```
 
 ---
 
-## 启动方式
+## Configuration
 
-| 入口        | 命令                                          | 说明                 |
-| ----------- | --------------------------------------------- | -------------------- |
-| ~~CLI~~     | ~~`java com.example.agent.CliApplication`~~   | ~~❌ 已废弃~~            |
-| Web         | `java com.example.agent.WebApplication`       | 纯 Web 服务          |
-| Desktop     | `java com.example.agent.DesktopApplication`   | 桌面窗口             |
-
----
-
-## 配置
-
-复制 `config.yaml.example` 为 `config.yaml`，修改 LLM 配置：
+Copy `config.yaml.example` to `config.yaml` and set your LLM:
 
 ```yaml
 llm:
   api_key: your-api-key
-  model: gpt-4o
-  base_url: https://api.openai.com/v1
+  model: deepseek-chat
+  base_url: https://api.deepseek.com/v1
 ```
 
----
-
-> ⚠️ **CLI 终端入口已废弃**，后续版本将彻底移除。请使用桌面端（Desktop）或 Web 端启动。
-> 
-> CLI 相关代码（`CliApplication.java`、`CommandDispatcher.java`）已在当前版本中移除。
-> Git 历史中可回溯查看。
+Supports DeepSeek / Claude / GPT / Ollama local models.
 
 ---
 
-## 项目结构
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Desktop Shell | **Electron 32** |
+| Frontend | Vanilla JS + CSS |
+| Backend | **Java 21** + Virtual Threads |
+| Build | Maven 3.9 |
+| AI Protocol | OpenAI SDK / Ollama / DashScope |
+| Testing | JUnit 5 + Playwright |
+
+---
+
+## Project Structure
 
 ```
 src/main/java/com/example/agent/
-├── WebApplication.java           Web 入口
-├── DesktopApplication.java       桌面端入口
-├── core/                         核心模块（上下文、安全拦截、事件总线）
-├── llm/                          LLM 客户端（OpenAI / Ollama / DashScope）
-├── tools/                        内置工具集（20+ 工具）
-├── orchestrator/                 DAG 任务编排引擎
-├── subagent/                     多代理系统
-├── mcp/                          MCP 协议集成
-├── lsp/                          LSP 语言服务
-├── memory/                       长期记忆系统
-├── progress/                     进度展示（Diff、Spinner、ToolCard）
-└── config/                       配置中心
+├── WebApplication.java           Web entry
+├── DesktopApplication.java       Desktop entry
+├── core/                         Core modules
+├── llm/                          LLM clients
+├── tools/                        Built-in tools
+├── orchestrator/                 Task orchestration
+├── subagent/                     Multi-agent system
+├── mcp/                          MCP protocol
+├── lsp/                          LSP services
+├── memory/                       Long-term memory
+└── config/                       Configuration
 ```
 
 ---
 
-## 技术栈
+## License
 
-- **Java 21** + 虚拟线程
-- **JLine** 终端交互
-- **Jackson / OkHttp / JTokkit**
-- **JUnit 5 + Mockito**
-- **Maven**
+[Apache License 2.0](../LICENSE)
