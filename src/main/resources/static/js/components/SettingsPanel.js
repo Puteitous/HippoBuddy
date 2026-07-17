@@ -15,15 +15,17 @@ import { ToolsSettingsPage } from './settings/ToolsSettingsPage.js';
 import { McpSettingsPage } from './settings/McpSettingsPage.js';
 
 /** 导航项定义 */
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 const NAV_ITEMS = [
-  { id: 'model',    label: '模型配置', icon: 'M4 4h16v16H4z M9 9h6v6H9z M2 12h2 M20 12h2 M12 2v2 M12 20v2' },
-  { id: 'rules',    label: '规则管理', icon: 'M6 2h8l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M14 2v4h4 M9 13l2 2 4-4' },
-  { id: 'skills',   label: '技能管理', icon: 'M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z' },
-  { id: 'general',  label: '通用设置', icon: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' },
-  { id: 'context',  label: '上下文',   icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
-  { id: 'session',  label: '会话管理', icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
-  { id: 'tools',    label: '工具管理', icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z' },
-  { id: 'mcp',      label: 'MCP',      icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
+  { id: 'model',    key: 'settings.model',    label: () => _t('settings.model'), icon: 'M4 4h16v16H4z M9 9h6v6H9z M2 12h2 M20 12h2 M12 2v2 M12 20v2' },
+  { id: 'rules',    key: 'settings.rules',    label: () => _t('settings.rules'), icon: 'M6 2h8l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M14 2v4h4 M9 13l2 2 4-4' },
+  { id: 'skills',   key: 'settings.skills',   label: () => _t('settings.skills'), icon: 'M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z' },
+  { id: 'general',  key: 'settings.general',  label: () => _t('settings.general'), icon: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' },
+  { id: 'context',  key: 'settings.context',  label: () => _t('settings.context'),   icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
+  { id: 'session',  key: 'settings.session',  label: () => _t('settings.session'), icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
+  { id: 'tools',    key: 'settings.tools',    label: () => _t('settings.tools'), icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z' },
+  { id: 'mcp',      key: 'settings.mcp',      label: () => _t('settings.mcp'), icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
 ];
 
 /** Page 类映射 */
@@ -52,6 +54,14 @@ export class SettingsPanel {
 
     // 清理旧版残留 key
     localStorage.removeItem('hippo-settings-width');
+
+    // 语言切换时更新导航标签
+    this._onI18nChange = () => {
+      if (window.i18n && this._navEl) {
+        window.i18n.applyToDOM(this._navEl);
+      }
+    };
+    window.addEventListener('i18n:change', this._onI18nChange);
 
     this._init();
   }
@@ -117,6 +127,9 @@ export class SettingsPanel {
     if (this._onKeyDown) {
       document.removeEventListener('keydown', this._onKeyDown);
     }
+    if (this._onI18nChange) {
+      window.removeEventListener('i18n:change', this._onI18nChange);
+    }
   }
 
   // ==================== 初始化 DOM ====================
@@ -129,7 +142,8 @@ export class SettingsPanel {
     // ── 关闭按钮 ──
     const closeBtn = document.createElement('button');
     closeBtn.className = 'settings-close-btn';
-    closeBtn.title = '关闭设置 (Esc)';
+    closeBtn.title = _t('settings.close');
+    closeBtn.setAttribute('data-i18n-title', 'settings.close');
     closeBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>';
     closeBtn.addEventListener('click', () => this.close());
     this._overlay.appendChild(closeBtn);
@@ -154,7 +168,8 @@ export class SettingsPanel {
       navItem.appendChild(icon);
 
       const label = document.createElement('span');
-      label.textContent = item.label;
+      label.textContent = typeof item.label === 'function' ? item.label() : item.label;
+      if (item.key) label.dataset.i18n = item.key;
       navItem.appendChild(label);
 
       navItem.addEventListener('click', () => this._switchPage(item.id));

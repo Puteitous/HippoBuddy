@@ -329,13 +329,13 @@ export class FileTabs {
     menu.className = 'file-tabs-context-menu';
     menu.style.display = 'none';
     menu.innerHTML = `
-      <div class="ctx-item" data-action="close-current">关闭当前</div>
-      <div class="ctx-item" data-action="close-others">关闭其他</div>
-      <div class="ctx-item" data-action="close-right">关闭右侧</div>
+      <div class="ctx-item" data-action="close-current">${i18n.t('fileTabs.closeCurrent')}</div>
+      <div class="ctx-item" data-action="close-others">${i18n.t('fileTabs.closeOthers')}</div>
+      <div class="ctx-item" data-action="close-right">${i18n.t('fileTabs.closeRight')}</div>
       <div class="ctx-separator"></div>
-      <div class="ctx-item" data-action="close-all">关闭全部</div>
+      <div class="ctx-item" data-action="close-all">${i18n.t('fileTabs.closeAll')}</div>
       <div class="ctx-separator"></div>
-      <div class="ctx-item" data-action="copy-path">复制文件路径</div>
+      <div class="ctx-item" data-action="copy-path">${i18n.t('fileTabs.copyPath')}</div>
     `;
 
     menu.addEventListener('click', async (e) => {
@@ -525,13 +525,13 @@ export class FileTabs {
     if (dirtyPaths.length === 0) return true;
     const names = dirtyPaths.map(p => this._getDisplayName(p));
     if (names.length === 1) {
-      const result = await ConfirmDialog.closeConfirm(`"${names[0]}" 有未保存的修改，是否保存？`);
+      const result = await ConfirmDialog.closeConfirm(i18n.t('workspace.unsavedSingle', { name: names[0] }));
       return result !== 'cancel';
     }
     const result = await ConfirmDialog.confirm(
-      `${names.length} 个文件有未保存的修改，确定全部关闭吗？`,
-      '全部关闭',
-      '取消'
+      i18n.t('fileTabs.closeAllConfirm', { count: names.length }),
+      i18n.t('fileTabs.closeAllBtn'),
+      i18n.t('modal.cancel')
     );
     return result;
   }

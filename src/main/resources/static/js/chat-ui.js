@@ -1,4 +1,7 @@
 import { formatTime } from './utils.js';
+// i18n 辅助函数
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 import { renderMarkdown } from './markdown-renderer.js';
 import { EventBus } from './utils/event-bus.js';
 import { showToast } from './utils/toast.js';
@@ -31,27 +34,27 @@ export class ChatUI {
         </div>
         <div class="empty-hero-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
-            <button class="mode-btn" data-mode="chat" title="聊天模式 — 只读探索，不动手">
+            <button class="mode-btn" data-mode="chat" title="${_t('chat.mode.chatTitle')}">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
               </svg>
-              聊天
+              ${_t('chat.mode.chat')}
             </button>
-            <button class="mode-btn active" data-mode="coding" title="代码模式 — 全栈工程师">
+            <button class="mode-btn active" data-mode="coding" title="${_t('chat.mode.codeTitle')}">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 3.5 2 8 6 12.5"/>
                 <polyline points="10 3.5 14 8 10 12.5"/>
               </svg>
-              代码
+              ${_t('chat.mode.code')}
             </button>
-            <button class="mode-btn" data-mode="office" title="办公模式 — 文档/表格/演示文稿">
+            <button class="mode-btn" data-mode="office" title="${_t('chat.mode.officeTitle')}">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                 <path d="M9 1v4h4"/>
                 <line x1="5" y1="8" x2="11" y2="8"/>
                 <line x1="5" y1="10" x2="9" y2="10"/>
               </svg>
-              办公
+              ${_t('chat.mode.office')}
             </button>
           </span>
         </div>
@@ -146,7 +149,7 @@ export class ChatUI {
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'message-action-btn';
-    copyBtn.title = '复制';
+    copyBtn.title = _t('chatui.copy');
     copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     copyBtn.addEventListener('click', () => {
       navigator.clipboard.writeText(displayContent).then(() => {
@@ -207,19 +210,19 @@ export class ChatUI {
 
     const retryBtn = document.createElement('button');
     retryBtn.className = 'message-action-btn';
-    retryBtn.title = '重试';
+    retryBtn.title = _t('chatui.retry');
     retryBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
     btnContainer.appendChild(retryBtn);
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'message-action-btn';
-    copyBtn.title = '复制';
+    copyBtn.title = _t('chatui.copy');
     copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     btnContainer.appendChild(copyBtn);
 
     const rollbackBtn = document.createElement('button');
     rollbackBtn.className = 'message-action-btn rollback-btn';
-    rollbackBtn.title = '回退此消息的文件修改';
+    rollbackBtn.title = _t('chatui.rollback');
     rollbackBtn.innerHTML = '↩';
     rollbackBtn.addEventListener('click', () => {
       EventBus.emit('message:rollback', msgDiv);
@@ -228,7 +231,7 @@ export class ChatUI {
 
     const forkBtn = document.createElement('button');
     forkBtn.className = 'message-action-btn fork-btn';
-    forkBtn.title = '从此处分叉为新会话';
+    forkBtn.title = _t('chatui.fork');
     forkBtn.innerHTML = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:14px;height:14px;vertical-align:middle"><path fill="currentColor" d="m76.67 10c-7.366 0-13.337 5.97-13.337 13.333 0 6.204 4.258 11.374 10 12.861v7.139c0 1.841-1.494 3.333-3.333 3.333h-33.333c-3.77 0-7.207 1.299-10 3.412v-13.88c5.742-1.491 10-6.66 10-12.864 0-7.364-5.97-13.334-13.334-13.334s-13.333 5.97-13.333 13.333c0 6.204 4.258 11.374 10 12.858v27.617c-5.742 1.484-10 6.653-10 12.858 0 7.364 5.97 13.334 13.333 13.334s13.333-5.97 13.333-13.333c0-6.205-4.258-11.374-10-12.858v-.476c0-5.523 4.479-10 10-10h33.334c5.521 0 10-4.476 10-10v-7.137c5.739-1.488 10-6.657 10-12.863 0-7.363-5.97-13.333-13.33-13.333z"></path></svg>';
     forkBtn.addEventListener('click', () => {
       EventBus.emit('message:fork', msgDiv);
@@ -272,7 +275,7 @@ export class ChatUI {
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'message-action-btn';
-    copyBtn.title = '复制';
+    copyBtn.title = _t('chatui.copy');
     copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     btnContainer.appendChild(copyBtn);
 
@@ -360,7 +363,7 @@ export class ChatUI {
 
     const undoBtn = card.querySelector('.undo-btn');
     if (undoBtn) undoBtn.disabled = true;
-    if (undoBtn) undoBtn.textContent = '撤销中...';
+    if (undoBtn) undoBtn.textContent = _t('chatui.undoing');
 
     try {
       if (!this.rollbackFile) {
@@ -373,17 +376,17 @@ export class ChatUI {
         ReviewState.markRolledBack(filePath);
         const actionBar = card.querySelector('.file-action-bar');
         if (actionBar) {
-          actionBar.innerHTML = `<span class="file-action-status undone">↩ 已撤销</span>`;
+          actionBar.innerHTML = `<span class="file-action-status undone">${_t('chatui.undone')}</span>`;
         }
       } else {
-        showToast(`撤销失败：${result.error || '未知错误'}`, { type: 'error', duration: 3000 });
+        showToast(`${_t('chatui.undoFailed')}${result.error || _t('chatui.unknownError')}`, { type: 'error', duration: 3000 });
         if (undoBtn) undoBtn.disabled = false;
-        if (undoBtn) undoBtn.textContent = '↩ 撤销';
+        if (undoBtn) undoBtn.textContent = _t('chatui.undo');
       }
     } catch (e) {
       showToast(`撤销失败：${e.message}`, { type: 'error', duration: 3000 });
       if (undoBtn) undoBtn.disabled = false;
-      if (undoBtn) undoBtn.textContent = '↩ 撤销';
+      if (undoBtn) undoBtn.textContent = _t('chatui.undo');
     }
   }
   

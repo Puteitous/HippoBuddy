@@ -51,7 +51,7 @@ const HippoDesktop = (() => {
       const btn = document.getElementById('winMaximize');
       if (btn && typeof maximized === 'boolean') {
         btn.classList.toggle('is-maximized', maximized);
-        btn.title = maximized ? '还原' : '最大化';
+        btn.title = maximized ? i18n.t('window.restore') : i18n.t('html.header.maximize');
       }
       document.body.classList.toggle('window-maximized', maximized);
     } catch {
@@ -79,7 +79,7 @@ const HippoDesktop = (() => {
     if (maximizeBtn) {
       maximizeBtn.addEventListener('click', () => {
         maximizeBtn.classList.toggle('is-maximized');
-        maximizeBtn.title = maximizeBtn.classList.contains('is-maximized') ? '还原' : '最大化';
+        maximizeBtn.title = maximizeBtn.classList.contains('is-maximized') ? i18n.t('window.restore') : i18n.t('html.header.maximize');
         api.toggleMaximize()
           .then(() => setTimeout(syncMaximizeState, 100))
           .catch(() => syncMaximizeState());
@@ -91,7 +91,7 @@ const HippoDesktop = (() => {
           if (e.target.closest('button, .window-controls, .header-folder-dropdown, .header-brand-icon')) return;
           if (maximizeBtn) {
             maximizeBtn.classList.toggle('is-maximized');
-            maximizeBtn.title = maximizeBtn.classList.contains('is-maximized') ? '还原' : '最大化';
+            maximizeBtn.title = maximizeBtn.classList.contains('is-maximized') ? i18n.t('window.restore') : i18n.t('html.header.maximize');
           }
           api.toggleMaximize()
             .then(() => setTimeout(syncMaximizeState, 100))
@@ -111,7 +111,7 @@ const HippoDesktop = (() => {
       const btn = document.getElementById('winMaximize');
       if (btn && typeof maximized === 'boolean') {
         btn.classList.toggle('is-maximized', maximized);
-        btn.title = maximized ? '还原' : '最大化';
+        btn.title = maximized ? i18n.t('window.restore') : i18n.t('html.header.maximize');
       }
       document.body.classList.toggle('window-maximized', maximized);
     });

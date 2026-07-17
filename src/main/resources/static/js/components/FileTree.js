@@ -306,27 +306,27 @@ export class FileTree {
     // 无论文件还是文件夹，都提供新建文件/文件夹选项
     // 对文件操作时，会创建在同级目录（父目录）下
     items.push(
-      { action: 'new-file', label: '新建文件', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3z"/><line x1="8" y1="7" x2="8" y2="11"/><line x1="6" y1="9" x2="10" y2="9"/></svg>' },
-      { action: 'new-folder', label: '新建文件夹', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/><line x1="8" y1="8" x2="8" y2="12"/><line x1="6" y1="10" x2="10" y2="10"/></svg>' },
+      { action: 'new-file', label: window.i18n.t('fileTree.newFile'), icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3z"/><line x1="8" y1="7" x2="8" y2="11"/><line x1="6" y1="9" x2="10" y2="9"/></svg>' },
+      { action: 'new-folder', label: window.i18n.t('fileTree.newFolder'), icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/><line x1="8" y1="8" x2="8" y2="12"/><line x1="6" y1="10" x2="10" y2="10"/></svg>' },
       { separator: true }
     );
     items.push(
-      { action: 'copy-absolute', label: '复制绝对路径', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M6 2V1"/><path d="M10 2V1"/></svg>' },
-      { action: 'copy-relative', label: '复制相对路径', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a2 2 0 0 1 2 2v7"/><path d="M2 5l3-3"/><path d="M2 5l3 3"/></svg>' },
+      { action: 'copy-absolute', label: i18n.t('fileTree.copyAbsolutePath'), icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M6 2V1"/><path d="M10 2V1"/></svg>' },
+      { action: 'copy-relative', label: i18n.t('fileTree.copyRelativePath'), icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a2 2 0 0 1 2 2v7"/><path d="M2 5l3-3"/><path d="M2 5l3 3"/></svg>' },
       { separator: true },
-      { action: 'rename', label: '重命名', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 1.5l3 3L5 14H2v-3l9.5-9.5z"/></svg>' },
-      { action: 'delete', label: '删除', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12"/><path d="M5 4V2h6v2"/><path d="M3 4l1 10h8l1-10"/></svg>' }
+      { action: 'rename', label: i18n.t('fileTree.rename'), icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 1.5l3 3L5 14H2v-3l9.5-9.5z"/></svg>' },
+      { action: 'delete', label: i18n.t('fileTree.delete'), icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12"/><path d="M5 4V2h6v2"/><path d="M3 4l1 10h8l1-10"/></svg>' }
     );
     if (window.HippoDesktop?.showItemInFolder) {
       items.push(
         { separator: true },
-        { action: 'show-in-explorer', label: '在资源管理器中显示', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>' }
+        { action: 'show-in-explorer', label: window.i18n.t('fileTree.showInExplorer'), icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>' }
       );
     }
     if (window.HippoDesktop?.openTerminal) {
       items.push(
         { separator: true },
-        { action: 'open-in-terminal', label: '在终端中打开', icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 4 8 8 4 12"/><line x1="11" y1="12" x2="13" y2="12"/></svg>' }
+        { action: 'open-in-terminal', label: window.i18n.t('fileTree.openInTerminal'), icon: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 4 8 8 4 12"/><line x1="11" y1="12" x2="13" y2="12"/></svg>' }
       );
     }
     return items.map(item => {
@@ -381,10 +381,10 @@ export class FileTree {
         const isFile = action === 'new-file';
         // 如果目标不是目录，用其父目录作为新建路径
         const baseDir = this._ctxIsDir ? targetPath : targetPath.substring(0, targetPath.lastIndexOf('/'));
-        const label = isFile ? '文件名' : '文件夹名';
-        const hint = isFile ? '例如: index.js' : '例如: my-folder';
+        const label = isFile ? window.i18n.t('fileTree.fileName') : window.i18n.t('fileTree.folderName');
+        const hint = isFile ? window.i18n.t('fileTree.fileNameHint') : window.i18n.t('fileTree.folderNameHint');
         const name = await this._showInputDialog({
-          title: isFile ? '新建文件' : '新建文件夹',
+          title: isFile ? window.i18n.t('fileTree.newFile') : window.i18n.t('fileTree.newFolder'),
           label,
           hint,
           placeholder: isFile ? 'index.js' : 'my-folder'
@@ -400,15 +400,15 @@ export class FileTree {
           this._doRefresh();
           this._onRefresh();
         } catch (err) {
-          this._showToast('创建失败: ' + err.message);
+          this._showToast(window.i18n.t('fileTree.createFailed') + err.message);
         }
         break;
       }
       case 'rename': {
         const oldName = targetPath.split('/').pop();
         const newName = await this._showInputDialog({
-          title: '重命名',
-          label: '新名称',
+          title: i18n.t('fileTree.renameTitle'),
+          label: i18n.t('fileTree.newName'),
           value: oldName
         });
         if (!newName || newName === oldName) return;
@@ -424,12 +424,12 @@ export class FileTree {
         break;
       }
       case 'delete': {
-        const type = this._ctxIsDir ? '文件夹' : '文件';
+        const type = this._ctxIsDir ? i18n.t('fileTree.folder') : i18n.t('fileTree.file');
         const name = targetPath.split('/').pop();
         const confirmed = await this._showConfirmDialog({
-          title: '删除' + type,
-          message: `确定要删除 <strong>${name}</strong> 吗？`,
-          note: '文件将被移入系统回收站'
+          title: i18n.t('fileTree.delete') + type,
+          message: i18n.t('fileTree.deleteConfirm', { name }),
+          note: i18n.t('fileTree.deleteNote')
         });
         if (!confirmed) return;
         try {
@@ -517,7 +517,7 @@ export class FileTree {
       const confirmBtn = overlay.querySelector('.file-tree-modal-btn-confirm');
 
       // 配置
-      titleEl.textContent = title || '输入';
+      titleEl.textContent = title || i18n.t('fileTree.inputTitle');
       msgEl.textContent = '';
       msgEl.style.display = 'none';
       inputWrap.style.display = '';
@@ -525,7 +525,7 @@ export class FileTree {
       inputEl.value = value || '';
       inputEl.placeholder = placeholder || '';
       inputHint.textContent = hint || '';
-      confirmBtn.textContent = '确认';
+      confirmBtn.textContent = i18n.t('fileTree.confirmBtn');
 
       // 聚焦并全选
       setTimeout(() => {
@@ -582,11 +582,11 @@ export class FileTree {
       const cancelBtn = overlay.querySelector('.file-tree-modal-btn-cancel');
       const confirmBtn = overlay.querySelector('.file-tree-modal-btn-confirm');
 
-      titleEl.textContent = title || '确认';
+      titleEl.textContent = title || i18n.t('fileTree.confirmTitle');
       msgEl.style.display = '';
       msgEl.innerHTML = message || '';
       inputWrap.style.display = 'none';
-      confirmBtn.textContent = '删除';
+      confirmBtn.textContent = i18n.t('fileTree.deleteBtn');
       confirmBtn.className = 'file-tree-modal-btn file-tree-modal-btn-confirm btn-danger';
 
       const cleanup = () => {

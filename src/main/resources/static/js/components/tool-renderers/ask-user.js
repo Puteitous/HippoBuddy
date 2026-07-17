@@ -23,7 +23,7 @@ export function renderAskUserCard(tool) {
     <div class="tool-card ask-user-card">
       <div class="tool-header" onclick="window.toggleToolCardDetails(this)">
         <span class="tool-icon">${askIcon}</span>
-        <span class="tool-title">需要确认</span>
+        <span class="tool-title">${window.i18n?.t('tool.askUser.title') || '需要确认'}</span>
         <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 12 6 8 10 4"/></svg></span>
       </div>
       <div class="tool-call-details">

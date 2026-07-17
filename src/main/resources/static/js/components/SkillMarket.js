@@ -228,9 +228,9 @@ export class SkillMarket {
     const header = document.createElement('div');
     header.className = 'skill-market-header';
     header.innerHTML = `
-      <h2 class="skill-market-title">技能市场</h2>
-      <span class="skill-market-subtitle">浏览社区技能，一键安装到本地</span>
-      <button class="skill-market-close" title="关闭">✕</button>
+      <h2 class="skill-market-title">${i18n.t('skillMarket.title')}</h2>
+      <span class="skill-market-subtitle">${i18n.t('skillMarket.subtitle')}</span>
+      <button class="skill-market-close" title="${i18n.t('skillMarket.previewClose')}">✕</button>
     `;
     header.querySelector('.skill-market-close').addEventListener('click', () => this.close());
     container.appendChild(header);
@@ -274,8 +274,8 @@ export class SkillMarket {
         <circle cx="11" cy="11" r="8"/>
         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
-      <input class="skill-market-search-input" type="text" placeholder="搜索技能名称或描述..." value="${this._escapeHtml(this._searchQuery)}">
-      <button class="skill-market-search-clear" style="${this._searchQuery ? '' : 'display:none;'}" title="清除">✕</button>
+      <input class="skill-market-search-input" type="text" placeholder="${i18n.t('skillMarket.searchPlaceholder')}" value="${this._escapeHtml(this._searchQuery)}">
+      <button class="skill-market-search-clear" style="${this._searchQuery ? '' : 'display:none;'}" title="${i18n.t('skillMarket.clearSearch')}">✕</button>
     `;
     const input = bar.querySelector('.skill-market-search-input');
     const clear = bar.querySelector('.skill-market-search-clear');
@@ -303,7 +303,7 @@ export class SkillMarket {
     // 已安装按钮（特殊，置于最前）
     const installedBtn = document.createElement('button');
     installedBtn.className = 'skill-market-cat-btn skill-market-installed-btn' + (this._showInstalled ? ' active' : '');
-    installedBtn.textContent = '已安装';
+    installedBtn.textContent = i18n.t('skillMarket.installed');
     installedBtn.addEventListener('click', () => {
       this._showInstalled = !this._showInstalled;
       if (this._showInstalled) {
@@ -344,9 +344,11 @@ export class SkillMarket {
     tabs.appendChild(divider);
 
     for (const cat of CATEGORIES) {
+      const catKey = 'skillMarket.' + cat.toLowerCase().replace(/\s+/g, '');
+      const catLabel = i18n.t(catKey) !== catKey ? i18n.t(catKey) : cat;
       const btn = document.createElement('button');
       btn.className = 'skill-market-cat-btn skill-market-cat-filter' + (cat === this._activeCategory && !this._showInstalled ? ' active' : '');
-      btn.textContent = cat;
+      btn.textContent = catLabel;
       btn.addEventListener('click', () => {
         this._activeCategory = cat;
         // 点击分类时自动退出已安装模式，切换到该分类的精选浏览
@@ -387,7 +389,7 @@ export class SkillMarket {
   _renderSources() {
     const section = document.createElement('div');
     section.className = 'skill-market-section';
-    section.innerHTML = '<h3 class="skill-market-section-title">推荐来源</h3>';
+    section.innerHTML = `<h3 class="skill-market-section-title">${i18n.t('skillMarket.sources')}</h3>`;
 
     const grid = document.createElement('div');
     grid.className = 'skill-market-sources';
@@ -399,7 +401,7 @@ export class SkillMarket {
       card.innerHTML = `
         <div class="skill-market-source-info">
           <div class="skill-market-source-name">${this._escapeHtml(src.name)}</div>
-          <a class="skill-market-source-github" href="${src.url}" target="_blank" title="在 GitHub 上查看">↗</a>
+          <a class="skill-market-source-github" href="${src.url}" target="_blank" title="${i18n.t('skillMarket.viewOnGithub')}">↗</a>
         </div>
         <div class="skill-market-source-desc">${this._escapeHtml(src.desc)}</div>
       `;
@@ -418,8 +420,8 @@ export class SkillMarket {
     // Back button
     const back = document.createElement('div');
     back.className = 'skill-market-source-back';
-    back.innerHTML = `
-      <button class="skill-market-btn skill-market-btn-ghost">← 返回推荐列表</button>
+          back.innerHTML = `
+      <button class="skill-market-btn skill-market-btn-ghost">${i18n.t('skillMarket.backToList')}</button>
       <span class="skill-market-source-detail-title">${this._escapeHtml(src.name)}</span>
     `;
     back.querySelector('button').addEventListener('click', () => {
@@ -442,7 +444,7 @@ export class SkillMarket {
     if (skills.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'skill-market-empty';
-      empty.textContent = '该来源暂无匹配的技能';
+      empty.textContent = i18n.t('skillMarket.noMatchSource');
       container.appendChild(empty);
     } else {
       container.appendChild(this._renderSkillGrid(skills));
@@ -456,11 +458,11 @@ export class SkillMarket {
   _renderFeatured() {
     const section = document.createElement('div');
     section.className = 'skill-market-section';
-    section.innerHTML = '<h3 class="skill-market-section-title">精选技能</h3>';
+    section.innerHTML = `<h3 class="skill-market-section-title">${i18n.t('skillMarket.featured')}</h3>`;
 
     const skills = this._filteredSkills();
     if (skills.length === 0) {
-      section.innerHTML += '<div class="skill-market-empty">没有匹配的技能</div>';
+      section.innerHTML += `<div class="skill-market-empty">${i18n.t('skillMarket.noMatch')}</div>`;
       return section;
     }
 
@@ -490,7 +492,7 @@ export class SkillMarket {
           </div>
           <button class="skill-market-plus-btn${isInstalled ? ' installed' : ''}"
             data-skill-name="${skill.name}"
-            title="${isInstalled ? '已安装，点击卸载' : '安装'}">
+            title="${isInstalled ? i18n.t('skillMarket.installedHint') : i18n.t('skillMarket.install')}">
             ${isInstalled ? ICON_CHECK : ICON_PLUS}
           </button>
         </div>
@@ -552,7 +554,7 @@ export class SkillMarket {
     const container = document.createElement('div');
 
     if (this._installedSkills.length === 0) {
-      container.innerHTML = '<div class="skill-market-empty">暂无已安装的技能<br><span style="font-size:11px;opacity:0.6;">去「推荐」或「精选技能」中安装吧</span></div>';
+      container.innerHTML = `<div class="skill-market-empty">${i18n.t('skillMarket.noSkills')}<br><span style="font-size:11px;opacity:0.6;">${i18n.t('skillMarket.goInstall')}</span></div>`;
       return container;
     }
 
@@ -561,8 +563,8 @@ export class SkillMarket {
 
     container.innerHTML = `
       <div class="skill-market-installed-summary">
-        已安装 <strong>${this._installedSkills.length}</strong> 个技能
-        ${marketInstalled.length > 0 ? `（其中 <strong>${marketInstalled.length}</strong> 个来自精选市场）` : ''}
+        ${i18n.t('skillMarket.installedCount')} <strong>${this._installedSkills.length}</strong> 个技能
+        ${marketInstalled.length > 0 ? `（其中 <strong>${marketInstalled.length}</strong> ${i18n.t('skillMarket.fromMarket')}）` : ''}
       </div>
     `;
 
@@ -571,10 +573,10 @@ export class SkillMarket {
     const userSkills = this._installedSkills.filter(s => s.source === 'user');
 
     if (projectSkills.length > 0) {
-      container.appendChild(this._renderInstalledGroup('项目技能', projectSkills));
+      container.appendChild(this._renderInstalledGroup(i18n.t('skillMarket.projectSkills'), projectSkills));
     }
     if (userSkills.length > 0) {
-      container.appendChild(this._renderInstalledGroup('全局技能', userSkills));
+      container.appendChild(this._renderInstalledGroup(i18n.t('skillMarket.globalSkills'), userSkills));
     }
 
 
@@ -612,7 +614,7 @@ export class SkillMarket {
             ${skill.description ? this._escapeHtml(skill.description) : ''}
           </div>
         </div>
-        <button class="skill-market-btn skill-market-btn-ghost skill-market-btn-uninstall" title="卸载">
+        <button class="skill-market-btn skill-market-btn-ghost skill-market-btn-uninstall" title="${i18n.t('skillMarket.uninstall')}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       `;
@@ -646,13 +648,13 @@ export class SkillMarket {
   }
 
   async _uninstallSkill(skill) {
-    const confirmed = await ConfirmDialog.confirm(`确定卸载技能「${skill.name}」？`);
+    const confirmed = await ConfirmDialog.confirm(i18n.t('skillMarket.uninstallConfirm', { name: skill.name }));
     if (!confirmed) return;
 
     try {
       const result = await apiPost('/api/skills/delete', { filePath: skill.filePath });
       if (result.success) {
-        showToast(`已卸载「${skill.name}」`, { type: 'success', duration: 2000 });
+        showToast(i18n.t('skillMarket.uninstallSuccess', { name: skill.name }), { type: 'success', duration: 2000 });
         // 刷新列表
         await this._loadInstalledSkills();
         this._renderContent();
@@ -661,11 +663,11 @@ export class SkillMarket {
           window.settingsPanel.reloadSkills();
         }
       } else {
-        showToast('卸载失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(i18n.t('skillMarket.uninstallFailed') + (result.message || i18n.t('chatui.unknownError')), { type: 'error', duration: 3000 });
       }
     } catch (e) {
       console.warn('卸载技能失败:', e);
-      showToast('卸载失败，请重试', { type: 'error', duration: 3000 });
+      showToast(i18n.t('skillMarket.uninstallRetry'), { type: 'error', duration: 3000 });
     }
   }
 
@@ -673,7 +675,7 @@ export class SkillMarket {
 
   async _installSkill(skill) {
     const confirmed = await ConfirmDialog.confirm(
-      `确定安装技能「${skill.name}」？\n来源：${skill.source}`
+      i18n.t('skillMarket.confirmInstall', { name: skill.name, source: skill.source })
     );
     if (!confirmed) return;
 
@@ -699,7 +701,7 @@ export class SkillMarket {
 
       if (result.success) {
         this._installedNames.add(skill.name.toLowerCase().replace(/\s+/g, '-'));
-        showToast(`✓ 技能「${skill.name}」已安装`, { type: 'success', duration: 2000 });
+        showToast(i18n.t('skillMarket.installSuccess', { name: skill.name }), { type: 'success', duration: 2000 });
         // 刷新列表
         this._loadInstalledSkills();
         this._renderContent();
@@ -708,7 +710,7 @@ export class SkillMarket {
           window.settingsPanel.reloadSkills();
         }
       } else {
-        showToast('安装失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(i18n.t('skillMarket.installFailed') + (result.message || i18n.t('chatui.unknownError')), { type: 'error', duration: 3000 });
         if (btn) {
           btn.disabled = false;
           const ICON_PLUS = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>';
@@ -717,10 +719,10 @@ export class SkillMarket {
       }
     } catch (e) {
       console.warn('安装技能失败:', e);
-      showToast('安装失败，请检查网络连接', { type: 'error', duration: 3000 });
+      showToast(i18n.t('skillMarket.installNetworkError'), { type: 'error', duration: 3000 });
       if (btn) {
         btn.disabled = false;
-        btn.textContent = '安装';
+        btn.textContent = i18n.t('skillMarket.install');
       }
     }
   }
@@ -733,7 +735,7 @@ export class SkillMarket {
       <div class="skill-market-preview-panel">
         <div class="skill-market-preview-header">
           <span class="skill-market-preview-title">${this._escapeHtml(skill.name)}</span>
-          <button class="skill-market-preview-close">✕</button>
+          <button class="skill-market-preview-close" title="${i18n.t('skillMarket.previewClose')}">✕</button>
         </div>
         <div class="skill-market-preview-body">
           <div class="skill-market-preview-loading">加载中...</div>
@@ -755,7 +757,7 @@ export class SkillMarket {
       body.innerHTML = `<pre class="skill-market-preview-code">${this._escapeHtml(content)}</pre>`;
     } catch (e) {
       const body = modal.querySelector('.skill-market-preview-body');
-      body.innerHTML = '<div class="skill-market-preview-error">加载失败，请检查网络连接</div>';
+                body.innerHTML = `<div class="skill-market-preview-error">${i18n.t('skillMarket.loadFailed')}</div>`;
     }
   }
 

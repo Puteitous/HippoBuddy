@@ -34,7 +34,7 @@ export class RollbackPanel {
 
     const messageId = this._resolveMessageId(assistantRow);
     if (!messageId) {
-      showToast('无法确定上一轮对话的消息 ID，请刷新后重试', { type: 'error', duration: 3000 });
+      showToast(window.i18n.t('rollback.cantFindMsg'), { type: 'error', duration: 3000 });
       rollbackBtn.innerHTML = '↩';
       rollbackBtn.classList.remove('rolling');
       return;
@@ -50,7 +50,7 @@ export class RollbackPanel {
     } catch (e) {
       console.error('[Rollback] 预览请求失败:', e);
       loadingPanel.remove();
-      showToast('检查文件变更失败，请重试', { type: 'error', duration: 3000 });
+      showToast(window.i18n.t('rollback.checkFailed'), { type: 'error', duration: 3000 });
       rollbackBtn.innerHTML = '↩';
       rollbackBtn.classList.remove('rolling');
       return;
@@ -90,7 +90,7 @@ export class RollbackPanel {
         const btn = e.currentTarget;
         const mode = btn.dataset.mode || 'all';
         disableAll();
-        btn.textContent = '回滚中...';
+        btn.textContent = window.i18n.t('rollback.rollingBack');
         resolve(mode);
       };
 
@@ -111,7 +111,7 @@ export class RollbackPanel {
         if (mode === 'files') {
           // 仅回滚文件：不截断会话，只刷新文件变更状态
           if (this._onUpdateFileChanges) this._onUpdateFileChanges();
-          showToast(rewindResult.message || '文件已回滚', { type: 'success', duration: 4000 });
+          showToast(rewindResult.message || window.i18n.t('rollback.fileRolledBack'), { type: 'success', duration: 4000 });
           return;
         }
 
@@ -127,7 +127,7 @@ export class RollbackPanel {
           this._chatService.invalidateMessageCache(currentSessionId);
           this._chatContainer.classList.remove('switching');
           if (this._onCreateNewSession) await this._onCreateNewSession();
-          showToast('此会话已清空，已自动创建新会话', { type: 'info', duration: 4000 });
+          showToast(window.i18n.t('rollback.sessionCleared'), { type: 'info', duration: 4000 });
           return;
         }
 
@@ -145,14 +145,14 @@ export class RollbackPanel {
           this._messageInput.focus();
         }
 
-        showToast(rewindResult.message || '已回滚到上一轮对话', { type: 'success', duration: 4000 });
+        showToast(rewindResult.message || window.i18n.t('rollback.rolledBack'), { type: 'success', duration: 4000 });
       } else {
         this._animateRemove(panel);
-        showToast(`回滚失败：${rewindResult.error || '未知错误'}`, { type: 'error', duration: 3000 });
+        showToast(window.i18n.t('rollback.failed') + (rewindResult.error || window.i18n.t('chatui.unknownError')), { type: 'error', duration: 3000 });
       }
     } catch (e) {
       this._animateRemove(panel);
-      showToast(`回滚失败：${e.message}`, { type: 'error', duration: 3000 });
+      showToast(window.i18n.t('rollback.failed') + e.message, { type: 'error', duration: 3000 });
     }
 
     this._chatContainer.classList.remove('switching');
@@ -175,16 +175,18 @@ export class RollbackPanel {
   _createLoadingPanel() {
     const panel = document.createElement('div');
     panel.className = 'rollback-inline-loading';
+    const _t = (k) => window.i18n.t(k);
     panel.innerHTML = `
       <svg class="loading-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
         <circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
       </svg>
-      正在检查文件变更...
+      ${_t('rollback.checkingFiles')}
     `;
     return panel;
   }
 
   _buildPanel(previewFiles) {
+    const _t = (k) => window.i18n.t(k);
     // 只保留有实际变动的文件（delete / add / restore）
     const changedFiles = previewFiles.filter(f =>
       f.action === 'delete' || f.action === 'add' || f.action === 'restore'
@@ -197,15 +199,15 @@ export class RollbackPanel {
         ${changedFiles.map(f => {
           let actionLabel, actionClass, statusLetter;
           if (f.action === 'delete') {
-            actionLabel = '即将移除';
+            actionLabel = _t('rollback.actionDelete');
             actionClass = 'action-delete';
             statusLetter = 'D';
           } else if (f.action === 'add') {
-            actionLabel = '即将还原';
+            actionLabel = _t('rollback.actionAdd');
             actionClass = 'action-add';
             statusLetter = 'A';
           } else {
-            actionLabel = '即将恢复';
+            actionLabel = _t('rollback.actionRestore');
             actionClass = 'action-restore';
             statusLetter = 'M';
           }
@@ -233,18 +235,18 @@ export class RollbackPanel {
             <line x1="8" y1="11" x2="8" y2="11.5"/>
           </svg>
         </span>
-        <span>回滚到上一轮对话</span>
-        <span class="rollback-inline-count">${changedFiles.length > 0 ? changedFiles.length + ' 个文件' : '无文件变更'}</span>
+        <span>${_t('rollback.panelTitle')}</span>
+        <span class="rollback-inline-count">${changedFiles.length > 0 ? changedFiles.length + _t('rollback.fileCount') : _t('rollback.noFileChanges')}</span>
       </div>
       ${filesHtml}
       <div class="rollback-inline-footer">
-        <button class="rollback-inline-btn rollback-inline-btn-cancel">取消</button>
+        <button class="rollback-inline-btn rollback-inline-btn-cancel">${_t('rollback.cancel')}</button>
         <span class="rollback-inline-split">
-          <button class="rollback-inline-btn rollback-inline-btn-confirm">回滚</button>
-          <button class="rollback-inline-split-toggle" title="更多回滚选项">▾</button>
+          <button class="rollback-inline-btn rollback-inline-btn-confirm">${_t('rollback.rollbackShort')}</button>
+          <button class="rollback-inline-split-toggle" title="${_t('rollback.moreOptions')}">▾</button>
           <span class="rollback-inline-split-dropdown">
-            <button class="rollback-inline-btn rollback-inline-btn-confirm" data-mode="all"><span class="dropdown-check">✓</span>回滚会话与文件</button>
-            <button class="rollback-inline-btn rollback-inline-btn-files" data-mode="files"><span class="dropdown-check-placeholder"></span>仅回滚文件</button>
+            <button class="rollback-inline-btn rollback-inline-btn-confirm" data-mode="all"><span class="dropdown-check">✓</span>${_t('rollback.rollbackAll')}</button>
+            <button class="rollback-inline-btn rollback-inline-btn-files" data-mode="files"><span class="dropdown-check-placeholder"></span>${_t('rollback.rollbackFilesOnly')}</button>
           </span>
         </span>
       </div>

@@ -40,9 +40,9 @@ function renderTreeNode(node, depth) {
     iconSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/></svg>';
   }
 
-  const content = node.content || '未命名任务';
+  const content = node.content || (window.i18n?.t('tool.todo.unnamed') || '未命名任务');
   const sessionLink = node.sessionId
-    ? `<span class="todo-session-link" title="跳转到关联会话">🔗</span>`
+    ? `<span class="todo-session-link" title="${window.i18n?.t('tool.todo.jumpToSession') || '跳转到关联会话'}">🔗</span>`
     : '';
 
   // 树节点：有子节点时可折叠
@@ -87,7 +87,7 @@ export function renderTodoWriteCard(tool) {
     <div class="tool-card todo-card">
       <div class="tool-header" onclick="window.toggleToolCardDetails(this)">
         <span class="tool-icon">${todoIcon}</span>
-        <span class="tool-title">任务清单</span>
+        <span class="tool-title">${window.i18n?.t('tool.todo.title') || '任务清单'}</span>
         <span class="tool-progress-label">${completed}/${total}</span>
         <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 12 6 8 10 4"/></svg></span>
       </div>

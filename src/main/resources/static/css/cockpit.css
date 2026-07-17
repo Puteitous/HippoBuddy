@@ -158,8 +158,9 @@ body.desktop-window {
 .header-folder-dropdown {
     position: absolute;
     top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
+    right: 0;
+    left: auto;
+    transform: none;
     min-width: 220px;
     max-width: 300px;
     max-height: 320px;

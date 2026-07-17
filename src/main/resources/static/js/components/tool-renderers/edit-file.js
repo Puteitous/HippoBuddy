@@ -1,6 +1,9 @@
 import { escapeHtml } from '../../utils.js';
 import { parseToolArgs, computeUnifiedDiff, countDiffStats, renderUnifiedDiff } from './shared.js';
 
+// i18n 辅助函数
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 export function renderEditFileCard(tool) {
   const args = parseToolArgs(tool.args);
   const filePath = args.path || '';
@@ -22,13 +25,13 @@ export function renderEditFileCard(tool) {
   let statusHtml;
   let statusClass;
   if (isRunning) {
-    statusHtml = `${spinnerSvg} 执行中`;
+    statusHtml = `${spinnerSvg} ${_t('tool.edit.executing')}`;
     statusClass = 'running';
   } else if (isSuccess) {
     statusHtml = `<span class="diff-stats-badge"><span class="diff-add">+${stats.insertions}</span><span class="diff-del">-${stats.deletions}</span></span>`;
     statusClass = 'success';
   } else {
-    statusHtml = `${xSvg} 失败`;
+    statusHtml = `${xSvg} ${_t('tool.edit.failed')}`;
     statusClass = 'error';
   }
 
@@ -36,21 +39,21 @@ export function renderEditFileCard(tool) {
     <div class="tool-card editfile-card" data-file-path="${escapeHtml(filePath)}" data-review-status="pending" data-tool-call-id="${tool.id}">
       <div class="tool-header">
         <span class="tool-icon">${editSvg}</span>
-        <span class="tool-title">编辑文件</span>
+        <span class="tool-title">${_t('tool.edit.title')}</span>
         <span class="tool-status-badge ${statusClass}">${statusHtml}</span>
         <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 12 10 8 6 4"/></svg></span>
       </div>
       <div class="tool-call-details">
         <div class="editfile-path" data-file-path="${escapeHtml(filePath)}">${fileSvg} ${escapeHtml(filePath)}</div>
-        ${isRunning ? '<div class="editfile-loading">正在编辑文件...</div>' : ''}
+        ${isRunning ? `<div class="editfile-loading">${_t('tool.edit.running')}</div>` : ''}
         ${isSuccess ? `
         <div class="editfile-diff">
           ${renderUnifiedDiff(diffLines)}
         </div>
         <div class="file-action-bar">
-          <span class="file-action-status pending">${pendingSvg} 已生效</span>
-          <button class="file-action-btn view-btn">查看变更</button>
-          <button class="file-action-btn undo-btn">撤销</button>
+          <span class="file-action-status pending">${pendingSvg} ${_t('tool.edit.effective')}</span>
+          <button class="file-action-btn view-btn">${_t('tool.edit.viewChanges')}</button>
+          <button class="file-action-btn undo-btn">${_t('tool.edit.undo')}</button>
         </div>` : ''}
         ${isError && tool.error ? `<div class="editfile-error">${escapeHtml(tool.error)}</div>` : ''}
       </div>

@@ -44,7 +44,7 @@ export class MemoryPanel {
       typeCounts[m.type] = (typeCounts[m.type] || 0) + 1;
     }
 
-    let filterHtml = `<button class="memory-filter-btn ${this.filterType === 'all' ? 'active' : ''}" data-type="all">全部 (${this.memories.length})</button>`;
+    let filterHtml = `<button class="memory-filter-btn ${this.filterType === 'all' ? 'active' : ''}" data-type="all">${i18n.t('memory.all')} (${this.memories.length})</button>`;
     for (const [type, count] of Object.entries(typeCounts)) {
       const label = this.getTypeLabel(type);
       filterHtml += `<button class="memory-filter-btn ${this.filterType === type ? 'active' : ''}" data-type="${type}">${label} (${count})</button>`;
@@ -52,7 +52,7 @@ export class MemoryPanel {
 
     let listHtml = '';
     if (filtered.length === 0) {
-      listHtml = '<div class="memory-empty">暂无记忆</div>';
+      listHtml = '<div class="memory-empty">' + i18n.t('memory.empty') + '</div>';
     } else {
       for (const m of filtered) {
         const timeStr = m.lastUpdated ? this.formatTime(m.lastUpdated) : '';
@@ -67,9 +67,9 @@ export class MemoryPanel {
             <div class="memory-card-title">${escapeHtml(m.title || m.id)}</div>
             ${m.tags && m.tags.length > 0 ? `<div class="memory-card-tags">${m.tags.map(t => `<span class="memory-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
             <div class="memory-card-actions">
-              <button class="memory-action-btn memory-view-btn" data-id="${escapeHtml(m.id)}" title="查看">👁</button>
-              <button class="memory-action-btn memory-edit-btn" data-id="${escapeHtml(m.id)}" title="编辑">✏️</button>
-              <button class="memory-action-btn memory-delete-btn" data-id="${escapeHtml(m.id)}" title="删除">🗑</button>
+              <button class="memory-action-btn memory-view-btn" data-id="${escapeHtml(m.id)}" title="${i18n.t('memory.view')}">👁</button>
+              <button class="memory-action-btn memory-edit-btn" data-id="${escapeHtml(m.id)}" title="${i18n.t('memory.edit')}">✏️</button>
+              <button class="memory-action-btn memory-delete-btn" data-id="${escapeHtml(m.id)}" title="${i18n.t('memory.delete')}">🗑</button>
             </div>
           </div>
         `;
@@ -79,7 +79,7 @@ export class MemoryPanel {
     this.container.innerHTML = `
       <div class="memory-toolbar">
         <div class="memory-filters">${filterHtml}</div>
-        <button class="memory-refresh-btn" title="刷新">🔄</button>
+        <button class="memory-refresh-btn" title="${i18n.t('memory.refresh')}">🔄</button>
       </div>
       <div class="memory-list-items">${listHtml}</div>
     `;
@@ -148,10 +148,10 @@ export class MemoryPanel {
     this.container.innerHTML = `
       <div class="memory-detail">
         <div class="memory-detail-header">
-          <button class="memory-back-btn">← 返回</button>
+          <button class="memory-back-btn">← ${i18n.t('memory.back')}</button>
           <div class="memory-detail-actions">
-            <button class="memory-action-btn memory-edit-btn" data-id="${escapeHtml(data.id)}" title="编辑">✏️</button>
-            <button class="memory-action-btn memory-delete-btn" data-id="${escapeHtml(data.id)}" title="删除">🗑</button>
+            <button class="memory-action-btn memory-edit-btn" data-id="${escapeHtml(data.id)}" title="${i18n.t('memory.edit')}">✏️</button>
+            <button class="memory-action-btn memory-delete-btn" data-id="${escapeHtml(data.id)}" title="${i18n.t('memory.delete')}">🗑</button>
           </div>
         </div>
         <div class="memory-detail-meta">
@@ -239,7 +239,7 @@ export class MemoryPanel {
   }
 
   async deleteMemory(id) {
-    if (!confirm(`确定要删除记忆 "${id}" 吗？此操作不可撤销。`)) return;
+    if (!confirm(i18n.t('memory.deleteConfirm', { id }))) return;
 
     try {
       const res = await apiPost(`/api/memories/${encodeURIComponent(id)}`, undefined, 'DELETE');
@@ -251,10 +251,10 @@ export class MemoryPanel {
           this.loadMemories();
         }
       } else {
-        showToast('删除失败', 'error');
+        showToast(i18n.t('memory.deleteFailed'), 'error');
       }
     } catch (e) {
-      showToast('删除失败: ' + e.message, 'error');
+      showToast(i18n.t('memory.deleteFailed') + ': ' + e.message, 'error');
     }
   }
 

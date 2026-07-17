@@ -13,11 +13,13 @@
 import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
 
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 const MAX_SAVED_SESSIONS_ITEMS = [
   { label: '100', value: '100' },
   { label: '200', value: '200' },
   { label: '500', value: '500' },
-  { label: '1,000 (默认)', value: '1000' },
+  { label: _t('settingsPage.sessionDefault'), value: '1000' },
 ];
 
 export class SessionSettingsPage {
@@ -34,17 +36,17 @@ export class SessionSettingsPage {
     page.className = 'settings-page';
 
     page.innerHTML = `
-      <h2 class="settings-page-title">会话管理</h2>
-      <p class="settings-page-desc">配置会话保存数量和清理策略</p>
+      <h2 class="settings-page-title">${_t('settingsPage.sessionTitle')}</h2>
+      <p class="settings-page-desc">${_t('settingsPage.sessionDesc')}</p>
       <hr class="settings-page-divider">
 
-      <div class="settings-field-group-title">保存策略</div>
+      <div class="settings-field-group-title">${_t('settingsPage.sessionSavePolicy')}</div>
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
-              <div>最大保存会话数</div>
-              <div class="settings-field-hint">0 = 禁用持久化, 最大值 1000</div>
+              <div>${_t('settingsPage.sessionMaxSaved')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.sessionMaxHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="sessMaxSavedSessions">1,000</button>
@@ -87,7 +89,7 @@ export class SessionSettingsPage {
 
     } catch (e) {
       console.warn('加载会话配置失败:', e);
-      showToast('加载配置失败', { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.loadConfigFailed'), { type: 'error', duration: 3000 });
     }
   }
 
@@ -104,7 +106,7 @@ export class SessionSettingsPage {
       await this._updateConfig(values);
     } catch (e) {
       console.warn('保存会话配置失败:', e);
-      showToast('保存失败: ' + e.message, { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.saveFailed') + e.message, { type: 'error', duration: 3000 });
     }
   }
 

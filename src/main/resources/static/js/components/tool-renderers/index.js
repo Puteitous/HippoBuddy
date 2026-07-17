@@ -11,6 +11,9 @@ import { renderConfirmationDetail } from './confirmation.js';
 import { renderDefaultToolCard, renderDefaultToolDetail } from './default.js';
 import { renderDeleteFileConfirmCard, renderDeleteFileConfirmationDetail, renderDeleteFileDetail } from './delete-file.js';
 
+// i18n 辅助函数
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 export function renderToolCard(tool) {
   if (tool.name === 'todo_write') {
     return renderTodoWriteCard(tool);
@@ -50,11 +53,11 @@ export function renderToolTimelineDetailContent(tool) {
   }
 
   if (isCancelled) {
-    return '<div class="timeline-detail-status cancelled">已取消（未确认）</div>';
+    return `<div class="timeline-detail-status cancelled">${_t('tool.default.cancelled')}（${_t('tool.default.unconfirmed')}）</div>`;
   }
 
   if (isInterrupted) {
-    return '<div class="timeline-detail-status interrupted">执行中断</div>';
+    return `<div class="timeline-detail-status interrupted">${_t('tool.default.interrupted')}</div>`;
   }
 
   if (!tool.result) {
@@ -62,7 +65,7 @@ export function renderToolTimelineDetailContent(tool) {
       const lines = tool.progressLines.slice(-20);
       return `<div class="timeline-detail-progress"><pre><code>${lines.map(l => escapeHtml(l)).join('\n')}</code></pre></div>`;
     }
-    return `<div class="timeline-detail-status">运行中...</div>`;
+    return `<div class="timeline-detail-status">${_t('tool.default.runningWithEllipsis')}</div>`;
   }
 
   if (tool.result === 'error' && tool.error) {
@@ -240,7 +243,7 @@ export function renderToolTimelineRow(tool) {
   if (name === 'bash' && summary) {
     const escapedSummary = escapeHtml(summary);
     const copySvg = '<svg viewBox="0 0 48 48" width="12" height="12" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 12.4316V7.8125C13 6.2592 14.2592 5 15.8125 5H40.1875C41.7408 5 43 6.2592 43 7.8125V32.1875C43 33.7408 41.7408 35 40.1875 35H35.5163"/><path d="M32.1875 13H7.8125C6.2592 13 5 14.2592 5 15.8125V40.1875C5 41.7408 6.2592 43 7.8125 43H32.1875C33.7408 43 35 41.7408 35 40.1875V15.8125C35 14.2592 33.7408 13 32.1875 13Z"/></svg>';
-    copyBtnHtml = `<span class="tool-timeline-copy-btn" data-cmd="${escapedSummary}" onclick="event.stopPropagation();const t=this;const os=t.innerHTML;navigator.clipboard.writeText(t.getAttribute('data-cmd')).then(()=>{t.textContent='\\u2713';setTimeout(()=>t.innerHTML=os,1200)})" title="复制命令">${copySvg}</span>`;
+    copyBtnHtml = `<span class="tool-timeline-copy-btn" data-cmd="${escapedSummary}" onclick="event.stopPropagation();const t=this;const os=t.innerHTML;navigator.clipboard.writeText(t.getAttribute('data-cmd')).then(()=>{t.textContent='\\u2713';setTimeout(()=>t.innerHTML=os,1200)})" title="${_t('tool.bash.copyCmd')}">${copySvg}</span>`;
   }
 
   // 查看变更按钮（edit_file/write_file 成功时显示）
@@ -250,7 +253,7 @@ export function renderToolTimelineRow(tool) {
     const fp = args.path || '';
     if (fp) {
       const jsFp = fp.replace(/\\/g, '/');
-      viewBtnHtml = `<span class="tool-timeline-view-btn" onclick="event.stopPropagation();window.showFileDiff('${escapeHtml(jsFp)}','${escapeHtml(tool.id||'')}')">查看</span>`;
+      viewBtnHtml = `<span class="tool-timeline-view-btn" onclick="event.stopPropagation();window.showFileDiff('${escapeHtml(jsFp)}','${escapeHtml(tool.id||'')}')">${_t('tool.default.view')}</span>`;
     }
   }
 

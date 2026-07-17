@@ -174,13 +174,13 @@ export class FilePreview {
     const path = this._currentPath;
     if (isDocxFile(path)) {
       btn.style.display = '';
-      btn.title = '在 Word 中打开';
+      btn.title = i18n.t('preview.openInWord');
     } else if (isSpreadsheetFile(path)) {
       btn.style.display = '';
-      btn.title = '在 Excel 中打开';
+      btn.title = i18n.t('preview.openInExcel');
     } else if (isPptxFile(path)) {
       btn.style.display = '';
-      btn.title = '在 PowerPoint 中打开';
+      btn.title = i18n.t('preview.openInPowerPoint');
     } else {
       btn.style.display = 'none';
     }
@@ -672,7 +672,7 @@ export class FilePreview {
     if (this._isMarkdown(this._currentPath) && this._view) {
       btn.style.display = '';
       btn.classList.toggle('active', this._mdPreview.isPreview);
-      btn.title = this._mdPreview.isPreview ? '编辑模式' : '预览模式';
+      btn.title = this._mdPreview.isPreview ? i18n.t('preview.editMode') : i18n.t('preview.previewMode');
       btn.innerHTML = this._mdPreview.isPreview
         ? `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 1.5H5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-11a1 1 0 0 0-1-1z"/>

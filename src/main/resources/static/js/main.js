@@ -248,7 +248,7 @@ function init() {
   EventBus.on('session:auto-name', ({ sessionId }) => {
     if (sessionId && sessionManager) {
       if (!sessionManager.sessionNames || !sessionManager.sessionNames[sessionId]) {
-        sessionManager.setSessionName(sessionId, '新会话');
+        sessionManager.setSessionName(sessionId, i18n.t('session.defaultName'));
         sessionManager.loadSessions().then(() => updateHistoryDropdown?.());
       }
     }
@@ -489,7 +489,7 @@ function bindGlobalEvents() {
       || chatPanel._lastUserMessageId;
 
     if (!messageId) {
-      showToast('无法确定分叉位置的消息 ID', { type: 'error', duration: 3000 });
+      showToast(i18n.t('chat.forkNoMessageId'), { type: 'error', duration: 3000 });
       return;
     }
 
@@ -499,10 +499,10 @@ function bindGlobalEvents() {
         await switchSession(forkResult.newSessionId);
         await sessionManager.loadSessions();
         updateHistoryDropdown?.();
-        showToast('已分叉为新会话', { type: 'success', duration: 4000 });
+      showToast(i18n.t('chatui.forkSuccess'), { type: 'success', duration: 4000 });
       }
     } catch (e) {
-      showToast(`分叉失败：${e.message}`, { type: 'error', duration: 3000 });
+      showToast(i18n.t('chat.forkFailedMsg', { message: e.message }), { type: 'error', duration: 3000 });
     }
   });
 
@@ -556,7 +556,7 @@ function updateChatPanelTitle(sessionId, fallbackTitle, fallbackProject) {
   // 如果 sessions 还没加载完，用 fallback 或缓存值
   if (!name) name = fallbackTitle || (!sessionId || sessionId === _cachedLastSessionInfo.sessionId ? _cachedLastSessionInfo.title : null);
   if (!projectPath) projectPath = fallbackProject || (!sessionId || sessionId === _cachedLastSessionInfo.sessionId ? _cachedLastSessionInfo.projectPath : null);
-  titleEl.textContent = name || '聊天';
+  titleEl.textContent = name || i18n.t('chat.mode.chat');
 
   // 更新项目名后缀
   const groupEl = titleEl.parentNode; // .chat-panel-title-group
@@ -593,7 +593,7 @@ function updateHistoryDropdown() {
   }
 
   if (allSessions.length === 0) {
-    listEl.innerHTML = '<div class="chat-history-empty">暂无历史会话</div>';
+    listEl.innerHTML = '<div class="chat-history-empty">' + i18n.t('chat.noHistory') + '</div>';
     return;
   }
 
@@ -617,8 +617,8 @@ function updateHistoryDropdown() {
       totalCount++;
 
       const name = s._isVirtual
-        ? (sessionManager.sessionNames?.[currentSessionId] || ('会话 ' + currentSessionId.replace('web-', '').slice(-6)))
-        : (sessionManager.sessionNames?.[s.id] || s.title || ('会话 ' + s.id.replace('web-', '').slice(-6)));
+        ? (sessionManager.sessionNames?.[currentSessionId] || i18n.t('session.namePrefix') + ' ' + currentSessionId.replace('web-', '').slice(-6))
+        : (sessionManager.sessionNames?.[s.id] || s.title || i18n.t('session.namePrefix') + ' ' + s.id.replace('web-', '').slice(-6));
 
       const item = document.createElement('div');
       item.className = 'chat-history-item' + (s.id === currentSessionId ? ' active' : '');
@@ -708,27 +708,27 @@ async function switchSession(sessionId) {
           </div>
           <div class="empty-hero-mode-selector" id="heroModeSelector">
             <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
-              <button class="mode-btn" data-mode="chat" title="聊天模式 — 只读探索，不动手">
+              <button class="mode-btn" data-mode="chat" title="${i18n.t('chat.mode.chatTitle')}">
                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
                 </svg>
-                聊天
+                ${i18n.t('chat.mode.chat')}
               </button>
-              <button class="mode-btn active" data-mode="coding" title="代码模式 — 全栈工程师">
+              <button class="mode-btn active" data-mode="coding" title="${i18n.t('chat.mode.codeTitle')}">
                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="6 3.5 2 8 6 12.5"/>
                   <polyline points="10 3.5 14 8 10 12.5"/>
                 </svg>
-                代码
+                ${i18n.t('chat.mode.code')}
               </button>
-              <button class="mode-btn" data-mode="office" title="办公模式 — 文档/表格/演示文稿">
+              <button class="mode-btn" data-mode="office" title="${i18n.t('chat.mode.officeTitle')}">
                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                   <path d="M9 1v4h4"/>
                   <line x1="5" y1="8" x2="11" y2="8"/>
                   <line x1="5" y1="10" x2="9" y2="10"/>
                 </svg>
-                办公
+                ${i18n.t('chat.mode.office')}
               </button>
             </span>
           </div>
@@ -736,14 +736,14 @@ async function switchSession(sessionId) {
           <div class="empty-hero-input-area">
             <div class="hero-input-wrapper">
               <div class="empty-hero-input-refs" id="heroInputRefs"></div>
-              <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1" spellcheck="false"></textarea>
+              <textarea class="empty-hero-input" id="heroInput" placeholder="${i18n.t('chat.heroPlaceholder')}" rows="1" spellcheck="false"></textarea>
             </div>
             <div class="hero-input-actions">
               <div class="hero-input-actions-left" id="heroContextSelector">
                 <span class="hero-actions-divider"></span>
-                <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">加载中...</button>
+                <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">${i18n.t('chat.loading')}</button>
               </div>
-              <button class="hero-send-btn" id="heroSendBtn" title="发送">
+              <button class="hero-send-btn" id="heroSendBtn" title="${i18n.t('chat.sendMessage')}">
                 <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="8" y1="15" x2="8" y2="1"/>
                   <polyline points="2 7 8 1 14 7"/>
@@ -751,7 +751,7 @@ async function switchSession(sessionId) {
               </button>
             </div>
           </div>
-          <div>Enter 发送 · Shift+Enter 换行</div>
+          <div>${i18n.t('chat.enterHint')}</div>
         </div>`;
       chatPanel?.reInjectContextSelector();
       refreshHeroModelDropdown();
@@ -806,27 +806,27 @@ async function switchSession(sessionId) {
         </div>
         <div class="empty-hero-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
-            <button class="mode-btn" data-mode="chat" title="聊天模式 — 只读探索，不动手">
+            <button class="mode-btn" data-mode="chat" title="${i18n.t('chat.mode.chatTitle')}">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
               </svg>
-              聊天
+              ${i18n.t('chat.mode.chat')}
             </button>
-            <button class="mode-btn active" data-mode="coding" title="代码模式 — 全栈工程师">
+            <button class="mode-btn active" data-mode="coding" title="${i18n.t('chat.mode.codeTitle')}">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 3.5 2 8 6 12.5"/>
                 <polyline points="10 3.5 14 8 10 12.5"/>
               </svg>
-              代码
+              ${i18n.t('chat.mode.code')}
             </button>
-            <button class="mode-btn" data-mode="office" title="办公模式 — 文档/表格/演示文稿">
+            <button class="mode-btn" data-mode="office" title="${i18n.t('chat.mode.officeTitle')}">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                 <path d="M9 1v4h4"/>
                 <line x1="5" y1="8" x2="11" y2="8"/>
                 <line x1="5" y1="10" x2="9" y2="10"/>
               </svg>
-              办公
+              ${i18n.t('chat.mode.office')}
             </button>
           </span>
         </div>
@@ -834,14 +834,14 @@ async function switchSession(sessionId) {
         <div class="empty-hero-input-area">
           <div class="hero-input-wrapper">
             <div class="empty-hero-input-refs" id="heroInputRefs"></div>
-            <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1" spellcheck="false"></textarea>
+            <textarea class="empty-hero-input" id="heroInput" placeholder="${i18n.t('chat.heroPlaceholder')}" rows="1" spellcheck="false"></textarea>
           </div>
           <div class="hero-input-actions">
             <div class="hero-input-actions-left" id="heroContextSelector">
               <span class="hero-actions-divider"></span>
-              <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">加载中...</button>
+              <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">${i18n.t('chat.loading')}</button>
             </div>
-            <button class="hero-send-btn" id="heroSendBtn" title="发送">
+            <button class="hero-send-btn" id="heroSendBtn" title="${i18n.t('chat.sendMessage')}">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="8" y1="15" x2="8" y2="1"/>
               <polyline points="2 7 8 1 14 7"/>
@@ -919,7 +919,7 @@ function closePromptModal() {
 
 // ========== 压缩会话 ==========
 async function handleCompact() {
-  const instruction = prompt('输入压缩指令（可选）：\n\n例如："保留所有代码示例"、"只保留重要信息"\n\n留空则自动智能压缩');
+  const instruction = prompt(i18n.t('chat.compactHint'));
   
   if (instruction === null) return;
   
@@ -934,11 +934,19 @@ async function handleCompact() {
     const result = await chatService.compactSession(currentSessionId, instruction || null);
     
     if (result.success) {
-      showToast(`压缩完成！\n压缩方法：${result.method}\n原始消息：${result.originalCount} 条\n压缩后：${result.compactedCount} 条\n减少：${result.reducedCount} 条\n节省 Token：${result.savedTokens.toLocaleString()} (${result.savedPercent}%)\n\n摘要：${result.summary}`, 'success', 8000);
+      showToast(i18n.t('chatui.compactSuccess', {
+        method: result.method,
+        originalCount: result.originalCount,
+        compactedCount: result.compactedCount,
+        reducedCount: result.reducedCount,
+        savedTokens: result.savedTokens.toLocaleString(),
+        savedPercent: result.savedPercent,
+        summary: result.summary
+      }), 'success', 8000);
       await tokenMonitor.updateTokenStats();
     }
   } catch (error) {
-    showToast(`压缩失败：${error.message}`, 'error');
+    showToast(i18n.t('chatui.compactFailed', { message: error.message }), 'error');
     console.error('压缩会话失败:', error);
   } finally {
     elements.compactBtn.disabled = false;
@@ -953,7 +961,7 @@ async function handleCompact() {
 // ========== 导出对话 ==========
 async function exportConversation() {
   if (!currentSessionId) {
-    showToast('没有可导出的对话', { type: 'warning', duration: 2000 });
+      showToast(i18n.t('chat.noExport'), { type: 'warning', duration: 2000 });
     return;
   }
 
@@ -963,7 +971,7 @@ async function exportConversation() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
       <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
     </svg>
-    加载中...
+    ${i18n.t('chat.loading')}
   `;
   exportBtn.disabled = true;
 
@@ -971,17 +979,17 @@ async function exportConversation() {
     const messages = await chatService.getSessionMessages(currentSessionId);
 
     if (!messages || messages.length === 0) {
-      showToast('当前会话没有消息', { type: 'warning', duration: 2000 });
+      showToast(i18n.t('chat.noMessages'), { type: 'warning', duration: 2000 });
       return;
     }
 
-    const sessionName = sessionManager.sessionNames?.[currentSessionId] || '未命名会话';
+    const sessionName = sessionManager.sessionNames?.[currentSessionId] || i18n.t('session.defaultName');
 
-    if (!confirm(`确定导出当前对话吗？\n\n会话：${sessionName}\n消息数：${messages.length} 条\n格式：Markdown (.md)`)) {
+    if (!confirm(i18n.t('chat.exportConfirm', { name: sessionName, count: messages.length }))) {
       return;
     }
     const now = new Date();
-    const timeStr = now.toLocaleString('zh-CN', {
+    const timeStr = now.toLocaleString(i18n.currentLang === 'zh' ? 'zh-CN' : 'en-US', {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit'
     });
@@ -989,8 +997,8 @@ async function exportConversation() {
     const markdownLines = [
       `# ${sessionName}`,
       ``,
-      `> 导出时间：${timeStr}`,
-      `> 共 ${messages.length} 条消息`,
+      i18n.t('chat.exportHeader', { time: timeStr }),
+      i18n.t('chat.exportMessageCount', { count: messages.length }),
       ``,
       `---`,
       ``
@@ -1014,7 +1022,7 @@ async function exportConversation() {
 
       if (msg.role === 'user') {
         if (msg.content && msg.content.trim()) {
-          markdownLines.push(`## 🙋 你`);
+          markdownLines.push(i18n.t('chat.exportUserLabel'));
           markdownLines.push(``);
           markdownLines.push(msg.content);
           markdownLines.push(``);
@@ -1040,7 +1048,7 @@ async function exportConversation() {
 
           if (amText.trim() && !amToolCalls) {
             if (text.trim()) {
-              markdownLines.push(`## 🤖 AI`);
+              markdownLines.push(i18n.t('chat.exportAssistantLabel'));
               markdownLines.push(``);
               markdownLines.push(text);
               markdownLines.push(``);
@@ -1051,7 +1059,7 @@ async function exportConversation() {
           }
 
           if (text.trim()) {
-            markdownLines.push(`## 🤖 AI`);
+            markdownLines.push(i18n.t('chat.exportAssistantLabel'));
             markdownLines.push(``);
             markdownLines.push(text);
             markdownLines.push(``);
@@ -1064,7 +1072,7 @@ async function exportConversation() {
 
           if (amToolCalls) {
             if (text.trim()) {
-              markdownLines.push(`## 🤖 AI`);
+              markdownLines.push(i18n.t('chat.exportAssistantLabel'));
               markdownLines.push(``);
               markdownLines.push(text);
               markdownLines.push(``);
@@ -1100,7 +1108,7 @@ async function exportConversation() {
                 markdownLines.push(toolArgsText);
               }
               if (tr?.error) {
-                markdownLines.push(`  - 错误: ${tr.error}`);
+                markdownLines.push(i18n.t('chat.exportErrorLabel', { message: tr.error }));
               }
               markdownLines.push(``);
             }
@@ -1109,16 +1117,16 @@ async function exportConversation() {
         }
 
         if (text.trim()) {
-          markdownLines.push(`## 🤖 AI`);
+          markdownLines.push(i18n.t('chat.exportAssistantLabel'));
           markdownLines.push(``);
           markdownLines.push(text);
           markdownLines.push(``);
         }
 
         if (!hasToolCalls && !text.trim()) {
-          markdownLines.push(`## 🤖 AI`);
+          markdownLines.push(i18n.t('chat.exportAssistantLabel'));
           markdownLines.push(``);
-          markdownLines.push(`*（空响应）*`);
+          markdownLines.push(i18n.t('chat.exportEmptyResponse'));
           markdownLines.push(``);
         }
 
@@ -1140,9 +1148,9 @@ async function exportConversation() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    showToast(`已导出：${filename}`, { type: 'success', duration: 3000 });
+    showToast(i18n.t('chat.exportSuccess', { filename }), { type: 'success', duration: 3000 });
   } catch (e) {
-    showToast(`导出失败：${e.message}`, { type: 'error', duration: 3000 });
+    showToast(i18n.t('chat.exportFailed', { message: e.message }), { type: 'error', duration: 3000 });
     console.error('导出对话失败:', e);
   } finally {
     exportBtn.innerHTML = originalText;
@@ -1276,14 +1284,14 @@ function buildModelDropdownItems(data) {
     items.push({ type: 'divider' });
   }
   items.push({
-    label: '✚ 添加模型...',
+    label: i18n.t('chat.addModel'),
     value: ADD_MODEL_VALUE,
   });
 
   // 如果没有模型，加占位
   if (items.length <= 1) { // 只有添加入口
     items.unshift({
-      label: '未配置模型',
+      label: i18n.t('chat.noModel'),
       value: '',
       disabled: true,
     });
@@ -1320,11 +1328,11 @@ async function saveQuickModelConfig(provider, model) {
       body: JSON.stringify({ provider, model })
     });
     if (!resp.ok) throw new Error(await resp.text());
-    showToast('模型已切换: ' + provider + ' · ' + model, 'success');
+    showToast(i18n.t('chatui.modelSwitched', { provider, model }), 'success');
     // 立即刷新下拉框及缓存
     loadQuickModelConfig();
   } catch (e) {
-    showToast('切换模型失败: ' + e.message, 'error');
+    showToast(i18n.t('chatui.modelSwitchFailed', { message: e.message }), 'error');
     loadQuickModelConfig();
   }
 }

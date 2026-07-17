@@ -13,11 +13,13 @@
 import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
 
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 const KEY_LABELS = {
-  bash: 'Bash 命令执行',
-  delete_file: '删除文件',
-  web_search: 'Web 搜索',
-  subagent: '子代理',
+  bash: _t('settingsPage.tools.bash'),
+  delete_file: _t('settingsPage.tools.deleteFile'),
+  web_search: _t('settingsPage.tools.webSearch'),
+  subagent: _t('settingsPage.tools.subagent'),
 };
 
 const WEB_PROVIDER_ITEMS = [
@@ -41,11 +43,11 @@ export class ToolsSettingsPage {
     const page = document.createElement('div');
     page.className = 'settings-page';
     page.innerHTML = `
-      <h2 class="settings-page-title">工具管理</h2>
-      <p class="settings-page-desc">配置 Bash、文件、Web 搜索等内置工具的行为</p>
+      <h2 class="settings-page-title">${_t('settingsPage.toolsTitle')}</h2>
+      <p class="settings-page-desc">${_t('settingsPage.toolsDesc')}</p>
       <hr class="settings-page-divider">
 
-      <div class="settings-loading" id="toolsLoading" style="display:block;">加载中...</div>
+      <div class="settings-loading" id="toolsLoading" style="display:block;">${_t('settingsPage.rulesLoading')}</div>
       <div id="toolsForm" style="display:none;"></div>
     `;
 
@@ -62,7 +64,7 @@ export class ToolsSettingsPage {
     const { HippoDesktop } = window;
 
     if (!HippoDesktop || !HippoDesktop.getConfig) {
-      this._showError('配置 API 不可用（仅桌面端支持）');
+      this._showError(_t('settingsPage.configUnavailable'));
       return;
     }
 
@@ -72,7 +74,7 @@ export class ToolsSettingsPage {
       this._renderForm();
     } catch (e) {
       console.warn('加载工具配置失败:', e);
-      this._showError('加载配置失败: ' + e.message);
+      this._showError(_t('settingsPage.loadFailed') + e.message);
     }
   }
 
@@ -114,7 +116,7 @@ export class ToolsSettingsPage {
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">需确认</label>
+            <label class="settings-field-label">${_t('settingsPage.toolsNeedConfirm')}</label>
             <div class="settings-field-body">
               <label class="settings-switch">
                 <input type="checkbox" id="toolsBashConfirm" ${bash.require_confirmation !== false ? 'checked' : ''}>
@@ -124,9 +126,9 @@ export class ToolsSettingsPage {
           </div>
           <div class="settings-field">
             <label class="settings-field-label" for="toolsBashWhitelist">
-              命令白名单 <span class="settings-field-hint">(逗号分隔，留空=允许全部)</span>
+              ${_t('settingsPage.toolsWhitelist')} <span class="settings-field-hint">${_t('settingsPage.toolsWhitelistHint')}</span>
             </label>
-            <textarea class="settings-input" id="toolsBashWhitelist" rows="1" placeholder="git, mvn, npm, docker, ls, cat, grep"
+            <textarea class="settings-input" id="toolsBashWhitelist" rows="1" placeholder="${_t('settingsPage.toolsWhitelistPh')}"
               style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;width:480px;margin-left:auto;">${whitelistStr}</textarea>
           </div>
         </div>
@@ -138,19 +140,19 @@ export class ToolsSettingsPage {
         <div class="settings-form">
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
-              <div>搜索 Provider</div>
-              <div class="settings-field-hint">(搜索引擎服务商)</div>
+              <div>${_t('settingsPage.toolsSearchProvider')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.toolsProviderHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="toolsWebProvider">${webSearch.provider || 'brave'}</button>
             </div>
           </div>
           <div class="settings-field-horizontal">
-            <label class="settings-field-label" for="toolsWebApiKey">API Key</label>
+            <label class="settings-field-label" for="toolsWebApiKey">${_t('settingsPage.toolsApiKey')}</label>
             <div class="settings-field-body">
               <div class="settings-input-wrap" style="width:220px;">
-                <input class="settings-input" id="toolsWebApiKey" type="password" value="${webSearch.api_key || ''}" placeholder="输入 API Key">
-                <button class="settings-input-btn" id="toolsWebApiKeyToggle" title="显示/隐藏">
+                <input class="settings-input" id="toolsWebApiKey" type="password" value="${webSearch.api_key || ''}" placeholder="${_t('settingsPage.toolsApiKeyPh')}">
+                <button class="settings-input-btn" id="toolsWebApiKeyToggle" title="${_t('settingsPage.toolsShowHide')}">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
@@ -167,7 +169,7 @@ export class ToolsSettingsPage {
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">启用</label>
+            <label class="settings-field-label">${_t('settingsPage.toolsEnable')}</label>
             <div class="settings-field-body">
               <label class="settings-switch">
                 <input type="checkbox" id="toolsSubagentEnabled" ${subagent.enabled ? 'checked' : ''}>
@@ -183,7 +185,7 @@ export class ToolsSettingsPage {
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">需确认</label>
+            <label class="settings-field-label">${_t('settingsPage.toolsNeedConfirm')}</label>
             <div class="settings-field-body">
               <label class="settings-switch">
                 <input type="checkbox" id="toolsDeleteFileConfirm" ${deleteFile.require_confirmation !== false ? 'checked' : ''}>
@@ -270,7 +272,7 @@ export class ToolsSettingsPage {
       }
     } catch (e) {
       console.warn('保存工具配置失败:', e);
-      showToast('保存失败: ' + e.message, { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.saveFailed') + e.message, { type: 'error', duration: 3000 });
     }
   }
 }

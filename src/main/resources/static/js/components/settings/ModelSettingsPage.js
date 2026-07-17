@@ -9,36 +9,38 @@ import { CustomDropdown } from '../../utils/dropdown.js';
 import { showToast } from '../../utils/toast.js';
 import { ConfirmDialog } from '../../utils/modal.js';
 
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 /** Provider 可选列表（与 main.js 一致） */
 const PROVIDER_ITEMS = [
   { label: 'DashScope', value: 'dashscope' },
   { label: 'OpenAI', value: 'openai' },
   { label: 'DeepSeek', value: 'deepseek' },
-  { label: '智谱 GLM', value: 'zhipu' },
-  { label: 'Kimi (月之暗面)', value: 'moonshot' },
+  { label: _t('settingsPage.zhipu'), value: 'zhipu' },
+  { label: _t('settingsPage.moonshot'), value: 'moonshot' },
   { label: 'MiniMax', value: 'minimax' },
-  { label: '阶跃星辰', value: 'stepfun' },
-  { label: '零一万物', value: 'lingyi' },
-  { label: '豆包 (字节)', value: 'doubao' },
-  { label: '硅基流动', value: 'siliconflow' },
-  { label: '讯飞星火', value: 'xunfei' },
+  { label: _t('settingsPage.stepfun'), value: 'stepfun' },
+  { label: _t('settingsPage.lingyi'), value: 'lingyi' },
+  { label: _t('settingsPage.doubao'), value: 'doubao' },
+  { label: _t('settingsPage.siliconflow'), value: 'siliconflow' },
+  { label: _t('settingsPage.xunfei'), value: 'xunfei' },
   { label: 'Anthropic', value: 'anthropic' },
   { label: 'Ollama', value: 'ollama' },
   { label: 'Local', value: 'local' },
 ];
 
 const MAX_TOKENS_ITEMS = [
-  { label: '0 (不限制)', value: '0' },
+  { label: '0', value: '0' },
   { label: '4,096', value: '4096' },
   { label: '8,192', value: '8192' },
-  { label: '16,384 (默认)', value: '16384' },
+  { label: '16,384', value: '16384' },
   { label: '32,768', value: '32768' },
   { label: '65,536', value: '65536' },
   { label: '131,072', value: '131072' },
 ];
 
 const REASONING_EFFORT_ITEMS = [
-  { label: 'high (默认)', value: 'high' },
+  { label: 'high', value: 'high' },
   { label: 'max', value: 'max' },
 ];
 
@@ -62,24 +64,24 @@ export class ModelSettingsPage {
     page.className = 'settings-page';
 
     page.innerHTML = `
-      <h2 class="settings-page-title">模型配置</h2>
-      <p class="settings-page-desc">配置 AI 聊天模型 Provider、API Key 等参数</p>
+      <h2 class="settings-page-title">${_t('settingsPage.modelTitle')}</h2>
+      <p class="settings-page-desc">${_t('settingsPage.modelDesc')}</p>
       <hr class="settings-page-divider">
 
       <div class="settings-item-list-header">
-        <h3>模型列表</h3>
+        <h3>${_t('settingsPage.modelList')}</h3>
         <div class="settings-item-list-actions">
-          <button class="settings-btn settings-btn-icon" id="settingsModelRefresh" title="刷新">
+          <button class="settings-btn settings-btn-icon" id="settingsModelRefresh" title="${_t('settingsPage.modelRefresh')}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
           </button>
-          <button class="settings-btn settings-btn-primary" id="settingsModelCreate">+ 添加模型</button>
+          <button class="settings-btn settings-btn-primary" id="settingsModelCreate">+ ${_t('settingsPage.modelAdd')}</button>
         </div>
       </div>
 
-      <div class="settings-loading" id="settingsModelLoading" style="display:none;">加载中...</div>
+      <div class="settings-loading" id="settingsModelLoading" style="display:none;">${_t('settingsPage.modelLoading')}</div>
       <div class="settings-items-error" id="settingsModelError" style="display:none;"></div>
       <div id="settingsModelList"></div>
     `;
@@ -136,7 +138,7 @@ export class ModelSettingsPage {
     } catch (e) {
       console.warn('加载模型配置失败:', e);
       if (errorEl) {
-        errorEl.textContent = '加载失败，请重试';
+        errorEl.textContent = _t('settingsPage.modelLoadFailed');
         errorEl.style.display = 'block';
       }
     } finally {
@@ -153,7 +155,7 @@ export class ModelSettingsPage {
     const models = data.modelHistory || [];
 
     if (models.length === 0) {
-      list.innerHTML = '<div class="settings-model-empty">暂无已添加的模型</div>';
+      list.innerHTML = `<div class="settings-model-empty">${_t('settingsPage.modelEmpty')}</div>`;
       return;
     }
 
@@ -178,9 +180,9 @@ export class ModelSettingsPage {
     // 表头
     const headerHtml = `
       <div class="settings-model-header">
-        <span class="settings-model-header-provider">服务商</span>
-        <span class="settings-model-header-model">模型</span>
-        <span class="settings-model-header-enabled">操作</span>
+        <span class="settings-model-header-provider">${_t('settingsPage.modelProviderCol')}</span>
+        <span class="settings-model-header-model">${_t('settingsPage.modelModelCol')}</span>
+        <span class="settings-model-header-enabled">${_t('settingsPage.modelActionCol')}</span>
       </div>
     `;
 
@@ -191,7 +193,7 @@ export class ModelSettingsPage {
         <div class="settings-model-item ${isActive ? 'active' : ''}">
           <span class="settings-model-item-provider" title="${m.provider || ''}">${m.provider || ''}</span>
           <span class="settings-model-item-model" title="${m.model || m.name || ''}">${m.model || m.name || ''}</span>
-          <button class="settings-model-item-delete" data-provider="${m.provider || ''}" data-model="${m.model || ''}" title="删除">
+          <button class="settings-model-item-delete" data-provider="${m.provider || ''}" data-model="${m.model || ''}" title="${_t('settingsPage.modelDeleteTitle')}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"/>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -223,20 +225,20 @@ export class ModelSettingsPage {
         const provider = btn.dataset.provider;
         const model = btn.dataset.model;
         if (!provider || !model) return;
-        const confirmed = await ConfirmDialog.confirmDelete(`确定从历史记录中删除模型「${provider}:${model}」？`);
+        const confirmed = await ConfirmDialog.confirmDelete(_t('settingsPage.modelDeleteConfirm') + provider + ':' + model + _t('settingsPage.modelDeleteConfirmEnd'));
         if (!confirmed) return;
 
         try {
           const result = await apiPost('/api/config/llm/history', { provider, model }, 'DELETE');
           if (result.success) {
-            showToast('已删除模型: ' + provider + ' · ' + model, { type: 'success', duration: 2000 });
+            showToast(_t('settingsPage.modelDeleted') + provider + ' · ' + model, { type: 'success', duration: 2000 });
             this._loadModelConfig();
           } else {
-            showToast('删除失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+            showToast(_t('settingsPage.modelDeleteFailed') + (result.message || _t('settingsPage.modelUnknownError')), { type: 'error', duration: 3000 });
           }
         } catch (e) {
           console.warn('删除模型失败:', e);
-          showToast('删除失败: ' + e.message, { type: 'error', duration: 3000 });
+          showToast(_t('settingsPage.modelDeleteFailed') + e.message, { type: 'error', duration: 3000 });
         }
       });
     });
@@ -269,8 +271,8 @@ export class ModelSettingsPage {
     const headerActions = document.querySelector('#settingsModelCreate')?.closest('.settings-item-list-actions');
     if (headerActions) headerActions.style.display = 'none';
 
-    const title = isNew ? '添加模型' : ('编辑模型: ' + (model.provider || '') + ' · ' + (model.model || model.name || ''));
-    const saveText = isNew ? '创建' : '保存';
+    const title = isNew ? _t('settingsPage.modelCreate') : _t('settingsPage.modelEdit') + (model.provider || '') + ' · ' + (model.model || model.name || '');
+    const saveText = isNew ? _t('settingsPage.modelCreateAction') : _t('settingsPage.modelSaveAction');
     const provider = model?.provider || 'deepseek';
     const modelName = model?.model || model?.name || '';
     const baseUrl = model?.baseUrl || '';
@@ -286,7 +288,7 @@ export class ModelSettingsPage {
         <div class="settings-editor-header">
           <span class="settings-editor-title">${title}</span>
           <div class="settings-editor-actions">
-            <button class="settings-editor-btn" id="modelEditBack">← 返回列表</button>
+            <button class="settings-editor-btn" id="modelEditBack">${_t('settingsPage.modelBackToList')}</button>
             <button class="settings-editor-btn settings-editor-btn-primary" id="modelEditSave">${saveText}</button>
           </div>
         </div>
@@ -300,15 +302,15 @@ export class ModelSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label" for="modelEditModel">Model</label>
             <div class="settings-field-body">
-              <input class="settings-input" id="modelEditModel" type="text" value="${modelName}" placeholder="例如 deepseek-v4-flash" style="width:220px;">
+              <input class="settings-input" id="modelEditModel" type="text" value="${modelName}" placeholder="${_t('settingsPage.modelNamePh')}" style="width:220px;">
             </div>
           </div>
           <div class="settings-field-horizontal">
             <label class="settings-field-label" for="modelEditApiKey">API Key</label>
             <div class="settings-field-body">
               <div class="settings-input-wrap" style="width:220px;">
-                <input class="settings-input" id="modelEditApiKey" type="password" value="${apiKeyValue}" placeholder="输入 API Key">
-                <button class="settings-input-btn" id="modelEditApiKeyToggle" title="显示/隐藏">
+                <input class="settings-input" id="modelEditApiKey" type="password" value="${apiKeyValue}" placeholder="${_t('settingsPage.modelApiKeyPlaceholder')}">
+                <button class="settings-input-btn" id="modelEditApiKeyToggle" title="${_t('settingsPage.modelShowHide')}">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
@@ -320,13 +322,13 @@ export class ModelSettingsPage {
           <div class="settings-field-horizontal">
             <label class="settings-field-label" for="modelEditBaseUrl">Base URL</label>
             <div class="settings-field-body">
-              <input class="settings-input" id="modelEditBaseUrl" type="text" value="${baseUrl}" placeholder="https://api.deepseek.com" style="width:220px;">
+              <input class="settings-input" id="modelEditBaseUrl" type="text" value="${baseUrl}" placeholder="${_t('settingsPage.modelBaseUrlPh')}" style="width:220px;">
             </div>
           </div>
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
               <div>Max Tokens</div>
-              <div class="settings-field-hint">(单次输出上限，含思维链+回答，0=不限制)</div>
+              <div class="settings-field-hint">${_t('settingsPage.modelMaxTokensHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="modelEditMaxTokens">${maxTokens}</button>
@@ -337,7 +339,7 @@ export class ModelSettingsPage {
           <div class="settings-field-horizontal" id="modelEditThinkingSection" style="${isThinkingSupported ? '' : 'display:none;'}">
             <div class="settings-field-label">
               <div>Thinking Mode</div>
-              <div class="settings-field-hint">思考链推理，提高回答准确性</div>
+              <div class="settings-field-hint">${_t('settingsPage.modelThinkingHint')}</div>
             </div>
             <div class="settings-field-body">
               <label class="settings-switch">
@@ -349,7 +351,7 @@ export class ModelSettingsPage {
           <div class="settings-field-horizontal" id="modelEditReasoningSection" style="${isThinkingSupported ? '' : 'display:none;'}">
             <div class="settings-field-label">
               <div>Reasoning Effort</div>
-              <div class="settings-field-hint">思考强度（仅 Thinking Mode 开启时有效）</div>
+              <div class="settings-field-hint">${_t('settingsPage.modelReasoningHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="modelEditReasoningEffort">${reasoningEffort}</button>
@@ -435,7 +437,7 @@ export class ModelSettingsPage {
     const saveBtn = document.getElementById('modelEditSave');
 
     if (!modelValue) {
-      showToast('Model 名称不能为空', { type: 'warning', duration: 2000 });
+      showToast(_t('settingsPage.modelNameRequired'), { type: 'warning', duration: 2000 });
       return;
     }
 
@@ -465,7 +467,7 @@ export class ModelSettingsPage {
 
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.textContent = isNew ? '创建中…' : '保存中…';
+      saveBtn.textContent = isNew ? _t('settingsPage.modelCreating') : _t('settingsPage.modelSaving');
     }
 
     try {
@@ -476,14 +478,14 @@ export class ModelSettingsPage {
       });
       if (!resp.ok) throw new Error(await resp.text());
 
-      showToast('已' + (isNew ? '创建' : '保存') + '模型: ' + provider + ' · ' + modelValue, { type: 'success', duration: 2000 });
+      showToast((isNew ? _t('settingsPage.modelCreated') : _t('settingsPage.modelSaved')) + provider + ' · ' + modelValue, { type: 'success', duration: 2000 });
       setTimeout(() => this._closeEditor(), 400);
     } catch (e) {
       console.warn(isNew ? '创建模型失败:' : '保存模型失败:', e);
-      showToast((isNew ? '创建' : '保存') + '失败: ' + e.message, { type: 'error', duration: 3000 });
+      showToast((isNew ? _t('settingsPage.modelCreateFailed') : _t('settingsPage.modelSaveFailed')) + e.message, { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = isNew ? '创建' : '保存';
+        saveBtn.textContent = isNew ? _t('settingsPage.modelCreateAction') : _t('settingsPage.modelSaveAction');
       }
     }
   }

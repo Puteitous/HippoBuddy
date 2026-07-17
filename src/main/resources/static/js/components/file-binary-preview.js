@@ -187,9 +187,9 @@ export class BinaryPreview {
       this._container.innerHTML = `
         <div class="file-binary-preview image">
           <div class="img-zoom-toolbar">
-            <button class="img-zoom-btn" data-action="zoom-out" title="缩小">−</button>
-            <button class="img-zoom-btn" data-action="zoom-in" title="放大">+</button>
-            <button class="img-zoom-btn img-zoom-reset" data-action="reset" title="重置">⟲</button>
+            <button class="img-zoom-btn" data-action="zoom-out" title="${i18n.t('preview.zoomOut')}">−</button>
+            <button class="img-zoom-btn" data-action="zoom-in" title="${i18n.t('preview.zoomIn')}">+</button>
+            <button class="img-zoom-btn img-zoom-reset" data-action="reset" title="${i18n.t('preview.zoomReset')}">⟲</button>
           </div>
           <div class="img-zoom-viewport">
             <img src="${url}" alt="${escapeHtml(fileName)}" class="img-zoomable"
@@ -641,9 +641,9 @@ export class BinaryPreview {
       const toolbar = document.createElement('div');
       toolbar.className = 'pptx-toolbar';
       toolbar.innerHTML = `
-        <button class="pptx-zoom-btn" data-action="zoom-out" title="缩小">−</button>
-        <button class="pptx-zoom-btn" data-action="zoom-in" title="放大">+</button>
-        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="适配宽度">⟲</button>
+        <button class="pptx-zoom-btn" data-action="zoom-out" title="${i18n.t('preview.zoomOut')}">−</button>
+        <button class="pptx-zoom-btn" data-action="zoom-in" title="${i18n.t('preview.zoomIn')}">+</button>
+        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="${i18n.t('preview.zoomFitWidth')}">⟲</button>
         <span class="pptx-zoom-level">100%</span>
       `;
       container.appendChild(toolbar);
@@ -765,9 +765,9 @@ export class BinaryPreview {
       const toolbar = document.createElement('div');
       toolbar.className = 'pptx-toolbar';
       toolbar.innerHTML = `
-        <button class="pptx-zoom-btn" data-action="zoom-out" title="缩小">−</button>
-        <button class="pptx-zoom-btn" data-action="zoom-in" title="放大">+</button>
-        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="重置缩放">⟲</button>
+        <button class="pptx-zoom-btn" data-action="zoom-out" title="${i18n.t('preview.zoomOut')}">−</button>
+        <button class="pptx-zoom-btn" data-action="zoom-in" title="${i18n.t('preview.zoomIn')}">+</button>
+        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="${i18n.t('preview.zoomResetScale')}">⟲</button>
         <span class="pptx-zoom-level">100%</span>
       `;
       container.appendChild(toolbar);
@@ -1015,9 +1015,9 @@ export class BinaryPreview {
       const toolbar = document.createElement('div');
       toolbar.className = 'pptx-toolbar';
       toolbar.innerHTML = `
-        <button class="pptx-zoom-btn" data-action="zoom-out" title="缩小">−</button>
-        <button class="pptx-zoom-btn" data-action="zoom-in" title="放大">+</button>
-        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="适配宽度">⟲</button>
+        <button class="pptx-zoom-btn" data-action="zoom-out" title="${i18n.t('preview.zoomOut')}">−</button>
+        <button class="pptx-zoom-btn" data-action="zoom-in" title="${i18n.t('preview.zoomIn')}">+</button>
+        <button class="pptx-zoom-btn pptx-zoom-reset" data-action="reset" title="${i18n.t('preview.zoomFitWidth')}">⟲</button>
         <span class="pptx-zoom-level">100%</span>
       `;
       container.appendChild(toolbar);
@@ -1153,23 +1153,23 @@ export class BinaryPreview {
     } catch (_) {}
 
     const status = resp.status;
-    let title = '预览失败';
+    let title = i18n.t('preview.failed');
     let detail = '';
 
     if (status === 413) {
-      title = '文件过大';
-      detail = serverMsg || '文件大小超过预览上限（50MB），请在本地打开';
+      title = i18n.t('preview.fileTooLarge');
+      detail = serverMsg || i18n.t('preview.fileTooLargeDetail');
     } else if (status === 404) {
-      title = '文件未找到';
-      detail = serverMsg || '文件可能已被移动或删除';
+      title = i18n.t('preview.fileNotFound');
+      detail = serverMsg || i18n.t('preview.fileNotFoundDetail');
     } else if (status === 400) {
-      title = '请求错误';
-      detail = serverMsg || '无效的文件路径';
+      title = i18n.t('preview.badRequest');
+      detail = serverMsg || i18n.t('preview.badRequestDetail');
     } else if (status >= 500) {
-      title = '服务器错误';
-      detail = serverMsg || '服务器处理文件时出错，请稍后重试';
+      title = i18n.t('preview.serverError');
+      detail = serverMsg || i18n.t('preview.serverErrorDetail');
     } else {
-      detail = serverMsg || `请求失败（HTTP ${status}）`;
+      detail = serverMsg || `${i18n.t('preview.httpError')}（HTTP ${status}）`;
     }
 
     const canShowInFolder = typeof window.HippoDesktop !== 'undefined'

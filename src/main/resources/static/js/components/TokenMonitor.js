@@ -72,6 +72,10 @@ export class TokenMonitor {
     
     // 初始化悬浮 tooltip
     this._initHoverTooltip();
+
+    // 语言切换时刷新趋势图（动态文本如 "N 次记录" 需要重新渲染）
+    this._onI18nChange = () => this.renderTrendChart();
+    window.addEventListener('i18n:change', this._onI18nChange);
   }
   
   /**
@@ -322,11 +326,11 @@ export class TokenMonitor {
     );
     
     if (history.length < 2) {
-      const msg = '等待更多数据...';
+      const msg = window.i18n ? window.i18n.t('tokenPanel.waiting') : '等待更多数据...';
       if (this.elements.trendChart) this.elements.trendChart.innerHTML = `<div class="token-trend-empty">${msg}</div>`;
-      if (this.elements.trendCount) this.elements.trendCount.textContent = (history.length || 0) + ' 次记录';
+      if (this.elements.trendCount) this.elements.trendCount.textContent = (history.length || 0) + (window.i18n ? window.i18n.t('tokenPanel.records') : ' 次记录');
       // 同步 Activity Bar
-      this._syncAbTrendChart(`<div class="token-trend-empty">${msg}</div>`, (history.length || 0) + ' 次记录');
+      this._syncAbTrendChart(`<div class="token-trend-empty">${msg}</div>`, (history.length || 0) + (window.i18n ? window.i18n.t('tokenPanel.records') : ' 次记录'));
       return;
     }
     
@@ -361,7 +365,7 @@ export class TokenMonitor {
     });
     const allPoints = [...points, ...areaPoints, points[0]];
     
-    const countText = `${values.length} 次记录`;
+    const countText = values.length + (window.i18n ? window.i18n.t('tokenPanel.records') : ' 次记录');
     if (this.elements.trendCount) this.elements.trendCount.textContent = countText;
     
     // 渲染 SVG 折线图
@@ -420,27 +424,27 @@ export class TokenMonitor {
       
       tooltip.innerHTML = `
         <div class="sbt-header">
-          <span>Token 使用率</span>
+          <span>${window.i18n ? window.i18n.t('tokenPanel.usageRate') : 'Token 使用率'}</span>
           <span class="sbt-percent" style="color:${color}">${percent.toFixed(1)}%</span>
         </div>
         <div class="sbt-bar-track">
           <div class="sbt-bar-fill" style="width:${barWidth}%;background:${color}"></div>
         </div>
         <div class="sbt-row">
-          <span>当前</span>
+          <span>${window.i18n ? window.i18n.t('token.currentContext') : '当前'}</span>
           <span>${(stats.currentTokens || 0).toLocaleString()} / ${(stats.maxTokens || 0).toLocaleString()}</span>
         </div>
         ${(stats.cacheHitTokens || stats.sessionCacheHitTokens) ? `
         <div class="sbt-divider"></div>
         <div class="sbt-row">
-          <span>缓存命中</span>
+          <span>${window.i18n ? window.i18n.t('tokenPanel.cacheHit') : '缓存命中'}</span>
           <span>${(stats.cacheHitTokens || 0).toLocaleString()} (${stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%'})</span>
         </div>
         ` : ''}
         <div class="sbt-divider"></div>
         <div class="sbt-row sbt-total">
-          <span>会话总计</span>
-          <span>${(stats.sessionTotalTokens || 0).toLocaleString()} tokens</span>
+          <span>${window.i18n ? window.i18n.t('tokenPanel.sessionTotal') : '会话总计'}</span>
+          <span>${(stats.sessionTotalTokens || 0).toLocaleString()} <span data-i18n="tokenPanel.tokens">${window.i18n ? window.i18n.t('tokenPanel.tokens') : 'tokens'}</span></span>
         </div>
       `;
       
@@ -514,7 +518,7 @@ export class TokenMonitor {
   async showDetails() {
     const modal = document.getElementById('tokenDetailsModal');
     if (!modal) {
-      alert('Token 详情弹窗未初始化');
+      alert(window.i18n ? window.i18n.t('token.detailNotReady') : 'Token 详情弹窗未初始化');
       return;
     }
     
@@ -545,7 +549,7 @@ export class TokenMonitor {
       modal.style.display = 'flex';
     } catch (error) {
       console.error('获取 Token 详情失败:', error);
-      showToast('获取 Token 详情失败：' + error.message, { type: 'error', duration: 3000 });
+      showToast((window.i18n ? window.i18n.t('token.detailFetchFailed') : '获取 Token 详情失败：') + error.message, { type: 'error', duration: 3000 });
     }
   }
   
@@ -554,5 +558,8 @@ export class TokenMonitor {
    */
   destroy() {
     this.stopAutoUpdate();
+    if (this._onI18nChange) {
+      window.removeEventListener('i18n:change', this._onI18nChange);
+    }
   }
 }

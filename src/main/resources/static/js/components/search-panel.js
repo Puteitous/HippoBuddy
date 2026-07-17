@@ -73,9 +73,9 @@ export class SearchPanel {
     this._findInput = document.createElement('input');
     this._findInput.type = 'text';
     this._findInput.className = 'cm-search-input';
-    this._findInput.placeholder = '查找';
+    this._findInput.placeholder = i18n.t('search.find');
     this._findInput.spellcheck = false;
-    this._findInput.setAttribute('aria-label', '查找');
+    this._findInput.setAttribute('aria-label', i18n.t('search.find'));
 
     // 选项组（图标形式，放在输入框右侧内部）
     const optGroup = document.createElement('div');
@@ -83,13 +83,13 @@ export class SearchPanel {
 
     this._caseCb = this._createOpt(
       '<svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 12L5 2h4l3 10"/><path d="M3.5 8.5h7"/></svg>',
-      'case', '区分大小写');
+      'case', i18n.t('search.caseSensitive'));
     this._regexCb = this._createOpt(
       '<svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="4.5" cy="4.5" r="2.5"/><path d="M6.5 6.5l5 5"/><path d="M9 4.5h4"/><path d="M11 2.5v4"/></svg>',
-      'regex', '正则表达式');
+      'regex', i18n.t('search.regex'));
     this._wordCb = this._createOpt(
       '<svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="3" width="10" height="8" rx="1"/><path d="M4.5 8v-2h2v2"/><path d="M9.5 6v4"/></svg>',
-      'word', '全词匹配');
+      'word', i18n.t('search.wholeWord'));
 
     optGroup.append(this._caseCb, this._regexCb, this._wordCb);
     inputWrap.append(this._findInput, optGroup);
@@ -99,22 +99,22 @@ export class SearchPanel {
 
     const prevBtn = this._createBtn(
       '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 7L5 3L8 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '上一个 (Shift+Enter)', () => this._nav('prev'));
+      i18n.t('search.prev'), () => this._nav('prev'));
     const nextBtn = this._createBtn(
       '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 3L5 7L8 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '下一个 (Enter)', () => this._nav('next'));
+      i18n.t('search.next'), () => this._nav('next'));
 
     // 展开/收起替换的按钮
     this._expandBtn = document.createElement('button');
     this._expandBtn.className = 'cm-search-expand';
     this._expandBtn.innerHTML = '<svg viewBox="0 0 12 12" width="12" height="12"><path d="M2 3h8M2 9h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
-    this._expandBtn.title = '展开替换';
+    this._expandBtn.title = i18n.t('search.expandReplace');
     this._expandBtn.addEventListener('click', () => this._toggleReplace());
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'cm-search-close';
     closeBtn.textContent = '×';
-    closeBtn.title = '关闭 (Esc)';
+    closeBtn.title = i18n.t('search.close');
     closeBtn.addEventListener('click', () => this.close());
 
     findRow.append(inputWrap, this._matchCount, prevBtn, nextBtn, this._expandBtn, closeBtn);
@@ -127,18 +127,18 @@ export class SearchPanel {
     this._replaceInput = document.createElement('input');
     this._replaceInput.type = 'text';
     this._replaceInput.className = 'cm-search-input';
-    this._replaceInput.placeholder = '替换';
+    this._replaceInput.placeholder = i18n.t('search.replace');
     this._replaceInput.spellcheck = false;
-    this._replaceInput.setAttribute('aria-label', '替换');
+    this._replaceInput.setAttribute('aria-label', i18n.t('search.replace'));
 
     const replaceBtn = document.createElement('button');
     replaceBtn.className = 'cm-search-action';
-    replaceBtn.textContent = '替换';
+    replaceBtn.textContent = i18n.t('search.replace');
     replaceBtn.addEventListener('click', () => this._doReplace());
 
     const replaceAllBtn = document.createElement('button');
     replaceAllBtn.className = 'cm-search-action';
-    replaceAllBtn.textContent = '全部替换';
+    replaceAllBtn.textContent = i18n.t('search.replaceAll');
     replaceAllBtn.addEventListener('click', () => this._doReplaceAll());
 
     this._replaceRow.append(this._replaceInput, replaceBtn, replaceAllBtn);

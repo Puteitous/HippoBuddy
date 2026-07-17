@@ -29,7 +29,7 @@ export class ConfirmDialog {
    * @param {string} [cancelText='取消']
    * @returns {Promise<boolean>}
    */
-  static confirm(message, confirmText = '确定', cancelText = '取消') {
+  static confirm(message, confirmText = window.i18n.t('modal.confirm'), cancelText = window.i18n.t('modal.cancel')) {
     return new ConfirmDialog()._show({
       message,
       actions: [
@@ -45,13 +45,14 @@ export class ConfirmDialog {
    * @returns {Promise<'save'|'discard'|'cancel'>}
    */
   static saveDiscardCancel(message) {
+    const $t = window.i18n.t.bind(window.i18n);
     return new ConfirmDialog()._show({
-      title: '未保存的修改',
+      title: $t('modal.unsavedTitle'),
       message,
       actions: [
-        { text: '取消', value: 'cancel', variant: 'secondary' },
-        { text: '不保存', value: 'discard', variant: 'danger' },
-        { text: '保存', value: 'save', variant: 'primary', focus: true },
+        { text: $t('modal.cancel'), value: 'cancel', variant: 'secondary' },
+        { text: $t('modal.discard'), value: 'discard', variant: 'danger' },
+        { text: $t('modal.save'), value: 'save', variant: 'primary', focus: true },
       ],
     });
   }
@@ -62,13 +63,14 @@ export class ConfirmDialog {
    * @returns {Promise<'save'|'discard'|'cancel'>}
    */
   static closeConfirm(message) {
+    const $t = window.i18n.t.bind(window.i18n);
     return new ConfirmDialog()._show({
-      title: '关闭文件',
+      title: $t('modal.closeFileTitle'),
       message,
       actions: [
-        { text: '取消', value: 'cancel', variant: 'secondary' },
-        { text: '不保存', value: 'discard', variant: 'danger' },
-        { text: '保存', value: 'save', variant: 'primary', focus: true },
+        { text: $t('modal.cancel'), value: 'cancel', variant: 'secondary' },
+        { text: $t('modal.discard'), value: 'discard', variant: 'danger' },
+        { text: $t('modal.save'), value: 'save', variant: 'primary', focus: true },
       ],
     });
   }
@@ -80,10 +82,10 @@ export class ConfirmDialog {
    * @param {string} [cancelText='取消']
    * @returns {Promise<boolean>}
    */
-  static confirmDelete(message, confirmText = '删除', cancelText = '取消') {
+  static confirmDelete(message, confirmText = window.i18n.t('modal.delete'), cancelText = window.i18n.t('modal.cancel')) {
     return new ConfirmDialog()._show({
       icon: 'delete',
-      title: '确认删除',
+      title: window.i18n.t('modal.confirmDelete'),
       message,
       actions: [
         { text: cancelText, value: false, variant: 'secondary' },

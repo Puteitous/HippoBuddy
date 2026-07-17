@@ -1,5 +1,8 @@
 import { escapeHtml } from '../../utils.js';
 
+// i18n 辅助函数
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 /**
  * 公共：渲染 delete_file 确认内容（文件列表 + 恢复提示 + 确认按钮）。
  * @param {object} data - confirmationData
@@ -17,13 +20,13 @@ function _renderDeleteFileConfirmBody(data) {
     return `
       <div class="delete-file-simple">
         ${trashIcon}
-        <span class="delete-file-label">删除:</span>
+        <span class="delete-file-label">${_t('tool.delete.label')}</span>
         <span class="delete-file-path" data-file-path="${escapeHtml(items[0])}">${escapeHtml(items[0])}</span>
       </div>
       <div class="confirmation-footer">
         <div class="confirmation-buttons">
-          <button class="confirmation-btn deny" data-confirm-id="${escapeHtml(data.confirmId)}">保留</button>
-          <button class="confirmation-btn allow delete-confirm" data-confirm-id="${escapeHtml(data.confirmId)}">删除</button>
+          <button class="confirmation-btn deny" data-confirm-id="${escapeHtml(data.confirmId)}">${_t('tool.delete.keep')}</button>
+          <button class="confirmation-btn allow delete-confirm" data-confirm-id="${escapeHtml(data.confirmId)}">${_t('tool.delete.confirm')}</button>
         </div>
       </div>`;
   }
@@ -36,7 +39,7 @@ function _renderDeleteFileConfirmBody(data) {
     <div class="delete-file-multi">
       <div class="delete-file-multi-header">
         ${trashIcon}
-        <span>删除 <strong>${items.length}</strong> 个文件</span>
+        <span>${_t('tool.delete.confirm')} <strong>${items.length}</strong> ${_t('tool.delete.count')}</span>
       </div>
       <div class="delete-file-multi-list">
         ${fileListHtml}
@@ -44,8 +47,8 @@ function _renderDeleteFileConfirmBody(data) {
     </div>
     <div class="confirmation-footer">
       <div class="confirmation-buttons">
-        <button class="confirmation-btn deny" data-confirm-id="${escapeHtml(data.confirmId)}">保留</button>
-        <button class="confirmation-btn allow delete-confirm" data-confirm-id="${escapeHtml(data.confirmId)}">删除</button>
+        <button class="confirmation-btn deny" data-confirm-id="${escapeHtml(data.confirmId)}">${_t('tool.delete.keep')}</button>
+        <button class="confirmation-btn allow delete-confirm" data-confirm-id="${escapeHtml(data.confirmId)}">${_t('tool.delete.confirm')}</button>
       </div>
     </div>`;
 }
@@ -63,14 +66,14 @@ export function renderDeleteFileConfirmCard(tool) {
     <div class="tool-card delete-file-card">
       <div class="tool-header">
         <span class="tool-icon">${deleteSvg}</span>
-        <span class="tool-title">删除文件</span>
+        <span class="tool-title">${_t('tool.delete.title')}</span>
         <span class="tool-status-badge pending_confirmation">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z"/>
             <line x1="8" y1="5" x2="8" y2="9"/>
             <line x1="8" y1="11" x2="8.01" y2="11"/>
           </svg>
-          等待确认
+          ${_t('tool.delete.waitConfirm')}
         </span>
         <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 12 10 8 6 4"/></svg></span>
       </div>
@@ -100,7 +103,7 @@ export function renderDeleteFileConfirmationDetail(tool) {
  */
 export function renderDeleteFileDetail(tool) {
   if (!tool.result) {
-    return '<div class="timeline-detail-status">运行中...</div>';
+    return `<div class="timeline-detail-status">${_t('tool.default.runningWithEllipsis')}</div>`;
   }
 
   if (tool.result === 'error' && tool.error) {
@@ -117,13 +120,13 @@ export function renderDeleteFileDetail(tool) {
   let currentSection = null;
 
   for (const line of lines) {
-    if (line.startsWith('已删除')) {
+    if (line.startsWith(_t('tool.delete.deleted'))) {
       currentSection = 'deleted';
       deletedLines.push(line);
-    } else if (line.startsWith('删除失败')) {
+    } else if (line.startsWith(_t('tool.delete.failed'))) {
       currentSection = 'failed';
       failedLines.push(line);
-    } else if (line.startsWith('已跳过') || line.startsWith('路径不存在')) {
+    } else if (line.startsWith(_t('tool.delete.skipped')) || line.startsWith(_t('tool.delete.pathNotExist'))) {
       currentSection = 'skipped';
       skippedLines.push(line);
     } else if (line.startsWith('  - ')) {
@@ -140,7 +143,7 @@ export function renderDeleteFileDetail(tool) {
     detailHtml += `<div class="timeline-detail-section success">
       <div class="section-title">
         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 7 11 12 5"/></svg>
-        已删除 ${count} 个文件
+        ${_t('tool.delete.deleted')} ${count} ${_t('tool.delete.count')}
       </div>
       <pre><code>${deletedLines.join('\n')}</code></pre>
     </div>`;

@@ -38,7 +38,7 @@ export class ChatService {
     const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/messages`);
     if (response.status === 404) return [];
     if (!response.ok) {
-      throw new Error(`获取消息失败: ${response.status}`);
+      throw new Error(i18n.t('chat.fetchFailed') + ': ' + response.status);
     }
     return response.json();
   }
@@ -88,7 +88,7 @@ export class ChatService {
             type: 'retry',
             attempt: attempt,
             maxRetries: this.maxRetries,
-            message: `正在重试 (${attempt}/${this.maxRetries})...`
+            message: i18n.t('chat.retrying', { attempt, maxRetries: this.maxRetries })
           });
         }
         
@@ -102,7 +102,7 @@ export class ChatService {
         }
         
         console.warn(`第 ${attempt} 次请求完成但 hasContent=false, 准备重试`);
-        lastError = new Error('LLM 未返回有效内容');
+        lastError = new Error(i18n.t('chat.llmNoContent'));
       } catch (error) {
         if (error.name === 'AbortError') {
           throw error;
@@ -112,8 +112,8 @@ export class ChatService {
       }
     }
 
-    console.error(`[ChatService] ${session} 重试耗尽, 最终错误:`, lastError?.message || '请求失败');
-    throw lastError || new Error('请求失败');
+    console.error(`[ChatService] ${session} 重试耗尽, 最终错误:`, lastError?.message || i18n.t('chat.requestFailed'));
+    throw lastError || new Error(i18n.t('chat.requestFailed'));
   }
 
   async executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules, mode) {
@@ -123,7 +123,7 @@ export class ChatService {
       timeoutReject = reject;
     });
     const timeoutId = setTimeout(() => {
-      timeoutReject(new Error('请求超时'));
+      timeoutReject(new Error(i18n.t('chat.timeoutError')));
     }, timeout);
 
     let hasContent = false;
@@ -194,7 +194,7 @@ export class ChatService {
                   id: idMatch[1],
                   name: nameMatch[1],
                   success: successMatch?.[1] === 'true',
-                  error: '工具结果数据解析异常',
+                  error: i18n.t('chat.toolResultParseError'),
                   _eventType: 'tool_result'
                 });
               }
@@ -358,7 +358,7 @@ export class ChatService {
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({ error: '请求失败' }));
-      throw new Error(err.error || `撤销失败: ${response.status}`);
+      throw new Error(err.error || `${i18n.t('chat.undoFailed')}${response.status}`);
     }
     return response.json();
   }
@@ -378,7 +378,7 @@ export class ChatService {
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({ error: '请求失败' }));
-      throw new Error(err.error || `回滚失败: ${response.status}`);
+      throw new Error(err.error || `${i18n.t('chat.rewindFailed')}${response.status}`);
     }
     return response.json();
   }
@@ -397,7 +397,7 @@ export class ChatService {
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({ error: '请求失败' }));
-      throw new Error(err.error || `分叉失败: ${response.status}`);
+      throw new Error(err.error || `${i18n.t('chat.forkFailed')}${response.status}`);
     }
     return response.json();
   }

@@ -55,7 +55,7 @@ export function deepMergeTodoList(oldList, newList) {
     } else {
       map.set(newTodo.id, {
         id: newTodo.id,
-        content: newTodo.content || '未命名任务',
+        content: newTodo.content || (window.i18n?.t('tool.todo.unnamed') || '未命名任务'),
         status: newTodo.status || 'pending',
         children: newTodo.children ? deepMergeTodoList([], newTodo.children) : undefined
       });

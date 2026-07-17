@@ -5,6 +5,8 @@
  */
 import { appState } from '../../state/app-state.js';
 
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 export class GeneralSettingsPage {
   constructor() {
   }
@@ -17,32 +19,41 @@ export class GeneralSettingsPage {
     page.className = 'settings-page';
 
     page.innerHTML = `
-      <h2 class="settings-page-title">通用设置</h2>
-      <p class="settings-page-desc">界面、行为等通用偏好设置</p>
+      <h2 class="settings-page-title">${_t('settingsPage.generalTitle')}</h2>
+      <p class="settings-page-desc">${_t('settingsPage.generalDesc')}</p>
       <hr class="settings-page-divider">
-      <div class="settings-field-group-title">基本偏好</div>
+      <div class="settings-field-group-title">${_t('settingsPage.generalBasic')}</div>
       <div class="settings-field-group">
       <div class="settings-form">
         <div class="settings-field-horizontal">
-          <label class="settings-field-label">主题模式</label>
+          <label class="settings-field-label">${_t('settingsPage.generalTheme')}</label>
           <div class="settings-field-body">
             <div class="settings-toggle-group" id="settingsThemeToggle">
-              <button class="settings-toggle-btn" data-value="light">浅色</button>
-              <button class="settings-toggle-btn" data-value="dark">深色</button>
-              <button class="settings-toggle-btn" data-value="midnight">Midnight</button>
-              <button class="settings-toggle-btn" data-value="system">跟随系统</button>
+              <button class="settings-toggle-btn" data-value="light">${_t('settingsPage.generalLight')}</button>
+              <button class="settings-toggle-btn" data-value="dark">${_t('settingsPage.generalDark')}</button>
+              <button class="settings-toggle-btn" data-value="midnight">${_t('settingsPage.generalMidnight')}</button>
+              <button class="settings-toggle-btn" data-value="system">${_t('settingsPage.generalSystem')}</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-field-horizontal">
+          <label class="settings-field-label">${_t('settingsPage.generalLanguage')}</label>
+          <div class="settings-field-body">
+            <div class="settings-toggle-group" id="settingsLangToggle">
+              <button class="settings-toggle-btn" data-value="zh">${_t('settingsPage.generalLangZh')}</button>
+              <button class="settings-toggle-btn" data-value="en">${_t('settingsPage.generalLangEn')}</button>
             </div>
           </div>
         </div>
         <div class="settings-field-horizontal desktop-only desktop-only-flex">
           <div class="settings-field-label">
-            <div>默认工作区路径</div>
-            <div class="settings-field-hint">(留空使用内置默认)</div>
+            <div>${_t('settingsPage.generalWorkspace')}</div>
+            <div class="settings-field-hint">${_t('settingsPage.generalWorkspaceHint')}</div>
           </div>
           <div class="settings-field-body" style="flex:1;">
             <div class="settings-input-wrap">
-              <input class="settings-input" id="settingsDefaultWorkspace" type="text" placeholder="留空则使用内置默认路径">
-              <button class="settings-input-btn" id="settingsDefaultWorkspaceBrowse" title="选择文件夹">
+              <input class="settings-input" id="settingsDefaultWorkspace" type="text" placeholder="${_t('settingsPage.generalWorkspacePh')}">
+              <button class="settings-input-btn" id="settingsDefaultWorkspaceBrowse" title="${_t('settingsPage.generalBrowseFolder')}">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                 </svg>
@@ -51,11 +62,11 @@ export class GeneralSettingsPage {
           </div>
         </div>
         <div class="settings-field-horizontal desktop-only desktop-only-flex">
-          <label class="settings-field-label">面板布局</label>
+          <label class="settings-field-label">${_t('settingsPage.generalLayout')}</label>
           <div class="settings-field-body">
             <div class="settings-toggle-group" id="settingsLayoutToggle">
-              <button class="settings-toggle-btn" data-value="preview-left">预览在左</button>
-              <button class="settings-toggle-btn" data-value="chat-left">聊天在左</button>
+              <button class="settings-toggle-btn" data-value="preview-left">${_t('settingsPage.generalPreviewLeft')}</button>
+              <button class="settings-toggle-btn" data-value="chat-left">${_t('settingsPage.generalChatLeft')}</button>
             </div>
           </div>
         </div>
@@ -78,6 +89,22 @@ export class GeneralSettingsPage {
           localStorage.setItem('hippo-theme', 'system');
         } else {
           appState.setTheme(theme);
+        }
+      });
+    });
+
+    // ── 语言切换 ──
+    const currentLang = window.i18n ? window.i18n.currentLang : 'zh';
+    document.querySelectorAll('#settingsLangToggle .settings-toggle-btn').forEach(btn => {
+      if (btn.dataset.value === currentLang) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#settingsLangToggle .settings-toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const lang = btn.dataset.value;
+        if (window.i18n) {
+          window.i18n.setLang(lang);
+          // 重新渲染当前页面以刷新所有文本
+          this.render(this._container);
         }
       });
     });

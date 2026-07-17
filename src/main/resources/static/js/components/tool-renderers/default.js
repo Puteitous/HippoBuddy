@@ -1,20 +1,23 @@
 import { escapeHtml } from '../../utils.js';
 import { parseToolArgs } from './shared.js';
 
+// i18n 辅助函数
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 export function renderDefaultToolCard(tool) {
   let argsDisplay = '';
   if (tool.args) {
     try {
       const parsed = typeof tool.args === 'string' ? JSON.parse(tool.args) : tool.args;
-      argsDisplay = `<div class="detail-row"><span class="detail-label">参数:</span><span class="detail-value">${escapeHtml(JSON.stringify(parsed, null, 2))}</span></div>`;
+      argsDisplay = `<div class="detail-row"><span class="detail-label">${_t('tool.default.parameters')}</span><span class="detail-value">${escapeHtml(JSON.stringify(parsed, null, 2))}</span></div>`;
     } catch (e) {
-      argsDisplay = `<div class="detail-row"><span class="detail-label">参数:</span><span class="detail-value">${escapeHtml(String(tool.args))}</span></div>`;
+      argsDisplay = `<div class="detail-row"><span class="detail-label">${_t('tool.default.parameters')}</span><span class="detail-value">${escapeHtml(String(tool.args))}</span></div>`;
     }
   }
 
   let resultDisplay = '';
   if (tool.resultContent) {
-    resultDisplay = `<div class="detail-row"><span class="detail-label">结果:</span><span class="detail-value tool-result-content">${escapeHtml(tool.resultContent)}</span></div>`;
+    resultDisplay = `<div class="detail-row"><span class="detail-label">${_t('tool.default.result')}</span><span class="detail-value tool-result-content">${escapeHtml(tool.resultContent)}</span></div>`;
   }
 
   const cancelSvg = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><line x1="5" y1="5" x2="11" y2="11"/></svg>';
@@ -25,11 +28,11 @@ export function renderDefaultToolCard(tool) {
   const spinnerSvg = '<svg class="tool-spinner" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg>';
 
   let statusDisplay = '';
-  if (tool.result === 'success') statusDisplay = `${checkSvg} 成功`;
-  else if (tool.result === 'error') statusDisplay = `${xSvg} 失败`;
-  else if (tool.result === 'cancelled') statusDisplay = `${cancelSvg} 已取消`;
-  else if (tool.result === 'interrupted') statusDisplay = `${warnSvg} 中断`;
-  else statusDisplay = `${spinnerSvg} 运行中`;
+  if (tool.result === 'success') statusDisplay = `${checkSvg} ${_t('tool.default.success')}`;
+  else if (tool.result === 'error') statusDisplay = `${xSvg} ${_t('tool.default.failed')}`;
+  else if (tool.result === 'cancelled') statusDisplay = `${cancelSvg} ${_t('tool.default.cancelled')}`;
+  else if (tool.result === 'interrupted') statusDisplay = `${warnSvg} ${_t('tool.default.interrupted')}`;
+  else statusDisplay = `${spinnerSvg} ${_t('tool.default.running')}`;
 
   return `
     <div class="tool-call-card">
@@ -42,7 +45,7 @@ export function renderDefaultToolCard(tool) {
       <div class="tool-call-details">
         ${argsDisplay}
         ${resultDisplay}
-        ${tool.error ? `<div class="detail-row"><span class="detail-label">错误:</span><span class="detail-value" style="color: var(--error-color);">${escapeHtml(tool.error)}</span></div>` : ''}
+        ${tool.error ? `<div class="detail-row"><span class="detail-label">${_t('tool.default.error')}</span><span class="detail-value" style="color: var(--error-color);">${escapeHtml(tool.error)}</span></div>` : ''}
       </div>
     </div>
   `;

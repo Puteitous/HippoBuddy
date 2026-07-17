@@ -102,7 +102,7 @@ export class MetricsPanel {
       });
       
       if (this.elements.metUpdateTime) {
-        this.elements.metUpdateTime.textContent = '更新于 ' + timeStr;
+        this.elements.metUpdateTime.textContent = i18n.t('metrics.updatedAt') + timeStr;
       }
       
       // === 同步更新 Activity Bar 面板 ===
@@ -150,7 +150,7 @@ export class MetricsPanel {
     }
     
     if (this.elements.abMetUpdateTime) {
-      this.elements.abMetUpdateTime.textContent = '更新于 ' + timeStr;
+      this.elements.abMetUpdateTime.textContent = i18n.t('metrics.updatedAt') + timeStr;
     }
   }
   

@@ -138,9 +138,14 @@ export class ActivityBar {
             const content = this.registry.get(panelName);
             if (typeof content === 'function') {
                 const el = content();
-                if (el) this.panelBody.appendChild(el);
+                if (el) {
+                    this.panelBody.appendChild(el);
+                    // 应用翻译到新插入的模板内容
+                    if (window.i18n) window.i18n.applyToDOM(this.panelBody);
+                }
             } else if (content instanceof HTMLElement) {
                 this.panelBody.appendChild(content.cloneNode(true));
+                if (window.i18n) window.i18n.applyToDOM(this.panelBody);
             }
         } else {
             // 未注册内容的占位

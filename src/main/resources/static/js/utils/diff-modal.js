@@ -74,17 +74,17 @@ export class DiffModalManager {
     }
 
     if (this.timeline) {
-      this.timeline.innerHTML = '<div class="diff-timeline-loading">加载中...</div>';
+      this.timeline.innerHTML = `<div class="diff-timeline-loading">${window.i18n.t('diff.loading')}</div>`;
     }
     if (this.contentPanel) {
-      this.contentPanel.innerHTML = '<div class="diff-empty">加载中...</div>';
+      this.contentPanel.innerHTML = `<div class="diff-empty">${window.i18n.t('diff.loading')}</div>`;
     }
     if (this.statsEl) {
       this.statsEl.innerHTML = '';
     }
     if (this.rollbackBtn) {
       this.rollbackBtn.classList.remove('rolling');
-      this.rollbackBtn.textContent = '回滚此变更';
+      this.rollbackBtn.textContent = window.i18n.t('diff.rollbackBtn');
     }
 
     try {
@@ -113,14 +113,14 @@ export class DiffModalManager {
           const emptyDiv = document.createElement('div');
           emptyDiv.className = 'diff-empty';
           emptyDiv.textContent = toolCallId
-            ? '该变更已被回滚，暂无变更记录可查看'
-            : '无变更记录';
+            ? window.i18n.t('diff.noRecordsRollback')
+            : window.i18n.t('diff.noRecords');
           this.contentPanel.appendChild(emptyDiv);
         }
       }
     } catch (e) {
       if (this.contentPanel) {
-        this.contentPanel.innerHTML = `<div class="diff-empty">加载失败：${escapeHtml(e.message)}</div>`;
+        this.contentPanel.innerHTML = `<div class="diff-empty">${window.i18n.t('diff.loadFailed')}${escapeHtml(e.message)}</div>`;
       }
       if (this.timeline) {
         this.timeline.innerHTML = '';
@@ -132,7 +132,7 @@ export class DiffModalManager {
     if (!this.timeline) return;
 
     if (this.allChanges.length === 0) {
-      this.timeline.innerHTML = '<div class="diff-timeline-empty">无变更记录</div>';
+      this.timeline.innerHTML = `<div class="diff-timeline-empty">${window.i18n.t('diff.noRecords')}</div>`;
       return;
     }
 
@@ -199,12 +199,12 @@ export class DiffModalManager {
     if (!this.contentPanel) return;
 
     if (data.binary) {
-      this.contentPanel.innerHTML = '<div class="diff-binary-notice">此文件为二进制文件，无法显示差异</div>';
+      this.contentPanel.innerHTML = `<div class="diff-binary-notice">${window.i18n.t('diff.binary')}</div>`;
       return;
     }
 
     if (!data.changes || data.changes.length === 0) {
-      this.contentPanel.innerHTML = '<div class="diff-empty">无变更内容</div>';
+      this.contentPanel.innerHTML = `<div class="diff-empty">${window.i18n.t('diff.noContent')}</div>`;
       return;
     }
 
@@ -244,7 +244,7 @@ export class DiffModalManager {
     // 在内容面板顶部插入提示条
     const warning = document.createElement('div');
     warning.className = 'diff-rollback-warning';
-    warning.textContent = '此变更已被回滚，以下显示该文件当前最新的变更列表';
+    warning.textContent = window.i18n.t('diff.rolledBack');
     if (this.contentPanel) {
       this.contentPanel.prepend(warning);
     }
@@ -252,9 +252,9 @@ export class DiffModalManager {
 
   getToolLabel(toolName) {
     switch (toolName) {
-      case 'edit_file': return '编辑文件';
-      case 'write_file': return '写入文件';
-      case 'delete_file': return '删除文件';
+      case 'edit_file': return window.i18n.t('diff.typeEdit');
+      case 'write_file': return window.i18n.t('diff.typeWrite');
+      case 'delete_file': return window.i18n.t('diff.typeDelete');
       default: return toolName;
     }
   }
@@ -264,7 +264,7 @@ export class DiffModalManager {
     if (this.rollbackBtn.classList.contains('rolling')) return;
 
     this.rollbackBtn.classList.add('rolling');
-    this.rollbackBtn.textContent = '回滚中...';
+    this.rollbackBtn.textContent = window.i18n.t('diff.rollingBack');
 
     try {
       const result = await apiPost('/api/files/rollback', {
@@ -273,24 +273,24 @@ export class DiffModalManager {
       });
 
       if (result.success) {
-        showToast(`文件已恢复：${this.currentFilePath.split(/[/\\]/).pop()}`, {
+        showToast(window.i18n.t('diff.rollbackSuccess') + this.currentFilePath.split(/[/\\]/).pop(), {
           type: 'success',
           duration: 3000
         });
         EventBus.emit('file:changes-updated');
         this.close();
       } else {
-        showToast(`回滚失败：${result.error || '未知错误'}`, {
+        showToast(window.i18n.t('diff.rollbackFailed') + (result.error || window.i18n.t('chatui.unknownError')), {
           type: 'error',
           duration: 3000
         });
         this.rollbackBtn.classList.remove('rolling');
-        this.rollbackBtn.textContent = '回滚此变更';
+        this.rollbackBtn.textContent = window.i18n.t('diff.rollbackBtn');
       }
     } catch (e) {
-      showToast(`回滚失败：${e.message}`, { type: 'error', duration: 3000 });
+      showToast(window.i18n.t('diff.rollbackFailed') + e.message, { type: 'error', duration: 3000 });
       this.rollbackBtn.classList.remove('rolling');
-      this.rollbackBtn.textContent = '回滚此变更';
+      this.rollbackBtn.textContent = window.i18n.t('diff.rollbackBtn');
     }
   }
 

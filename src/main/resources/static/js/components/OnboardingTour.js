@@ -32,8 +32,8 @@ export class OnboardingTour {
         id: 'header',
         type: 'spotlight',
         target: () => document.querySelector('.header-actions'),
-        title: '👋 欢迎使用 HippoBuddy',
-        desc: '你的 AI 编程搭档，一切从顶部工具栏开始。<br><br>🔧 <b>模型配置</b>  — 切换 AI 模型与参数<br>🌙 <b>主题切换</b> — 明暗随意切换<br>📂 <b>工作区</b> — 选择项目文件夹，AI 直接读写代码<br>🛠️ <b>开发者工具</b> — 调试、刷新、窗口控制一应俱全',
+        titleKey: 'onboarding.headerTitle',
+        descKey: 'onboarding.headerDesc',
         tooltipPosition: 'below',
       },
       {
@@ -65,16 +65,16 @@ export class OnboardingTour {
           return document.getElementById('messageInput')?.closest('.chat-input-area')
             || document.querySelector('.chat-input-container');
         },
-        title: '💬 开始对话',
-        desc: '在输入框中描述你的需求，按 <code>Enter</code> 发送。<br><br>上方可切换 <b>聊天/代码/办公</b> 三种模式，AI 会相应调整行为。',
+        titleKey: 'onboarding.chatTitle',
+        descKey: 'onboarding.chatDesc',
         tooltipPosition: 'above',
       },
       {
         id: 'session',
         type: 'spotlight',
         target: () => document.querySelector('.session-toolbar'),
-        title: '📋 会话管理',
-        desc: '工具栏提供：<b>会话面板</b>折叠/展开 · <b>新建会话</b> · <b>切换活动栏</b>。<br><br>右侧胶囊按钮可在<b>会话列表</b>与<b>文件浏览</b>视图间切换。',
+        titleKey: 'onboarding.sessionTitle',
+        descKey: 'onboarding.sessionDesc',
         tooltipPosition: 'right',
       },
       {
@@ -105,16 +105,16 @@ export class OnboardingTour {
           }
           return panel;
         },
-        title: '📋 会话列表',
-        desc: '左侧列表展示你的所有对话历史，点击即可切换会话。<br><br>每个会话支持<b>重命名</b>、<b>删除</b>。顶部 <b>「项目/时间」</b> 按钮可切换会话分组方式，轻松管理多个任务。',
+        titleKey: 'onboarding.sessionListTitle',
+        descKey: 'onboarding.sessionListDesc',
         tooltipPosition: 'right',
       },
       {
         id: 'tools',
         type: 'spotlight',
         target: () => document.getElementById('activityBar'),
-        title: '🔧 功能工具箱',
-        desc: '右侧工具栏提供：<b>Token 统计</b> · <b>实时监控</b> · <b>文件变更</b> · <b>终端</b> · <b>浏览器</b> · <b>技能市场</b>',
+        titleKey: 'onboarding.toolsTitle',
+        descKey: 'onboarding.toolsDesc',
         tooltipPosition: 'right',
       },
     ];
@@ -211,19 +211,23 @@ export class OnboardingTour {
     tooltip.className = 'ob-tooltip';
     tooltip.id = 'obTooltip';
 
+    const $t = (k) => window.i18n ? window.i18n.t(k) : k;
+    const title = $t(step.titleKey);
+    const desc = $t(step.descKey);
+
     const prevBtnHtml = stepIndex > 0
-      ? '<button class="ob-btn ob-btn-prev" id="obPrevBtn">← 上一步</button>'
+      ? `<button class="ob-btn ob-btn-prev" id="obPrevBtn">${$t('onboarding.prev')}</button>`
       : '';
 
     tooltip.innerHTML = `
-      <div class="ob-tooltip-title">${step.title}</div>
-      <div class="ob-tooltip-desc">${step.desc}</div>
+      <div class="ob-tooltip-title">${title}</div>
+      <div class="ob-tooltip-desc">${desc}</div>
       <div class="ob-tooltip-actions">
         <span class="ob-step-counter">${stepIndex + 1} / ${this.steps.length}</span>
         <div class="ob-btn-group">
           ${prevBtnHtml}
-          <button class="ob-btn ob-btn-skip" id="obSkipBtn">跳过</button>
-          <button class="ob-btn ob-btn-next" id="obNextBtn">${stepIndex < this.steps.length - 1 ? '下一步 →' : '完成 ✓'}</button>
+          <button class="ob-btn ob-btn-skip" id="obSkipBtn">${$t('onboarding.skip')}</button>
+          <button class="ob-btn ob-btn-next" id="obNextBtn">${stepIndex < this.steps.length - 1 ? $t('onboarding.next') : $t('onboarding.done')}</button>
         </div>
       </div>
     `;

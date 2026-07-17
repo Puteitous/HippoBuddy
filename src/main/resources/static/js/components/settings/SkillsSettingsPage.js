@@ -9,6 +9,8 @@ import { showToast } from '../../utils/toast.js';
 import { getFileIconInfo } from '../../utils/file-icons.js';
 import { ConfirmDialog } from '../../utils/modal.js';
 
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 export class SkillsSettingsPage {
   constructor() {
     this._projectSkills = [];
@@ -24,24 +26,24 @@ export class SkillsSettingsPage {
     page.className = 'settings-page';
 
     page.innerHTML = `
-      <h2 class="settings-page-title">技能管理</h2>
-      <p class="settings-page-desc">管理项目级和用户级技能文件，按「项目技能」和「全局技能」分组</p>
+      <h2 class="settings-page-title">${_t('settingsPage.skillsTitle')}</h2>
+      <p class="settings-page-desc">${_t('settingsPage.skillsDesc')}</p>
       <hr class="settings-page-divider">
 
       <div class="settings-item-list-header">
-        <h3>技能列表</h3>
+        <h3>${_t('settingsPage.skillsList')}</h3>
         <div class="settings-item-list-actions">
-          <button class="settings-btn settings-btn-icon" id="settingsSkillsRefresh" title="刷新">
+          <button class="settings-btn settings-btn-icon" id="settingsSkillsRefresh" title="${_t('settingsPage.skillsRefresh')}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
           </button>
-          <button class="settings-btn settings-btn-primary" id="settingsSkillsCreate">+ 新建</button>
+          <button class="settings-btn settings-btn-primary" id="settingsSkillsCreate">+ ${_t('settingsPage.skillsCreate')}</button>
         </div>
       </div>
 
-      <div class="settings-loading" id="settingsSkillsLoading" style="display:none;">加载中...</div>
+      <div class="settings-loading" id="settingsSkillsLoading" style="display:none;">${_t('settingsPage.rulesLoading')}</div>
       <div class="settings-items-error" id="settingsSkillsError" style="display:none;"></div>
       <div id="settingsSkillsList"></div>
     `;
@@ -88,7 +90,7 @@ export class SkillsSettingsPage {
     } catch (e) {
       console.warn('加载技能列表失败:', e);
       if (errorEl) {
-        errorEl.textContent = '加载失败，请重试';
+        errorEl.textContent = _t('settingsPage.skillsLoadFailed');
         errorEl.style.display = 'block';
       }
     } finally {
@@ -98,17 +100,17 @@ export class SkillsSettingsPage {
 
   _renderSkillsList(listEl) {
     if (this._projectSkills.length === 0 && this._userSkills.length === 0) {
-      listEl.innerHTML = '<div class="settings-items-empty">暂无技能文件<br><span style="font-size:11px;opacity:0.6;">点击「+ 新建」创建第一个技能</span></div>';
+      listEl.innerHTML = `<div class="settings-items-empty">${_t('settingsPage.skillsEmpty')}<br><span style="font-size:11px;opacity:0.6;">${_t('settingsPage.skillsEmptyHint')}</span></div>`;
       return;
     }
 
     listEl.innerHTML = '';
 
     if (this._projectSkills.length > 0) {
-      listEl.appendChild(this._createSkillGroup('项目技能', this._projectSkills, 'project'));
+      listEl.appendChild(this._createSkillGroup(_t('settingsPage.skillsGroupProject'), this._projectSkills, 'project'));
     }
     if (this._userSkills.length > 0) {
-      listEl.appendChild(this._createSkillGroup('全局技能', this._userSkills, 'user'));
+      listEl.appendChild(this._createSkillGroup(_t('settingsPage.skillsGroupUser'), this._userSkills, 'user'));
     }
   }
 
@@ -167,7 +169,7 @@ export class SkillsSettingsPage {
 
       const delBtn = document.createElement('button');
       delBtn.className = 'settings-item-del';
-      delBtn.title = '删除';
+      delBtn.title = _t('settingsPage.skillsDelete');
       delBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="3 6 5 6 21 6"/>
         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -204,26 +206,26 @@ export class SkillsSettingsPage {
     listEl.innerHTML = `
       <div class="settings-editor">
         <div class="settings-editor-header">
-          <span class="settings-editor-title">编辑技能：${skill.name || skill.fileName.replace(/\.md$/, '')}</span>
+          <span class="settings-editor-title">${_t('settingsPage.skillsEditTitle')}${skill.name || skill.fileName.replace(/\.md$/, '')}</span>
           <div class="settings-editor-actions">
-            <button class="settings-editor-btn" id="settingsSkillEditorBack">← 返回列表</button>
-            <button class="settings-editor-btn settings-editor-btn-primary" id="settingsSkillEditorSave">保存</button>
+            <button class="settings-editor-btn" id="settingsSkillEditorBack">${_t('settingsPage.skillsBackToList')}</button>
+            <button class="settings-editor-btn settings-editor-btn-primary" id="settingsSkillEditorSave">${_t('settingsPage.skillsSave')}</button>
           </div>
         </div>
         <div class="settings-editor-fields">
           <div class="settings-field">
-            <label class="settings-field-label" for="settingsSkillEditorName">技能名称</label>
+            <label class="settings-field-label" for="settingsSkillEditorName">${_t('settingsPage.skillsName')}</label>
             <input class="settings-input" id="settingsSkillEditorName" type="text" value="${skill.name || skill.fileName.replace(/\.md$/, '')}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label" for="settingsSkillEditorDesc">描述</label>
-            <input class="settings-input" id="settingsSkillEditorDesc" type="text" value="${skill.description || ''}" placeholder="简短说明，前端展示用">
+            <label class="settings-field-label" for="settingsSkillEditorDesc">${_t('settingsPage.skillsDesc')}</label>
+            <input class="settings-input" id="settingsSkillEditorDesc" type="text" value="${skill.description || ''}" placeholder="${_t('settingsPage.skillsDescPh')}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label">作用域</label>
+            <label class="settings-field-label">${_t('settingsPage.skillsScope')}</label>
             <div class="settings-toggle-group" id="settingsSkillEditorScope">
-              <button class="settings-toggle-btn ${source === 'project' ? 'active' : ''}" data-value="project">项目技能</button>
-              <button class="settings-toggle-btn ${source !== 'project' ? 'active' : ''}" data-value="user">全局技能</button>
+              <button class="settings-toggle-btn ${source === 'project' ? 'active' : ''}" data-value="project">${_t('settingsPage.skillsGroupProject')}</button>
+              <button class="settings-toggle-btn ${source !== 'project' ? 'active' : ''}" data-value="user">${_t('settingsPage.skillsGroupUser')}</button>
             </div>
           </div>
           <div class="settings-field">
@@ -233,7 +235,7 @@ export class SkillsSettingsPage {
             </div>
           </div>
         </div>
-        <textarea class="settings-editor-textarea" id="settingsSkillEditorContent" placeholder="加载中..." spellcheck="false"></textarea>
+        <textarea class="settings-editor-textarea" id="settingsSkillEditorContent" placeholder="${_t('settingsPage.skillsLoading')}" spellcheck="false"></textarea>
         <div class="settings-editor-status" id="settingsSkillEditorStatus" style="display:none;"></div>
       </div>
     `;
@@ -271,7 +273,7 @@ export class SkillsSettingsPage {
     } catch (e) {
       console.warn('加载技能内容失败:', e);
       textarea.value = '';
-      textarea.placeholder = '加载失败';
+      textarea.placeholder = _t('settingsPage.skillsLoadFailed');
     }
   }
 
@@ -290,13 +292,13 @@ export class SkillsSettingsPage {
     const content = textarea.value;
 
     if (!name) {
-      showToast('技能名称不能为空', { type: 'warning', duration: 2000 });
+      showToast(_t('settingsPage.skillsNameRequired'), { type: 'warning', duration: 2000 });
       return;
     }
 
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.textContent = '保存中…';
+      saveBtn.textContent = _t('settingsPage.skillsSaving');
     }
 
     try {
@@ -309,8 +311,8 @@ export class SkillsSettingsPage {
       });
 
       if (result.success) {
-        showToast('技能已保存', { type: 'success', duration: 2000 });
-        if (saveBtn) saveBtn.textContent = '✓ 已保存';
+        showToast(_t('settingsPage.skillsSaved'), { type: 'success', duration: 2000 });
+        if (saveBtn) saveBtn.textContent = _t('settingsPage.skillsSavedIcon');
         skill.filePath = result.filePath || skill.filePath;
         setTimeout(() => {
           const headerActions = document.querySelector('#settingsSkillsCreate')?.closest('.settings-item-list-actions');
@@ -319,25 +321,25 @@ export class SkillsSettingsPage {
           this._loadSkills();
         }, 400);
       } else {
-        showToast('保存失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(_t('settingsPage.skillsSaveFailed') + (result.message || _t('settingsPage.modelUnknownError')), { type: 'error', duration: 3000 });
         if (saveBtn) {
           saveBtn.disabled = false;
-          saveBtn.textContent = '保存';
+          saveBtn.textContent = _t('settingsPage.skillsSave');
         }
       }
     } catch (e) {
       console.warn('保存技能失败:', e);
-      showToast('保存失败: 网络错误，请重试', { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.skillsSaveFailed') + _t('settingsPage.networkError'), { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = '保存';
+        saveBtn.textContent = _t('settingsPage.skillsSave');
       }
     }
   }
 
   async _deleteSkill(skill) {
     const name = skill.name || skill.fileName.replace(/\.md$/, '');
-    const confirmed = await ConfirmDialog.confirmDelete(`确定删除技能「${name}」？`);
+    const confirmed = await ConfirmDialog.confirmDelete(`${_t('settingsPage.deleteConfirmSkill')}${name}${_t('settingsPage.deleteConfirmEnd')}`);
     if (!confirmed) return;
 
     try {
@@ -345,11 +347,11 @@ export class SkillsSettingsPage {
       if (result.success) {
         this._loadSkills();
       } else {
-        showToast('删除失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(_t('settingsPage.skillsSaveFailed') + (result.message || _t('settingsPage.modelUnknownError')), { type: 'error', duration: 3000 });
       }
     } catch (e) {
       console.warn('删除技能失败:', e);
-      showToast('删除失败，请重试', { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.deleteFailedRetry'), { type: 'error', duration: 3000 });
     }
   }
 
@@ -365,30 +367,30 @@ export class SkillsSettingsPage {
     listEl.innerHTML = `
       <div class="settings-editor">
         <div class="settings-editor-header">
-          <span class="settings-editor-title">新建技能</span>
+          <span class="settings-editor-title">${_t('settingsPage.skillsCreateTitle')}</span>
           <div class="settings-editor-actions">
-            <button class="settings-editor-btn" id="settingsSkillCreateBack">← 返回列表</button>
-            <button class="settings-editor-btn settings-editor-btn-primary" id="settingsSkillCreateSave">创建</button>
+            <button class="settings-editor-btn" id="settingsSkillCreateBack">${_t('settingsPage.skillsBackToList')}</button>
+            <button class="settings-editor-btn settings-editor-btn-primary" id="settingsSkillCreateSave">${_t('settingsPage.skillsCreate')}</button>
           </div>
         </div>
         <div class="settings-editor-fields">
           <div class="settings-field">
-            <label class="settings-field-label" for="settingsSkillCreateName">技能名称</label>
-            <input class="settings-input" id="settingsSkillCreateName" type="text" placeholder="my-skill（字母、数字、连字符，不含 .md）">
+            <label class="settings-field-label" for="settingsSkillCreateName">${_t('settingsPage.skillsName')}</label>
+            <input class="settings-input" id="settingsSkillCreateName" type="text" placeholder="${_t('settingsPage.skillsNamePh')}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label" for="settingsSkillCreateDesc">描述</label>
-            <input class="settings-input" id="settingsSkillCreateDesc" type="text" placeholder="简短说明，前端展示用">
+            <label class="settings-field-label" for="settingsSkillCreateDesc">${_t('settingsPage.skillsDesc')}</label>
+            <input class="settings-input" id="settingsSkillCreateDesc" type="text" placeholder="${_t('settingsPage.skillsDescPh')}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label">作用域</label>
+            <label class="settings-field-label">${_t('settingsPage.skillsScope')}</label>
             <div class="settings-toggle-group" id="settingsSkillCreateScope">
-              <button class="settings-toggle-btn active" data-value="project">项目技能</button>
-              <button class="settings-toggle-btn" data-value="user">全局技能</button>
+              <button class="settings-toggle-btn active" data-value="project">${_t('settingsPage.skillsGroupProject')}</button>
+              <button class="settings-toggle-btn" data-value="user">${_t('settingsPage.skillsGroupUser')}</button>
             </div>
           </div>
         </div>
-        <textarea class="settings-editor-textarea" id="settingsSkillCreateContent" placeholder="技能正文内容，Markdown 格式" spellcheck="false"></textarea>
+        <textarea class="settings-editor-textarea" id="settingsSkillCreateContent" placeholder="${_t('settingsPage.skillsContentPh')}" spellcheck="false"></textarea>
       </div>
     `;
 
@@ -416,13 +418,13 @@ export class SkillsSettingsPage {
 
     const name = nameInput?.value?.trim();
     if (!name) {
-      showToast('技能名称不能为空', { type: 'warning', duration: 2000 });
+      showToast(_t('settingsPage.skillsNameRequired'), { type: 'warning', duration: 2000 });
       return;
     }
 
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.textContent = '创建中…';
+      saveBtn.textContent = _t('settingsPage.skillsCreating');
     }
 
     try {
@@ -434,26 +436,26 @@ export class SkillsSettingsPage {
       });
 
       if (result.success) {
-        showToast('技能已创建', { type: 'success', duration: 2000 });
-        if (saveBtn) saveBtn.textContent = '✓ 已创建';
+        showToast(_t('settingsPage.skillsCreated'), { type: 'success', duration: 2000 });
+        if (saveBtn) saveBtn.textContent = _t('settingsPage.skillsCreatedIcon');
         setTimeout(() => {
           const headerActions = document.querySelector('#settingsSkillsCreate')?.closest('.settings-item-list-actions');
           if (headerActions) headerActions.style.display = '';
           this._loadSkills();
         }, 400);
       } else {
-        showToast('创建失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(_t('settingsPage.skillsSaveFailed') + (result.message || _t('settingsPage.modelUnknownError')), { type: 'error', duration: 3000 });
         if (saveBtn) {
           saveBtn.disabled = false;
-          saveBtn.textContent = '创建';
+          saveBtn.textContent = _t('settingsPage.skillsCreate');
         }
       }
     } catch (e) {
       console.warn('创建技能失败:', e);
-      showToast('创建失败: 网络错误，请重试', { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.skillsSaveFailed') + _t('settingsPage.networkError'), { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = '创建';
+        saveBtn.textContent = _t('settingsPage.skillsCreate');
       }
     }
   }

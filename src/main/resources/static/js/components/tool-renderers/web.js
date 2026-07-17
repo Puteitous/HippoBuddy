@@ -4,9 +4,10 @@
  */
 export function renderWebSearchDetail(tool) {
   const resultContent = tool.resultContent || '';
+  const _t = (k) => window.i18n ? window.i18n.t(k) : k;
 
   if (!resultContent || resultContent.includes('未找到')) {
-    return '<div class="timeline-detail-meta"><span class="timeline-detail-empty">无搜索结果</span></div>';
+    return `<div class="timeline-detail-meta"><span class="timeline-detail-empty">${_t('tool.webSearch.noResults')}</span></div>`;
   }
 
   // 统计结果数：按 "N. **标题**" 格式匹配
@@ -17,10 +18,10 @@ export function renderWebSearchDetail(tool) {
   }
 
   if (resultCount === 0) {
-    return '<div class="timeline-detail-meta"><span class="timeline-detail-empty">无搜索结果</span></div>';
+    return `<div class="timeline-detail-meta"><span class="timeline-detail-empty">${_t('tool.webSearch.noResults')}</span></div>`;
   }
 
-  return `<div class="timeline-detail-meta"><span class="timeline-detail-web-count">共 ${resultCount} 条结果</span></div>`;
+  return `<div class="timeline-detail-meta"><span class="timeline-detail-web-count">${_t('tool.webSearch.results', { count: resultCount })}</span></div>`;
 }
 
 
@@ -30,9 +31,10 @@ export function renderWebSearchDetail(tool) {
  */
 export function renderWebFetchDetail(tool) {
   const resultContent = tool.resultContent || '';
+  const _t = (k) => window.i18n ? window.i18n.t(k) : k;
 
   if (!resultContent) {
-    return '<div class="timeline-detail-meta"><span class="timeline-detail-empty">无内容</span></div>';
+    return `<div class="timeline-detail-meta"><span class="timeline-detail-empty">${_t('tool.webFetch.noContent')}</span></div>`;
   }
 
   // 计算内容大小
@@ -41,9 +43,9 @@ export function renderWebFetchDetail(tool) {
   const isTruncated = resultContent.includes('[内容过长，已截断');
 
   let html = '<div class="timeline-detail-meta">';
-  html += `<span class="timeline-detail-web-count">${kb}KB (${charCount.toLocaleString()} 字符)</span>`;
+  html += `<span class="timeline-detail-web-count">${kb}KB (${charCount.toLocaleString()} ${_t('tool.webFetch.chars')})</span>`;
   if (isTruncated) {
-    html += '<span class="timeline-detail-web-truncated">已截断</span>';
+    html += `<span class="timeline-detail-web-truncated">${_t('tool.webFetch.truncated')}</span>`;
   }
   html += '</div>';
   return html;

@@ -78,13 +78,13 @@ export async function initMarkdownRenderer(options = {}) {
 
       const codeId = 'code-' + Math.random().toString(36).substr(2, 9);
       const mermaidBtn = language === 'mermaid'
-        ? '<button class="mermaid-preview-btn" onclick="window.initMermaidPreview(this)">预览</button>'
+        ? `<button class="mermaid-preview-btn" onclick="window.initMermaidPreview(this)">${i18n.t('markdown.preview')}</button>`
         : '';
       return `<div class="code-block-wrapper">
         <div class="code-block-header">
           <span class="code-lang">${lang}</span>
           <div class="code-header-actions">
-            <button class="copy-btn" onclick="window.copyCode('${codeId}')">复制</button>
+            <button class="copy-btn" onclick="window.copyCode('${codeId}')">${i18n.t('chatui.copy')}</button>
             ${mermaidBtn}
           </div>
         </div>
@@ -232,7 +232,7 @@ export async function renderMarkdown(text) {
         clean = clean.replace(/\\([\[\]])/g, '\\\\$1');
         const result = window.katex.renderToString(clean, { displayMode: true, throwOnError: false });
         const latex = expr.replace(/<br\s*\/?>/gi, '\n').trim();
-        return `<div class="katex-block" data-latex="${encodeURIComponent(latex)}">${result}<button class="message-action-btn katex-copy-btn" title="复制 LaTeX 源码" onclick="window.copyLatex(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>`;
+        return `<div class="katex-block" data-latex="${encodeURIComponent(latex)}">${result}<button class="message-action-btn katex-copy-btn" title="${i18n.t('markdown.copyLatex')}" onclick="window.copyLatex(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>`;
       } catch (e) {
         return `$$${expr}$$`;
       }
@@ -256,7 +256,7 @@ export async function renderMarkdown(text) {
         clean = clean.replace(/\\([\[\]])/g, '\\\\$1');
         const result = window.katex.renderToString(clean, { displayMode: true, throwOnError: false });
         const latex = expr.replace(/<br\s*\/?>/gi, '\n').trim();
-        return `<div class="katex-block" data-latex="${encodeURIComponent(latex)}">${result}<button class="message-action-btn katex-copy-btn" title="复制 LaTeX 源码" onclick="window.copyLatex(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>`;
+        return `<div class="katex-block" data-latex="${encodeURIComponent(latex)}">${result}<button class="message-action-btn katex-copy-btn" title="${i18n.t('markdown.copyLatex')}" onclick="window.copyLatex(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>`;
       } catch (e) {
         return `[${expr}]`;
       }
@@ -290,10 +290,10 @@ export function copyCode(codeId) {
       : codeEl.textContent;
     navigator.clipboard.writeText(rawCode).then(() => {
       const btn = codeEl.closest('.code-block-wrapper').querySelector('.copy-btn');
-      btn.textContent = '已复制';
+      btn.textContent = i18n.t('chatui.copied');
       btn.classList.add('copied');
       setTimeout(() => {
-        btn.textContent = '复制';
+        btn.textContent = i18n.t('chatui.copy');
         btn.classList.remove('copied');
       }, 2000);
     });

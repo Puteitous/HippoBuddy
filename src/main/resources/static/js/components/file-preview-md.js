@@ -154,8 +154,8 @@ export class FilePreviewMdPreview {
 
     // 渲染 TOC
     let tocHtml = `<div class="file-md-toc-header">
-      <span class="file-md-toc-title">目录</span>
-      <button class="file-md-toc-toggle" title="收起目录">
+      <span class="file-md-toc-title">${i18n.t('preview.tocTitle')}</span>
+      <button class="file-md-toc-toggle" title="${i18n.t('preview.tocCollapse')}">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="10 3 5 8 10 13"/>
         </svg>
@@ -168,7 +168,7 @@ export class FilePreviewMdPreview {
     // 浮层面板（折叠 hover 时弹出）
     const floatingHtml = `<div class="file-md-toc-floating">
       <div class="file-md-toc-header">
-        <span class="file-md-toc-title">目录</span>
+        <span class="file-md-toc-title">${i18n.t('preview.tocTitle')}</span>
       </div>
       ${itemsHtml}
     </div>`;
@@ -285,7 +285,7 @@ export class FilePreviewMdPreview {
     // 更新 toggle 按钮图标
     const btn = this._tocEl.querySelector('.file-md-toc-toggle');
     if (btn) {
-      btn.title = this._tocCollapsed ? '展开目录' : '收起目录';
+      btn.title = this._tocCollapsed ? i18n.t('preview.tocExpand') : i18n.t('preview.tocCollapse');
       btn.innerHTML = this._tocCollapsed
         ? `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 3 11 8 6 13"/>

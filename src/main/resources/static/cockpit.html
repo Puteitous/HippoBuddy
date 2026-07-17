@@ -28,6 +28,7 @@
     <link id="hljs-light-theme" rel="stylesheet" href="js/vendor/github.min.css">
     <link id="hljs-dark-theme" rel="stylesheet" href="js/vendor/github-dark.min.css" disabled>
     <link rel="stylesheet" href="js/vendor/katex.min.css">
+    <script src="js/i18n.js?v=20260717-1"></script>
     <script src="js/vendor/marked.min.js"></script>
     <script src="js/vendor/highlight.min.js"></script>
     <script src="js/vendor/xlsx.js"></script>
@@ -69,7 +70,7 @@
             <div class="splash-wave splash-wave-back"></div>
             <div class="splash-wave splash-wave-front"></div>
         </div>
-        <div class="splash-skip-hint" id="splashSkipHint">点击任意处跳过</div>
+        <div class="splash-skip-hint" id="splashSkipHint" data-i18n="html.splash.skip">点击任意处跳过</div>
     </div>
     <script>
     // 兜底：5 秒后自动隐藏 splash + 移除 page-loading，防止模块加载失败卡死页面
@@ -95,7 +96,7 @@
         </div>
         <!-- 会话面板折叠时的逃生工具栏 -->
         <div class="toolbar-escape" id="toolbarEscape" style="display:none;">
-            <button class="toolbar-btn" id="sessionToggleBtnEsc" title="会话面板">
+            <button class="toolbar-btn" id="sessionToggleBtnEsc" data-i18n-title="html.header.sessionPanel" title="会话面板">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="3" y1="6" x2="21" y2="6"/>
                     <line x1="3" y1="12" x2="21" y2="12"/>
@@ -142,7 +143,7 @@
                     </svg>
                 </button>
                 <div class="header-folder-dropdown" id="recentFoldersDropdown">
-                    <div class="header-folder-dropdown-header">最近打开的文件夹</div>
+                    <div class="header-folder-dropdown-header" id="recentFoldersHeader">最近打开的文件夹</div>
                     <div id="recentFoldersList"></div>
                 </div>
             </div>
@@ -200,20 +201,20 @@
         <div class="sidebar-area">
         <!-- Activity Bar -->
         <div class="activity-bar" id="activityBar">
-            <button class="activity-bar-btn" data-panel="token" title="Token 统计">
+            <button class="activity-bar-btn" data-panel="token" id="abTokenBtn" title="Token 统计">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="4" y="14" width="4" height="6" rx="0.5"/>
                     <rect x="10" y="8" width="4" height="12" rx="0.5"/>
                     <rect x="16" y="2" width="4" height="18" rx="0.5"/>
                 </svg>
             </button>
-            <button class="activity-bar-btn" data-panel="monitor" title="实时监控">
+            <button class="activity-bar-btn" data-panel="monitor" id="abMonitorBtn" title="实时监控">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="1 17 7 11 11 14 18 6"/>
                     <polyline points="14 6 18 6 18 10"/>
                 </svg>
             </button>
-            <button class="activity-bar-btn" data-panel="files" title="文件变更">
+            <button class="activity-bar-btn" data-panel="files" id="abFilesBtn" title="文件变更">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
@@ -223,18 +224,18 @@
                 </svg>
             </button>
             <div class="activity-bar-spacer"></div>
-            <button class="activity-bar-btn" data-action="openTerminal" title="打开终端">
+            <button class="activity-bar-btn" data-action="openTerminal" id="abTermBtn" title="打开终端">
                 <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="4 4 8 8 4 12"/>
                     <line x1="11" y1="12" x2="13" y2="12"/>
                 </svg>
             </button>
-            <button class="activity-bar-btn" data-action="openBrowser" title="打开浏览器">
+            <button class="activity-bar-btn" data-action="openBrowser" id="abBrowserBtn" title="打开浏览器">
                 <svg viewBox="0 0 512 512" width="18" height="18" fill="currentColor">
                     <path d="M437,75A256,256,0,0,0,75,437,256,256,0,0,0,437,75ZM256,492c-30.84,0-60.34-23.7-83.08-66.72-10.76-20.36-19.32-43.8-25.49-69.28H364.57c-6.17,25.48-14.73,48.92-25.49,69.28C316.34,468.3,286.84,492,256,492ZM143.16,336a450.51,450.51,0,0,1,0-160H368.84A439.33,439.33,0,0,1,376,256a439.33,439.33,0,0,1-7.16,80ZM256,20c30.84,0,60.34,23.7,83.08,66.72,10.76,20.36,19.32,43.8,25.49,69.28H147.43c6.17-25.48,14.73-48.92,25.49-69.28C195.66,43.7,225.16,20,256,20ZM389.15,176H478a236,236,0,0,1,0,160H389.15A460.57,460.57,0,0,0,396,256,460.57,460.57,0,0,0,389.15,176Zm80.58-20H385.1c-6.63-28.94-16.16-55.58-28.33-78.62-10.34-19.57-22.14-35.67-35-48A237.09,237.09,0,0,1,469.73,156ZM190.21,29.34c-12.84,12.37-24.64,28.47-35,48-12.17,23-21.7,49.68-28.33,78.62H42.27A237.09,237.09,0,0,1,190.21,29.34ZM34,176h88.88a470.58,470.58,0,0,0,0,160H34a236,236,0,0,1,0-160Zm8.3,180H126.9c6.63,28.94,16.16,55.58,28.33,78.62,10.34,19.57,22.14,35.67,35,48A237.09,237.09,0,0,1,42.27,356ZM321.79,482.66c12.84-12.37,24.64-28.47,35-48,12.17-23,21.7-49.68,28.33-78.62h84.63A237.09,237.09,0,0,1,321.79,482.66Z"/>
                 </svg>
             </button>
-            <button class="activity-bar-btn" data-action="skillMarket" title="技能市场">
+            <button class="activity-bar-btn" data-action="skillMarket" id="abSkillBtn" title="技能市场">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="9" cy="21" r="1"/>
                     <circle cx="20" cy="21" r="1"/>
@@ -411,27 +412,27 @@
                     </div>
                     <div class="empty-hero-mode-selector" id="heroModeSelector">
                         <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
-                            <button class="mode-btn" data-mode="chat" title="聊天模式 — 只读探索，不动手">
+                            <button class="mode-btn" data-mode="chat" data-i18n-title="chat.mode.chatTitle" title="聊天模式 — 只读探索，不动手">
                                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
                                 </svg>
-                                聊天
+                                <span data-i18n="chat.mode.chat">聊天</span>
                             </button>
-                            <button class="mode-btn active" data-mode="coding" title="代码模式 — 全栈工程师">
+                            <button class="mode-btn active" data-mode="coding" data-i18n-title="chat.mode.codeTitle" title="代码模式 — 全栈工程师">
                                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <polyline points="6 3.5 2 8 6 12.5"/>
                                     <polyline points="10 3.5 14 8 10 12.5"/>
                                 </svg>
-                                代码
+                                <span data-i18n="chat.mode.code">代码</span>
                             </button>
-                            <button class="mode-btn" data-mode="office" title="办公模式 — 文档/表格/演示文稿">
+                            <button class="mode-btn" data-mode="office" data-i18n-title="chat.mode.officeTitle" title="办公模式 — 文档/表格/演示文稿">
                                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                                     <path d="M9 1v4h4"/>
                                     <line x1="5" y1="8" x2="11" y2="8"/>
                                     <line x1="5" y1="10" x2="9" y2="10"/>
                                 </svg>
-                                办公
+                                <span data-i18n="chat.mode.office">办公</span>
                             </button>
                         </span>
                     </div>
@@ -559,12 +560,12 @@
     <div class="modal" id="tokenDetailsModal" style="display:none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📊 Token 消耗统计</h3>
+                <h3 data-i18n="token.title">📊 Token 消耗统计</h3>
                 <button class="modal-close" id="closeTokenModal">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="token-details-section">
-                    <h4>
+                    <h4 data-i18n="token.currentContext">
                         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
                             <path d="M9 2v3h3"/>
@@ -586,7 +587,7 @@
                 </div>
                 
                 <div class="token-details-section">
-                    <h4>
+                    <h4 data-i18n="token.sessionTotal">
                         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="1 12 5 8 8 10 15 2"/>
                             <polyline points="11 2 15 2 15 6"/>
@@ -594,29 +595,29 @@
                         会话总计
                     </h4>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">总输入:</span>
+                        <span class="token-detail-label" data-i18n="token.totalInput">总输入:</span>
                         <span class="token-detail-value" id="detailSessionInput">0</span>
                     </div>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">总输出:</span>
+                        <span class="token-detail-label" data-i18n="token.totalOutput">总输出:</span>
                         <span class="token-detail-value" id="detailSessionOutput">0</span>
                     </div>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">总消耗:</span>
+                        <span class="token-detail-label" data-i18n="token.totalConsumption">总消耗:</span>
                         <span class="token-detail-value highlight" id="detailSessionTotal">0</span>
                     </div>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">LLM 调用:</span>
+                        <span class="token-detail-label" data-i18n="token.llmCalls">LLM 调用:</span>
                         <span class="token-detail-value" id="detailLlmCalls">0</span>
                     </div>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">工具调用:</span>
+                        <span class="token-detail-label" data-i18n="token.toolCalls">工具调用:</span>
                         <span class="token-detail-value" id="detailToolCalls">0</span>
                     </div>
                 </div>
 
                 <div class="token-details-section">
-                    <h4>
+                    <h4 data-i18n="token.cacheHits">
                         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <ellipse cx="8" cy="4" rx="6" ry="2"/>
                             <path d="M2 4v4"/>
@@ -627,20 +628,20 @@
                         缓存命中
                     </h4>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">当前缓存命中:</span>
+                        <span class="token-detail-label" data-i18n="token.cacheHit">当前缓存命中:</span>
                         <span class="token-detail-value success-text" id="detailCacheHit">0</span>
                     </div>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">当前缓存率:</span>
+                        <span class="token-detail-label" data-i18n="token.cacheRate">当前缓存率:</span>
                         <span class="token-detail-value success-text" id="detailCacheRate">0%</span>
                     </div>
                     <div class="token-detail-divider"></div>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">总缓存命中:</span>
+                        <span class="token-detail-label" data-i18n="token.totalCacheHit">总缓存命中:</span>
                         <span class="token-detail-value success-text" id="detailSessionCacheHit">0</span>
                     </div>
                     <div class="token-detail-row">
-                        <span class="token-detail-label">总缓存率:</span>
+                        <span class="token-detail-label" data-i18n="token.totalCacheRate">总缓存率:</span>
                         <span class="token-detail-value success-text" id="detailSessionCacheRate">0%</span>
                     </div>
                 </div>
@@ -694,71 +695,71 @@
         <div class="token-visual">
             <div class="token-visual-item">
                 <div class="token-visual-label">
-                    <span>上下文使用率</span>
+                    <span data-i18n="tokenPanel.usageRate">上下文使用率</span>
                     <span class="token-visual-value" id="abTvPercent">0%</span>
                 </div>
                 <div class="token-visual-track">
                     <div class="token-visual-fill" id="abTvBar" style="width:0%"></div>
                 </div>
                 <div class="token-visual-sub">
-                    <span id="abTvUsage">0</span> / <span id="abTvMax">0</span> tokens
+                    <span id="abTvUsage">0</span> / <span id="abTvMax">0</span> <span data-i18n="tokenPanel.tokens">tokens</span>
                 </div>
             </div>
             <div class="token-visual-divider"></div>
             <div class="token-visual-grid">
                 <div class="token-visual-stat">
-                    <span class="tvs-label">Prompt</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.prompt">Prompt</span>
                     <span class="tvs-value" id="abTvPrompt">0</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">Completion</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.completion">Completion</span>
                     <span class="tvs-value" id="abTvCompletion">0</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">总输入</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.totalInput">总输入</span>
                     <span class="tvs-value" id="abTvSessionInput">0</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">总输出</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.totalOutput">总输出</span>
                     <span class="tvs-value" id="abTvSessionOutput">0</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">LLM 调用</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.llmCalls">LLM 调用</span>
                     <span class="tvs-value" id="abTvLlmCalls">0</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">工具调用</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.toolCalls">工具调用</span>
                     <span class="tvs-value" id="abTvToolCalls">0</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">缓存命中</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.cacheHit">缓存命中</span>
                     <span class="tvs-value success-text" id="abTvCacheHit">0</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">缓存率</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.cacheRate">缓存率</span>
                     <span class="tvs-value success-text" id="abTvCacheRate">0%</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">总缓存命中</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.totalCacheHit">总缓存命中</span>
                     <span class="tvs-value success-text" id="abTvSessionCacheHit">0</span>
                 </div>
                 <div class="token-visual-stat">
-                    <span class="tvs-label">总缓存率</span>
+                    <span class="tvs-label" data-i18n="tokenPanel.totalCacheRate">总缓存率</span>
                     <span class="tvs-value success-text" id="abTvSessionCacheRate">0%</span>
                 </div>
             </div>
             <div class="token-visual-divider"></div>
             <div class="token-visual-total">
-                <span>会话总消耗</span>
+                <span data-i18n="tokenPanel.sessionTotal">会话总消耗</span>
                 <span class="tv-total-value" id="abTvSessionTotal">0</span>
             </div>
             <div class="token-trend">
                 <div class="token-trend-header">
-                    <span class="token-trend-label">Token 消耗趋势</span>
+                    <span class="token-trend-label" data-i18n="tokenPanel.trend">Token 消耗趋势</span>
                     <span class="token-trend-value" id="abTrendCount">0 次记录</span>
                 </div>
                 <div class="token-trend-chart" id="abTrendChart">
-                    <div class="token-trend-empty">等待数据...</div>
+                    <div class="token-trend-empty" data-i18n="tokenPanel.waiting">等待数据...</div>
                 </div>
             </div>
         </div>
@@ -767,7 +768,7 @@
     <template id="abMonitorPanel">
         <div class="metrics-panel">
             <div class="metrics-group">
-                <div class="metrics-group-title">
+                <div class="metrics-group-title" data-i18n="monitor.llmCalls">
                     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="4" width="10" height="7" rx="2"/>
                         <circle cx="6.5" cy="7.5" r="0.8" fill="currentColor"/>
@@ -781,37 +782,37 @@
                 </div>
                 <div class="metrics-grid">
                     <div class="metrics-item">
-                        <span class="metrics-label">请求次数</span>
+                        <span class="metrics-label" data-i18n="monitor.requestCount">请求次数</span>
                         <span class="metrics-value" id="abMetLlmTotal">0</span>
                     </div>
                     <div class="metrics-item">
-                        <span class="metrics-label">成功率</span>
+                        <span class="metrics-label" data-i18n="monitor.successRate">成功率</span>
                         <span class="metrics-value" id="abMetLlmSuccessRate">0%</span>
                     </div>
                     <div class="metrics-item">
-                        <span class="metrics-label">平均耗时</span>
+                        <span class="metrics-label" data-i18n="monitor.avgLatency">平均耗时</span>
                         <span class="metrics-value" id="abMetLlmAvgLatency">0ms</span>
                     </div>
                     <div class="metrics-item">
-                        <span class="metrics-label">最慢</span>
+                        <span class="metrics-label" data-i18n="monitor.slowest">最慢</span>
                         <span class="metrics-value" id="abMetLlmMaxLatency">0ms</span>
                     </div>
                 </div>
             </div>
             <div class="metrics-divider"></div>
             <div class="metrics-group">
-                <div class="metrics-group-title">🔧 工具调用</div>
+                <div class="metrics-group-title" data-i18n="monitor.toolCalls">🔧 工具调用</div>
                 <div class="metrics-grid">
                     <div class="metrics-item">
-                        <span class="metrics-label">总调用</span>
+                        <span class="metrics-label" data-i18n="monitor.totalCalls">总调用</span>
                         <span class="metrics-value" id="abMetToolTotal">0</span>
                     </div>
                     <div class="metrics-item">
-                        <span class="metrics-label">成功率</span>
+                        <span class="metrics-label" data-i18n="monitor.successRate">成功率</span>
                         <span class="metrics-value" id="abMetToolSuccessRate">0%</span>
                     </div>
                     <div class="metrics-item">
-                        <span class="metrics-label">失败</span>
+                        <span class="metrics-label" data-i18n="monitor.failed">失败</span>
                         <span class="metrics-value" id="abMetToolFailed">0</span>
                     </div>
                 </div>
@@ -823,10 +824,123 @@
 
     <template id="abFilesPanel">
         <div class="file-changes-panel">
-            <div class="file-changes-empty" id="abFileChangesEmpty">暂无文件变更</div>
+            <div class="file-changes-empty" data-i18n="fileChanges.empty" id="abFileChangesEmpty">暂无文件变更</div>
             <div class="file-changes-list" id="abFileChangesList"></div>
         </div>
     </template>
+
+    <!-- ===== i18n DOM 翻译初始化 ===== -->
+    <script>
+    // 页面加载后应用翻译到所有 data-i18n 属性元素
+    // 语言切换时也会重新应用
+    function applyI18nToHTML() {
+      if (window.i18n) {
+        i18n.applyToDOM();
+        // 通过 ID 设置已知元素的翻译（兼容没有 data-i18n 属性的元素）
+        const map = {
+          'activityPanelTitle':      'activity.panel',
+          'chatPanelTitle':          'chat.title',
+          'sessionHeaderTitle':      'session.title',
+          'splashSkipHint':          'html.splash.skip',
+          'diffModalTitle':          'diff.title',
+          'diffEmpty':               'diff.loading',
+          'diffRollbackBtn':         'diff.rollbackBtn',
+          'promptModalTitle':        'promptModal.title',
+          'promptModalText':         'promptModal.placeholder',
+          'promptModalHint':         'promptModal.hint',
+          'promptModalCancel':       'promptModal.cancel',
+          'promptModalSave':         'promptModal.apply',
+          'heroInput':               'chat.heroPlaceholder',
+          'messageInput':            'chat.placeholder',
+          'heroModelQuickSelect':    'chat.loading',
+          'modelQuickSelect':        'chat.loading',
+          'deleteConfirmModalText':  'deleteConfirm.message',
+          'deleteConfirmCancel':     'deleteConfirm.cancel',
+          'deleteConfirmOk':         'deleteConfirm.confirm',
+          'fileTreeEmpty':           'session.openWorkspace',
+          'chatNewBtn':              'chat.newSession',
+          'chatCollapseBtn':         'chat.collapse',
+          'chatShowBtn':             'chat.expand',
+          'newMsgHint':              'chat.scrollToBottom',
+          'sendBtn':                 'chat.sendMessage',
+          'stopBtn':                 'chat.stop',
+          'chatHistoryBtn':          'chat.history',
+          'previewCollapseBtn':      'preview.collapse',
+          'previewMdToggleBtn':      'preview.mdToggle',
+          'previewHtmlToggleBtn':    'preview.htmlToggle',
+          'previewSearchBtn':        'preview.search',
+          'previewRefreshBtn':       'preview.refresh',
+          'previewOpenInOfficeBtn':  'preview.openExternal',
+          'compactBtn':              'html.header.compressContext',
+          'desktopOpenFolderBtn':    'html.header.openFolder',
+          'settingsBtn':             'html.header.settings',
+          'themeToggle':             'html.header.themeToggle',
+          'devtoolsBtn':             'html.header.devtools',
+          'refreshBtn':              'html.header.refresh',
+          'winMinimize':             'html.header.minimize',
+          'winMaximize':             'html.header.maximize',
+          'winClose':                'html.header.close',
+          'workspaceClear':          'html.header.resetWorkspace',
+          'statusBarToken':          'chat.tokenUsage',
+          'statusBarFiles':          'fileChanges.title',
+          'statusBarModelSelector':  'chat.modelQuickSelect',
+          'recentFoldersHeader':     'html.header.recentFolders',
+        };
+        for (const [id, key] of Object.entries(map)) {
+          const el = document.getElementById(id);
+          if (el) {
+            if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+              if (el.hasAttribute('placeholder')) el.placeholder = i18n.t(key);
+            } else if (el.hasAttribute('title')) {
+              el.title = i18n.t(key);
+            } else {
+              el.textContent = i18n.t(key);
+            }
+          }
+        }
+        // 活动栏按钮 title
+        const abBtns = {
+          'abTokenBtn':    'activity.token',
+          'abMonitorBtn':  'activity.monitor',
+          'abFilesBtn':    'activity.files',
+          'abTermBtn':     'activity.terminal',
+          'abBrowserBtn':  'activity.browser',
+          'abSkillBtn':    'activity.skillMarket',
+        };
+        for (const [id, key] of Object.entries(abBtns)) {
+          const el = document.getElementById(id);
+          if (el) el.title = i18n.t(key);
+        }
+        // 会话面板按钮
+        const sessionBtns = {
+          'sessionToggleBtn':    'html.header.sessionPanel',
+          'newSessionBtn':       'html.header.newSession',
+          'activityBarToggleBtn':'html.header.toggleActivity',
+        };
+        for (const [id, key] of Object.entries(sessionBtns)) {
+          const el = document.getElementById(id);
+          if (el) el.title = i18n.t(key);
+        }
+        // 胶囊视图按钮
+        const capsuleBtns = {
+          'capsuleSessions':    'session.sessionList',
+          'capsuleFiles':       'session.fileBrowse',
+        };
+        for (const [id, key] of Object.entries(capsuleBtns)) {
+          const el = document.getElementById(id);
+          if (el) el.title = i18n.t(key);
+        }
+      }
+    }
+    // 监听语言切换事件
+    window.addEventListener('i18n:change', applyI18nToHTML);
+    // 页面加载完成后立即执行
+    if (document.readyState === 'complete') {
+      applyI18nToHTML();
+    } else {
+      document.addEventListener('DOMContentLoaded', applyI18nToHTML);
+    }
+    </script>
 
     <!-- 工作区组件（桌面端文件树/标签/预览） -->
     <script type="module" src="js/components/FileTree.js"></script>

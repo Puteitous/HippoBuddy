@@ -76,7 +76,7 @@ async function _downloadBlob(blob, suggestedName, mimeType) {
       const result = await window.HippoDesktop.saveFileDialog(base64, suggestedName, mimeType);
       if (result?.path) {
         const fileName = suggestedName.replace(/[^\w.-]/g, '_');
-        _showToast('已保存: ' + fileName, 'success');
+        _showToast(i18n.t('mermaid.saved') + fileName, 'success');
       }
       return;
     } catch (e) {
@@ -92,7 +92,7 @@ async function _downloadBlob(blob, suggestedName, mimeType) {
       const handle = await window.showSaveFilePicker({
         suggestedName,
         types: [{
-          description: mimeType.startsWith('image/svg') ? 'SVG 图片' : 'PNG 图片',
+          description: mimeType.startsWith('image/svg') ? i18n.t('mermaid.svgImage') : i18n.t('mermaid.pngImage'),
           accept: { [mimeType]: ['.' + ext] }
         }]
       });
@@ -293,7 +293,7 @@ async function _loadMermaid() {
  * @param {string} id - 唯一标识
  */
 async function _renderMermaid(container, code, id) {
-  container.innerHTML = '<div class="mermaid-loading">渲染中...</div>';
+      container.innerHTML = '<div class="mermaid-loading">' + i18n.t('mermaid.rendering') + '</div>';
   container.style.display = '';
 
   try {
@@ -307,14 +307,14 @@ async function _renderMermaid(container, code, id) {
     const toolbar = document.createElement('div');
     toolbar.className = 'mermaid-zoom-toolbar';
     toolbar.innerHTML = `
-      <button class="mermaid-zoom-btn" data-zoom="out" title="缩小">
+      <button class="mermaid-zoom-btn" data-zoom="out" title="${i18n.t('mermaid.zoomOut')}">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="8" x2="13" y2="8"/></svg>
       </button>
       <span class="mermaid-zoom-level">100%</span>
-      <button class="mermaid-zoom-btn" data-zoom="in" title="放大">
+      <button class="mermaid-zoom-btn" data-zoom="in" title="${i18n.t('mermaid.zoomIn')}">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="8" x2="13" y2="8"/><line x1="8" y1="3" x2="8" y2="13"/></svg>
       </button>
-      <button class="mermaid-zoom-btn" data-zoom="reset" title="重置">
+      <button class="mermaid-zoom-btn" data-zoom="reset" title="${i18n.t('mermaid.zoomReset')}">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a6 6 0 0 1 11.2-3M14 8a6 6 0 0 1-11.2 3"/><polyline points="13 2 13 5 10 5"/><polyline points="3 14 3 11 6 11"/></svg>
       </button>
     `;
@@ -464,27 +464,27 @@ async function _renderMermaid(container, code, id) {
 
     // 构建工具栏（完整版）
     toolbar.innerHTML = `
-      <button class="mermaid-zoom-btn" data-zoom="out" title="缩小">
+      <button class="mermaid-zoom-btn" data-zoom="out" title="${i18n.t('mermaid.zoomOut')}">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="8" x2="13" y2="8"/></svg>
       </button>
       <span class="mermaid-zoom-level">100%</span>
-      <button class="mermaid-zoom-btn" data-zoom="in" title="放大">
+      <button class="mermaid-zoom-btn" data-zoom="in" title="${i18n.t('mermaid.zoomIn')}">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="8" x2="13" y2="8"/><line x1="8" y1="3" x2="8" y2="13"/></svg>
       </button>
-      <button class="mermaid-zoom-btn" data-zoom="reset" title="重置">
+      <button class="mermaid-zoom-btn" data-zoom="reset" title="${i18n.t('mermaid.zoomReset')}">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a6 6 0 0 1 11.2-3M14 8a6 6 0 0 1-11.2 3"/><polyline points="13 2 13 5 10 5"/><polyline points="3 14 3 11 6 11"/></svg>
       </button>
       <span class="mermaid-zoom-sep"></span>
-      <button class="mermaid-zoom-btn" data-zoom="fullscreen" title="全屏">
+      <button class="mermaid-zoom-btn" data-zoom="fullscreen" title="${i18n.t('mermaid.fullscreen')}">
         <svg class="mermaid-fullscreen-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9v4h4M13 7V3H9M3 7V3h4M13 9v4H9"/></svg>
       </button>
       <div class="mermaid-export-group">
-        <button class="mermaid-zoom-btn mermaid-export-btn" title="导出" data-zoom="export">
+        <button class="mermaid-zoom-btn mermaid-export-btn" title="${i18n.t('mermaid.export')}" data-zoom="export">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v7M5 7l3 3 3-3M3 12v1h10v-1"/></svg>
         </button>
         <div class="mermaid-export-menu">
-          <button class="mermaid-export-menu-item" data-export="png">导出 PNG</button>
-          <button class="mermaid-export-menu-item" data-export="svg">导出 SVG</button>
+          <button class="mermaid-export-menu-item" data-export="png">${i18n.t('mermaid.exportPng')}</button>
+          <button class="mermaid-export-menu-item" data-export="svg">${i18n.t('mermaid.exportSvg')}</button>
         </div>
       </div>
     `;
@@ -497,7 +497,7 @@ async function _renderMermaid(container, code, id) {
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
-      <span>图表语法错误</span>
+      <span>${i18n.t('mermaid.syntaxError')}</span>
       <span class="mermaid-error-detail">${_escapeHtml(err.message)}</span>
     </div>`;
   }
@@ -539,7 +539,7 @@ window.initMermaidPreview = function (btnEl) {
     // 当前显示图表 → 切回源码
     previewContainer.style.display = 'none';
     if (codeBody) codeBody.style.display = '';
-    btnEl.textContent = '预览';
+    btnEl.textContent = i18n.t('mermaid.preview');
     return;
   }
 
@@ -553,12 +553,12 @@ window.initMermaidPreview = function (btnEl) {
   if (lastCode === code && lastTheme === currentTheme && previewContainer.querySelector('svg')) {
     // 源码未变且主题未变且已有 SVG，直接显示
     previewContainer.style.display = '';
-    btnEl.textContent = '显示源码';
+    btnEl.textContent = i18n.t('mermaid.showSource');
     return;
   }
 
   previewContainer.style.display = '';
-  btnEl.textContent = '显示源码';
+  btnEl.textContent = i18n.t('mermaid.showSource');
 
   // 生成唯一 ID
   const id = 'mmd-' + Math.random().toString(36).substr(2, 9);

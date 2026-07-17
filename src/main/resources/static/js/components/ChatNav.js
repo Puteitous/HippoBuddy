@@ -33,7 +33,7 @@ export class ChatNav {
 
       const item = document.createElement('div');
       item.className = 'chat-nav-item';
-      item.textContent = prefix || '(空消息)';
+      item.textContent = prefix || i18n.t('chat.emptyMessage');
       item.addEventListener('click', (e) => {
         e.stopPropagation();
         row.scrollIntoView({ behavior: 'smooth', block: 'start' });

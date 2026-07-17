@@ -81,7 +81,7 @@ const HippoWorkspace = (() => {
     onBeforeSwitch: async (fromPath, toPath) => {
       if (filePreview.isDirty && filePreview.currentPath === fromPath) {
         const name = fromPath.split('/').pop() || fromPath;
-        const result = await ConfirmDialog.saveDiscardCancel(`"${name}" 有未保存的修改，是否保存？`);
+        const result = await ConfirmDialog.saveDiscardCancel(i18n.t('workspace.unsavedSingle', { name }));
         if (result === 'save') {
           await filePreview.save();
           return true;
@@ -93,7 +93,7 @@ const HippoWorkspace = (() => {
     onBeforeClose: async (filePath) => {
       if (filePreview.isDirty && filePreview.currentPath === filePath) {
         const name = filePath.split('/').pop() || filePath;
-        const result = await ConfirmDialog.closeConfirm(`"${name}" 有未保存的修改，是否保存？`);
+        const result = await ConfirmDialog.closeConfirm(i18n.t('workspace.unsavedSingle', { name }));
         if (result === 'save') {
           await filePreview.save();
           return true;
@@ -229,7 +229,7 @@ const HippoWorkspace = (() => {
     if (!listEl) return;
     const folders = _getRecentFolders();
     if (folders.length === 0) {
-      listEl.innerHTML = '<div class="header-folder-dropdown-empty">暂无最近打开的文件夹</div>';
+      listEl.innerHTML = '<div class="header-folder-dropdown-empty">' + i18n.t('workspace.noRecentFolders') + '</div>';
       return;
     }
     listEl.innerHTML = folders.map(f => `
@@ -248,7 +248,7 @@ const HippoWorkspace = (() => {
         if (path) {
           dropdown.classList.remove('show');
           api.openWorkspace(path);
-          showBottomToast('工作区已切换: ' + path);
+          showBottomToast(i18n.t('workspace.switched') + path);
         }
       });
     });
@@ -346,7 +346,7 @@ const HippoWorkspace = (() => {
       if (els.viewSwitcher) els.viewSwitcher.style.display = '';
       if (els.workspaceIndicator && els.workspacePath) {
         if (isDefault) {
-          els.workspacePath.textContent = '默认工作区';
+          els.workspacePath.textContent = i18n.t('workspace.defaultName');
           els.workspacePath.title = path;
         } else {
           els.workspacePath.textContent = path;

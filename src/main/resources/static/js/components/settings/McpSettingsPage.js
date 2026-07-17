@@ -21,39 +21,41 @@ import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
 import { ConfirmDialog } from '../../utils/modal.js';
 
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+
 const SERVER_TYPES = [
-  { value: 'stdio', label: 'STDIO（子进程）' },
-  { value: 'sse', label: 'SSE（HTTP 流）' },
+  { value: 'stdio', label: _t('settingsPage.mcpStdio') },
+  { value: 'sse', label: _t('settingsPage.mcpSse') },
 ];
 
 const MAX_RECONNECT_ITEMS = [
-  { label: '0 (不限制)', value: '0' },
+  { label: _t('settingsPage.mcpUnlimited'), value: '0' },
   { label: '3', value: '3' },
-  { label: '5 (默认)', value: '5' },
+  { label: _t('settingsPage.mcpDefault', { n: '5' }), value: '5' },
   { label: '10', value: '10' },
   { label: '20', value: '20' },
 ];
 
 const RECONNECT_DELAY_ITEMS = [
-  { label: '1 秒', value: '1' },
-  { label: '3 秒', value: '3' },
-  { label: '5 秒 (默认)', value: '5' },
-  { label: '10 秒', value: '10' },
-  { label: '30 秒', value: '30' },
+  { label: _t('settingsPage.mcpSec', { n: '1' }), value: '1' },
+  { label: _t('settingsPage.mcpSec', { n: '3' }), value: '3' },
+  { label: _t('settingsPage.mcpSecDefault', { n: '5' }), value: '5' },
+  { label: _t('settingsPage.mcpSec', { n: '10' }), value: '10' },
+  { label: _t('settingsPage.mcpSec', { n: '30' }), value: '30' },
 ];
 
 const REQ_TIMEOUT_ITEMS = [
-  { label: '10 秒', value: '10000' },
-  { label: '30 秒', value: '30000' },
-  { label: '60 秒 (默认)', value: '60000' },
-  { label: '120 秒', value: '120000' },
-  { label: '300 秒', value: '300000' },
+  { label: _t('settingsPage.mcpSec', { n: '10' }), value: '10000' },
+  { label: _t('settingsPage.mcpSec', { n: '30' }), value: '30000' },
+  { label: _t('settingsPage.mcpSecDefault', { n: '60' }), value: '60000' },
+  { label: _t('settingsPage.mcpSec', { n: '120' }), value: '120000' },
+  { label: _t('settingsPage.mcpSec', { n: '300' }), value: '300000' },
 ];
 
-/** value 转换成 label 显示，含秒数友好的文案 */
+/** value 转换成 label 显示 */
 function _timeoutLabel(valueMs, items) {
   const found = items.find(i => i.value === String(valueMs));
-  return found ? found.label : String(valueMs) + ' 毫秒';
+  return found ? found.label : _t('settingsPage.mcpMs', { n: String(valueMs) });
 }
 
 function _reconnectLabel(value, items) {
@@ -77,11 +79,11 @@ export class McpSettingsPage {
     const page = document.createElement('div');
     page.className = 'settings-page';
     page.innerHTML = `
-      <h2 class="settings-page-title">MCP 配置</h2>
-      <p class="settings-page-desc">管理 MCP 服务器连接和工具注册</p>
+      <h2 class="settings-page-title">${_t('settingsPage.mcpTitle')}</h2>
+      <p class="settings-page-desc">${_t('settingsPage.mcpDesc')}</p>
       <hr class="settings-page-divider">
 
-      <div class="settings-loading" id="mcpLoading" style="display:block;">加载中...</div>
+      <div class="settings-loading" id="mcpLoading" style="display:block;">${_t('settingsPage.rulesLoading')}</div>
       <div id="mcpForm" style="display:none;"></div>
     `;
 
@@ -101,7 +103,7 @@ export class McpSettingsPage {
     const { HippoDesktop } = window;
 
     if (!HippoDesktop || !HippoDesktop.getConfig) {
-      this._showError('配置 API 不可用（仅桌面端支持）');
+      this._showError(_t('settingsPage.configUnavailable'));
       return;
     }
 
@@ -111,7 +113,7 @@ export class McpSettingsPage {
       this._renderForm();
     } catch (e) {
       console.warn('加载 MCP 配置失败:', e);
-      this._showError('加载配置失败: ' + e.message);
+      this._showError(_t('settingsPage.loadFailed') + e.message);
     }
   }
 
@@ -136,11 +138,11 @@ export class McpSettingsPage {
     form.style.display = 'block';
     form.innerHTML = `
       <!-- ===== 基本设置 ===== -->
-      <div class="settings-field-group-title">基本设置</div>
+      <div class="settings-field-group-title">${_t('settingsPage.mcpBasic')}</div>
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">启用 MCP</label>
+            <label class="settings-field-label">${_t('settingsPage.mcpEnabled')}</label>
             <div class="settings-field-body">
               <label class="settings-switch">
                 <input type="checkbox" id="mcpEnabled" ${mcp.enabled !== false ? 'checked' : ''}>
@@ -149,7 +151,7 @@ export class McpSettingsPage {
             </div>
           </div>
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">自动连接</label>
+            <label class="settings-field-label">${_t('settingsPage.mcpAutoConnect')}</label>
             <div class="settings-field-body">
               <label class="settings-switch">
                 <input type="checkbox" id="mcpAutoConnect" ${mcp.auto_connect !== false ? 'checked' : ''}>
@@ -158,7 +160,7 @@ export class McpSettingsPage {
             </div>
           </div>
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">自动重连</label>
+            <label class="settings-field-label">${_t('settingsPage.mcpAutoReconnect')}</label>
             <div class="settings-field-body">
               <label class="settings-switch">
                 <input type="checkbox" id="mcpAutoReconnect" ${mcp.auto_reconnect !== false ? 'checked' : ''}>
@@ -168,8 +170,8 @@ export class McpSettingsPage {
           </div>
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
-              <div>最大重连次数</div>
-              <div class="settings-field-hint">(0 = 不限制)</div>
+              <div>${_t('settingsPage.mcpMaxReconnect')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.mcpMaxReconnectHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="mcpMaxReconnect">${_reconnectLabel(mcp.max_reconnect_attempts ?? 5, MAX_RECONNECT_ITEMS)}</button>
@@ -177,8 +179,8 @@ export class McpSettingsPage {
           </div>
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
-              <div>重连间隔</div>
-              <div class="settings-field-hint">(秒)</div>
+              <div>${_t('settingsPage.mcpReconnectDelay')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.mcpReconnectHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="mcpReconnectDelay">${_reconnectLabel(mcp.reconnect_delay_seconds ?? 5, RECONNECT_DELAY_ITEMS)}</button>
@@ -186,8 +188,8 @@ export class McpSettingsPage {
           </div>
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
-              <div>请求超时</div>
-              <div class="settings-field-hint">(毫秒)</div>
+              <div>${_t('settingsPage.mcpReqTimeout')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.mcpTimeoutHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="mcpReqTimeout">${_timeoutLabel(mcp.request_timeout ?? 60000, REQ_TIMEOUT_ITEMS)}</button>
@@ -198,9 +200,9 @@ export class McpSettingsPage {
 
       <!-- ===== 服务器列表 ===== -->
       <div class="settings-item-list-header">
-        <h3>服务器 (${(mcp.servers || []).length})</h3>
+        <h3>${_t('settingsPage.mcpServers')} (${(mcp.servers || []).length})</h3>
         <div class="settings-item-list-actions">
-          <button class="settings-btn settings-btn-primary" id="mcpServerAdd">+ 添加服务器</button>
+          <button class="settings-btn settings-btn-primary" id="mcpServerAdd">+ ${_t('settingsPage.mcpAddServer')}</button>
         </div>
       </div>
       <div id="mcpServerList"></div>
@@ -249,7 +251,7 @@ export class McpSettingsPage {
     const servers = this._config.servers || [];
 
     if (servers.length === 0) {
-      listEl.innerHTML = '<div class="settings-items-empty">暂无 MCP 服务器<br><span style="font-size:11px;opacity:0.6;">点击「+ 添加服务器」添加第一个</span></div>';
+      listEl.innerHTML = `<div class="settings-items-empty">${_t('settingsPage.mcpNoServers')}<br><span style="font-size:11px;opacity:0.6;">${_t('settingsPage.mcpAddFirst')}</span></div>`;
       return;
     }
 
@@ -278,7 +280,7 @@ export class McpSettingsPage {
 
       const name = document.createElement('div');
       name.className = 'settings-item-name';
-      name.textContent = server.name || server.id || '(未命名)';
+      name.textContent = server.name || server.id || _t('settingsPage.mcpUnnamed');
       info.appendChild(name);
 
       const meta = document.createElement('div');
@@ -296,7 +298,7 @@ export class McpSettingsPage {
       if (server.auto_register_tools !== false) {
         const badge = document.createElement('span');
         badge.className = 'settings-item-badge';
-        badge.textContent = '自动注册';
+        badge.textContent = _t('settingsPage.mcpAutoRegister');
         badge.style.marginRight = '6px';
         item.appendChild(badge);
       }
@@ -304,7 +306,7 @@ export class McpSettingsPage {
       // 删除按钮
       const delBtn = document.createElement('button');
       delBtn.className = 'settings-item-del';
-      delBtn.title = '删除';
+      delBtn.title = _t('settingsPage.rulesRefresh');
       delBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="3 6 5 6 21 6"/>
         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -327,8 +329,8 @@ export class McpSettingsPage {
     const server = servers[index];
     if (!server) return;
 
-    const name = server.name || server.id || '未命名';
-    const confirmed = await ConfirmDialog.confirmDelete(`确定删除 MCP 服务器「${name}」？`);
+    const name = server.name || server.id || _t('settingsPage.mcpUnnamed');
+    const confirmed = await ConfirmDialog.confirmDelete(_t('settingsPage.mcpDeleteConfirm') + name + _t('settingsPage.mcpDeleteConfirmEnd'));
     if (!confirmed) return;
 
     servers.splice(index, 1);
@@ -336,7 +338,7 @@ export class McpSettingsPage {
     this._renderServerList();
     // 删除后自动保存
     this._saveConfig();
-    showToast('已删除服务器: ' + name, { type: 'success', duration: 2000 });
+    showToast(_t('settingsPage.mcpServerDeleted') + name, { type: 'success', duration: 2000 });
   }
 
   _showServerEditor(index) {
@@ -358,7 +360,7 @@ export class McpSettingsPage {
 
     let envHtml = '';
     if (envEntries.length === 0) {
-      envHtml = `<div class="mcp-env-empty" style="font-size:12px;color:var(--text-muted);">暂无环境变量</div>`;
+      envHtml = `<div class="mcp-env-empty" style="font-size:12px;color:var(--text-muted);">${_t('settingsPage.mcpEnvNone')}</div>`;
     } else {
       envHtml = envEntries.map(([k, v], ei) => `
         <div class="mcp-env-row" style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
@@ -374,23 +376,23 @@ export class McpSettingsPage {
     listEl.innerHTML = `
       <div class="settings-editor">
         <div class="settings-editor-header">
-          <span class="settings-editor-title">${isNew ? '添加服务器' : '编辑服务器'}</span>
+          <span class="settings-editor-title">${isNew ? _t('settingsPage.mcpAddServerTitle') : _t('settingsPage.mcpEditServerTitle')}</span>
           <div class="settings-editor-actions">
-            <button class="settings-editor-btn" id="mcpServerEditorBack">← 返回列表</button>
-            <button class="settings-editor-btn settings-editor-btn-primary" id="mcpServerEditorSave">${isNew ? '添加' : '保存'}</button>
+            <button class="settings-editor-btn" id="mcpServerEditorBack">${_t('settingsPage.mcpBackToList')}</button>
+            <button class="settings-editor-btn settings-editor-btn-primary" id="mcpServerEditorSave">${isNew ? _t('settingsPage.mcpAdd') : _t('settingsPage.mcpSave')}</button>
           </div>
         </div>
         <div class="settings-editor-fields">
           <div class="settings-field">
-            <label class="settings-field-label" for="mcpServerId">ID <span class="settings-field-hint">(唯一标识，字母数字连字符)</span></label>
-            <input class="settings-input" id="mcpServerId" type="text" value="${this._escapeHtml(server.id || '')}" placeholder="my-mcp-server" ${!isNew ? 'readonly style="background:var(--bg-subtle);"' : ''}>
+            <label class="settings-field-label" for="mcpServerId">${_t('settingsPage.mcpServerId')} <span class="settings-field-hint">${_t('settingsPage.mcpServerIdHint')}</span></label>
+            <input class="settings-input" id="mcpServerId" type="text" value="${this._escapeHtml(server.id || '')}" placeholder="${_t('settingsPage.mcpServerIdPh')}" ${!isNew ? 'readonly style="background:var(--bg-subtle);"' : ''}>
           </div>
           <div class="settings-field">
-            <label class="settings-field-label" for="mcpServerName">名称</label>
-            <input class="settings-input" id="mcpServerName" type="text" value="${this._escapeHtml(server.name || '')}" placeholder="我的 MCP 服务器">
+            <label class="settings-field-label" for="mcpServerName">${_t('settingsPage.mcpServerName')}</label>
+            <input class="settings-input" id="mcpServerName" type="text" value="${this._escapeHtml(server.name || '')}" placeholder="${_t('settingsPage.mcpServerNamePh')}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label">类型</label>
+            <label class="settings-field-label">${_t('settingsPage.mcpType')}</label>
             <div class="settings-toggle-group" id="mcpServerType">
               ${SERVER_TYPES.map(t => `
                 <button class="settings-toggle-btn ${t.value === type ? 'active' : ''}" data-value="${t.value}">${t.label}</button>
@@ -401,38 +403,38 @@ export class McpSettingsPage {
           <!-- STDIO 字段 -->
           <div id="mcpServerStdioFields" class="mcp-type-fields" style="display:${type === 'stdio' ? 'block' : 'none'};">
             <div class="settings-field">
-              <label class="settings-field-label" for="mcpServerCommand">命令</label>
-              <input class="settings-input" id="mcpServerCommand" type="text" value="${this._escapeHtml(server.command || '')}" placeholder="npx">
+              <label class="settings-field-label" for="mcpServerCommand">${_t('settingsPage.mcpCommand')}</label>
+              <input class="settings-input" id="mcpServerCommand" type="text" value="${this._escapeHtml(server.command || '')}" placeholder="${_t('settingsPage.mcpCommandPh')}">
             </div>
             <div class="settings-field">
-              <label class="settings-field-label" for="mcpServerArgs">参数 <span class="settings-field-hint">(空格分隔)</span></label>
-              <input class="settings-input" id="mcpServerArgs" type="text" value="${this._escapeHtml(argsStr)}" placeholder="-y @modelcontextprotocol/server-filesystem /path">
+              <label class="settings-field-label" for="mcpServerArgs">${_t('settingsPage.mcpArgs')} <span class="settings-field-hint">${_t('settingsPage.mcpArgsHint')}</span></label>
+              <input class="settings-input" id="mcpServerArgs" type="text" value="${this._escapeHtml(argsStr)}" placeholder="${_t('settingsPage.mcpArgsPh')}">
             </div>
           </div>
 
           <!-- SSE 字段 -->
           <div id="mcpServerSseFields" class="mcp-type-fields" style="display:${type === 'sse' ? 'block' : 'none'};">
             <div class="settings-field">
-              <label class="settings-field-label" for="mcpServerUrl">URL</label>
-              <input class="settings-input" id="mcpServerUrl" type="text" value="${this._escapeHtml(server.url || '')}" placeholder="http://localhost:3000/sse">
+              <label class="settings-field-label" for="mcpServerUrl">${_t('settingsPage.mcpUrl')}</label>
+              <input class="settings-input" id="mcpServerUrl" type="text" value="${this._escapeHtml(server.url || '')}" placeholder="${_t('settingsPage.mcpUrlPh')}">
             </div>
           </div>
 
           <!-- 环境变量 -->
           <div class="settings-field">
             <label class="settings-field-label">
-              环境变量
-              <span class="settings-field-hint">(仅 STDIO 类型生效)</span>
+              ${_t('settingsPage.mcpEnvVars')}
+              <span class="settings-field-hint">${_t('settingsPage.mcpEnvHint')}</span>
             </label>
             <div id="mcpServerEnvList" style="margin-bottom:6px;">
               ${envHtml}
             </div>
-            <button class="settings-btn" id="mcpServerEnvAdd" style="font-size:12px;">+ 添加变量</button>
+            <button class="settings-btn" id="mcpServerEnvAdd" style="font-size:12px;">+ ${_t('settingsPage.mcpEnvAdd')}</button>
           </div>
 
           <!-- 自动注册工具 -->
           <div class="settings-field-horizontal">
-            <label class="settings-field-label">自动注册工具</label>
+            <label class="settings-field-label">${_t('settingsPage.mcpAutoRegTools')}</label>
             <div class="settings-field-body">
               <label class="settings-switch">
                 <input type="checkbox" id="mcpServerAutoReg" ${server.auto_register_tools !== false ? 'checked' : ''}>
@@ -486,7 +488,7 @@ export class McpSettingsPage {
         style="flex:1;font-family:var(--font-mono);font-size:12px;padding:4px 6px;">
       <input class="settings-input mcp-env-value" type="text" placeholder="VALUE"
         style="flex:2;font-family:var(--font-mono);font-size:12px;padding:4px 6px;">
-      <button class="settings-input-btn mcp-env-remove" title="删除" style="padding:4px;">
+      <button class="settings-input-btn mcp-env-remove" title="${_t('settingsPage.rulesRefresh')}" style="padding:4px;">
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -521,7 +523,7 @@ export class McpSettingsPage {
 
     const id = idInput?.value?.trim();
     if (!id) {
-      showToast('服务器 ID 不能为空', { type: 'warning', duration: 2000 });
+      showToast(_t('settingsPage.mcpServerIdRequired'), { type: 'warning', duration: 2000 });
       return;
     }
 
@@ -547,7 +549,7 @@ export class McpSettingsPage {
     if (isNew) {
       // 检查 ID 唯一性
       if (servers.some(s => s.id === id)) {
-        showToast('服务器 ID "' + id + '" 已存在', { type: 'warning', duration: 2000 });
+        showToast(_t('settingsPage.mcpServerIdExists') + id + _t('settingsPage.mcpServerIdExistsEnd'), { type: 'warning', duration: 2000 });
         return;
       }
       servers.push(server);
@@ -556,7 +558,7 @@ export class McpSettingsPage {
       if (idx >= 0 && idx < servers.length) {
         // 如果 ID 变了，检查唯一性
         if (server.id !== servers[idx].id && servers.some((s, i) => i !== idx && s.id === server.id)) {
-          showToast('服务器 ID "' + id + '" 已存在', { type: 'warning', duration: 2000 });
+          showToast(_t('settingsPage.mcpServerIdExists') + id + _t('settingsPage.mcpServerIdExistsEnd'), { type: 'warning', duration: 2000 });
           return;
         }
         servers[idx] = server;
@@ -567,7 +569,7 @@ export class McpSettingsPage {
     this._closeServerEditor();
     // 服务器变更后自动保存
     this._saveConfig();
-    showToast(isNew ? '服务器已添加' : '服务器已保存', { type: 'success', duration: 2000 });
+    showToast(isNew ? _t('settingsPage.mcpServerAdded') : _t('settingsPage.mcpServerSaved'), { type: 'success', duration: 2000 });
   }
 
   _closeServerEditor() {
@@ -612,7 +614,7 @@ export class McpSettingsPage {
       }
     } catch (e) {
       console.warn('保存 MCP 配置失败:', e);
-      showToast('保存失败: ' + e.message, { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.saveFailed') + e.message, { type: 'error', duration: 3000 });
     }
   }
 

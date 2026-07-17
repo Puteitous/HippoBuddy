@@ -203,7 +203,7 @@ export class FileChangeManager {
         }
 
         const itemClass = c.toolName === 'delete_file' ? ' file-change-item-deleted' : '';
-        const rollbackHtml = c.binary ? '' : '<button class="file-change-rollback">回滚</button>';
+        const rollbackHtml = c.binary ? '' : `<button class="file-change-rollback">${window.i18n.t('fileChanges.rollback')}</button>`;
         return `
           <div class="file-change-item${itemClass}" data-path="${escapeHtml(c.filePath)}" style="cursor:pointer;">
             <span class="file-change-icon">${icon}</span>
@@ -234,7 +234,7 @@ export class FileChangeManager {
     if (!popoverBody) return;
 
     if (this._cachedFileGroups.size === 0) {
-      popoverBody.innerHTML = '<div class="popover-empty">暂无文件变更</div>';
+      popoverBody.innerHTML = `<div class="popover-empty">${window.i18n.t('fileChanges.empty')}</div>`;
       return;
     }
 
@@ -273,7 +273,7 @@ export class FileChangeManager {
     }
 
     if (overflow > 0) {
-      html += `<div class="popover-file-overflow">还有 ${overflow} 个文件变更</div>`;
+      html += `<div class="popover-file-overflow">${window.i18n.t('fileChanges.overflow', { overflow })}</div>`;
     }
 
     popoverBody.innerHTML = html;
@@ -282,24 +282,24 @@ export class FileChangeManager {
   async _rollbackFile(filePath, btnEl) {
     if (btnEl.classList.contains('rolling')) return;
     btnEl.classList.add('rolling');
-    btnEl.textContent = '回滚中...';
+    btnEl.textContent = window.i18n.t('fileChanges.rollingBack');
 
     try {
       const result = await apiPost('/api/files/rollback', { filePath });
 
       if (result.success) {
-        showToast(`文件已恢复：${filePath.split(/[/\\]/).pop()}`, { type: 'success', duration: 3000 });
+        showToast(window.i18n.t('fileChanges.rollbackSuccess') + filePath.split(/[/\\]/).pop(), { type: 'success', duration: 3000 });
         this.updateFileChanges();
         EventBus.emit('file:changes-updated');
       } else {
-        showToast(`回滚失败：${result.error || '未知错误'}`, { type: 'error', duration: 3000 });
+        showToast(window.i18n.t('fileChanges.rollbackFailed') + (result.error || window.i18n.t('chatui.unknownError')), { type: 'error', duration: 3000 });
         btnEl.classList.remove('rolling');
-        btnEl.textContent = '回滚';
+        btnEl.textContent = window.i18n.t('fileChanges.rollback');
       }
     } catch (e) {
-      showToast(`回滚失败：${e.message}`, { type: 'error', duration: 3000 });
+      showToast(window.i18n.t('fileChanges.rollbackFailed') + e.message, { type: 'error', duration: 3000 });
       btnEl.classList.remove('rolling');
-      btnEl.textContent = '回滚';
+      btnEl.textContent = window.i18n.t('fileChanges.rollback');
     }
   }
 }

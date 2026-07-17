@@ -7,12 +7,16 @@ const TOAST_ICONS = {
   warning: '▲'
 };
 
-const TOAST_TITLES = {
-  success: '成功',
-  error: '错误',
-  info: '提示',
-  warning: '警告'
-};
+function _getToastTitle(type) {
+  const i18n = window.i18n;
+  const titles = {
+    success: i18n.t('toast.success'),
+    error: i18n.t('toast.error'),
+    info: i18n.t('toast.info'),
+    warning: i18n.t('toast.warning')
+  };
+  return titles[type] || '';
+}
 
 const TOAST_DURATIONS = {
   short: 2000,
@@ -32,7 +36,7 @@ export function showToast(message, options = {}) {
   const {
     type = 'info',
     duration = TOAST_DURATIONS.normal,
-    title = TOAST_TITLES[type]
+    title = _getToastTitle(type)
   } = options;
 
   const container = document.getElementById('toastContainer');

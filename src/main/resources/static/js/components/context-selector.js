@@ -101,7 +101,7 @@ export class ContextSelector {
   _createButton() {
     this._btn = document.createElement('button');
     this._btn.className = 'context-selector-btn';
-    this._btn.title = '引用上下文';
+    this._btn.title = window.i18n.t('contextSelector.title');
     this._btn.innerHTML = this._getButtonHTML(0);
     this._btn.addEventListener('click', () => this._togglePanel());
     this._btn.addEventListener('mouseenter', () => this._onButtonEnter());
@@ -262,7 +262,7 @@ export class ContextSelector {
   _renderMenu() {
     const header = document.createElement('div');
     header.className = 'context-selector-header';
-    header.textContent = '# 引用上下文';
+    header.textContent = window.i18n.t('contextSelector.header');
     this._panel.appendChild(header);
 
     const body = document.createElement('div');
@@ -279,7 +279,7 @@ export class ContextSelector {
           <path d="M6 8.5l1.5 1.5L10 7"/>
         </svg>
       </span>
-      <span class="context-selector-menu-label">规则</span>
+      <span class="context-selector-menu-label">${window.i18n.t('contextSelector.rules')}</span>
       <span class="context-selector-menu-arrow">›</span>`;
     rulesEntry.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -297,7 +297,7 @@ export class ContextSelector {
           <path d="M259.681,256.408L19.864,496.23c-26.484,26.48-26.48,69.422,0,95.906c26.486,26.489,69.426,26.489,95.906,0.007l239.815-239.82l-22.736-73.169L259.681,256.408z"/>
         </svg>
       </span>
-      <span class="context-selector-menu-label">技能</span>
+      <span class="context-selector-menu-label">${window.i18n.t('contextSelector.skills')}</span>
       <span class="context-selector-menu-arrow">›</span>`;
     skillsEntry.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -318,7 +318,7 @@ export class ContextSelector {
     const backBtn = document.createElement('button');
     backBtn.className = 'context-selector-back';
     backBtn.innerHTML = '←';
-    backBtn.title = '返回';
+    backBtn.title = window.i18n.t('contextSelector.back');
     backBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._level = 'menu';
@@ -327,7 +327,7 @@ export class ContextSelector {
     header.appendChild(backBtn);
 
     const title = document.createElement('span');
-    title.textContent = '规则';
+    title.textContent = window.i18n.t('contextSelector.rules');
     header.appendChild(title);
     this._panel.appendChild(header);
 
@@ -337,17 +337,17 @@ export class ContextSelector {
     if (this._rules.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'context-selector-empty';
-      empty.innerHTML = '暂无规则<br><span style="font-size:11px;opacity:0.6;">前往左侧活动栏创建</span>';
+      empty.innerHTML = window.i18n.t('contextSelector.noRules') + '<br><span style="font-size:11px;opacity:0.6;">' + window.i18n.t('contextSelector.goCreate') + '</span>';
       body.appendChild(empty);
     } else {
       const alwaysRules = this._rules.filter(r => r.mode === 'always');
       const manualRules = this._rules.filter(r => r.mode !== 'always');
 
       if (alwaysRules.length > 0) {
-        this._appendRuleGroup(body, '始终生效', alwaysRules, true);
+        this._appendRuleGroup(body, window.i18n.t('contextSelector.alwaysActive'), alwaysRules, true);
       }
       if (manualRules.length > 0) {
-        this._appendRuleGroup(body, '手动引用', manualRules, false);
+        this._appendRuleGroup(body, window.i18n.t('contextSelector.manualRef'), manualRules, false);
       }
     }
 
@@ -429,7 +429,7 @@ export class ContextSelector {
     const backBtn = document.createElement('button');
     backBtn.className = 'context-selector-back';
     backBtn.innerHTML = '←';
-    backBtn.title = '返回';
+    backBtn.title = window.i18n.t('contextSelector.back');
     backBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._level = 'menu';
@@ -438,7 +438,7 @@ export class ContextSelector {
     header.appendChild(backBtn);
 
     const title = document.createElement('span');
-    title.textContent = '技能';
+    title.textContent = window.i18n.t('contextSelector.skills');
     header.appendChild(title);
     this._panel.appendChild(header);
 
@@ -448,17 +448,17 @@ export class ContextSelector {
     if (this._skills.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'context-selector-empty';
-      empty.innerHTML = '暂无技能<br><span style="font-size:11px;opacity:0.6;">前往左侧活动栏创建</span>';
+      empty.innerHTML = window.i18n.t('contextSelector.noSkills') + '<br><span style="font-size:11px;opacity:0.6;">' + window.i18n.t('contextSelector.goCreate') + '</span>';
       body.appendChild(empty);
     } else {
       const projectSkills = this._skills.filter(s => s.source === 'project');
       const userSkills = this._skills.filter(s => s.source === 'user');
 
       if (projectSkills.length > 0) {
-        this._appendSkillGroup(body, '项目技能', projectSkills);
+        this._appendSkillGroup(body, window.i18n.t('contextSelector.projectSkills'), projectSkills);
       }
       if (userSkills.length > 0) {
-        this._appendSkillGroup(body, '用户技能', userSkills);
+        this._appendSkillGroup(body, window.i18n.t('contextSelector.userSkills'), userSkills);
       }
     }
 

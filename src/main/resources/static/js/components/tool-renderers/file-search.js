@@ -1,6 +1,9 @@
 import { escapeHtml } from '../../utils.js';
 import { parseToolArgs } from './shared.js';
 
+// i18n 辅助函数
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 /** ───────── read_file 时间线详情 ─────────
  *  read_file 的摘要行已展示文件路径（可点击跳转），
  *  展开后无需额外内容，隐藏展开按钮。
@@ -22,8 +25,8 @@ export function renderGrepDetail(tool) {
 
   let html = '<div class="timeline-detail-meta">';
 
-  if (!resultContent || resultContent.includes('未找到匹配的内容')) {
-    html += `<span class="timeline-detail-grep-empty">未找到匹配的内容</span>`;
+  if (!resultContent || resultContent.includes(_t('tool.grep.noMatch'))) {
+    html += `<span class="timeline-detail-grep-empty">${_t('tool.grep.noMatch')}</span>`;
     html += '</div>';
     return html;
   }
@@ -45,7 +48,7 @@ export function renderGrepDetail(tool) {
     html += `<span class="timeline-detail-grep-filter">${escapeHtml(filePattern)}</span>`;
   }
   if (matchCount !== null) {
-    html += `<span class="timeline-detail-grep-count">${fileCount !== null ? `${fileCount} 个文件, ` : ''}${matchCount} 处匹配</span>`;
+    html += `<span class="timeline-detail-grep-count">${fileCount !== null ? `${fileCount} ${_t('tool.grep.files')}, ` : ''}${matchCount} ${_t('tool.grep.matches')}</span>`;
   }
   html += '</div>';
   return html;
@@ -63,8 +66,8 @@ export function renderGlobDetail(tool) {
 
   let html = '<div class="timeline-detail-meta">';
 
-  if (!resultContent || resultContent.includes('未找到匹配的文件')) {
-    html += `<span class="timeline-detail-glob-empty">未找到匹配的文件</span>`;
+  if (!resultContent || resultContent.includes(_t('tool.glob.noMatch'))) {
+    html += `<span class="timeline-detail-glob-empty">${_t('tool.glob.noMatch')}</span>`;
     html += '</div>';
     return html;
   }
@@ -78,7 +81,7 @@ export function renderGlobDetail(tool) {
 
   if (fileCount !== null) {
     const sizeText = totalSize ? ` | ${escapeHtml(totalSize)}` : '';
-    html += `<span class="timeline-detail-glob-count">${fileCount} 个文件${sizeText}</span>`;
+    html += `<span class="timeline-detail-glob-count">${fileCount} ${_t('tool.glob.files')}${sizeText}</span>`;
   }
   html += '</div>';
   return html;
@@ -96,7 +99,7 @@ export function renderListDirectoryDetail(tool) {
   let html = '<div class="timeline-detail-meta">';
 
   if (!resultContent || resultContent.includes('(空目录)')) {
-    html += '<span class="timeline-detail-glob-empty">空目录</span>';
+    html += `<span class="timeline-detail-glob-empty">${_t('tool.listDir.empty')}</span>`;
     html += '</div>';
     return html;
   }
@@ -115,7 +118,7 @@ export function renderListDirectoryDetail(tool) {
 
   const parts = [];
   if (dirCount !== null && fileCount !== null) {
-    parts.push(`${dirCount} 个目录, ${fileCount} 个文件`);
+    parts.push(`${dirCount} ${_t('tool.listDir.dirs')}, ${fileCount} ${_t('tool.listDir.files')}`);
   }
   if (totalSize) {
     parts.push(totalSize);

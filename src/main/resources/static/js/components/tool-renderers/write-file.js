@@ -1,6 +1,9 @@
 import { escapeHtml } from '../../utils.js';
 import { parseToolArgs, computeUnifiedDiff, renderUnifiedDiff } from './shared.js';
 
+// i18n 辅助函数
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 export function renderWriteFileCard(tool) {
   const args = parseToolArgs(tool.args);
   const filePath = args.path || '';
@@ -23,13 +26,13 @@ export function renderWriteFileCard(tool) {
   let statusHtml;
   let statusClass;
   if (isRunning) {
-    statusHtml = `${spinnerSvg} 执行中`;
+    statusHtml = `${spinnerSvg} ${_t('tool.write.executing')}`;
     statusClass = 'running';
   } else if (isSuccess) {
     statusHtml = `<span class="diff-stats-badge"><span class="diff-add">+${insertions}</span></span>`;
     statusClass = 'success';
   } else {
-    statusHtml = `${xSvg} 失败`;
+    statusHtml = `${xSvg} ${_t('tool.write.failed')}`;
     statusClass = 'error';
   }
 
@@ -42,21 +45,21 @@ export function renderWriteFileCard(tool) {
             <path d="M9 2v3h3"/>
           </svg>
         </span>
-        <span class="tool-title">写入文件</span>
+        <span class="tool-title">${_t('tool.write.title')}</span>
         <span class="tool-status-badge ${statusClass}">${statusHtml}</span>
         <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 12 10 8 6 4"/></svg></span>
       </div>
       <div class="tool-call-details">
         <div class="writefile-path" data-file-path="${escapeHtml(filePath)}">${fileSvg} ${escapeHtml(filePath)}</div>
-        ${isRunning ? '<div class="editfile-loading">正在写入文件...</div>' : ''}
+        ${isRunning ? `<div class="editfile-loading">${_t('tool.write.running')}</div>` : ''}
         ${isSuccess ? `
         <div class="editfile-diff">
           ${renderUnifiedDiff(diffLines)}
         </div>
         <div class="file-action-bar">
-          <span class="file-action-status pending">${pendingSvg} 已生效</span>
-          <button class="file-action-btn view-btn">查看变更</button>
-          <button class="file-action-btn undo-btn">撤销</button>
+          <span class="file-action-status pending">${pendingSvg} ${_t('tool.write.effective')}</span>
+          <button class="file-action-btn view-btn">${_t('tool.write.viewChanges')}</button>
+          <button class="file-action-btn undo-btn">${_t('tool.write.undo')}</button>
         </div>` : ''}
         ${isError && tool.error ? `<div class="writefile-error">${escapeHtml(tool.error)}</div>` : ''}
       </div>

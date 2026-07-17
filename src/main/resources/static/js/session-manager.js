@@ -2,6 +2,17 @@ import { truncateText } from './utils.js';
 import { ChatService } from './chat-service.js';
 import { showBottomToast } from './utils/toast.js';
 import { ConfirmDialog } from './utils/modal.js';
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
+/** 时间分组中文 → i18n key 映射 */
+const TIME_GROUP_LABELS = {
+  '今天': () => _t('session.today'),
+  '昨天': () => _t('session.yesterday'),
+  '7天内': () => _t('session.days7'),
+  '30天内': () => _t('session.days30'),
+  '更早': () => _t('session.earlier'),
+};
+const OTHER_PROJECT = '';
 
 export class SessionManager {
   constructor(listContainer, onSessionSwitch) {
@@ -27,7 +38,7 @@ export class SessionManager {
     localStorage.setItem('hippo-session-group-mode', this._groupMode);
     // Update toggle button text
     const btn = document.querySelector('.group-mode-toggle');
-    if (btn) btn.textContent = this._groupMode === 'project' ? '项目' : '时间';
+    if (btn) btn.textContent = this._groupMode === 'project' ? _t('session.groupProject') : _t('session.groupTime');
     // Rerender
     this._resetRenderer();
     this._rows = this._computeRows();
@@ -75,8 +86,8 @@ export class SessionManager {
 
     const toggle = document.createElement('span');
     toggle.className = 'group-mode-toggle';
-    toggle.textContent = this._groupMode === 'project' ? '项目' : '时间';
-    toggle.title = '切换分组方式';
+    toggle.textContent = this._groupMode === 'project' ? _t('session.groupProject') : _t('session.groupTime');
+    toggle.title = _t('session.toggleGroup');
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleGroupMode();
@@ -130,7 +141,7 @@ export class SessionManager {
       }
       const dirName = projectPath
         ? projectPath.split('/').filter(Boolean).pop() || projectPath
-        : '其他';
+        : _t('session.other');
       projects.push({ projectPath, sessions, latestTime, dirName });
     }
     projects.sort((a, b) => b.latestTime - a.latestTime);
@@ -166,7 +177,7 @@ export class SessionManager {
       });
 
       for (const s of sorted) {
-        const name = s.title || this.sessionNames[s.id] || ('会话 ' + s.id.replace('web-', '').slice(-6));
+        const name = s.title || this.sessionNames[s.id] || (_t('session.namePrefix') + ' ' + s.id.replace('web-', '').slice(-6));
         if (s.title) this.sessionNames[s.id] = s.title;
         rows.push({ type: 'session', session: s, name });
       }
@@ -186,7 +197,7 @@ export class SessionManager {
       rows.push({ type: 'header', category });
 
       for (const s of categorySessions) {
-        const name = s.title || this.sessionNames[s.id] || ('会话 ' + s.id.replace('web-', '').slice(-6));
+        const name = s.title || this.sessionNames[s.id] || (_t('session.namePrefix') + ' ' + s.id.replace('web-', '').slice(-6));
         if (s.title) this.sessionNames[s.id] = s.title;
         rows.push({ type: 'session', session: s, name });
       }
@@ -209,7 +220,7 @@ export class SessionManager {
       };
 
       if (isProjectMode) {
-        // Inject into "其他" project
+        // Inject into other project
         const otherProjIdx = rows.findIndex(r => r.type === 'project-header' && !r.projectPath);
         if (otherProjIdx !== -1) {
           rows.splice(otherProjIdx + 1, 0, {
@@ -220,7 +231,7 @@ export class SessionManager {
           rows[otherProjIdx].count = (rows[otherProjIdx].count || 0) + 1;
         } else {
           rows.unshift(
-            { type: 'project-header', projectKey: '__other__', projectPath: '', name: '其他', count: 1, fullPath: '', collapsed: false },
+            { type: 'project-header', projectKey: '__other__', projectPath: '', name: _t('session.other'), count: 1, fullPath: '', collapsed: false },
             { type: 'session', session: virtualSession, name: this.sessionNames[this.currentSessionId], _isVirtual: true }
           );
         }
@@ -277,7 +288,7 @@ export class SessionManager {
   _createHeaderElement(category) {
     const el = document.createElement('div');
     el.className = 'session-category';
-    el.textContent = category;
+    el.textContent = TIME_GROUP_LABELS[category] ? TIME_GROUP_LABELS[category]() : category;
     return el;
   }
 
@@ -303,7 +314,7 @@ export class SessionManager {
 
     const openBtn = document.createElement('button');
     openBtn.className = 'project-open-btn';
-    openBtn.title = '打开工作目录';
+    openBtn.title = _t('session.openWorkspace');
     openBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l6-6"/><path d="M5 5h6v6"/></svg>';
     openBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -312,7 +323,7 @@ export class SessionManager {
       const ws = window.HippoWorkspace;
       if (ws?.openWorkspace) {
         ws.openWorkspace(row.fullPath).then(() => {
-          showBottomToast('工作区已切换: ' + row.fullPath);
+          showBottomToast(_t('workspace.switched') + row.fullPath);
         }).catch(() => {});
       }
     });
@@ -364,7 +375,7 @@ export class SessionManager {
     actionsDiv.className = 'session-actions';
 
     const renameBtn = document.createElement('button');
-    renameBtn.title = '重命名';
+    renameBtn.title = _t('session.rename');
     renameBtn.innerHTML = '✏';
     renameBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -372,7 +383,7 @@ export class SessionManager {
     });
 
     const deleteBtn = document.createElement('button');
-    deleteBtn.title = '删除';
+    deleteBtn.title = _t('session.delete');
     deleteBtn.innerHTML = '×';
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -497,9 +508,9 @@ export class SessionManager {
 
   async deleteSession(sessionId, event) {
     event.stopPropagation();
-    const sessionName = this.sessionNames[sessionId] || ('会话 ' + sessionId.replace('web-', '').slice(-6));
+    const sessionName = this.sessionNames[sessionId] || (_t('session.namePrefix') + ' ' + sessionId.replace('web-', '').slice(-6));
 
-    const confirmed = await ConfirmDialog.confirmDelete(`确定要删除会话 "${sessionName}" 吗？此操作无法撤销！`);
+    const confirmed = await ConfirmDialog.confirmDelete(`${_t('confirm.deleteMessage')} "${sessionName}" ${_t('confirm.deleteIrreversible')}`);
     if (!confirmed) return;
 
     try {

@@ -348,7 +348,7 @@ export class RenderPipeline {
         <div class="thinking-row completed">
           <div class="thinking-row-header" onclick="window.toggleThinkingRow(this)">
             <span class="thinking-row-icon">${thinkSvg}</span>
-            <span class="thinking-row-label">已思考</span>
+            <span class="thinking-row-label">${window.i18n.t('render.thinkingDone')}</span>
           </div>
           <div class="thinking-row-content">${escapedContent}</div>
         </div>`;
@@ -358,7 +358,7 @@ export class RenderPipeline {
       <div class="thinking-row streaming">
         <div class="thinking-row-header">
           <span class="thinking-row-icon">${thinkSvg}</span>
-          <span class="thinking-row-label">思考中...</span>
+          <span class="thinking-row-label">${window.i18n.t('render.thinking')}</span>
         </div>
         <div class="thinking-row-content">${escapedContent}</div>
       </div>`;

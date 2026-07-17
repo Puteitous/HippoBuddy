@@ -12,6 +12,8 @@
 import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
 
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 const MAX_TOKENS_ITEMS = [
   { label: '200,000', value: '200000' },
   { label: '400,000', value: '400000' },
@@ -43,17 +45,17 @@ export class ContextSettingsPage {
     page.className = 'settings-page';
 
     page.innerHTML = `
-      <h2 class="settings-page-title">上下文管理</h2>
-      <p class="settings-page-desc">配置上下文窗口大小和截断策略，控制发送给 LLM 的上下文量</p>
+      <h2 class="settings-page-title">${_t('settingsPage.contextTitle')}</h2>
+      <p class="settings-page-desc">${_t('settingsPage.contextDesc')}</p>
       <hr class="settings-page-divider">
 
-      <div class="settings-field-group-title">上下文窗口</div>
+      <div class="settings-field-group-title">${_t('settingsPage.contextWindow')}</div>
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
-              <div>Max Tokens</div>
-              <div class="settings-field-hint">上下文窗口上限</div>
+              <div>${_t('settingsPage.contextMaxTokens')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.contextMaxHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="ctxMaxTokens">30,000</button>
@@ -62,13 +64,13 @@ export class ContextSettingsPage {
         </div>
       </div>
 
-      <div class="settings-field-group-title">工具结果截断</div>
+      <div class="settings-field-group-title">${_t('settingsPage.contextToolTrunc')}</div>
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
             <div class="settings-field-label">
-              <div>工具结果截断上限</div>
-              <div class="settings-field-hint">单工具结果最大 token 数，read 工具不设限</div>
+              <div>${_t('settingsPage.contextToolMax')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.contextToolHint')}</div>
             </div>
             <div class="settings-field-body">
               <button class="settings-input settings-provider-btn" id="ctxToolMaxTokens">20,000</button>
@@ -117,7 +119,7 @@ export class ContextSettingsPage {
 
     } catch (e) {
       console.warn('加载上下文配置失败:', e);
-      showToast('加载配置失败', { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.loadConfigFailed'), { type: 'error', duration: 3000 });
     }
   }
 
@@ -138,7 +140,7 @@ export class ContextSettingsPage {
       await this._updateConfig(values);
     } catch (e) {
       console.warn('保存上下文配置失败:', e);
-      showToast('保存失败: ' + e.message, { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.saveFailed') + e.message, { type: 'error', duration: 3000 });
     }
   }
 

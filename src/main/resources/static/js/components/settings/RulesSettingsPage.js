@@ -8,6 +8,8 @@ import { apiGet, apiPost } from '../../utils.js';
 import { showToast } from '../../utils/toast.js';
 import { ConfirmDialog } from '../../utils/modal.js';
 
+const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+
 export class RulesSettingsPage {
   constructor() {
     this._rules = [];
@@ -22,24 +24,24 @@ export class RulesSettingsPage {
     page.className = 'settings-page';
 
     page.innerHTML = `
-      <h2 class="settings-page-title">规则管理</h2>
-      <p class="settings-page-desc">管理项目级和用户级规则文件，按「始终生效」和「手动引用」分组</p>
+      <h2 class="settings-page-title">${_t('settingsPage.rulesTitle')}</h2>
+      <p class="settings-page-desc">${_t('settingsPage.rulesDesc')}</p>
       <hr class="settings-page-divider">
 
       <div class="settings-item-list-header">
-        <h3>规则列表</h3>
+        <h3>${_t('settingsPage.rulesList')}</h3>
         <div class="settings-item-list-actions">
-          <button class="settings-btn settings-btn-icon" id="settingsRulesRefresh" title="刷新">
+          <button class="settings-btn settings-btn-icon" id="settingsRulesRefresh" title="${_t('settingsPage.rulesRefresh')}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
           </button>
-          <button class="settings-btn settings-btn-primary" id="settingsRulesCreate">+ 新建</button>
+          <button class="settings-btn settings-btn-primary" id="settingsRulesCreate">+ ${_t('settingsPage.rulesCreate')}</button>
         </div>
       </div>
 
-      <div class="settings-loading" id="settingsRulesLoading" style="display:none;">加载中...</div>
+      <div class="settings-loading" id="settingsRulesLoading" style="display:none;">${_t('settingsPage.rulesLoading')}</div>
       <div class="settings-items-error" id="settingsRulesError" style="display:none;"></div>
       <div id="settingsRulesList"></div>
     `;
@@ -88,7 +90,7 @@ export class RulesSettingsPage {
     } catch (e) {
       console.warn('加载规则列表失败:', e);
       if (errorEl) {
-        errorEl.textContent = '加载失败，请重试';
+        errorEl.textContent = _t('settingsPage.rulesLoadFailed');
         errorEl.style.display = 'block';
       }
     } finally {
@@ -98,17 +100,17 @@ export class RulesSettingsPage {
 
   _renderRulesList(listEl, always, manual) {
     if (always.length === 0 && manual.length === 0) {
-      listEl.innerHTML = '<div class="settings-items-empty">暂无规则文件<br><span style="font-size:11px;opacity:0.6;">点击「+ 新建」创建第一条规则</span></div>';
+      listEl.innerHTML = `<div class="settings-items-empty">${_t('settingsPage.rulesEmpty')}<br><span style="font-size:11px;opacity:0.6;">${_t('settingsPage.rulesEmptyHint')}</span></div>`;
       return;
     }
 
     listEl.innerHTML = '';
 
     if (always.length > 0) {
-      listEl.appendChild(this._createRuleGroup('始终生效', always, '⚡'));
+      listEl.appendChild(this._createRuleGroup(_t('settingsPage.rulesGroupAlways'), always, '⚡'));
     }
     if (manual.length > 0) {
-      listEl.appendChild(this._createRuleGroup('手动引用', manual, '📋'));
+      listEl.appendChild(this._createRuleGroup(_t('settingsPage.rulesGroupManual'), manual, '📋'));
     }
   }
 
@@ -163,12 +165,12 @@ export class RulesSettingsPage {
 
       const badge = document.createElement('span');
       badge.className = 'settings-item-badge';
-      badge.textContent = rule.source === 'project' ? '项目' : '全局';
+      badge.textContent = rule.source === 'project' ? _t('settingsPage.rulesProject') : _t('settingsPage.rulesGlobal');
       item.appendChild(badge);
 
       const delBtn = document.createElement('button');
       delBtn.className = 'settings-item-del';
-      delBtn.title = '删除';
+      delBtn.title = _t('settingsPage.rulesDelete');
       delBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="3 6 5 6 21 6"/>
         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -203,37 +205,37 @@ export class RulesSettingsPage {
     listEl.innerHTML = `
       <div class="settings-editor">
         <div class="settings-editor-header">
-          <span class="settings-editor-title">编辑规则：${rule.name}</span>
+          <span class="settings-editor-title">${_t('settingsPage.rulesEditTitle')}${rule.name}</span>
           <div class="settings-editor-actions">
-            <button class="settings-editor-btn" id="settingsRuleEditorBack">← 返回列表</button>
-            <button class="settings-editor-btn settings-editor-btn-primary" id="settingsRuleEditorSave">保存</button>
+            <button class="settings-editor-btn" id="settingsRuleEditorBack">${_t('settingsPage.rulesBackToList')}</button>
+            <button class="settings-editor-btn settings-editor-btn-primary" id="settingsRuleEditorSave">${_t('settingsPage.rulesSave')}</button>
           </div>
         </div>
         <div class="settings-editor-fields">
           <div class="settings-field">
-            <label class="settings-field-label" for="settingsRuleEditorName">规则名称</label>
+            <label class="settings-field-label" for="settingsRuleEditorName">${_t('settingsPage.rulesName')}</label>
             <input class="settings-input" id="settingsRuleEditorName" type="text" value="${rule.name}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label" for="settingsRuleEditorDesc">描述</label>
+            <label class="settings-field-label" for="settingsRuleEditorDesc">${_t('settingsPage.rulesDesc')}</label>
             <input class="settings-input" id="settingsRuleEditorDesc" type="text" value="${rule.description || ''}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label">模式</label>
+            <label class="settings-field-label">${_t('settingsPage.rulesMode')}</label>
             <div class="settings-toggle-group" id="settingsRuleEditorMode">
-              <button class="settings-toggle-btn ${rule.mode === 'always' ? 'active' : ''}" data-value="always">始终生效</button>
-              <button class="settings-toggle-btn ${rule.mode !== 'always' ? 'active' : ''}" data-value="manual">手动引用</button>
+              <button class="settings-toggle-btn ${rule.mode === 'always' ? 'active' : ''}" data-value="always">${_t('settingsPage.rulesGroupAlways')}</button>
+              <button class="settings-toggle-btn ${rule.mode !== 'always' ? 'active' : ''}" data-value="manual">${_t('settingsPage.rulesGroupManual')}</button>
             </div>
           </div>
           <div class="settings-field">
-            <label class="settings-field-label">作用域</label>
+            <label class="settings-field-label">${_t('settingsPage.rulesScope')}</label>
             <div class="settings-toggle-group" id="settingsRuleEditorScope">
-              <button class="settings-toggle-btn ${rule.source === 'project' ? 'active' : ''}" data-value="project">项目</button>
-              <button class="settings-toggle-btn ${rule.source !== 'project' ? 'active' : ''}" data-value="user">全局</button>
+              <button class="settings-toggle-btn ${rule.source === 'project' ? 'active' : ''}" data-value="project">${_t('settingsPage.rulesProject')}</button>
+              <button class="settings-toggle-btn ${rule.source !== 'project' ? 'active' : ''}" data-value="user">${_t('settingsPage.rulesGlobal')}</button>
             </div>
           </div>
         </div>
-        <textarea class="settings-editor-textarea" id="settingsRuleEditorContent" placeholder="加载中..." spellcheck="false"></textarea>
+        <textarea class="settings-editor-textarea" id="settingsRuleEditorContent" placeholder="${_t('settingsPage.rulesLoading')}" spellcheck="false"></textarea>
       </div>
     `;
 
@@ -274,7 +276,7 @@ export class RulesSettingsPage {
     } catch (e) {
       console.warn('加载规则内容失败:', e);
       textarea.value = '';
-      textarea.placeholder = '加载失败';
+      textarea.placeholder = _t('settingsPage.rulesLoadFailed');
     }
   }
 
@@ -295,13 +297,13 @@ export class RulesSettingsPage {
     const content = textarea.value;
 
     if (!name) {
-      showToast('规则名称不能为空', { type: 'warning', duration: 2000 });
+      showToast(_t('settingsPage.rulesNameRequired'), { type: 'warning', duration: 2000 });
       return;
     }
 
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.textContent = '保存中…';
+      saveBtn.textContent = _t('settingsPage.rulesSaving');
     }
 
     try {
@@ -315,8 +317,8 @@ export class RulesSettingsPage {
       });
 
       if (result.success) {
-        showToast('规则已保存', { type: 'success', duration: 2000 });
-        if (saveBtn) saveBtn.textContent = '✓ 已保存';
+        showToast(_t('settingsPage.rulesSaved'), { type: 'success', duration: 2000 });
+        if (saveBtn) saveBtn.textContent = _t('settingsPage.rulesSavedIcon');
         rule.filePath = result.filePath || rule.filePath;
         setTimeout(() => {
           const headerActions = document.querySelector('#settingsRulesCreate')?.closest('.settings-item-list-actions');
@@ -325,24 +327,24 @@ export class RulesSettingsPage {
           this._loadRules();
         }, 400);
       } else {
-        showToast('保存失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(_t('settingsPage.saveFailed') + (result.message || _t('settingsPage.modelUnknownError')), { type: 'error', duration: 3000 });
         if (saveBtn) {
           saveBtn.disabled = false;
-          saveBtn.textContent = '保存';
+          saveBtn.textContent = _t('settingsPage.rulesSave');
         }
       }
     } catch (e) {
       console.warn('保存规则失败:', e);
-      showToast('保存失败: 网络错误，请重试', { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.saveFailed') + _t('settingsPage.networkError'), { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = '保存';
+        saveBtn.textContent = _t('settingsPage.rulesSave');
       }
     }
   }
 
   async _deleteRule(rule) {
-    const confirmed = await ConfirmDialog.confirmDelete(`确定删除规则「${rule.name}」？`);
+    const confirmed = await ConfirmDialog.confirmDelete(`${_t('settingsPage.deleteConfirmRule')}${rule.name}${_t('settingsPage.deleteConfirmEnd')}`);
     if (!confirmed) return;
 
     try {
@@ -350,11 +352,11 @@ export class RulesSettingsPage {
       if (result.success) {
         this._loadRules();
       } else {
-        showToast('删除失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(_t('settingsPage.saveFailed') + (result.message || _t('settingsPage.modelUnknownError')), { type: 'error', duration: 3000 });
       }
     } catch (e) {
       console.warn('删除规则失败:', e);
-      showToast('删除失败，请重试', { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.deleteFailedRetry'), { type: 'error', duration: 3000 });
     }
   }
 
@@ -370,37 +372,37 @@ export class RulesSettingsPage {
     listEl.innerHTML = `
       <div class="settings-editor">
         <div class="settings-editor-header">
-          <span class="settings-editor-title">新建规则</span>
+          <span class="settings-editor-title">${_t('settingsPage.rulesCreateTitle')}</span>
           <div class="settings-editor-actions">
-            <button class="settings-editor-btn" id="settingsRuleCreateBack">← 返回列表</button>
-            <button class="settings-editor-btn settings-editor-btn-primary" id="settingsRuleCreateSave">创建</button>
+            <button class="settings-editor-btn" id="settingsRuleCreateBack">${_t('settingsPage.rulesBackToList')}</button>
+            <button class="settings-editor-btn settings-editor-btn-primary" id="settingsRuleCreateSave">${_t('settingsPage.rulesCreate')}</button>
           </div>
         </div>
         <div class="settings-editor-fields">
           <div class="settings-field">
-            <label class="settings-field-label" for="settingsRuleCreateName">规则名称</label>
-            <input class="settings-input" id="settingsRuleCreateName" type="text" placeholder="my-rule（字母、数字、连字符、下划线、点）">
+            <label class="settings-field-label" for="settingsRuleCreateName">${_t('settingsPage.rulesName')}</label>
+            <input class="settings-input" id="settingsRuleCreateName" type="text" placeholder="${_t('settingsPage.rulesNamePh')}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label" for="settingsRuleCreateDesc">描述</label>
-            <input class="settings-input" id="settingsRuleCreateDesc" type="text" placeholder="简短说明">
+            <label class="settings-field-label" for="settingsRuleCreateDesc">${_t('settingsPage.rulesDesc')}</label>
+            <input class="settings-input" id="settingsRuleCreateDesc" type="text" placeholder="${_t('settingsPage.rulesDescPh')}">
           </div>
           <div class="settings-field">
-            <label class="settings-field-label">模式</label>
+            <label class="settings-field-label">${_t('settingsPage.rulesMode')}</label>
             <div class="settings-toggle-group" id="settingsRuleCreateMode">
-              <button class="settings-toggle-btn active" data-value="always">始终生效</button>
-              <button class="settings-toggle-btn" data-value="manual">手动引用</button>
+              <button class="settings-toggle-btn active" data-value="always">${_t('settingsPage.rulesGroupAlways')}</button>
+              <button class="settings-toggle-btn" data-value="manual">${_t('settingsPage.rulesGroupManual')}</button>
             </div>
           </div>
           <div class="settings-field">
-            <label class="settings-field-label">作用域</label>
+            <label class="settings-field-label">${_t('settingsPage.rulesScope')}</label>
             <div class="settings-toggle-group" id="settingsRuleCreateScope">
-              <button class="settings-toggle-btn active" data-value="project">项目</button>
-              <button class="settings-toggle-btn" data-value="user">全局</button>
+              <button class="settings-toggle-btn active" data-value="project">${_t('settingsPage.rulesProject')}</button>
+              <button class="settings-toggle-btn" data-value="user">${_t('settingsPage.rulesGlobal')}</button>
             </div>
           </div>
         </div>
-        <textarea class="settings-editor-textarea" id="settingsRuleCreateContent" placeholder="规则正文内容，Markdown 格式" spellcheck="false"></textarea>
+        <textarea class="settings-editor-textarea" id="settingsRuleCreateContent" placeholder="${_t('settingsPage.rulesContentPh')}" spellcheck="false"></textarea>
       </div>
     `;
 
@@ -435,13 +437,13 @@ export class RulesSettingsPage {
 
     const name = nameInput?.value?.trim();
     if (!name) {
-      showToast('规则名称不能为空', { type: 'warning', duration: 2000 });
+      showToast(_t('settingsPage.rulesNameRequired'), { type: 'warning', duration: 2000 });
       return;
     }
 
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.textContent = '创建中…';
+      saveBtn.textContent = _t('settingsPage.rulesCreating');
     }
 
     try {
@@ -454,26 +456,26 @@ export class RulesSettingsPage {
       });
 
       if (result.success) {
-        showToast('规则已创建', { type: 'success', duration: 2000 });
-        if (saveBtn) saveBtn.textContent = '✓ 已创建';
+        showToast(_t('settingsPage.rulesCreated'), { type: 'success', duration: 2000 });
+        if (saveBtn) saveBtn.textContent = _t('settingsPage.rulesCreatedIcon');
         setTimeout(() => {
           const headerActions = document.querySelector('#settingsRulesCreate')?.closest('.settings-item-list-actions');
           if (headerActions) headerActions.style.display = '';
           this._loadRules();
         }, 400);
       } else {
-        showToast('创建失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(_t('settingsPage.saveFailed') + (result.message || _t('settingsPage.modelUnknownError')), { type: 'error', duration: 3000 });
         if (saveBtn) {
           saveBtn.disabled = false;
-          saveBtn.textContent = '创建';
+          saveBtn.textContent = _t('settingsPage.rulesCreate');
         }
       }
     } catch (e) {
       console.warn('创建规则失败:', e);
-      showToast('创建失败: 网络错误，请重试', { type: 'error', duration: 3000 });
+      showToast(_t('settingsPage.saveFailed') + _t('settingsPage.networkError'), { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = '创建';
+        saveBtn.textContent = _t('settingsPage.rulesCreate');
       }
     }
   }

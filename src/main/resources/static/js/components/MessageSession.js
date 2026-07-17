@@ -5,6 +5,9 @@ import { getFileIconInfo } from '../utils/file-icons.js';
 import { EventBus } from '../utils/event-bus.js';
 import { deepMergeTodoList, parseTodoArgs } from './tool-renderers/shared.js';
 
+/** 安全 i18n 辅助函数 */
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+
 export class MessageSession {
   constructor({ chatUI, renderPipeline, chatService, smartScroll }) {
     this._chatUI = chatUI;
@@ -322,7 +325,7 @@ export class MessageSession {
       }
 
       if (this._segments.length === 0 && !this._currentText.trim()) {
-        this._contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
+        this._contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">' + _t('chatui.noValidResponse') + '</div>';
       } else {
         this._renderPipeline.setContainer(this._contentDiv);
         await this._renderPipeline.renderFinal(this._segments, '');
@@ -349,7 +352,7 @@ export class MessageSession {
         }
         this._renderPipeline.setContainer(this._contentDiv);
         await this._renderPipeline.renderFinal(this._segments, '');
-        this._contentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ 已停止生成</div>';
+        this._contentDiv.innerHTML += '<div style="color:var(--text-muted);font-size:12px;margin-top:8px;">⏹ ' + _t('chatui.stopped') + '</div>';
         this._streamCompleted = true;
         this._updateFileIndicator();
       } else {
@@ -562,7 +565,7 @@ export class MessageSession {
     this._fileIndicator.style.display = show ? '' : 'none';
     const textEl = this._fileIndicator.querySelector('.file-indicator-text');
     if (textEl) textEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="padding-top: 1px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${files.length}`;
-    this._fileIndicator.title = '查看本轮文件产物';
+    this._fileIndicator.title = _t('chatui.viewFileProducts');
 
     // 重建 popover 内容（最多显示 10 条）
     const popover = this._fileIndicator.querySelector('.message-file-popover');
@@ -700,29 +703,29 @@ export class MessageSession {
   _classifyError(error) {
     const msg = error.message || '';
     if (error.name === 'TypeError' && (msg.includes('fetch') || msg.includes('Failed to fetch') || msg.includes('NetworkError'))) {
-      return { message: '网络连接失败，请检查后端服务是否正常运行', detail: '无法与服务器建立连接，请确认服务已启动且网络通畅' };
+      return { message: _t('chatui.errorNetwork'), detail: _t('chatui.errorNetworkDetail') };
     }
     if (msg.includes('超时') || msg.includes('timeout') || msg.includes('Timeout')) {
-      return { message: '请求超时，服务响应时间过长', detail: '请稍后重试，或检查服务是否负载过高' };
+      return { message: _t('chatui.errorTimeout'), detail: _t('chatui.errorTimeoutDetail') };
     }
     if (msg.includes('HTTP error') || /status:? \d{3}/i.test(msg)) {
       const statusMatch = msg.match(/(\d{3})/);
       const status = statusMatch ? statusMatch[1] : '';
       if (status === '502' || status === '503' || status === '504') {
-        return { message: `服务暂时不可用 (${status})`, detail: '后端服务暂时无法处理请求，请稍后重试' };
+        return { message: _t('chatui.errorServiceUnavailable', { status }), detail: _t('chatui.errorServiceUnavailableDetail') };
       }
       if (status === '429') {
-        return { message: '请求过于频繁 (429)', detail: '请稍后重试' };
+        return { message: _t('chatui.errorTooManyRequests'), detail: _t('chatui.errorTooManyRequestsDetail') };
       }
       if (status === '401' || status === '403') {
-        return { message: `权限不足 (${status})`, detail: '请检查认证信息是否正确' };
+        return { message: _t('chatui.errorPermission', { status }), detail: _t('chatui.errorPermissionDetail') };
       }
-      return { message: `服务异常 (${status || msg})`, detail: '请稍后重试，如问题持续请联系管理员' };
+      return { message: _t('chatui.errorServer', { status: status || msg }), detail: _t('chatui.errorServerDetail') };
     }
-    if (msg.includes('LLM 未返回有效内容')) {
-      return { message: 'AI 未返回有效响应', detail: '请尝试重新发送消息' };
+    if (msg.includes(_t('chat.llmNoContent'))) {
+      return { message: _t('chatui.errorAiNoResponse'), detail: _t('chatui.errorAiNoResponseDetail') };
     }
-    return { message: msg || '未知错误', detail: null };
+    return { message: msg || _t('chatui.unknownError'), detail: null };
   }
 
   destroy() {
