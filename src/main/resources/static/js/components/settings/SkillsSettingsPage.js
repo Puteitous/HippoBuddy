@@ -280,7 +280,6 @@ export class SkillsSettingsPage {
     const descInput = document.getElementById('settingsSkillEditorDesc');
     const textarea = document.getElementById('settingsSkillEditorContent');
     const scopeBtn = document.querySelector('#settingsSkillEditorScope .settings-toggle-btn.active');
-    const statusEl = document.getElementById('settingsSkillEditorStatus');
     const saveBtn = document.getElementById('settingsSkillEditorSave');
 
     if (!nameInput || !textarea) return;
@@ -291,11 +290,7 @@ export class SkillsSettingsPage {
     const content = textarea.value;
 
     if (!name) {
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 技能名称不能为空';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('技能名称不能为空', { type: 'warning', duration: 2000 });
       return;
     }
 
@@ -314,11 +309,7 @@ export class SkillsSettingsPage {
       });
 
       if (result.success) {
-        if (statusEl) {
-          statusEl.textContent = '✓ 技能已保存';
-          statusEl.className = 'settings-editor-status settings-editor-status-success';
-          statusEl.style.display = 'block';
-        }
+        showToast('技能已保存', { type: 'success', duration: 2000 });
         if (saveBtn) saveBtn.textContent = '✓ 已保存';
         skill.filePath = result.filePath || skill.filePath;
         setTimeout(() => {
@@ -326,13 +317,9 @@ export class SkillsSettingsPage {
           if (headerActions) headerActions.style.display = '';
           this._editingSkill = null;
           this._loadSkills();
-        }, 800);
+        }, 400);
       } else {
-        if (statusEl) {
-          statusEl.textContent = '⚠️ ' + (result.message || '保存失败');
-          statusEl.className = 'settings-editor-status settings-editor-status-error';
-          statusEl.style.display = 'block';
-        }
+        showToast('保存失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
         if (saveBtn) {
           saveBtn.disabled = false;
           saveBtn.textContent = '保存';
@@ -340,11 +327,7 @@ export class SkillsSettingsPage {
       }
     } catch (e) {
       console.warn('保存技能失败:', e);
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 网络错误，请重试';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('保存失败: 网络错误，请重试', { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
         saveBtn.textContent = '保存';
@@ -406,7 +389,6 @@ export class SkillsSettingsPage {
           </div>
         </div>
         <textarea class="settings-editor-textarea" id="settingsSkillCreateContent" placeholder="技能正文内容，Markdown 格式" spellcheck="false"></textarea>
-        <div class="settings-editor-status" id="settingsSkillCreateStatus" style="display:none;"></div>
       </div>
     `;
 
@@ -430,16 +412,11 @@ export class SkillsSettingsPage {
     const descInput = document.getElementById('settingsSkillCreateDesc');
     const textarea = document.getElementById('settingsSkillCreateContent');
     const scopeBtn = document.querySelector('#settingsSkillCreateScope .settings-toggle-btn.active');
-    const statusEl = document.getElementById('settingsSkillCreateStatus');
     const saveBtn = document.getElementById('settingsSkillCreateSave');
 
     const name = nameInput?.value?.trim();
     if (!name) {
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 技能名称不能为空';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('技能名称不能为空', { type: 'warning', duration: 2000 });
       return;
     }
 
@@ -457,23 +434,15 @@ export class SkillsSettingsPage {
       });
 
       if (result.success) {
-        if (statusEl) {
-          statusEl.textContent = '✓ 技能已创建';
-          statusEl.className = 'settings-editor-status settings-editor-status-success';
-          statusEl.style.display = 'block';
-        }
+        showToast('技能已创建', { type: 'success', duration: 2000 });
         if (saveBtn) saveBtn.textContent = '✓ 已创建';
         setTimeout(() => {
           const headerActions = document.querySelector('#settingsSkillsCreate')?.closest('.settings-item-list-actions');
           if (headerActions) headerActions.style.display = '';
           this._loadSkills();
-        }, 600);
+        }, 400);
       } else {
-        if (statusEl) {
-          statusEl.textContent = '⚠️ ' + (result.message || '创建失败');
-          statusEl.className = 'settings-editor-status settings-editor-status-error';
-          statusEl.style.display = 'block';
-        }
+        showToast('创建失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
         if (saveBtn) {
           saveBtn.disabled = false;
           saveBtn.textContent = '创建';
@@ -481,11 +450,7 @@ export class SkillsSettingsPage {
       }
     } catch (e) {
       console.warn('创建技能失败:', e);
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 网络错误，请重试';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('创建失败: 网络错误，请重试', { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
         saveBtn.textContent = '创建';

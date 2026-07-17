@@ -356,7 +356,7 @@ export class ModelSettingsPage {
             </div>
           </div>
         </div>
-        <div class="settings-editor-status" id="modelEditStatus" style="display:none;"></div>
+      
       </div>
     `;
 
@@ -432,15 +432,10 @@ export class ModelSettingsPage {
       ? parseInt(this._maxTokensDropdown.getSelectedItem().value, 10)
       : undefined;
     const apiKeyInput = document.getElementById('modelEditApiKey');
-    const statusEl = document.getElementById('modelEditStatus');
     const saveBtn = document.getElementById('modelEditSave');
 
     if (!modelValue) {
-      if (statusEl) {
-        statusEl.textContent = '⚠️ Model 名称不能为空';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('Model 名称不能为空', { type: 'warning', duration: 2000 });
       return;
     }
 
@@ -481,20 +476,11 @@ export class ModelSettingsPage {
       });
       if (!resp.ok) throw new Error(await resp.text());
 
-      if (statusEl) {
-        statusEl.textContent = '✓ 已' + (isNew ? '创建' : '保存');
-        statusEl.className = 'settings-editor-status settings-editor-status-success';
-        statusEl.style.display = 'block';
-      }
-      if (saveBtn) saveBtn.textContent = '✓ 已' + (isNew ? '创建' : '保存');
-      setTimeout(() => this._closeEditor(), 600);
+      showToast('已' + (isNew ? '创建' : '保存') + '模型: ' + provider + ' · ' + modelValue, { type: 'success', duration: 2000 });
+      setTimeout(() => this._closeEditor(), 400);
     } catch (e) {
       console.warn(isNew ? '创建模型失败:' : '保存模型失败:', e);
-      if (statusEl) {
-        statusEl.textContent = '⚠️ ' + e.message;
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast((isNew ? '创建' : '保存') + '失败: ' + e.message, { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
         saveBtn.textContent = isNew ? '创建' : '保存';

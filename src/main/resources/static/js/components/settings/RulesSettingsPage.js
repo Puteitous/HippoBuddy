@@ -234,7 +234,6 @@ export class RulesSettingsPage {
           </div>
         </div>
         <textarea class="settings-editor-textarea" id="settingsRuleEditorContent" placeholder="加载中..." spellcheck="false"></textarea>
-        <div class="settings-editor-status" id="settingsRuleEditorStatus" style="display:none;"></div>
       </div>
     `;
 
@@ -285,7 +284,6 @@ export class RulesSettingsPage {
     const textarea = document.getElementById('settingsRuleEditorContent');
     const modeBtn = document.querySelector('#settingsRuleEditorMode .settings-toggle-btn.active');
     const scopeBtn = document.querySelector('#settingsRuleEditorScope .settings-toggle-btn.active');
-    const statusEl = document.getElementById('settingsRuleEditorStatus');
     const saveBtn = document.getElementById('settingsRuleEditorSave');
 
     if (!nameInput || !textarea) return;
@@ -297,11 +295,7 @@ export class RulesSettingsPage {
     const content = textarea.value;
 
     if (!name) {
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 规则名称不能为空';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('规则名称不能为空', { type: 'warning', duration: 2000 });
       return;
     }
 
@@ -321,11 +315,7 @@ export class RulesSettingsPage {
       });
 
       if (result.success) {
-        if (statusEl) {
-          statusEl.textContent = '✓ 规则已保存';
-          statusEl.className = 'settings-editor-status settings-editor-status-success';
-          statusEl.style.display = 'block';
-        }
+        showToast('规则已保存', { type: 'success', duration: 2000 });
         if (saveBtn) saveBtn.textContent = '✓ 已保存';
         rule.filePath = result.filePath || rule.filePath;
         setTimeout(() => {
@@ -333,13 +323,9 @@ export class RulesSettingsPage {
           if (headerActions) headerActions.style.display = '';
           this._editingRule = null;
           this._loadRules();
-        }, 800);
+        }, 400);
       } else {
-        if (statusEl) {
-          statusEl.textContent = '⚠️ ' + (result.message || '保存失败');
-          statusEl.className = 'settings-editor-status settings-editor-status-error';
-          statusEl.style.display = 'block';
-        }
+        showToast('保存失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
         if (saveBtn) {
           saveBtn.disabled = false;
           saveBtn.textContent = '保存';
@@ -347,11 +333,7 @@ export class RulesSettingsPage {
       }
     } catch (e) {
       console.warn('保存规则失败:', e);
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 网络错误，请重试';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('保存失败: 网络错误，请重试', { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
         saveBtn.textContent = '保存';
@@ -419,7 +401,6 @@ export class RulesSettingsPage {
           </div>
         </div>
         <textarea class="settings-editor-textarea" id="settingsRuleCreateContent" placeholder="规则正文内容，Markdown 格式" spellcheck="false"></textarea>
-        <div class="settings-editor-status" id="settingsRuleCreateStatus" style="display:none;"></div>
       </div>
     `;
 
@@ -450,16 +431,11 @@ export class RulesSettingsPage {
     const textarea = document.getElementById('settingsRuleCreateContent');
     const modeBtn = document.querySelector('#settingsRuleCreateMode .settings-toggle-btn.active');
     const scopeBtn = document.querySelector('#settingsRuleCreateScope .settings-toggle-btn.active');
-    const statusEl = document.getElementById('settingsRuleCreateStatus');
     const saveBtn = document.getElementById('settingsRuleCreateSave');
 
     const name = nameInput?.value?.trim();
     if (!name) {
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 规则名称不能为空';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('规则名称不能为空', { type: 'warning', duration: 2000 });
       return;
     }
 
@@ -478,23 +454,15 @@ export class RulesSettingsPage {
       });
 
       if (result.success) {
-        if (statusEl) {
-          statusEl.textContent = '✓ 规则已创建';
-          statusEl.className = 'settings-editor-status settings-editor-status-success';
-          statusEl.style.display = 'block';
-        }
+        showToast('规则已创建', { type: 'success', duration: 2000 });
         if (saveBtn) saveBtn.textContent = '✓ 已创建';
         setTimeout(() => {
           const headerActions = document.querySelector('#settingsRulesCreate')?.closest('.settings-item-list-actions');
           if (headerActions) headerActions.style.display = '';
           this._loadRules();
-        }, 600);
+        }, 400);
       } else {
-        if (statusEl) {
-          statusEl.textContent = '⚠️ ' + (result.message || '创建失败');
-          statusEl.className = 'settings-editor-status settings-editor-status-error';
-          statusEl.style.display = 'block';
-        }
+        showToast('创建失败: ' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
         if (saveBtn) {
           saveBtn.disabled = false;
           saveBtn.textContent = '创建';
@@ -502,11 +470,7 @@ export class RulesSettingsPage {
       }
     } catch (e) {
       console.warn('创建规则失败:', e);
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 网络错误，请重试';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('创建失败: 网络错误，请重试', { type: 'error', duration: 3000 });
       if (saveBtn) {
         saveBtn.disabled = false;
         saveBtn.textContent = '创建';

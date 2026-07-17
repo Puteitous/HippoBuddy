@@ -598,6 +598,7 @@ body.desktop-window {
 
 .toast-icon {
     flex-shrink: 0;
+    align-self: center;
     width: 20px;
     text-align: center;
     font-size: 15px;
@@ -631,6 +632,7 @@ body.desktop-window {
 
 .toast-close {
     flex-shrink: 0;
+    align-self: center;
     background: none;
     border: none;
     cursor: pointer;

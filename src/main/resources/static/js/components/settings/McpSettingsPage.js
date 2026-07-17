@@ -441,7 +441,6 @@ export class McpSettingsPage {
             </div>
           </div>
         </div>
-        <div class="settings-editor-status" id="mcpServerEditorStatus" style="display:none;"></div>
       </div>
     `;
 
@@ -519,15 +518,10 @@ export class McpSettingsPage {
     const argsInput = document.getElementById('mcpServerArgs');
     const urlInput = document.getElementById('mcpServerUrl');
     const autoRegChecked = document.getElementById('mcpServerAutoReg')?.checked;
-    const statusEl = document.getElementById('mcpServerEditorStatus');
 
     const id = idInput?.value?.trim();
     if (!id) {
-      if (statusEl) {
-        statusEl.textContent = '⚠️ 服务器 ID 不能为空';
-        statusEl.className = 'settings-editor-status settings-editor-status-error';
-        statusEl.style.display = 'block';
-      }
+      showToast('服务器 ID 不能为空', { type: 'warning', duration: 2000 });
       return;
     }
 
@@ -553,11 +547,7 @@ export class McpSettingsPage {
     if (isNew) {
       // 检查 ID 唯一性
       if (servers.some(s => s.id === id)) {
-        if (statusEl) {
-          statusEl.textContent = '⚠️ 服务器 ID "' + id + '" 已存在';
-          statusEl.className = 'settings-editor-status settings-editor-status-error';
-          statusEl.style.display = 'block';
-        }
+        showToast('服务器 ID "' + id + '" 已存在', { type: 'warning', duration: 2000 });
         return;
       }
       servers.push(server);
@@ -566,11 +556,7 @@ export class McpSettingsPage {
       if (idx >= 0 && idx < servers.length) {
         // 如果 ID 变了，检查唯一性
         if (server.id !== servers[idx].id && servers.some((s, i) => i !== idx && s.id === server.id)) {
-          if (statusEl) {
-            statusEl.textContent = '⚠️ 服务器 ID "' + id + '" 已存在';
-            statusEl.className = 'settings-editor-status settings-editor-status-error';
-            statusEl.style.display = 'block';
-          }
+          showToast('服务器 ID "' + id + '" 已存在', { type: 'warning', duration: 2000 });
           return;
         }
         servers[idx] = server;
@@ -581,7 +567,7 @@ export class McpSettingsPage {
     this._closeServerEditor();
     // 服务器变更后自动保存
     this._saveConfig();
-    showToast(isNew ? '✓ 服务器已添加' : '✓ 服务器已保存', { type: 'success', duration: 2000 });
+    showToast(isNew ? '服务器已添加' : '服务器已保存', { type: 'success', duration: 2000 });
   }
 
   _closeServerEditor() {
