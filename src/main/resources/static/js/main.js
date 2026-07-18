@@ -189,7 +189,13 @@ function init() {
   // 7.2 加载当前模型配置到快速切换器
   loadQuickModelConfig();
 
-  // 7.3 初始化设置面板
+  // 7.3 初始化会话面板标题（i18n）
+  const sessionTitleEl = document.getElementById('sessionHeaderTitle');
+  if (sessionTitleEl) {
+    sessionTitleEl.textContent = i18n.t('session.title');
+  }
+
+  // 7.4 初始化设置面板
   window.settingsPanel = new SettingsPanel();
   document.getElementById('settingsBtn')?.addEventListener('click', () => {
     // 互斥：关闭技能市场
@@ -556,7 +562,7 @@ function updateChatPanelTitle(sessionId, fallbackTitle, fallbackProject) {
   // 如果 sessions 还没加载完，用 fallback 或缓存值
   if (!name) name = fallbackTitle || (!sessionId || sessionId === _cachedLastSessionInfo.sessionId ? _cachedLastSessionInfo.title : null);
   if (!projectPath) projectPath = fallbackProject || (!sessionId || sessionId === _cachedLastSessionInfo.sessionId ? _cachedLastSessionInfo.projectPath : null);
-  titleEl.textContent = name || i18n.t('chat.mode.chat');
+  titleEl.textContent = name || 'Chat';
 
   // 更新项目名后缀
   const groupEl = titleEl.parentNode; // .chat-panel-title-group
@@ -708,27 +714,27 @@ async function switchSession(sessionId) {
           </div>
           <div class="empty-hero-mode-selector" id="heroModeSelector">
             <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
-              <button class="mode-btn" data-mode="chat" title="${i18n.t('chat.mode.chatTitle')}">
+              <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
                 </svg>
-                ${i18n.t('chat.mode.chat')}
+                Chat
               </button>
-              <button class="mode-btn active" data-mode="coding" title="${i18n.t('chat.mode.codeTitle')}">
+              <button class="mode-btn active" data-mode="coding" title="Code Mode — Full-stack Engineer">
                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="6 3.5 2 8 6 12.5"/>
                   <polyline points="10 3.5 14 8 10 12.5"/>
                 </svg>
-                ${i18n.t('chat.mode.code')}
+                Code
               </button>
-              <button class="mode-btn" data-mode="office" title="${i18n.t('chat.mode.officeTitle')}">
+              <button class="mode-btn" data-mode="office" title="Office Mode — Docs/Sheets/Slides">
                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                   <path d="M9 1v4h4"/>
                   <line x1="5" y1="8" x2="11" y2="8"/>
                   <line x1="5" y1="10" x2="9" y2="10"/>
                 </svg>
-                ${i18n.t('chat.mode.office')}
+                Office
               </button>
             </span>
           </div>
@@ -806,27 +812,27 @@ async function switchSession(sessionId) {
         </div>
         <div class="empty-hero-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
-            <button class="mode-btn" data-mode="chat" title="${i18n.t('chat.mode.chatTitle')}">
+            <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
               </svg>
-              ${i18n.t('chat.mode.chat')}
+              Chat
             </button>
-            <button class="mode-btn active" data-mode="coding" title="${i18n.t('chat.mode.codeTitle')}">
+            <button class="mode-btn active" data-mode="coding" title="Code Mode — Full-stack Engineer">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 3.5 2 8 6 12.5"/>
                 <polyline points="10 3.5 14 8 10 12.5"/>
               </svg>
-              ${i18n.t('chat.mode.code')}
+              Code
             </button>
-            <button class="mode-btn" data-mode="office" title="${i18n.t('chat.mode.officeTitle')}">
+            <button class="mode-btn" data-mode="office" title="Office Mode — Docs/Sheets/Slides">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                 <path d="M9 1v4h4"/>
                 <line x1="5" y1="8" x2="11" y2="8"/>
                 <line x1="5" y1="10" x2="9" y2="10"/>
               </svg>
-              ${i18n.t('chat.mode.office')}
+              Office
             </button>
           </span>
         </div>

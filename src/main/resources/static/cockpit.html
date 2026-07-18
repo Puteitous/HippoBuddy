@@ -296,7 +296,10 @@
             </div>
             <div class="session-header">
                 <div class="session-header-left">
-                    <span class="session-header-title">会话</span>
+                    <svg class="session-header-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M13.5 2H2.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2.5l2 2 2-2h4.5a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                    </svg>
+                    <span class="session-header-title" id="sessionHeaderTitle">会话</span>
                 </div>
             </div>
             <div class="session-list" id="sessionList"></div>
@@ -377,7 +380,7 @@
         <div class="chat-panel">
             <div class="chat-panel-header" id="chatPanelHeader">
                 <div class="chat-panel-title-group">
-                    <span class="chat-panel-title" id="chatPanelTitle">聊天</span>
+                    <span class="chat-panel-title" id="chatPanelTitle">Chat</span>
                 </div>
                 <div class="chat-header-actions">
                     <div class="chat-history-wrapper" id="chatHistoryWrapper">
@@ -412,27 +415,27 @@
                     </div>
                     <div class="empty-hero-mode-selector" id="heroModeSelector">
                         <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
-                            <button class="mode-btn" data-mode="chat" data-i18n-title="chat.mode.chatTitle" title="聊天模式 — 只读探索，不动手">
+                            <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
                                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
                                 </svg>
-                                <span data-i18n="chat.mode.chat">聊天</span>
+                                <span>Chat</span>
                             </button>
-                            <button class="mode-btn active" data-mode="coding" data-i18n-title="chat.mode.codeTitle" title="代码模式 — 全栈工程师">
+                            <button class="mode-btn active" data-mode="coding" title="Code Mode — Full-stack Engineer">
                                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <polyline points="6 3.5 2 8 6 12.5"/>
                                     <polyline points="10 3.5 14 8 10 12.5"/>
                                 </svg>
-                                <span data-i18n="chat.mode.code">代码</span>
+                                <span>Code</span>
                             </button>
-                            <button class="mode-btn" data-mode="office" data-i18n-title="chat.mode.officeTitle" title="办公模式 — 文档/表格/演示文稿">
+                            <button class="mode-btn" data-mode="office" title="Office Mode — Docs/Sheets/Slides">
                                 <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                                     <path d="M9 1v4h4"/>
                                     <line x1="5" y1="8" x2="11" y2="8"/>
                                     <line x1="5" y1="10" x2="9" y2="10"/>
                                 </svg>
-                                <span data-i18n="chat.mode.office">办公</span>
+                                <span>Office</span>
                             </button>
                         </span>
                     </div>
@@ -839,7 +842,6 @@
         // 通过 ID 设置已知元素的翻译（兼容没有 data-i18n 属性的元素）
         const map = {
           'activityPanelTitle':      'activity.panel',
-          'chatPanelTitle':          'chat.title',
           'sessionHeaderTitle':      'session.title',
           'splashSkipHint':          'html.splash.skip',
           'diffModalTitle':          'diff.title',

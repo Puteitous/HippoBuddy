@@ -38,7 +38,7 @@ export class SessionManager {
     localStorage.setItem('hippo-session-group-mode', this._groupMode);
     // Update toggle button text
     const btn = document.querySelector('.group-mode-toggle');
-    if (btn) btn.textContent = this._groupMode === 'project' ? _t('session.groupProject') : _t('session.groupTime');
+    if (btn) btn.textContent = this._groupMode === 'project' ? 'Project' : 'Time';
     // Rerender
     this._resetRenderer();
     this._rows = this._computeRows();
@@ -86,8 +86,8 @@ export class SessionManager {
 
     const toggle = document.createElement('span');
     toggle.className = 'group-mode-toggle';
-    toggle.textContent = this._groupMode === 'project' ? _t('session.groupProject') : _t('session.groupTime');
-    toggle.title = _t('session.toggleGroup');
+    toggle.textContent = this._groupMode === 'project' ? 'Project' : 'Time';
+    toggle.title = 'Toggle Grouping';
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleGroupMode();

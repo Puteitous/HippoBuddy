@@ -34,27 +34,27 @@ export class ChatUI {
         </div>
         <div class="empty-hero-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
-            <button class="mode-btn" data-mode="chat" title="${_t('chat.mode.chatTitle')}">
+            <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
               </svg>
-              ${_t('chat.mode.chat')}
+              Chat
             </button>
-            <button class="mode-btn active" data-mode="coding" title="${_t('chat.mode.codeTitle')}">
+            <button class="mode-btn active" data-mode="coding" title="Code Mode — Full-stack Engineer">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 3.5 2 8 6 12.5"/>
                 <polyline points="10 3.5 14 8 10 12.5"/>
               </svg>
-              ${_t('chat.mode.code')}
+              Code
             </button>
-            <button class="mode-btn" data-mode="office" title="${_t('chat.mode.officeTitle')}">
+            <button class="mode-btn" data-mode="office" title="Office Mode — Docs/Sheets/Slides">
               <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                 <path d="M9 1v4h4"/>
                 <line x1="5" y1="8" x2="11" y2="8"/>
                 <line x1="5" y1="10" x2="9" y2="10"/>
               </svg>
-              ${_t('chat.mode.office')}
+              Office
             </button>
           </span>
         </div>

@@ -84,6 +84,7 @@
     'chat.expand':                 { zh: '展开聊天', en: 'Expand Chat' },
     'chat.scrollToBottom':         { zh: '滚动到底部', en: 'Scroll to Bottom' },
     'chat.modelQuickSelect':       { zh: '快速切换模型', en: 'Quick Model Switch' },
+    'chat.tokenUsage':             { zh: 'Token 用量', en: 'Token Usage' },
     'chat.loading':                { zh: '加载中...', en: 'Loading...' },
 
     /* ==================== Preset Prompts ==================== */

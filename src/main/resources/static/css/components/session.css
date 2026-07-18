@@ -142,6 +142,11 @@
     overflow: hidden;
 }
 
+.session-header-icon {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
 .session-header-title {
     font-size: var(--font-size-lg);
     font-weight: 600;

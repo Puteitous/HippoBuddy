@@ -44,6 +44,26 @@ function setupDOM() {
   `;
 }
 
+// 设置 i18n mock（组件依赖 window.i18n.t()）
+const contextSelectorTranslations = {
+  'contextSelector.title': '引用上下文',
+  'contextSelector.header': '# 引用上下文',
+  'contextSelector.back': '返回',
+  'contextSelector.rules': '规则',
+  'contextSelector.skills': '技能',
+  'contextSelector.alwaysActive': '始终生效',
+  'contextSelector.manualRef': '手动引用',
+  'contextSelector.projectSkills': '项目技能',
+  'contextSelector.userSkills': '用户技能',
+  'contextSelector.noRules': '暂无规则',
+  'contextSelector.noSkills': '暂无技能',
+  'contextSelector.goCreate': '前往左侧活动栏创建',
+};
+window.i18n = {
+  currentLang: 'zh',
+  t: (key) => contextSelectorTranslations[key] || key,
+};
+
 describe('ContextSelector', () => {
   let ContextSelector;
   let selector;

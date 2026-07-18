@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="../image.png" alt="HippoBuddy Screenshot" width="100%">
+  <img src="./image.png" alt="HippoBuddy Screenshot" width="100%">
 </p>
 
 ---
