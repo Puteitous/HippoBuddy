@@ -1112,7 +1112,9 @@ export class ChatPanel {
   }
   
   _sendAskUserResponse(message) {
-    if (!message || this.isSendingMessage) return;
+    if (!message || this.isSendingMessage) {
+      return;
+    }
     
     const sessionId = appState.currentSessionId;
     if (!sessionId) return;
@@ -1170,6 +1172,15 @@ export class ChatPanel {
       }
     }
     this._sendToolConfirmResponse(confirmId, decision, autoAllowSimilar);
+
+    // 卡片模式：显式收起确认卡，避免 flush 完成前卡在展开态
+    const card = document.querySelector(`.confirmation-btn[data-confirm-id="${confirmId}"]`)
+      ?.closest('.tool-card');
+    if (card) {
+      card.querySelector('.tool-header')?.classList.remove('expanded');
+      card.querySelector('.tool-call-details')?.classList.remove('show');
+    }
+
     if (item) {
       const detail = item.querySelector('.tool-timeline-detail');
       if (detail) {
@@ -1315,7 +1326,9 @@ export class ChatPanel {
   
   _bindAskUserCardEvents(card) {
     const details = card.querySelector('.tool-call-details');
-    if (!details) return;
+    if (!details) {
+      return;
+    }
 
     details.style.transition = 'none';
     const h = details.scrollHeight;
@@ -1324,7 +1337,7 @@ export class ChatPanel {
     card.classList.add('expanded');
 
     const optionBtns = card.querySelectorAll('.option-btn');
-    optionBtns.forEach(btn => {
+    optionBtns.forEach((btn, idx) => {
       btn.addEventListener('click', () => {
         const option = btn.getAttribute('data-option');
         if (option) {
@@ -1872,6 +1885,12 @@ export class ChatPanel {
             contentDiv.innerHTML = html;
             contentDiv.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
               this.chatUI.bindToolCardEvents(card);
+            });
+            // 额外绑定 ask-user-card 的 option-btn 事件（与 RenderPipeline 顺序一致）
+            contentDiv.querySelectorAll('.ask-user-card').forEach(card => {
+              if (!card.dataset.eventsBound) {
+                this._bindAskUserCardEvents(card);
+              }
             });
           }
           msgDiv.appendChild(contentDiv);

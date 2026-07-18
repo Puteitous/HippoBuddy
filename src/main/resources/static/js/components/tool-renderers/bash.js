@@ -94,13 +94,13 @@ function renderBashConfirmCard(tool) {
 
   return `
     <div class="tool-card bash-card">
-      <div class="tool-header">
+      <div class="tool-header expanded">
         <span class="tool-icon">${terminalSvg}</span>
         <span class="tool-title">${_t('tool.bash.title')}</span>
         <span class="tool-status-badge pending_confirmation">${riskSvg} ${_t('tool.bash.waitConfirm')}</span>
         <span class="arrow">▶</span>
       </div>
-      <div class="tool-call-details">
+      <div class="tool-call-details show">
         <div class="bash-command">${escapeHtml(cmd)}</div>
         <div class="confirmation-body">
           ${riskReason ? `<div class="confirmation-reason">${escapeHtml(riskReason)}</div>` : ''}

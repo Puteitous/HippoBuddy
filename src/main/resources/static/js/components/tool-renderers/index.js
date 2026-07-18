@@ -276,9 +276,11 @@ export function renderToolTimelineRow(tool) {
 
   // 详情为空时（如 read_file），隐藏展开箭头和详情区域
   const hasDetail = detailHTML && detailHTML.trim().length > 0;
+  // 待确认的 timeline item 默认展开，让确认按钮直接可见
+  const isExpanded = isPendingConfirm && hasDetail;
 
   return `
-    <div class="tool-timeline-item${hasDetail ? '' : ' no-detail'}" data-tool-name="${escapeHtml(name)}" data-tool-status="${status}">
+    <div class="tool-timeline-item${hasDetail ? '' : ' no-detail'}${isExpanded ? ' expanded' : ''}" data-tool-name="${escapeHtml(name)}" data-tool-status="${status}">
       <div class="tool-timeline-row"${hasDetail ? ' onclick="window.toggleToolTimeline(this)"' : ''}>
         <span class="tool-timeline-dot">${toolSvg}</span>
         <span class="tool-timeline-name">${escapeHtml(name)}</span>
@@ -287,6 +289,6 @@ export function renderToolTimelineRow(tool) {
         <span class="tool-timeline-status ${status}">${statusSvg}</span>
         ${viewBtnHtml}
       </div>
-      ${hasDetail ? `<div class="tool-timeline-detail">${detailHTML}</div>` : ''}
+      ${hasDetail ? `<div class="tool-timeline-detail"${isExpanded ? ' style="max-height:none"' : ''}>${detailHTML}</div>` : ''}
     </div>`;
 }

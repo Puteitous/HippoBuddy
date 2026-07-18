@@ -159,6 +159,7 @@
     'monitor.slowest':             { zh: '最慢', en: 'Slowest' },
     'monitor.totalCalls':          { zh: '总调用', en: 'Total Calls' },
     'monitor.failed':              { zh: '失败', en: 'Failed' },
+    'monitor.latencyTrend':        { zh: '延迟趋势', en: 'Latency Trend' },
 
     /* ==================== File Changes Panel ==================== */
     'fileChanges.empty':           { zh: '暂无文件变更', en: 'No file changes' },

@@ -2112,12 +2112,24 @@
 
 /* ===== delete_file 确认按钮 ===== */
 .delete-confirm {
+    background: #f0d6d0 !important;
+    color: #9a4a42 !important;
+    border-color: #e8c4be !important;
+}
+
+.delete-confirm:hover {
+    background: #e8c4be !important;
+    border-color: #dcb4ac !important;
+}
+
+/* 深色模式下使用原来的暗酒红配色 */
+[data-theme="dark"] .delete-confirm {
     background: rgb(69, 43, 53) !important;
     color: rgb(210, 130, 130) !important;
     border-color: rgb(69, 43, 53) !important;
 }
 
-.delete-confirm:hover {
+[data-theme="dark"] .delete-confirm:hover {
     background: rgb(90, 55, 65) !important;
     border-color: rgb(90, 55, 65) !important;
 }
@@ -2196,12 +2208,24 @@
 }
 
 .delete-confirm-modal-btn.confirm {
+    background: #f0d6d0;
+    color: #9a4a42;
+    border-color: #e8c4be;
+}
+
+.delete-confirm-modal-btn.confirm:hover {
+    background: #e8c4be;
+    border-color: #dcb4ac;
+}
+
+/* 深色模式下使用原来的暗酒红配色 */
+[data-theme="dark"] .delete-confirm-modal-btn.confirm {
     background: rgb(69, 43, 53);
     color: rgb(210, 130, 130);
     border-color: rgb(69, 43, 53);
 }
 
-.delete-confirm-modal-btn.confirm:hover {
+[data-theme="dark"] .delete-confirm-modal-btn.confirm:hover {
     background: rgb(90, 55, 65);
     border-color: rgb(90, 55, 65);
 }

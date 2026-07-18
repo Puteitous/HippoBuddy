@@ -10,13 +10,11 @@ vi.mock('../../main/resources/static/js/utils/toast.js', () => ({
   showToast: vi.fn()
 }));
 
-// Mock EventBus.emit for ask_user:respond testing
-const mockEventBusEmit = vi.fn();
 vi.mock('../../main/resources/static/js/utils/event-bus.js', () => ({
   EventBus: {
     on: vi.fn(),
     off: vi.fn(),
-    emit: mockEventBusEmit
+    emit: vi.fn()
   }
 }));
 
@@ -460,33 +458,6 @@ describe('ChatUI', () => {
     it('没有内联 onclick', () => {
       const html = chatUI.renderDefaultToolCard({ name: 't', args: '{}' });
       expect(html).not.toContain('onclick=');
-    });
-  });
-
-  describe('bindAskUserEvents', () => {
-    beforeEach(() => {
-      mockEventBusEmit.mockClear();
-    });
-
-    it('选项按钮点击触发 ask_user:respond 事件', () => {
-      const card = document.createElement('div');
-      card.innerHTML = `
-        <div class="options-list">
-          <button class="option-btn" data-option="是">是</button>
-          <button class="option-btn" data-option="否">否</button>
-        </div>
-      `;
-      chatUI.bindAskUserEvents(card);
-
-      card.querySelectorAll('.option-btn').forEach(btn => btn.click());
-      expect(mockEventBusEmit).toHaveBeenCalledTimes(2);
-      expect(mockEventBusEmit).toHaveBeenCalledWith('ask_user:respond', '是');
-      expect(mockEventBusEmit).toHaveBeenCalledWith('ask_user:respond', '否');
-    });
-
-    it('没有选项按钮时不报错', () => {
-      const card = document.createElement('div');
-      expect(() => chatUI.bindAskUserEvents(card)).not.toThrow();
     });
   });
 

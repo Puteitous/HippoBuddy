@@ -17,6 +17,7 @@ import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.client.LlmClientFactory;
 import com.example.agent.llm.retry.RetryPolicy;
 import com.example.agent.logging.CostMetricsCollector;
+import com.example.agent.logging.EventMetricsCollector;
 
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.service.TokenEstimatorFactory;
@@ -61,6 +62,10 @@ public final class CoreModule {
         CostMetricsCollector costMetrics = new CostMetricsCollector();
         ServiceLocator.registerSingleton(CostMetricsCollector.class, costMetrics);
         logger.info("✅ [Level 1] 基础服务: 成本计算器");
+
+        EventMetricsCollector eventMetrics = new EventMetricsCollector(java.time.LocalDate.now());
+        ServiceLocator.registerSingleton(EventMetricsCollector.class, eventMetrics);
+        logger.info("✅ [Level 1] 基础服务: 事件指标收集器");
 
         HealthCheckRegistry healthRegistry = new HealthCheckRegistry();
         healthRegistry.register(new SystemHealthIndicator());

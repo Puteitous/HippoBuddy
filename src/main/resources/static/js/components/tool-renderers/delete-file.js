@@ -64,7 +64,7 @@ export function renderDeleteFileConfirmCard(tool) {
 
   return `
     <div class="tool-card delete-file-card">
-      <div class="tool-header">
+      <div class="tool-header expanded">
         <span class="tool-icon">${deleteSvg}</span>
         <span class="tool-title">${_t('tool.delete.title')}</span>
         <span class="tool-status-badge pending_confirmation">
@@ -77,7 +77,7 @@ export function renderDeleteFileConfirmCard(tool) {
         </span>
         <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 12 10 8 6 4"/></svg></span>
       </div>
-      <div class="tool-call-details">
+      <div class="tool-call-details show">
         ${_renderDeleteFileConfirmBody(data)}
       </div>
     </div>`;

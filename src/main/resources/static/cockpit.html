@@ -770,6 +770,7 @@
 
     <template id="abMonitorPanel">
         <div class="metrics-panel">
+            <!-- ====== LLM 调用 ====== -->
             <div class="metrics-group">
                 <div class="metrics-group-title" data-i18n="monitor.llmCalls">
                     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -784,25 +785,58 @@
                     LLM 调用
                 </div>
                 <div class="metrics-grid">
-                    <div class="metrics-item">
-                        <span class="metrics-label" data-i18n="monitor.requestCount">请求次数</span>
-                        <span class="metrics-value" id="abMetLlmTotal">0</span>
-                    </div>
-                    <div class="metrics-item">
-                        <span class="metrics-label" data-i18n="monitor.successRate">成功率</span>
-                        <span class="metrics-value" id="abMetLlmSuccessRate">0%</span>
-                    </div>
-                    <div class="metrics-item">
-                        <span class="metrics-label" data-i18n="monitor.avgLatency">平均耗时</span>
-                        <span class="metrics-value" id="abMetLlmAvgLatency">0ms</span>
-                    </div>
-                    <div class="metrics-item">
-                        <span class="metrics-label" data-i18n="monitor.slowest">最慢</span>
-                        <span class="metrics-value" id="abMetLlmMaxLatency">0ms</span>
+                    <div class="metrics-item metrics-item-chart">
+                        <!-- 环形成功率 -->
+                        <div class="ring-chart" id="abMetLlmRing">
+                            <svg class="ring-chart-svg" viewBox="0 0 36 36">
+                                <path class="ring-chart-bg"
+                                    d="M18 2.0845
+                                    a 15.9155 15.9155 0 0 1 0 31.831
+                                    a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                                <path class="ring-chart-fg" id="abMetLlmRingFg"
+                                    d="M18 2.0845
+                                    a 15.9155 15.9155 0 0 1 0 31.831
+                                    a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    stroke-dasharray="0, 100"/>
+                                <text x="18" y="18" class="ring-chart-text" id="abMetLlmRingText">0%</text>
+                            </svg>
+                        </div>
+                        <div class="metrics-item-details">
+                            <div>
+                                <span class="metrics-label" data-i18n="monitor.requestCount">请求次数</span>
+                                <span class="metrics-value" id="abMetLlmTotal">0</span>
+                            </div>
+                            <div>
+                                <span class="metrics-label" data-i18n="monitor.avgLatency">平均耗时</span>
+                                <span class="metrics-value" id="abMetLlmAvgLatency">0ms</span>
+                            </div>
+                            <div>
+                                <span class="metrics-label" data-i18n="monitor.slowest">最慢</span>
+                                <span class="metrics-value" id="abMetLlmMaxLatency">0ms</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- ====== 延迟趋势折线图 ====== -->
+            <div class="metrics-group">
+                <div class="metrics-group-title" data-i18n="monitor.latencyTrend">
+                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="1 12 5 8 8 10 15 2"/>
+                        <polyline points="11 2 15 2 15 6"/>
+                    </svg>
+                    延迟趋势
+                </div>
+                <div class="metrics-trend" id="abMetTrendChart">
+                    <div class="metrics-trend-empty" data-i18n="tokenPanel.waiting">等待更多数据...</div>
+                </div>
+                <div class="metrics-trend-count" id="abMetTrendCount">0 次记录</div>
+            </div>
+
             <div class="metrics-divider"></div>
+
+            <!-- ====== 工具调用 ====== -->
             <div class="metrics-group">
                 <div class="metrics-group-title" data-i18n="monitor.toolCalls">🔧 工具调用</div>
                 <div class="metrics-grid">
@@ -810,17 +844,16 @@
                         <span class="metrics-label" data-i18n="monitor.totalCalls">总调用</span>
                         <span class="metrics-value" id="abMetToolTotal">0</span>
                     </div>
-                    <div class="metrics-item">
-                        <span class="metrics-label" data-i18n="monitor.successRate">成功率</span>
-                        <span class="metrics-value" id="abMetToolSuccessRate">0%</span>
-                    </div>
+
                     <div class="metrics-item">
                         <span class="metrics-label" data-i18n="monitor.failed">失败</span>
                         <span class="metrics-value" id="abMetToolFailed">0</span>
                     </div>
                 </div>
-                <div class="metrics-tool-list" id="abMetToolList"></div>
+                <!-- 工具调用分布条形图 -->
+                <div class="metrics-bar-list" id="abMetToolBarList"></div>
             </div>
+
             <div class="metrics-update-time" id="abMetUpdateTime"></div>
         </div>
     </template>

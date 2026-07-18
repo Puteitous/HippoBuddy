@@ -1,6 +1,5 @@
 package com.example.agent.web.handler;
 
-import com.example.agent.core.AgentContext;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.logging.CostMetricsCollector;
 import com.example.agent.logging.EventMetricsCollector;
@@ -153,15 +152,10 @@ class MetricsApiHandlerTest {
     class ToolMetricsTests {
 
         @Test
-        @DisplayName("注册带 EventMetricsCollector 的 AgentContext 时返回工具调用指标")
+        @DisplayName("注册 EventMetricsCollector 时返回工具调用指标")
         void returnsToolMetrics() throws IOException {
-            AgentContext agentContext = new AgentContext() {
-                @Override
-                public EventMetricsCollector getEventMetricsCollector() {
-                    return new EventMetricsCollector(LocalDate.of(2024, 1, 15));
-                }
-            };
-            ServiceLocator.registerSingleton(AgentContext.class, agentContext);
+            EventMetricsCollector eventCollector = new EventMetricsCollector(LocalDate.of(2024, 1, 15));
+            ServiceLocator.registerSingleton(EventMetricsCollector.class, eventCollector);
 
             FakeHttpExchange exchange = new FakeHttpExchange("GET");
 
@@ -189,13 +183,8 @@ class MetricsApiHandlerTest {
             CostMetricsCollector costCollector = new CostMetricsCollector(LocalDate.of(2024, 1, 15));
             ServiceLocator.registerSingleton(CostMetricsCollector.class, costCollector);
 
-            AgentContext agentContext = new AgentContext() {
-                @Override
-                public EventMetricsCollector getEventMetricsCollector() {
-                    return new EventMetricsCollector(LocalDate.of(2024, 1, 15));
-                }
-            };
-            ServiceLocator.registerSingleton(AgentContext.class, agentContext);
+            EventMetricsCollector eventCollector = new EventMetricsCollector(LocalDate.of(2024, 1, 15));
+            ServiceLocator.registerSingleton(EventMetricsCollector.class, eventCollector);
 
             FakeHttpExchange exchange = new FakeHttpExchange("GET");
 

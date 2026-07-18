@@ -135,7 +135,12 @@ public class AgentContext {
     public void initialize() {
         LocalDate today = LocalDate.now();
         this.tokenMetricsCollector = new TokenMetricsCollector(today);
-        this.eventMetricsCollector = new EventMetricsCollector(today);
+        // 复用 CoreModule 已注册的 EventMetricsCollector，确保数据源唯一
+        this.eventMetricsCollector = ServiceLocator.getOrNull(EventMetricsCollector.class);
+        if (this.eventMetricsCollector == null) {
+            this.eventMetricsCollector = new EventMetricsCollector(today);
+            ServiceLocator.registerSingleton(EventMetricsCollector.class, this.eventMetricsCollector);
+        }
         logger.info("日志系统已初始化");
 
         // ✅ 一行代码初始化所有依赖

@@ -1,6 +1,22 @@
 import { renderMarkdown } from '../markdown-renderer.js';
 import { escapeHtml } from '../utils.js';
 
+/**
+ * RenderPipeline — 增量渲染管道
+ *
+ * 核心改进：按 segment 粒度增量更新 DOM，不再全量 replaceChildren。
+ * 每个 segment 映射到独立的 render-unit，只有内容变化的单元才重建，
+ * 未变化的单元（及其展开/折叠等交互状态）原地保留。
+ *
+ * DOM 结构：
+ *   <div class="render-unit" data-unit="0" data-unit-type="thinking">  ← 单个 segment
+ *   <div class="render-unit" data-unit="1" data-unit-type="text">
+ *   <div class="render-unit tool-timeline" data-unit="2" data-unit-type="timeline">  ← 连续工具分组
+ *     <div class="tool-timeline-item" data-timeline-seg="3">...</div>
+ *     <div class="tool-timeline-item" data-timeline-seg="4">...</div>
+ *   </div>
+ *   <div class="render-unit streaming-region">  ← 始终在末尾
+ */
 export class RenderPipeline {
   constructor(chatUI, callbacks = {}) {
     this.chatUI = chatUI;
@@ -21,8 +37,41 @@ export class RenderPipeline {
     this._renderScheduled = false;
     this._flushing = false;
     this._destroyed = false;
+
+    // 增量更新状态
+    /** @type {Map<string, string>} key → fingerprint 映射，用于跨渲染轮次识别变化 */
+    this._unitFingerprints = new Map();
   }
 
+  // ==================== 指纹 ====================
+
+  /**
+   * 计算单个 segment 的指纹，用于检测内容是否变化。
+   * 仅包含对渲染输出有影响的关键字段。
+   */
+  _segFingerprint(idx, seg) {
+    if (seg.type === 'thinking') {
+      // done 状态切换 + 内容长度 + 末尾采样（避免超长内容全量对比）
+      return `T|${seg.done ? '1' : '0'}|${seg.content.length}|${seg.content.slice(-30)}`;
+    }
+    if (seg.type === 'text') {
+      return `X|${seg.content.length}|${seg.content.slice(-30)}`;
+    }
+    if (seg.type === 'tool') {
+      const result = seg.result || 'running';
+      const hasConfirm = seg.confirmationData ? '1' : '0';
+      const progress = (seg.progressLines || []).length;
+      const argsStr = seg.args
+        ? (typeof seg.args === 'string' ? seg.args : JSON.stringify(seg.args))
+        : '';
+      return `TL|${seg.name}|${result}|${hasConfirm}|${progress}|${argsStr.length}|${argsStr.slice(-30)}`;
+    }
+    return `${idx}`;
+  }
+
+  /**
+   * 计算整批指纹（用于 scheduleRender 的快速去重）
+   */
   _computeFingerprint(segments, currentText) {
     const thinkingDone = segments
       .filter(s => s.type === 'thinking')
@@ -37,6 +86,8 @@ export class RenderPipeline {
     return last.segments !== f.segments || last.thinkingDone !== f.thinkingDone || last.textLen !== f.textLen;
   }
 
+  // ==================== 外部接口 ====================
+
   setContainer(container) {
     this.container = container;
   }
@@ -46,7 +97,6 @@ export class RenderPipeline {
   }
 
   scheduleRender(segments, currentText) {
-    // flush() 正在强制渲染期间，跳过 throttle 调度避免冲突
     if (this._flushing) {
       return;
     }
@@ -82,11 +132,9 @@ export class RenderPipeline {
     if (segments) {
       this._pendingRender = { segments, currentText, _isTextOnly: false };
     }
-    // 已有 flush 在执行中，只更新数据不触发渲染，doRender 结束后会自动处理新的 pendingRender
     if (this._flushing) {
       return;
     }
-    // flush 是强制渲染，不检查 _renderScheduled
     if (this._renderThrottleTimer) {
       clearTimeout(this._renderThrottleTimer);
       this._renderThrottleTimer = null;
@@ -94,14 +142,13 @@ export class RenderPipeline {
     if (this._pendingRender) {
       this._pendingRender._isTextOnly = false;
       this._lastRenderTime = Date.now();
-      this._lastFingerprint = null; // flush 是强制渲染，跳过指纹去重
-      this._flushing = true; // 标记 flush 正在渲染，屏蔽并发的 scheduleRender 和 flush
+      this._lastFingerprint = null;
+      this._flushing = true;
       this.doRender();
     }
   }
 
   async renderFinal(segments, currentText) {
-    // flush 正在渲染中时，跳过 renderFinal，由 flush 结束后自动处理 pendingRender
     if (this._flushing) {
       this._pendingRender = { segments, currentText };
       return;
@@ -114,18 +161,75 @@ export class RenderPipeline {
     await this.doRender();
   }
 
+  // ==================== 渲染计划 ====================
+
+  /**
+   * 从 segments 构建渲染计划。
+   * 返回 plan 数组，每个元素描述一个 render-unit 的内容。
+   * 连续的非特殊 tool segment 合并为一个 timeline 组。
+   */
+  _buildPlan(segments) {
+    const plan = [];
+    let timelineItems = [];
+
+    const flushTimeline = () => {
+      if (timelineItems.length > 0) {
+        // timeline 组的 key 用首个 segIdx 标识
+        const key = `tl-${timelineItems[0].segIdx}`;
+        plan.push({
+          type: 'timeline',
+          key,
+          items: [...timelineItems],
+          // 组指纹 = 所有子项指纹的聚合
+          fingerprint: timelineItems.map(i => i.fingerprint).join('|')
+        });
+        timelineItems = [];
+      }
+    };
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const fp = this._segFingerprint(i, seg);
+
+      if (seg.type === 'thinking') {
+        flushTimeline();
+        plan.push({ type: 'thinking', segIdx: i, key: `seg-${i}`, fingerprint: fp });
+      } else if (seg.type === 'text') {
+        flushTimeline();
+        plan.push({ type: 'text', segIdx: i, key: `seg-${i}`, fingerprint: fp });
+      } else if (seg.type === 'tool') {
+        if (seg.name === 'todo_write' || seg.name === 'ask_user') {
+          flushTimeline();
+          plan.push({ type: 'tool-card', segIdx: i, key: `seg-${i}`, fingerprint: fp, toolName: seg.name });
+        } else {
+          timelineItems.push({ segIdx: i, seg, fingerprint: fp });
+        }
+      }
+    }
+    flushTimeline();
+
+    return plan;
+  }
+
+  // ==================== 核心渲染 ====================
+
   async doRender() {
     if (this._destroyed) return;
     this._renderVersion++;
     const renderVersion = this._renderVersion;
     const pending = this._pendingRender;
-    if (!pending) return;
+    if (!pending) {
+      return;
+    }
     this._pendingRender = null;
 
     const { segments, currentText, _isTextOnly } = pending;
     const container = this.container;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
+    // ---- 纯文本快捷路径 ----
     if (_isTextOnly && this._streamingAnchor && this._streamingAnchor.isConnected &&
         this._lastSegmentCount === segments.length) {
       if (currentText) {
@@ -138,79 +242,29 @@ export class RenderPipeline {
       this._notifyAfterRender(container);
       return;
     }
-
     this._lastSegmentCount = segments.length;
 
+    // 整批指纹去重
     const fp = this._computeFingerprint(segments, currentText);
     if (!this._fingerprintChanged(fp)) {
       return;
     }
     this._lastFingerprint = fp;
 
-    const chatContainer = this.container.closest('.chat-container') || this.container;
+    const chatContainer = container.closest('.chat-container') || container;
     const savedScrollTop = chatContainer.scrollTop;
 
-    let html = '';
-    let toolTimelineHtml = '';
+    // ---- 构建渲染计划 ----
+    const plan = this._buildPlan(segments);
 
-    const flushToolTimeline = () => {
-      if (toolTimelineHtml) {
-        html += `<div class="tool-timeline">${toolTimelineHtml}</div>`;
-        toolTimelineHtml = '';
-      }
-    };
-
-    for (const segment of segments) {
-      if (segment.type === 'thinking') {
-        flushToolTimeline();
-        html += RenderPipeline.renderThinkingBubble(segment);
-      } else if (segment.type === 'tool') {
-        if (segment.name === 'todo_write' || segment.name === 'ask_user') {
-          flushToolTimeline();
-          html += this.chatUI.renderToolCard(segment);
-        } else {
-          toolTimelineHtml += this.chatUI.renderToolTimelineRow(segment);
-        }
-      } else if (segment.type === 'text' && segment.content) {
-        flushToolTimeline();
-        html += await renderMarkdown(segment.content);
-        if (this._destroyed || renderVersion !== this._renderVersion) return;
-      }
-    }
-    flushToolTimeline();
-
-    html += `<div class="streaming-region">`;
-    if (currentText) {
-      html += await renderMarkdown(currentText);
-    }
-    html += `</div>`;
-
+    // ---- 增量同步 DOM ----
+    await this._syncDOM(container, plan, segments, currentText, renderVersion);
     if (this._destroyed || renderVersion !== this._renderVersion) return;
 
-    const savedStates = this._saveCardStates(container);
-
-    const tempDiv = document.createElement('div');
-    tempDiv.style.display = 'contents';
-    tempDiv.innerHTML = html;
-
-    const animEls = tempDiv.querySelectorAll('.tool-timeline-detail, .thinking-row-content, .tool-card .tool-call-details');
-    for (const el of animEls) {
-      el.dataset._trans = el.style.transition || '';
-      el.style.transition = 'none';
-    }
-
-    this._restoreCardStates(tempDiv, savedStates);
-
-    for (const el of animEls) {
-      el.style.transition = el.dataset._trans;
-      delete el.dataset._trans;
-    }
-
-    if (renderVersion !== this._renderVersion) return;
-    container.replaceChildren(...tempDiv.children);
-
+    // 更新 streamingAnchor 引用
     this._streamingAnchor = container.querySelector('.streaming-region');
 
+    // ---- 后处理 ----
     chatContainer.scrollTop = savedScrollTop;
 
     const streamingRow = container.querySelector('.thinking-row.streaming .thinking-row-content');
@@ -218,25 +272,34 @@ export class RenderPipeline {
       streamingRow.scrollTop = streamingRow.scrollHeight;
     }
 
-    container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
+    // ⚠️ 必须先绑定 ask-user-card，再绑定通用 tool-card
+    // ask-user-card 同时有 tool-card 和 ask-user-card 两个类，
+    // 如果先走通用 tool-card 绑定会被标记 data-events-bound，
+    // 导致后续 .ask-user-card:not([data-events-bound]) 选择器无法匹配，
+    // 造成 option-btn 点击事件永远无法绑定。
+    container.querySelectorAll('.ask-user-card:not([data-events-bound])').forEach(card => {
+      if (this._onBindAskUserCard) this._onBindAskUserCard(card);
+      card.dataset.eventsBound = '1';
+    });
+
+    // 事件绑定（只绑定新增/变更的卡片）
+    container.querySelectorAll('.tool-card:not([data-events-bound]), .tool-call-card:not([data-events-bound])').forEach(card => {
       if (this.chatUI.bindToolCardEvents) {
         this.chatUI.bindToolCardEvents(card);
       }
+      card.dataset.eventsBound = '1';
     });
 
-    container.querySelectorAll('.ask-user-card').forEach(card => {
-      if (this._onBindAskUserCard) this._onBindAskUserCard(card);
-    });
-
-    container.querySelectorAll('.confirmation-btn').forEach(btn => {
+    container.querySelectorAll('.confirmation-btn:not([data-events-bound])').forEach(btn => {
       if (this._onConfirmationClick) {
         btn.addEventListener('click', this._onConfirmationClick);
       }
+      btn.dataset.eventsBound = '1';
     });
 
     this._notifyAfterRender(container);
 
-    // 如果在渲染期间有新的 flush 数据到达（被 _flushing 拦截），立即处理下一批
+    // 处理 flush 期间堆积的 pendingRender
     if (this._pendingRender) {
       this._flushing = false;
       this.flush();
@@ -245,98 +308,333 @@ export class RenderPipeline {
     }
   }
 
+  // ==================== 增量 DOM 同步 ====================
+
+  /**
+   * 将渲染计划增量同步到 DOM。
+   * 策略：
+   *  - 对 plan 中每个 unit，在 container 中按顺序定位对应的 DOM 节点（data-unit key 匹配）
+   *  - 指纹未变 → 跳过（保留交互状态）
+   *  - 指纹变了 → 只更新该 unit 的内容
+   *  - 新增 unit → 在正确位置插入
+   *  - 多余的 DOM 节点 → 移除
+   */
+  async _syncDOM(container, plan, segments, currentText, renderVersion) {
+    // 收集现有 render-unit（不含 .streaming-region）
+    const existingUnits = [];
+    for (let i = 0; i < container.children.length; i++) {
+      const child = container.children[i];
+      if (child.classList.contains('streaming-region')) continue;
+      if (child.dataset.unit !== undefined) {
+        existingUnits.push(child);
+      }
+    }
+
+    // 建立 key → DOM 映射
+    const existingMap = new Map();
+    for (const el of existingUnits) {
+      existingMap.set(el.dataset.unit, el);
+    }
+
+    // 标记所有现有 key，后续移除未匹配的
+    const usedKeys = new Set();
+
+    // 第一遍：确定哪些需要更新/新增，渲染 HTML
+    const jobs = []; // { key, html, unit, isNew }
+    for (const unit of plan) {
+      const existingEl = existingMap.get(unit.key);
+      usedKeys.add(unit.key);
+
+      if (existingEl) {
+        // 检查指纹是否变化（跨渲染轮次对比）
+        const oldFp = this._unitFingerprints.get(unit.key);
+        if (oldFp === unit.fingerprint) {
+          // 指纹未变——跳过，但要把 units 元数据同步（内部 timeline 可能变了）
+          if (unit.type === 'timeline') {
+            // timeline 组需要检查子项是否变化
+            const hasChanges = this._syncTimelineItems(existingEl, unit, segments);
+            if (hasChanges) {
+              // 子项有变化，更新组指纹
+              this._unitFingerprints.set(unit.key, unit.fingerprint);
+            }
+          }
+          continue; // 未变化，保留
+        }
+        // 指纹变了，需要更新
+        jobs.push({ key: unit.key, unit, isNew: false });
+      } else {
+        // 新增 unit
+        jobs.push({ key: unit.key, unit, isNew: true });
+      }
+    }
+
+    if (jobs.length === 0 && existingMap.size === plan.length) {
+      // 没有任何单元变化，但 streaming-region 仍需更新
+      await this._updateStreamingRegion(container, currentText, renderVersion);
+      return;
+    }
+
+    // 第二遍：渲染 HTML（异步，text segment 需要 renderMarkdown）
+    for (const job of jobs) {
+      const html = await this._renderUnitHtml(job.unit, segments, currentText, renderVersion);
+      if (html === null) return; // 渲染被取消
+      job.html = html;
+    }
+
+    if (this._destroyed || renderVersion !== this._renderVersion) return;
+
+    // 第三遍：应用 DOM 变更
+    // 策略：按 plan 顺序遍历，确保每个位置节点正确
+    let planIdx = 0;
+
+    // 先移除所有不在 plan 中的多余节点
+    for (const [key, el] of existingMap) {
+      if (!usedKeys.has(key)) {
+        el.remove();
+      }
+    }
+
+    // 遍历 plan，调整 DOM 顺序
+    let childIdx = 0;
+
+    for (const unit of plan) {
+      // 跳过非 render-unit 的子元素（如残留节点），找到下一个 render-unit
+      while (childIdx < container.children.length) {
+        const child = container.children[childIdx];
+        if (child.classList.contains('streaming-region')) break;
+        if (child.dataset.unit !== undefined) break;
+        // 非 render-unit 的残留节点，移除
+        const stale = child;
+        stale.remove();
+        // childIdx 不变，继续检查当前位置
+      }
+
+      const existingEl = existingMap.get(unit.key);
+      const job = jobs.find(j => j.key === unit.key);
+
+      if (job && job.isNew) {
+        // 新增节点：插入到正确位置（在 streaming-region 之前）
+        const el = this._createUnitElement(unit, job.html);
+        const sr = container.querySelector('.streaming-region');
+        if (sr) {
+          container.insertBefore(el, sr);
+        } else {
+          container.appendChild(el);
+        }
+        existingMap.set(unit.key, el);
+        this._unitFingerprints.set(unit.key, unit.fingerprint);
+        childIdx++; // 因为新插入了节点，当前位置后移
+      } else if (existingEl) {
+        if (job) {
+          // 更新内容（替换 innerHTML）
+          existingEl.innerHTML = job.html;
+          // 恢复关键 class
+          if (unit.type === 'timeline') {
+            existingEl.className = 'render-unit tool-timeline';
+            // 重新标记 timeline items 的 data-timeline-seg
+            this._tagTimelineItemsInEl(existingEl, unit);
+          } else {
+            existingEl.className = 'render-unit';
+          }
+          existingEl.dataset.unitType = unit.type;
+          this._unitFingerprints.set(unit.key, unit.fingerprint);
+        }
+        // 确保位置正确
+        const currentPos = Array.from(container.children).indexOf(existingEl);
+        if (currentPos !== childIdx) {
+          const refChild = childIdx < container.children.length ? container.children[childIdx] : null;
+          if (refChild !== existingEl) {
+            container.insertBefore(existingEl, refChild);
+          }
+        }
+        childIdx++;
+      }
+    }
+
+    // 移除末尾多余的非 streaming 节点
+    while (childIdx < container.children.length) {
+      const child = container.children[childIdx];
+      if (child.classList.contains('streaming-region')) break;
+      child.remove();
+    }
+
+    // ---- 更新 streaming-region ----
+    await this._updateStreamingRegion(container, currentText, renderVersion);
+  }
+
+  /**
+   * 更新 streaming-region 的内容
+   */
+  async _updateStreamingRegion(container, currentText, renderVersion) {
+    let sr = container.querySelector('.streaming-region');
+    if (!sr) {
+      sr = document.createElement('div');
+      sr.className = 'streaming-region';
+      container.appendChild(sr);
+    }
+    if (currentText) {
+      const md = await renderMarkdown(currentText);
+      if (this._destroyed || renderVersion !== this._renderVersion) return;
+      sr.innerHTML = md;
+    } else {
+      sr.innerHTML = '';
+    }
+  }
+
+  /**
+   * 创建 render-unit 的 DOM 元素
+   */
+  _createUnitElement(unit, html) {
+    const el = document.createElement('div');
+    el.dataset.unit = unit.key;
+    el.dataset.unitType = unit.type;
+    if (unit.type === 'timeline') {
+      el.className = 'render-unit tool-timeline';
+    } else {
+      el.className = 'render-unit';
+    }
+    el.innerHTML = html;
+
+    // 为 timeline 内的每个 tool-timeline-item 标记 data-timeline-seg
+    if (unit.type === 'timeline') {
+      this._tagTimelineItemsInEl(el, unit);
+    }
+
+    return el;
+  }
+
+  /**
+   * 渲染单个 plan unit 的 HTML 内容。
+   * 不包含外层 render-unit 包裹。
+   */
+  async _renderUnitHtml(unit, segments, currentText, renderVersion) {
+    if (unit.type === 'thinking') {
+      const seg = segments[unit.segIdx];
+      return RenderPipeline.renderThinkingBubble(seg);
+    }
+
+    if (unit.type === 'text') {
+      const seg = segments[unit.segIdx];
+      if (seg.content) {
+        const md = await renderMarkdown(seg.content);
+        if (this._destroyed || renderVersion !== this._renderVersion) return null;
+        return md;
+      }
+      return '';
+    }
+
+    if (unit.type === 'tool-card') {
+      const seg = segments[unit.segIdx];
+      return this.chatUI.renderToolCard(seg);
+    }
+
+    if (unit.type === 'timeline') {
+      let html = '';
+      for (const item of unit.items) {
+        const seg = segments[item.segIdx];
+        html += this.chatUI.renderToolTimelineRow(seg);
+      }
+      return html;
+    }
+
+    return '';
+  }
+
+  /**
+   * 同步 timeline 组内部的 tool-timeline-item。
+   * 只更新有变化的 item，保留未变化的 item（及展开状态）。
+   * @returns {boolean} 是否有任何 item 发生了变化
+   */
+  _syncTimelineItems(timelineEl, unit, segments) {
+    let changed = false;
+
+    // 收集现有 items — 优先用 data-timeline-seg 定位，没有则按位置回退
+    const itemMap = new Map();
+    for (let i = 0; i < timelineEl.children.length; i++) {
+      const child = timelineEl.children[i];
+      let segIdx = child.dataset.timelineSeg;
+      if (segIdx !== undefined) {
+        itemMap.set(parseInt(segIdx), child);
+      } else if (i < unit.items.length) {
+        // 回退：按位置推断 segIdx
+        segIdx = unit.items[i].segIdx;
+        child.dataset.timelineSeg = String(segIdx);
+        itemMap.set(segIdx, child);
+      }
+    }
+
+    // 新 plan 中的 items
+    const newItemKeys = new Set();
+
+    for (const item of unit.items) {
+      newItemKeys.add(item.segIdx);
+      const existingItem = itemMap.get(item.segIdx);
+      if (!existingItem) {
+        // 新增 item — 追加到 timeline 末尾
+        const seg = segments[item.segIdx];
+        const html = this._tagTimelineItem(item.segIdx, item.fingerprint, this.chatUI.renderToolTimelineRow(seg));
+        timelineEl.insertAdjacentHTML('beforeend', html);
+        changed = true;
+        continue;
+      }
+
+      // 检查 fingerprint 变化
+      const oldFp = existingItem.dataset.fp;
+      if (oldFp !== item.fingerprint) {
+        // 替换该 item
+        const seg = segments[item.segIdx];
+        existingItem.outerHTML = this._tagTimelineItem(item.segIdx, item.fingerprint, this.chatUI.renderToolTimelineRow(seg));
+        changed = true;
+      }
+    }
+
+    // 移除多余的 items
+    for (const [segIdx, el] of itemMap) {
+      if (!newItemKeys.has(segIdx)) {
+        el.remove();
+        changed = true;
+      }
+    }
+
+    // 为所有 items 更新 fingerprint（新创建的已在上面的 _tagTimelineItem 中设置）
+    for (const item of unit.items) {
+      const itemEl = timelineEl.querySelector(`[data-timeline-seg="${item.segIdx}"]`);
+      if (itemEl && !itemEl.dataset.fp) {
+        itemEl.dataset.fp = item.fingerprint;
+      }
+    }
+
+    return changed;
+  }
+
+  /**
+   * 给 tool-timeline-item 的 HTML 添加 data-timeline-seg 和 data-fp 属性
+   */
+  _tagTimelineItem(segIdx, fp, html) {
+    return html.replace('<div class="tool-timeline-item', `<div class="tool-timeline-item" data-timeline-seg="${segIdx}" data-fp="${fp}"`);
+  }
+
+  /**
+   * 给已存在的 DOM 元素内的 timeline items 标记 data-timeline-seg
+   */
+  _tagTimelineItemsInEl(el, unit) {
+    const items = el.querySelectorAll('.tool-timeline-item');
+    for (let i = 0; i < items.length && i < unit.items.length; i++) {
+      const item = unit.items[i];
+      items[i].dataset.timelineSeg = String(item.segIdx);
+      items[i].dataset.fp = item.fingerprint;
+    }
+  }
+
+  // ==================== 后处理 ====================
+
   _notifyAfterRender(container) {
     if (this._onAfterRender) {
       this._onAfterRender(container);
     }
   }
 
-  _saveCardStates(container) {
-    const states = new Map();
-
-    container.querySelectorAll('.thinking-row.completed').forEach((bubble, idx) => {
-      states.set(`thinking:${idx}`, {
-        expanded: bubble.classList.contains('expanded')
-      });
-    });
-
-    container.querySelectorAll('.tool-card, .tool-call-card').forEach(card => {
-      const header = card.querySelector('.tool-header, .tool-call-header');
-      const nameEl = card.querySelector('.tool-title, .tool-name');
-      const name = nameEl?.textContent || 'unknown';
-      const isExpanded = card.classList.contains('expanded') || header?.classList.contains('expanded') || false;
-      states.set(`tool:${name}:${card.dataset.expandedKey || ''}`, {
-        expanded: isExpanded || false
-      });
-    });
-
-    container.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
-      const name = item.dataset.toolName || 'unknown';
-      states.set(`timeline:${name}:${idx}`, {
-        expanded: item.classList.contains('expanded')
-      });
-    });
-
-    return states;
-  }
-
-  _restoreCardStates(container, states) {
-    if (!states || states.size === 0) return;
-
-    container.querySelectorAll('.thinking-row.completed').forEach((bubble, idx) => {
-      const thinkingState = states.get(`thinking:${idx}`);
-      if (thinkingState?.expanded) {
-        bubble.classList.add('expanded');
-        const content = bubble.querySelector('.thinking-row-content');
-        if (content) {
-          content.style.display = 'block';
-          const h = content.scrollHeight;
-          const isCapped = h > 300;
-          content.style.maxHeight = (h > 0 ? (isCapped ? '300px' : h + 'px') : '9999px');
-          content.style.overflowY = isCapped ? 'auto' : '';
-          content.style.display = '';
-        }
-      }
-    });
-
-    container.querySelectorAll('.tool-card, .tool-call-card').forEach((card, idx) => {
-      const nameEl = card.querySelector('.tool-title, .tool-name');
-      const name = nameEl?.textContent || 'unknown';
-      const key = `tool:${name}:${card.dataset.expandedKey || ''}`;
-      const saved = states.get(key);
-
-      if (saved?.expanded) {
-        if (card.classList.contains('tool-card')) {
-          card.classList.add('expanded');
-          const details = card.querySelector('.tool-call-details');
-          if (details) {
-            const h = details.scrollHeight;
-            details.style.maxHeight = h > 0 ? h + 'px' : '9999px';
-          }
-        } else {
-          const header = card.querySelector('.tool-header, .tool-call-header');
-          const details = header?.nextElementSibling;
-          header?.classList.add('expanded');
-          details?.classList.add('show');
-        }
-      }
-    });
-
-    container.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
-      const name = item.dataset.toolName || 'unknown';
-      const saved = states.get(`timeline:${name}:${idx}`);
-      const isPendingConfirm = item.dataset.toolStatus === 'pending_confirmation';
-      const isCancelled = item.dataset.toolStatus === 'cancelled' || item.dataset.toolStatus === 'interrupted';
-      if ((saved?.expanded || isPendingConfirm) && !isCancelled) {
-        item.classList.add('expanded');
-        const detail = item.querySelector('.tool-timeline-detail');
-        if (detail) {
-          const h = detail.scrollHeight;
-          detail.style.maxHeight = h > 0 ? h + 'px' : '9999px';
-        }
-      }
-    });
-  }
+  // ==================== 静态工具 ====================
 
   static renderThinkingBubble(segment) {
     const normalized = segment.content.replace(/\n{2,}/g, '\n');
@@ -364,6 +662,8 @@ export class RenderPipeline {
       </div>`;
   }
 
+  // ==================== 生命周期 ====================
+
   destroy() {
     this._destroyed = true;
     if (this._renderThrottleTimer) {
@@ -371,6 +671,7 @@ export class RenderPipeline {
       this._renderThrottleTimer = null;
     }
     this._pendingRender = null;
+    this._unitFingerprints.clear();
     this.container = null;
   }
 }

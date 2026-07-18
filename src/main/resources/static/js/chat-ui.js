@@ -315,11 +315,6 @@ export class ChatUI {
     // 绑定工具卡片事件（折叠/展开、撤销等）
     this.bindToolCardEvents(card);
     
-    // 绑定 AskUser 卡片事件
-    if (tool.name === 'ask_user') {
-      this.bindAskUserEvents(card);
-    }
-    
     return card;
   }
   
@@ -388,25 +383,6 @@ export class ChatUI {
       if (undoBtn) undoBtn.disabled = false;
       if (undoBtn) undoBtn.textContent = _t('chatui.undo');
     }
-  }
-  
-  /**
-   * 绑定 AskUser 卡片事件
-   */
-  bindAskUserEvents(card) {
-    console.log('🔧 绑定 AskUser 卡片事件');
-    
-    // 选项按钮点击事件
-    const optionBtns = card.querySelectorAll('.option-btn');
-    console.log('  找到选项按钮数量:', optionBtns.length);
-    
-    optionBtns.forEach((btn, index) => {
-      btn.addEventListener('click', () => {
-        const option = btn.getAttribute('data-option');
-        console.log('📤 选项按钮被点击:', option);
-        EventBus.emit('ask_user:respond', option);
-      });
-    });
   }
 
   renderToolCard(tool) {
