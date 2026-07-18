@@ -70,4 +70,9 @@ public interface SessionManager {
     void releaseSessionLock(String sessionId);
 
     void clear();
+
+    /**
+     * 更新会话的最后活跃时间。
+     */
+    void updateLastActivityAt(String sessionId);
 }

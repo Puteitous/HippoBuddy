@@ -179,6 +179,9 @@ public class ChatApiHandler implements HttpHandler {
                 sseWriter.sendSseEvent("message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
             }
 
+            // 更新会话的最后活跃时间（标记该会话为最近活跃）
+            sessionManager.updateLastActivityAt(sessionId);
+
             // 注入手动引用的规则内容（作为 system 消息）
             if (!selectedRules.isEmpty()) {
                 String workspacePath = WorkspaceContext.getCurrentFolder();

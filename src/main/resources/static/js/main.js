@@ -244,11 +244,20 @@ function init() {
   tokenMonitor.renderTrendChart();
   
   // 13. 订阅事件
+  // 防抖：消息发送后刷新会话列表（使 lastActivityAt 排序生效），避免频繁重排
+  let _debounceSessionRefresh = null;
   EventBus.on('message:sent', () => {
     chatService.invalidateMessageCache(appState.currentSessionId);
     tokenMonitor.scheduleUpdate();
     metricsPanel.updateMetrics();
     fileChangeManager.updateFileChanges(appState.currentSessionId);
+
+    // 防抖刷新会话列表：连续发多条消息时只刷新一次
+    if (_debounceSessionRefresh) clearTimeout(_debounceSessionRefresh);
+    _debounceSessionRefresh = setTimeout(() => {
+      _debounceSessionRefresh = null;
+      sessionManager?.loadSessions();
+    }, 1500);
   });
   
   EventBus.on('session:auto-name', ({ sessionId }) => {
@@ -591,9 +600,11 @@ function updateHistoryDropdown() {
   const currentInList = currentSessionId && sessions.some(s => s.id === currentSessionId);
   const allSessions = [...sessions];
   if (!currentInList && currentSessionId && sessionManager.sessionNames?.[currentSessionId]) {
+    const now = String(Date.now());
     allSessions.unshift({
       id: currentSessionId,
-      createdAt: String(Date.now()),
+      createdAt: now,
+      lastActivityAt: now,
       _isVirtual: true
     });
   }
@@ -609,13 +620,22 @@ function updateHistoryDropdown() {
   let totalCount = 0;
   const MAX_ITEMS = 40;
 
+  // 时间分类中文 → i18n key 映射
+  const CATEGORY_I18N_KEYS = {
+    '今天': 'session.today',
+    '昨天': 'session.yesterday',
+    '7天内': 'session.days7',
+    '30天内': 'session.days30',
+    '更早': 'session.earlier',
+  };
+
   for (const [category, categorySessions] of Object.entries(grouped)) {
     if (categorySessions.length === 0) continue;
     if (totalCount >= MAX_ITEMS) break;
 
     const header = document.createElement('div');
     header.className = 'chat-history-category';
-    header.textContent = category;
+    header.textContent = CATEGORY_I18N_KEYS[category] ? i18n.t(CATEGORY_I18N_KEYS[category]) : category;
     fragment.appendChild(header);
 
     for (const s of categorySessions) {

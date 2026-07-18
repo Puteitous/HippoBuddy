@@ -246,14 +246,15 @@ export function renderToolTimelineRow(tool) {
     copyBtnHtml = `<span class="tool-timeline-copy-btn" data-cmd="${escapedSummary}" onclick="event.stopPropagation();const t=this;const os=t.innerHTML;navigator.clipboard.writeText(t.getAttribute('data-cmd')).then(()=>{t.textContent='\\u2713';setTimeout(()=>t.innerHTML=os,1200)})" title="${_t('tool.bash.copyCmd')}">${copySvg}</span>`;
   }
 
-  // 查看变更按钮（edit_file/write_file 成功时显示）
+  // 查看变更按钮（edit_file/write_file 预先占位，成功后才可见）
   let viewBtnHtml = '';
-  if (status === 'success' && (name === 'edit_file' || name === 'write_file')) {
+  if (name === 'edit_file' || name === 'write_file') {
     const args = parseToolArgs(tool.args);
     const fp = args.path || '';
     if (fp) {
       const jsFp = fp.replace(/\\/g, '/');
-      viewBtnHtml = `<span class="tool-timeline-view-btn" onclick="event.stopPropagation();window.showFileDiff('${escapeHtml(jsFp)}','${escapeHtml(tool.id||'')}')">${_t('tool.default.view')}</span>`;
+      const isVisible = status === 'success';
+      viewBtnHtml = `<span class="tool-timeline-view-btn" style="visibility:${isVisible ? 'visible' : 'hidden'}" onclick="event.stopPropagation();window.showFileDiff('${escapeHtml(jsFp)}','${escapeHtml(tool.id||'')}')">${_t('tool.default.view')}</span>`;
     }
   }
 

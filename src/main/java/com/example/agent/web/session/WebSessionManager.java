@@ -338,6 +338,38 @@ public class WebSessionManager implements SessionManager {
     }
 
     /**
+     * 更新会话的最后活跃时间。
+     * 每次用户发送消息时调用，写入 session.json 的 lastActivityAt 字段。
+     */
+    public void updateLastActivityAt(String sessionId) {
+        try {
+            Path metadataFile = WorkspaceManager.getSessionMetadataFile(sessionId);
+            if (!Files.exists(metadataFile.getParent())) {
+                Files.createDirectories(metadataFile.getParent());
+            }
+
+            Map<String, Object> metadata = new HashMap<>();
+            if (Files.exists(metadataFile)) {
+                try {
+                    byte[] bytes = Files.readAllBytes(metadataFile);
+                    if (bytes.length > 0) {
+                        com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(bytes);
+                        if (node.isObject()) {
+                            metadata = objectMapper.convertValue(node, Map.class);
+                        }
+                    }
+                } catch (IOException ignored) {
+                }
+            }
+
+            metadata.put("lastActivityAt", String.valueOf(System.currentTimeMillis()));
+            objectMapper.writeValue(metadataFile.toFile(), metadata);
+        } catch (IOException e) {
+            logger.debug("更新 lastActivityAt 失败: sessionId={}", sessionId, e);
+        }
+    }
+
+    /**
      * 将会话的工作区路径持久化到 session.json。
      * 仅在会话首次创建时写入（session.json 不存在或没有 workspacePath 时），
      * 防止重启后因当前工作区变更而覆盖历史会话的归属。

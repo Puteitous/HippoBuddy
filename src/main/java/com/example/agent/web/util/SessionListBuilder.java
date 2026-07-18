@@ -53,6 +53,12 @@ public class SessionListBuilder {
                 }
             }
 
+            // 从 session.json 读取 lastActivityAt
+            String lastActivityAt = resolveLastActivityAt(entry.getKey(), null);
+            if (lastActivityAt != null) {
+                sessionInfo.put("lastActivityAt", lastActivityAt);
+            }
+
             sessionList.add(sessionInfo);
             seenIds.add(entry.getKey());
         }
@@ -86,12 +92,19 @@ public class SessionListBuilder {
                 sessionInfo.put("projectPath", projectPath);
             }
 
+            // 从 session.json 读取 lastActivityAt
+            String lastActivityAt = resolveLastActivityAt(sessionId, jsonl);
+            if (lastActivityAt != null) {
+                sessionInfo.put("lastActivityAt", lastActivityAt);
+            }
+
             sessionList.add(sessionInfo);
         }
 
         sessionList.sort((a, b) -> {
-            long ta = parseTimestamp((String) a.getOrDefault("createdAt", "0"));
-            long tb = parseTimestamp((String) b.getOrDefault("createdAt", "0"));
+            // 优先按 lastActivityAt 降序排列，没有则回退到 createdAt
+            long ta = parseTimestamp((String) a.getOrDefault("lastActivityAt", (String) a.getOrDefault("createdAt", "0")));
+            long tb = parseTimestamp((String) b.getOrDefault("lastActivityAt", (String) b.getOrDefault("createdAt", "0")));
 
             int cmp = Long.compare(tb, ta);
             if (cmp != 0) {
@@ -133,6 +146,38 @@ public class SessionListBuilder {
                     com.fasterxml.jackson.databind.JsonNode wp = node.get("workspacePath");
                     if (wp != null && !wp.asText().isBlank()) {
                         return wp.asText();
+                    }
+                }
+            } catch (IOException e) {
+                // ignore
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 从 session.json 读取 lastActivityAt 时间戳。
+     *
+     * @param sessionId 会话 ID
+     * @param jsonlPath 会话的 JSONL 文件路径，为 null 时自动计算
+     * @return lastActivityAt 时间戳字符串，没有则返回 null
+     */
+    private String resolveLastActivityAt(String sessionId, Path jsonlPath) {
+        Path sessionDir;
+        if (jsonlPath != null) {
+            sessionDir = jsonlPath.getParent();
+        } else {
+            sessionDir = com.example.agent.logging.WorkspaceManager.getSessionDir(sessionId);
+        }
+        Path metadataFile = sessionDir.resolve("session.json");
+        if (Files.exists(metadataFile)) {
+            try {
+                byte[] bytes = Files.readAllBytes(metadataFile);
+                if (bytes.length > 0) {
+                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(bytes);
+                    com.fasterxml.jackson.databind.JsonNode la = node.get("lastActivityAt");
+                    if (la != null && !la.asText().isBlank()) {
+                        return la.asText();
                     }
                 }
             } catch (IOException e) {

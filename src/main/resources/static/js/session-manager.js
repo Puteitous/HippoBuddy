@@ -71,7 +71,12 @@ export class SessionManager {
   /** Render a given list of sessions into the container (synchronous) */
   renderSessionList(sessions) {
     this.sessions = sessions;
-    this.sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    // 按 lastActivityAt 降序排列，没有则回退到 createdAt
+    this.sessions.sort((a, b) => {
+      const ta = parseInt(a.lastActivityAt || a.createdAt, 10) || 0;
+      const tb = parseInt(b.lastActivityAt || b.createdAt, 10) || 0;
+      return tb - ta;
+    });
     this._ensureGroupToggle();
     this._resetRenderer();
     this._rows = this._computeRows();
@@ -136,7 +141,7 @@ export class SessionManager {
       const projectPath = rawProjectPath;
       let latestTime = 0;
       for (const s of sessions) {
-        const ts = parseInt(s.createdAt, 10);
+        const ts = parseInt(s.lastActivityAt || s.createdAt, 10);
         if (!isNaN(ts) && ts > latestTime) latestTime = ts;
       }
       const dirName = projectPath
@@ -169,10 +174,10 @@ export class SessionManager {
 
       if (this._collapsedProjects.has(project.projectPath || '__other__')) continue;
 
-      // Sort sessions by createdAt descending within project
+      // Sort sessions by lastActivityAt descending within project
       const sorted = [...project.sessions].sort((a, b) => {
-        const ta = parseInt(a.createdAt, 10) || 0;
-        const tb = parseInt(b.createdAt, 10) || 0;
+        const ta = parseInt(a.lastActivityAt || a.createdAt, 10) || 0;
+        const tb = parseInt(b.lastActivityAt || b.createdAt, 10) || 0;
         return tb - ta;
       });
 
@@ -454,7 +459,8 @@ export class SessionManager {
     };
 
     for (const s of sessions) {
-      const ts = parseInt(s.createdAt, 10);
+      // 优先用 lastActivityAt 分组，没有则回退到 createdAt
+      const ts = parseInt(s.lastActivityAt || s.createdAt, 10);
       if (isNaN(ts)) {
         groups['更早'].push(s);
         continue;

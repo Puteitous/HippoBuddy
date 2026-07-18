@@ -1136,6 +1136,11 @@
     flex-shrink: 0;
     font-size: 11px;
     line-height: 1;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 /* ── Timeline 查看变更按钮 ── */
@@ -1286,11 +1291,6 @@
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
     padding: 4px 0;
-}
-
-.tool-timeline-status {
-    display: flex;
-    align-items: center;
 }
 
 .tool-timeline-status.success svg {
