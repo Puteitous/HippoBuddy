@@ -102,4 +102,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ===== 原生通知 =====
   showNotification: (title, body, icon) =>
     ipcRenderer.invoke('notification:show', { title, body, icon }),
+
+  // ===== 主题同步 =====
+  getTheme: () => ipcRenderer.invoke('theme:get'),
+  setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
+
+  // ===== Splash 启动画面 =====
+  splashRetry: () => ipcRenderer.invoke('splash:retry'),
 });

@@ -101,8 +101,9 @@ export class MetricsPanel {
     const history = this._latencyHistory;
     
     if (history.length < 2) {
-      container.innerHTML = `<div class="metrics-trend-empty">等待更多数据...</div>`;
-      if (countEl) countEl.textContent = `${history.length} 次记录`;
+      const msg = window.i18n ? window.i18n.t('tokenPanel.waiting') : '等待更多数据...';
+      container.innerHTML = `<div class="metrics-trend-empty">${msg}</div>`;
+      if (countEl) countEl.textContent = (history.length || 0) + (window.i18n ? window.i18n.t('tokenPanel.records') : ' 次记录');
       return;
     }
     

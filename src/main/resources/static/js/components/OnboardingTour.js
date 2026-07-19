@@ -138,12 +138,197 @@ export class OnboardingTour {
     localStorage.removeItem(STORAGE_KEY);
   }
 
-  // ── 初始化 ──
+  // ── 初始化：先展示欢迎设置面板 ──
   _init() {
     this._active = true;
     this.currentIndex = 0;
-    this._createOverlay();
-    this._renderStep(0);
+    this._showWelcomeSettings();
+  }
+
+  // ── 欢迎设置面板（语言 + 排版选择） ──
+  _showWelcomeSettings() {
+    const $t = (k) => window.i18n ? window.i18n.t(k) : k;
+
+    // 当前值
+    const savedLang = window.i18n ? window.i18n.currentLang : 'zh';
+    const savedLayout = localStorage.getItem('hippo-layout') || 'preview-left';
+
+    // 创建遮罩
+    const overlay = document.createElement('div');
+    overlay.className = 'ob-welcome-overlay';
+    overlay.id = 'obWelcomeOverlay';
+
+    overlay.innerHTML = `
+      <div class="ob-welcome-panel">
+        <div class="ob-welcome-title">${$t('onboarding.welcome')}</div>
+        <div class="ob-welcome-sub">${$t('onboarding.welcomeSub')}</div>
+
+        <!-- 语言选择 -->
+        <div class="ob-welcome-section">
+          <div class="ob-welcome-section-label">${$t('onboarding.welcomeLang')}</div>
+          <div class="ob-welcome-toggle-group" id="obWelcomeLang">
+            <button class="ob-welcome-toggle-btn" data-value="zh">中文</button>
+            <button class="ob-welcome-toggle-btn" data-value="en">English</button>
+          </div>
+        </div>
+
+        <!-- 排版选择 -->
+        <div class="ob-welcome-section">
+          <div class="ob-welcome-section-label">${$t('onboarding.welcomeLayout')}</div>
+          <div class="ob-welcome-toggle-group" id="obWelcomeLayout">
+            <button class="ob-welcome-toggle-btn" data-value="preview-left">
+              <span class="ob-preview-label">${$t('onboarding.layoutPreviewLeft')}</span>
+            </button>
+            <button class="ob-welcome-toggle-btn" data-value="chat-left">
+              <span class="ob-preview-label">${$t('onboarding.layoutChatLeft')}</span>
+            </button>
+          </div>
+          <!-- 布局动画预览 -->
+          <div class="ob-layout-preview has-preview-left" id="obLayoutPreview">
+            <div class="ob-preview-left">
+              <div class="preview-header">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <span class="title-tag">EDITOR</span>
+              </div>
+              <div class="code-line"></div>
+              <div class="code-line highlight"></div>
+              <div class="code-line"></div>
+              <div class="code-line"></div>
+            </div>
+            <div class="ob-preview-right">
+              <div class="chat-bubble incoming">✨ 我来帮你写这段代码</div>
+              <div class="chat-bubble outgoing">帮我优化这个函数</div>
+              <div class="chat-label">${$t('onboarding.layoutChatLeft')}</div>
+            </div>
+          </div>
+          <!-- 布局提示 -->
+          <div class="ob-layout-hint" id="obLayoutHint">
+            <span class="hint-icon">💡</span>
+            <span class="hint-text">${$t('onboarding.layoutHintPreviewLeft')}</span>
+          </div>
+        </div>
+
+        <!-- 开始按钮 -->
+        <button class="ob-welcome-start-btn" id="obWelcomeStart">${$t('onboarding.start')}</button>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    this._elements.welcomeOverlay = overlay;
+
+    // ── 语言切换 ──
+    const langBtns = overlay.querySelectorAll('#obWelcomeLang .ob-welcome-toggle-btn');
+    langBtns.forEach(btn => {
+      if (btn.dataset.value === savedLang) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        langBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const lang = btn.dataset.value;
+        if (window.i18n) {
+          window.i18n.setLang(lang);
+          // 重新渲染面板以刷新文本
+          this._reRenderWelcomeSettings();
+        }
+      });
+    });
+
+    // ── 排版切换 ──
+    const layoutBtns = overlay.querySelectorAll('#obWelcomeLayout .ob-welcome-toggle-btn');
+    const previewEl = overlay.querySelector('#obLayoutPreview');
+    const hintEl = overlay.querySelector('#obLayoutHint .hint-text');
+    layoutBtns.forEach(btn => {
+      if (btn.dataset.value === savedLayout) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        layoutBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const layout = btn.dataset.value;
+        // 切换预览动画
+        previewEl.className = 'ob-layout-preview';
+        previewEl.classList.add('has-' + layout);
+        // 切换提示文字
+        if (hintEl) {
+          hintEl.textContent = layout === 'preview-left'
+            ? $t('onboarding.layoutHintPreviewLeft')
+            : $t('onboarding.layoutHintChatLeft');
+        }
+        // 保存但不立即应用（等开始导览时统一应用）
+      });
+    });
+
+    // ── 开始导览 ──
+    overlay.querySelector('#obWelcomeStart').addEventListener('click', () => {
+      this._applyWelcomeSettings();
+      overlay.remove();
+      this._elements.welcomeOverlay = null;
+      // 创建聚光灯环境并开始导览
+      this._createOverlay();
+      this._renderStep(0);
+    });
+  }
+
+  // ── 重新渲染欢迎面板（语言切换后刷新文本） ──
+  _reRenderWelcomeSettings() {
+    const overlay = this._elements.welcomeOverlay;
+    if (!overlay) return;
+    const $t = (k) => window.i18n ? window.i18n.t(k) : k;
+    const currentLayout = overlay.querySelector('#obWelcomeLayout .active')?.dataset.value || 'preview-left';
+
+    // 更新标题
+    overlay.querySelector('.ob-welcome-title').textContent = $t('onboarding.welcome');
+    overlay.querySelector('.ob-welcome-sub').textContent = $t('onboarding.welcomeSub');
+    overlay.querySelectorAll('.ob-welcome-section-label')[0].textContent = $t('onboarding.welcomeLang');
+    overlay.querySelectorAll('.ob-welcome-section-label')[1].textContent = $t('onboarding.welcomeLayout');
+
+    // 更新语言按钮
+    const langBtns = overlay.querySelectorAll('#obWelcomeLang .ob-welcome-toggle-btn');
+    langBtns[0].textContent = '中文';
+    langBtns[1].textContent = 'English';
+
+    // 更新排版按钮标签（纯文字，无 SVG）
+    const layoutBtns = overlay.querySelectorAll('#obWelcomeLayout .ob-welcome-toggle-btn');
+    layoutBtns[0].querySelector('.ob-preview-label').textContent = $t('onboarding.layoutPreviewLeft');
+    layoutBtns[1].querySelector('.ob-preview-label').textContent = $t('onboarding.layoutChatLeft');
+
+    // 更新预览区聊天标签
+    const preview = overlay.querySelector('#obLayoutPreview');
+    const chatLabel = preview.querySelector('.chat-label');
+    if (chatLabel) chatLabel.textContent = $t('onboarding.layoutChatLeft');
+    // 确保预览状态正确
+    preview.className = 'ob-layout-preview has-' + currentLayout;
+
+    // 更新布局提示
+    const hintText = overlay.querySelector('#obLayoutHint .hint-text');
+    if (hintText) {
+      hintText.textContent = currentLayout === 'preview-left'
+        ? $t('onboarding.layoutHintPreviewLeft')
+        : $t('onboarding.layoutHintChatLeft');
+    }
+
+    // 更新开始按钮
+    overlay.querySelector('#obWelcomeStart').textContent = $t('onboarding.start');
+  }
+
+  // ── 应用欢迎设置 ──
+  _applyWelcomeSettings() {
+    const overlay = this._elements.welcomeOverlay;
+    if (!overlay) return;
+
+    // 读取语言选择
+    const activeLang = overlay.querySelector('#obWelcomeLang .active');
+    if (activeLang && window.i18n) {
+      window.i18n.setLang(activeLang.dataset.value);
+    }
+
+    // 读取排版选择
+    const activeLayout = overlay.querySelector('#obWelcomeLayout .active');
+    if (activeLayout) {
+      const layout = activeLayout.dataset.value;
+      localStorage.setItem('hippo-layout', layout);
+      const mainContainer = document.querySelector('.main-container');
+      if (mainContainer) {
+        mainContainer.classList.toggle('layout-chat-first', layout === 'chat-left');
+      }
+    }
   }
 
   // ── 创建遮罩 ──
@@ -225,8 +410,8 @@ export class OnboardingTour {
       <div class="ob-tooltip-actions">
         <span class="ob-step-counter">${stepIndex + 1} / ${this.steps.length}</span>
         <div class="ob-btn-group">
-          ${prevBtnHtml}
           <button class="ob-btn ob-btn-skip" id="obSkipBtn">${$t('onboarding.skip')}</button>
+          ${prevBtnHtml}
           <button class="ob-btn ob-btn-next" id="obNextBtn">${stepIndex < this.steps.length - 1 ? $t('onboarding.next') : $t('onboarding.done')}</button>
         </div>
       </div>
@@ -475,6 +660,10 @@ export class OnboardingTour {
 
   _cleanup() {
     this._removeDynamicElements();
+    if (this._elements.welcomeOverlay) {
+      this._elements.welcomeOverlay.remove();
+      this._elements.welcomeOverlay = null;
+    }
     if (this._elements.overlay) {
       this._elements.overlay.remove();
       this._elements.overlay = null;

@@ -22,7 +22,6 @@ import { EventBus } from './utils/event-bus.js';
 import { showToast } from './utils/toast.js';
 import { generateSessionId, apiGet, apiPost } from './utils.js';
 import { renderMarkdown } from './markdown-renderer.js';
-import { SplashScreen } from './components/SplashScreen.js';
 import { RollbackPanel } from './components/RollbackPanel.js';
 import { initSelectionActions } from './components/selection-actions.js';
 import { ActivityBar } from './components/ActivityBar.js';
@@ -53,7 +52,6 @@ let chatNav;
 let tokenMonitor;
 let metricsPanel;
 let fileChangeManager;
-let splashScreen;
 let rollbackPanel;
 let activityBar;
 
@@ -72,17 +70,11 @@ const elements = {
   promptModalSave: document.getElementById('promptModalSave')
 };
 
-// SplashScreen 接管了启动动画控制
-
 // ========== 初始化 ==========
 function init() {
   console.log('🚀 Initializing Hippo Cockpit...');
   
-  // 0. 启动 splash 出水动画（与初始化并行）
-  splashScreen = new SplashScreen();
-  splashScreen.startAnimation();
-  
-  // 0.1 初始化 Activity Bar
+  // 0. 初始化 Activity Bar
   activityBar = new ActivityBar();
   
   // 注册 Token 面板（克隆模板内容）
@@ -189,6 +181,12 @@ function init() {
   // 7.2 加载当前模型配置到快速切换器
   loadQuickModelConfig();
 
+  // 语言切换时刷新模型选择按钮 + 预设提示词标签文本
+  window.addEventListener('i18n:change', () => {
+    loadQuickModelConfig();
+    chatPanel?._syncModeUI(appState.getMode());
+  });
+
   // 7.3 初始化会话面板标题（i18n）
   const sessionTitleEl = document.getElementById('sessionHeaderTitle');
   if (sessionTitleEl) {
@@ -229,6 +227,8 @@ function init() {
         console.warn('恢复上次会话失败，创建新会话:', e);
       }
     }
+    // 走到这里说明没有会话可恢复或恢复失败，恢复 hero 显示
+    document.getElementById('skip-hero-style')?.remove();
     currentSessionId = generateSessionId();
     sessionManager.setCurrentSession(currentSessionId);
     appState.currentSessionId = currentSessionId;
@@ -345,12 +345,8 @@ function init() {
     }
   }
 
-  // 15. 安排 splash 结束 + 页面内容渐入
-  splashScreen.scheduleCleanup();
-  
-  // 16. 新手指引（首次启动时展示）
+  // 15. 新手指引（首次启动时展示）
   const onboardingTour = new OnboardingTour();
-  // 延迟启动，等 splash 动画完成、DOM 完全就绪
   setTimeout(() => onboardingTour.start(), 3000);
   
   console.log('✅ Hippo Cockpit initialized');
@@ -361,6 +357,20 @@ const ICON_SUN  = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 
 // ========== 主题管理 ==========
 function initTheme() {
+  // 尝试从 Electron 已保存的主题同步（保证与 splash 一致）
+  const electronThemePromise = window.electronAPI?.getTheme
+    ? window.electronAPI.getTheme().then(t => {
+        if (t === 'dark' || t === 'light' || t === 'midnight') {
+          // 仅当 localStorage 未显式保存时才同步覆盖
+          const fromLS = localStorage.getItem('hippo-theme');
+          if (!fromLS || fromLS === 'light') {
+            appState.setState('currentTheme', t);
+          }
+        }
+      }).catch(() => {})
+    : Promise.resolve();
+
+  // 立即应用当前主题（localStorage 优先），IPC 完成后再校正
   const savedTheme = appState.getTheme();
   document.documentElement.setAttribute('data-theme', savedTheme);
   elements.themeToggle.innerHTML = savedTheme === 'dark' || savedTheme === 'midnight' ? ICON_SUN : ICON_MOON;
@@ -371,6 +381,20 @@ function initTheme() {
     document.documentElement.setAttribute('data-theme', theme);
     elements.themeToggle.innerHTML = theme === 'dark' || theme === 'midnight' ? ICON_SUN : ICON_MOON;
     applyHljsTheme(theme);
+    // 同步到 Electron（下次启动 splash 时保持一致）
+    if (window.electronAPI?.setTheme) {
+      window.electronAPI.setTheme(theme);
+    }
+  });
+
+  // IPC 完成后如果有校正，重新应用
+  electronThemePromise.then(() => {
+    const corrected = appState.getTheme();
+    if (corrected !== savedTheme) {
+      document.documentElement.setAttribute('data-theme', corrected);
+      elements.themeToggle.innerHTML = corrected === 'dark' || corrected === 'midnight' ? ICON_SUN : ICON_MOON;
+      applyHljsTheme(corrected);
+    }
   });
 }
 
@@ -393,7 +417,6 @@ function bindGlobalEvents() {
     applyHljsTheme(next);
   });
 
-  
   // 聊天面板头部 - 新建会话
   document.getElementById('chatNewBtn')?.addEventListener('click', createNewSession);
   
@@ -670,6 +693,9 @@ function updateHistoryDropdown() {
 
 // ========== 会话管理 ==========
 async function createNewSession() {
+  // 刷新后 hero 被 skip-hero-style 隐藏了，新建会话时恢复
+  document.getElementById('skip-hero-style')?.remove();
+
   currentSessionId = await sessionManager.createNewSession();
   appState.currentSessionId = currentSessionId; // 同步到 appState
   chatUI.clear();
@@ -697,6 +723,11 @@ async function createNewSession() {
   // 清空前会话的文件变更缓存
   if (fileChangeManager) fileChangeManager._lastChangeSnapshot = null;
   fileChangeManager?.updateFileChanges(currentSessionId);
+
+  // 重置 token 状态栏显示（新会话尚无 token 数据）
+  const tokenValueEl = document.getElementById('statusBarTokenValue');
+  if (tokenValueEl) tokenValueEl.textContent = '0%';
+  tokenMonitor.updateTokenStats();
 }
 
 async function switchSession(sessionId) {
@@ -735,8 +766,11 @@ async function switchSession(sessionId) {
           <div class="empty-hero-mode-selector" id="heroModeSelector">
             <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
               <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
-                <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
+                <svg class="mode-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M44 7H4V37H11V42L21 37H44V7Z"/>
+                  <path d="M31 16V17"/>
+                  <path d="M17 16V17"/>
+                  <path d="M31 25C31 25 29 29 24 29C19 29 17 25 17 25"/>
                 </svg>
                 Chat
               </button>
@@ -833,8 +867,11 @@ async function switchSession(sessionId) {
         <div class="empty-hero-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
             <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
-              <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
+              <svg class="mode-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M44 7H4V37H11V42L21 37H44V7Z"/>
+                <path d="M31 16V17"/>
+                <path d="M17 16V17"/>
+                <path d="M31 25C31 25 29 29 24 29C19 29 17 25 17 25"/>
               </svg>
               Chat
             </button>

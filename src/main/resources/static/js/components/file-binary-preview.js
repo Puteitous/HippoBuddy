@@ -596,7 +596,7 @@ export class BinaryPreview {
 
       // 更新全局状态栏
       const warnCount = result.messages ? result.messages.length : 0;
-      updateStatusbarText(warnCount > 0 ? `DOCX · ⚠ ${warnCount} 条警告` : 'DOCX');
+      updateStatusbarText(warnCount > 0 ? `DOCX · ⚠ ${warnCount}` + (window.i18n ? window.i18n.t('preview.warnings') : ' 条警告') : 'DOCX');
 
     } catch (err) {
       console.error('BinaryPreview: docx parse failed', filePath, err);
@@ -694,7 +694,7 @@ export class BinaryPreview {
         }
       }, { passive: false });
 
-      updateStatusbarText(`DOCX (Silurus) · ${viewer.pageCount} 页`);
+      updateStatusbarText(`DOCX (Silurus) · ${viewer.pageCount}` + (window.i18n ? window.i18n.t('preview.pages') : ' 页'));
       container._silurusDoc = viewer;
 
       const cleanupObserver = new MutationObserver(() => {
@@ -754,7 +754,7 @@ export class BinaryPreview {
       _pptxScale = 1;
 
       // 更新全局状态栏
-      updateStatusbarText(`PPTX · ${totalSlides} 页`);
+      updateStatusbarText(`PPTX · ${totalSlides}` + (window.i18n ? window.i18n.t('preview.pages') : ' 页'));
 
       // ── 构建 UI ──
       const container = this._container;
@@ -1067,7 +1067,7 @@ export class BinaryPreview {
         }
       }, { passive: false });
 
-      updateStatusbarText(`PPTX (Silurus) · ${viewer.slideCount} 页`);
+      updateStatusbarText(`PPTX (Silurus) · ${viewer.slideCount}` + (window.i18n ? window.i18n.t('preview.pages') : ' 页'));
       container._silurusPres = viewer;
 
       const cleanupObserver = new MutationObserver(() => {

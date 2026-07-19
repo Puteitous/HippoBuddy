@@ -11,7 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/common.css?v=20260527-1">
     <link rel="stylesheet" href="css/cockpit.css?v=20260623-1">
-    <link rel="stylesheet" href="css/components/splash.css?v=20260527-1">
+    <!-- 刷新页面时跳过 hero 闪烁（有上次会话时在渲染前隐藏 .empty-state） -->
+    <script>if(new URLSearchParams(location.search).get('skipSplash')&&localStorage.getItem('hippo-last-session-id')){var s=document.createElement('style');s.id='skip-hero-style';s.textContent='.empty-state{display:none}';document.head.appendChild(s)}</script>
     <link rel="stylesheet" href="css/components/session.css?v=20260527-1">
     <link rel="stylesheet" href="css/components/chat-panel.css?v=20260527-2">
     <link rel="stylesheet" href="css/components/tool-cards.css?v=20260527-2">
@@ -40,7 +41,7 @@
     <script defer src="js/vendor/mhchem.min.js"></script>
     <script defer src="js/mermaid-renderer.js"></script>
 </head>
-<body class="page-loading">
+<body>
     <!-- SVG 全局图标定义 -->
     <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -63,27 +64,6 @@
             </g>
         </defs>
     </svg>
-    <!-- ===== 启动 Splash：河马出水 ===== -->
-    <div class="splash-screen" id="splashScreen">
-        <div class="splash-hippo" id="splashHippo"><svg viewBox="0 0 64 64"><use href="#hippoIcon"/></svg></div>
-        <div class="splash-wave-wrap">
-            <div class="splash-wave splash-wave-back"></div>
-            <div class="splash-wave splash-wave-front"></div>
-        </div>
-        <div class="splash-skip-hint" id="splashSkipHint" data-i18n="html.splash.skip">点击任意处跳过</div>
-    </div>
-    <script>
-    // 兜底：5 秒后自动隐藏 splash + 移除 page-loading，防止模块加载失败卡死页面
-    setTimeout(function(){
-      var s = document.getElementById('splashScreen');
-      if (s && !s.classList.contains('splash-hidden')) {
-        s.classList.add('splash-hidden');
-        setTimeout(function(){ s.style.display = 'none'; }, 600);
-        document.body.classList.remove('page-loading');
-        console.warn('[safety] Splash auto-dismissed after timeout');
-      }
-    }, 5000);
-    </script>
 
     <!-- 顶部栏 -->
     <div class="header">
@@ -416,8 +396,11 @@
                     <div class="empty-hero-mode-selector" id="heroModeSelector">
                         <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
                             <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
-                                <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
+                                <svg class="mode-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M44 7H4V37H11V42L21 37H44V7Z"/>
+                                    <path d="M31 16V17"/>
+                                    <path d="M17 16V17"/>
+                                    <path d="M31 25C31 25 29 29 24 29C19 29 17 25 17 25"/>
                                 </svg>
                                 <span>Chat</span>
                             </button>
@@ -887,8 +870,6 @@
           'promptModalSave':         'promptModal.apply',
           'heroInput':               'chat.heroPlaceholder',
           'messageInput':            'chat.placeholder',
-          'heroModelQuickSelect':    'chat.loading',
-          'modelQuickSelect':        'chat.loading',
           'deleteConfirmModalText':  'deleteConfirm.message',
           'deleteConfirmCancel':     'deleteConfirm.cancel',
           'deleteConfirmOk':         'deleteConfirm.confirm',

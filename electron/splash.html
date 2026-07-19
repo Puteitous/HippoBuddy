@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HippoBuddy 启动中...</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #edeff2;
+    --wave-front: rgba(79,172,254,0.55);
+    --wave-back: rgba(79,172,254,0.30);
+    --wave-front-end: rgba(79,172,254,0.18);
+    --wave-back-end: rgba(79,172,254,0.08);
+    --text: #3a3a3a;
+    --muted: #999;
+    --spinner: #4facfe;
+  }
+
+  [data-theme="dark"],
+  [data-theme="midnight"] {
+    --bg: #1a1b1e;
+    --wave-front: rgba(25,75,140,0.55);
+    --wave-back: rgba(25,75,140,0.35);
+    --wave-front-end: rgba(25,75,140,0.20);
+    --wave-back-end: rgba(25,75,140,0.12);
+    --text: #c9d1d9;
+    --muted: #6e7681;
+    --spinner: #58a6ff;
+  }
+
+  body {
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    user-select: none;
+    -webkit-app-region: drag;
+  }
+
+  /* === 主容器 === */
+  .splash-container {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* === 河马图标 === */
+  .hippo-wrap {
+    display: inline-block;
+    position: relative;
+    transform: translateY(32vh);
+    transition: transform 1.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    filter: drop-shadow(0 8px 32px rgba(0,0,0,0.10));
+  }
+
+  .hippo-wrap.animate {
+    transform: translateY(0);
+  }
+
+  .hippo-wrap svg {
+    width: 130px;
+    height: 130px;
+    display: block;
+  }
+
+  /* === 标签文字 === */
+  .brand-label {
+    margin-top: 20px;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.02em;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    transition-delay: 0.6s;
+  }
+
+  .brand-label.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .brand-label .highlight {
+    color: #4f7cff;
+  }
+
+  /* === 加载状态 === */
+  .status-row {
+    margin-top: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    transition-delay: 1.0s;
+    -webkit-app-region: no-drag;
+  }
+
+  .status-row.show {
+    opacity: 1;
+  }
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--muted);
+    border-top-color: var(--spinner);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .status-text {
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+  }
+
+  /* === 波浪 === */
+  .wave-wrap {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 38vh;
+    z-index: 0;
+    overflow: hidden;
+    transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-delay: 0.2s;
+  }
+
+  .wave-wrap.done {
+    height: 0;
+  }
+
+  .wave {
+    position: absolute;
+    bottom: 0;
+    width: 200%;
+    height: 100%;
+    border-radius: 40% 60% 0 0 / 100% 100% 0 0;
+    transform-origin: bottom center;
+  }
+
+  .wave-back {
+    left: -50%;
+    background: linear-gradient(180deg, var(--wave-back) 0%, var(--wave-back-end) 100%);
+    animation: wave-move 4s ease-in-out infinite alternate;
+  }
+
+  .wave-front {
+    left: -25%;
+    background: linear-gradient(180deg, var(--wave-front) 0%, var(--wave-front-end) 100%);
+    animation: wave-move 3s ease-in-out infinite alternate-reverse;
+  }
+
+  @keyframes wave-move {
+    0%   { transform: translateX(0) scaleY(1); }
+    50%  { transform: translateX(-6%) scaleY(0.92); }
+    100% { transform: translateX(-12%) scaleY(1.06); }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* === 错误状态 === */
+  .error-status {
+    margin-top: 16px;
+    color: #e74c3c;
+    font-size: 13px;
+    max-width: 360px;
+    line-height: 1.5;
+    display: none;
+    -webkit-app-region: no-drag;
+  }
+
+  .error-status.show {
+    display: block;
+  }
+
+  .retry-btn {
+    margin-top: 12px;
+    padding: 6px 20px;
+    background: #4f7cff;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    transition: background 0.2s;
+  }
+
+  .retry-btn:hover {
+    background: #3a66e0;
+  }
+
+  .retry-btn:active {
+    background: #2d52c0;
+  }
+</style>
+</head>
+<body>
+
+<div class="splash-container">
+  <!-- 河马图标 -->
+  <div class="hippo-wrap" id="hippoWrap">
+    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+      <path d="m42 9h20l-.859 4.293a5.332 5.332 0 0 1-.463 1.351 5.38 5.38 0 0 1-5.407 2.942l-1.071-.119-6.559-.91z" fill="#786C68"/>
+      <path d="m55.271 17.586-1.071-.119-6.559-.91-2.653-3.557h16.212l-.059.293a5.332 5.332 0 0 1-.463 1.351 5.38 5.38 0 0 1-5.407 2.942z" fill="#69574F"/>
+      <path d="m22 9h-20l.859 4.293a5.332 5.332 0 0 0 .463 1.351 5.38 5.38 0 0 0 5.407 2.942l1.071-.119 6.559-.91z" fill="#786C68"/>
+      <path d="m8.729 17.586 1.071-.119 6.559-.91 2.653-3.557h-16.212l.059.293a5.332 5.332 0 0 0 .463 1.351 5.38 5.38 0 0 0 5.407 2.942z" fill="#69574F"/>
+      <path d="m6.005 30.51a26 26 0 0 1 51.99 0" fill="#786C68"/>
+      <path d="m32 5c-.555 0-1.105.023-1.652.058-5.424 3.569-8.828 8.709-8.828 14.423a15.969 15.969 0 0 0 4.736 11.029h31.744a26 26 0 0 0-26-25.51z" fill="#766F6B"/>
+      <path d="m27.323 21.23c1.524-.152 3.086-.23 4.677-.23s3.153.078 4.677.23a6 6 0 0 1 11.323 2.695c8.412 3.365 14 9.307 14 16.075 0 10.493-13.431 19-30 19s-30-8.507-30-19c0-6.768 5.588-12.71 14-16.075a6 6 0 0 1 11.323-2.695z" fill="#E2C8E4"/>
+      <path d="m48 23.925a6 6 0 0 0-11.323-2.695c-1.524-.152-3.086-.23-4.677-.23s-3.153.078-4.677.23a6 6 0 0 0-11.323 2.695c-.3.12-.588.251-.882.377a44.541 44.541 0 0 0-.558 7.013 40.734 40.734 0 0 0 9.772 27.056 46.578 46.578 0 0 0 7.668.629c16.569 0 30-8.507 30-19 0-6.768-5.588-12.71-14-16.075z" fill="#E3CCE5"/>
+      <g fill="#3A2727">
+        <path d="m24 13h5v2h-5z"/>
+        <path d="m35 13h5v2h-5z"/>
+        <circle cx="22" cy="24" r="2"/>
+        <circle cx="42" cy="24" r="2"/>
+        <path d="m36 54a5 5 0 0 1-4-2 5 5 0 0 1-9-3h2a3 3 0 0 0 6 0 1 1 0 0 1 2 0 3 3 0 0 0 6 0h2a5.006 5.006 0 0 1-5 5z"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 品牌名称 -->
+  <div class="brand-label" id="brandLabel">
+    <span class="highlight">Hippo</span>Buddy
+  </div>
+
+  <!-- 加载状态 -->
+  <div class="status-row" id="statusRow">
+    <div class="spinner"></div>
+    <span class="status-text" id="statusText">Starting...</span>
+  </div>
+
+  <!-- 错误信息 -->
+  <div class="error-status" id="errorStatus"></div>
+</div>
+
+<!-- 波浪 -->
+<div class="wave-wrap" id="waveWrap">
+  <div class="wave wave-back"></div>
+  <div class="wave wave-front"></div>
+</div>
+
+<script>
+(function() {
+  // 主题优先级：URL 参数（来自 Electron 主进程）> 系统偏好
+  const params = new URLSearchParams(window.location.search);
+  const urlTheme = params.get('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = urlTheme || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+
+  // === 河马出水动画 ===
+  const hippo = document.getElementById('hippoWrap');
+  const brand = document.getElementById('brandLabel');
+  const statusRow = document.getElementById('statusRow');
+  const statusText = document.getElementById('statusText');
+  const errorStatus = document.getElementById('errorStatus');
+  const waveWrap = document.getElementById('waveWrap');
+
+  // 在 splash 出现后立即做上升动画
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      hippo.classList.add('animate');
+      // 等河马上升动画完成后显示品牌名
+      setTimeout(() => brand.classList.add('show'), 400);
+      // 再显示加载状态
+      setTimeout(() => statusRow.classList.add('show'), 800);
+    });
+  });
+
+  // === 暴露 API 供 Electron 主进程调用 ===
+  // 更新状态文本
+  window.__updateStatus = function(text) {
+    statusText.textContent = text;
+  };
+
+  // 显示错误（隐藏 spinner，显示错误信息和重试按钮）
+  window.__showError = function(msg) {
+    statusRow.classList.remove('show');
+    errorStatus.textContent = msg;
+    errorStatus.classList.add('show');
+    // 添加重试按钮
+    const btn = document.createElement('button');
+    btn.className = 'retry-btn';
+    btn.textContent = 'Retry';
+    btn.addEventListener('click', () => {
+      errorStatus.classList.remove('show');
+      errorStatus.textContent = '';
+      const existingBtn = errorStatus.querySelector('.retry-btn');
+      if (existingBtn) existingBtn.remove();
+      statusRow.classList.add('show');
+      statusText.textContent = 'Retrying...';
+      // 通知主进程重试
+      if (window.__onRetry) window.__onRetry();
+    });
+    errorStatus.appendChild(btn);
+  };
+
+  // 隐藏波浪（切换到主界面时的收尾动画）
+  window.__hideWaves = function() {
+    waveWrap.classList.add('done');
+  };
+
+  // 显示就绪状态（隐藏 spinner，显示 Ready 文字）
+  window.__showReady = function() {
+    const spinner = statusRow.querySelector('.spinner');
+    if (spinner) spinner.style.display = 'none';
+    statusText.textContent = 'Ready ✓';
+  };
+
+  // 注册重试回调 — 通过 Electron IPC 通知主进程
+  window.__onRetry = function() {
+    if (window.electronAPI && window.electronAPI.splashRetry) {
+      window.electronAPI.splashRetry();
+    }
+  };
+  window.__setRetryHandler = function(fn) {
+    window.__onRetry = fn;
+  };
+})();
+</script>
+</body>
+</html>

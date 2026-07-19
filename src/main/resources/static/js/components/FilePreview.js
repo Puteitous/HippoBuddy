@@ -781,7 +781,7 @@ export class FilePreview {
       // 行数
       if (this._view) {
         const lineCount = this._view.state.doc.lines;
-        parts.push(`${lineCount} 行`);
+        parts.push(lineCount + (window.i18n ? window.i18n.t('preview.lines') : ' 行'));
       }
     }
 

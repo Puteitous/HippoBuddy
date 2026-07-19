@@ -35,8 +35,11 @@ export class ChatUI {
         <div class="empty-hero-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
             <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
-              <svg class="mode-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z"/>
+              <svg class="mode-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M44 7H4V37H11V42L21 37H44V7Z"/>
+                <path d="M31 16V17"/>
+                <path d="M17 16V17"/>
+                <path d="M31 25C31 25 29 29 24 29C19 29 17 25 17 25"/>
               </svg>
               Chat
             </button>

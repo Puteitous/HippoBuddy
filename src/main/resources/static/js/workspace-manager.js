@@ -205,15 +205,15 @@ const HippoWorkspace = (() => {
       }
     }
 
-    // 恢复回调
-    fileTabs._onTabSelect = savedCallback;
-
-    // 切换到激活的文件
+    // 切换到激活的文件（此时 _onTabSelect 仍为空函数，避免误触 handleTabSelect 清除折叠标记）
     if (session.activeFile && files.includes(session.activeFile)) {
       await fileTabs._selectTab(session.activeFile);
     } else {
       await fileTabs._selectTab(files[files.length - 1]);
     }
+
+    // 恢复回调（放在 _selectTab 之后，防止切换时误触 handleTabSelect 清除折叠状态）
+    fileTabs._onTabSelect = savedCallback;
 
     // 显式触发预览（_selectTab 在目标已是 activePath 时会提前返回，不触发回调）
     const target = session.activeFile && files.includes(session.activeFile)
@@ -535,6 +535,26 @@ const HippoWorkspace = (() => {
     // 切换内容
     if (els.sessionList) {
       els.sessionList.style.display = view === 'sessions' ? '' : 'none';
+    }
+
+    // 更新 session-header 图标和标题，与当前视图保持一致
+    _updateSessionHeader(view);
+  }
+
+  /** 更新 session-header 的图标和标题文字以匹配当前视图 */
+  function _updateSessionHeader(view) {
+    const icon = document.querySelector('.session-header-icon');
+    const title = document.querySelector('.session-header-title');
+    if (!icon || !title) return;
+
+    if (view === 'files') {
+      // 文件夹图标
+      icon.innerHTML = '<path d="M2 4h5l2 2h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>';
+      title.textContent = i18n.t('session.fileBrowse');
+    } else {
+      // 会话气泡图标
+      icon.innerHTML = '<path d="M13.5 2H2.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2.5l2 2 2-2h4.5a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>';
+      title.textContent = i18n.t('session.title');
     }
   }
 

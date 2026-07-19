@@ -118,6 +118,8 @@ public class DashboardServer {
             logger.info("Hippo Cockpit: http://localhost:{}/cockpit", port);
             logger.info("Web Chat: http://localhost:{}/chat", port);
             logger.info("Memory Dashboard: http://localhost:{}/", port);
+            // 纯英文就绪标记，避免终端中文乱码导致 Electron 检测失败
+            System.out.println("[READY] DashboardServer started on port " + port);
 
             future.complete(null);
         } catch (IOException e) {

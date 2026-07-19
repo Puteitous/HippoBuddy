@@ -388,7 +388,8 @@ const HippoDesktop = (() => {
     if (refreshBtn) {
       refreshBtn.style.display = '';
       refreshBtn.addEventListener('click', () => {
-        location.reload();
+        const hasSession = (() => { try { return !!localStorage.getItem('hippo-last-session-id'); } catch { return false; } })();
+        location.href = hasSession ? '/cockpit?skipSplash=true' : '/cockpit';
       });
     }
 

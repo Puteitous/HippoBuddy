@@ -354,6 +354,15 @@
 
     /* ==================== Onboarding ==================== */
     'onboarding.welcome':          { zh: '👋 欢迎使用 HippoBuddy', en: '👋 Welcome to HippoBuddy' },
+    'onboarding.welcomeSub':       { zh: '先选好你的偏好，我们马上开始！', en: 'Set your preferences and let\'s get started!' },
+    'onboarding.welcomeLang':      { zh: '语言 / Language', en: 'Language / 语言' },
+    'onboarding.welcomeLayout':    { zh: '页面排版', en: 'Panel Layout' },
+    'onboarding.welcomeLayoutDesc': { zh: '选择你习惯的布局方式', en: 'Choose your preferred panel arrangement' },
+    'onboarding.layoutPreviewLeft': { zh: '预览区在左', en: 'Preview on Left' },
+    'onboarding.layoutChatLeft':   { zh: '聊天区在左', en: 'Chat on Left' },
+    'onboarding.layoutHintPreviewLeft': { zh: '类似 VS Code / Cursor 等经典 IDE 布局，左侧展示代码，右侧 AI 对话', en: 'Classic IDE layout like VS Code / Cursor — code on the left, AI chat on the right' },
+    'onboarding.layoutHintChatLeft':   { zh: '类似 Codex / Copilot Chat 等 AI 应用布局，左侧 AI 对话，右侧展示代码', en: 'AI-native layout like Codex / Copilot Chat — AI chat on the left, code on the right' },
+    'onboarding.start':            { zh: '开始导览 →', en: 'Start Tour →' },
     'onboarding.headerTitle':      { zh: '👋 欢迎使用 HippoBuddy', en: '👋 Welcome to HippoBuddy' },
     'onboarding.headerDesc':       { zh: '你的 AI 编程搭档，一切从顶部工具栏开始。<br><br>🔧 <b>模型配置</b>  — 切换 AI 模型与参数<br>🌙 <b>主题切换</b> — 明暗随意切换<br>📂 <b>工作区</b> — 选择项目文件夹，AI 直接读写代码<br>🛠️ <b>开发者工具</b> — 调试、刷新、窗口控制一应俱全', en: 'Your AI coding partner starts here.<br><br>🔧 <b>Model Settings</b> — Switch AI models & parameters<br>🌙 <b>Theme Toggle</b> — Light/Dark switch<br>📂 <b>Workspace</b> — Select project folder, AI reads/writes code directly<br>🛠️ <b>DevTools</b> — Debug, refresh, window controls' },
     'onboarding.chatTitle':        { zh: '💬 开始对话', en: '💬 Start Chatting' },
@@ -817,6 +826,9 @@
     'preview.tocTitle':              { zh: '目录', en: 'Table of Contents' },
     'preview.tocCollapse':           { zh: '收起目录', en: 'Collapse TOC' },
     'preview.tocExpand':             { zh: '展开目录', en: 'Expand TOC' },
+    'preview.lines':                 { zh: '行', en: ' lines' },
+    'preview.pages':                 { zh: '页', en: ' pages' },
+    'preview.warnings':              { zh: '条警告', en: ' warnings' },
 
     /* ==================== Image/PPTX Zoom ==================== */
     'preview.zoomOut':               { zh: '缩小', en: 'Zoom Out' },

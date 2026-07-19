@@ -260,6 +260,11 @@
 }
 
 /* ========== 分组方式切换按钮 ========== */
+/* 文件视图下隐藏分组切换（分组只对会话有意义） */
+.session-panel.view-files .group-mode-toggle {
+    display: none;
+}
+
 .group-mode-toggle {
     font-size: var(--font-size-xs);
     font-weight: 500;

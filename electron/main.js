@@ -14,7 +14,7 @@
  * Phase 3：移除 JCEF 代码
  */
 
-const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, nativeImage, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { fileURLToPath } = require('url');
@@ -64,6 +64,35 @@ function saveWindowState() {
 }
 
 // ============================================================================
+// 主题持久化（Electron splash 与前端共享主题偏好）
+// ============================================================================
+
+const THEME_FILE = 'theme.json';
+
+function getThemePath() {
+  return path.join(app.getPath('userData'), THEME_FILE);
+}
+
+function getSavedTheme() {
+  try {
+    const data = fs.readFileSync(getThemePath(), 'utf-8');
+    const parsed = JSON.parse(data);
+    if (parsed.theme === 'dark' || parsed.theme === 'light' || parsed.theme === 'midnight') {
+      return parsed.theme;
+    }
+  } catch { /* 文件不存在或解析失败 */ }
+  // 回退到系统主题
+  return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+}
+
+function saveTheme(theme) {
+  try {
+    fs.mkdirSync(path.dirname(getThemePath()), { recursive: true });
+    fs.writeFileSync(getThemePath(), JSON.stringify({ theme }, null, 2), 'utf-8');
+  } catch { /* 静默忽略 */ }
+}
+
+// ============================================================================
 // Java 后端进程管理
 // ============================================================================
 
@@ -80,7 +109,8 @@ function startBackend() {
       }
     });
     req.on('error', () => {
-      // 未运行 → 自启
+      // 未运行 → 先清理可能残留的后端进程，再自启
+      killStaleBackend();
       launchBackend(resolve, reject);
     });
     req.setTimeout(2000, () => { req.destroy(); reject(new Error('超时')); });
@@ -175,7 +205,7 @@ function attachBackendHandlers(proc, resolve, reject) {
   proc.stdout.on('data', (data) => {
     const text = data.toString();
     process.stdout.write(`[backend:out] ${text}`);
-    if (!resolved && (text.includes('HTTP Server 已就绪') || text.includes('Hippo Cockpit'))) {
+    if (!resolved && (text.includes('[READY]') || text.includes('DashboardServer') || text.includes('Hippo Cockpit'))) {
       resolved = true;
       console.log('[backend] Backend ready');
       resolve();
@@ -199,22 +229,50 @@ function attachBackendHandlers(proc, resolve, reject) {
 }
 
 function stopBackend() {
-  if (!backendProcess) return;
+  // 1) 优先通过已知 PID 杀进程树
+  if (backendProcess) {
+    const pid = backendProcess.pid;
+    console.log(`[backend] Stopping Java backend (PID=${pid})`);
 
-  const pid = backendProcess.pid;
-  console.log(`[backend] Stopping Java backend (PID=${pid})`);
+    if (process.platform === 'win32') {
+      require('child_process').spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+    } else {
+      try { backendProcess.kill('SIGTERM'); } catch { /* 忽略 */ }
+    }
 
-  if (process.platform === 'win32') {
-    // Windows: 用 spawnSync 确保 taskkill 完成后再退出
-    require('child_process').spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
-      stdio: 'ignore',
-      windowsHide: true,
-    });
-  } else {
-    try { backendProcess.kill('SIGTERM'); } catch { /* 忽略 */ }
+    backendProcess = null;
   }
 
-  backendProcess = null;
+  // 2) 兜底：按端口查杀（防止 cmd.exe 已退出但 Java 孤儿进程仍运行）
+  killStaleBackend();
+}
+
+/** 清理残留的后端进程（Electron 非正常退出时，后端可能变成孤儿进程） */
+function killStaleBackend() {
+  if (process.platform !== 'win32') return;
+  try {
+    // 查找占用目标端口的 java 进程
+    const { execSync } = require('child_process');
+    const raw = execSync(
+      `netstat -ano | findstr :${PORT} | findstr LISTENING`,
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 3000 }
+    );
+    const pids = new Set();
+    for (const line of raw.split('\n')) {
+      const parts = line.trim().split(/\s+/);
+      const pid = parts[parts.length - 1];
+      if (pid && /^\d+$/.test(pid)) pids.add(pid);
+    }
+    for (const pid of pids) {
+      console.log(`[backend] Killing stale process (PID=${pid})`);
+      execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', timeout: 3000 });
+    }
+  } catch {
+    // 没有残留进程或命令失败 → 正常
+  }
 }
 
 // ============================================================================
@@ -250,25 +308,30 @@ function createWindow() {
     mainWindow.maximize();
   }
 
-  const url = `http://localhost:${PORT}/cockpit`;
-  console.log(`[main] Loading: ${url}`);
-
   if (DEV) {
+    // 开发模式：直接加载后端 URL
+    const url = `http://localhost:${PORT}/cockpit`;
+    console.log(`[main] Loading: ${url}`);
     mainWindow.loadURL(url);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    tryLoadWithRetry(url);
+    // 生产模式：先加载本地 splash 页面（河马出水动画），后端就绪后自动切换
+    const splashPath = path.join(__dirname, 'splash.html');
+    // 读取保存的主题偏好，传给 splash 保持一致
+    const theme = getSavedTheme();
+    console.log(`[main] Loading splash: ${splashPath} (theme=${theme})`);
+    mainWindow.loadFile(splashPath, { query: { theme } });
   }
 
-  // ready-to-show 时正常显示窗口
+  // ready-to-show 时显示窗口
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
 
-  // 兜底：5 秒后无论后端是否就绪都显示窗口（避免窗口创建后一直 hidden）
+  // 兜底：5 秒后强制显示窗口（避免窗口一直 hidden）
   setTimeout(() => {
     if (mainWindow && !mainWindow.isVisible()) {
-      console.log('[main] Fallback: showing window (backend may not be ready yet, retrying)');
+      console.log('[main] Fallback: showing window');
       mainWindow.show();
     }
   }, 5000);
@@ -307,23 +370,59 @@ function createWindow() {
   setupAutoUpdater();
 }
 
-/** 带重试的后端连接 */
-function tryLoadWithRetry(url, retries = 60) {
-  mainWindow.loadURL(url).catch(() => {
-    if (retries > 0) {
-      console.log(`[main] Waiting for backend... (${retries} retries left)`);
-      setTimeout(() => tryLoadWithRetry(url, retries - 1), 1000);
-    } else {
-      console.error(`[main] Backend connection failed: ${url}`);
-      mainWindow.loadURL(
-        `data:text/html;charset=utf-8,` +
-        `<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:#edeff2">` +
-        `<div style="text-align:center"><h2>无法连接到后端服务</h2>` +
-        `<p>请确保 Java 后端已启动</p>` +
-        `<p style="color:#888">${url}</p></div></body></html>`
-      );
-      mainWindow.show();
+/** 设置 splash 页面与主进程的通信（状态更新 + 重试） */
+function setupSplashCommunication() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  // splash 加载完成后，更新状态文字
+  const onSplashLoaded = () => {
+    mainWindow.webContents.executeJavaScript(
+      `__updateStatus('Starting...')`
+    ).catch(() => {});
+  };
+
+  if (mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.once('did-finish-load', onSplashLoaded);
+  } else {
+    onSplashLoaded();
+  }
+
+  // 注册 IPC handler：splash 页面请求重试
+  ipcMain.handle('splash:retry', async () => {
+    console.log('[main] Splash retry requested');
+    // 先更新 splash 状态
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.executeJavaScript(
+        `__updateStatus('Retrying...')`
+      ).catch(() => {});
     }
+
+    startBackend()
+      .then(() => {
+        console.log('[main] Backend ready after retry, loading cockpit...');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.executeJavaScript(
+            `__updateStatus('Ready ✓')`
+          ).catch(() => {});
+          setTimeout(() => {
+            mainWindow.webContents.executeJavaScript(
+              `__hideWaves()`
+            ).catch(() => {});
+            setTimeout(() => {
+              mainWindow.loadURL(`http://localhost:${PORT}/cockpit?skipSplash=true`);
+            }, 800);
+          }, 500);
+        }
+      })
+      .catch(err => {
+        console.error('[main] Backend launch failed:', err.message);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const safeMsg = (err.message || '未知错误').replace(/['\\]/g, '');
+          mainWindow.webContents.executeJavaScript(
+            `__showError('${safeMsg}')`
+          ).catch(() => {});
+        }
+      });
   });
 }
 
@@ -543,6 +642,18 @@ ipcMain.handle('shell:openExternal', async (_event, url) => {
 ipcMain.on('devtools:open', () => {
   if (mainWindow) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+});
+
+// ---------- 主题 ----------
+
+ipcMain.handle('theme:get', () => {
+  return getSavedTheme();
+});
+
+ipcMain.handle('theme:set', (_event, theme) => {
+  if (theme === 'dark' || theme === 'light' || theme === 'midnight') {
+    saveTheme(theme);
   }
 });
 
@@ -803,12 +914,51 @@ ipcMain.handle('update:quitAndInstall', async () => {
 // ============================================================================
 
 app.whenReady().then(() => {
-  // 1. 后台启动 Java 后端（不阻塞窗口创建）
-  startBackend().catch(err => {
-    console.error('[main] Backend launch failed:', err.message);
-  });
-  // 2. 立即创建窗口（tryLoadWithRetry 会在后台等后端就绪）
+  // 1. 先创建窗口，立即加载本地 splash（河马出水动画）
   createWindow();
+
+  // 2. 启动 Java 后端，就绪后自动切换到实际页面
+  if (!DEV) {
+    // 生产模式：等 splash 显示就绪后设置重试回调，再启动后端
+    setupSplashCommunication();
+
+    startBackend()
+      .then(() => {
+        console.log('[main] Backend ready, loading cockpit...');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          // 先更新状态文字，给用户一个"准备就绪"的完成感
+          mainWindow.webContents.executeJavaScript(
+            `__showReady()`
+          ).catch(() => {});
+          // 稍等片刻让用户看到完成状态，再播放收尾动画
+          setTimeout(() => {
+            mainWindow.webContents.executeJavaScript(
+              `__hideWaves()`
+            ).catch(() => {});
+            // 波浪动画完成后加载 cockpit
+            setTimeout(() => {
+              mainWindow.loadURL(`http://localhost:${PORT}/cockpit?skipSplash=true`);
+            }, 800);
+          }, 500);
+        }
+      })
+      .catch(err => {
+        console.error('[main] Backend launch failed:', err.message);
+        // 通知 splash 显示错误（允许用户重试）
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const safeMsg = (err.message || '未知错误').replace(/['\\]/g, '');
+          mainWindow.webContents.executeJavaScript(
+            `__showError('${safeMsg}')`
+          ).catch(() => {});
+        }
+      });
+  } else {
+    // 开发模式：后台启动后端（传统方式）
+    startBackend().catch(err => {
+      console.error('[main] Backend launch failed:', err.message);
+    });
+  }
+
   // 3. 创建系统托盘
   createTray();
 });
