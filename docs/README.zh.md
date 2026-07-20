@@ -1,4 +1,7 @@
-<h1 align="center">HippoBuddy</h1>
+<h1 align="center">
+  <img src="../electron/assets/icon.svg" alt="HippoBuddy" width="40" height="40" style="vertical-align: middle; margin-right: 8px;">
+  HippoBuddy
+</h1>
 
 <p align="center">AI-powered desktop assistant for chat, coding, and office productivity.</p>
 
@@ -46,39 +49,70 @@
 
 ---
 
-## 快速开始
+## 为什么选择 HippoBuddy？
 
-### 桌面端（推荐）
+与市面上其他 AI Agent 产品（Codex、Claude Code、Copilot、Kimi、Trae Work、WorkBuddy 等）的对比：
 
-下载安装包 -> 安装 -> 启动 -> 开始使用
+| 维度 | HippoBuddy |
+|---|---|
+| **开源免费** | 全部源码开源，Apache 2.0 协议 |
+| **开箱即用** | 无需登录、无需第三方账号，下载即用 |
+| **LLM 行为可视化** | 工具调用与思考过程全透明，实时可见 |
+| **代码编辑** | 完整读/写/编辑，支持 diff 预览与回滚 |
+| **Office 文档** | 内置 PDF / Word / Excel / PPT 等格式浏览 |
+| **文件变更系统** | 文件级与会话级变更追踪，随时回滚 |
+| **上下文与 Token 监控** | 实时 Token 统计、上下文用量、LLM 监控 |
+| **内置工具** | 10+ 种工具：终端、浏览器、搜索、代码分析等 |
+| **性能** | 轻量桌面应用，Java 虚拟线程高并发 |
+| **UI 设计** | 极简精美，专注内容 |
+| **平台** | 桌面端（Windows / macOS / Linux） |
 
-### 源码启动
-
-```bash
-# 编译
-mvn compile -q
-
-# 运行 Web 端
-mvn exec:java -Dexec.mainClass="com.example.agent.WebApplication"
-
-# 运行桌面端
-mvn exec:java -Dexec.mainClass="com.example.agent.DesktopApplication"
-```
 
 ---
 
-## 配置
+### 当前不足
 
-复制 `config.yaml.example` 为 `config.yaml`，配置 LLM：
+HippoBuddy 正在积极开发中，目前存在以下局限：
 
-```yaml
-llm:
-  api_key: your-api-key
-  model: deepseek-chat
-  base_url: https://api.deepseek.com/v1
+- 需要个人 LLM API 密钥及联网搜索工具配置
+- Subagent、MCP、Memory 等功能尚在完善中
+- 暂无插件系统、自动化任务流水线、浏览器操控等能力
+- Office 文件生成编辑依赖 skill 调用及第三方编辑器
+- 第三方软件集成不足（归于插件范畴）
+- 大规模长上下文场景的稳定性仍在验证中
+- 更偏向个人任务执行与效率提升，非 7×24 在线服务
+
+---
+
+## 快速开始
+
+### 方式一：桌面端（推荐）
+
+下载[安装包](https://github.com/Puteitous/Hippo-Code/releases) -> 安装 -> 启动 -> 开始使用
+
+### 方式二：源码启动
+
+```bash
+# 1. 编译 Java 后端
+mvn package -DskipTests
+
+# 2a. 启动桌面端（Electron）
+cd electron && npm install && npm start
+
+# 2b. 或仅启动 Web 端（不带 Electron）
+mvn exec:java -Dexec.mainClass="com.example.agent.WebApplication"
 ```
 
-支持 DeepSeek / Claude / GPT / Ollama 本地模型。
+> **配置说明** — 源码启动时，应用首次运行会自动根据 [`config.yaml.example`](../config.yaml.example) 创建 `config.yaml`，编辑其中的 LLM 配置即可：
+>
+> ```yaml
+> llm:
+>   api_key: ${DEEPSEEK_API_KEY:-your-api-key-here}
+>   model: deepseek-v4-flash
+>   base_url: https://api.deepseek.com
+> ```
+>
+> 支持 **DeepSeek / Claude / GPT / Ollama**。完整配置见 [`config.yaml.example`](../config.yaml.example)。
 
 ---
 
@@ -101,14 +135,18 @@ llm:
 src/main/java/com/example/agent/
 ├── WebApplication.java           Web 入口
 ├── DesktopApplication.java       桌面端入口
-├── core/                         核心模块
-├── llm/                          LLM 客户端
-├── tools/                        内置工具集
-├── orchestrator/                 任务编排引擎
+├── core/                         DI、事件总线、安全拦截
+├── llm/                          LLM 客户端（OpenAI、Claude、Ollama...）
+├── tools/                        内置工具集（20+）
+├── execute/                      Agent 对话循环
+├── orchestrator/                 任务编排（DAG）
 ├── subagent/                     多代理系统
 ├── mcp/                          MCP 协议集成
-├── lsp/                          LSP 语言服务
 ├── memory/                       长期记忆
+├── session/                      会话存储与转录
+├── web/                          HTTP 处理器与 SSE 流式
+├── prompt/                       Prompt 库与管理
+├── domain/                       规则、技能、内容截断
 └── config/                       配置中心
 ```
 

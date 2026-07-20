@@ -743,6 +743,7 @@
     'chat.noExport':                      { zh: '没有可导出的对话', en: 'No sessions to export' },
     'chat.noMessages':                    { zh: '当前会话没有消息', en: 'Current session has no messages' },
     'chat.noModel':                       { zh: '未配置模型', en: 'No model configured' },
+    'chat.noModelConfigTip':              { zh: '请先在设置中配置模型后再发送消息', en: 'Please configure a model in settings first' },
     'chat.noHistory':                     { zh: '暂无历史会话', en: 'No session history' },
     'chat.forkNoMessageId':               { zh: '无法确定分叉位置的消息 ID', en: 'Could not determine fork message ID' },
     'chat.forkFailedMsg':                 { zh: '分叉失败：{message}', en: 'Fork failed: {message}' },

@@ -1,6 +1,8 @@
 package com.example.agent.web.handler;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.config.Config;
+import com.example.agent.config.LlmConfig;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.domain.conversation.Conversation;
@@ -124,6 +126,14 @@ public class ChatApiHandler implements HttpHandler {
 
             if (userMessage.isEmpty()) {
                 sseWriter.sendSseEvent("error", "{\"message\":\"消息不能为空\"}");
+                return;
+            }
+
+            // 兜底校验：模型配置
+            LlmConfig llmConfig = Config.getInstance().getLlm();
+            if (llmConfig.getProvider() == null || llmConfig.getProvider().isBlank()
+                    || llmConfig.getModel() == null || llmConfig.getModel().isBlank()) {
+                sseWriter.sendSseEvent("error", "{\"message\":\"未配置模型，请先在设置中配置模型\"}");
                 return;
             }
 

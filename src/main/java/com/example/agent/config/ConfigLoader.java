@@ -46,6 +46,25 @@ public class ConfigLoader {
             }
         }
         
+        // No config file found — try to scaffold from example
+        File exampleFile = new File(configDir, "config.yaml.example");
+        if (exampleFile.exists()) {
+            try {
+                File target = new File(configDir, "config.yaml");
+                Files.copy(exampleFile.toPath(), target.toPath());
+                logger.info("Scaffolded config.yaml from config.yaml.example");
+                Config config = loadYaml(target);
+                if (config != null) {
+                    logger.info("Configuration loaded from: {}", target.getAbsolutePath());
+                    return config;
+                }
+            } catch (IOException e) {
+                logger.warn("Failed to copy config.yaml.example: {}", e.getMessage());
+            }
+        } else {
+            logger.info("config.yaml.example not found, creating default config.");
+        }
+        
         Config defaultConfig = createDefaultConfig();
         saveDefaultConfig(defaultConfig);
         return defaultConfig;

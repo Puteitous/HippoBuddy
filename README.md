@@ -1,4 +1,7 @@
-<h1 align="center">HippoBuddy</h1>
+<h1 align="center">
+  <img src="./electron/assets/icon.svg" alt="HippoBuddy" width="40" height="40" style="vertical-align: middle; margin-right: 8px;">
+  HippoBuddy
+</h1>
 
 <p align="center">AI-powered desktop assistant for chat, coding, and office productivity.</p>
 
@@ -46,39 +49,67 @@ Built-in JRE -- download, install, and go. No Java setup required.
 
 ---
 
-## Quick Start
+## Why HippoBuddy?
 
-### Desktop (Recommended)
+Compared to other AI agent tools (Codex, Claude Code, Copilot, Kimi, Trae Work, WorkBuddy):
 
-Download installer -> Install -> Launch -> Start using
+| Dimension | HippoBuddy |
+|---|---|
+| **Open Source** | Full source, Apache 2.0 license |
+| **Zero Setup** | No login, no accounts, no third-party services — download and use |
+| **LLM Visibility** | Every tool call and thinking step is visible in real-time |
+| **Code Editing** | Full read/write/edit with diff preview and rollback |
+| **Office Documents** | Built-in viewer for PDF, Word, Excel, PPT, and more |
+| **File Change System** | Track changes at file and session level, rollback anytime |
+| **Context & Token Monitor** | Real-time token stats, context usage, LLM monitoring |
+| **Built-in Tools** | 10+ tools: terminal, browser, search, file ops, code analysis, etc. |
+| **Performance** | Lightweight desktop app, Java virtual-thread concurrency |
+| **UI Design** | Minimalist and clean |
+| **Platform** | Desktop (Windows / macOS / Linux) |
 
-### From Source
+### What's missing
 
-```bash
-# Compile
-mvn compile -q
+HippoBuddy is actively developed. Current limitations:
 
-# Run Web
-mvn exec:java -Dexec.mainClass="com.example.agent.WebApplication"
-
-# Run Desktop
-mvn exec:java -Dexec.mainClass="com.example.agent.DesktopApplication"
-```
+- Requires personal LLM API key + web search tool config
+- Subagent, MCP, and Memory features are still maturing
+- No plugin system, automated task pipeline, or browser automation yet
+- Office file generation/editing relies on skill calls + external editors
+- Third-party integration limited (falls under plugin scope)
+- Large-context long-running stability still being validated
+- Designed for personal task efficiency, not 24/7 online service
 
 ---
 
-## Configuration
+## Quick Start
 
-Copy `config.yaml.example` to `config.yaml` and set your LLM:
+### Option 1: Desktop (Recommended)
 
-```yaml
-llm:
-  api_key: your-api-key
-  model: deepseek-chat
-  base_url: https://api.deepseek.com/v1
+Download [installer](https://github.com/Puteitous/Hippo-Code/releases) -> Install -> Launch -> Start using
+
+### Option 2: From Source
+
+```bash
+# 1. Build Java backend
+mvn package -DskipTests
+
+# 2a. Launch desktop (Electron)
+cd electron && npm install && npm start
+
+# 2b. Or run web-only (no Electron)
+mvn exec:java -Dexec.mainClass="com.example.agent.WebApplication"
 ```
 
-Supports DeepSeek / Claude / GPT / Ollama local models.
+> **Configuration** — When running from source, the app auto-creates `config.yaml` from [`config.yaml.example`](config.yaml.example) on first launch. Edit it with your LLM settings:
+>
+> ```yaml
+> llm:
+>   api_key: ${DEEPSEEK_API_KEY:-your-api-key-here}
+>   model: deepseek-v4-flash
+>   base_url: https://api.deepseek.com
+> ```
+>
+> Supports **DeepSeek / Claude / GPT / Ollama**. See [`config.yaml.example`](config.yaml.example) for full reference.
 
 ---
 
@@ -101,15 +132,19 @@ Supports DeepSeek / Claude / GPT / Ollama local models.
 src/main/java/com/example/agent/
 ├── WebApplication.java           Web entry
 ├── DesktopApplication.java       Desktop entry
-├── core/                         Core modules
-├── llm/                          LLM clients
-├── tools/                        Built-in tools
-├── orchestrator/                 Task orchestration
+├── core/                         DI, event bus, security blockers
+├── llm/                          LLM clients (OpenAI, Claude, Ollama...)
+├── tools/                        Built-in tools (20+)
+├── execute/                      Agent conversation loop
+├── orchestrator/                 Task orchestration (DAG)
 ├── subagent/                     Multi-agent system
 ├── mcp/                          MCP protocol
-├── lsp/                          LSP services
 ├── memory/                       Long-term memory
-└── config/                       Configuration
+├── session/                      Session storage & transcripts
+├── web/                          HTTP handlers & SSE streaming
+├── prompt/                       Prompt library & management
+├── domain/                       Rules, skills, content truncation
+└── config/                       Configuration models
 ```
 
 ---

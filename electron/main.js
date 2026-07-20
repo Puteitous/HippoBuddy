@@ -26,6 +26,21 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('HippoBuddy');
 }
 
+// 单实例锁：防止用户多次启动产生多个后端进程，导致端口冲突和启动卡死
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  console.log('[main] Another instance is already running, quitting...');
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // 第二个实例被触发时，聚焦到已有窗口
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 const PORT = parseInt(process.env.HIPPO_PORT || '9090', 10);
 const DEV = process.argv.includes('--dev');
 
@@ -116,7 +131,26 @@ function startBackend() {
     req.on('error', () => {
       // 未运行 → 先清理可能残留的后端进程，再自启
       killStaleBackend();
-      launchBackend(resolve, reject);
+
+      // 整个后端启动流程加超时
+      // 开发模式用 Maven 编译需要更长时间，生产模式直接启动 JAR 较快
+      const LAUNCH_TIMEOUT = app.isPackaged ? 60_000 : 180_000;
+      let timeoutId = null;
+      const launchPromise = new Promise((res, rej) => {
+        launchBackend(res, rej);
+      });
+      const timeoutPromise = new Promise((_, rej) => {
+        timeoutId = setTimeout(() => {
+          stopBackend();
+          rej(new Error(`后端启动超时（已等待 ${LAUNCH_TIMEOUT / 1000} 秒）`));
+        }, LAUNCH_TIMEOUT);
+      });
+
+      Promise.race([launchPromise, timeoutPromise]).then(() => {
+        // 启动成功后清除超时定时器，防止 stopBackend() 误杀进程
+        if (timeoutId) clearTimeout(timeoutId);
+        resolve();
+      }).catch(reject);
     });
     req.setTimeout(2000, () => { req.destroy(); reject(new Error('超时')); });
   });
@@ -212,8 +246,9 @@ function attachBackendHandlers(proc, resolve, reject) {
     process.stdout.write(`[backend:out] ${text}`);
     if (!resolved && (text.includes('[READY]') || text.includes('DashboardServer') || text.includes('Hippo Cockpit'))) {
       resolved = true;
-      console.log('[backend] Backend ready');
-      resolve();
+      console.log('[backend] Process ready signal detected, verifying HTTP...');
+      // 不要立即 resolve，改为轮询 HTTP 端点确认服务实际可响应
+      waitForHttpReady(resolve, reject);
     }
   });
 
@@ -229,8 +264,44 @@ function attachBackendHandlers(proc, resolve, reject) {
   proc.on('exit', (code) => {
     console.log(`[backend] Process exited (code=${code})`);
     backendProcess = null;
-    if (!resolved) { resolved = true; reject(new Error(`后端退出 code=${code}`)); }
+    if (!resolved) { resolved = true; reject(new Error(`后端进程异常退出 code=${code}`)); }
   });
+}
+
+/**
+ * 轮询 HTTP 端点直到后端真正就绪。
+ * 进程输出 [READY] 只是日志层面的，HTTP Server 可能还未完成绑定。
+ * 这里每 500ms 尝试一次，最多等 30 次（15 秒）。
+ */
+function waitForHttpReady(resolve, reject) {
+  const http = require('http');
+  const MAX_ATTEMPTS = 30;
+  let attempts = 0;
+
+  function poll() {
+    attempts++;
+    const req = http.get(`http://localhost:${PORT}/cockpit`, (res) => {
+      res.resume();
+      if (res.statusCode === 200) {
+        console.log('[backend] HTTP endpoint ready');
+        resolve();
+      } else if (attempts < MAX_ATTEMPTS) {
+        setTimeout(poll, 500);
+      } else {
+        reject(new Error('后端进程已输出就绪信号，但 HTTP 端点未正常响应'));
+      }
+    });
+    req.on('error', () => {
+      if (attempts < MAX_ATTEMPTS) {
+        setTimeout(poll, 500);
+      } else {
+        reject(new Error('等待 HTTP 就绪超时（15 秒）'));
+      }
+    });
+    req.setTimeout(2000, () => { req.destroy(); });
+  }
+
+  poll();
 }
 
 function stopBackend() {
@@ -416,6 +487,7 @@ function setupSplashCommunication() {
             // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载 cockpit
             setTimeout(() => {
               mainWindow.loadURL(`http://localhost:${PORT}/cockpit?skipSplash=true`);
+              mainWindow.setTitle('HippoBuddy');
             }, 1100);
           }, 500);
         }
@@ -944,6 +1016,7 @@ app.whenReady().then(() => {
             // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载 cockpit
             setTimeout(() => {
               mainWindow.loadURL(`http://localhost:${PORT}/cockpit?skipSplash=true`);
+              mainWindow.setTitle('HippoBuddy');
             }, 1100);
           }, 500);
         }

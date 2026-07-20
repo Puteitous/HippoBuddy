@@ -733,6 +733,26 @@ export class ChatPanel {
       return;
     }
 
+    // 检查模型是否已配置
+    const MODEL_CONFIG_CACHE_KEY = 'hippo_model_config';
+    try {
+      const raw = localStorage.getItem(MODEL_CONFIG_CACHE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (!data.provider || !data.model) {
+          showToast(_('chat.noModelConfigTip'), { type: 'warning', duration: 5000 });
+          return;
+        }
+      } else {
+        showToast(_('chat.noModelConfigTip'), { type: 'warning', duration: 5000 });
+        return;
+      }
+    } catch (e) {
+      console.warn('读取模型配置缓存失败:', e);
+      showToast(_('chat.noModelConfigTip'), { type: 'warning', duration: 5000 });
+      return;
+    }
+
     // 新消息开始，清理跨轮残留的 runningToolCallIds 和上一轮的 stuck 定时器
     this._clearStuckTimer();
     this._runningToolCallIds.clear();
