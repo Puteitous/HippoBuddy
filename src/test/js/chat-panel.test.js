@@ -26,6 +26,8 @@ describe('ChatPanel.js', () => {
   beforeEach(async () => {
     setupDOM();
     container = document.getElementById('chatContainer');
+    // 设置模型配置，避免 sendMessage 中的模型配置检查提前返回
+    localStorage.setItem('hippo_model_config', JSON.stringify({ provider: 'test-provider', model: 'test-model' }));
 
     mockChatService = {
       sendMessage: vi.fn().mockResolvedValue(undefined),
@@ -62,6 +64,7 @@ describe('ChatPanel.js', () => {
   afterEach(() => {
     if (chatPanel) chatPanel.destroy();
     document.body.innerHTML = '';
+    localStorage.removeItem('hippo_model_config');
   });
 
   describe('初始化', () => {

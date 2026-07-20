@@ -11,6 +11,7 @@ import java.util.Locale;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class LlmConfig {
 
+    /** 0 = not set, use model's default max_tokens */
     private static final int DEFAULT_MAX_TOKENS = 0;
     private static final double DEFAULT_TEMPERATURE = 0.7;
     private static final int DEFAULT_TIMEOUT = 60000;
@@ -37,8 +38,9 @@ public class LlmConfig {
     @JsonProperty("thinking_enabled")
     private boolean thinkingEnabled = true;
     
+    /** empty = not set, use model's default */
     @JsonProperty("reasoning_effort")
-    private String reasoningEffort = "high";
+    private String reasoningEffort = "";
     
     @JsonProperty("response_format")
     private String responseFormat;

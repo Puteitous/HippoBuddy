@@ -30,7 +30,7 @@ const PROVIDER_ITEMS = [
 ];
 
 const MAX_TOKENS_ITEMS = [
-  { label: '0', value: '0' },
+  { label: 'Default', value: '0' },
   { label: '4,096', value: '4096' },
   { label: '8,192', value: '8192' },
   { label: '16,384', value: '16384' },
@@ -40,12 +40,20 @@ const MAX_TOKENS_ITEMS = [
 ];
 
 const REASONING_EFFORT_ITEMS = [
+  { label: 'Default', value: '' },
   { label: 'high', value: 'high' },
   { label: 'max', value: 'max' },
 ];
 
 /** 支持思考模式的 Provider 列表 */
 const THINKING_SUPPORTED_PROVIDERS = ['deepseek', 'openai', 'anthropic'];
+
+/** 根据 provider value 获取显示用 label */
+const getProviderLabel = (value) => {
+  if (!value) return '';
+  const item = PROVIDER_ITEMS.find(p => p.value === value);
+  return item ? item.label : value;
+};
 
 export class ModelSettingsPage {
   constructor() {
@@ -191,7 +199,7 @@ export class ModelSettingsPage {
       const isActive = i === activeIndex;
       return `
         <div class="settings-model-item ${isActive ? 'active' : ''}">
-          <span class="settings-model-item-provider" title="${m.provider || ''}">${m.provider || ''}</span>
+          <span class="settings-model-item-provider" title="${m.provider || ''}">${getProviderLabel(m.provider)}</span>
           <span class="settings-model-item-model" title="${m.model || m.name || ''}">${m.model || m.name || ''}</span>
           <button class="settings-model-item-delete" data-provider="${m.provider || ''}" data-model="${m.model || ''}" title="${_t('settingsPage.modelDeleteTitle')}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -271,16 +279,16 @@ export class ModelSettingsPage {
     const headerActions = document.querySelector('#settingsModelCreate')?.closest('.settings-item-list-actions');
     if (headerActions) headerActions.style.display = 'none';
 
-    const title = isNew ? _t('settingsPage.modelCreate') : _t('settingsPage.modelEdit') + (model.provider || '') + ' · ' + (model.model || model.name || '');
+    const title = isNew ? _t('settingsPage.modelCreate') : _t('settingsPage.modelEdit') + getProviderLabel(model.provider) + ' · ' + (model.model || model.name || '');
     const saveText = isNew ? _t('settingsPage.modelCreateAction') : _t('settingsPage.modelSaveAction');
     const provider = model?.provider || 'deepseek';
     const modelName = model?.model || model?.name || '';
     const baseUrl = model?.baseUrl || '';
-    const maxTokens = model?.maxTokens ?? 16384;
+    const maxTokens = model?.maxTokens ?? 0;
     const hasApiKey = model?.hasApiKey;
     const apiKeyValue = model?.apiKeyMasked || '';
     const thinkingEnabled = model?.thinkingEnabled !== undefined ? model.thinkingEnabled : true;
-    const reasoningEffort = model?.reasoningEffort || 'high';
+    const reasoningEffort = model?.reasoningEffort ?? '';
     const isThinkingSupported = this._isThinkingSupported(provider);
 
     listEl.innerHTML = `
@@ -457,7 +465,7 @@ export class ModelSettingsPage {
       }
       const effortDropdown = this._reasoningEffortDropdown;
       if (effortDropdown) {
-        body.reasoningEffort = effortDropdown.getSelectedItem()?.value || 'high';
+        body.reasoningEffort = effortDropdown.getSelectedItem()?.value || '';
       }
     }
 

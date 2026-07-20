@@ -686,7 +686,7 @@
     'settingsPage.xunfei':                  { zh: '讯飞星火', en: 'Spark (iFlytek)' },
     'settingsPage.modelNamePh':             { zh: '例如 deepseek-v4-flash', en: 'e.g. deepseek-v4-flash' },
     'settingsPage.modelBaseUrlPh':          { zh: 'https://api.deepseek.com', en: 'https://api.deepseek.com' },
-    'settingsPage.modelMaxTokensHint':      { zh: '(单次输出上限，含思维链+回答，0=不限制)', en: '(max single output, includes CoT+reply, 0=unlimited)' },
+    'settingsPage.modelMaxTokensHint':      { zh: '(单次输出上限，含思维链+回答；Default=使用模型默认参数)', en: '(max single output, includes CoT+reply; Default=use model default)' },
     'settingsPage.modelThinkingHint':       { zh: '思考链推理，提高回答准确性', en: 'Chain-of-thought reasoning for better accuracy' },
     'settingsPage.modelReasoningHint':      { zh: '思考强度（仅 Thinking Mode 开启时有效）', en: 'Reasoning effort (only effective when Thinking Mode is on)' },
     'settingsPage.modelNameRequired':       { zh: 'Model 名称不能为空', en: 'Model name is required' },

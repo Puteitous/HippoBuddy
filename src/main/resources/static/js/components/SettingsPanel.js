@@ -97,6 +97,8 @@ export class SettingsPanel {
       const preview = document.querySelector('.preview-panel');
       if (preview) preview.classList.remove('hidden');
     }
+    // 关闭设置面板时，刷新 hero 和底部的模型快速选择下拉框
+    loadQuickModelConfig();
   }
 
   isOpen() {

@@ -1400,5 +1400,8 @@ async function saveQuickModelConfig(provider, model) {
   }
 }
 
+// 暴露到全局，供 SettingsPanel 等模块组件在关闭时刷新下拉框
+window.loadQuickModelConfig = loadQuickModelConfig;
+
 // ========== 启动应用 ==========
 init();

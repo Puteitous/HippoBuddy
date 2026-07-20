@@ -148,7 +148,11 @@ public class ConfigApiHandler implements HttpHandler {
         } else {
             // ========== 完整保存（来自配置弹窗） ==========
             // 先把当前配置快照到历史（切换前的旧模型保留记录）
-            llm.snapshotToHistory();
+            // 仅当前配置有意义的 provider+model 时才保存，防止首次添加模型时产生空记录
+            if (llm.getProvider() != null && !llm.getProvider().isEmpty()
+                    && llm.getModel() != null && !llm.getModel().isEmpty()) {
+                llm.snapshotToHistory();
+            }
 
             if (json.has("provider")) {
                 llm.setProvider(json.get("provider").asText());

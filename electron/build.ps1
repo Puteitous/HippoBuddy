@@ -107,7 +107,7 @@ if (-not $SkipJre) {
         '--add-modules', $ModuleList
         '--output', $JreOut
         '--strip-debug'
-        '--compress', '2'
+        '--compress', 'zip-6'
         '--no-header-files'
         '--no-man-pages'
         '--vm', 'server'

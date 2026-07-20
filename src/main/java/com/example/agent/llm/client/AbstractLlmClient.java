@@ -149,7 +149,7 @@ public abstract class AbstractLlmClient implements LlmClient {
         ChatRequest request = ChatRequest.of(getModel(), processedMessages);
         int maxTokens = config.getLlm().getMaxTokens();
         if (maxTokens > 0) {
-            request.maxTokens(maxTokens);
+            request.maxTokens(maxTokens); // 0=not set, use model default
         }
         
         applyThinkingConfig(request);
@@ -169,7 +169,10 @@ public abstract class AbstractLlmClient implements LlmClient {
         Map<String, Object> thinking = new HashMap<>();
         if (llmConfig.isThinkingEnabled()) {
             thinking.put("type", "enabled");
-            request.reasoningEffort(llmConfig.getReasoningEffort());
+            String effort = llmConfig.getReasoningEffort();
+            if (effort != null && !effort.isBlank()) {
+                request.reasoningEffort(effort); // empty=use model default
+            }
         } else {
             thinking.put("type", "disabled");
         }
@@ -208,7 +211,7 @@ public abstract class AbstractLlmClient implements LlmClient {
                 .stream(true);
         int maxTokens = config.getLlm().getMaxTokens();
         if (maxTokens > 0) {
-            request.maxTokens(maxTokens);
+            request.maxTokens(maxTokens); // 0=not set, use model default
         }
         
         applyThinkingConfig(request);
