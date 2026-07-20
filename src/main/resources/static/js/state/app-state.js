@@ -62,6 +62,7 @@ export const AppState = {
   
   // ========== 主题状态 ==========
   currentTheme: _loadTheme(),
+  _preferredDark: (() => { const t = _loadTheme(); return t === 'dark' || t === 'midnight' ? t : 'dark'; })(),
   
   // ========== 状态监听器 ==========
   listeners: new Map(),
@@ -142,9 +143,9 @@ export const AppState = {
     return this.currentTheme;
   },
   
-  // 快速切换主题（light ↔ dark，midnight 视为 dark 切到 light）
+  // 快速切换主题（light ↔ 偏好暗色主题，支持 dark / midnight）
   toggleTheme() {
-    const next = this.currentTheme === 'dark' || this.currentTheme === 'midnight' ? 'light' : 'dark';
+    const next = this.currentTheme === 'dark' || this.currentTheme === 'midnight' ? 'light' : this._preferredDark;
     this.setState('currentTheme', next);
     return next;
   },
@@ -153,6 +154,10 @@ export const AppState = {
   setTheme(theme) {
     this.setState('currentTheme', theme);
     document.documentElement.setAttribute('data-theme', theme);
+    // 记录用户偏好的暗色主题，供 toggle 时跳转
+    if (theme === 'dark' || theme === 'midnight') {
+      this._preferredDark = theme;
+    }
   },
   
   // 获取系统提示词

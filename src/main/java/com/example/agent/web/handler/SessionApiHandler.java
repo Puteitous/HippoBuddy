@@ -131,7 +131,7 @@ public class SessionApiHandler implements HttpHandler {
             return;
         }
 
-        sendError(exchange, 404, "Session not found");
+        sendJson(exchange, List.of());
     }
 
     private List<Map<String, Object>> extractMessages(List<Message> msgList) {

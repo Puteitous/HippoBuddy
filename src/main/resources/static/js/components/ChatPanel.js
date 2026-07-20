@@ -1043,7 +1043,7 @@ export class ChatPanel {
     const existing = hippoEl.querySelector('.hippo-speech');
     if (existing) existing.remove();
 
-    const speeches = [
+    const speeches = window.i18n ? window.i18n.tArray('hippo.speeches') : [
       '代码写得不错嘛 👍',
       '好热🫠',
       '想泡水💧',
@@ -1060,9 +1060,6 @@ export class ChatPanel {
       '快夸我快夸我',
       '👿 哼！',
       '好一个屁屁哦，😯',
-      '世界上最安静的动物会是什么嘞🤔',
-      '为什么蜘蛛侠喜欢穿紧身衣嘞🤔',
-      'Let‘s go!, Let‘s go! 🚀',
     ];
 
     const text = speeches[Math.floor(Math.random() * speeches.length)];

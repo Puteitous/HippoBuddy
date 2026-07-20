@@ -152,6 +152,7 @@ export class OnboardingTour {
     // 当前值
     const savedLang = window.i18n ? window.i18n.currentLang : 'zh';
     const savedLayout = localStorage.getItem('hippo-layout') || 'preview-left';
+    const savedTheme = window.appState ? window.appState.getTheme() : (localStorage.getItem('hippo-theme') || 'light');
 
     // 创建遮罩
     const overlay = document.createElement('div');
@@ -169,6 +170,16 @@ export class OnboardingTour {
           <div class="ob-welcome-toggle-group" id="obWelcomeLang">
             <button class="ob-welcome-toggle-btn" data-value="zh">中文</button>
             <button class="ob-welcome-toggle-btn" data-value="en">English</button>
+          </div>
+        </div>
+
+        <!-- 颜色主题 -->
+        <div class="ob-welcome-section">
+          <div class="ob-welcome-section-label">${$t('onboarding.welcomeTheme')}</div>
+          <div class="ob-welcome-toggle-group" id="obWelcomeTheme">
+            <button class="ob-welcome-toggle-btn" data-value="light">${$t('onboarding.themeLight')}</button>
+            <button class="ob-welcome-toggle-btn" data-value="dark">${$t('onboarding.themeDark')}</button>
+            <button class="ob-welcome-toggle-btn" data-value="midnight">${$t('onboarding.themeMidnight')}</button>
           </div>
         </div>
 
@@ -232,6 +243,23 @@ export class OnboardingTour {
       });
     });
 
+    // ── 主题切换 ──
+    const themeBtns = overlay.querySelectorAll('#obWelcomeTheme .ob-welcome-toggle-btn');
+    themeBtns.forEach(btn => {
+      if (btn.dataset.value === savedTheme) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        themeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const theme = btn.dataset.value;
+        // 实时应用主题，让面板即时反馈
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('hippo-theme', theme);
+        if (window.appState) {
+          window.appState.setState('currentTheme', theme);
+        }
+      });
+    });
+
     // ── 排版切换 ──
     const layoutBtns = overlay.querySelectorAll('#obWelcomeLayout .ob-welcome-toggle-btn');
     const previewEl = overlay.querySelector('#obLayoutPreview');
@@ -276,13 +304,21 @@ export class OnboardingTour {
     // 更新标题
     overlay.querySelector('.ob-welcome-title').textContent = $t('onboarding.welcome');
     overlay.querySelector('.ob-welcome-sub').textContent = $t('onboarding.welcomeSub');
-    overlay.querySelectorAll('.ob-welcome-section-label')[0].textContent = $t('onboarding.welcomeLang');
-    overlay.querySelectorAll('.ob-welcome-section-label')[1].textContent = $t('onboarding.welcomeLayout');
+    const sectionLabels = overlay.querySelectorAll('.ob-welcome-section-label');
+    sectionLabels[0].textContent = $t('onboarding.welcomeLang');
+    sectionLabels[1].textContent = $t('onboarding.welcomeTheme');
+    sectionLabels[2].textContent = $t('onboarding.welcomeLayout');
 
     // 更新语言按钮
     const langBtns = overlay.querySelectorAll('#obWelcomeLang .ob-welcome-toggle-btn');
     langBtns[0].textContent = '中文';
     langBtns[1].textContent = 'English';
+
+    // 更新主题按钮
+    const themeBtns = overlay.querySelectorAll('#obWelcomeTheme .ob-welcome-toggle-btn');
+    themeBtns[0].textContent = $t('onboarding.themeLight');
+    themeBtns[1].textContent = $t('onboarding.themeDark');
+    themeBtns[2].textContent = $t('onboarding.themeMidnight');
 
     // 更新排版按钮标签（纯文字，无 SVG）
     const layoutBtns = overlay.querySelectorAll('#obWelcomeLayout .ob-welcome-toggle-btn');
@@ -317,6 +353,17 @@ export class OnboardingTour {
     const activeLang = overlay.querySelector('#obWelcomeLang .active');
     if (activeLang && window.i18n) {
       window.i18n.setLang(activeLang.dataset.value);
+    }
+
+    // 读取主题选择（已实时应用，这里确保同步到 appState）
+    const activeTheme = overlay.querySelector('#obWelcomeTheme .active');
+    if (activeTheme) {
+      const theme = activeTheme.dataset.value;
+      localStorage.setItem('hippo-theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+      if (window.appState) {
+        window.appState.setState('currentTheme', theme);
+      }
     }
 
     // 读取排版选择

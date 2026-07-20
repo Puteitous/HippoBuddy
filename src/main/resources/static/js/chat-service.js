@@ -36,7 +36,6 @@ export class ChatService {
 
   async _fetchSessionMessages(sessionId) {
     const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/messages`);
-    if (response.status === 404) return [];
     if (!response.ok) {
       throw new Error(i18n.t('chat.fetchFailed') + ': ' + response.status);
     }

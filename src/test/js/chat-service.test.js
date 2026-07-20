@@ -336,12 +336,10 @@ describe('chat-service.js', () => {
       expect(result).toEqual([{ role: 'user', content: 'hi' }]);
     });
 
-    it('getSessionMessages 返回 404 时返回空数组', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue({ status: 404 });
+    it('getSessionMessages 非 200 时抛出错误', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({ status: 500 });
 
-      const result = await chatService.getSessionMessages('nonexistent');
-
-      expect(result).toEqual([]);
+      await expect(chatService.getSessionMessages('nonexistent')).rejects.toThrow();
     });
 
     it('deleteSession 调用 DELETE /api/sessions/{id}', async () => {

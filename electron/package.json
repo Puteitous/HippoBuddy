@@ -30,6 +30,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "splash.html",
       "package.json",
       "assets/**/*"
     ],
@@ -67,7 +68,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName} ${version}.${ext}"
     }
   }
 }

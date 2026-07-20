@@ -21,6 +21,11 @@ const { fileURLToPath } = require('url');
 const { spawn, exec } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
+// 设置 Windows AppUserModelID，让 Java 后端子进程归到同一任务栏分组下
+if (process.platform === 'win32') {
+  app.setAppUserModelId('HippoBuddy');
+}
+
 const PORT = parseInt(process.env.HIPPO_PORT || '9090', 10);
 const DEV = process.argv.includes('--dev');
 
@@ -283,14 +288,14 @@ function createWindow() {
   // 恢复上次窗口状态
   const savedState = loadWindowState();
   const windowOptions = {
-    width: savedState?.width || 1280,
-    height: savedState?.height || 800,
+    width: savedState?.width || 1100,
+    height: savedState?.height || 700,
     minWidth: 800,
     minHeight: 500,
     x: savedState?.x,
     y: savedState?.y,
     frame: false,
-    backgroundColor: '#edeff2',
+    backgroundColor: getSavedTheme() === 'dark' || getSavedTheme() === 'midnight' ? '#1a1b1e' : '#edeff2',
     show: false,
     icon: path.join(__dirname, 'assets', 'icon2.png'),
     webPreferences: {
@@ -408,14 +413,15 @@ function setupSplashCommunication() {
             mainWindow.webContents.executeJavaScript(
               `__hideWaves()`
             ).catch(() => {});
+            // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载 cockpit
             setTimeout(() => {
               mainWindow.loadURL(`http://localhost:${PORT}/cockpit?skipSplash=true`);
-            }, 800);
+            }, 1100);
           }, 500);
         }
       })
       .catch(err => {
-        console.error('[main] Backend launch failed:', err.message);
+        console.error('[main] Backend launch failed after retry:', err.message);
         if (mainWindow && !mainWindow.isDestroyed()) {
           const safeMsg = (err.message || '未知错误').replace(/['\\]/g, '');
           mainWindow.webContents.executeJavaScript(
@@ -935,10 +941,10 @@ app.whenReady().then(() => {
             mainWindow.webContents.executeJavaScript(
               `__hideWaves()`
             ).catch(() => {});
-            // 波浪动画完成后加载 cockpit
+            // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载 cockpit
             setTimeout(() => {
               mainWindow.loadURL(`http://localhost:${PORT}/cockpit?skipSplash=true`);
-            }, 800);
+            }, 1100);
           }, 500);
         }
       })

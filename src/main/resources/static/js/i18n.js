@@ -358,6 +358,10 @@
     'onboarding.welcomeLang':      { zh: '语言 / Language', en: 'Language / 语言' },
     'onboarding.welcomeLayout':    { zh: '页面排版', en: 'Panel Layout' },
     'onboarding.welcomeLayoutDesc': { zh: '选择你习惯的布局方式', en: 'Choose your preferred panel arrangement' },
+    'onboarding.welcomeTheme':     { zh: '颜色主题', en: 'Color Theme' },
+    'onboarding.themeLight':       { zh: '☀️ 浅色', en: '☀️ Light' },
+    'onboarding.themeDark':        { zh: '🌙 深色', en: '🌙 Dark' },
+    'onboarding.themeMidnight':    { zh: '🌃 Midnight', en: '🌃 Midnight' },
     'onboarding.layoutPreviewLeft': { zh: '预览区在左', en: 'Preview on Left' },
     'onboarding.layoutChatLeft':   { zh: '聊天区在左', en: 'Chat on Left' },
     'onboarding.layoutHintPreviewLeft': { zh: '类似 VS Code / Cursor 等经典 IDE 布局，左侧展示代码，右侧 AI 对话', en: 'Classic IDE layout like VS Code / Cursor — code on the left, AI chat on the right' },
@@ -892,6 +896,52 @@
 
     /* ==================== Search Panel ==================== */
     'search.replaceAll':             { zh: '全部替换', en: 'Replace All' },
+
+    /* ==================== Hippo Speeches ==================== */
+    'hippo.speeches': {
+      zh: [
+        '代码写得不错嘛 👍',
+        '好热🫠',
+        '想泡水💧',
+        '饿了吗🍉',
+        '今天吃什么 🍗',
+        '又在写 bug 了？',
+        '你好呀 👋',
+        '让我看看… 👀',
+        '这个我熟！',
+        '要帮忙吗？',
+        '💤 有点困…',
+        '该下班了 🕐',
+        '正在思考中… 🤔',
+        '快夸我快夸我',
+        '👿 哼！',
+        '好一个屁屁哦，😯',
+        '世界上最安静的动物会是什么嘞🤔',
+        '为什么蜘蛛侠喜欢穿紧身衣嘞🤔',
+        'Let‘s go!, Let‘s go! 🚀',
+      ],
+      en: [
+        'Nice code! 👍',
+        'So hot🫠',
+        'Wanna swim💧',
+        'Hungry? 🍉',
+        'What‘s for lunch? 🍗',
+        'Writing bugs again?',
+        'Hello there! 👋',
+        'Let me see… 👀',
+        'I know this one!',
+        'Need a hand?',
+        '💤 A bit sleepy…',
+        'Time to wrap up 🕐',
+        'Thinking… 🤔',
+        'Praise me! Praise me!',
+        '👿 Hmph!',
+        'Ooh, look at that! 😯',
+        'What‘s the quietest animal in the world? 🤔',
+        'Why does Spidey wear a bodysuit? 🤔',
+        'Let‘s go! Let‘s go! 🚀',
+      ],
+    },
   };
 
   // ============================================================
@@ -926,6 +976,20 @@
         }
       }
       return text;
+    },
+
+    /**
+     * 获取数组类型的翻译（如随机台词列表）
+     * @param {string} key - 翻译键
+     * @returns {Array} 当前语言的数组
+     */
+    tArray(key) {
+      const entry = messages[key];
+      if (!entry) {
+        console.warn(`[i18n] Missing translation key: ${key}`);
+        return [];
+      }
+      return entry[this.currentLang] || entry[ZH] || [];
     },
 
     /**

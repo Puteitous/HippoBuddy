@@ -430,42 +430,50 @@
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
 }
 
-/* ── 暗色主题适配 ── */
-[data-theme="dark"] .ob-welcome-panel {
+/* ── 暗色主题适配（dark + midnight 共用） ── */
+[data-theme="dark"] .ob-welcome-panel,
+[data-theme="midnight"] .ob-welcome-panel {
   background: var(--bg-primary, #1e1e1e);
 }
 
-[data-theme="dark"] .ob-welcome-toggle-btn {
+[data-theme="dark"] .ob-welcome-toggle-btn,
+[data-theme="midnight"] .ob-welcome-toggle-btn {
   border-color: var(--border-color, #333);
   background: var(--bg-secondary, #252526);
 }
 
-[data-theme="dark"] .ob-welcome-toggle-btn:hover {
+[data-theme="dark"] .ob-welcome-toggle-btn:hover,
+[data-theme="midnight"] .ob-welcome-toggle-btn:hover {
   border-color: var(--accent-color, #6366f1);
   background: rgba(99, 102, 241, 0.1);
 }
 
-[data-theme="dark"] .ob-welcome-toggle-btn.active {
+[data-theme="dark"] .ob-welcome-toggle-btn.active,
+[data-theme="midnight"] .ob-welcome-toggle-btn.active {
   border-color: var(--accent-color, #6366f1);
   background: rgba(99, 102, 241, 0.15);
 }
 
-[data-theme="dark"] .ob-layout-preview {
+[data-theme="dark"] .ob-layout-preview,
+[data-theme="midnight"] .ob-layout-preview {
   border-color: var(--border-color, #333);
   background: var(--bg-tertiary, #1a1a1a);
 }
 
-[data-theme="dark"] .ob-layout-hint {
+[data-theme="dark"] .ob-layout-hint,
+[data-theme="midnight"] .ob-layout-hint {
   background: var(--bg-secondary, #252526);
   border-color: var(--border-color, #333);
   color: var(--text-tertiary, #888);
 }
 
-[data-theme="dark"] .ob-layout-preview .ob-preview-right .chat-bubble.incoming {
+[data-theme="dark"] .ob-layout-preview .ob-preview-right .chat-bubble.incoming,
+[data-theme="midnight"] .ob-layout-preview .ob-preview-right .chat-bubble.incoming {
   background: var(--bg-primary, #1e1e1e);
 }
 
-[data-theme="dark"] .ob-preview-right {
+[data-theme="dark"] .ob-preview-right,
+[data-theme="midnight"] .ob-preview-right {
   background: linear-gradient(180deg, #064e3b 0%, #065f46 100%);
   color: #a7f3d0;
 }
@@ -498,16 +506,19 @@
   }
 }
 
-/* ── 暗色主题适配 ── */
-[data-theme="dark"] .ob-tooltip {
+/* ── 暗色主题适配（dark + midnight 共用） ── */
+[data-theme="dark"] .ob-tooltip,
+[data-theme="midnight"] .ob-tooltip {
   background: var(--bg-primary, #1e1e1e);
 }
 
-[data-theme="dark"] .ob-arrow {
+[data-theme="dark"] .ob-arrow,
+[data-theme="midnight"] .ob-arrow {
   background: var(--bg-primary, #1e1e1e);
 }
 
-[data-theme="dark"] .ob-spotlight {
+[data-theme="dark"] .ob-spotlight,
+[data-theme="midnight"] .ob-spotlight {
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
 }
 
