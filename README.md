@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <video src="https://raw.githubusercontent.com/Puteitous/HippoBuddy/main/assets/video_demo.mp4" autoplay muted loop playsinline controls width="100%"></video>
+  <img src="./image.png" alt="HippoBuddy 主界面" width="100%">
 </p>
 
 ---
@@ -46,6 +46,12 @@ Built-in JRE -- download, install, and go. No Java setup required.
 | **Sessions** | Create, rename, delete, fork discussions |
 | **Toolbox** | Token stats, terminal, browser, live monitor |
 | **Onboarding** | Spotlight tour on first launch |
+
+<p align="center">
+  <img src="./image1.png" alt="Chat 与预览面板" width="100%">
+  <br>
+  <em>Chat panel and preview panel working together</em>
+</p>
 
 ---
 

@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <video src="https://raw.githubusercontent.com/Puteitous/HippoBuddy/main/assets/video_demo.mp4" autoplay muted loop playsinline controls width="100%"></video>
+  <img src="../image.png" alt="HippoBuddy 主界面" width="100%">
 </p>
 
 ---
@@ -46,6 +46,12 @@
 | **会话管理** | 新建、重命名、删除、分叉讨论 |
 | **工具箱** | Token 统计、终端、浏览器、实时监控等 |
 | **新手指引** | 首次启动聚光灯导览，快速上手 |
+
+<p align="center">
+  <img src="../image1.png" alt="Chat 与预览面板" width="100%">
+  <br>
+  <em>Chat 面板与预览面板协同工作</em>
+</p>
 
 ---
 
