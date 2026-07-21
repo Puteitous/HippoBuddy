@@ -226,7 +226,31 @@ function launchPackagedBackend(resolve, reject) {
     javaCmd = sysJava;
   }
 
-  const proc = spawn(javaCmd, ['-cp', jarPath, mainClass], {
+  // ── 数据目录策略 ──
+  // 1. 优先读用户自定义配置 data-dir.conf（持久化在 Electron userData 根目录下，
+  //    由 Java 后端 DataDirApiHandler 写入，确保更新/卸载后不丢失）
+  // 2. 无自定义配置则使用默认 %APPDATA%/HippoBuddy/.hippo
+  const userDataRoot = app.getPath('userData');
+  const dataDirConfig = path.join(userDataRoot, 'data-dir.conf');
+  let hippoDataDir;
+  if (fs.existsSync(dataDirConfig)) {
+    const customPath = fs.readFileSync(dataDirConfig, 'utf-8').trim();
+    if (customPath && fs.existsSync(customPath)) {
+      hippoDataDir = customPath;
+    } else {
+      console.error(`[backend] data-dir.conf 中的路径无效，回退到默认: ${customPath}`);
+      hippoDataDir = path.join(userDataRoot, '.hippo');
+    }
+  } else {
+    hippoDataDir = path.join(userDataRoot, '.hippo');
+  }
+
+  const proc = spawn(javaCmd, [
+    `-Dhippo.data.dir=${hippoDataDir}`,
+    `-Dhippo.userdata.root=${userDataRoot}`,
+    '-cp', jarPath, mainClass
+  ], {
+    cwd: hippoDataDir,
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });

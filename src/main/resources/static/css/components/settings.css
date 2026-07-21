@@ -222,13 +222,14 @@
 .settings-field-horizontal .settings-field-label {
     flex-shrink: 0;
     width: 140px;
+    white-space: nowrap;
 }
 
 .settings-field-hint {
     font-size: var(--font-size-md);
     color: var(--text-muted);
     font-weight: 400;
-    white-space: nowrap;
+    white-space: pre;
 }
 
 .settings-field-body {

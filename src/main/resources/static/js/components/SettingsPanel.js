@@ -18,10 +18,10 @@ import { McpSettingsPage } from './settings/McpSettingsPage.js';
 const _t = (key) => window.i18n ? window.i18n.t(key) : key;
 
 const NAV_ITEMS = [
+  { id: 'general',  key: 'settings.general',  label: () => _t('settings.general'), icon: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' },
   { id: 'model',    key: 'settings.model',    label: () => _t('settings.model'), icon: 'M4 4h16v16H4z M9 9h6v6H9z M2 12h2 M20 12h2 M12 2v2 M12 20v2' },
   { id: 'rules',    key: 'settings.rules',    label: () => _t('settings.rules'), icon: 'M6 2h8l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M14 2v4h4 M9 13l2 2 4-4' },
   { id: 'skills',   key: 'settings.skills',   label: () => _t('settings.skills'), icon: 'M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z' },
-  { id: 'general',  key: 'settings.general',  label: () => _t('settings.general'), icon: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' },
   { id: 'context',  key: 'settings.context',  label: () => _t('settings.context'),   icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
   { id: 'session',  key: 'settings.session',  label: () => _t('settings.session'), icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
   { id: 'tools',    key: 'settings.tools',    label: () => _t('settings.tools'), icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z' },
@@ -30,10 +30,10 @@ const NAV_ITEMS = [
 
 /** Page 类映射 */
 const PAGE_CLASSES = {
+  general:  GeneralSettingsPage,
   model:    ModelSettingsPage,
   rules:    RulesSettingsPage,
   skills:   SkillsSettingsPage,
-  general:  GeneralSettingsPage,
   context:  ContextSettingsPage,
   session:  SessionSettingsPage,
   tools:    ToolsSettingsPage,

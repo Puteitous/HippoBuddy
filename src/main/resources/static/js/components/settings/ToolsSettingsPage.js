@@ -125,11 +125,12 @@ export class ToolsSettingsPage {
             </div>
           </div>
           <div class="settings-field">
-            <label class="settings-field-label" for="toolsBashWhitelist">
-              ${_t('settingsPage.toolsWhitelist')} <span class="settings-field-hint">${_t('settingsPage.toolsWhitelistHint')}</span>
-            </label>
+            <div class="settings-field-label">
+              <div>${_t('settingsPage.toolsWhitelist')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.toolsWhitelistHint')}</div>
+            </div>
             <textarea class="settings-input" id="toolsBashWhitelist" rows="1" placeholder="${_t('settingsPage.toolsWhitelistPh')}"
-              style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;width:480px;margin-left:auto;">${whitelistStr}</textarea>
+              style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;width:430px;margin-left:auto;">${whitelistStr}</textarea>
           </div>
         </div>
       </div>

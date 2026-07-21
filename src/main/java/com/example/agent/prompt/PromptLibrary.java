@@ -127,7 +127,7 @@ public class PromptLibrary {
     }
 
     public String getFallbackPrompt() {
-        return "你是一个专业的编程助手，可以协助用户进行软件开发任务。\n始终使用中文回复，保持专业且有帮助的态度。";
+        return "你是一个专业的编程助手，可以协助用户进行软件开发任务。\n始终使用与用户消息相同的语言回复，保持专业且有帮助的态度。";
     }
 
     public void reload() {
