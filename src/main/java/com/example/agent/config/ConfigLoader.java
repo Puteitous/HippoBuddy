@@ -35,6 +35,13 @@ public class ConfigLoader {
     }
 
     public Config load() {
+        // 0. 迁移旧配置：当使用 hippo.data.dir（用户数据目录）且目录下无配置时，
+        //    尝试从旧的安装目录（user.dir / JAR 目录）复制现成配置
+        String hippoDataDir = System.getProperty("hippo.data.dir");
+        if (hippoDataDir != null && !hippoDataDir.isEmpty()) {
+            migrateFromOldLocation();
+        }
+
         for (String fileName : CONFIG_FILE_NAMES) {
             File configFile = new File(configDir, fileName);
             if (configFile.exists()) {
@@ -146,6 +153,47 @@ public class ConfigLoader {
         return config;
     }
 
+    /** 从旧的安装目录迁移 config.yaml 到当前 configDir（用户数据目录） */
+    private void migrateFromOldLocation() {
+        // 先判断当前 configDir 下是否已有配置
+        for (String fileName : CONFIG_FILE_NAMES) {
+            if (new File(configDir, fileName).exists()) {
+                return; // 已有配置，不需要迁移
+            }
+        }
+
+        // 尝试从旧位置查找并复制
+        String userDir = System.getProperty("user.dir");
+        File oldDir = null;
+        if (userDir != null) {
+            oldDir = new File(userDir);
+        }
+        // 也检查 JAR（resources）目录
+        try {
+            java.net.URI uri = ConfigLoader.class.getProtectionDomain()
+                .getCodeSource().getLocation().toURI();
+            File file = new File(uri);
+            String jarDir = file.isFile() ? file.getParent() : file.getAbsolutePath();
+            if (jarDir != null && !jarDir.equals(userDir)) {
+                for (String fileName : CONFIG_FILE_NAMES) {
+                    File oldConfig = new File(jarDir, fileName);
+                    if (oldConfig.exists()) {
+                        try {
+                            Files.createDirectories(new File(configDir).toPath());
+                            Files.copy(oldConfig.toPath(), new File(configDir, fileName).toPath());
+                            logger.info("配置已从旧位置迁移: {} → {}", oldConfig.getAbsolutePath(), configDir);
+                            return;
+                        } catch (IOException e) {
+                            logger.warn("配置迁移失败: {}", e.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("检查旧配置位置失败: {}", e.getMessage());
+        }
+    }
+
     private void saveDefaultConfig(Config config) {
         File configFile = new File(configDir, "config.yaml");
         try {
@@ -159,6 +207,15 @@ public class ConfigLoader {
     }
 
     private String getConfigDirectory() {
+        // 1. 优先使用 hippo.data.dir（桌面端由 DesktopApplication.initDataDir() 设置为
+        //    %APPDATA%/HippoBuddy，不会被更新覆盖，跨版本持久化）
+        String hippoDataDir = System.getProperty("hippo.data.dir");
+        if (hippoDataDir != null && !hippoDataDir.isEmpty()) {
+            logger.info("Using hippo.data.dir: {}", hippoDataDir);
+            return hippoDataDir;
+        }
+
+        // 2. 检查 user.dir 下是否有现成配置（兼容老版本、开发模式）
         String userDir = System.getProperty("user.dir");
         if (userDir != null) {
             for (String fileName : CONFIG_FILE_NAMES) {
@@ -168,6 +225,7 @@ public class ConfigLoader {
             }
         }
         
+        // 3. 回退到 JAR 所在目录
         try {
             java.net.URI uri = ConfigLoader.class.getProtectionDomain()
                 .getCodeSource().getLocation().toURI();

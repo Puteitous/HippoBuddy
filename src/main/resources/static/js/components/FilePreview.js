@@ -674,16 +674,14 @@ export class FilePreview {
       btn.classList.toggle('active', this._mdPreview.isPreview);
       btn.title = this._mdPreview.isPreview ? i18n.t('preview.editMode') : i18n.t('preview.previewMode');
       btn.innerHTML = this._mdPreview.isPreview
-        ? `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 1.5H5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-11a1 1 0 0 0-1-1z"/>
-            <line x1="5" y1="4" x2="11" y2="4"/>
-            <line x1="5" y1="7" x2="11" y2="7"/>
-            <line x1="5" y1="10" x2="9" y2="10"/>
+        ? `<svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round">
+            <path d="M24 36C35.0457 36 44 24 44 24C44 24 35.0457 12 24 12C12.9543 12 4 24 4 24C4 24 12.9543 36 24 36Z"/>
+            <path d="M24 29C26.7614 29 29 26.7614 29 24C29 21.2386 26.7614 19 24 19C21.2386 19 19 21.2386 19 24C19 26.7614 21.2386 29 24 29Z"/>
           </svg>`
-        : `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 3v10l5-3.5L11 13l4-2.5V3l-4 2.5L6 3 1 6.5z"/>
-            <path d="M6 3v7.5"/>
-            <path d="M11 5.5V13"/>
+        : `<svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.85786 18C6.23858 21 4 24 4 24C4 24 12.9543 36 24 36C25.3699 36 26.7076 35.8154 28 35.4921M20.0318 12.5C21.3144 12.1816 22.6414 12 24 12C35.0457 12 44 24 44 24C44 24 41.7614 27 38.1421 30"/>
+            <path d="M20.3142 20.6211C19.4981 21.5109 19 22.6972 19 23.9998C19 26.7612 21.2386 28.9998 24 28.9998C25.3627 28.9998 26.5981 28.4546 27.5 27.5705"/>
+            <path d="M42 42L6 6"/>
           </svg>`;
     } else {
       btn.style.display = 'none';

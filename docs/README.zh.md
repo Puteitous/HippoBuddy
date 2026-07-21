@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <img src="../image.png" alt="HippoBuddy 主界面" width="100%">
+  <img src="../electron/assets/image.png" alt="HippoBuddy 主界面" width="100%">
 </p>
 
 ---
