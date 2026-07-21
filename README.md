@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <video src="https://github.com/Puteitous/HippoBuddy/releases/download/v1.0.0/video_demo.mp4" autoplay muted loop playsinline controls width="100%"></video>
+  <video src="https://raw.githubusercontent.com/Puteitous/HippoBuddy/main/assets/video_demo.mp4" autoplay muted loop playsinline controls width="100%"></video>
 </p>
 
 ---
