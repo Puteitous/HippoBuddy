@@ -12,7 +12,6 @@ import com.example.agent.subagent.SubAgentManager;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
 import com.example.agent.logging.EventMetricsCollector;
-import com.example.agent.logging.TokenMetricsCollector;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.prompt.PromptService;
 import com.example.agent.service.TokenEstimator;
@@ -55,7 +54,6 @@ public class AgentContext {
     private TokenEstimator tokenEstimator;
     private ConversationService conversationService;
     private Conversation conversation;
-    private TokenMetricsCollector tokenMetricsCollector;
     private EventMetricsCollector eventMetricsCollector;
     private RuleManager ruleManager;
     private McpServiceManager mcpServiceManager;
@@ -133,12 +131,10 @@ public class AgentContext {
     }
 
     public void initialize() {
-        LocalDate today = LocalDate.now();
-        this.tokenMetricsCollector = new TokenMetricsCollector(today);
         // 复用 CoreModule 已注册的 EventMetricsCollector，确保数据源唯一
         this.eventMetricsCollector = ServiceLocator.getOrNull(EventMetricsCollector.class);
         if (this.eventMetricsCollector == null) {
-            this.eventMetricsCollector = new EventMetricsCollector(today);
+            this.eventMetricsCollector = new EventMetricsCollector(java.time.LocalDate.now());
             ServiceLocator.registerSingleton(EventMetricsCollector.class, this.eventMetricsCollector);
         }
         logger.info("日志系统已初始化");
@@ -319,10 +315,6 @@ public class AgentContext {
     }
 
 
-
-    public TokenMetricsCollector getTokenMetricsCollector() {
-        return tokenMetricsCollector;
-    }
 
     public EventMetricsCollector getEventMetricsCollector() {
         return eventMetricsCollector;

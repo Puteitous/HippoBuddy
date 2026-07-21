@@ -20,6 +20,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.example.agent.logging.WorkspaceManager;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -396,9 +399,21 @@ public class SubAgentRunner implements Runnable {
                         filePath = args.get("file_path").asText();
                     }
                     
-                    if (filePath == null || !filePath.startsWith(".hippo/memory/")) {
-                        String errorMsg = String.format("权限拒绝: %s 只能操作 .hippo/memory/ 下的文件，不允许: %s", 
-                            permission.getName(), filePath);
+                    if (filePath == null) {
+                        String errorMsg = String.format("权限拒绝: %s 文件路径为空", permission.getName());
+                        task.addLog(errorMsg);
+                        subAgentLogger.log(errorMsg);
+                        addToolResult(toolCall.getId(), toolName, errorMsg);
+                        failedCount++;
+                        continue;
+                    }
+
+                    // 检查路径是否在合法的 memory 目录内（用绝对路径比较，兼容开发/生产环境）
+                    Path resolvedPath = Paths.get(filePath).toAbsolutePath().normalize();
+                    Path memoryRoot = WorkspaceManager.getUserMemoryDir().toAbsolutePath().normalize();
+                    if (!resolvedPath.startsWith(memoryRoot)) {
+                        String errorMsg = String.format("权限拒绝: %s 只能操作 %s 下的文件，不允许: %s", 
+                            permission.getName(), memoryRoot, filePath);
                         task.addLog(errorMsg);
                         subAgentLogger.log(errorMsg);
                         addToolResult(toolCall.getId(), toolName, errorMsg);

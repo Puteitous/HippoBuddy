@@ -245,6 +245,11 @@ function launchPackagedBackend(resolve, reject) {
     hippoDataDir = path.join(userDataRoot, '.hippo');
   }
 
+  // 确保数据目录存在（否则 spawn 的 cwd 会失败导致 ENOENT）
+  if (!fs.existsSync(hippoDataDir)) {
+    fs.mkdirSync(hippoDataDir, { recursive: true });
+  }
+
   const proc = spawn(javaCmd, [
     `-Dhippo.data.dir=${hippoDataDir}`,
     `-Dhippo.userdata.root=${userDataRoot}`,

@@ -61,8 +61,6 @@ public class WorkspaceManager {
     
     /**
      * 创建扁平化的核心数据目录结构。
-     * <p>
-     * 新结构（Phase 1）：
      * <pre>
      * .hippo/
      *   sessions/        — 所有会话 JSON
@@ -70,9 +68,6 @@ public class WorkspaceManager {
      *     system/        — 系统日志
      *     conversations/ — 人类可读的对话日志
      *   config/          — 全局配置
-     *   metrics/         — 指标统计
-     *   debug/           — 调试日志
-     *   cache/           — 缓存
      *   rules/           — 用户规则
      *   skills/          — 用户技能
      *   memory/          — 长期记忆
@@ -85,9 +80,6 @@ public class WorkspaceManager {
                 HIPPO_ROOT.resolve("logs").resolve("system"),
                 HIPPO_ROOT.resolve("logs").resolve("conversations"),
                 HIPPO_ROOT.resolve("config"),
-                HIPPO_ROOT.resolve("metrics"),
-                HIPPO_ROOT.resolve("debug"),
-                HIPPO_ROOT.resolve("cache"),
                 HIPPO_ROOT.resolve("rules"),
                 HIPPO_ROOT.resolve("skills"),
                 HIPPO_ROOT.resolve("memory")
@@ -160,28 +152,12 @@ public class WorkspaceManager {
         return getSessionDir(sessionId).resolve("memory").resolve("session-memory.md");
     }
     
-    public static Path getCacheDir() {
-        return HIPPO_ROOT.resolve("cache");
-    }
-    
     // =========================================================
     // 全局子目录
     // =========================================================
     
     public static Path getGlobalConfigDir() {
         return HIPPO_ROOT.resolve("config");
-    }
-    
-    public static Path getGlobalMetricsDir() {
-        return HIPPO_ROOT.resolve("metrics");
-    }
-    
-    public static Path getGlobalDebugDir() {
-        return HIPPO_ROOT.resolve("debug");
-    }
-    
-    public static Path getGlobalCacheDir() {
-        return HIPPO_ROOT.resolve("cache");
     }
     
     public static Path getUserRulesDir() {
@@ -234,22 +210,6 @@ public class WorkspaceManager {
             }
         }
         return dir;
-    }
-    
-    // =========================================================
-    // 指标 / 调试文件
-    // =========================================================
-    
-    public static Path getTokenMetricsFile(LocalDate date) {
-        return getGlobalMetricsDir().resolve("tokens_" + date.format(DATE_FORMAT) + ".csv");
-    }
-    
-    public static Path getToolMetricsFile(LocalDate date) {
-        return getGlobalMetricsDir().resolve("tools_" + date.format(DATE_FORMAT) + ".csv");
-    }
-    
-    public static Path getDebugLogFile(String sessionId) {
-        return getGlobalDebugDir().resolve(sessionId + ".txt");
     }
     
     /**

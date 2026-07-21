@@ -33,7 +33,6 @@ public class MemoryStore {
 
     private static final Logger logger = LoggerFactory.getLogger(MemoryStore.class);
 
-    private static final String MEMORY_DIR = ".hippo/memory";
     private static final String INDEX_FILE = "MEMORY.md";
     private static final String TEMP_SUFFIX = ".tmp";
 

@@ -18,10 +18,10 @@ import com.example.agent.memory.MemoryStore;
 import com.example.agent.memory.MemoryToolSandbox;
 import com.example.agent.memory.extraction.MemoryExtractor;
 import com.example.agent.memory.consolidation.MemoryConsolidator;
+import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.memory.session.SessionMemoryExtractor;
 import com.example.agent.service.TokenEstimator;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import com.example.agent.session.SessionData;
 import com.example.agent.session.SessionTranscript;
 
@@ -107,7 +107,7 @@ public class ConversationService {
         }
         
         if (store == null) {
-            MemoryToolSandbox sandbox = new MemoryToolSandbox(Paths.get(System.getProperty("user.dir"), ".hippo/memory"));
+            MemoryToolSandbox sandbox = new MemoryToolSandbox(WorkspaceManager.getUserMemoryDir());
             store = new MemoryStore(sandbox);
         }
         this.globalMemoryStore = store;

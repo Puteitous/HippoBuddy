@@ -6,6 +6,7 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.config.MemoryConfig;
+import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.llm.model.Message;
 import com.example.agent.memory.MemoryStore;
 import com.example.agent.memory.MemoryToolSandbox;
@@ -80,8 +81,7 @@ public class MemoryExtractor {
     // 配置开关
     private boolean enabled = true;
 
-    // 记忆目录
-    private static final Path MEMORY_DIR = Paths.get(".hippo/memory");
+
 
     public MemoryExtractor(String sessionId, TokenEstimator tokenEstimator, LlmClient llmClient) {
         this(sessionId, tokenEstimator, llmClient, new MemoryConfig());
@@ -110,7 +110,7 @@ public class MemoryExtractor {
         try {
             this.memoryStore = ServiceLocator.getOrNull(MemoryStore.class);
             if (this.memoryStore == null) {
-                MemoryToolSandbox sandbox = new MemoryToolSandbox(MEMORY_DIR);
+                MemoryToolSandbox sandbox = new MemoryToolSandbox(WorkspaceManager.getUserMemoryDir());
                 this.memoryStore = new MemoryStore(sandbox);
             }
         } catch (Exception e) {
@@ -269,7 +269,7 @@ public class MemoryExtractor {
      * 获取现有记忆索引（MEMORY.md 内容）
      */
     private String getExistingMemoryIndex() {
-        Path memoryIndexPath = MEMORY_DIR.resolve("MEMORY.md");
+        Path memoryIndexPath = WorkspaceManager.getUserMemoryDir().resolve("MEMORY.md");
         if (!Files.exists(memoryIndexPath)) {
             return "";
         }
@@ -291,11 +291,12 @@ public class MemoryExtractor {
      * 统计记忆文件数量
      */
     private int countMemoryFiles() {
-        if (!Files.exists(MEMORY_DIR)) {
+        Path memoryDir = WorkspaceManager.getUserMemoryDir();
+        if (!Files.exists(memoryDir)) {
             return 0;
         }
         
-        try (Stream<Path> stream = Files.list(MEMORY_DIR)) {
+        try (Stream<Path> stream = Files.list(memoryDir)) {
             return (int) stream
                 .filter(Files::isRegularFile)
                 .filter(p -> p.toString().endsWith(".md"))

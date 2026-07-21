@@ -1,6 +1,7 @@
 package com.example.agent.memory.consolidation;
 
 import com.example.agent.application.ConversationService;
+import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
@@ -17,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -63,7 +64,7 @@ public class MemoryConsolidator {
         this.llmClient = llmClient;
         
         // 初始化 ConsolidationGate
-        Path memoryDir = Paths.get(".hippo/memory");
+        Path memoryDir = WorkspaceManager.getHippoRoot().resolve("memory");
         try {
             Files.createDirectories(memoryDir);
             this.consolidationGate = new ConsolidationGate(memoryDir);
@@ -214,8 +215,8 @@ public class MemoryConsolidator {
     private List<String> collectUnprocessedSessions(String currentSessionId) {
         List<String> sessions = new ArrayList<>();
         
-        // 扫描 .hippo/projects/*/sessions/*/memory/session-memory.md
-        Path projectsDir = Paths.get(".hippo/projects");
+        // 扫描 projects/*/sessions/*/memory/session-memory.md
+        Path projectsDir = WorkspaceManager.getHippoRoot().resolve("projects");
         if (!Files.exists(projectsDir)) {
             return sessions;
         }
@@ -236,7 +237,7 @@ public class MemoryConsolidator {
                 });
             
             // 同时收集 logs/ 目录下的日志文件
-            Path logsDir = Paths.get(".hippo/logs");
+            Path logsDir = WorkspaceManager.getHippoRoot().resolve("logs");
             if (Files.exists(logsDir)) {
                 Files.walk(logsDir, 2)
                     .filter(path -> path.toString().endsWith(".log") || path.toString().endsWith(".md"))

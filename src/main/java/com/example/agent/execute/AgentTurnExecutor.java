@@ -16,7 +16,6 @@ import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.tools.ToolRegistry;
 import org.jline.reader.UserInterruptException;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public class AgentTurnExecutor {
@@ -87,14 +86,6 @@ public class AgentTurnExecutor {
         }
 
         Usage usage = response.getUsage();
-        if (usage != null && sessionId != null) {
-            context.getTokenMetricsCollector().recordConversation(
-                    sessionId,
-                    LocalDateTime.now(),
-                    conversationService.getTokenCount(conversation),
-                    usage
-            );
-        }
 
         if (conversationLogger != null) {
             conversationLogger.logLlmCall(usage, response.hasToolCalls());

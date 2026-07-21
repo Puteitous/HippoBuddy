@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <property name="SYSTEM_LOG_DIR" value=".hippo/logs/system" />
+    <!--
+        生产环境 CWD = %APPDATA%/HippoBuddy/.hippo（见 electron/main.js cwd）
+        开发环境 CWD = 项目根目录（根目录下有 .hippo/）
+        所以这里用 logs/system（相对于 CWD），而非 .hippo/logs/system，避免重复 .hippo
+    -->
+    <property name="SYSTEM_LOG_DIR" value="logs/system" />
     <property name="PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} [%X{sessionId:-} turn=%X{turn:-} tool=%X{tool:-}] - %msg%n" />
     
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">

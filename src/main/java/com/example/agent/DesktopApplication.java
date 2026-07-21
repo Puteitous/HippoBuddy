@@ -94,13 +94,13 @@ public final class DesktopApplication {
         String os = System.getProperty("os.name").toLowerCase();
         String dataDir;
         if (os.contains("win")) {
-            dataDir = System.getenv("APPDATA") + "/HippoBuddy";
+            dataDir = System.getenv("APPDATA") + "/HippoBuddy/.hippo";
         } else if (os.contains("mac")) {
-            dataDir = System.getProperty("user.home") + "/Library/Application Support/HippoBuddy";
+            dataDir = System.getProperty("user.home") + "/Library/Application Support/HippoBuddy/.hippo";
         } else {
             String xdgData = System.getenv("XDG_DATA_HOME");
             dataDir = (xdgData != null && !xdgData.isBlank() ? xdgData : System.getProperty("user.home") + "/.local/share")
-                    + "/HippoBuddy";
+                    + "/HippoBuddy/.hippo";
         }
         System.setProperty("hippo.data.dir", dataDir);
     }
