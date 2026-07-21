@@ -524,7 +524,7 @@
         <div class="diff-modal">
             <div class="diff-modal-header">
                 <div class="diff-modal-title">
-                    <span>文件变更对比</span>
+                    <span data-i18n="diff.title">文件变更对比</span>
                     <span class="diff-file-path" id="diffFilePath"></span>
                 </div>
                 <button class="diff-modal-close" id="diffModalClose">✕</button>
@@ -532,12 +532,12 @@
             <div class="diff-modal-body" id="diffModalBody">
                 <div class="diff-timeline" id="diffTimeline"></div>
                 <div class="diff-content-panel" id="diffContentPanel">
-                    <div class="diff-empty" id="diffEmpty">加载中...</div>
+                    <div class="diff-empty" id="diffEmpty" data-i18n="diff.loading">加载中...</div>
                 </div>
             </div>
             <div class="diff-modal-footer">
                 <div class="diff-stats" id="diffStats"></div>
-                <button class="diff-rollback-btn" id="diffRollbackBtn">回滚此变更</button>
+                <button class="diff-rollback-btn" id="diffRollbackBtn" data-i18n="diff.rollbackBtn">回滚此变更</button>
             </div>
         </div>
     </div>
