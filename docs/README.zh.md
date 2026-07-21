@@ -48,7 +48,7 @@
 | **新手指引** | 首次启动聚光灯导览，快速上手 |
 
 <p align="center">
-  <img src="../image1.png" alt="Chat 与预览面板" width="100%">
+  <img src="../electron/assets/image1.png" alt="Chat 与预览面板" width="100%">
   <br>
   <em>Chat 面板与预览面板协同工作</em>
 </p>

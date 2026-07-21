@@ -7,9 +7,7 @@
     "build:ooxml": "node scripts/build-ooxml.mjs",
     "build:vendor": "node scripts/build-codemirror.mjs && node scripts/build-ooxml.mjs",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -33,7 +31,6 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.37.0",
-    "@playwright/test": "^1.59.1",
     "codemirror": "^6.0.1",
     "esbuild": "^0.28.1",
     "jsdom": "^29.1.1",

@@ -48,7 +48,7 @@ Built-in JRE -- download, install, and go. No Java setup required.
 | **Onboarding** | Spotlight tour on first launch |
 
 <p align="center">
-  <img src="./image1.png" alt="Chat 与预览面板" width="100%">
+  <img src="./electron/assets/image1.png" alt="Chat 与预览面板" width="100%">
   <br>
   <em>Chat panel and preview panel working together</em>
 </p>
