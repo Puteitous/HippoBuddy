@@ -1,0 +1,255 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  JAR_NAME: HippoBuddy-1.0.0.jar
+
+jobs:
+  # ============================================================
+  # 第一阶段：构建后端 JAR + 前端资源（跨平台共享）
+  # ============================================================
+  build-jar:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend vendor (CodeMirror + OOXML)
+        run: npm run build:vendor
+
+      - name: Build backend JAR
+        run: mvn package -DskipTests --batch-mode
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hippo-agent-jar
+          path: target/${{ env.JAR_NAME }}
+          retention-days: 3
+
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: src/main/resources/static/
+          retention-days: 3
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+  # ============================================================
+  # 第二阶段：Windows 打包
+  # ============================================================
+  build-win:
+    needs: build-jar
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (for jlink)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: hippo-agent-jar
+          path: target/
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: src/main/resources/static/
+
+      - name: Install Electron dependencies
+        run: cd electron && npm ci
+
+      - name: Setup JAR in resources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path electron/resources | Out-Null
+          Copy-Item target/${{ env.JAR_NAME }} electron/resources/hippo-agent.jar -Force
+
+      - name: Generate trimmed JRE with jlink
+        shell: pwsh
+        run: |
+          $JreOut = "electron/resources/jre"
+          jlink --module-path "$Env:JAVA_HOME\jmods" `
+            --add-modules java.base,java.desktop,java.instrument,java.logging,`
+                       java.management,java.naming,java.net.http,java.security.jgss,`
+                       java.sql,java.xml,java.xml.crypto,jdk.crypto.ec,`
+                       jdk.crypto.cryptoki,jdk.httpserver `
+            --output $JreOut `
+            --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
+
+      - name: Build Windows installer
+        run: cd electron && npm run pack
+
+      - name: Upload Windows installer to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: electron/release/HippoBuddy*.exe
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================
+  # 第三阶段：macOS 打包
+  # ============================================================
+  build-mac:
+    needs: build-jar
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (for jlink)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: hippo-agent-jar
+          path: target/
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: src/main/resources/static/
+
+      - name: Install Electron dependencies
+        run: cd electron && npm ci
+
+      - name: Setup JAR in resources
+        run: |
+          mkdir -p electron/resources
+          cp target/${{ env.JAR_NAME }} electron/resources/hippo-agent.jar
+
+      - name: Generate trimmed JRE with jlink
+        run: |
+          jlink --module-path "$JAVA_HOME/jmods" \
+            --add-modules java.base,java.desktop,java.instrument,java.logging, \
+                       java.management,java.naming,java.net.http,java.security.jgss, \
+                       java.sql,java.xml,java.xml.crypto,jdk.crypto.ec, \
+                       jdk.crypto.cryptoki,jdk.httpserver \
+            --output electron/resources/jre \
+            --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
+
+      - name: Build macOS DMG (Intel + Apple Silicon)
+        run: cd electron && npx electron-builder --mac --x64 --arm64
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload macOS DMG to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: electron/release/HippoBuddy*.dmg
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================
+  # 第四阶段：Linux 打包
+  # ============================================================
+  build-linux:
+    needs: build-jar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (for jlink)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: hippo-agent-jar
+          path: target/
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: src/main/resources/static/
+
+      - name: Install Electron dependencies
+        run: cd electron && npm ci
+
+      - name: Setup JAR in resources
+        run: |
+          mkdir -p electron/resources
+          cp target/${{ env.JAR_NAME }} electron/resources/hippo-agent.jar
+
+      - name: Generate trimmed JRE with jlink
+        run: |
+          jlink --module-path "$JAVA_HOME/jmods" \
+            --add-modules java.base,java.desktop,java.instrument,java.logging, \
+                       java.management,java.naming,java.net.http,java.security.jgss, \
+                       java.sql,java.xml,java.xml.crypto,jdk.crypto.ec, \
+                       jdk.crypto.cryptoki,jdk.httpserver \
+            --output electron/resources/jre \
+            --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
+
+      - name: Build Linux packages (AppImage + deb)
+        run: cd electron && npx electron-builder --linux --x64
+
+      - name: Upload Linux packages to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: electron/release/HippoBuddy*.AppImage
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
