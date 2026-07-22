@@ -110,7 +110,7 @@ jobs:
           jlink --module-path "$Env:JAVA_HOME\jmods" --add-modules $Modules --output $JreOut --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
       - name: Build Windows installer
-        run: cd electron && npm run pack
+        run: cd electron && npx electron-builder --win --x64 --publish=never
 
       - name: Upload Windows installer to Release
         uses: softprops/action-gh-release@v2
@@ -172,7 +172,7 @@ jobs:
             --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
       - name: Build macOS DMG (Intel + Apple Silicon)
-        run: cd electron && npx electron-builder --mac --x64 --arm64
+        run: cd electron && npx electron-builder --mac --x64 --arm64 --publish=never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
@@ -235,7 +235,7 @@ jobs:
             --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
       - name: Build Linux AppImage
-        run: cd electron && npx electron-builder --linux --x64
+        run: cd electron && npx electron-builder --linux --x64 --publish=never
 
       - name: Upload Linux AppImage to Release
         uses: softprops/action-gh-release@v2
