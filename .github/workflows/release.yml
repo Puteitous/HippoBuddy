@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 env:
   JAR_NAME: HippoBuddy-1.0.0.jar
 
