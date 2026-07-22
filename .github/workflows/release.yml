@@ -106,13 +106,8 @@ jobs:
         shell: pwsh
         run: |
           $JreOut = "electron/resources/jre"
-          jlink --module-path "$Env:JAVA_HOME\jmods" `
-            --add-modules java.base,java.desktop,java.instrument,java.logging,`
-                       java.management,java.naming,java.net.http,java.security.jgss,`
-                       java.sql,java.xml,java.xml.crypto,jdk.crypto.ec,`
-                       jdk.crypto.cryptoki,jdk.httpserver `
-            --output $JreOut `
-            --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
+          $Modules = "java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.security.jgss,java.sql,java.xml,java.xml.crypto,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.httpserver"
+          jlink --module-path "$Env:JAVA_HOME\jmods" --add-modules $Modules --output $JreOut --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
       - name: Build Windows installer
         run: cd electron && npm run pack
@@ -170,11 +165,9 @@ jobs:
 
       - name: Generate trimmed JRE with jlink
         run: |
+          MODULES="java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.security.jgss,java.sql,java.xml,java.xml.crypto,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.httpserver"
           jlink --module-path "$JAVA_HOME/jmods" \
-            --add-modules java.base,java.desktop,java.instrument,java.logging, \
-                       java.management,java.naming,java.net.http,java.security.jgss, \
-                       java.sql,java.xml,java.xml.crypto,jdk.crypto.ec, \
-                       jdk.crypto.cryptoki,jdk.httpserver \
+            --add-modules "$MODULES" \
             --output electron/resources/jre \
             --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
@@ -235,18 +228,16 @@ jobs:
 
       - name: Generate trimmed JRE with jlink
         run: |
+          MODULES="java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.security.jgss,java.sql,java.xml,java.xml.crypto,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.httpserver"
           jlink --module-path "$JAVA_HOME/jmods" \
-            --add-modules java.base,java.desktop,java.instrument,java.logging, \
-                       java.management,java.naming,java.net.http,java.security.jgss, \
-                       java.sql,java.xml,java.xml.crypto,jdk.crypto.ec, \
-                       jdk.crypto.cryptoki,jdk.httpserver \
+            --add-modules "$MODULES" \
             --output electron/resources/jre \
             --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
-      - name: Build Linux packages (AppImage + deb)
+      - name: Build Linux AppImage
         run: cd electron && npx electron-builder --linux --x64
 
-      - name: Upload Linux packages to Release
+      - name: Upload Linux AppImage to Release
         uses: softprops/action-gh-release@v2
         with:
           files: electron/release/HippoBuddy*.AppImage
