@@ -26,6 +26,7 @@ import com.example.agent.prompt.PromptService;
 import com.example.agent.tools.*;
 import com.example.agent.tools.concurrent.ConcurrentToolExecutor;
 import com.example.agent.tools.web.WebFetchTool;
+import com.example.agent.tools.web.WebSearchConfig;
 import com.example.agent.tools.web.WebSearchTool;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -139,7 +140,13 @@ public final class CoreModule {
         registry.register(new AskUserTool());
         registry.register(new BashTool());
         registry.register(new TodoWriteTool(ServiceLocator.get(TodoManager.class)));
-        registry.register(new WebSearchTool(Config.getInstance().getTools().getWebSearch()));
+        WebSearchConfig webSearchConfig = Config.getInstance().getTools().getWebSearch();
+        if (webSearchConfig.isEnabled()) {
+            registry.register(new WebSearchTool(webSearchConfig));
+            logger.info("✅ 工具: web_search（已启用）");
+        } else {
+            logger.info("🔇 工具: web_search（已禁用）");
+        }
         registry.register(new WebFetchTool());
         registry.register(new LintDiagnosticsTool());
         registry.register(new SkillTool());

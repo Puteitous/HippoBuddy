@@ -102,6 +102,9 @@ public class WebSearchTool implements ToolExecutor {
     @Override
     public String execute(JsonNode arguments) throws ToolExecutionException {
         if (!config.isEnabled()) {
+            throw new ToolExecutionException("WebSearch 已禁用，请在设置中启用。");
+        }
+        if (config.getApiKey() == null || config.getApiKey().trim().isEmpty()) {
             throw new ToolExecutionException(
                 "WebSearch 未配置 API Key。请在 config.yaml 中设置 web_search.api_key。" +
                 "免费注册: https://brave.com/search/api/"

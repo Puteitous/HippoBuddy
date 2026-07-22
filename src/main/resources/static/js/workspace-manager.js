@@ -266,7 +266,7 @@ const HippoWorkspace = (() => {
 
   // ── 默认工作区欢迎文件 ──
   const WELCOME_FILE_NAME = '👋 欢迎使用 HippoBuddy.md';
-  const WELCOME_FILE_CONTENT = `# 🦛 欢迎使用 HippoBuddy！
+  const WELCOME_FILE_CONTENT = `# 👋 欢迎使用 HippoBuddy！
 
 > *你的 AI 编程搭档，让写代码像聊天一样自然。*
 
@@ -292,8 +292,8 @@ const HippoWorkspace = (() => {
 
 | 区域 | 功能 |
 |---|---|
-| 🔧 **右侧工具栏** | Token 统计 · 实时监控 · 文件变更 · 终端 · 浏览器 · 技能市场 |
-| 📋 **左侧会话列表** | 管理对话历史 · 重命名 · 分叉讨论 |
+| 🔧 **左侧工具栏** | Token 统计 · 实时监控 · 文件变更 · 终端 · 浏览器 · 技能市场 |
+| 📋 **会话列表** | 管理对话历史 · 重命名 · 分叉讨论 |
 | ⚙️ **顶部设置** | 切换 AI 模型 · 主题切换 · 系统设置 |
 
 ---
@@ -301,7 +301,6 @@ const HippoWorkspace = (() => {
 ## 💡 小技巧
 
 - **拖拽文件** 到输入框，AI 可以读取并分析
-- **选中代码** 后点击 💡 图标，快速解释或优化
 - **会话分叉**：点击会话右上角分叉按钮，从某条消息继续探索
 - **暗色模式**：点击顶部 🌙 图标切换
 
@@ -320,6 +319,81 @@ const HippoWorkspace = (() => {
 ---
 
 *Happy Coding! 🎉*
+`;
+
+  // ── 默认工作区配置指南 ──
+  const CONFIG_FILE_NAME = '🔧 配置指南.md';
+  const CONFIG_FILE_CONTENT = `# 🔧 配置指南
+
+> 首次使用前，需要配置 **AI 模型** 才能正常使用。**联网搜索** 可按需开启。
+
+---
+
+## 🤖 AI 模型配置
+
+在右侧 **⚙️ 设置面板** 的「模型」选项卡中，或直接编辑 \`config.yaml\`，配置以下信息：
+
+### 常见模型厂商
+
+| 厂商 | 官网（建议直接搜索品牌名） | API 地址示例 |
+|------|---------------------------|-------------|
+| **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com) | \`https://api.deepseek.com\` |
+| **OpenAI** | [platform.openai.com](https://platform.openai.com) | \`https://api.openai.com/v1\` |
+| **Anthropic** | [console.anthropic.com](https://console.anthropic.com) | \`https://api.anthropic.com\` |
+| **Google Gemini** | [aistudio.google.com](https://aistudio.google.com) | \`https://generativelanguage.googleapis.com/v1beta\` |
+| **月之暗面 (Kimi)** | [platform.moonshot.cn](https://platform.moonshot.cn) | \`https://api.moonshot.cn/v1\` |
+| **阿里通义千问** | [help.aliyun.com/model-studio](https://help.aliyun.com/model-studio) | \`https://dashscope.aliyuncs.com/compatible-mode/v1\` |
+| **字节豆包** | [console.volcengine.com/ark](https://console.volcengine.com/ark) | \`https://ark.cn-beijing.volces.com/api/v3\` |
+| **智谱 AI** | [open.bigmodel.cn](https://open.bigmodel.cn) | \`https://open.bigmodel.cn/api/paas/v4\` |
+| **MiniMax** | [platform.minimaxi.com](https://platform.minimaxi.com) | \`https://api.minimaxi.com/v1\` |
+| **百度千帆** | [console.bce.baidu.com/qianfan](https://console.bce.baidu.com/qianfan) | \`https://qianfan.baidubce.com/v2\` |
+### 配置示例 (\`config.yaml\`)
+
+\`\`\`yaml
+llm:
+  provider: deepseek
+  api_key: sk-your-api-key-here
+  model: deepseek-v4-flash
+  base_url: https://api.deepseek.com
+\`\`\`
+
+---
+
+## 🌐 联网搜索配置
+
+联网搜索默认关闭，如需使用请按以下步骤配置：
+
+1. 在右侧 **⚙️ 设置面板** → 「工具管理」中，打开 **Web 搜索** 开关
+2. 选择一个服务提供商并注册获取 API Key
+3. 填入 API Key 即可使用
+
+| 提供商 | 注册链接 | 免费额度 |
+|--------|---------|----------|
+| **Tavily**（国内较友好） | [tavily.com](https://tavily.com) | 每月 1,000 basic + 100 advanced |
+| **Brave Search** | [brave.com/search/api](https://brave.com/search/api) | 每月 2,000 次免费查询 |
+
+### 配置示例 (\`config.yaml\`)
+
+\`\`\`yaml
+tools:
+  web_search:
+    enabled: true             # 改为 true 启用
+    provider: brave           # brave | tavily
+    api_key: "your-api-key"
+\`\`\`
+
+---
+
+## 📝 配置方式
+
+1. **通过 UI 配置**：点击顶部 ⚙️ 图标，在设置面板中填写对应字段
+2. **通过配置文件**：编辑 HippoBuddy 数据目录下的 \`config.yaml\`
+
+> 配置文件路径：\`.hippo/config.yaml\`（位于你的工作区根目录）
+
+---
+
+*如有问题，直接在聊天框中提问即可。*
 `;
 
   const api = {
@@ -370,26 +444,41 @@ const HippoWorkspace = (() => {
       // 恢复上次打开的标签页和预览
       _restoreWorkspaceSession();
 
-      // ── 默认工作区：首次启动时创建并打开欢迎文件 ──
+      // ── 默认工作区：首次启动时创建欢迎文件 + 配置指南（不自动打开） ──
       if (isDefault && fileTabs.count === 0 && window.HippoDesktop?.writeFile) {
-        const welcomePath = _currentRoot + '/' + WELCOME_FILE_NAME;
-        // 用 localStorage 标记是否已展示过（清除数据或重置后重新展示）
+        const dir = await window.HippoDesktop.readDir(_currentRoot);
+        const fileNames = new Set(dir?.entries?.map(e => e.name) || []);
+
+        // 欢迎文件
         const welcomeKey = 'hippo-welcome-shown-' + _currentRoot.replace(/[\\/:]/g, '_');
         if (!localStorage.getItem(welcomeKey)) {
-          try {
-            // 检查文件是否已存在
-            const dir = await window.HippoDesktop.readDir(_currentRoot);
-            const exists = dir?.entries?.some(e => e.name === WELCOME_FILE_NAME);
-            if (!exists) {
-              await window.HippoDesktop.writeFile(welcomePath, WELCOME_FILE_CONTENT);
+          if (!fileNames.has(WELCOME_FILE_NAME)) {
+            try {
+              await window.HippoDesktop.writeFile(
+                _currentRoot + '/' + WELCOME_FILE_NAME,
+                WELCOME_FILE_CONTENT
+              );
+            } catch (e) {
+              console.warn('[Workspace] 创建欢迎文件失败:', e);
             }
-            // 标记已展示（但不清除，这样即使用户删了文件，重新打开默认工作区也不会再次创建）
-            localStorage.setItem(welcomeKey, '1');
-            // 打开欢迎文件
-            await handleFileSelect(welcomePath);
-          } catch (e) {
-            console.warn('[Workspace] 创建欢迎文件失败:', e);
           }
+          localStorage.setItem(welcomeKey, '1');
+        }
+
+        // 配置指南
+        const configKey = 'hippo-config-shown-' + _currentRoot.replace(/[\\/:]/g, '_');
+        if (!localStorage.getItem(configKey)) {
+          if (!fileNames.has(CONFIG_FILE_NAME)) {
+            try {
+              await window.HippoDesktop.writeFile(
+                _currentRoot + '/' + CONFIG_FILE_NAME,
+                CONFIG_FILE_CONTENT
+              );
+            } catch (e) {
+              console.warn('[Workspace] 创建配置指南失败:', e);
+            }
+          }
+          localStorage.setItem(configKey, '1');
         }
       }
     },

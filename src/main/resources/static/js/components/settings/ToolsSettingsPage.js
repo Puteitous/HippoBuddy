@@ -140,6 +140,15 @@ export class ToolsSettingsPage {
       <div class="settings-field-group">
         <div class="settings-form">
           <div class="settings-field-horizontal">
+            <label class="settings-field-label">${_t('settingsPage.toolsEnable')}</label>
+            <div class="settings-field-body">
+              <label class="settings-switch">
+                <input type="checkbox" id="toolsWebEnabled" ${webSearch.enabled === true ? 'checked' : ''}>
+                <span class="settings-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="settings-field-horizontal">
             <div class="settings-field-label">
               <div>${_t('settingsPage.toolsSearchProvider')}</div>
               <div class="settings-field-hint">${_t('settingsPage.toolsProviderHint')}</div>
@@ -221,7 +230,7 @@ export class ToolsSettingsPage {
     }
 
     // 绑定 checkbox 自动保存
-    const checkboxIds = ['toolsBashConfirm', 'toolsSubagentEnabled', 'toolsDeleteFileConfirm'];
+    const checkboxIds = ['toolsBashConfirm', 'toolsWebEnabled', 'toolsSubagentEnabled', 'toolsDeleteFileConfirm'];
     checkboxIds.forEach(id => {
       document.getElementById(id)?.addEventListener('change', () => this._saveConfig());
     });
@@ -247,8 +256,10 @@ export class ToolsSettingsPage {
       };
 
       // Web Search
+      const webEnabled = document.getElementById('toolsWebEnabled')?.checked;
       const webProvider = this._webProviderDropdown?.getSelectedItem()?.value || '';
       values.web_search = {
+        enabled: webEnabled !== false,
         provider: webProvider,
         api_key: document.getElementById('toolsWebApiKey')?.value || '',
       };

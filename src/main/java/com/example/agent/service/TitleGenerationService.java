@@ -168,7 +168,10 @@ public class TitleGenerationService {
     private String generateTitleFromLlm(String userMessage) {
         try {
             LlmClient llmClient = ServiceLocator.get(LlmClient.class);
-            String prompt = "根据用户的第一条消息，生成一个简短（不超过20个字）的对话标题，直接输出标题内容，不要加引号。\n\n用户消息：" + userMessage;
+            // 消息以英文为主时使用单词约束，否则使用字约束
+            String prompt = isPrimarilyEnglish(userMessage)
+                ? "Based on the user's first message, generate a short conversation title (no more than 10 words). Output the title directly, without quotes.\n\nUser message: " + userMessage
+                : "根据用户的第一条消息，生成一个简短（不超过20个字）的对话标题，直接输出标题内容，不要加引号。\n\n用户消息：" + userMessage;
             String title = llmClient.generateSync(prompt);
 
             if (title == null || title.isBlank()) {
@@ -193,6 +196,16 @@ public class TitleGenerationService {
             logger.warn("LLM 生成标题失败，使用消息原文降级", e);
             return fallbackTitle(userMessage);
         }
+    }
+
+    /**
+     * 判断用户消息是否以英文为主（ASCII 字符占比 > 60%）。
+     */
+    private boolean isPrimarilyEnglish(String message) {
+        if (message == null || message.isBlank()) return false;
+        long asciiCount = message.chars().filter(c -> c < 128 && !Character.isWhitespace(c)).count();
+        long totalPrintable = message.chars().filter(c -> !Character.isWhitespace(c)).count();
+        return totalPrintable > 0 && (double) asciiCount / totalPrintable > 0.6;
     }
 
     /**

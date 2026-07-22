@@ -30,6 +30,7 @@ tools:
       - find
     require_confirmation: true
   web_search:
+    enabled: false                # 启用/禁用联网搜索
     provider: brave               # brave | tavily
     api_key: "your-api-key"
     # Brave Search 免费注册: https://brave.com/search/api/（月 2,000 次）
