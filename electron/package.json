@@ -43,9 +43,8 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "hippobuddy",
-      "repo": "hippo-code",
-      "releaseType": "draft"
+      "owner": "Puteitous",
+      "repo": "HippoBuddy"
     },
     "win": {
       "target": [
