@@ -27,12 +27,16 @@
 
 ## 下载安装
 
-| 平台 | 下载 |
-|---|---|
-| **Windows** | [HippoBuddy Setup 1.0.0.exe](https://github.com/Puteitous/Hippo-Code/releases) |
-| macOS / Linux | 待发布 |
+### 🖥️ 桌面端（内嵌 JRE，下载即用）
 
-内嵌 JRE，下载后直接安装，无需额外配置 Java 环境。
+| 平台 | 下载 (GitHub) | 国内镜像加速 |
+|---|---|---|
+| 🪟 Windows | [HippoBuddy Setup](https://github.com/Puteitous/HippoBuddy/releases/latest) | [国内镜像下载](https://ghproxy.net/https://github.com/Puteitous/HippoBuddy/releases/latest) |
+| 🍎 macOS (Intel) | [HippoBuddy.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) | [国内镜像下载](https://ghproxy.net/https://github.com/Puteitous/HippoBuddy/releases/latest) |
+| 🍎 macOS (Apple Silicon) | [HippoBuddy-arm64.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) | [国内镜像下载](https://ghproxy.net/https://github.com/Puteitous/HippoBuddy/releases/latest) |
+| 🐧 Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) | [国内镜像下载](https://ghproxy.net/https://github.com/Puteitous/HippoBuddy/releases/latest) |
+
+> 💡 **推荐**：国内用户使用镜像加速链接下载，速度更快。
 
 ---
 
@@ -94,7 +98,7 @@ HippoBuddy 正在积极开发中，目前存在以下局限：
 
 ### 方式一：桌面端（推荐）
 
-下载[安装包](https://github.com/Puteitous/Hippo-Code/releases) -> 安装 -> 启动 -> 开始使用
+下载[安装包](https://github.com/Puteitous/HippoBuddy/releases/latest) -> 安装 -> 启动 -> 开始使用
 
 ### 方式二：源码启动
 
