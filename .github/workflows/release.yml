@@ -96,6 +96,13 @@ jobs:
           name: frontend-dist
           path: src/main/resources/static/
 
+      - name: Set version from tag
+        shell: pwsh
+        run: |
+          $version = "$env:GITHUB_REF" -replace 'refs/tags/v', ''
+          (Get-Content electron/package.json) -replace '"version": ".*"', "`"version`": `"$version`"" | Set-Content electron/package.json
+          Write-Host "Version set to: $version"
+
       - name: Install Electron dependencies
         run: cd electron && npm ci
 
@@ -157,6 +164,12 @@ jobs:
         with:
           name: frontend-dist
           path: src/main/resources/static/
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" electron/package.json
+          echo "Version set to: $VERSION"
 
       - name: Install Electron dependencies
         run: cd electron && npm ci
@@ -220,6 +233,12 @@ jobs:
         with:
           name: frontend-dist
           path: src/main/resources/static/
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" electron/package.json
+          echo "Version set to: $VERSION"
 
       - name: Install Electron dependencies
         run: cd electron && npm ci
