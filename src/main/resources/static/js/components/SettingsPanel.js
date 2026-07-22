@@ -45,7 +45,7 @@ export class SettingsPanel {
     this._overlay = null;
     this._contentEl = null;
     this._navItems = [];
-    this._activePage = 'model';
+    this._activePage = 'general';
     this._mainContainer = document.querySelector('.main-container');
     this._chatPanel = document.querySelector('.chat-panel');
     this._currentPageInstance = null;

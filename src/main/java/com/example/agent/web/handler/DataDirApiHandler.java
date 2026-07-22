@@ -119,8 +119,12 @@ public class DataDirApiHandler implements HttpHandler {
 
         // 检查新路径是否被占用
         if (Files.exists(newPath)) {
-            sendError(exchange, 400, "目标路径已存在，请选择空目录或确认覆盖: " + newPath);
-            return;
+            if (Files.isDirectory(newPath) && isDirectoryEmpty(newPath)) {
+                logger.info("目标路径为空目录，允许使用: {}", newPath);
+            } else {
+                sendError(exchange, 400, "目标路径已存在且非空，请选择空目录: " + newPath);
+                return;
+            }
         }
 
         try {
@@ -149,6 +153,13 @@ public class DataDirApiHandler implements HttpHandler {
         } catch (IOException e) {
             logger.error("数据目录迁移失败", e);
             sendError(exchange, 500, "数据迁移失败: " + e.getMessage());
+        }
+    }
+
+    /** 检查目录是否为空 */
+    private static boolean isDirectoryEmpty(Path dir) throws IOException {
+        try (var stream = Files.list(dir)) {
+            return stream.findAny().isEmpty();
         }
     }
 
