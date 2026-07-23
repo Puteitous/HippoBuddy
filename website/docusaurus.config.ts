@@ -17,6 +17,8 @@ const config: Config = {
   organizationName: 'Puteitous',
   projectName: 'HippoBuddy',
 
+  trailingSlash: false,
+
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
 
