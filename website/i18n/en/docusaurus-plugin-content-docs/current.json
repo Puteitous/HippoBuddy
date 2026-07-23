@@ -1,0 +1,10 @@
+{
+  "sidebar.docsSidebar.category.架构哲学": {
+    "message": "Architecture Philosophy",
+    "description": "The label for category 架构哲学 in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.实战思考": {
+    "message": "Practical Insights",
+    "description": "The label for category 实战思考 in sidebar docsSidebar"
+  }
+}

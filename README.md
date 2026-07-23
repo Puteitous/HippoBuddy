@@ -27,16 +27,12 @@
 
 ## Download
 
-### 🖥️ Desktop App (Built-in JRE — no Java setup required)
-
-| Platform | Download (GitHub) | Download (China Mirror) |
-|---|---|---|
-| 🪟 Windows | [HippoBuddy Setup](https://github.com/Puteitous/HippoBuddy/releases/latest) | [国内镜像加速](https://ghproxy.net/https://github.com/Puteitous/HippoBuddy/releases/latest) |
-| 🍎 macOS (Intel) | [HippoBuddy.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) | [国内镜像加速](https://ghproxy.net/https://github.com/Puteitous/HippoBuddy/releases/latest) |
-| 🍎 macOS (Apple Silicon) | [HippoBuddy-arm64.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) | [国内镜像加速](https://ghproxy.net/https://github.com/Puteitous/HippoBuddy/releases/latest) |
-| 🐧 Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) | [国内镜像加速](https://ghproxy.net/https://github.com/Puteitous/HippoBuddy/releases/latest) |
-
-> 💡 **国内用户**：推荐使用镜像加速链接下载，速度更快。
+| Platform | Download |
+|---|---|
+| Windows | [HippoBuddy Setup](https://github.com/Puteitous/HippoBuddy/releases/latest) |
+| macOS (Intel) | [HippoBuddy.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) |
+| macOS (Apple Silicon) | [HippoBuddy-arm64.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) |
+| Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 
 ---
 

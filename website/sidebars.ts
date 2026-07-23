@@ -1,0 +1,20 @@
+import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
+
+const sidebars: SidebarsConfig = {
+  docsSidebar: [
+    'intro',
+    'quick-start',
+    {
+      type: 'category',
+      label: '架构哲学',
+      items: ['architecture/philosophy'],
+    },
+    {
+      type: 'category',
+      label: '实战思考',
+      items: ['guides/agent-mindset', 'guides/startup-loading'],
+    },
+  ],
+};
+
+export default sidebars;

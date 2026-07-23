@@ -1,0 +1,56 @@
+{
+  "快速开始": {
+    "message": "Quick Start"
+  },
+  "了解项目": {
+    "message": "Learn More"
+  },
+  "下载：": {
+    "message": "Download: "
+  },
+  "界面预览": {
+    "message": "Screenshots"
+  },
+  "主界面：聊天面板与工具调用可视化": {
+    "message": "Main interface: chat panel with tool call visualization"
+  },
+  "Chat 面板与预览面板协同工作": {
+    "message": "Chat panel working alongside the preview panel"
+  },
+  "智能对话": {
+    "message": "Smart Chat"
+  },
+  "聊天 / 代码 / 办公三种模式，自由切换。工具调用与思考过程全透明，实时可见。": {
+    "message": "Chat / Code / Office modes, freely switchable. Full transparency into tool calls and reasoning in real time."
+  },
+  "AI 编程协助": {
+    "message": "AI Coding Assistance"
+  },
+  "理解项目上下文，生成、修改、重构代码。支持 diff 预览与一键回滚，变更可控。": {
+    "message": "Understands project context, generates, modifies, and refactors code. Diff preview with one-click rollback for safe changes."
+  },
+  "文件操作": {
+    "message": "File Operations"
+  },
+  "读、写、编辑、删除，支持 diff 回滚。内置 PDF / Word / Excel / PPT 浏览。": {
+    "message": "Read, write, edit, delete with diff rollback. Built-in PDF / Word / Excel / PPT viewer."
+  },
+  "会话管理": {
+    "message": "Session Management"
+  },
+  "新建、重命名、删除、分叉讨论。文件级与会话级变更追踪，随时回滚。": {
+    "message": "Create, rename, delete, fork discussions. File-level and session-level change tracking with rollback."
+  },
+  "内置工具集": {
+    "message": "Built-in Toolset"
+  },
+  "10+ 种内置工具：终端、浏览器、搜索、代码分析等，覆盖日常开发全场景。": {
+    "message": "10+ built-in tools: terminal, browser, search, code analysis, covering all daily development scenarios."
+  },
+  "实时监控": {
+    "message": "Real-time Monitoring"
+  },
+  "Token 统计、上下文用量、LLM 调用监控，全方位掌握 Agent 运行状态。": {
+    "message": "Token stats, context usage, LLM call monitoring — full visibility into Agent runtime status."
+  }
+}

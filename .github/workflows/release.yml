@@ -68,6 +68,9 @@ jobs:
   build-win:
     needs: build-jar
     runs-on: windows-latest
+    env:
+      ELECTRON_CACHE: electron\.electron-cache
+      ELECTRON_BUILDER_CACHE: electron\.builder-cache
     steps:
       - uses: actions/checkout@v4
 
@@ -95,6 +98,14 @@ jobs:
         with:
           name: frontend-dist
           path: src/main/resources/static/
+
+      - name: Cache Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            electron\.electron-cache
+            electron\.builder-cache
+          key: win-electron-${{ hashFiles('electron/package-lock.json') }}
 
       - name: Set version from tag
         shell: pwsh
@@ -137,6 +148,9 @@ jobs:
   build-mac:
     needs: build-jar
     runs-on: macos-latest
+    env:
+      ELECTRON_CACHE: electron/.electron-cache
+      ELECTRON_BUILDER_CACHE: electron/.builder-cache
     steps:
       - uses: actions/checkout@v4
 
@@ -164,6 +178,14 @@ jobs:
         with:
           name: frontend-dist
           path: src/main/resources/static/
+
+      - name: Cache Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            electron/.electron-cache
+            electron/.builder-cache
+          key: mac-electron-${{ hashFiles('electron/package-lock.json') }}
 
       - name: Set version from tag
         run: |
@@ -206,6 +228,9 @@ jobs:
   build-linux:
     needs: build-jar
     runs-on: ubuntu-latest
+    env:
+      ELECTRON_CACHE: electron/.electron-cache
+      ELECTRON_BUILDER_CACHE: electron/.builder-cache
     steps:
       - uses: actions/checkout@v4
 
@@ -233,6 +258,14 @@ jobs:
         with:
           name: frontend-dist
           path: src/main/resources/static/
+
+      - name: Cache Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            electron/.electron-cache
+            electron/.builder-cache
+          key: linux-electron-${{ hashFiles('electron/package-lock.json') }}
 
       - name: Set version from tag
         run: |

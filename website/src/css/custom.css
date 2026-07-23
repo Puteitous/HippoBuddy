@@ -1,0 +1,40 @@
+:root {
+  --ifm-color-primary: #e87500;
+  --ifm-color-primary-dark: #d16900;
+  --ifm-color-primary-darker: #c56300;
+  --ifm-color-primary-darkest: #a25200;
+  --ifm-color-primary-light: #ff8200;
+  --ifm-color-primary-lighter: #ff8a0f;
+  --ifm-color-primary-lightest: #ff9d33;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #ff9d33;
+  --ifm-color-primary-dark: #ff8e14;
+  --ifm-color-primary-darker: #ff8705;
+  --ifm-color-primary-darkest: #d46f00;
+  --ifm-color-primary-light: #ffac52;
+  --ifm-color-primary-lighter: #ffb361;
+  --ifm-color-primary-lightest: #ffc98e;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+.hero--primary {
+  --ifm-hero-background-color: #ffffff;
+  --ifm-hero-text-color: #1a1a2e;
+}
+
+[data-theme='dark'] .hero--primary {
+  --ifm-hero-background-color: linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 50%, #0a2342 100%);
+  --ifm-hero-text-color: #ffffff;
+}
+
+/* Screenshot images in docs */
+article img[alt*="界面"],
+article img[alt*="面板"] {
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  margin-bottom: 0.25rem;
+}
