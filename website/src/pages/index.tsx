@@ -1,4 +1,4 @@
-import {type ReactNode, useRef, useState, useEffect} from 'react';
+import {type ReactNode, useRef, useState, useEffect, useMemo} from 'react';
 import Link from '@docusaurus/Link';
 import Translate, {translate} from '@docusaurus/Translate';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
@@ -37,10 +37,96 @@ function ScrollReveal({children, className = ''}: {children: ReactNode; classNam
   );
 }
 
+function Starfield() {
+  const stars = useMemo(() => {
+    return Array.from({length: 60}, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      size: Math.random() * 2.5 + 0.5,
+      delay: Math.random() * 6,
+      duration: Math.random() * 3 + 2,
+      drift: Math.random() > 0.6,
+    }));
+  }, []);
+
+  const shootingStars = useMemo(() => {
+    return Array.from({length: 5}, (_, i) => ({
+      id: `ss-${i}`,
+      left: Math.random() * 30 + 60,
+      top: Math.random() * 30 + 2,
+      delay: Math.random() * 25,
+      duration: Math.random() * 8 + 14,
+    }));
+  }, []);
+
+  // Big Dipper (Ursa Major) - rotated so handle points south (summer)
+  const starPos = useMemo(() => [
+    //            x     y   size  delay
+    { id: '天枢',  x: 78.5, y: 24,  size: 4.2, delay: 0.0 },
+    { id: '天璇',  x: 81,   y: 22,  size: 3.2, delay: 0.8 },
+    { id: '天玑',  x: 83.5, y: 30,  size: 3.2, delay: 1.6 },
+    { id: '天权',  x: 81.5, y: 35,  size: 3,   delay: 2.4 },
+    { id: '玉衡',  x: 82.1, y: 43,  size: 4.5, delay: 0.3 },
+    { id: '开阳',  x: 82.2, y: 50,  size: 3.8, delay: 1.2 },
+    { id: '摇光', x: 85,   y: 57,  size: 4.2, delay: 2.0 },
+  ], []);
+
+  return (
+    <div className={styles.starfield} aria-hidden="true">
+      {stars.map(s => (
+        <div
+          key={s.id}
+          className={`${styles.star} ${s.drift ? styles.starDrift : ''}`}
+          style={{
+            left: `${s.left}%`,
+            top: `${s.top}%`,
+            width: `${s.size}px`,
+            height: `${s.size}px`,
+            animationDelay: `${s.delay}s`,
+            animationDuration: `${s.duration}s`,
+          }}
+        />
+      ))}
+      {/* Shooting stars */}
+      {shootingStars.map(s => (
+        <div
+          key={s.id}
+          className={styles.shootingStar}
+          style={{
+            left: `${s.left}%`,
+            top: `${s.top}%`,
+            animationDelay: `${s.delay}s`,
+            animationDuration: `${s.duration}s`,
+          }}
+        />
+      ))}
+      {/* Big Dipper constellation */}
+      {starPos.map(s => (
+        <div
+          key={s.id}
+          className={styles.constStar}
+          style={{
+            left: `${s.x}%`,
+            top: `${s.y}%`,
+            width: `${s.size}px`,
+            height: `${s.size}px`,
+            boxShadow: `0 0 ${s.size * 1.2}px ${s.size * 0.5}px rgba(255,255,255,0.3)`,
+            animationDelay: `${s.delay}s`,
+          }}
+        />
+      ))}
+      {/* Polaris */}
+      <div className={styles.polarisStar} style={{ left: '66%', top: '34%' }} />
+    </div>
+  );
+}
+
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
     <header className={styles.heroBanner}>
+      <Starfield />
       <div className="container">
         <div className={styles.heroLogo}>
           <img src="img/logo.svg" alt="HippoBuddy" width="80" height="80" />
@@ -51,18 +137,24 @@ function HomepageHeader() {
         <p className={styles.heroSubtitle}>{siteConfig.tagline}</p>
         <div className={styles.buttons}>
           <Link
-            className="button button--primary button--lg"
+            className={`button button--primary button--lg ${styles.heroBtn}`}
             to="/docs/quick-start">
             <Translate>快速开始</Translate>
           </Link>
           <Link
-            className="button button--secondary button--lg"
+            className={`button button--secondary button--lg ${styles.heroBtn} ${styles.heroBtnSecondary}`}
             to="/docs/intro">
             <Translate>了解项目</Translate>
           </Link>
         </div>
         <div className={styles.downloadLinks}>
-          <span><Translate>下载：</Translate></span>
+          <span className={styles.downloadLabel}>
+            <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{verticalAlign: 'middle', marginRight: 4}}>
+              <path d="M40.5178 34.3161C43.8044 32.005 45.2136 27.8302 44.0001 24C42.7866 20.1698 39.0705 18.0714 35.0527 18.0745H32.7317C31.2144 12.1613 26.2082 7.79572 20.1435 7.0972C14.0787 6.39868 8.21121 9.5118 5.38931 14.9253C2.56741 20.3388 3.37545 26.9317 7.42115 31.5035" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M24.0084 41L24 23" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M30.3638 34.6362L23.9998 41.0002L17.6358 34.6362" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <Translate>下载：</Translate></span>
           <a href="https://github.com/Puteitous/HippoBuddy/releases/latest" target="_blank">
             <svg width="16" height="16" viewBox="0 0 48 48" fill="none" className={styles.osIcon}><path d="M6.75 11.0625L19.6875 9.33752V21.4125H6.75V11.0625Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round"/><path d="M24.8623 8.84464L41.2498 6.75V21.4125H24.8623V8.84464Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round"/><path d="M24.8623 27.45L41.2498 27.8333V41.25L24.8623 38.5666V27.45Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round"/><path d="M6.75 26.5875L19.6875 26.899V37.8L6.75 35.6198V26.5875Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round"/></svg>
             Windows
@@ -99,6 +191,11 @@ export default function Home(): ReactNode {
           <div className="container">
             <ScrollReveal>
               <Heading as="h2" className={styles.screenshotHeading}>
+                <svg className={styles.screenshotIcon} width="28" height="28" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M5 10C5 8.89543 5.89543 8 7 8L41 8C42.1046 8 43 8.89543 43 10V38C43 39.1046 42.1046 40 41 40H7C5.89543 40 5 39.1046 5 38V10Z" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M14.5 18C15.3284 18 16 17.3284 16 16.5C16 15.6716 15.3284 15 14.5 15C13.6716 15 13 15.6716 13 16.5C13 17.3284 13.6716 18 14.5 18Z" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M15 24L20 28L26 21L43 34V38C43 39.1046 42.1046 40 41 40H7C5.89543 40 5 39.1046 5 38V34L15 24Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+                </svg>
                 <Translate>界面预览</Translate>
               </Heading>
             </ScrollReveal>

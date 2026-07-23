@@ -3,6 +3,7 @@
   padding: 6rem 0;
   text-align: center;
   position: relative;
+  z-index: 1;
   overflow: hidden;
   background: #ffffff;
   color: #1a1a2e;
@@ -26,6 +27,125 @@
 
 [data-theme='dark'] .heroBanner::after {
   background: linear-gradient(to bottom, transparent, #0d0d1a);
+}
+
+/* ── Starfield ── */
+.starfield {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(60, 80, 160, 0.7);
+  animation: twinkle ease-in-out infinite;
+}
+
+.starDrift {
+  animation-name: twinkleDrift;
+}
+
+[data-theme='dark'] .star {
+  background: #ffffff;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.4; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes twinkleDrift {
+  0%, 100% { opacity: 0.4; transform: translateY(0px) scale(0.85); }
+  25% { opacity: 0.6; transform: translateY(-1.5px) scale(0.9); }
+  50% { opacity: 1; transform: translateY(-3px) scale(1); }
+  75% { opacity: 0.6; transform: translateY(-1.5px) scale(0.9); }
+}
+
+/* ── Shooting stars ── */
+.shootingStar {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px 3px rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  animation: shoot ease-in-out infinite;
+}
+
+[data-theme='dark'] .shootingStar {
+  background: #fff;
+  box-shadow: 0 0 8px 3px rgba(255, 255, 255, 0.5);
+}
+
+@keyframes shoot {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  2% {
+    opacity: 1;
+    box-shadow:
+      0 0 10px 4px rgba(255, 255, 255, 0.6),
+      15px -11px 3px 0 rgba(255, 255, 255, 0.15),
+      30px -22px 4px 0 rgba(255, 255, 255, 0.06),
+      45px -33px 5px 0 rgba(255, 255, 255, 0.02);
+  }
+  7% {
+    opacity: 1;
+    box-shadow:
+      0 0 10px 4px rgba(255, 255, 255, 0.6),
+      15px -11px 3px 0 rgba(255, 255, 255, 0.15),
+      30px -22px 4px 0 rgba(255, 255, 255, 0.06),
+      45px -33px 5px 0 rgba(255, 255, 255, 0.02);
+  }
+  9% {
+    opacity: 0;
+    transform: translate(-320px, 240px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-320px, 240px);
+  }
+}
+
+/* ── Big Dipper constellation ── */
+.constStar {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: constPulse 4s ease-in-out infinite;
+}
+
+[data-theme='dark'] .constStar {
+  background: #fff;
+}
+
+@keyframes constPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.75; }
+}
+
+/* ── Polaris ── */
+.polarisStar {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #fffde7;
+  border-radius: 50%;
+  box-shadow: 0 0 5px 2.5px rgba(255, 235, 59, 0.3);
+  transform: translate(-50%, -50%);
+  animation: polarisPulse 3s ease-in-out infinite;
+}
+
+@keyframes polarisPulse {
+  0%, 100% { opacity: 0.45; box-shadow: 0 0 3px 1.5px rgba(255, 235, 59, 0.2); }
+  50% { opacity: 0.8; box-shadow: 0 0 6px 3px rgba(255, 235, 59, 0.35); }
 }
 
 .heroLogo {
@@ -62,11 +182,61 @@
   animation-delay: .45s;
 }
 
+/* ── Glass hero buttons ── */
+.heroBtn {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 117, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(232, 117, 0, 0.12);
+  transition: all 0.3s ease;
+}
+.heroBtn:hover {
+  box-shadow: 0 6px 24px rgba(232, 117, 0, 0.22);
+  transform: translateY(-2px);
+}
+
+.heroBtnSecondary {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  color: #1a1a2e;
+}
+.heroBtnSecondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+  color: #1a1a2e;
+}
+
+[data-theme='dark'] .heroBtn {
+  border-color: rgba(232, 117, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(232, 117, 0, 0.08);
+}
+[data-theme='dark'] .heroBtn:hover {
+  box-shadow: 0 6px 24px rgba(232, 117, 0, 0.18);
+}
+
+[data-theme='dark'] .heroBtnSecondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  color: #ffffff;
+}
+[data-theme='dark'] .heroBtnSecondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
 .downloadLinks {
   font-size: 0.95rem;
+  line-height: 1.8;
   opacity: 0.85;
   animation: fadeInUp .55s ease-out both;
   animation-delay: .6s;
+}
+
+.downloadLabel {
+  position: relative;
+  top: -3px;
 }
 
 .downloadLinks a {
@@ -114,6 +284,15 @@
   text-align: center;
   font-size: 1.8rem;
   margin-bottom: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.screenshotIcon {
+  opacity: 0.65;
+  flex-shrink: 0;
 }
 
 .screenshotGrid {
@@ -216,5 +395,26 @@
     transition: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  .star {
+    animation: none !important;
+    opacity: 0.3 !important;
+    transform: none !important;
+  }
+
+  .shootingStar {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  .constStar {
+    animation: none !important;
+    opacity: 0.5 !important;
+  }
+
+  .polarisStar {
+    animation: none !important;
+    opacity: 0.5 !important;
   }
 }

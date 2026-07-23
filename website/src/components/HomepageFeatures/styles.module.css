@@ -10,16 +10,13 @@
   background: #0d0d1a;
 }
 
-/* ── Scroll reveal ── */
+/* ── Scroll reveal container (background stays visible, only cards animate) ── */
 .reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity .6s ease-out, transform .6s ease-out;
+  /* no opacity — background should always be solid */
 }
 
 .revealVisible {
-  opacity: 1;
-  transform: translateY(0);
+  /* card animation triggered by this class on parent */
 }
 
 /* ── Feature cards ── */
@@ -27,6 +24,7 @@
   opacity: 0;
   transform: translateY(20px);
   filter: blur(6px);
+  margin-bottom: 1.5rem;
   transition: opacity .55s ease-out, transform .55s ease-out, filter .55s ease-out;
 }
 
@@ -115,7 +113,6 @@
 
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
-  .reveal,
   .featureCol {
     transition: none !important;
     opacity: 1 !important;
