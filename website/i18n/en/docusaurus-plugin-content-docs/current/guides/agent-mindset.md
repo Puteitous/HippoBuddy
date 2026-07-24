@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# AI Agent Mindset
+# AI Agent Usage Tips
 
 > Lessons learned from months of deep AI Coding Agent usage and building HippoBuddy from scratch
 

@@ -14,13 +14,13 @@
   "link.item.label.架构哲学": {
     "message": "Architecture Philosophy"
   },
-  "link.item.label.使用心法": {
-    "message": "Agent Mindset"
+  "link.item.label.使用心得": {
+    "message": "Usage Tips"
   },
   "link.item.label.发布页": {
     "message": "Releases"
   },
-  "link.item.label.Archived 思考": {
-    "message": "Archived Thoughts"
+  "link.item.label.技术文档": {
+    "message": "Documentation"
   }
 }

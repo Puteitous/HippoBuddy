@@ -16,6 +16,7 @@
   <img src="https://img.shields.io/github/stars/Puteitous/HippoBuddy?style=flat&logo=github" alt="Stars">
   <img src="https://img.shields.io/badge/license-Apache%202.0-555555" alt="License">
   <img src="https://img.shields.io/badge/platform-Desktop%20%7C%20Web-555555" alt="Platform">
+  <img src="https://img.shields.io/badge/docs-online-5273B7?logo=docusaurus&logoColor=white" alt="Docs">
   <img src="https://img.shields.io/github/last-commit/Puteitous/HippoBuddy" alt="Last Commit">
 </p>
 
@@ -33,6 +34,8 @@
 | macOS (Intel) | [HippoBuddy.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 | macOS (Apple Silicon) | [HippoBuddy-arm64.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 | Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) |
+
+> 📖 在线文档：[https://puteitous.github.io/HippoBuddy/](https://puteitous.github.io/HippoBuddy/)
 
 ---
 
@@ -155,6 +158,18 @@ src/main/java/com/example/agent/
 ├── domain/                       规则、技能、内容截断
 └── config/                       配置中心
 ```
+
+---
+
+## 项目文档
+
+| 文档标题 | 链接 |
+|---|---|
+| HippoBuddy — 项目介绍 | [docs/intro](https://puteitous.github.io/HippoBuddy/docs/intro) |
+| 快速开始 | [docs/quick-start](https://puteitous.github.io/HippoBuddy/docs/quick-start) |
+| HippoBuddy 架构哲学 | [docs/architecture/philosophy](https://puteitous.github.io/HippoBuddy/docs/architecture/philosophy) |
+| AI Agent 使用心得 | [docs/guides/agent-mindset](https://puteitous.github.io/HippoBuddy/docs/guides/agent-mindset) |
+| AI 桌面应用，启动时到底在加载什么？ | [docs/guides/startup-loading](https://puteitous.github.io/HippoBuddy/docs/guides/startup-loading) |
 
 ---
 

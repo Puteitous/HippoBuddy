@@ -95,7 +95,7 @@ const config: Config = {
               to: '/docs/architecture/philosophy',
             },
             {
-              label: '使用心法',
+              label: '使用心得',
               to: '/docs/guides/agent-mindset',
             },
           ],
@@ -117,13 +117,13 @@ const config: Config = {
           title: '更多',
           items: [
             {
-              label: 'Archived 思考',
-              to: '/docs/guides/startup-loading',
+              label: '技术文档',
+              to: '/docs/intro',
             },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Puteitous. Built with Docusaurus.`,
+      copyright: `© ${new Date().getFullYear()} Puteitous · HippoBuddy`,
     },
     prism: {
       theme: prismThemes.github,
