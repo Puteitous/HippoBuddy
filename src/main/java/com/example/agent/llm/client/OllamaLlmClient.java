@@ -7,8 +7,8 @@ import java.net.http.HttpRequest;
 
 public class OllamaLlmClient extends AbstractLlmClient {
 
-    private static final String CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
-    private static final String DEFAULT_BASE_URL = "http://localhost:11434";
+    private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
+    private static final String DEFAULT_BASE_URL = "http://localhost:11434/v1";
     private static final String DEFAULT_MODEL = "qwen2.5:7b";
 
     public OllamaLlmClient() {

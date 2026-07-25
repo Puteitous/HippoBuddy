@@ -184,7 +184,7 @@ public class LlmClientFactory {
             case OLLAMA:
                 return OllamaLlmClient.getDefaultBaseUrlStatic();
             case DEEPSEEK:
-                return "https://api.deepseek.com";
+                return "https://api.deepseek.com/v1";
             case ZHIPU:
                 return "https://open.bigmodel.cn/api/paas/v4";
             case MOONSHOT:

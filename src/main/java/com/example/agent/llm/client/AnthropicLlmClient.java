@@ -52,8 +52,8 @@ import java.util.function.Consumer;
  */
 public class AnthropicLlmClient extends AbstractLlmClient {
 
-    private static final String CHAT_COMPLETIONS_PATH = "/v1/messages";
-    private static final String DEFAULT_BASE_URL = "https://api.anthropic.com";
+    private static final String CHAT_COMPLETIONS_PATH = "/messages";
+    private static final String DEFAULT_BASE_URL = "https://api.anthropic.com/v1";
     private static final String DEFAULT_MODEL = "claude-sonnet-4-20250514";
     private static final String ANTHROPIC_VERSION = "2023-06-01";
     private static final int DEFAULT_MAX_TOKENS_ANTHROPIC = 4096;

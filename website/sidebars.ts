@@ -12,7 +12,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: '实战思考',
-      items: ['guides/agent-mindset', 'guides/startup-loading'],
+      items: ['guides/agent-mindset', 'guides/context-and-cache', 'guides/startup-loading'],
     },
   ],
 };

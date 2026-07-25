@@ -55,39 +55,44 @@ public class TodoWriteTool implements ToolExecutor {
                         "type": "array",
                         "description": "树状任务列表，支持递归嵌套 children",
                         "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string",
-                                    "description": "任务唯一标识，用于更新时匹配"
-                                },
-                                "content": {
-                                    "type": "string",
-                                    "description": "任务内容描述"
-                                },
-                                "status": {
-                                    "type": "string",
-                                    "description": "任务状态: pending(待处理), in_progress(进行中), completed(已完成)",
-                                    "enum": ["pending", "in_progress", "completed"],
-                                    "default": "pending"
-                                },
-                                "sessionId": {
-                                    "type": "string",
-                                    "description": "关联的会话 ID（可选），用于跳转到对应的分叉会话"
-                                },
-                                "children": {
-                                    "type": "array",
-                                    "description": "子任务列表，递归嵌套相同结构。兄弟节点互不依赖，可独立执行",
-                                    "items": {
-                                        "$ref": "#/properties/todos/items"
-                                    }
-                                }
-                            },
-                            "required": ["id", "content"]
+                            "$ref": "#/$defs/todoItem"
                         }
                     }
                 },
-                "required": ["todos"]
+                "required": ["todos"],
+                "$defs": {
+                    "todoItem": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "description": "任务唯一标识，用于更新时匹配"
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "任务内容描述"
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "任务状态: pending(待处理), in_progress(进行中), completed(已完成)",
+                                "enum": ["pending", "in_progress", "completed"],
+                                "default": "pending"
+                            },
+                            "sessionId": {
+                                "type": "string",
+                                "description": "关联的会话 ID（可选），用于跳转到对应的分叉会话"
+                            },
+                            "children": {
+                                "type": "array",
+                                "description": "子任务列表，递归嵌套相同结构。兄弟节点互不依赖，可独立执行",
+                                "items": {
+                                    "$ref": "#/$defs/todoItem"
+                                }
+                            }
+                        },
+                        "required": ["id", "content"]
+                    }
+                }
             }
             """;
     }

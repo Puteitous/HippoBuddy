@@ -7,8 +7,8 @@ import java.net.http.HttpRequest;
 
 public class OpenAiLlmClient extends AbstractLlmClient {
 
-    private static final String CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
-    private static final String DEFAULT_BASE_URL = "https://api.openai.com";
+    private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
+    private static final String DEFAULT_BASE_URL = "https://api.openai.com/v1";
     private static final String DEFAULT_MODEL = "gpt-4o";
 
     public OpenAiLlmClient() {
