@@ -59,7 +59,7 @@ public class LlmClientFactory {
 
         switch (provider) {
             case DASHSCOPE:
-                return new DashScopeLlmClient(config, retryPolicy);
+                return new OpenAiLlmClient(config, retryPolicy);
             case OPENAI:
                 return new OpenAiLlmClient(config, retryPolicy);
             case OLLAMA:
@@ -178,7 +178,7 @@ public class LlmClientFactory {
         Provider provider = parseProvider(providerName);
         switch (provider) {
             case DASHSCOPE:
-                return DashScopeLlmClient.getDefaultBaseUrlStatic();
+                return "https://dashscope.aliyuncs.com/compatible-mode/v1";
             case OPENAI:
                 return OpenAiLlmClient.getDefaultBaseUrlStatic();
             case OLLAMA:
@@ -212,7 +212,7 @@ public class LlmClientFactory {
         Provider provider = parseProvider(providerName);
         switch (provider) {
             case DASHSCOPE:
-                return DashScopeLlmClient.getDefaultModelStatic();
+                return "qwen3.5-plus";
             case OPENAI:
                 return OpenAiLlmClient.getDefaultModelStatic();
             case OLLAMA:

@@ -260,7 +260,7 @@ class AbstractLlmClientAbortTest {
         }
     }
 
-    static class TestableClient extends DashScopeLlmClient {
+    static class TestableClient extends OpenAiLlmClient {
         public TestableClient(Config config) {
             super(config, RetryPolicy.noRetry());
         }

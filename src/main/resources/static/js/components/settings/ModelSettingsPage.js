@@ -13,9 +13,9 @@ const _t = (key) => window.i18n ? window.i18n.t(key) : key;
 
 /** Provider 可选列表（与 main.js 一致） */
 const PROVIDER_ITEMS = [
+  { label: 'DeepSeek', value: 'deepseek' },
   { label: 'DashScope', value: 'dashscope' },
   { label: 'OpenAI', value: 'openai' },
-  { label: 'DeepSeek', value: 'deepseek' },
   { label: _t('settingsPage.zhipu'), value: 'zhipu' },
   { label: _t('settingsPage.moonshot'), value: 'moonshot' },
   { label: 'MiniMax', value: 'minimax' },

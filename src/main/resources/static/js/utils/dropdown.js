@@ -93,8 +93,11 @@ export class CustomDropdown {
     this._renderMenu();
     this._positionMenu();
     this._highlightSelected();
-    // 滚动时自动关闭下拉（标准下拉菜单 UX）
-    this._onScroll = () => this.close();
+    // 滚动时自动关闭下拉（标准下拉菜单 UX），但忽略下拉菜单内部的滚动
+    this._onScroll = (e) => {
+      if (this._menu && this._menu.contains(e.target)) return;
+      this.close();
+    };
     window.addEventListener('scroll', this._onScroll, { capture: true, passive: true });
   }
 

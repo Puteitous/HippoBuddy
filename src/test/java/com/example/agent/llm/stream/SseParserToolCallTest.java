@@ -1,7 +1,7 @@
 package com.example.agent.llm.stream;
 
 import com.example.agent.config.Config;
-import com.example.agent.llm.client.DashScopeLlmClient;
+import com.example.agent.llm.client.OpenAiLlmClient;
 import com.example.agent.llm.model.ToolCall;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -80,7 +80,7 @@ class SseParserToolCallTest {
     @DisplayName("🔵 mergeToolCallDeltas 边界处理")
     class MergeToolCallDeltasTests {
 
-        static class TestableLlmClient extends DashScopeLlmClient {
+        static class TestableLlmClient extends OpenAiLlmClient {
             public TestableLlmClient() {
                 super(Config.getInstance());
             }

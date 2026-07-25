@@ -126,15 +126,6 @@ class AbstractLlmClientDefaultsTest {
     class SubclassImplementationTests {
 
         @Test
-        @DisplayName("DashScope默认值正确实现")
-        void testDashScopeDefaults() {
-            DashScopeLlmClient client = new DashScopeLlmClient();
-
-            assertEquals("https://dashscope.aliyuncs.com", client.getDefaultBaseUrl());
-            assertEquals("qwen3.5-plus", client.getDefaultModel());
-        }
-
-        @Test
         @DisplayName("OpenAI默认值正确实现")
         void testOpenAiDefaults() {
             OpenAiLlmClient client = new OpenAiLlmClient();
@@ -156,7 +147,6 @@ class AbstractLlmClientDefaultsTest {
         @DisplayName("所有子类都正确实现抽象方法，无null返回")
         void testAllSubclassesNoNullDefaults() {
             LlmClient[] clients = {
-                new DashScopeLlmClient(),
                 new OpenAiLlmClient(),
                 new OllamaLlmClient()
             };
@@ -212,7 +202,7 @@ class AbstractLlmClientDefaultsTest {
         }
     }
 
-    static class TestableDashScopeClient extends DashScopeLlmClient {
+    static class TestableDashScopeClient extends OpenAiLlmClient {
         public TestableDashScopeClient() {
             super(Config.getInstance());
         }

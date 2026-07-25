@@ -1,5 +1,6 @@
 package com.example.agent.llm.stream;
 
+import com.example.agent.llm.model.PromptTokensDetails;
 import com.example.agent.llm.model.Usage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -145,6 +146,25 @@ public class SseParser {
             int miss = usageNode.get("prompt_cache_miss_tokens").asInt();
             usage.setPromptCacheMissTokens(miss);
             logger.info("💾 DeepSeek 缓存未命中: missTokens={}", miss);
+        }
+        
+        // OpenAI 兼容格式（智谱 GLM、DashScope 等）：usage.prompt_tokens_details.cached_tokens
+        if (usageNode.has("prompt_tokens_details")) {
+            JsonNode details = usageNode.get("prompt_tokens_details");
+            if (details.isObject()) {
+                PromptTokensDetails promptDetails = new PromptTokensDetails();
+                if (details.has("cached_tokens")) {
+                    int cached = details.get("cached_tokens").asInt();
+                    promptDetails.setCachedTokens(cached);
+                    logger.info("💾 {} 缓存命中: cachedTokens={}", 
+                        details.has("cache_creation_input_tokens") ? "缓存读" : "prompt_tokens_details", cached);
+                }
+                if (details.has("cache_creation_input_tokens")) {
+                    int creation = details.get("cache_creation_input_tokens").asInt();
+                    promptDetails.setCacheCreationInputTokens(creation);
+                }
+                usage.setPromptTokensDetails(promptDetails);
+            }
         }
         
         return usage;

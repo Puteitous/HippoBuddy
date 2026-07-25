@@ -12,6 +12,7 @@ import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.Choice;
 import com.example.agent.llm.model.FunctionCall;
 import com.example.agent.llm.model.Message;
+import com.example.agent.llm.model.PromptTokensDetails;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.Usage;
 import com.example.agent.llm.retry.RetryPolicy;
@@ -316,6 +317,11 @@ public class AnthropicLlmClient extends AbstractLlmClient {
             chatResponse.setModel(getTextValue(root, "model"));
 
             // usage
+            // Anthropic Messages API 返回格式:
+            //   input_tokens                  - 总输入 Token
+            //   output_tokens                 - 输出 Token
+            //   cache_read_input_tokens       - 从缓存读取的 Token（缓存命中）
+            //   cache_creation_input_tokens   - 写入缓存创建的 Token
             JsonNode usageNode = root.get("usage");
             if (usageNode != null) {
                 Usage usage = new Usage();
@@ -325,11 +331,15 @@ public class AnthropicLlmClient extends AbstractLlmClient {
                 if (usageNode.has("output_tokens")) {
                     usage.setCompletionTokens(usageNode.get("output_tokens").asInt());
                 }
-                if (usageNode.has("cache_creation_input_tokens")) {
-                    usage.setPromptCacheHitTokens(usageNode.get("cache_creation_input_tokens").asInt());
-                }
+                // cache_read_input_tokens = 缓存命中，映射到 promptCacheHitTokens
                 if (usageNode.has("cache_read_input_tokens")) {
-                    usage.setPromptCacheMissTokens(usageNode.get("cache_read_input_tokens").asInt());
+                    usage.setPromptCacheHitTokens(usageNode.get("cache_read_input_tokens").asInt());
+                }
+                // cache_creation_input_tokens = 缓存创建，存入 promptTokensDetails
+                if (usageNode.has("cache_creation_input_tokens")) {
+                    PromptTokensDetails ptd = new PromptTokensDetails();
+                    ptd.setCacheCreationInputTokens(usageNode.get("cache_creation_input_tokens").asInt());
+                    usage.setPromptTokensDetails(ptd);
                 }
                 usage.setTotalTokens(usage.getPromptTokens() + usage.getCompletionTokens());
                 chatResponse.setUsage(usage);
@@ -568,6 +578,22 @@ public class AnthropicLlmClient extends AbstractLlmClient {
                             if (msg != null) {
                                 messageId = getTextValue(msg, "id");
                                 messageModel = getTextValue(msg, "model");
+                                // message_start.usage 包含 input_tokens + 缓存字段
+                                JsonNode startUsage = msg.get("usage");
+                                if (startUsage != null) {
+                                    usage = new Usage();
+                                    if (startUsage.has("input_tokens")) {
+                                        usage.setPromptTokens(startUsage.get("input_tokens").asInt());
+                                    }
+                                    if (startUsage.has("cache_read_input_tokens")) {
+                                        usage.setPromptCacheHitTokens(startUsage.get("cache_read_input_tokens").asInt());
+                                    }
+                                    if (startUsage.has("cache_creation_input_tokens")) {
+                                        PromptTokensDetails ptd = new PromptTokensDetails();
+                                        ptd.setCacheCreationInputTokens(startUsage.get("cache_creation_input_tokens").asInt());
+                                        usage.setPromptTokensDetails(ptd);
+                                    }
+                                }
                             }
 
                         } else if ("content_block_start".equals(type)) {
@@ -645,11 +671,14 @@ public class AnthropicLlmClient extends AbstractLlmClient {
                                     u.setPromptTokens(usageNode.get("input_tokens").asInt());
                                 }
                                 u.setTotalTokens(u.getPromptTokens() + u.getCompletionTokens());
-                                // 前面 message_start 的 usage 里有 input_tokens
+                                // 从 message_start 的 usage 中继承 input_tokens 和缓存字段
                                 if (usage != null) {
                                     u.setPromptTokens(usage.getPromptTokens());
                                     u.setPromptCacheHitTokens(usage.getPromptCacheHitTokens());
                                     u.setPromptCacheMissTokens(usage.getPromptCacheMissTokens());
+                                    if (usage.getPromptTokensDetails() != null) {
+                                        u.setPromptTokensDetails(usage.getPromptTokensDetails());
+                                    }
                                 }
                                 usage = u;
                             }

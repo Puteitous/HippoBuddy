@@ -180,7 +180,7 @@ class StreamInterruptTest {
         }
     }
 
-    static class TestableStreamClient extends DashScopeLlmClient {
+    static class TestableStreamClient extends OpenAiLlmClient {
 
         public TestableStreamClient() {
             super(com.example.agent.config.Config.getInstance());
