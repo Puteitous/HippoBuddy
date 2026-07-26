@@ -3,7 +3,7 @@ import { parseToolArgs, countDiffStats } from './shared.js';
 import { renderBashCard, renderBashDetail } from './bash.js';
 import { renderEditFileCard, renderEditFileDetail } from './edit-file.js';
 import { renderWriteFileCard, renderWriteFileDetail } from './write-file.js';
-import { renderReadFileDetail, renderGrepDetail, renderGlobDetail, renderListDirectoryDetail, renderSearchDetail } from './file-search.js';
+import { renderReadFileDetail, renderReadOfficeFileDetail, renderGrepDetail, renderGlobDetail, renderListDirectoryDetail, renderSearchDetail } from './file-search.js';
 import { renderWebSearchDetail, renderWebFetchDetail } from './web.js';
 import { renderTodoWriteCard } from './todo-write.js';
 import { renderAskUserCard } from './ask-user.js';
@@ -69,6 +69,13 @@ export function renderToolTimelineDetailContent(tool) {
   }
 
   if (tool.result === 'error' && tool.error) {
+    // delete_file 被用户拒绝时（后端返回 success:false, error: "用户拒绝了删除操作"），
+    // 显示翻译后的提示而非后端回显的原始中文文本
+    if (name === 'delete_file' && (
+      tool.error.includes('拒绝') || tool.error.includes('denied') || tool.error.includes('rejected')
+    )) {
+      return `<div class="timeline-detail-status cancelled">${_t('tool.delete.denied')}</div>`;
+    }
     return `<div class="timeline-detail-error">${escapeHtml(tool.error)}</div>`;
   }
 
@@ -86,6 +93,9 @@ export function renderToolTimelineDetailContent(tool) {
   }
   if (name === 'read_file') {
     return renderReadFileDetail(tool);
+  }
+  if (name === 'read_office_file' || name === 'write_office_file') {
+    return renderReadOfficeFileDetail(tool);
   }
   if (name === 'grep') {
     return renderGrepDetail(tool);

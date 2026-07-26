@@ -70,20 +70,29 @@ export class RenderPipeline {
   }
 
   /**
-   * 计算整批指纹（用于 scheduleRender 的快速去重）
+   * 计算整批指纹（用于 scheduleRender 的快速去重）。
+   * 包含 tool 段的 result 状态，确保用户点击停止后 tool 状态变化能被检测到，
+   * 从而触发增量更新刷新 DOM，不再依赖 _healStuckToolCards 直接操作 DOM。
    */
   _computeFingerprint(segments, currentText) {
     const thinkingDone = segments
       .filter(s => s.type === 'thinking')
       .map(s => `${s.done}:${s.content.length}`)
       .join('|');
-    return { segments: segments.length, thinkingDone, textLen: currentText.length };
+    const toolStatuses = segments
+      .filter(s => s.type === 'tool')
+      .map(s => `${s.name}:${s.result || 'running'}`)
+      .join('|');
+    return { segments: segments.length, thinkingDone, textLen: currentText.length, toolStatuses };
   }
 
   _fingerprintChanged(f) {
     const last = this._lastFingerprint;
     if (!last) return true;
-    return last.segments !== f.segments || last.thinkingDone !== f.thinkingDone || last.textLen !== f.textLen;
+    return last.segments !== f.segments
+      || last.thinkingDone !== f.thinkingDone
+      || last.textLen !== f.textLen
+      || last.toolStatuses !== f.toolStatuses;
   }
 
   // ==================== 外部接口 ====================
@@ -349,19 +358,28 @@ export class RenderPipeline {
         // 检查指纹是否变化（跨渲染轮次对比）
         const oldFp = this._unitFingerprints.get(unit.key);
         if (oldFp === unit.fingerprint) {
-          // 指纹未变——跳过，但要把 units 元数据同步（内部 timeline 可能变了）
+          // 指纹未变——跳过
           if (unit.type === 'timeline') {
-            // timeline 组需要检查子项是否变化
+            // timeline 组内子项可能因 data-fp 变化（独立于组指纹），
+            // 但这里组指纹未变说明所有子项也没变，无需检查。
+            // 保留原有的 _syncTimelineItems 兜底以防万一：
             const hasChanges = this._syncTimelineItems(existingEl, unit, segments);
             if (hasChanges) {
-              // 子项有变化，更新组指纹
               this._unitFingerprints.set(unit.key, unit.fingerprint);
             }
           }
-          continue; // 未变化，保留
+          continue;
         }
-        // 指纹变了，需要更新
-        jobs.push({ key: unit.key, unit, isNew: false });
+        // 指纹变了——timeline 组走逐项对比，其他类型走全量替换
+        if (unit.type === 'timeline') {
+          const hasChanges = this._syncTimelineItems(existingEl, unit, segments);
+          if (hasChanges) {
+            this._unitFingerprints.set(unit.key, unit.fingerprint);
+          }
+          // 不加入 jobs——_syncTimelineItems 已处理 DOM 变更，不做 innerHTML 全量替换
+        } else {
+          jobs.push({ key: unit.key, unit, isNew: false });
+        }
       } else {
         // 新增 unit
         jobs.push({ key: unit.key, unit, isNew: true });
@@ -426,8 +444,20 @@ export class RenderPipeline {
         childIdx++; // 因为新插入了节点，当前位置后移
       } else if (existingEl) {
         if (job) {
+          // 对 tool-card 类型，保存展开/折叠交互状态，避免 innerHTML 替换丢失
+          let savedCardState = null;
+          if (unit.type === 'tool-card') {
+            savedCardState = this._saveToolCardState(existingEl);
+          }
+
           // 更新内容（替换 innerHTML）
           existingEl.innerHTML = job.html;
+
+          // 恢复 tool-card 交互状态
+          if (unit.type === 'tool-card' && savedCardState) {
+            this._restoreToolCardState(existingEl, savedCardState);
+          }
+
           // 恢复关键 class
           if (unit.type === 'timeline') {
             existingEl.className = 'render-unit tool-timeline';
@@ -581,9 +611,39 @@ export class RenderPipeline {
       // 检查 fingerprint 变化
       const oldFp = existingItem.dataset.fp;
       if (oldFp !== item.fingerprint) {
+        // 替换前保存展开状态（expanded class + max-height），
+        // 避免工具仍在运行中（progress/result 变化触发指纹变更）时，
+        // outerHTML 替换导致用户已展开的详情被自动收起
+        const wasExpanded = existingItem.classList.contains('expanded');
+        const oldStatus = existingItem.dataset.toolStatus || '';
+        let savedDetailMaxHeight = null;
+        if (wasExpanded) {
+          const detailEl = existingItem.querySelector('.tool-timeline-detail');
+          if (detailEl) {
+            savedDetailMaxHeight = detailEl.style.maxHeight || null;
+          }
+        }
+
         // 替换该 item
         const seg = segments[item.segIdx];
         existingItem.outerHTML = this._tagTimelineItem(item.segIdx, item.fingerprint, this.chatUI.renderToolTimelineRow(seg));
+
+        // 恢复展开状态
+        // 但如果是从 pending_confirmation（待确认）变为其他状态（确认通过/拒绝），
+        // 说明内容已从"确认按钮"切换为"执行结果"，不应保持展开。
+        const isConfirmResolved = oldStatus === 'pending_confirmation';
+        if (wasExpanded && !isConfirmResolved) {
+          const newItem = timelineEl.querySelector(`[data-timeline-seg="${item.segIdx}"]`);
+          if (newItem) {
+            newItem.classList.add('expanded');
+            if (savedDetailMaxHeight) {
+              const newDetail = newItem.querySelector('.tool-timeline-detail');
+              if (newDetail) {
+                newDetail.style.maxHeight = savedDetailMaxHeight;
+              }
+            }
+          }
+        }
         changed = true;
       }
     }
@@ -608,10 +668,17 @@ export class RenderPipeline {
   }
 
   /**
-   * 给 tool-timeline-item 的 HTML 添加 data-timeline-seg 和 data-fp 属性
+   * 给 tool-timeline-item 的 HTML 添加 data-timeline-seg 和 data-fp 属性。
+   * 注意：不能用 replace('<div class="tool-timeline-item', ...) 的方式注入，
+   * 因为原始 HTML 可能在 class 后还有其他属性（如 expanded、no-detail），
+   * 字符串替换会把 class 值截断，导致 expanded 等类名游离在 class 属性之外。
+   * 正确做法：找到开标签的末尾 >，在 > 前注入属性。
    */
   _tagTimelineItem(segIdx, fp, html) {
-    return html.replace('<div class="tool-timeline-item', `<div class="tool-timeline-item" data-timeline-seg="${segIdx}" data-fp="${fp}"`);
+    const tagEnd = html.indexOf('>');
+    if (tagEnd === -1) return html;
+    const attrs = ` data-timeline-seg="${segIdx}" data-fp="${fp}"`;
+    return html.slice(0, tagEnd) + attrs + html.slice(tagEnd);
   }
 
   /**
@@ -623,6 +690,68 @@ export class RenderPipeline {
       const item = unit.items[i];
       items[i].dataset.timelineSeg = String(item.segIdx);
       items[i].dataset.fp = item.fingerprint;
+    }
+  }
+
+  // ==================== tool-card 交互状态保存/恢复 ====================
+
+  /**
+   * 保存 tool-card 的交互状态（展开/折叠、todo 树节点折叠），
+   * 用于 innerHTML 替换后恢复，避免用户交互状态丢失。
+   */
+  _saveToolCardState(renderUnitEl) {
+    const card = renderUnitEl.querySelector('.tool-card');
+    if (!card) return null;
+
+    const state = {};
+
+    // 1. 卡片整体展开状态（expanded class + max-height）
+    state.cardExpanded = card.classList.contains('expanded');
+    const details = card.querySelector('.tool-call-details');
+    if (details) {
+      state.detailMaxHeight = details.style.maxHeight || null;
+    }
+
+    // 2. todo 树节点折叠状态（按 DFS 顺序保存 collapsed class）
+    state.todoCollapsed = [];
+    const treeItems = card.querySelectorAll('.todo-tree-item');
+    treeItems.forEach(item => {
+      state.todoCollapsed.push(item.classList.contains('collapsed'));
+    });
+
+    return state;
+  }
+
+  /**
+   * 恢复 tool-card 的交互状态
+   */
+  _restoreToolCardState(renderUnitEl, state) {
+    if (!state) return;
+
+    const card = renderUnitEl.querySelector('.tool-card');
+    if (!card) return;
+
+    // 1. 恢复卡片整体展开状态
+    if (state.cardExpanded) {
+      card.classList.add('expanded');
+      if (state.detailMaxHeight) {
+        const details = card.querySelector('.tool-call-details');
+        if (details) {
+          details.style.maxHeight = state.detailMaxHeight;
+        }
+      }
+    }
+
+    // 2. 恢复 todo 树节点折叠状态（按 DFS 顺序匹配）
+    if (state.todoCollapsed && state.todoCollapsed.length > 0) {
+      const treeItems = card.querySelectorAll('.todo-tree-item');
+      let idx = 0;
+      treeItems.forEach(item => {
+        if (idx < state.todoCollapsed.length && state.todoCollapsed[idx]) {
+          item.classList.add('collapsed');
+        }
+        idx++;
+      });
     }
   }
 

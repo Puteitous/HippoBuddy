@@ -16,7 +16,7 @@ import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark, vsCo
   rust, php, go, sass } from '../vendor/codemirror.js'
 import { SearchPanel } from './search-panel.js'
 import { renderMarkdown } from '../markdown-renderer.js'
-import { createDiffExtension } from './FilePreviewDiff.js'
+import { computeDiffDecorations } from './FilePreviewDiff.js'
 import { BinaryPreview, isImageFile, isPdfFile, isSpreadsheetFile, isDocxFile, isPptxFile, isBinaryFile } from './file-binary-preview.js'
 import { FilePreviewBrowser } from './file-preview-browser.js'
 import { FilePreviewMdPreview } from './file-preview-md.js'
@@ -309,15 +309,34 @@ export class FilePreview {
     let content;
     try {
       const result = await window.HippoDesktop.readFile(filePath);
+      if (!result || result.error) {
+        const fileName = filePath.split(/[/\\]/).pop();
+        let msg;
+        if (!result) {
+          msg = i18n.t('preview.readFailed');
+        } else if (result.code === 'ENOENT') {
+          msg = i18n.t('preview.fileNotFound') + ': ' + fileName;
+        } else if (result.code === 'NOT_A_FILE') {
+          msg = i18n.t('preview.readFailed') + ': ' + fileName;
+        } else {
+          msg = i18n.t('preview.readFailed') + ': ' + fileName;
+        }
+        this._showError(msg);
+        this._onError(new Error(result?.code || 'UNKNOWN'));
+        return;
+      }
       content = result.content;
     } catch (err) {
       console.error('FilePreview: readFile failed', filePath, err);
-      this._showError('无法读取文件: ' + err.message);
+      const fileName = filePath.split(/[/\\]/).pop();
+      const errMsg = err?.message || '';
+      const msg = errMsg.includes('ENOENT') || errMsg.includes('no such file')
+        ? i18n.t('preview.fileNotFound') + ': ' + fileName
+        : i18n.t('preview.readFailed') + ': ' + fileName;
+      this._showError(msg);
       this._onError(err);
       return;
     }
-
-    this._content = content;
     this._initEditor(content, filePath);
     this._updateSearchBtn();
     this._updateMdToggleBtn();
@@ -339,6 +358,10 @@ export class FilePreview {
       const path = this._currentPath;
       this._dirty = false;
       await this.show(path);
+      // show 完成后立即用已有的 _originalContent（如有）做一次快速 diff 刷新，
+      // 这样用户在等待 API 返回最新原始内容期间也能看到 diff 标记。
+      // 之后 _fetchOriginalContent 的异步回调会校正为最新的原始内容基准。
+      this._refreshDiffDecorations();
     }
   }
 
@@ -346,7 +369,12 @@ export class FilePreview {
     if (!this._currentPath || !this._view || !this._dirty) return;
     const content = this._view.state.doc.toString();
     try {
-      await window.HippoDesktop.writeFile(this._currentPath, content);
+      const result = await window.HippoDesktop.writeFile(this._currentPath, content);
+      if (result && result.error) {
+        const fileName = this._currentPath.split(/[/\\]/).pop();
+        this._showError(i18n.t('preview.saveFailed') + ': ' + fileName);
+        return;
+      }
       this._content = content;
       this._dirty = false;
       this._originalContent = null; // 保存后清空原始内容基准，diff 标记自动清除
@@ -359,7 +387,8 @@ export class FilePreview {
         });
       }
     } catch (err) {
-      this._showError('保存失败: ' + err.message);
+      const fileName = this._currentPath.split(/[/\\]/).pop();
+      this._showError(i18n.t('preview.saveFailed') + ': ' + fileName);
     }
   }
 
@@ -431,25 +460,44 @@ export class FilePreview {
 
   /** @private 获取 AI 修改前的文件原始内容，用于 diff 标记 */
   async _fetchOriginalContent(filePath) {
+    // 记录发起请求时的 sessionGen，回调时对比防止 stale 覆盖
+    const gen = this._sessionGen || 0;
     try {
       const resp = await fetch(`/api/diff/original?path=${encodeURIComponent(filePath)}`);
-      if (!resp.ok) return;
+      if (!resp.ok) {
+        return;
+      }
       const data = await resp.json();
-      if (data.content === undefined || data.content === null) return;
+      if (data.content === undefined || data.content === null) {
+        return;
+      }
+
+      // 守卫：如果在此期间编辑器已被重建（切换文件等），丢弃本次结果
+      if ((this._sessionGen || 0) !== gen) {
+        return;
+      }
 
       this._originalContent = data.content;
 
-      // 激活 diff 扩展
-      if (this._view) {
-        this._view.dispatch({
-          effects: this._diffCompartment.reconfigure(
-            createDiffExtension(this._originalContent)
-          ),
-        });
-      }
+      // 激活 diff 标记：直接计算 Decoration set 并用 decorations.of() 静态注入
+      this._refreshDiffDecorations();
     } catch (e) {
-      console.debug('FilePreview: no original content for', filePath);
+      // 静默失败：没有原始内容时不做 diff 标记
     }
+  }
+
+  /**
+   * @private 使用当前的 _originalContent 重新计算并注入 diff decorations
+   * 可安全地多次调用，仅当 _view 和 _originalContent 都存在时生效
+   */
+  _refreshDiffDecorations() {
+    if (!this._view || this._originalContent == null) return;
+    const decoSet = computeDiffDecorations(this._view.state.doc, this._originalContent);
+    this._view.dispatch({
+      effects: this._diffCompartment.reconfigure(
+        EditorView.decorations.of(decoSet)
+      ),
+    });
   }
 
   // ==================== CodeMirror ====================

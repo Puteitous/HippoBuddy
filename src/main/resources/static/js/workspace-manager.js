@@ -865,6 +865,13 @@ tools:
     }
   });
 
+  // 回撤操作完成后，刷新当前预览的文件内容（如果预览区域打开的文件正好被回撤了）
+  EventBus.on('file:rollback-completed', () => {
+    if (filePreview.currentPath) {
+      filePreview.reload();
+    }
+  });
+
   // 文件变更时刷新文件树（file-change-manager 在 `message:sent` 后自动检测变更并 emit 此事件）
   // AI 消息发送完成后不需要额外挂 fileTree.refresh()，防止双重刷新导致闪烁
 

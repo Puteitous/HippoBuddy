@@ -1,6 +1,7 @@
 import { showToast } from '../utils/toast.js';
 import { escapeHtml } from '../utils.js';
 import { getFileIconInfo } from '../utils/file-icons.js';
+import { EventBus } from '../utils/event-bus.js';
 
 export class RollbackPanel {
   constructor({ chatService, chatPanel, chatContainer, messageInput, onCreateNewSession, onUpdateFileChanges }) {
@@ -107,6 +108,8 @@ export class RollbackPanel {
 
       if (rewindResult.success) {
         panel.remove();
+        // 通知预览区域刷新（如果当前打开的文件是回撤涉及的文件）
+        EventBus.emit('file:rollback-completed');
 
         if (mode === 'files') {
           // 仅回滚文件：不截断会话，只刷新文件变更状态

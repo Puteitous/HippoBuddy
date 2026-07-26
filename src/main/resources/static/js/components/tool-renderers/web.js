@@ -4,7 +4,7 @@
  */
 export function renderWebSearchDetail(tool) {
   const resultContent = tool.resultContent || '';
-  const _t = (k) => window.i18n ? window.i18n.t(k) : k;
+  const _t = (k, params) => window.i18n ? window.i18n.t(k, params) : k;
 
   if (!resultContent || resultContent.includes('未找到')) {
     return `<div class="timeline-detail-meta"><span class="timeline-detail-empty">${_t('tool.webSearch.noResults')}</span></div>`;
@@ -31,7 +31,7 @@ export function renderWebSearchDetail(tool) {
  */
 export function renderWebFetchDetail(tool) {
   const resultContent = tool.resultContent || '';
-  const _t = (k) => window.i18n ? window.i18n.t(k) : k;
+  const _t = (k, params) => window.i18n ? window.i18n.t(k, params) : k;
 
   if (!resultContent) {
     return `<div class="timeline-detail-meta"><span class="timeline-detail-empty">${_t('tool.webFetch.noContent')}</span></div>`;

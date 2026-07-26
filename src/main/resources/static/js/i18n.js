@@ -262,6 +262,7 @@
     'tool.delete.skipped':         { zh: '已跳过', en: 'Skipped' },
     'tool.delete.pathNotExist':    { zh: '路径不存在', en: 'Path not found' },
     'tool.delete.count':           { zh: '个文件', en: ' files' },
+    'tool.delete.denied':          { zh: '用户拒绝了删除操作', en: 'User denied the delete operation' },
 
     'tool.web.noResults':          { zh: '无搜索结果', en: 'No results' },
     'tool.web.noContent':          { zh: '无内容', en: 'No content' },
@@ -820,6 +821,8 @@
     'preview.serverError':                { zh: '服务器错误', en: 'Server error' },
     'preview.serverErrorDetail':          { zh: '服务器处理文件时出错，请稍后重试', en: 'Server error processing file, please retry later' },
     'preview.httpError':                  { zh: '请求失败', en: 'HTTP error' },
+    'preview.readFailed':                 { zh: '读取文件失败', en: 'Failed to read file' },
+    'preview.saveFailed':                 { zh: '保存失败', en: 'Failed to save file' },
 
     /* ==================== Workspace (additional) ==================== */
     'workspace.defaultName':              { zh: '默认工作区', en: 'Default Workspace' },

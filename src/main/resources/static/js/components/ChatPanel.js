@@ -1521,8 +1521,9 @@ export class ChatPanel {
   }
 
   /**
-   * 自愈：标记所有未完成的 tool 卡片为已取消或中断
-   * 用户忽略了确认弹窗，或停止了生成，需要修复 UI 状态
+   * 自愈：标记所有未完成的 tool 卡片为已取消或中断。
+   * 不再直接操作 DOM——RenderPipeline 的增量更新会通过指纹检测到
+   * seg.result 的变化（running → interrupted/cancelled），自动刷新 UI。
    * @param {boolean} fromStopBtn - 是否来自用户主动点击停止按钮（true 时也清理待确认的卡片）
    */
   _healStuckToolCards(fromStopBtn = false) {
@@ -1547,61 +1548,8 @@ export class ChatPanel {
     const modified = session.healStuckCards();
     if (modified.length === 0 && !fromStopBtn) return;
 
-    // 收集所有 tool segment，按索引与 DOM 中的 .tool-timeline-item 顺序对应
-    const toolSegments = session.getSegments().filter(s => s.type === 'tool');
-    const stuckStatuses = new Map(); // DOM 索引 → 目标状态
-    toolSegments.forEach((seg, i) => {
-      if (seg.result === 'cancelled' || seg.result === 'interrupted') {
-        stuckStatuses.set(i, seg.result);
-      }
-    });
-
-    if (stuckStatuses.size === 0) {
-      // 没有 stuck 的卡片，但可能来自停止按钮清理了 pending confirm，只需恢复 footer
-      if (fromStopBtn) {
-        this._restoreFooterAfterHeal(contentDiv);
-      }
-      return;
-    }
-
-    // 直接操作 DOM，不触发 RenderPipeline 全量重建
-    // flush → doRender 有 await renderMarkdown，会被后续新消息覆盖
-    const statusSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><line x1="5" y1="5" x2="11" y2="11"/></svg>';
-    const domModified = [];
-    contentDiv.querySelectorAll('.tool-timeline-item').forEach((item, idx) => {
-      const targetStatus = stuckStatuses.get(idx);
-      if (!targetStatus) return; // ← 核心修复：只改数据层确认 stuck 的，不碰已成功的
-
-      const segInfo = toolSegments[idx] ? `${toolSegments[idx].name}` : `#${idx}`;
-      domModified.push(`${segInfo}→${targetStatus}`);
-      const isCancelled = targetStatus === 'cancelled';
-      item.dataset.toolStatus = targetStatus;
-      item.classList.remove('expanded');
-      const detail = item.querySelector('.tool-timeline-detail');
-      if (detail) {
-        detail.style.maxHeight = '0';
-        detail.innerHTML = isCancelled
-          ? '<div class="timeline-detail-status cancelled">已取消（未确认）</div>'
-          : '<div class="timeline-detail-status interrupted">执行中断</div>';
-      }
-      const statusEl = item.querySelector('.tool-timeline-status');
-      if (statusEl) {
-        statusEl.className = `tool-timeline-status ${targetStatus}`;
-        statusEl.innerHTML = statusSvg;
-      }
-    });
-
-    // 恢复 footer 显示
+    // 恢复 footer 显示（移除 pending-confirm 状态）
     this._restoreFooterAfterHeal(contentDiv);
-
-    // 收起 ask_user 卡片
-    contentDiv.querySelectorAll('.tool-card.ask-user-card.expanded').forEach(card => {
-      const details = card.querySelector('.tool-call-details');
-      if (details) {
-        details.style.maxHeight = '0';
-        card.classList.remove('expanded');
-      }
-    });
   }
 
   /**

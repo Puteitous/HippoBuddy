@@ -455,8 +455,15 @@ function createWindow() {
   mainWindow.on('resize', saveWindowState);
   mainWindow.on('move', saveWindowState);
 
-  // 关闭前保存状态
-  mainWindow.on('close', saveWindowState);
+  // 关闭前保存状态，非退出时隐藏到托盘而非关闭窗口
+  //（Ctrl+W/Cmd+W 已在 before-input-event 中拦截，不会走到这里）
+  mainWindow.on('close', (event) => {
+    saveWindowState();
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
 
   // 外部链接 → 系统浏览器
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -468,6 +475,13 @@ function createWindow() {
     if (!url.startsWith(`http://localhost:${PORT}`)) {
       event.preventDefault();
       shell.openExternal(url);
+    }
+  });
+
+  // ⛔ 禁止 Ctrl+W / Cmd+W 关闭窗口（桌面端不需要浏览器标签页快捷键）
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if ((input.control || input.meta) && input.key.toLowerCase() === 'w') {
+      _event.preventDefault();
     }
   });
 
@@ -617,22 +631,35 @@ ipcMain.handle('fs:readDir', async (_event, dirPath) => {
 /** 读取文件内容，直接返回 UTF-8 文本（Electron IPC 原生支持 unicode） */
 ipcMain.handle('fs:readFile', async (_event, filePath) => {
   const file = path.resolve(filePath);
-  const stat = await fs.promises.stat(file);
-  if (!stat.isFile()) throw new Error(`Not a file: ${filePath}`);
-  const content = await fs.promises.readFile(file, 'utf-8');
-  return {
-    path: filePath,
-    content,
-  };
+  try {
+    const stat = await fs.promises.stat(file);
+    if (!stat.isFile()) {
+      return { error: true, code: 'NOT_A_FILE' };
+    }
+    const content = await fs.promises.readFile(file, 'utf-8');
+    return { path: filePath, content };
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return { error: true, code: 'ENOENT' };
+    }
+    return { error: true, code: 'UNKNOWN', message: err.message };
+  }
 });
 
 /** 写入文件内容 */
 ipcMain.handle('fs:writeFile', async (_event, filePath, content) => {
   const file = path.resolve(filePath);
-  await fs.promises.mkdir(path.dirname(file), { recursive: true });
-  await fs.promises.writeFile(file, content, 'utf-8');
-  const stat = await fs.promises.stat(file);
-  return { path: filePath, size: stat.size };
+  try {
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
+    await fs.promises.writeFile(file, content, 'utf-8');
+    const stat = await fs.promises.stat(file);
+    return { path: filePath, size: stat.size };
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return { error: true, code: 'ENOENT' };
+    }
+    return { error: true, code: 'UNKNOWN', message: err.message };
+  }
 });
 
 /** 创建空文件 */

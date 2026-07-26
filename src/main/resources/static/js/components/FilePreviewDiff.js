@@ -1,20 +1,22 @@
 /**
- * FilePreviewDiff — CodeMirror 6 内联 diff 标记插件
+ * FilePreviewDiff — CodeMirror 6 内联 diff 标记工具函数
  *
  * 在编辑器中通过行背景色标记 AI 对文件的修改：
  * - 淡绿色背景 = AI 影响的行（新增或修改）
  *
+ * 不做上下文行、不做合并块，只精确显示 Myers 算法算出的最小编辑行。
+ * 绿 = AI 实际改了，无色 = 没改，清楚无歧义。
+ *
  * 用户如需查看精确的逐行 diff（+/-），可点击工具卡片"查看变更"。
  *
  * 用法：
- *   import { createDiffExtension } from './FilePreviewDiff.js'
- *   extensions: [ ...basicSetup, ...createDiffExtension(originalContent) ]
+ *   import { computeDiffDecorations } from './FilePreviewDiff.js'
+ *   const decoSet = computeDiffDecorations(view.state.doc, originalContent)
+ *   view.dispatch({ effects: compartment.reconfigure(EditorView.decorations.of(decoSet)) })
  */
 
 import {
-  StateField,
   Decoration,
-  EditorView,
 } from '../vendor/codemirror.js'
 
 // ── Diff 算法 ────────────────────────────────────────
@@ -209,34 +211,26 @@ function extractLineTypes(changes) {
   return types
 }
 
-// ── 创建 CM6 扩展 ─────────────────────────────────────
+// ── 纯函数：计算 diff 的 Decoration set ───────────────
+//
+// 不依赖 StateField，直接根据编辑器当前文档和原始内容计算出 Decoration set，
+// 供外部通过 EditorView.decorations.of() 注入。
+//
+// 为什么不用 StateField + EditorView.decorations.from？
+//   在 Compartment.reconfigure 动态注入场景下，该组合存在 CM6 内部
+//   facet 依赖链求值间隙，decoration 被正确计算但不会渲染到 DOM。
+//   改用纯函数 + decorations.of() 静态注入可彻底规避此问题。
+//
+// @param {import('@codemirror/state').EditorState} doc - 当前编辑器 state.doc
+// @param {string} originalContent - AI 修改前的原始内容
+// @returns {DecorationSet} Decoration.none 或 Decoration.set(...)
 
-/**
- * @param {string} originalContent - AI 修改前的原始内容
- * @returns {import('@codemirror/view').Extension[]}
- */
-export function createDiffExtension(originalContent) {
-  if (originalContent == null) return []
+export function computeDiffDecorations(doc, originalContent) {
+  if (originalContent == null) return Decoration.none
+
   const origLines = originalContent.split('\n')
-
-  // StateField：保存 diff 计算结果
-  const diffField = StateField.define({
-    create(state) {
-      return computeDiffData(state.doc, origLines)
-    },
-    update(data, tr) {
-      if (!tr.docChanged) return data
-      return computeDiffData(tr.state.doc, origLines)
-    },
-  })
-
-  // Decoration set：行背景色 + 左侧边框
-  const decoExt = EditorView.decorations.from(diffField, (data) => {
-    if (!data) return Decoration.none
-    return data.decoSet
-  })
-
-  return [diffField, decoExt]
+  const result = computeDiffData(doc, origLines)
+  return result.decoSet
 }
 
 // ── 内部 diff 计算 ────────────────────────────────────
@@ -251,15 +245,16 @@ function computeDiffData(doc, origLines) {
   }
 
   const changes = computeChanges(origLines, curLines)
-  if (!changes) {
-    return { decoSet: Decoration.none }
-  }
+  if (!changes) return { decoSet: Decoration.none }
 
-  const lineTypes = extractLineTypes(changes)
+  let lineTypes = extractLineTypes(changes)
+  if (lineTypes.size === 0) return { decoSet: Decoration.none }
 
   // 构建 Decoration set
+  // 注意：extractLineTypes 按行号递增遍历，但类型检查仍确保排序
+  const sortedLines = [...lineTypes.entries()].sort((a, b) => a[0] - b[0])
   const decos = []
-  for (const [lineNum, type] of lineTypes) {
+  for (const [lineNum, type] of sortedLines) {
     const line = doc.line(lineNum)
     decos.push(
       Decoration.line({ class: `cm-diff-line-${type}` }).range(line.from)

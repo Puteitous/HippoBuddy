@@ -13,6 +13,15 @@ export function renderReadFileDetail(_tool) {
 }
 
 
+/** ───────── read_office_file / write_office_file 时间线详情 ─────────
+ *  与 read_file 同理，摘要行已展示文件路径，
+ *  展开后无需额外内容，隐藏展开按钮。
+ */
+export function renderReadOfficeFileDetail(_tool) {
+  return '';
+}
+
+
 /** ───────── grep 时间线详情 ─────────
  *  只展示搜索参数摘要（模式、过滤、匹配数），
  *  具体匹配结果在行首摘要已体现，无需展开。
@@ -25,7 +34,8 @@ export function renderGrepDetail(tool) {
 
   let html = '<div class="timeline-detail-meta">';
 
-  if (!resultContent || resultContent.includes(_t('tool.grep.noMatch'))) {
+  // 后端始终返回中文，故用中文原文做检测，显示用 i18n 翻译
+  if (!resultContent || resultContent.trim() === '' || resultContent.includes('未找到匹配的内容')) {
     html += `<span class="timeline-detail-grep-empty">${_t('tool.grep.noMatch')}</span>`;
     html += '</div>';
     return html;
@@ -66,7 +76,8 @@ export function renderGlobDetail(tool) {
 
   let html = '<div class="timeline-detail-meta">';
 
-  if (!resultContent || resultContent.includes(_t('tool.glob.noMatch'))) {
+  // 后端始终返回中文，故用中文原文做检测，显示用 i18n 翻译
+  if (!resultContent || resultContent.trim() === '' || resultContent.includes('未找到匹配的文件')) {
     html += `<span class="timeline-detail-glob-empty">${_t('tool.glob.noMatch')}</span>`;
     html += '</div>';
     return html;
