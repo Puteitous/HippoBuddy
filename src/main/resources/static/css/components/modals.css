@@ -483,7 +483,6 @@
     user-select: none;
     flex-shrink: 0;
     background: var(--bg-code);
-    border-right: 1px solid var(--border-color);
 }
 
 .diff-line-type {

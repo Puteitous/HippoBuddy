@@ -21,6 +21,7 @@ const SOURCES = [
     name: 'anthropics/skills',
     stars: '60.9k',
     desc: 'Anthropic 官方技能仓库，Claude 技能生态标准，质量最稳定',
+    descKey: 'skillMarket.source.anthropic',
     url: 'https://github.com/anthropics/skills',
     tag: '官方',
   },
@@ -29,6 +30,7 @@ const SOURCES = [
     name: 'antigravity-awesome-skills',
     stars: '41k+',
     desc: '社区最大技能集合，1595+ 技能，覆盖全栈/安全/DevOps/数据科学',
+    descKey: 'skillMarket.source.aas',
     url: 'https://github.com/sickn33/antigravity-awesome-skills',
     tag: '社区',
   },
@@ -37,6 +39,7 @@ const SOURCES = [
     name: 'vercel-labs/agent-skills',
     stars: '—',
     desc: 'Vercel 团队工程最佳实践，Next.js/React 专项技能',
+    descKey: 'skillMarket.source.vercel',
     url: 'https://github.com/vercel-labs/agent-skills',
     tag: '大厂',
   },
@@ -45,6 +48,7 @@ const SOURCES = [
     name: 'addyosmani/agent-skills',
     stars: '—',
     desc: '生产级工程实践：TDD、代码审查、调试、性能优化',
+    descKey: 'skillMarket.source.addyosmani',
     url: 'https://github.com/addyosmani/agent-skills',
     tag: '精选',
   },
@@ -55,6 +59,7 @@ const FEATURED_SKILLS = [
   {
     name: 'code-review',
     desc: '代码审查 — 五轴审查：正确性/可读性/架构/安全/性能',
+    descKey: 'skillMarket.skill.codeReview',
     source: 'addyosmani/agent-skills',
     category: '开发',
     skillUrl: '/skills/featured/code-review.md',
@@ -62,6 +67,7 @@ const FEATURED_SKILLS = [
   {
     name: 'tdd-workflow',
     desc: 'TDD 工作流 — Red → Green → Refactor 全流程引导',
+    descKey: 'skillMarket.skill.tddWorkflow',
     source: 'addyosmani/agent-skills',
     category: '开发',
     skillUrl: '/skills/featured/tdd-workflow.md',
@@ -69,6 +75,7 @@ const FEATURED_SKILLS = [
   {
     name: 'debugging',
     desc: '调试与错误恢复 — 六阶段诊断：构建反馈循环到复盘',
+    descKey: 'skillMarket.skill.debugging',
     source: 'addyosmani/agent-skills',
     category: '开发',
     skillUrl: '/skills/featured/debugging.md',
@@ -76,6 +83,7 @@ const FEATURED_SKILLS = [
   {
     name: 'security-audit',
     desc: '安全审计与加固 — OWASP Top 10 检查、漏洞扫描、威胁建模',
+    descKey: 'skillMarket.skill.securityAudit',
     source: 'addyosmani/agent-skills',
     category: '安全',
     skillUrl: '/skills/featured/security-audit.md',
@@ -83,6 +91,7 @@ const FEATURED_SKILLS = [
   {
     name: 'api-design',
     desc: 'API 设计 — RESTful 规范、请求验证、错误处理、文档生成',
+    descKey: 'skillMarket.skill.apiDesign',
     source: 'addyosmani/agent-skills',
     category: '开发',
     skillUrl: '/skills/featured/api-design.md',
@@ -90,6 +99,7 @@ const FEATURED_SKILLS = [
   {
     name: 'performance',
     desc: '性能优化 — 加载性能、渲染优化、数据库查询优化',
+    descKey: 'skillMarket.skill.performance',
     source: 'addyosmani/agent-skills',
     category: '开发',
     skillUrl: '/skills/featured/performance.md',
@@ -97,6 +107,7 @@ const FEATURED_SKILLS = [
   {
     name: 'devops',
     desc: 'DevOps 实践 — CI/CD 配置、Docker/K8s、监控告警',
+    descKey: 'skillMarket.skill.devops',
     source: 'addyosmani/agent-skills',
     category: 'DevOps',
     skillUrl: '/skills/featured/devops.md',
@@ -104,6 +115,7 @@ const FEATURED_SKILLS = [
   {
     name: 'react-patterns',
     desc: 'React 模式 — Hooks 规范、状态管理、性能优化、组件设计',
+    descKey: 'skillMarket.skill.reactPatterns',
     source: 'vercel-labs/agent-skills',
     category: '前端',
     skillUrl: '/skills/featured/react-patterns.md',
@@ -111,6 +123,7 @@ const FEATURED_SKILLS = [
   {
     name: 'database-design',
     desc: '数据库设计 — 表结构设计、索引优化、迁移策略、ORM 使用',
+    descKey: 'skillMarket.skill.databaseDesign',
     source: 'antigravity-awesome-skills',
     category: '数据',
     skillUrl: '/skills/featured/database-design.md',
@@ -118,24 +131,32 @@ const FEATURED_SKILLS = [
   {
     name: 'incremental-implementation',
     desc: '增量实施 — 薄垂直切片实现，每步可测试可提交，避免大段一次性编码',
+    descKey: 'skillMarket.skill.incrementalImplementation',
     source: 'addyosmani/agent-skills',
     category: '开发',
     skillUrl: '/skills/featured/incremental-implementation.md',
   },
 ];
 
-const CATEGORIES = ['全部', '开发', '前端', '安全', 'DevOps', '数据'];
+const CATEGORIES = [
+  { label: '全部',    key: 'all' },
+  { label: '开发',    key: 'dev' },
+  { label: '前端',    key: 'frontend' },
+  { label: '安全',    key: 'security' },
+  { label: 'DevOps',  key: 'devops' },
+  { label: '数据',    key: 'data' },
+];
 
 export class SkillMarket {
   constructor() {
     this._container = null;
     this._installedNames = new Set();
     this._installedSkills = []; // 完整的已安装技能列表（含非市场技能）
-    this._activeCategory = '全部';
+    this._activeCategory = CATEGORIES[0].label;
     this._searchQuery = '';
     this._activeSource = null; // 浏览某来源仓库的技能列表
     this._showInstalled = false; // 是否显示已安装列表
-    this._savedCategory = '全部'; // 进入已安装模式前保存的活跃分类
+    this._savedCategory = CATEGORIES[0].label; // 进入已安装模式前保存的活跃分类
 
     this._mainContainer = document.querySelector('.main-container');
     this._chatPanel = document.querySelector('.chat-panel');
@@ -256,7 +277,7 @@ export class SkillMarket {
       content.appendChild(this._renderSourceDetail());
     } else {
       // 仅在「全部」分类时显示推荐来源
-      if (this._activeCategory === '全部') {
+      if (this._activeCategory === CATEGORIES[0].label) {
         content.appendChild(this._renderSources());
       }
       content.appendChild(this._renderFeatured());
@@ -313,7 +334,7 @@ export class SkillMarket {
         this._loadInstalledSkills().then(() => this._renderContent());
       } else {
         // 退出已安装模式，恢复之前选中的分类
-        this._activeCategory = this._savedCategory || '全部';
+        this._activeCategory = this._savedCategory || CATEGORIES[0].label;
       }
       tabs.querySelectorAll('.skill-market-cat-btn').forEach(b => b.classList.remove('active'));
       if (this._showInstalled) {
@@ -324,7 +345,7 @@ export class SkillMarket {
         const catBtns = tabs.querySelectorAll('.skill-market-cat-filter');
         let found = false;
         catBtns.forEach(b => {
-          if (b.textContent.trim() === this._activeCategory) {
+          if (b.dataset.catLabel === this._activeCategory) {
             b.classList.add('active');
             found = true;
           }
@@ -344,13 +365,13 @@ export class SkillMarket {
     tabs.appendChild(divider);
 
     for (const cat of CATEGORIES) {
-      const catKey = 'skillMarket.' + cat.toLowerCase().replace(/\s+/g, '');
-      const catLabel = i18n.t(catKey) !== catKey ? i18n.t(catKey) : cat;
+      const catLabel = i18n.t('skillMarket.' + cat.key);
       const btn = document.createElement('button');
-      btn.className = 'skill-market-cat-btn skill-market-cat-filter' + (cat === this._activeCategory && !this._showInstalled ? ' active' : '');
+      btn.className = 'skill-market-cat-btn skill-market-cat-filter' + (cat.label === this._activeCategory && !this._showInstalled ? ' active' : '');
       btn.textContent = catLabel;
+      btn.dataset.catLabel = cat.label;
       btn.addEventListener('click', () => {
-        this._activeCategory = cat;
+        this._activeCategory = cat.label;
         // 点击分类时自动退出已安装模式，切换到该分类的精选浏览
         if (this._showInstalled) {
           this._showInstalled = false;
@@ -377,7 +398,7 @@ export class SkillMarket {
       content.appendChild(this._renderSourceDetail());
     } else {
       // 仅在「全部」分类时显示推荐来源
-      if (this._activeCategory === '全部') {
+      if (this._activeCategory === CATEGORIES[0].label) {
         content.appendChild(this._renderSources());
       }
       content.appendChild(this._renderFeatured());
@@ -403,7 +424,7 @@ export class SkillMarket {
           <div class="skill-market-source-name">${this._escapeHtml(src.name)}</div>
           <a class="skill-market-source-github" href="${src.url}" target="_blank" title="${i18n.t('skillMarket.viewOnGithub')}">↗</a>
         </div>
-        <div class="skill-market-source-desc">${this._escapeHtml(src.desc)}</div>
+        <div class="skill-market-source-desc">${this._escapeHtml(this._localizedDesc(src))}</div>
       `;
 
       grid.appendChild(card);
@@ -436,7 +457,7 @@ export class SkillMarket {
       const matchQuery = !this._searchQuery ||
         s.name.toLowerCase().includes(this._searchQuery.toLowerCase()) ||
         s.desc.toLowerCase().includes(this._searchQuery.toLowerCase());
-      const matchCat = this._activeCategory === '全部' ||
+      const matchCat = this._activeCategory === CATEGORIES[0].label ||
         s.category === this._activeCategory;
       return matchSource && matchQuery && matchCat;
     });
@@ -488,7 +509,7 @@ export class SkillMarket {
         <div class="skill-market-skill-row">
           <div class="skill-market-skill-text">
             <div class="skill-market-skill-name">${this._escapeHtml(skill.name)}</div>
-            <div class="skill-market-skill-desc">${this._escapeHtml(skill.desc)}</div>
+            <div class="skill-market-skill-desc">${this._escapeHtml(this._localizedDesc(skill))}</div>
           </div>
           <button class="skill-market-plus-btn${isInstalled ? ' installed' : ''}"
             data-skill-name="${skill.name}"
@@ -537,7 +558,7 @@ export class SkillMarket {
       const matchQuery = !this._searchQuery ||
         s.name.toLowerCase().includes(this._searchQuery.toLowerCase()) ||
         s.desc.toLowerCase().includes(this._searchQuery.toLowerCase());
-      const matchCat = this._activeCategory === '全部' ||
+      const matchCat = this._activeCategory === CATEGORIES[0].label ||
         s.category === this._activeCategory;
       return matchQuery && matchCat;
     });
@@ -546,6 +567,15 @@ export class SkillMarket {
   _isInstalled(name) {
     const key = name.toLowerCase().replace(/\s+/g, '-');
     return this._installedNames.has(key);
+  }
+
+  /** 获取本地化描述，有 descKey 优先走 i18n，否则 fallback 到原始 desc */
+  _localizedDesc(item) {
+    if (item.descKey) {
+      const translated = i18n.t(item.descKey);
+      if (translated !== item.descKey) return translated;
+    }
+    return item.desc;
   }
 
   // ==================== 已安装技能列表 ====================
@@ -563,8 +593,8 @@ export class SkillMarket {
 
     container.innerHTML = `
       <div class="skill-market-installed-summary">
-        ${i18n.t('skillMarket.installedCount')} <strong>${this._installedSkills.length}</strong> 个技能
-        ${marketInstalled.length > 0 ? `（其中 <strong>${marketInstalled.length}</strong> ${i18n.t('skillMarket.fromMarket')}）` : ''}
+        ${i18n.t('skillMarket.installedCount', { count: this._installedSkills.length })}
+        ${marketInstalled.length > 0 ? i18n.t('skillMarket.fromMarket', { count: marketInstalled.length }) : ''}
       </div>
     `;
 

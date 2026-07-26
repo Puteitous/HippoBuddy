@@ -431,8 +431,8 @@
     'skillMarket.featured':        { zh: '精选技能', en: 'Featured Skills' },
     'skillMarket.noSkills':        { zh: '暂无已安装的技能', en: 'No installed skills yet' },
     'skillMarket.goInstall':       { zh: '去「推荐」或「精选技能」中安装吧', en: 'Go to "Sources" or "Featured" to install some' },
-    'skillMarket.installedCount':  { zh: '已安装', en: 'Installed' },
-    'skillMarket.fromMarket':      { zh: '个来自精选市场', en: ' from the featured market' },
+    'skillMarket.installedCount':  { zh: '已安装 <strong>{count}</strong> 个技能', en: 'Installed <strong>{count}</strong> skills' },
+    'skillMarket.fromMarket':      { zh: '（其中 <strong>{count}</strong> 个来自精选市场）', en: '(<strong>{count}</strong> from featured market)' },
     'skillMarket.projectSkills':   { zh: '项目技能', en: 'Project Skills' },
     'skillMarket.globalSkills':    { zh: '全局技能', en: 'Global Skills' },
     'skillMarket.install':         { zh: '安装', en: 'Install' },
@@ -454,6 +454,24 @@
     'skillMarket.previewClose':    { zh: '关闭', en: 'Close' },
     'skillMarket.clearSearch':     { zh: '清除', en: 'Clear' },
     'skillMarket.viewOnGithub':    { zh: '在 GitHub 上查看', en: 'View on GitHub' },
+
+    /* ---- 来源仓库描述 ---- */
+    'skillMarket.source.anthropic':  { zh: 'Anthropic 官方技能仓库，Claude 技能生态标准，质量最稳定', en: 'Anthropic official skills repository, Claude skill ecosystem standard, most stable quality' },
+    'skillMarket.source.aas':        { zh: '社区最大技能集合，1595+ 技能，覆盖全栈/安全/DevOps/数据科学', en: 'Largest community skill collection, 1595+ skills covering full-stack/security/DevOps/data science' },
+    'skillMarket.source.vercel':     { zh: 'Vercel 团队工程最佳实践，Next.js/React 专项技能', en: 'Vercel team engineering best practices, Next.js/React specialized skills' },
+    'skillMarket.source.addyosmani': { zh: '生产级工程实践：TDD、代码审查、调试、性能优化', en: 'Production-grade engineering practices: TDD, code review, debugging, performance optimization' },
+
+    /* ---- 精选技能描述 ---- */
+    'skillMarket.skill.codeReview':              { zh: '代码审查 — 五轴审查：正确性/可读性/架构/安全/性能', en: 'Code Review — Five-axis review: correctness/readability/architecture/security/performance' },
+    'skillMarket.skill.tddWorkflow':             { zh: 'TDD 工作流 — Red → Green → Refactor 全流程引导', en: 'TDD Workflow — Red → Green → Refactor full workflow guide' },
+    'skillMarket.skill.debugging':               { zh: '调试与错误恢复 — 六阶段诊断：构建反馈循环到复盘', en: 'Debugging & Error Recovery — Six-phase diagnosis: from feedback loop to postmortem' },
+    'skillMarket.skill.securityAudit':           { zh: '安全审计与加固 — OWASP Top 10 检查、漏洞扫描、威胁建模', en: 'Security Audit & Hardening — OWASP Top 10 checks, vulnerability scanning, threat modeling' },
+    'skillMarket.skill.apiDesign':               { zh: 'API 设计 — RESTful 规范、请求验证、错误处理、文档生成', en: 'API Design — RESTful conventions, request validation, error handling, documentation generation' },
+    'skillMarket.skill.performance':             { zh: '性能优化 — 加载性能、渲染优化、数据库查询优化', en: 'Performance Optimization — loading perf, rendering optimization, database query tuning' },
+    'skillMarket.skill.devops':                  { zh: 'DevOps 实践 — CI/CD 配置、Docker/K8s、监控告警', en: 'DevOps Practices — CI/CD setup, Docker/K8s, monitoring & alerting' },
+    'skillMarket.skill.reactPatterns':           { zh: 'React 模式 — Hooks 规范、状态管理、性能优化、组件设计', en: 'React Patterns — Hooks conventions, state management, performance, component design' },
+    'skillMarket.skill.databaseDesign':          { zh: '数据库设计 — 表结构设计、索引优化、迁移策略、ORM 使用', en: 'Database Design — schema design, index optimization, migration strategies, ORM usage' },
+    'skillMarket.skill.incrementalImplementation': { zh: '增量实施 — 薄垂直切片实现，每步可测试可提交，避免大段一次性编码', en: 'Incremental Implementation — thin vertical slices, each step testable & commitable, avoid large monolithic coding' },
 
     /* ==================== Delete Confirm Modal ==================== */
     'deleteConfirm.message':       { zh: '确认删除？', en: 'Confirm delete?' },
