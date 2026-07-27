@@ -111,8 +111,8 @@
     'chatui.undo':                 { zh: '↩ 撤销', en: '↩ Undo' },
     'chatui.undoFailed':           { zh: '撤销失败：', en: 'Undo failed: ' },
     'chatui.unknownError':         { zh: '未知错误', en: 'Unknown error' },
-    'chatui.sessionExecuting':     { zh: '⏳ 此会话正在后台执行中...', en: '⏳ Session is running in background...' },
-    'chatui.executionComplete':    { zh: '✅ 执行完成', en: '✅ Execution complete' },
+    'chatui.sessionExecuting':     { zh: '此会话正在后台执行中...', en: 'Session is running in background...' },
+    'chatui.executionComplete':    { zh: '执行完成', en: 'Execution complete' },
 
     /* ==================== Token Monitor ==================== */
     'token.title':                 { zh: 'Token 消耗统计', en: 'Token Usage Stats' },

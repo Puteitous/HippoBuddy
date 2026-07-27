@@ -423,14 +423,10 @@
 
 .view-capsule {
     display: flex;
-    background: var(--bg-code);
+    background: var(--bg-canvas);
     border-radius: 20px;
     padding: 3px;
     gap: 0;
-}
-
-[data-theme="dark"] .view-capsule {
-    background: var(--bg-canvas);
 }
 
 .capsule-btn {

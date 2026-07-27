@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# HippoBuddy 架构哲学
+# HippoBuddy：从"框架驱动"到"能力驱动"
 
 > AI 时代的 Agent 框架：从"框架驱动"到"能力驱动"
 

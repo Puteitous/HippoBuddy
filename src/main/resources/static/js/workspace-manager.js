@@ -481,6 +481,9 @@ tools:
           localStorage.setItem(configKey, '1');
         }
       }
+
+      // 刷新文件树，使新创建的欢迎文件/配置指南在树中立即可见
+      fileTree.refresh();
     },
 
     async clearWorkspace() {
