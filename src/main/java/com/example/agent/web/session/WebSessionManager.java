@@ -39,6 +39,8 @@ public class WebSessionManager implements SessionManager {
     private static final Map<String, Set<String>> sessionAutoAllowRules = new ConcurrentHashMap<>();
     private static final Map<String, String> sessionModes = new ConcurrentHashMap<>();
     private static final Map<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
+    /** 会话 Agent 执行状态：true=正在运行，false=空闲 */
+    private static final Map<String, Boolean> sessionRunning = new ConcurrentHashMap<>();
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static WebSessionManager instance;
@@ -200,6 +202,22 @@ public class WebSessionManager implements SessionManager {
                 sessionLocks.remove(sessionId);
             }
         }
+    }
+
+    @Override
+    public void setSessionRunning(String sessionId, boolean running) {
+        if (sessionId != null) {
+            if (running) {
+                sessionRunning.put(sessionId, true);
+            } else {
+                sessionRunning.remove(sessionId);
+            }
+        }
+    }
+
+    @Override
+    public boolean isSessionRunning(String sessionId) {
+        return sessionId != null && sessionRunning.getOrDefault(sessionId, false);
     }
 
     @Override

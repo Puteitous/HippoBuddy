@@ -75,4 +75,18 @@ public interface SessionManager {
      * 更新会话的最后活跃时间。
      */
     void updateLastActivityAt(String sessionId);
+
+    // === Agent 执行状态 ===
+
+    /**
+     * 设置会话的 Agent 执行状态。
+     * @param sessionId 会话 ID
+     * @param running true=正在执行，false=空闲
+     */
+    void setSessionRunning(String sessionId, boolean running);
+
+    /**
+     * 检查会话的 Agent 是否正在执行。
+     */
+    boolean isSessionRunning(String sessionId);
 }

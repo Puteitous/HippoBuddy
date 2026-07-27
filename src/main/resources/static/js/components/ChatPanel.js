@@ -12,7 +12,7 @@ import { ContextSelector } from './context-selector.js';
 import { parseTodoArgs } from './tool-renderers/shared.js';
 
 // ── 多模式预设提示词 ──
-const _ = (key) => window.i18n ? window.i18n.t(key) : key;
+const _ = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 const MODE_PRESETS = {
   chat: [
     { label: () => _('preset.brainstorm'), icon: 'M12 2a5 5 0 0 0-5 5c0 2 1 3.5 2.5 4.5V15a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-3.5C16 10.5 17 9 17 7a5 5 0 0 0-5-5z M9 17h6', prompt: '我们来一次头脑风暴！请推荐5个关于【人工智能在日常生活中的应用】的创意想法。每个想法需要说明：核心思路、实现方式和潜在价值。' },

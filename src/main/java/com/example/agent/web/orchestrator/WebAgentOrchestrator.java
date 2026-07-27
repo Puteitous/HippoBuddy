@@ -119,12 +119,8 @@ public class WebAgentOrchestrator {
         List<Tool> tools = toolRegistry.toTools(mode);
 
         for (int turn = 0; turn < MAX_TURNS; turn++) {
-            if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
-                if (SseWriter.isClientDisconnected()) {
-                    logger.info("客户端已断开，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
-                } else {
-                    logger.info("收到取消信号，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
-                }
+            if (cancelManager.isCancelled(sessionId)) {
+                logger.info("收到取消信号，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
                 return;
             }
 
@@ -152,12 +148,8 @@ public class WebAgentOrchestrator {
 
             sseWriter.sendSseEvent("thinking", "{\"turn\":" + (turn + 1) + "}");
 
-            if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
-                if (SseWriter.isClientDisconnected()) {
-                    logger.info("客户端已断开，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
-                } else {
-                    logger.info("收到取消信号，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
-                }
+            if (cancelManager.isCancelled(sessionId)) {
+                logger.info("收到取消信号，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
                 return;
             }
 
@@ -170,10 +162,8 @@ public class WebAgentOrchestrator {
             }
 
             ChatResponse response = llmClient.chatStream(messages, tools, (StreamChunk chunk) -> {
-                if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
-                    if (!SseWriter.isClientDisconnected()) {
-                        logger.debug("流式回调感知取消信号, 中止 LLM 请求: sessionId={}", sessionId);
-                    }
+                if (cancelManager.isCancelled(sessionId)) {
+                    logger.debug("流式回调感知取消信号, 中止 LLM 请求: sessionId={}", sessionId);
                     llmClient.abortCurrentRequest();
                     return;
                 }
@@ -246,12 +236,8 @@ public class WebAgentOrchestrator {
                 }
             });
 
-            if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
-                if (SseWriter.isClientDisconnected()) {
-                    logger.info("客户端已断开，跳过工具执行 (sessionId={}, turn={})", sessionId, turn + 1);
-                } else {
-                    logger.info("收到取消信号，跳过工具执行 (sessionId={}, turn={})", sessionId, turn + 1);
-                }
+            if (cancelManager.isCancelled(sessionId)) {
+                logger.info("收到取消信号，跳过工具执行 (sessionId={}, turn={})", sessionId, turn + 1);
                 return;
             }
 
@@ -339,12 +325,8 @@ public class WebAgentOrchestrator {
                 }
             }
 
-            if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
-                if (SseWriter.isClientDisconnected()) {
-                    logger.info("客户端已断开，停止下一轮 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
-                } else {
-                    logger.info("收到取消信号，停止下一轮 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
-                }
+            if (cancelManager.isCancelled(sessionId)) {
+                logger.info("收到取消信号，停止下一轮 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
                 return;
             }
 
@@ -367,12 +349,8 @@ public class WebAgentOrchestrator {
     private boolean executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId, AgentMode mode) {
         for (int i = 0; i < toolCalls.size(); i++) {
             ToolCall toolCall = toolCalls.get(i);
-            if (SseWriter.isClientDisconnected() || cancelManager.isCancelled(sessionId)) {
-                if (SseWriter.isClientDisconnected()) {
-                    logger.info("客户端已断开，跳过工具执行 (sessionId={})", sessionId);
-                } else {
-                    logger.info("收到取消信号，跳过工具执行 (sessionId={})", sessionId);
-                }
+            if (cancelManager.isCancelled(sessionId)) {
+                logger.info("收到取消信号，跳过工具执行 (sessionId={})", sessionId);
                 return false;
             }
 
@@ -638,31 +616,37 @@ public class WebAgentOrchestrator {
      * 调用方（ToolConfirmHandler）不需要关心内部编排顺序。
      */
     public void continueAfterConfirmation(String sessionId, Conversation conversation, SseWriter sseWriter) throws LlmException {
-        // 从 session 读取模式（确认弹窗期间模式不变）
-        AgentMode mode = resolveMode(sessionManager.getMode(sessionId));
+        // 标记会话为"正在运行"
+        sessionManager.setSessionRunning(sessionId, true);
+        try {
+            // 从 session 读取模式（确认弹窗期间模式不变）
+            AgentMode mode = resolveMode(sessionManager.getMode(sessionId));
 
-        // 执行确认前暂存的剩余工具调用
-        // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，拒绝一个不影响其他
-        List<ToolCall> remaining = remainingToolCalls.remove(sessionId);
-        if (remaining != null && !remaining.isEmpty()) {
-            String remainingIds = remaining.stream()
-                .map(tc -> tc.getId() + "(" + tc.getFunction().getName() + ")")
-                .collect(java.util.stream.Collectors.joining(", "));
-            logger.info("确认弹窗关闭，开始执行剩余工具 (sessionId={}, 数量={}, 列表=[{}])",
-                sessionId, remaining.size(), remainingIds);
-            executeToolCalls(remaining, conversation, sseWriter, sessionId, mode);
-            // 执行剩余工具时又触发了新的确认弹窗（如第二个 bash/delete_file 也需确认），
-            // 等待用户确认，不进入下一轮 Agent 循环
-            if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
-                logger.info("剩余工具执行中触发了新的确认弹窗，等待用户确认 (sessionId={})", sessionId);
-                return;
+            // 执行确认前暂存的剩余工具调用
+            // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，拒绝一个不影响其他
+            List<ToolCall> remaining = remainingToolCalls.remove(sessionId);
+            if (remaining != null && !remaining.isEmpty()) {
+                String remainingIds = remaining.stream()
+                    .map(tc -> tc.getId() + "(" + tc.getFunction().getName() + ")")
+                    .collect(java.util.stream.Collectors.joining(", "));
+                logger.info("确认弹窗关闭，开始执行剩余工具 (sessionId={}, 数量={}, 列表=[{}])",
+                    sessionId, remaining.size(), remainingIds);
+                executeToolCalls(remaining, conversation, sseWriter, sessionId, mode);
+                // 执行剩余工具时又触发了新的确认弹窗（如第二个 bash/delete_file 也需确认），
+                // 等待用户确认，不进入下一轮 Agent 循环
+                if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
+                    logger.info("剩余工具执行中触发了新的确认弹窗，等待用户确认 (sessionId={})", sessionId);
+                    return;
+                }
+            } else {
+                logger.info("确认弹窗关闭，无剩余工具 (sessionId={})", sessionId);
             }
-        } else {
-            logger.info("确认弹窗关闭，无剩余工具 (sessionId={})", sessionId);
+            // 进入下一轮 Agent 循环
+            logger.info("确认弹窗关闭后，进入下一轮 Agent 循环 (sessionId={})", sessionId);
+            execute(sessionId, conversation, sseWriter);
+        } finally {
+            sessionManager.setSessionRunning(sessionId, false);
         }
-        // 进入下一轮 Agent 循环
-        logger.info("确认弹窗关闭后，进入下一轮 Agent 循环 (sessionId={})", sessionId);
-        execute(sessionId, conversation, sseWriter);
     }
 
     private List<Message> ensureSystemMessageFirst(List<Message> messages) {

@@ -5,7 +5,7 @@
  */
 import { appState } from '../../state/app-state.js';
 
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 export class GeneralSettingsPage {
   constructor() {

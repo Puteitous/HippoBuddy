@@ -428,4 +428,51 @@ export class ChatService {
       abortController.abort();
     }
   }
+
+  /**
+   * 查询会话的 Agent 是否正在运行。
+   * @param {string} sessionId
+   * @returns {Promise<{sessionId: string, running: boolean}>}
+   */
+  async getSessionStatus(sessionId) {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}/status`);
+      if (!response.ok) return { sessionId, running: false };
+      return response.json();
+    } catch {
+      return { sessionId, running: false };
+    }
+  }
+
+  /**
+   * 轮询等待会话执行完成，期间如有新消息会自动更新前端。
+   * @param {string} sessionId
+   * @param {Function} [onProgress] 可选回调，每次轮询到新消息时调用 (messages) => void
+   * @param {number} [interval=500] 轮询间隔（毫秒）
+   * @param {number} [timeout=300000] 超时时间（毫秒，默认 5 分钟）
+   * @returns {Promise<boolean>} true=已完成，false=超时
+   */
+  async waitForSessionComplete(sessionId, onProgress, interval = 500, timeout = 300000) {
+    const start = Date.now();
+    let lastMessageCount = -1;
+    while (Date.now() - start < timeout) {
+      const status = await this.getSessionStatus(sessionId);
+
+      // 如果有新消息，通知回调更新前端
+      if (onProgress) {
+        const messages = await this.getSessionMessages(sessionId);
+        if (messages.length > lastMessageCount && lastMessageCount >= 0) {
+          onProgress(messages);
+        }
+        lastMessageCount = messages.length;
+      }
+
+      if (!status.running) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, interval));
+    }
+    console.warn(`等待会话完成超时: sessionId=${sessionId}`);
+    return false;
+  }
 }

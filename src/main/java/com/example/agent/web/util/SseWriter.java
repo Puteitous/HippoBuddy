@@ -39,16 +39,15 @@ public class SseWriter {
     }
 
     public void sendSseEvent(String event, String data) {
-        if (clientDisconnected.get()) {
-            return;
-        }
         try {
             writer.write("event: " + event + "\n");
             writer.write("data: " + data + "\n\n");
             writer.flush();
         } catch (IOException e) {
-            clientDisconnected.set(true);
-            logger.debug("客户端连接已断开，停止发送 SSE 事件 (event={})", event);
+            // 客户端断开时只打日志，不设断开标志。
+            // 前端切走后 Agent 仍需继续执行并写入 conversation.jsonl，
+            // 这样切回来时能从文件加载完整结果。
+            logger.debug("SSE 写入失败（客户端可能已断开）, event={}", event);
         }
     }
 

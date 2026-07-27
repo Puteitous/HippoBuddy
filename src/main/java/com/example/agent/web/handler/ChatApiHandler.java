@@ -214,6 +214,9 @@ public class ChatApiHandler implements HttpHandler {
                 }
             }
 
+            // 标记会话为"正在运行"
+            sessionManager.setSessionRunning(sessionId, true);
+
             orchestrator.execute(sessionId, conversation, sseWriter);
 
         } catch (LlmException e) {
@@ -225,6 +228,8 @@ public class ChatApiHandler implements HttpHandler {
         } finally {
             if (lockAcquired && sessionId != null) {
                 sessionManager.releaseSessionLock(sessionId);
+                // Agent 执行结束（不论正常完成还是异常），标记为空闲
+                sessionManager.setSessionRunning(sessionId, false);
             }
             SseWriter.removeClientDisconnected();
             sseWriter.sendSseEvent("complete", "[DONE]");

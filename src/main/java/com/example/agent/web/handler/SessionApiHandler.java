@@ -14,6 +14,7 @@ import com.example.agent.web.util.ConversationJsonlReader;
 import com.example.agent.web.util.MessageConverter;
 import com.example.agent.web.util.SessionListBuilder;
 import com.example.agent.web.util.TokenStatsResponseBuilder;
+import com.example.agent.web.session.WebSessionManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
@@ -90,6 +91,9 @@ public class SessionApiHandler implements HttpHandler {
             } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/title$")) {
                 String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/title"));
                 handleGenerateTitle(exchange, sessionId);
+            } else if ("GET".equals(method) && path.matches("/api/sessions/[^/]+/status$")) {
+                String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/status"));
+                handleSessionStatus(exchange, sessionId);
             } else {
                 sendError(exchange, 404, "Not found");
             }
@@ -396,6 +400,20 @@ public class SessionApiHandler implements HttpHandler {
         String response = "{\"error\":\"" + message.replace("\"", "\\\"") + "\"}";
         byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(code, bytes.length);
+        exchange.getResponseBody().write(bytes);
+        exchange.close();
+    }
+
+    /**
+     * 查询会话的 Agent 执行状态。
+     * GET /api/sessions/{id}/status
+     */
+    private void handleSessionStatus(HttpExchange exchange, String sessionId) throws IOException {
+        WebSessionManager manager = WebSessionManager.getInstance();
+        boolean running = manager.isSessionRunning(sessionId);
+        String json = "{\"sessionId\":\"" + sessionId + "\",\"running\":" + running + "}";
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+        exchange.sendResponseHeaders(200, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.close();
     }

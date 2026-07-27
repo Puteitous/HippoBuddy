@@ -854,6 +854,9 @@ async function switchSession(sessionId) {
     // 重置文件变更快照，确保不会触发不必要的文件树刷新
     if (fileChangeManager) fileChangeManager._lastChangeSnapshot = null;
     fileChangeManager?.updateFileChanges(sessionId);
+
+    // 🆕 检查会话的 Agent 是否还在后台运行，如果是则轮询等待完成
+    checkSessionRunning(sessionId).catch(() => {});
   } catch (e) {
     document.querySelector('.chat-panel')?.classList.remove('has-messages');
     chatContainer.classList.remove('switching');
@@ -1018,6 +1021,36 @@ async function handleCompact() {
         <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6"/>
       </svg>
     `;
+  }
+}
+
+/**
+ * 检查会话的 Agent 是否还在后台运行。
+ * 如果是，显示提示并轮询等待完成，完成后自动刷新消息。
+ */
+async function checkSessionRunning(sessionId) {
+  try {
+    const status = await chatService.getSessionStatus(sessionId);
+    if (!status.running) return;
+
+    // 用 toast 提示用户
+    showToast('⏳ 此会话正在后台执行中...', { type: 'info', duration: 0 });
+
+    // 轮询等待完成
+    const completed = await chatService.waitForSessionComplete(sessionId, (messages) => {
+      // 有新消息时增量更新前端
+      chatPanel.loadHistoryMessages(messages, true);
+    });
+    // 先清除旧的 toast
+    document.querySelectorAll('.toast').forEach(el => el.remove());
+    if (completed) {
+      // 加载完成后的最新消息
+      const finalMessages = await chatService.getSessionMessages(sessionId);
+      await chatPanel.loadHistoryMessages(finalMessages, true);
+      showToast('✅ 执行完成', { type: 'success', duration: 3000 });
+    }
+  } catch (e) {
+    console.warn('检查会话运行状态失败:', e);
   }
 }
 

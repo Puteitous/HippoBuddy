@@ -27,7 +27,7 @@ export function renderAskUserCard(tool) {
         <span class="arrow"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 12 6 8 10 4"/></svg></span>
       </div>
       <div class="tool-call-details" style="max-height:none">
-        <div class="question-text">${escapeHtml(question)}</div>
+        <div class="question-text">${escapeHtml(question).replace(/\n/g, '<br>')}</div>
         ${hasOptions ? `
           <div class="options-list">
             ${options.map((opt, i) => `
