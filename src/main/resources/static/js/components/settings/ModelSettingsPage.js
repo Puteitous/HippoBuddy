@@ -9,7 +9,7 @@ import { CustomDropdown } from '../../utils/dropdown.js';
 import { showToast } from '../../utils/toast.js';
 import { ConfirmDialog } from '../../utils/modal.js';
 
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 /** Provider 可选列表（与 main.js 一致） */
 const PROVIDER_ITEMS = [

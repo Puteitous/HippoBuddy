@@ -588,7 +588,7 @@ export class MessageSession {
       </div>`;
     }
     if (overflow > 0) {
-      html += `<div class="popover-file-overflow">还有 ${overflow} 个文件变更</div>`;
+      html += `<div class="popover-file-overflow">${window.i18n.t('fileChanges.overflow', { overflow })}</div>`;
     }
     popover.innerHTML = html;
 

@@ -9,7 +9,7 @@ import { showToast } from '../../utils/toast.js';
 import { getFileIconInfo } from '../../utils/file-icons.js';
 import { ConfirmDialog } from '../../utils/modal.js';
 
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 export class SkillsSettingsPage {
   constructor() {

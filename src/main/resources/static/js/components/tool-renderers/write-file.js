@@ -2,7 +2,7 @@ import { escapeHtml } from '../../utils.js';
 import { parseToolArgs, computeUnifiedDiff, renderUnifiedDiff } from './shared.js';
 
 // i18n 辅助函数
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 export function renderWriteFileCard(tool) {
   const args = parseToolArgs(tool.args);

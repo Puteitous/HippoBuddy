@@ -3,7 +3,7 @@
 const TOAST_ICONS = {
   success: '✓',
   error: '✕',
-  info: '◉',
+  info: 'ⓘ',
   warning: '▲'
 };
 

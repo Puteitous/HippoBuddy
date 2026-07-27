@@ -13,7 +13,7 @@
 import { showToast } from '../../utils/toast.js';
 import { CustomDropdown } from '../../utils/dropdown.js';
 
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 const KEY_LABELS = {
   bash: _t('settingsPage.tools.bash'),

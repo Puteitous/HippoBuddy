@@ -2,7 +2,7 @@ import { truncateText } from './utils.js';
 import { ChatService } from './chat-service.js';
 import { showBottomToast } from './utils/toast.js';
 import { ConfirmDialog } from './utils/modal.js';
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 /** 时间分组中文 → i18n key 映射 */
 const TIME_GROUP_LABELS = {

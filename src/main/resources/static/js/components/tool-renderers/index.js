@@ -12,7 +12,7 @@ import { renderDefaultToolCard, renderDefaultToolDetail } from './default.js';
 import { renderDeleteFileConfirmCard, renderDeleteFileConfirmationDetail, renderDeleteFileDetail } from './delete-file.js';
 
 // i18n 辅助函数
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 export function renderToolCard(tool) {
   if (tool.name === 'todo_write') {

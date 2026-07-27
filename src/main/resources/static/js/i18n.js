@@ -111,6 +111,8 @@
     'chatui.undo':                 { zh: '↩ 撤销', en: '↩ Undo' },
     'chatui.undoFailed':           { zh: '撤销失败：', en: 'Undo failed: ' },
     'chatui.unknownError':         { zh: '未知错误', en: 'Unknown error' },
+    'chatui.sessionExecuting':     { zh: '⏳ 此会话正在后台执行中...', en: '⏳ Session is running in background...' },
+    'chatui.executionComplete':    { zh: '✅ 执行完成', en: '✅ Execution complete' },
 
     /* ==================== Token Monitor ==================== */
     'token.title':                 { zh: 'Token 消耗统计', en: 'Token Usage Stats' },
@@ -168,7 +170,7 @@
     'fileChanges.rollingBack':     { zh: '回滚中...', en: 'Rolling back...' },
     'fileChanges.rollbackFailed':  { zh: '回滚失败：', en: 'Rollback failed: ' },
     'fileChanges.rollbackSuccess': { zh: '文件已恢复：', en: 'File restored: ' },
-    'fileChanges.overflow':        { zh: '个文件变更', en: ' more file changes' },
+    'fileChanges.overflow':        { zh: '{overflow} 个文件变更', en: '{overflow} more file changes' },
 
     /* ==================== Preview Panel ==================== */
     'preview.mdToggle':            { zh: '预览模式', en: 'Preview Mode' },
@@ -338,7 +340,7 @@
     'rollback.rollingBack':        { zh: '回滚中...', en: 'Rolling back...' },
     'rollback.fileRolledBack':     { zh: '文件已回滚', en: 'File rolled back' },
     'rollback.sessionCleared':     { zh: '此会话已清空，已自动创建新会话', en: 'Session cleared, new session created' },
-    'rollback.rolledBack':         { zh: '已回滚到上一轮对话', en: 'Rolled back to previous turn' },
+    'rollback.rolledBack':         { zh: '已回滚到指定轮次', en: 'Rolled back to specified turn' },
     'rollback.failed':             { zh: '回滚失败：', en: 'Rollback failed: ' },
     'rollback.checkingFiles':      { zh: '正在检查文件变更...', en: 'Checking file changes...' },
     'rollback.panelTitle':         { zh: '回滚到上一轮对话', en: 'Rollback to Previous Turn' },
@@ -763,6 +765,11 @@
     'fileTree.fileNameHint':              { zh: '例如: index.js', en: 'e.g. index.js' },
     'fileTree.folderNameHint':            { zh: '例如: my-folder', en: 'e.g. my-folder' },
     'fileTree.createFailed':              { zh: '创建失败: ', en: 'Create failed: ' },
+    'fileTree.movedToRoot':               { zh: '已移动到根目录: ', en: 'Moved to root: ' },
+    'fileTree.moved':                     { zh: '已移动: ', en: 'Moved: ' },
+    'fileTree.moveFailed':                { zh: '移动失败: ', en: 'Move failed: ' },
+    'fileTree.renameFailed':              { zh: '重命名失败: ', en: 'Rename failed: ' },
+    'fileTree.deleteFailed':              { zh: '删除失败: ', en: 'Delete failed: ' },
 
     /* ==================== Chat (additional) ==================== */
     'chat.noExport':                      { zh: '没有可导出的对话', en: 'No sessions to export' },
@@ -788,6 +795,7 @@
     'chat.forkFailed':                    { zh: '分叉失败: ', en: 'Fork failed: ' },
     'chat.llmNoContent':                  { zh: 'LLM 未返回有效内容', en: 'LLM returned no content' },
     'chat.requestFailed':                 { zh: '请求失败', en: 'Request failed' },
+    'chat.confirmFailed':                 { zh: '确认请求失败', en: 'Confirmation failed' },
     'chat.toolResultParseError':          { zh: '工具结果数据解析异常', en: 'Tool result data parse error' },
 
     'chatui.viewFileProducts':          { zh: '查看本轮文件产物', en: 'View file products' },
@@ -893,6 +901,7 @@
     'memory.deleteFailed':           { zh: '删除失败', en: 'Delete failed' },
     'memory.all':                    { zh: '全部', en: 'All' },
     'memory.empty':                  { zh: '暂无记忆', en: 'No memories' },
+    'memory.saveFailed':             { zh: '保存失败', en: 'Save failed' },
 
     /* ==================== Markdown ==================== */
     'markdown.preview':              { zh: '预览', en: 'Preview' },

@@ -147,7 +147,7 @@ export class OnboardingTour {
 
   // ── 欢迎设置面板（语言 + 排版选择） ──
   _showWelcomeSettings() {
-    const $t = (k) => window.i18n ? window.i18n.t(k) : k;
+    const $t = (k, params) => window.i18n ? window.i18n.t(k, params) : k;
 
     // 当前值
     const savedLang = window.i18n ? window.i18n.currentLang : 'zh';
@@ -298,7 +298,7 @@ export class OnboardingTour {
   _reRenderWelcomeSettings() {
     const overlay = this._elements.welcomeOverlay;
     if (!overlay) return;
-    const $t = (k) => window.i18n ? window.i18n.t(k) : k;
+    const $t = (k, params) => window.i18n ? window.i18n.t(k, params) : k;
     const currentLayout = overlay.querySelector('#obWelcomeLayout .active')?.dataset.value || 'preview-left';
 
     // 更新标题
@@ -443,7 +443,7 @@ export class OnboardingTour {
     tooltip.className = 'ob-tooltip';
     tooltip.id = 'obTooltip';
 
-    const $t = (k) => window.i18n ? window.i18n.t(k) : k;
+    const $t = (k, params) => window.i18n ? window.i18n.t(k, params) : k;
     const title = $t(step.titleKey);
     const desc = $t(step.descKey);
 

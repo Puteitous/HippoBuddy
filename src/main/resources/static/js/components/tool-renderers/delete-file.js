@@ -1,7 +1,7 @@
 import { escapeHtml } from '../../utils.js';
 
 // i18n 辅助函数
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 /**
  * 公共：渲染 delete_file 确认内容（文件列表 + 恢复提示 + 确认按钮）。

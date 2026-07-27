@@ -1034,7 +1034,7 @@ async function checkSessionRunning(sessionId) {
     if (!status.running) return;
 
     // 用 toast 提示用户
-    showToast('⏳ 此会话正在后台执行中...', { type: 'info', duration: 0 });
+    showToast(window.i18n.t('chatui.sessionExecuting'), { type: 'info', duration: 0 });
 
     // 轮询等待完成
     const completed = await chatService.waitForSessionComplete(sessionId, (messages) => {
@@ -1047,7 +1047,7 @@ async function checkSessionRunning(sessionId) {
       // 加载完成后的最新消息
       const finalMessages = await chatService.getSessionMessages(sessionId);
       await chatPanel.loadHistoryMessages(finalMessages, true);
-      showToast('✅ 执行完成', { type: 'success', duration: 3000 });
+      showToast(window.i18n.t('chatui.executionComplete'), { type: 'success', duration: 3000 });
     }
   } catch (e) {
     console.warn('检查会话运行状态失败:', e);

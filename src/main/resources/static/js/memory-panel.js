@@ -230,10 +230,10 @@ export class MemoryPanel {
         if (res.success) {
           this.viewMemory(data.id);
         } else {
-          showToast('保存失败', 'error');
+          showToast(window.i18n.t('memory.saveFailed'), 'error');
         }
       } catch (e) {
-        showToast('保存失败: ' + e.message, 'error');
+        showToast(window.i18n.t('memory.saveFailed') + ': ' + e.message, 'error');
       }
     });
   }

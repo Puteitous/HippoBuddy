@@ -1,6 +1,6 @@
 import { formatTime } from './utils.js';
 // i18n 辅助函数
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 import { renderMarkdown } from './markdown-renderer.js';
 import { EventBus } from './utils/event-bus.js';
@@ -382,7 +382,7 @@ export class ChatUI {
         if (undoBtn) undoBtn.textContent = _t('chatui.undo');
       }
     } catch (e) {
-      showToast(`撤销失败：${e.message}`, { type: 'error', duration: 3000 });
+      showToast(window.i18n.t('chatui.undoFailed') + e.message, { type: 'error', duration: 3000 });
       if (undoBtn) undoBtn.disabled = false;
       if (undoBtn) undoBtn.textContent = _t('chatui.undo');
     }

@@ -114,7 +114,7 @@ export class RollbackPanel {
         if (mode === 'files') {
           // 仅回滚文件：不截断会话，只刷新文件变更状态
           if (this._onUpdateFileChanges) this._onUpdateFileChanges();
-          showToast(rewindResult.message || window.i18n.t('rollback.fileRolledBack'), { type: 'success', duration: 4000 });
+          showToast(window.i18n.t('rollback.fileRolledBack'), { type: 'success', duration: 4000 });
           return;
         }
 
@@ -148,7 +148,7 @@ export class RollbackPanel {
           this._messageInput.focus();
         }
 
-        showToast(rewindResult.message || window.i18n.t('rollback.rolledBack'), { type: 'success', duration: 4000 });
+                  showToast(window.i18n.t('rollback.rolledBack'), { type: 'success', duration: 4000 });
       } else {
         this._animateRemove(panel);
         showToast(window.i18n.t('rollback.failed') + (rewindResult.error || window.i18n.t('chatui.unknownError')), { type: 'error', duration: 3000 });
@@ -178,7 +178,7 @@ export class RollbackPanel {
   _createLoadingPanel() {
     const panel = document.createElement('div');
     panel.className = 'rollback-inline-loading';
-    const _t = (k) => window.i18n.t(k);
+    const _t = (k, params) => window.i18n.t(k, params);
     panel.innerHTML = `
       <svg class="loading-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
         <circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
@@ -189,7 +189,7 @@ export class RollbackPanel {
   }
 
   _buildPanel(previewFiles) {
-    const _t = (k) => window.i18n.t(k);
+    const _t = (k, params) => window.i18n.t(k, params);
     // 只保留有实际变动的文件（delete / add / restore）
     const changedFiles = previewFiles.filter(f =>
       f.action === 'delete' || f.action === 'add' || f.action === 'restore'

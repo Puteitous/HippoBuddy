@@ -1238,7 +1238,7 @@ export class ChatPanel {
     }).then(async response => {
       if (!response.ok) {
         return response.json().then(err => {
-          showToast(err.error || '确认请求失败', { type: 'error', duration: 4000 });
+          showToast(err.error || window.i18n.t('chat.confirmFailed'), { type: 'error', duration: 4000 });
           // 后端超时或确认请求失败，将 segment 标记为已取消
           if (this._pendingConfirmSeg) {
             this._pendingConfirmSeg.result = 'cancelled';
@@ -1326,7 +1326,7 @@ export class ChatPanel {
     }).catch(err => {
       if (err.name === 'AbortError') return;
       console.error('确认请求失败:', err);
-      showToast('确认请求失败', { type: 'error', duration: 4000 });
+      showToast(window.i18n.t('chat.confirmFailed'), { type: 'error', duration: 4000 });
       if (btn) btn.disabled = false;
       // 错误时也显示操作按钮，让用户能重试
       if (this._activeSession) {
@@ -1930,7 +1930,7 @@ export class ChatPanel {
               </div>`;
             }
             if (overflow > 0) {
-              popoverHtml += `<div class="popover-file-overflow">还有 ${overflow} 个文件变更</div>`;
+              popoverHtml += `<div class="popover-file-overflow">${window.i18n.t('fileChanges.overflow', { overflow })}</div>`;
             }
             filePopover.innerHTML = popoverHtml;
 

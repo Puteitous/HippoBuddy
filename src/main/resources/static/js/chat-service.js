@@ -356,7 +356,7 @@ export class ChatService {
       body: JSON.stringify({ filePath })
     });
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: '请求失败' }));
+      const err = await response.json().catch(() => ({ error: i18n.t('chat.requestFailed') }));
       throw new Error(err.error || `${i18n.t('chat.undoFailed')}${response.status}`);
     }
     return response.json();
@@ -376,7 +376,7 @@ export class ChatService {
       body: JSON.stringify({ messageId, mode })
     });
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: '请求失败' }));
+      const err = await response.json().catch(() => ({ error: i18n.t('chat.requestFailed') }));
       throw new Error(err.error || `${i18n.t('chat.rewindFailed')}${response.status}`);
     }
     return response.json();
@@ -395,7 +395,7 @@ export class ChatService {
       body: JSON.stringify({ messageId })
     });
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: '请求失败' }));
+      const err = await response.json().catch(() => ({ error: i18n.t('chat.requestFailed') }));
       throw new Error(err.error || `${i18n.t('chat.forkFailed')}${response.status}`);
     }
     return response.json();

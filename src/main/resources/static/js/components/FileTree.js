@@ -123,9 +123,9 @@ export class FileTree {
         await window.HippoDesktop.rename(sourcePath, destPath);
         this._doRefresh();
         this._onRefresh();
-        showToast('已移动到根目录: ' + fileName, { type: 'success' });
+        showToast(window.i18n.t('fileTree.movedToRoot') + fileName, { type: 'success' });
       } catch (err) {
-        showToast('移动失败: ' + err.message, { type: 'error' });
+        showToast(window.i18n.t('fileTree.moveFailed') + err.message, { type: 'error' });
       }
     });
 
@@ -419,7 +419,7 @@ export class FileTree {
           this._doRefresh();
           this._onRefresh();
         } catch (err) {
-          showToast('重命名失败: ' + err.message, { type: 'error' });
+          showToast(window.i18n.t('fileTree.renameFailed') + err.message, { type: 'error' });
         }
         break;
       }
@@ -441,7 +441,7 @@ export class FileTree {
           this._doRefresh();
           this._onRefresh();
         } catch (err) {
-          showToast('删除失败: ' + err.message, { type: 'error' });
+          showToast(window.i18n.t('fileTree.deleteFailed') + err.message, { type: 'error' });
         }
         break;
       }
@@ -893,9 +893,9 @@ export class FileTree {
         await window.HippoDesktop.rename(sourcePath, destPath);
         this._doRefresh();
         this._onRefresh();
-        showToast('已移动: ' + fileName, { type: 'success' });
+        showToast(window.i18n.t('fileTree.moved') + fileName, { type: 'success' });
       } catch (err) {
-        showToast('移动失败: ' + err.message, { type: 'error' });
+        showToast(window.i18n.t('fileTree.moveFailed') + err.message, { type: 'error' });
       }
     });
 
@@ -1008,9 +1008,9 @@ export class FileTree {
         await window.HippoDesktop.rename(sourcePath, destPath);
         this._doRefresh();
         this._onRefresh();
-        showToast('已移动: ' + fileName, { type: 'success' });
+        showToast(window.i18n.t('fileTree.moved') + fileName, { type: 'success' });
       } catch (err) {
-        showToast('移动失败: ' + err.message, { type: 'error' });
+        showToast(window.i18n.t('fileTree.moveFailed') + err.message, { type: 'error' });
       }
     });
 

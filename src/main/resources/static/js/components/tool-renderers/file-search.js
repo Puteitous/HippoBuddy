@@ -2,7 +2,7 @@ import { escapeHtml } from '../../utils.js';
 import { parseToolArgs } from './shared.js';
 
 // i18n 辅助函数
-const _t = (key) => window.i18n ? window.i18n.t(key) : key;
+const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 /** ───────── read_file 时间线详情 ─────────
  *  read_file 的摘要行已展示文件路径（可点击跳转），
