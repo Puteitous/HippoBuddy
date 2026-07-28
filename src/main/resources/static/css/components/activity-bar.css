@@ -230,6 +230,9 @@
 .token-visual-value {
     font-weight: 600;
     color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .token-visual-track {

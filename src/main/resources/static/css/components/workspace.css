@@ -210,6 +210,21 @@
     color: var(--accent);
 }
 
+/* 深色/午夜主题：标签文字提亮 */
+[data-theme="dark"] .file-tab {
+    color: #8a8a8a;
+}
+[data-theme="dark"] .file-tab.web-tab {
+    color: #8a8a8a;
+}
+
+[data-theme="midnight"] .file-tab {
+    color: #8e8e98;
+}
+[data-theme="midnight"] .file-tab.web-tab {
+    color: #8e8e98;
+}
+
 .web-tab-icon {
     display: inline-flex;
     align-items: center;
@@ -306,6 +321,19 @@
     opacity: 0.5;
     margin: 0 4px;
     font-family: sans-serif;
+}
+
+/* 面包屑路径段：可点击跳转 */
+.file-preview-path .path-segment {
+    cursor: pointer;
+    color: var(--text-muted);
+    border-radius: 3px;
+    padding: 0 2px;
+    transition: color 0.15s, background 0.15s;
+}
+.file-preview-path .path-segment:hover {
+    color: var(--text-normal);
+    background: var(--bg-hover, rgba(128,128,128,0.1));
 }
 
 .file-preview-content {

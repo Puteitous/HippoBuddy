@@ -19,7 +19,7 @@
   --border:        #e5e7eb;
   --text-primary:  #111827;
   --text-secondary:#4b5563;
-  --text-muted:    #9ca3af;
+  --text-muted:    #6b7280;
 
   --accent:        #787c82;
   --selection-bg:  rgb(173, 214, 255);
@@ -46,7 +46,7 @@
   --error-text:    #c62828;
   --error-hover:   #b71c1c;
 
-  --warning-color: rgb(212, 148, 51);
+  --warning-color: #c28830;
   --warning-bg:    #fff3e0;
 
   /* --- 阴影 --- */
@@ -143,7 +143,7 @@
   --bg-chat:       #181d27;
   --bg-code:       #181d27;
   --bg-hover:      #232a35;
-  --bg-active:     #181d27;
+  --bg-active:     #2d3445;
   --bg-secondary:  #181d27;
   --bg-overlay:    #181d27;
 

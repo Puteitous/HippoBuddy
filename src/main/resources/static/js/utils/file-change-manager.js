@@ -179,9 +179,16 @@ export class FileChangeManager {
       const workspaceRoot = window.HippoWorkspace?.currentPath;
       const fileHtml = Array.from(fileGroups.values()).map(c => {
         const fileName = c.filePath.split(/[/\\]/).pop();
-        const displayPath = workspaceRoot && c.filePath.startsWith(workspaceRoot)
-          ? c.filePath.slice(workspaceRoot.length + 1)
-          : c.filePath;
+        // 仿照 tool-renderers/index.js 的做法：统一正斜杠后再比较，
+        // 避免 Windows 上因反斜杠/正斜杠不匹配导致 startsWith 判断失败
+        let displayPath = c.filePath;
+        if (workspaceRoot) {
+          const root = workspaceRoot.replace(/\\/g, '/') + '/';
+          const normPath = c.filePath.replace(/\\/g, '/');
+          if (normPath.startsWith(root)) {
+            displayPath = normPath.slice(root.length);
+          }
+        }
         // 去掉路径末尾的文件名，只保留目录部分
         const dirPath = displayPath.endsWith(fileName)
           ? displayPath.slice(0, -fileName.length).replace(/[/\\]$/, '')

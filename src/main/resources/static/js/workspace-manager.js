@@ -163,7 +163,8 @@ const HippoWorkspace = (() => {
     const session = {
       root: _currentRoot,
       openFiles: openFiles,
-      activeFile: fileTabs.activePath
+      activeFile: fileTabs.activePath,
+      expandedDirs: fileTree.getExpandedDirs()
     };
     try {
       localStorage.setItem('hippo-workspace-session', JSON.stringify(session));
@@ -221,6 +222,16 @@ const HippoWorkspace = (() => {
       : files[files.length - 1];
     fileTree.setActiveFile(target);
     showPreview(target);
+
+    // 预览面板刚刚变为可见，重新滚动标签到激活标签位置
+    // （之前的 _scrollTabIntoView 因面板 display:none 而无效）
+    fileTabs.scrollActiveTabIntoView();
+
+    // 恢复文件树展开状态（刷新树以渲染已展开的目录）
+    if (session.expandedDirs && session.expandedDirs.length > 0) {
+      fileTree.restoreExpandedDirs(session.expandedDirs);
+      fileTree.refresh();
+    }
   }
 
   function _renderRecentFolders() {
@@ -659,6 +670,19 @@ tools:
     }
   }
 
+  // ========== 面包屑路径段点击导航 ==========
+  if (els.previewPath) {
+    els.previewPath.addEventListener('click', (e) => {
+      const segment = e.target.closest('.path-segment');
+      if (!segment) return;
+      const dirPath = segment.dataset.path;
+      if (!dirPath) return;
+      // 切换到文件视图，在文件树中展开并高亮该目录
+      switchView('files');
+      fileTree.revealDirectory(dirPath);
+    });
+  }
+
   // ========== 文件选择流 ==========
 
   async function handleFileSelect(filePath) {
@@ -719,7 +743,21 @@ tools:
       const relativePath = _currentRoot && filePath.startsWith(_currentRoot)
         ? filePath.slice(_currentRoot.length + 1)
         : filePath;
-      els.previewPath.innerHTML = relativePath.split('/').join('<span class="sep">></span>');
+      const parts = relativePath.split('/');
+      const html = parts.map((part, index) => {
+        // 对 part 做 HTML 转义（路径中可能出现 & < > 等字符）
+        const escaped = part.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (index < parts.length - 1) {
+          // 目录段：可点击，构建完整目录路径
+          const dirPath = _currentRoot
+            ? _currentRoot + '/' + parts.slice(0, index + 1).join('/')
+            : parts.slice(0, index + 1).join('/');
+          return `<span class="path-segment" data-path="${dirPath.replace(/"/g, '&quot;')}">${escaped}</span>`;
+        }
+        // 最后一段是文件名，纯文本
+        return escaped;
+      }).join('<span class="sep">></span>');
+      els.previewPath.innerHTML = html;
       els.previewPath.title = filePath;
     }
     if (els.previewToolbar) {
@@ -895,6 +933,12 @@ tools:
   });
 
   console.log('HippoWorkspace initialized ✅');
+
+  // ── 页面刷新/关闭前保存工作区会话（标签页 + 展开状态）──
+  window.addEventListener('beforeunload', () => {
+    _saveWorkspaceSession();
+  });
+
   return api;
 })();
 

@@ -213,6 +213,24 @@ export class FileTree {
   }
 
   /**
+   * 获取当前展开的目录集合（用于持久化）
+   * @returns {string[]}
+   */
+  getExpandedDirs() {
+    return [...this._expandedDirs];
+  }
+
+  /**
+   * 恢复展开的目录集合（从持久化数据恢复）
+   * @param {string[]} dirs - 目录路径数组
+   */
+  restoreExpandedDirs(dirs) {
+    if (Array.isArray(dirs) && dirs.length > 0) {
+      this._expandedDirs = new Set(dirs);
+    }
+  }
+
+  /**
    * 展开并高亮指定目录（在文件树中定位目录）
    * @param {string} dirPath - 绝对路径
    */

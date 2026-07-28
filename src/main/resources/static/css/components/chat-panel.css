@@ -1194,6 +1194,9 @@
 
 .sbt-percent {
     font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .sbt-bar-track {

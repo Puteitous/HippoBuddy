@@ -86,6 +86,16 @@ export class FileTabs {
     // 已在可视区域内 → 不滚动
   }
 
+  /** 滚动当前激活的标签到可视区域（用于 display:none → block 后重新定位） */
+  scrollActiveTabIntoView() {
+    if (this._activePath) {
+      const tabEl = this._tabs.get(this._activePath);
+      if (tabEl) {
+        this._scrollTabIntoView(tabEl);
+      }
+    }
+  }
+
   /** 获取当前激活的路径 */
   get activePath() {
     return this._activePath;

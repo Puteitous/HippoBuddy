@@ -48,6 +48,14 @@ export class FilePreview {
 
     /** @private Map<string, number> 文件路径 → 上次滚动位置 */
     this._scrollPositions = new Map();
+    /** @private localStorage 持久化键名 */
+    this._SCROLL_KEY = 'hippo-scroll-positions';
+    /** @private 滚动节流定时器句柄 */
+    this._scrollThrottleTimer = null;
+    /** @private 绑定的 scroll 回调引用，用于清理 */
+    this._boundScrollHandler = null;
+    /** @private 绑定的 beforeunload 回调引用，用于清理 */
+    this._boundBeforeUnload = null;
     /** @private 二进制预览类型：'image' | 'pdf' | 'spreadsheet' | 'docx' | null */
     this._binaryViewType = null;
 
@@ -86,6 +94,17 @@ export class FilePreview {
     this._registerRefreshBtn();
     // 绑定在外部程序中打开按钮（Office 文件）
     this._registerOpenInOfficeBtn();
+
+    // ── 页面关闭/刷新前保存当前滚动位置 ──
+    this._boundBeforeUnload = () => {
+      if (this._view && this._currentPath) {
+        const top = this._view.scrollDOM.scrollTop;
+        this._scrollPositions.set(this._currentPath, top);
+        this._persistScrollPositions();
+      } else {
+      }
+    };
+    window.addEventListener('beforeunload', this._boundBeforeUnload);
   }
 
   get currentPath() { return this._currentPath; }
@@ -202,7 +221,9 @@ export class FilePreview {
 
     // 切换文件前保存当前文件的滚动位置
     if (this._view && this._currentPath) {
-      this._scrollPositions.set(this._currentPath, this._view.scrollDOM.scrollTop);
+      const oldTop = this._view.scrollDOM.scrollTop;
+      this._scrollPositions.set(this._currentPath, oldTop);
+      this._persistScrollPositions();
     }
 
     this._currentPath = filePath;
@@ -500,6 +521,33 @@ export class FilePreview {
     });
   }
 
+  // ==================== 滚动位置持久化 ====================
+
+  /** @private 将滚动位置持久化到 localStorage */
+  _persistScrollPositions() {
+    try {
+      const obj = {};
+      this._scrollPositions.forEach((val, key) => { obj[key] = val; });
+      localStorage.setItem(this._SCROLL_KEY, JSON.stringify(obj));
+    } catch (e) {
+    }
+  }
+
+  /** @private 从 localStorage 加载滚动位置到内存 */
+  _loadScrollPositions() {
+    try {
+      const raw = localStorage.getItem(this._SCROLL_KEY);
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      for (const [key, val] of Object.entries(obj)) {
+        if (typeof val === 'number' && val > 0) {
+          this._scrollPositions.set(key, val);
+        }
+      }
+    } catch (e) {
+    }
+  }
+
   // ==================== CodeMirror ====================
 
   _initEditor(content, filePath) {
@@ -601,14 +649,40 @@ export class FilePreview {
       }
     };
 
-    // 恢复上次滚动位置
-    if (filePath && this._scrollPositions.has(filePath)) {
-      requestAnimationFrame(() => {
-        if (this._view) {
-          this._view.scrollDOM.scrollTop = this._scrollPositions.get(filePath);
-        }
-      });
+    // 恢复上次滚动位置（先尝试从 localStorage 加载）
+    if (filePath) {
+      this._loadScrollPositions();
+      if (this._scrollPositions.has(filePath)) {
+        const savedTop = this._scrollPositions.get(filePath);
+        // 等待 CM6 完成布局后再设置，最多重试 8 帧（≈130ms）
+        const tryRestoreScroll = (attempt = 0) => {
+          if (!this._view) return;
+          if (attempt > 8) return;
+          // 确保 scrollDOM 已经有可滚动的内容，否则 CM6 后续布局会覆盖 scrollTop
+          if (this._view.scrollDOM.scrollHeight > this._view.scrollDOM.clientHeight) {
+            this._view.scrollDOM.scrollTop = savedTop;
+          } else {
+            requestAnimationFrame(() => tryRestoreScroll(attempt + 1));
+          }
+        };
+        requestAnimationFrame(() => tryRestoreScroll(0));
+      }
     }
+
+    // ── 节流保存滚动位置 ──
+    // 用户滚动时每 1.5 秒自动保存到 localStorage，刷新后不会丢失
+    this._boundScrollHandler = () => {
+      if (this._scrollThrottleTimer) return;
+      this._scrollThrottleTimer = setTimeout(() => {
+        this._scrollThrottleTimer = null;
+        if (this._view && this._currentPath) {
+          const top = this._view.scrollDOM.scrollTop;
+          this._scrollPositions.set(this._currentPath, top);
+          this._persistScrollPositions();
+        }
+      }, 1500);
+    };
+    this._view.scrollDOM.addEventListener('scroll', this._boundScrollHandler, { passive: true });
 
     this._startThemeObserver();
   }
@@ -617,6 +691,17 @@ export class FilePreview {
     this._mdPreview.destroy();
     this._stopThemeObserver();
     this._container._cmPreviewView = null;
+
+    // 清理滚动节流定时器和事件监听
+    if (this._scrollThrottleTimer) {
+      clearTimeout(this._scrollThrottleTimer);
+      this._scrollThrottleTimer = null;
+    }
+    if (this._view && this._boundScrollHandler) {
+      this._view.scrollDOM.removeEventListener('scroll', this._boundScrollHandler);
+      this._boundScrollHandler = null;
+    }
+
     if (this._view) {
       if (this._boundSearchShortcut) {
         this._view.dom.removeEventListener('keydown', this._boundSearchShortcut, true);
