@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,10 +34,12 @@ public class TodoWriteTool implements ToolExecutor {
                "计划变更也用 mode: 'merge'。\n" +
                "树结构规范：根节点为总体目标，子节点为可执行的子任务。" +
                "兄弟节点表示可独立完成的任务。最多嵌套3层。每个节点必须有唯一id。\n\n" +
+               "简化传参：所有 todo 节点平铺传入，通过 parentId 表示层级关系。" +
+               "parentId 为 null 或不传表示根节点。系统会自动构建树结构。\n\n" +
                "示例：\n" +
-               "{\"mode\":\"replace\",\"todos\":[{\"id\":\"1\",\"content\":\"实现用户认证模块\",\"status\":\"in_progress\"," +
-               "\"children\":[{\"id\":\"1.1\",\"content\":\"设计数据库表\",\"status\":\"pending\"}," +
-               "{\"id\":\"1.2\",\"content\":\"实现注册API\",\"status\":\"pending\"}]}]}";
+               "{\"mode\":\"replace\",\"todos\":[{\"id\":\"1\",\"content\":\"实现用户认证模块\",\"status\":\"in_progress\"}," +
+               "{\"id\":\"1.1\",\"content\":\"设计数据库表\",\"status\":\"pending\",\"parentId\":\"1\"}," +
+               "{\"id\":\"1.2\",\"content\":\"实现注册API\",\"status\":\"pending\",\"parentId\":\"1\"}]}";
     }
 
     @Override
@@ -53,7 +56,7 @@ public class TodoWriteTool implements ToolExecutor {
                     },
                     "todos": {
                         "type": "array",
-                        "description": "树状任务列表，支持递归嵌套 children",
+                        "description": "任务列表，扁平传入，通过 parentId 表示层级。系统自动构建树",
                         "items": {
                             "$ref": "#/$defs/todoItem"
                         }
@@ -70,7 +73,7 @@ public class TodoWriteTool implements ToolExecutor {
                             },
                             "content": {
                                 "type": "string",
-                                "description": "任务内容描述"
+                                "description": "任务内容描述（replace 模式或新增节点时必须传，merge 模式只更新状态时可省略）"
                             },
                             "status": {
                                 "type": "string",
@@ -78,19 +81,16 @@ public class TodoWriteTool implements ToolExecutor {
                                 "enum": ["pending", "in_progress", "completed"],
                                 "default": "pending"
                             },
+                            "parentId": {
+                                "type": "string",
+                                "description": "父任务 ID，null 或不传表示根节点。用于扁平化传参时指定层级关系"
+                            },
                             "sessionId": {
                                 "type": "string",
                                 "description": "关联的会话 ID（可选），用于跳转到对应的分叉会话"
-                            },
-                            "children": {
-                                "type": "array",
-                                "description": "子任务列表，递归嵌套相同结构。兄弟节点互不依赖，可独立执行",
-                                "items": {
-                                    "$ref": "#/$defs/todoItem"
-                                }
                             }
                         },
-                        "required": ["id", "content"]
+                        "required": ["id"]
                     }
                 }
             }
@@ -106,15 +106,20 @@ public class TodoWriteTool implements ToolExecutor {
             throw new ToolExecutionException("todos 必须是数组");
         }
 
-        List<Map<String, Object>> todos = new ArrayList<>();
+        // 1. 解析扁平列表
+        List<Map<String, Object>> flatTodos = new ArrayList<>();
         for (JsonNode todoNode : todosNode) {
-            todos.add(jsonNodeToMap(todoNode));
+            flatTodos.add(jsonNodeToFlatMap(todoNode));
         }
 
+        // 2. 将扁平列表按 parentId 构建为树结构
+        List<Map<String, Object>> treeTodos = buildTreeFromFlatList(flatTodos);
+
+        // 3. 传给 TodoManager（保持后端树接口不变）
         if ("replace".equals(mode)) {
-            todoManager.replaceAll(todos);
+            todoManager.replaceAll(treeTodos);
         } else {
-            todoManager.mergeUpdates(todos);
+            todoManager.mergeUpdates(treeTodos);
         }
 
         AgentUi ui = ServiceLocator.getOrNull(AgentUi.class);
@@ -123,23 +128,62 @@ public class TodoWriteTool implements ToolExecutor {
         return todoManager.formatAsMarkdown();
     }
 
+    /**
+     * 将扁平列表按 parentId 构建为嵌套树结构。
+     * parentId 为 null 或不传 → 根节点。
+     * 子节点按 parentId 匹配父节点，挂到父节点的 children 数组中。
+     */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> jsonNodeToMap(JsonNode node) {
+    private List<Map<String, Object>> buildTreeFromFlatList(List<Map<String, Object>> flatTodos) {
+        // 按 id 建立索引
+        Map<String, Map<String, Object>> nodeMap = new LinkedHashMap<>();
+        for (Map<String, Object> item : flatTodos) {
+            String id = (String) item.get("id");
+            // 确保每个节点都有 children 字段
+            if (!item.containsKey("children")) {
+                item.put("children", new ArrayList<Map<String, Object>>());
+            }
+            nodeMap.put(id, item);
+        }
+
+        List<Map<String, Object>> roots = new ArrayList<>();
+
+        for (Map<String, Object> item : flatTodos) {
+            String parentId = (String) item.get("parentId");
+            if (parentId == null || parentId.isEmpty()) {
+                roots.add(item);
+            } else {
+                Map<String, Object> parent = nodeMap.get(parentId);
+                if (parent != null) {
+                    ((List<Map<String, Object>>) parent.get("children")).add(item);
+                } else {
+                    // 父节点不存在，作为根节点
+                    roots.add(item);
+                }
+            }
+        }
+
+        return roots;
+    }
+
+    /**
+     * 将 JSON 节点解析为扁平的 Map（含 parentId，不含嵌套 children）。
+     */
+    private Map<String, Object> jsonNodeToFlatMap(JsonNode node) {
         Map<String, Object> item = new HashMap<>();
         item.put("id", node.get("id").asText());
-        item.put("content", node.has("content") ? node.get("content").asText() : "");
+        // content 可选
+        if (node.has("content") && !node.get("content").isNull()) {
+            item.put("content", node.get("content").asText());
+        }
         if (node.has("status")) {
             item.put("status", node.get("status").asText());
         }
+        if (node.has("parentId") && !node.get("parentId").isNull()) {
+            item.put("parentId", node.get("parentId").asText());
+        }
         if (node.has("sessionId") && !node.get("sessionId").isNull()) {
             item.put("sessionId", node.get("sessionId").asText());
-        }
-        if (node.has("children") && node.get("children").isArray()) {
-            List<Map<String, Object>> children = new ArrayList<>();
-            for (JsonNode child : node.get("children")) {
-                children.add(jsonNodeToMap(child));
-            }
-            item.put("children", children);
         }
         return item;
     }

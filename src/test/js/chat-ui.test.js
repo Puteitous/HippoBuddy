@@ -405,9 +405,9 @@ describe('ChatUI', () => {
         name: 'todo_write',
         args: JSON.stringify({
           todos: [
-            { content: '任务1', status: 'completed' },
-            { content: '任务2', status: 'pending' },
-            { content: '任务3', status: 'pending' }
+            { id: '1', content: '任务1', status: 'completed' },
+            { id: '2', content: '任务2', status: 'pending' },
+            { id: '3', content: '任务3', status: 'pending' }
           ]
         })
       });

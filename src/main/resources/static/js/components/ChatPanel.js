@@ -9,7 +9,7 @@ import { EventRouter } from './EventRouter.js';
 import { MessageSession } from './MessageSession.js';
 import { getFileIconInfo } from '../utils/file-icons.js';
 import { ContextSelector } from './context-selector.js';
-import { parseTodoArgs } from './tool-renderers/shared.js';
+import { parseTodoArgs, deepMergeTodoList } from './tool-renderers/shared.js';
 
 // ── 多模式预设提示词 ──
 const _ = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
@@ -961,7 +961,8 @@ export class ChatPanel {
           parsed.args = JSON.stringify({ todos: finalTodos });
           const todoSegment = {
             type: 'tool', id: parsed.id || null, name: 'todo_write',
-            args: parsed.args, result: null, error: null
+            args: parsed.args, result: null, error: null,
+            defaultExpanded: mode === 'replace'
           };
           // 每张 todo 卡片都是独立快照，始终 push 新段
           session.pushSegment(todoSegment);
@@ -1687,6 +1688,18 @@ export class ChatPanel {
 
         if (text.trim()) {
           segments.push({ type: 'text', content: text });
+        }
+
+        // 加载历史消息时重建 todo_write 的 treeCache，使 merge 调用的 args 合并为完整树
+        // 这样刷新后 todo 卡片与对话时显示一致（独立快照，每张卡片都是完整任务树）
+        let _todoHistoryCache = null;
+        for (const seg of segments) {
+          if (seg.type === 'tool' && seg.name === 'todo_write' && seg.args) {
+            const { mode, todos } = parseTodoArgs(seg.args);
+            const merged = deepMergeTodoList(_todoHistoryCache || [], todos);
+            _todoHistoryCache = merged;
+            seg.args = JSON.stringify({ todos: merged });
+          }
         }
 
         messageRows.push({ type: 'assistant', segments, firstMsgTime });

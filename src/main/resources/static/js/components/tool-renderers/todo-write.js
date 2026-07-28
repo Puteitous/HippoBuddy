@@ -1,5 +1,5 @@
 import { escapeHtml } from '../../utils.js';
-import { parseTodos } from './shared.js';
+import { parseTodos, buildTreeFromFlatList } from './shared.js';
 
 /**
  * 递归统计树中所有节点的完成数和总数。
@@ -76,15 +76,18 @@ function renderTreeNode(node, depth) {
 
 export function renderTodoWriteCard(tool) {
   const todos = parseTodos(tool.args);
-  const { completed, total } = countTreeStats(todos);
+  // 将扁平列表（含 parentId）构建为树结构再渲染
+  const tree = buildTreeFromFlatList(todos);
+  const { completed, total } = countTreeStats(tree);
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const todoIcon = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1"/><polyline points="5 7 7 9 11 5"/></svg>';
 
-  const treeHtml = renderTree(todos, 0);
+  const treeHtml = renderTree(tree, 0);
+  const isDefaultExpanded = tool.defaultExpanded && total > 0;
 
   return `
-    <div class="tool-card todo-card">
+    <div class="tool-card todo-card${isDefaultExpanded ? ' expanded' : ''}">
       <div class="tool-header" onclick="window.toggleToolCardDetails(this)">
         <span class="tool-icon">${todoIcon}</span>
         <span class="tool-title">${window.i18n?.t('tool.todo.title') || '任务清单'}</span>

@@ -555,8 +555,8 @@ window.toggleToolCardDetails = function(headerEl) {
     card.classList.remove('expanded');
   } else {
     const h = details.scrollHeight;
-    const isCapped = h > 300;
-    details.style.maxHeight = isCapped ? '300px' : h + 'px';
+    const isCapped = h > 400;
+    details.style.maxHeight = isCapped ? '400px' : h + 'px';
     card.classList.add('expanded');
   }
 };

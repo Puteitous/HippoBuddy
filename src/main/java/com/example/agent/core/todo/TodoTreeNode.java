@@ -14,6 +14,7 @@ public class TodoTreeNode {
     private String content;
     private TodoStatus status;
     private String sessionId;
+    private String parentId;
     private List<TodoTreeNode> children;
 
     public TodoTreeNode(String id, String content, TodoStatus status) {
@@ -54,6 +55,14 @@ public class TodoTreeNode {
         this.sessionId = sessionId;
     }
 
+    public String getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(String parentId) {
+        this.parentId = parentId;
+    }
+
     public List<TodoTreeNode> getChildren() {
         return children != null ? children : Collections.emptyList();
     }
@@ -78,6 +87,9 @@ public class TodoTreeNode {
         }
         if (other.sessionId != null) {
             this.sessionId = other.sessionId;
+        }
+        if (other.parentId != null) {
+            this.parentId = other.parentId;
         }
     }
 

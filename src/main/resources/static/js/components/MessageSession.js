@@ -139,7 +139,16 @@ export class MessageSession {
             // 覆盖流式阶段创建的 segment 中可能不完整的 args，并触发重渲染
             const existing = s._segments.find(seg => seg.type === 'tool' && seg.id === parsed.id);
             if (existing && parsed.args) {
-              existing.args = parsed.args;
+              if (existing.name === 'todo_write') {
+                // todo_write: 重新合并，因为第一次 tool_start 的 args 可能不完整（流式分段）
+                const { mode, todos } = parseTodoArgs(parsed.args);
+                const finalTodos = s._mergeTodos(todos, mode);
+                existing.args = JSON.stringify({ todos: finalTodos });
+                // 同步更新 defaultExpanded，因为第一次 tool_start 的 mode 可能不完整
+                existing.defaultExpanded = mode === 'replace';
+              } else {
+                existing.args = parsed.args;
+              }
               s._renderPipeline.flush(s._segments, s._currentText);
             }
             return;
@@ -164,7 +173,8 @@ export class MessageSession {
           parsed.args = JSON.stringify({ todos: finalTodos });
           const todoSegment = {
             type: 'tool', id: parsed.id || null, name: 'todo_write',
-            args: parsed.args, result: null, error: null
+            args: parsed.args, result: null, error: null,
+            defaultExpanded: mode === 'replace'
           };
           // 每张 todo 卡片都是独立快照，始终 push 新段
           s._segments.push(todoSegment);
@@ -199,7 +209,10 @@ export class MessageSession {
           existingTool.result = parsed.success ? 'success' : 'error';
           existingTool.error = parsed.error || null;
           existingTool.resultContent = parsed.result || null;
-          if (parsed.args) existingTool.args = parsed.args;
+          // todo_write 的 args 已在 tool_start 中由 _mergeTodos 合并为完整树，不要覆盖
+          if (parsed.args && existingTool.name !== 'todo_write') {
+            existingTool.args = parsed.args;
+          }
           existingTool.confirmationData = null;
           existingTool.progressLines = null;
           s._togglePendingConfirmClass();
@@ -538,7 +551,10 @@ export class MessageSession {
       existingTool.result = parsed.success ? 'success' : 'error';
       existingTool.error = parsed.error || null;
       existingTool.resultContent = parsed.result || null;
-      if (parsed.args) existingTool.args = parsed.args;
+      // todo_write 的 args 已在 tool_start 中由 _mergeTodos 合并为完整树，不要覆盖
+      if (parsed.args && existingTool.name !== 'todo_write') {
+        existingTool.args = parsed.args;
+      }
       existingTool.confirmationData = null;
       existingTool.progressLines = null;
       this._togglePendingConfirmClass();

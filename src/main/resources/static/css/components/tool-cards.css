@@ -168,6 +168,8 @@
 
 .todo-card.expanded .tool-call-details {
     padding: 0 10px 8px;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 .todo-card .tool-icon {

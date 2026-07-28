@@ -442,6 +442,11 @@ export class RenderPipeline {
         existingMap.set(unit.key, el);
         this._unitFingerprints.set(unit.key, unit.fingerprint);
         childIdx++; // 因为新插入了节点，当前位置后移
+
+        // 对 todo 卡片：触发展开动画（从折叠 → 展开，触发 CSS transition）
+        if (unit.toolName === 'todo_write') {
+          this._animateTodoExpand(el);
+        }
       } else if (existingEl) {
         if (job) {
           // 对 tool-card 类型，保存展开/折叠交互状态，避免 innerHTML 替换丢失
@@ -456,6 +461,14 @@ export class RenderPipeline {
           // 恢复 tool-card 交互状态
           if (unit.type === 'tool-card' && savedCardState) {
             this._restoreToolCardState(existingEl, savedCardState);
+          }
+
+          // 对 todo_write：如果新渲染需要默认展开但被旧状态覆盖了，触发展开动画
+          if (unit.toolName === 'todo_write') {
+            const seg = segments[unit.segIdx];
+            if (seg && seg.defaultExpanded) {
+              this._animateTodoExpand(existingEl);
+            }
           }
 
           // 恢复关键 class
@@ -679,6 +692,31 @@ export class RenderPipeline {
     if (tagEnd === -1) return html;
     const attrs = ` data-timeline-seg="${segIdx}" data-fp="${fp}"`;
     return html.slice(0, tagEnd) + attrs + html.slice(tagEnd);
+  }
+
+  /**
+   * 对 todo 卡片触发展开动画。
+   * 新创建的卡片如果 HTML 中直接带了 expanded class，CSS transition 不会触发
+   *（初始渲染无属性变化过程）。此方法先重置为折叠状态，再通过 rAF 展开，
+   * 让 transition 从 0 → 实际高度生效。
+   */
+  _animateTodoExpand(renderUnitEl) {
+    const card = renderUnitEl.querySelector('.todo-card');
+    if (!card || !card.classList.contains('expanded')) return;
+    const details = card.querySelector('.tool-call-details');
+    if (!details) return;
+
+    // 先重置为折叠状态
+    card.classList.remove('expanded');
+    details.style.maxHeight = '0';
+
+    // 下一帧触发展开（此时元素已在 DOM 中，scrollHeight 可正确测量）
+    requestAnimationFrame(() => {
+      const h = details.scrollHeight;
+      const isCapped = h > 400;
+      details.style.maxHeight = isCapped ? '400px' : h + 'px';
+      card.classList.add('expanded');
+    });
   }
 
   /**

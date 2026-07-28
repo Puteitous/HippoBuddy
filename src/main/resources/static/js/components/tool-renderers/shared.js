@@ -34,14 +34,17 @@ export function parseTodoArgs(args) {
 }
 
 /**
- * 递归合并两个 todo 列表（按 id 深度合并）。
+ * 合并两个扁平 todo 列表（按 id 合并）。
  * oldList 中未在 newList 提及的节点保留不变。
  * 用于前端流式增量更新 todo 树。
+ *
+ * todos 为扁平列表（每个节点含 parentId），不需要按树层级嵌套传参。
+ * LLM 只需平铺要更新或新增的节点，系统自动按 id 匹配合并。
  */
 export function deepMergeTodoList(oldList, newList) {
   const map = new Map();
   (oldList || []).forEach(todo => {
-    map.set(todo.id, { ...todo, children: todo.children ? [...todo.children] : undefined });
+    map.set(todo.id, { ...todo });
   });
   (newList || []).forEach(newTodo => {
     if (map.has(newTodo.id)) {
@@ -49,19 +52,55 @@ export function deepMergeTodoList(oldList, newList) {
       if (newTodo.content !== undefined) existing.content = newTodo.content;
       if (newTodo.status !== undefined) existing.status = newTodo.status;
       if (newTodo.sessionId !== undefined) existing.sessionId = newTodo.sessionId;
-      if (newTodo.children !== undefined) {
-        existing.children = deepMergeTodoList(existing.children || [], newTodo.children);
-      }
+      if (newTodo.parentId !== undefined) existing.parentId = newTodo.parentId;
     } else {
+      // 新增节点
       map.set(newTodo.id, {
         id: newTodo.id,
         content: newTodo.content || (window.i18n?.t('tool.todo.unnamed') || '未命名任务'),
         status: newTodo.status || 'pending',
-        children: newTodo.children ? deepMergeTodoList([], newTodo.children) : undefined
+        parentId: newTodo.parentId || undefined
       });
     }
   });
   return Array.from(map.values());
+}
+
+/**
+ * 将扁平的任务列表（含 parentId）按父子关系构建为树结构。
+ * parentId 为 null/undefined 或不存在的 id → 根节点。
+ * 兼容已为树结构的输入（有 children 字段），直接透传。
+ *
+ * @param {Array} flatList - 扁平任务列表 [{id, content, parentId, ...}]
+ * @returns {Array} 树结构列表 [{id, content, children: [...]}, ...]
+ */
+export function buildTreeFromFlatList(flatList) {
+  if (!flatList || flatList.length === 0) return [];
+
+  // 如果已经是树结构（有 children 字段），直接返回
+  if (flatList.some(n => n.children !== undefined)) {
+    return flatList;
+  }
+
+  // 按 id 建立索引
+  const nodeMap = new Map();
+  flatList.forEach(node => {
+    nodeMap.set(node.id, { ...node, children: [] });
+  });
+
+  const roots = [];
+
+  flatList.forEach(node => {
+    const treeNode = nodeMap.get(node.id);
+    const parentId = node.parentId;
+    if (parentId && nodeMap.has(parentId)) {
+      nodeMap.get(parentId).children.push(treeNode);
+    } else {
+      roots.push(treeNode);
+    }
+  });
+
+  return roots;
 }
 
 export function computeUnifiedDiff(oldText, newText) {
