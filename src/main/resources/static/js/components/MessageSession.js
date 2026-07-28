@@ -217,7 +217,7 @@ export class MessageSession {
           existingTool.progressLines = null;
           s._togglePendingConfirmClass();
           s._renderPipeline.flush(s._segments, s._currentText);
-          s._renderPipeline.scheduleRender(s._segments, s._currentText);
+          // flush 已立即渲染，无需重复 scheduleRender
 
           // 文件操作工具执行后刷新文件树 + 预览面板（主 SSE 流路径）
           if (parsed.success) {
@@ -347,7 +347,7 @@ export class MessageSession {
       if (!this._pendingInteraction) {
         this._btnContainer.style.display = 'flex';
       }
-      this._smartScroll?.();
+      // renderFinal 内部已通过 afterRender 调用 smartScroll，无需重复
 
       this._streamCompleted = true;
       this._updateFileIndicator();

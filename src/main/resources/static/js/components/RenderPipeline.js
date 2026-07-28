@@ -1,5 +1,6 @@
 import { renderMarkdown } from '../markdown-renderer.js';
 import { escapeHtml } from '../utils.js';
+import { appState } from '../state/app-state.js';
 
 /**
  * RenderPipeline — 增量渲染管道
@@ -241,12 +242,18 @@ export class RenderPipeline {
     // ---- 纯文本快捷路径 ----
     if (_isTextOnly && this._streamingAnchor && this._streamingAnchor.isConnected &&
         this._lastSegmentCount === segments.length) {
+      const savedSH = container.scrollHeight;
+      const savedST = container.scrollTop;
       if (currentText) {
         const md = await renderMarkdown(currentText);
         if (this._destroyed || renderVersion !== this._renderVersion) return;
         this._streamingAnchor.innerHTML = md;
       } else {
         this._streamingAnchor.innerHTML = '';
+      }
+      // 内容大量增长时，若用户原在底部附近则自动跟随
+      if ((savedSH - savedST - container.clientHeight) < 100 && container.scrollHeight > savedSH) {
+        container.scrollTop = container.scrollHeight;
       }
       this._notifyAfterRender(container);
       return;
@@ -262,6 +269,7 @@ export class RenderPipeline {
 
     const chatContainer = container.closest('.chat-container') || container;
     const savedScrollTop = chatContainer.scrollTop;
+    const savedScrollHeight = chatContainer.scrollHeight;
 
     // ---- 构建渲染计划 ----
     const plan = this._buildPlan(segments);
@@ -274,7 +282,20 @@ export class RenderPipeline {
     this._streamingAnchor = container.querySelector('.streaming-region');
 
     // ---- 后处理 ----
+    // 设置程序化滚动标记，防止 scroll 事件误将这次恢复操作用户上滚
+    appState._programmaticScroll = true;
     chatContainer.scrollTop = savedScrollTop;
+    appState._programmaticScroll = false;
+
+    // ── todo 卡片展开等 DOM 变更导致 scrollHeight 显著增长时，若用户原在底部附近则自动跟随 ──
+    // _animateTodoExpand 会在 _syncDOM 中展开卡片（如 128~400px），导致 scrollHeight 增大，
+    // scrollTop 恢复后被"垫高"，距底 > 100px 使 smartScroll 无法跟随。
+    // 此处检测：展开前距底 < 100px（在底部附近）且 scrollHeight 增长 → 主动 scrollToBottom
+    const newScrollHeight = chatContainer.scrollHeight;
+    const wasNearBottom = (savedScrollHeight - savedScrollTop - chatContainer.clientHeight) < 100;
+    if (wasNearBottom && newScrollHeight > savedScrollHeight) {
+      chatContainer.scrollTop = newScrollHeight;
+    }
 
     const streamingRow = container.querySelector('.thinking-row.streaming .thinking-row-content');
     if (streamingRow) {
@@ -695,10 +716,9 @@ export class RenderPipeline {
   }
 
   /**
-   * 对 todo 卡片触发展开动画。
-   * 新创建的卡片如果 HTML 中直接带了 expanded class，CSS transition 不会触发
-   *（初始渲染无属性变化过程）。此方法先重置为折叠状态，再通过 rAF 展开，
-   * 让 transition 从 0 → 实际高度生效。
+   * 对 todo 卡片触发展开。
+   * 直接设 max-height，不做折叠→展开动画。
+   * 动画过程中 scrollHeight 渐变会导致滚动跟随丢失。
    */
   _animateTodoExpand(renderUnitEl) {
     const card = renderUnitEl.querySelector('.todo-card');
@@ -706,17 +726,10 @@ export class RenderPipeline {
     const details = card.querySelector('.tool-call-details');
     if (!details) return;
 
-    // 先重置为折叠状态
-    card.classList.remove('expanded');
-    details.style.maxHeight = '0';
-
-    // 下一帧触发展开（此时元素已在 DOM 中，scrollHeight 可正确测量）
-    requestAnimationFrame(() => {
-      const h = details.scrollHeight;
-      const isCapped = h > 400;
-      details.style.maxHeight = isCapped ? '400px' : h + 'px';
-      card.classList.add('expanded');
-    });
+    const h = details.scrollHeight;
+    if (h <= 0) return;
+    const isCapped = h > 400;
+    details.style.maxHeight = isCapped ? '400px' : h + 'px';
   }
 
   /**

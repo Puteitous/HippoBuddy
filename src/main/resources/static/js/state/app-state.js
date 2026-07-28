@@ -32,6 +32,8 @@ export const AppState = {
   isSendingMessage: false,
   currentAbortController: null,
   userScrolledUp: false,
+  /** 程序化滚动标记：在 doRender 恢复 scrollTop 前设为 true，scroll 事件中据此跳过误判 */
+  _programmaticScroll: false,
   lastUserMessage: '',
   
   // ========== 会话输入草稿 ==========

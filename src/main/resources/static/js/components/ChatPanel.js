@@ -311,6 +311,12 @@ export class ChatPanel {
     if (this.container) {
       let lastScrollTop = this.container.scrollTop;
       this.container.addEventListener('scroll', () => {
+        // ── 程序化滚动（doRender 恢复 scrollTop）→ 跳过，不污染 userScrolledUp ──
+        if (appState._programmaticScroll) {
+          lastScrollTop = this.container.scrollTop;
+          return;
+        }
+
         const currentScrollTop = this.container.scrollTop;
         const goingUp = currentScrollTop < lastScrollTop;
 
@@ -336,10 +342,12 @@ export class ChatPanel {
       });
     }
     
-    // 点击新消息提示
+    // 点击新消息提示 → 滚动到底部并恢复自动跟随
     if (this.elements.newMsgHint) {
       this.elements.newMsgHint.addEventListener('click', () => {
+        appState.userScrolledUp = false;
         this.chatUI.scrollToBottom();
+        this.elements.newMsgHint.style.display = 'none';
       });
     }
 
@@ -919,7 +927,7 @@ export class ChatPanel {
         if (!session) return;
         session.handleReasoning(parsed, contentDiv);
         this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
-        this.smartScroll();
+        // smartScroll 由 afterRender 回调自动调用
       },
 
       reasoning_done: () => {
@@ -935,7 +943,7 @@ export class ChatPanel {
         session.handleContent(parsed, contentDiv);
         this.renderPipeline.markTextOnly();
         this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
-        this.smartScroll();
+        // smartScroll 由 afterRender 回调自动调用
       },
 
       tool_start: (parsed, contentDiv) => {
@@ -982,7 +990,7 @@ export class ChatPanel {
         if (!session) return;
         session.handleToolResult(parsed);
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
-        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
+        // flush 已立即渲染，无需重复 scheduleRender
       },
 
       tool_progress: (parsed) => {
@@ -990,7 +998,7 @@ export class ChatPanel {
         if (!session) return;
         session.handleToolProgress(parsed);
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
-        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
+        // flush 已立即渲染，无需重复 scheduleRender
       },
 
       tool_confirmation: (parsed) => {
@@ -998,7 +1006,7 @@ export class ChatPanel {
         if (!session) return;
         session.handleToolConfirmation(parsed);
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
-        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
+        // flush 已立即渲染，无需重复 scheduleRender
       }
     });
   }
@@ -1368,12 +1376,22 @@ export class ChatPanel {
   }
   
   /**
-   * 智能滚动
-   * 距底 < 100px 时总是滚动（不受 userScrolledUp 阻挡），
-   * 解决内容增长导致 scroll 事件误将 userScrolledUp 置为 true 的问题。
+   * 智能滚动 — 流式输出时的滚动跟随策略
+   *
+   * ⚠️ 优先级说明：
+   *   isNearBottom(100) 必须高于 userScrolledUp 检查。
+   *   原因：内容增长/DOM 变更可能触发 scroll anchoring，导致 scroll 事件
+   *   误将 userScrolledUp 置为 true。此时若用户距底 < 100px，应重置标志
+   *   并自动滚动，而不是被错误的状态阻挡。
+   *
+   * 优先级：
+   *  1. 距底部 < 100px              → 重置 userScrolledUp，自动滚动到底部
+   *  2. 用户主动上滚过（userScrolledUp=true）→ 不滚动，显示「新消息」提示
+   *  3. 距底部较远且未上滚           → 显示「新消息」提示
    */
   smartScroll() {
-    // 距底 < 100px → 不管 userScrolledUp 状态如何，重置并滚动
+    // 距底 < 100px → 覆盖 userScrolledUp，重置并自动滚动
+    // 防止内容增长/DOM 变更导致的 scroll 事件误将 userScrolledUp 置为 true
     if (this.isNearBottom(100)) {
       appState.userScrolledUp = false;
       this.chatUI.scrollToBottom();
@@ -1383,7 +1401,7 @@ export class ChatPanel {
       return;
     }
 
-    // userScrolledUp 且不在底部附近 → 跳过滚动显示新消息提示
+    // 用户主动上滚过且不在底部附近 → 不自动滚动，显示新消息提示
     if (appState.userScrolledUp) {
       if (this.elements.newMsgHint) {
         this.elements.newMsgHint.style.display = 'flex';
@@ -1391,7 +1409,7 @@ export class ChatPanel {
       return;
     }
 
-    // 不在底部附近但 userScrolledUp=false → 仅显示提示
+    // 不在底部附近 → 显示提示
     if (this.elements.newMsgHint) {
       this.elements.newMsgHint.style.display = 'flex';
     }
