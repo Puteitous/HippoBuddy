@@ -13,6 +13,10 @@ llm:
   thinking_enabled: true            # 是否启用思考模式（仅对支持思考模式的模型有效）
   reasoning_effort: high            # 思考强度：high（默认）/ max
   response_format:                  # 响应格式（可选）：text / json_object
+  vision_supported: auto            # 视觉能力：auto（自动判断）/ true（强制开启）/ false（强制关闭）
+                                    # auto 模式下，内置模型列表 + vision-models.yaml 共同生效
+                                    # 如需新增支持视觉的模型，请编辑 vision-models.yaml（与 config.yaml 同级）
+                                    # 无需改代码，重启或调用 VisionModelRegistry.reload() 即可生效
   # 模型历史快照（自动维护，保存切换过的模型配置，用于快速切换）
   model_history: []
 

@@ -720,6 +720,10 @@
     'settingsPage.modelBackToList':         { zh: '← 返回列表', en: '← Back to List' },
     'settingsPage.modelApiKeyPlaceholder':  { zh: '输入 API Key', en: 'Enter API Key' },
     'settingsPage.modelShowHide':           { zh: '显示/隐藏', en: 'Show/Hide' },
+    'settingsPage.vision':                  { zh: '视觉能力', en: 'Vision' },
+    'settingsPage.visionHint':              { zh: '多模态图片识别能力', en: 'Multimodal image recognition' },
+    'settingsPage.visionSupported':         { zh: '支持', en: 'Supported' },
+    'settingsPage.visionNotSupported':      { zh: '不支持', en: 'Not Supported' },
 
     /* ==================== Context Selector ==================== */
     'contextSelector.title':              { zh: '引用上下文', en: 'Reference Context' },
@@ -853,6 +857,7 @@
     'fileTree.deleteConfirm':        { zh: '确定要删除 <strong>{name}</strong> 吗？', en: 'Are you sure you want to delete <strong>{name}</strong>?' },
     'fileTree.deleteNote':           { zh: '文件将被移入系统回收站', en: 'The file will be moved to system trash' },
     'fileTree.inputTitle':           { zh: '输入', en: 'Input' },
+    'fileTree.cancelBtn':            { zh: '取消', en: 'Cancel' },
     'fileTree.confirmBtn':           { zh: '确认', en: 'Confirm' },
     'fileTree.confirmTitle':         { zh: '确认', en: 'Confirm' },
     'fileTree.deleteBtn':            { zh: '删除', en: 'Delete' },

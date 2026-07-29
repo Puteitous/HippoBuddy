@@ -508,8 +508,8 @@ export class FileTree {
           </div>
         </div>
         <div class="file-tree-modal-footer">
-          <button class="file-tree-modal-btn file-tree-modal-btn-cancel">取消</button>
-          <button class="file-tree-modal-btn file-tree-modal-btn-confirm">确认</button>
+          <button class="file-tree-modal-btn file-tree-modal-btn-cancel">${i18n.t('fileTree.cancelBtn')}</button>
+          <button class="file-tree-modal-btn file-tree-modal-btn-confirm">${i18n.t('fileTree.confirmBtn')}</button>
         </div>
       </div>
     `;

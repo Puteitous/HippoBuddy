@@ -53,6 +53,13 @@ export class ChatPanel {
 
     this._activeSession = null;
 
+    // 待发送的图片数据
+    this._pendingImages = []; // { dataUrl, name, size }
+
+    // 图片上传按钮引用（不用 ID 查找，避免 DOM 替换后 getElementById 找不到）
+    this._imageBtnRef = null;
+    this._imgFileRef = null;
+
     this.renderPipeline = new RenderPipeline(chatUI, {
       bindAskUserCard: (card) => this._bindAskUserCardEvents(card),
       onConfirmationClick: (e) => {
@@ -180,6 +187,317 @@ export class ChatPanel {
       e.stopPropagation();
       window.HippoWorkspace?.navigateToFile?.(filePath);
     });
+
+    // ── 图片上传 ──
+    this._initImageUpload();
+  }
+
+  /**
+   * 检查当前模型是否支持视觉（图片上传）。
+   */
+  _isVisionSupported() {
+    try {
+      const raw = localStorage.getItem('hippo_model_config');
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      const provider = (data.provider || '').toLowerCase();
+      const model = (data.model || '').toLowerCase();
+      
+      const visionProviders = ['openai', 'anthropic', 'google', 'gemini'];
+      if (visionProviders.includes(provider)) return true;
+      
+      const visionKeywords = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-vision', 'gpt-5',
+        'o1', 'o3', 'o4',
+        'claude-3', 'claude-4', 'claude-sonnet-4', 'claude-opus-4', 'claude-opus-5',
+        'llava', 'bakllava', 'qwen', 'vl', 'cogvlm', 'glm-4v', 'glm-5v', 'glm-ocr', 'internvl', 'minicpm',
+        'kimi'];
+      return visionKeywords.some(kw => model.includes(kw));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 初始化图片上传功能。
+   */
+  _initImageUpload() {
+    // 保存隐藏 file input 的引用（避免后续 DOM 替换后 getElementById 找不到）
+    this._imgFileRef = document.getElementById('inputImgFile');
+    if (!this._imgFileRef) return;
+
+    // 检查预览容器是否存在
+    const previewSession = document.getElementById('inputImgPreview');
+    const previewHero = document.getElementById('heroImgPreview');
+
+    // 创建图片上传按钮（动态创建，避免 HTML 静态位置问题）
+    this._imageBtnRef = document.getElementById('inputImgBtn');
+    if (!this._imageBtnRef) {
+      this._imageBtnRef = document.createElement('button');
+      this._imageBtnRef.className = 'input-img-btn';
+      this._imageBtnRef.id = 'inputImgBtn';
+      this._imageBtnRef.title = '上传图片';
+      this._imageBtnRef.type = 'button';
+      this._imageBtnRef.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>`;
+    }
+
+    // 根据模型视觉能力显示/隐藏图片按钮
+    const updateVisionButton = () => {
+      if (!this._imageBtnRef) return;
+      const supported = this._isVisionSupported();
+      this._imageBtnRef.style.display = supported ? '' : 'none';
+    };
+    updateVisionButton();
+
+    // 模型配置变化时重新检查（如用户在设置页切换了模型）
+    EventBus.on('config:model-changed', () => {
+      if (!this._imageBtnRef || !this._imageBtnRef.parentNode) {
+        this._recreateImageButton();
+      } else {
+        updateVisionButton();
+      }
+    });
+    // 会话切换时也检查（不同会话可能用不同模型）
+    EventBus.on('session:switched', () => {
+      updateVisionButton();
+    });
+
+    // 点击按钮 → 唤起文件选择器
+    this._imageBtnRef.addEventListener('click', () => {
+      this._imgFileRef.click();
+    });
+
+    // 选择文件后读取为 base64
+    this._imgFileRef.addEventListener('change', () => {
+      this._handleImageFiles(this._imgFileRef.files);
+      this._imgFileRef.value = ''; // 重置，允许重复选择同一文件
+    });
+
+    // 粘贴图片（Ctrl+V）
+    this._pasteHandler = (e) => {
+      const input = e.target.closest('#messageInput, #heroInput');
+      if (!input) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const blob = item.getAsFile();
+          if (blob) this._readImageFile(blob);
+          break;
+        }
+      }
+    };
+    document.addEventListener('paste', this._pasteHandler);
+
+    // 将按钮注入到 # 按钮旁边（如果还没在正确位置）
+    this._ensureImageButtonPosition(this._imageBtnRef);
+  }
+
+  /**
+   * 更新 📷 按钮的显示状态（基于当前模型是否支持视觉）。
+   */
+  _updateImageBtnVisibility() {
+    if (!this._imageBtnRef) return;
+    const supported = this._isVisionSupported();
+    this._imageBtnRef.style.display = supported ? '' : 'none';
+  }
+
+  /**
+   * 确保图片上传按钮在 #（引用上下文）按钮旁边。
+   * 如果按钮已有父节点（已在 DOM 中），则跳过注入。
+   */
+  _ensureImageButtonPosition(imgBtn) {
+    if (!imgBtn) return;
+    if (imgBtn.parentNode) return;
+    // 根据当前模式决定查找 # 按钮的范围
+    // 注意：.status-bar-left 在 #inputContainer 中，不在 #chatContainer 内，
+    // 因此始终存在于 DOM 中，但在 hero 模式下被 CSS 隐藏，不能作为目标。
+    const isSession = document.querySelector('.chat-panel')?.classList.contains('has-messages');
+    if (isSession) {
+      const statusBarLeft = document.querySelector('.status-bar-left');
+      if (statusBarLeft) {
+        const hashBtn = statusBarLeft.querySelector('.context-selector-btn');
+        if (hashBtn && document.contains(hashBtn)) {
+          hashBtn.insertAdjacentElement('afterend', imgBtn);
+          return;
+        }
+        // 降级：插入到 .status-bar-left 最前面
+        statusBarLeft.insertBefore(imgBtn, statusBarLeft.firstChild);
+        return;
+      }
+    }
+    // hero 模式（或降级）：查找 hero 区域的 # 按钮
+    const heroSlot = document.getElementById('heroContextSelector');
+    if (heroSlot?.isConnected) {
+      const hashBtn = heroSlot.querySelector('.context-selector-btn');
+      if (hashBtn && document.contains(hashBtn)) {
+        hashBtn.insertAdjacentElement('afterend', imgBtn);
+        return;
+      }
+      // 再降级：插入到 hero 操作栏最前面
+      heroSlot.prepend(imgBtn);
+    }
+  }
+
+  /**
+   * 重新创建图片上传按钮（当按钮被 DOM 替换移除时调用）。
+   * 使用 this._imageBtnRef 和 this._imgFileRef 引用，不依赖 ID 查找。
+   */
+  _recreateImageButton() {
+    if (this._imageBtnRef && this._imageBtnRef.parentNode) {
+      this._imageBtnRef.remove();
+    }
+    if (!this._imgFileRef || !this._imgFileRef.parentNode) {
+      this._ensureImageFileInput();
+      this._imgFileRef = document.getElementById('inputImgFile');
+    }
+    if (!this._imgFileRef) {
+      console.warn('[ImgUpload] 无法重建 inputImgFile，图片上传功能不可用');
+      return;
+    }
+    const newBtn = document.createElement('button');
+    newBtn.className = 'input-img-btn';
+    newBtn.id = 'inputImgBtn';
+    newBtn.title = '上传图片';
+    newBtn.type = 'button';
+    newBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+      <circle cx="8.5" cy="8.5" r="1.5"/>
+      <polyline points="21 15 16 10 5 21"/>
+    </svg>`;
+    newBtn.addEventListener('click', () => this._imgFileRef.click());
+    this._imageBtnRef = newBtn;
+    this._ensureImageButtonPosition(this._imageBtnRef);
+    this._updateImageBtnVisibility();
+  }
+
+  /**
+   * 处理从文件选择器选择的图片文件。
+   */
+  _handleImageFiles(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    for (const file of fileList) {
+      if (!file.type.startsWith('image/')) continue;
+      if (file.size > 20 * 1024 * 1024) {
+        showToast(`图片 ${file.name} 超过 20MB 限制`, { type: 'warning', duration: 3000 });
+        continue;
+      }
+      this._readImageFile(file);
+    }
+  }
+
+  /**
+   * 将图片文件读取为 base64 data URL 并加入待发送列表。
+   * 注意：pptx-preview.js 覆盖了全局 FileReader，因此使用 Canvas 方式读取。
+   */
+  async _readImageFile(file) {
+    try {
+      const dataUrl = await this._fileToDataUrl(file);
+      this._pendingImages.push({ dataUrl, name: file.name, size: file.size });
+      this._renderImagePreviews();
+    } catch (err) {
+      console.error('[ImgUpload] 读取图片失败:', file.name, err);
+      showToast(`读取图片失败: ${file.name}`, { type: 'error', duration: 3000 });
+    }
+  }
+
+  /**
+   * 将图片文件转为 data URL（绕过被 pptx-preview.js 覆盖的 FileReader）。
+   * 使用 createImageBitmap + Canvas 方案。
+   * @param {File|Blob} file
+   * @returns {Promise<string>} data URL
+   */
+  async _fileToDataUrl(file) {
+    // 优先使用 createImageBitmap（现代浏览器/Electron 均支持）
+    if (typeof createImageBitmap === 'function') {
+      try {
+        const bitmap = await createImageBitmap(file);
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        return canvas.toDataURL(file.type || 'image/png');
+      } catch (e) {
+        // createImageBitmap 失败，降级到 Image 加载
+      }
+    }
+    // Fallback: URL.createObjectURL + Image 加载 + Canvas
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL(file.type || 'image/png'));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error(`图片加载失败: ${file.name}`));
+      };
+      img.src = url;
+    });
+  }
+
+  /**
+   * 渲染图片预览缩略图（同步更新 session 和 hero 两个预览区）。
+   */
+  _renderImagePreviews() {
+    this._renderPreviewInContainer('inputImgPreview');
+    this._renderPreviewInContainer('heroImgPreview');
+  }
+
+  /**
+   * 在指定容器中渲染图片预览。
+   * @param {string} containerId 容器元素 ID
+   */
+  _renderPreviewInContainer(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (this._pendingImages.length === 0) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+    container.style.display = 'flex';
+    container.innerHTML = '';
+
+    // 最多显示 5 张缩略图，多余的显示 "+N"
+    const maxShow = 5;
+    const showImages = this._pendingImages.slice(0, maxShow);
+
+    showImages.forEach((img, index) => {
+      const item = document.createElement('div');
+      item.className = 'input-img-preview-item';
+      item.innerHTML = `
+        <img src="${img.dataUrl}" alt="${img.name}">
+        <button class="img-remove-btn" data-index="${index}" title="移除图片">×</button>
+      `;
+      item.querySelector('.img-remove-btn').addEventListener('click', () => {
+        this._pendingImages.splice(index, 1);
+        this._renderImagePreviews();
+      });
+      container.appendChild(item);
+    });
+
+    // 超出部分显示 "+N"
+    if (this._pendingImages.length > maxShow) {
+      const more = document.createElement('div');
+      more.className = 'input-img-preview-more';
+      more.textContent = `+${this._pendingImages.length - maxShow}`;
+      more.title = `还有 ${this._pendingImages.length - maxShow} 张图片`;
+      container.appendChild(more);
+    }
   }
   
   bindEvents() {
@@ -402,7 +720,21 @@ export class ChatPanel {
       // 从 OS 资源管理器拖入 → e.dataTransfer.files 包含 File 对象
       const files = e.dataTransfer.files;
       if (files && files.length > 0) {
+        const imageFiles = [];
+        const textFiles = [];
         for (const file of files) {
+          if (file.type.startsWith('image/')) {
+            imageFiles.push(file);
+          } else {
+            textFiles.push(file);
+          }
+        }
+        // 图片文件 → 读取为 base64 预览
+        if (imageFiles.length > 0) {
+          this._handleImageFiles(imageFiles);
+        }
+        // 非图片文件 → 添加为引用卡片
+        for (const file of textFiles) {
           const filePath = file.path || file.fullPath;
           if (filePath) {
             this._addRefChip(bar, filePath, 'file', filePath);
@@ -512,11 +844,15 @@ export class ChatPanel {
    * 清空当前可见的引用卡片栏
    */
   _clearRefs() {
+    // 清除文件引用卡片
     const bar = this._getActiveRefsBar();
     if (bar) {
       bar.innerHTML = '';
       bar.style.display = 'none';
     }
+    // 清除待发送图片
+    this._pendingImages = [];
+    this._renderImagePreviews();
   }
 
   /**
@@ -683,25 +1019,60 @@ export class ChatPanel {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  /** 注入上下文选择器按钮到当前可见的输入区 */
+  /**
+   * 兜底创建隐藏的图片文件选择器 input（#inputImgFile）。
+   * 当 chatUI.clear() 或 DOM 替换导致 input 元素丢失时调用。
+   */
+  _ensureImageFileInput() {
+    if (document.getElementById('inputImgFile')) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'inputImgFile';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+      this._handleImageFiles(input.files);
+      input.value = '';
+    });
+    // 追加到 body 或最近的输入容器
+    const container = document.getElementById('inputContainer') || document.getElementById('chatContainer') || document.body;
+    container.appendChild(input);
+  }
+
+  /** 注入上下文选择器按钮和图片上传按钮到当前可见的输入区 */
   _injectContextSelectorButton() {
     if (!this._contextSelector) return;
-    const btn = this._contextSelector.getButtonElement();
+    const ctxBtn = this._contextSelector.getButtonElement();
 
-    // 有消息模式 → 注入到底部状态栏（hero 可能正在 fade-out，不能用 isConnected 判断）
+    // 如果 📷 按钮不在文档树中，触发兜底重建
+    if (!this._imageBtnRef || !document.contains(this._imageBtnRef)) {
+      this._recreateImageButton();
+      if (!this._imageBtnRef || !document.contains(this._imageBtnRef)) return;
+    }
+
+    // 直接注入到容器中，不依赖 # 按钮引用（# 按钮可能也是旧的游离引用）
     if (this._isSession()) {
       const statusBarLeft = document.querySelector('.status-bar-left');
-      if (statusBarLeft) {
-        statusBarLeft.insertBefore(btn, statusBarLeft.firstChild);
+      if (statusBarLeft && this._imageBtnRef.parentNode !== statusBarLeft) {
+        const hashBtn = statusBarLeft.querySelector('.context-selector-btn');
+        if (hashBtn && document.contains(hashBtn)) {
+          hashBtn.insertAdjacentElement('afterend', this._imageBtnRef);
+        } else {
+          statusBarLeft.insertBefore(this._imageBtnRef, statusBarLeft.firstChild);
+        }
       }
       return;
     }
 
     // 空状态 → 注入到 hero 操作栏
     const heroSlot = document.getElementById('heroContextSelector');
-    if (heroSlot?.isConnected) {
-      if (btn.parentNode !== heroSlot) {
-        heroSlot.prepend(btn);
+    if (heroSlot?.isConnected && this._imageBtnRef.parentNode !== heroSlot) {
+      const hashBtn = heroSlot.querySelector('.context-selector-btn');
+      if (hashBtn && document.contains(hashBtn)) {
+        hashBtn.insertAdjacentElement('afterend', this._imageBtnRef);
+      } else {
+        heroSlot.prepend(this._imageBtnRef);
       }
     }
   }
@@ -736,7 +1107,7 @@ export class ChatPanel {
       ? overrideContent
       : this._getCombinedInput();
     
-    if (!content) {
+    if (!content && this._pendingImages.length === 0) {
       console.log('⏭️ sendMessage 跳过：内容为空');
       return;
     }
@@ -775,16 +1146,22 @@ export class ChatPanel {
     this._clearRefs();
     this._contextSelector.clearSelection();
     
-    this.lastUserMessage = content;
+    // 收集待发送的图片（需在 this.lastUserMessage 前定义 images）
+    const pendingImages = this._pendingImages.slice();
+    this._pendingImages = [];
+    this._renderImagePreviews();
+    const images = pendingImages.map(img => img.dataUrl);
+    
+    this.lastUserMessage = content || (images.length > 0 ? '[图片]' : '');
     EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId });
 
     // 立即并行发起标题生成，不等第一轮对话结束
-    // 传递 content 作为兜底，解决标题 API 比 Chat API 先到达后端的竞态
-    this._generateSessionTitle(content);
+    this._generateSessionTitle(content || (images.length > 0 ? '[图片]' : ''));
     
     const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     this._lastUserMessageId = tempId;
-    const { msgDiv } = this.chatUI.appendUserMessage(content, tempId, true);
+    const displayContent = content || (images.length > 0 ? '📷 发送了 ' + images.length + ' 张图片' : '');
+    const { msgDiv } = this.chatUI.appendUserMessage(displayContent, tempId, true);
     this._lastUserMsgDiv = msgDiv;
 
     // hero 已被移除，将上下文选择器注入到底部状态栏
@@ -818,6 +1195,7 @@ export class ChatPanel {
       await session.start({
         sessionId: appState.currentSessionId,
         content,
+        images,
         signal: this.currentAbortController?.signal,
         systemPrompt: appState.getSystemPrompt(),
         mode: appState.getMode(),
@@ -2109,6 +2487,10 @@ export class ChatPanel {
       document.removeEventListener('dragleave', this._dragLeaveHandler);
       document.removeEventListener('drop', this._dropHandler);
       this._dragOverHandler = this._dragLeaveHandler = this._dropHandler = null;
+    }
+    if (this._pasteHandler) {
+      document.removeEventListener('paste', this._pasteHandler);
+      this._pasteHandler = null;
     }
   }
 }

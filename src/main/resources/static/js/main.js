@@ -796,6 +796,7 @@ async function switchSession(sessionId) {
           <div class="empty-hero-input-area">
             <div class="hero-input-wrapper">
               <div class="empty-hero-input-refs" id="heroInputRefs"></div>
+              <div class="input-img-preview" id="heroImgPreview" style="display:none"></div>
               <textarea class="empty-hero-input" id="heroInput" placeholder="${i18n.t('chat.heroPlaceholder')}" rows="1" spellcheck="false"></textarea>
             </div>
             <div class="hero-input-actions">
@@ -900,6 +901,7 @@ async function switchSession(sessionId) {
         <div class="empty-hero-input-area">
           <div class="hero-input-wrapper">
             <div class="empty-hero-input-refs" id="heroInputRefs"></div>
+            <div class="input-img-preview" id="heroImgPreview" style="display:none"></div>
             <textarea class="empty-hero-input" id="heroInput" placeholder="${i18n.t('chat.heroPlaceholder')}" rows="1" spellcheck="false"></textarea>
           </div>
           <div class="hero-input-actions">
@@ -1409,6 +1411,8 @@ async function loadQuickModelConfig() {
     const data = await apiGet('/api/config/llm');
     saveModelConfigToCache(data);
     applyModelConfigToDropdown(data);
+    // 通知图片按钮等组件检查模型视觉能力（解决刷新后 📷 按钮不出现的问题）
+    EventBus.emit('config:model-changed');
   } catch (e) {
     console.warn('加载模型配置失败:', e);
     // 缓存已有数据，静默失败即可
@@ -1425,7 +1429,11 @@ async function saveQuickModelConfig(provider, model) {
     });
     if (!resp.ok) throw new Error(await resp.text());
     showToast(i18n.t('chatui.modelSwitched', { provider, model }), 'success');
-    // 立即刷新下拉框及缓存
+    // 乐观更新缓存，确保依赖 localStorage 的组件（如图片按钮）能立即读到新模型
+    saveModelConfigToCache({ provider, model });
+    // 通知图片按钮等组件检查模型视觉能力
+    EventBus.emit('config:model-changed');
+    // 后台刷新下拉框及完整缓存（含历史记录等）
     loadQuickModelConfig();
   } catch (e) {
     showToast(i18n.t('chatui.modelSwitchFailed', { message: e.message }), 'error');

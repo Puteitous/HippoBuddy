@@ -11,7 +11,9 @@ import com.example.agent.llm.exception.LlmTimeoutException;
 import com.example.agent.llm.model.ChatRequest;
 import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.Choice;
+import com.example.agent.llm.model.ContentPart;
 import com.example.agent.llm.model.FunctionCall;
+import com.example.agent.llm.model.ImagePart;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Tool;
 import com.example.agent.llm.model.ToolCall;
@@ -20,6 +22,8 @@ import com.example.agent.llm.retry.RetryPolicy;
 import com.example.agent.llm.stream.SseParser;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.llm.stream.ToolCallDelta;
+import com.example.agent.tools.ImageStoreService;
+import com.example.agent.config.VisionModelRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -133,6 +137,76 @@ public abstract class AbstractLlmClient implements LlmClient {
         return messages;
     }
 
+    /**
+     * 预处理消息列表：将多模态消息中的 file:// 图片引用转为 data: URI。
+     * <p>
+     * 消息中的图片以 file:// 路径存储（减小日志体积），发送给 LLM 前
+     * 需要读取实际图片文件并转换为 base64 data URI。
+     * </p>
+     * <p>
+     * 如果当前模型不支持视觉，会跳过图片并记录警告。
+     * </p>
+     */
+    protected List<Message> resolveImageReferences(List<Message> messages) {
+        // 检查模型是否支持视觉
+        boolean visionSupported = VisionModelRegistry.supportsVision(config.getLlm());
+        if (!visionSupported) {
+            // 检查消息列表中是否包含图片
+            boolean hasImages = messages.stream().anyMatch(Message::isMultimodal);
+            if (hasImages) {
+                logger.warn("⚠️ 当前模型 {} ({}) 不支持视觉，图片将被忽略",
+                    config.getLlm().getModel(), config.getLlm().getProvider());
+                // 将多模态消息降级为纯文本
+                for (Message msg : messages) {
+                    if (msg.isMultimodal()) {
+                        String text = msg.getContent();
+                        msg.setContent(text);
+                    }
+                }
+            }
+            return messages;
+        }
+
+        ImageStoreService imageStore = new ImageStoreService();
+        for (Message msg : messages) {
+            if (!msg.isMultimodal()) continue;
+
+            List<ContentPart> parts = msg.getContentParts();
+            if (parts == null) continue;
+
+            boolean changed = false;
+            List<ContentPart> resolved = new ArrayList<>();
+            for (ContentPart part : parts) {
+                if (part instanceof ImagePart) {
+                    ImagePart img = (ImagePart) part;
+                    String url = img.getUrl();
+                    if (url != null && url.startsWith("file://")) {
+                        try {
+                            String dataUri = imageStore.toDataUri(url);
+                            if (dataUri != null) {
+                                resolved.add(new ImagePart(dataUri));
+                                changed = true;
+                                continue;
+                            } else {
+                                logger.warn("图片文件不存在，跳过: {}", url);
+                                continue;
+                            }
+                        } catch (Exception e) {
+                            logger.warn("读取图片失败，跳过: {}", url, e);
+                            continue;
+                        }
+                    }
+                }
+                resolved.add(part);
+            }
+
+            if (changed) {
+                msg.setContentParts(resolved);
+            }
+        }
+        return messages;
+    }
+
     @Override
     public ChatResponse chat(List<Message> messages) throws LlmException {
         return chat(messages, null);
@@ -145,6 +219,7 @@ public abstract class AbstractLlmClient implements LlmClient {
         }
         
         List<Message> processedMessages = applyCacheStrategy(messages);
+        processedMessages = resolveImageReferences(processedMessages);
         
         ChatRequest request = ChatRequest.of(getModel(), processedMessages);
         int maxTokens = config.getLlm().getMaxTokens();
@@ -206,6 +281,7 @@ public abstract class AbstractLlmClient implements LlmClient {
         }
         
         List<Message> processedMessages = applyCacheStrategy(messages);
+        processedMessages = resolveImageReferences(processedMessages);
         
         ChatRequest request = ChatRequest.of(getModel(), processedMessages)
                 .stream(true);

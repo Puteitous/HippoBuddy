@@ -1,0 +1,119 @@
+# ============================================================
+# 视觉模型配置 — 扩展 VisionModelRegistry 的硬编码列表
+# ============================================================
+# 将此文件放在 config.yaml 同级目录下即可生效。
+# 配置会与代码内置的硬编码列表合并（外部的追加到内置列表之后）。
+#
+# 三种配置方式（优先级从高到低）：
+#   1. config.yaml 中的 llm.vision_supported: true/false（手动强制开关）
+#   2. 本文件的列表（扩展内置列表）
+#   3. 代码内置硬编码列表（兜底）
+# ============================================================
+
+# 支持视觉的 provider 名称（大小写不敏感）
+# 该 provider 下的所有模型默认支持视觉
+vision_providers:
+  # - google
+  # - gemini
+
+# 支持视觉的精确模型名（大小写不敏感）
+vision_models_exact:
+  # ---- OpenAI ----
+  # - gpt-5.2
+  # - gpt-5.2-instant
+  # - gpt-5.2-thinking
+  # - gpt-5.2-pro
+  # - gpt-5.4-pro
+  # - gpt-5.5
+  # - gpt-5-vision
+  # ---- Anthropic ----
+  # - claude-opus-4.5
+  # - claude-opus-4.8
+  # - claude-sonnet-4.5
+  # - claude-mythos-5
+  # - claude-fable-5
+  # ---- Meta ----
+  # - llama-4-scout
+  # - llama-4-maverick
+  # - llama-3-vision-70b
+  # ---- Microsoft ----
+  # - phi-4-multimodal
+  # - phi-4-reasoning-vision
+  # ---- 阿里 Qwen（注意：qwen3 文本系列不含 vl/omni 的不支持视觉！） ----
+  # - qwen3.5-omni-plus        # 全模态（图/文/音/视频）
+  # - qwen3.5-omni-flash       # 全模态轻量版
+  # - qwen3-vl-235b
+  # - qwen2.5-vl-72b
+  # - qwen-vl-max
+  # - qwen-vl-plus
+  # - qwen-image-3.0-pro       # 图像生成
+  # ---- 智谱 GLM（注意：只有含 v/ocr 的版本支持视觉，纯数字如 glm-5.1 是纯文本！） ----
+  # - glm-5v-turbo
+  # - glm-4.6v
+  # - glm-4.6v-flash
+  # - glm-4.1v-thinking-flashx
+  # - glm-4v-flash
+  # - glm-ocr
+  # ---- 月之暗面 Kimi（k2.5+ 原生多模态） ----
+  # - kimi-k3
+  # - kimi-k2.6
+  # - kimi-k2.5
+  # - moonshot-v1-8k-vision-preview
+  # - moonshot-v1-32k-vision-preview
+  # - moonshot-v1-128k-vision-preview
+  # ---- 字节豆包 ----
+  # - seed-2.0-pro
+  # - seed-2.0-vision
+  # ---- 百度文心 ----
+  # - ernie-6.0
+  # - ernie-6.0-vision
+  # ---- 昆仑万维 ----
+  # - skywork-mm-13b
+  # - skywork-mm-70b
+  # ---- 阶跃星辰 ----
+  # - step-2v
+  # ---- Mistral ----
+  # - mistral-large-vision
+  # - pixtral-large
+
+# 支持视觉的模型名正则模式（大小写不敏感）
+# 匹配模型名的任意位置包含该模式即视为支持
+vision_model_patterns:
+  # ---- OpenAI ----
+  # - "^gpt-5"
+  # - "^gpt-5\\."
+  # ---- Anthropic ----
+  # - "^claude-opus-4\\."
+  # - "^claude-sonnet-4\\."
+  # - "^claude-mythos"
+  # - "^claude-fable"
+  # ---- Meta ----
+  # - "^llama-4"
+  # - "^llama-3.*vision"
+  # ---- Microsoft ----
+  # - "^phi-4.*multi"
+  # - "^phi-4.*vision"
+  # ---- 阿里（含 vl/omni/image 的才支持视觉） ----
+  # - "qwen.*vl"
+  # - "qwen3\\.5-omni"
+  # - "qwen-image"
+  # ---- 智谱（只有含 v/ocr 的版本支持视觉，纯数字如 glm-5.1 是纯文本） ----
+  # - "glm-\\d.*v"     # 匹配 glm-4v, glm-4.6v, glm-5v 等
+  # - "glm-ocr"
+  # ---- 月之暗面（k2.5+ 原生多模态，纯文本的 moonshot-v1 不含 vision 不会被匹配） ----
+  # - "^kimi-k"
+  # - "moonshot.*vision-preview"
+  # ---- 字节 ----
+  # - "^seed-2"
+  # ---- 百度 ----
+  # - "^ernie-6"
+  # ---- 昆仑万维 ----
+  # - "^skywork-mm"
+  # ---- 阶跃星辰 ----
+  # - "^step-2v"
+  # ---- Mistral ----
+  # - "mistral.*vision"
+  # - "pixtral"
+  # ---- DeepSeek（注意：只有 VL 系列支持视觉，v4/chat/r1 都是纯文本） ----
+  # - "^deepseek-vl"
+  # - "^deepseek-vl2"

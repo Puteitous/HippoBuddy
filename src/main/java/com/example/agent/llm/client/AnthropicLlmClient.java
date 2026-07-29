@@ -10,13 +10,17 @@ import com.example.agent.llm.exception.LlmException;
 import com.example.agent.llm.exception.LlmTimeoutException;
 import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.Choice;
+import com.example.agent.llm.model.ContentPart;
 import com.example.agent.llm.model.FunctionCall;
+import com.example.agent.llm.model.ImagePart;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.PromptTokensDetails;
+import com.example.agent.llm.model.TextPart;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.Usage;
 import com.example.agent.llm.retry.RetryPolicy;
 import com.example.agent.llm.stream.StreamChunk;
+import com.example.agent.tools.ImageStoreService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -195,6 +199,51 @@ public class AnthropicLlmClient extends AbstractLlmClient {
                     contentArray.add(toolUseBlock);
                 }
                 apiMsg.set("content", contentArray);
+            } else if (msg.isMultimodal()) {
+                // 多模态消息 → content 为 text + image 块数组
+                ArrayNode contentArray = objectMapper.createArrayNode();
+                ImageStoreService imageStore = new ImageStoreService();
+
+                for (ContentPart part : msg.getContentParts()) {
+                    if (part instanceof TextPart) {
+                        ObjectNode textBlock = objectMapper.createObjectNode();
+                        textBlock.put("type", "text");
+                        textBlock.put("text", ((TextPart) part).getText());
+                        contentArray.add(textBlock);
+
+                    } else if (part instanceof ImagePart) {
+                        String url = ((ImagePart) part).getUrl();
+                        String dataUri = imageStore.toDataUri(url);
+                        if (dataUri == null) {
+                            logger.warn("图片文件不存在，跳过: {}", url);
+                            continue;
+                        }
+
+                        // 解析 data: URI 获取 media_type 和 base64 数据
+                        String mediaType = "image/png";
+                        String base64Data = dataUri;
+                        if (dataUri.startsWith("data:")) {
+                            int semicolon = dataUri.indexOf(';');
+                            int comma = dataUri.indexOf(',');
+                            if (semicolon > 5 && comma > semicolon) {
+                                mediaType = dataUri.substring(5, semicolon);
+                                base64Data = dataUri.substring(comma + 1);
+                            }
+                        }
+
+                        ObjectNode imageBlock = objectMapper.createObjectNode();
+                        imageBlock.put("type", "image");
+                        ObjectNode source = objectMapper.createObjectNode();
+                        source.put("type", "base64");
+                        source.put("media_type", mediaType);
+                        source.put("data", base64Data);
+                        imageBlock.set("source", source);
+                        contentArray.add(imageBlock);
+                    }
+                }
+
+                apiMsg.set("content", contentArray);
+
             } else {
                 apiMsg.put("content", msg.getContent() != null ? msg.getContent() : "");
             }

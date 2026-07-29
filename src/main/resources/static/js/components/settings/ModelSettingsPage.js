@@ -47,6 +47,7 @@ const REASONING_EFFORT_ITEMS = [
 
 /** 支持思考模式的 Provider 列表 */
 const THINKING_SUPPORTED_PROVIDERS = ['deepseek', 'openai', 'anthropic'];
+const VISION_SUPPORTED_PROVIDERS = ['openai', 'anthropic', 'google', 'gemini'];
 
 /** 根据 provider value 获取显示用 label */
 const getProviderLabel = (value) => {
@@ -127,6 +128,24 @@ export class ModelSettingsPage {
   _isThinkingSupported(provider) {
     if (!provider) return false;
     return THINKING_SUPPORTED_PROVIDERS.includes(provider.trim().toLowerCase());
+  }
+
+  _isVisionSupported(provider, model) {
+    if (!provider) return false;
+    const p = provider.trim().toLowerCase();
+    // provider 级别支持
+    if (VISION_SUPPORTED_PROVIDERS.includes(p)) return true;
+    // 模型名判断（常见视觉模型）
+    if (model) {
+      const m = model.trim().toLowerCase();
+      const visionKeywords = ['gpt-4o', 'gpt-4-turbo', 'gpt-4-vision', 'gpt-5',
+        'o1', 'o3', 'o4',
+        'claude-3', 'claude-4', 'claude-sonnet-4', 'claude-opus-4', 'claude-opus-5',
+        'llava', 'bakllava', 'qwen', 'vl', 'cogvlm', 'glm-4v', 'glm-5v', 'glm-ocr', 'internvl', 'minicpm',
+        'kimi'];
+      return visionKeywords.some(kw => m.includes(kw));
+    }
+    return false;
   }
 
   // ==================== 加载列表 ====================
@@ -362,11 +381,25 @@ export class ModelSettingsPage {
               <div class="settings-field-hint">${_t('settingsPage.modelReasoningHint')}</div>
             </div>
             <div class="settings-field-body">
-              <button class="settings-input settings-provider-btn" id="modelEditReasoningEffort">${reasoningEffort}</button>
+              <button class="settings-input settings-provider-btn" id="modelEditReasoningEffort">${reasoningEffort || 'Default'}</button>
+            </div>
+          </div>
+
+          <!-- 视觉能力指示 -->
+          <div class="settings-field-horizontal">
+            <div class="settings-field-label">
+              <div>${_t('settingsPage.vision')}</div>
+              <div class="settings-field-hint">${_t('settingsPage.visionHint')}</div>
+            </div>
+            <div class="settings-field-body">
+              <span class="settings-badge" id="modelEditVisionBadge" style="font-size:13px;padding:3px 10px;border-radius:4px;display:inline-flex;align-items:center;gap:4px;">
+                ${this._isVisionSupported(provider, modelName)
+                  ? '<span style="color:#22c55e">●</span> ' + _t('settingsPage.visionSupported')
+                  : '<span style="color:#999">●</span> ' + _t('settingsPage.visionNotSupported')}
+              </span>
             </div>
           </div>
         </div>
-      
       </div>
     `;
 

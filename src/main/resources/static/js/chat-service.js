@@ -76,7 +76,7 @@ export class ChatService {
     }
   }
 
-  async sendMessage(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules, mode) {
+  async sendMessage(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules, mode, images) {
     let lastError = null;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -95,7 +95,7 @@ export class ChatService {
       }
 
       try {
-        const result = await this.executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules, mode);
+        const result = await this.executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules, mode, images);
         if (result.hasContent) {
           return;
         }
@@ -115,7 +115,7 @@ export class ChatService {
     throw lastError || new Error(i18n.t('chat.requestFailed'));
   }
 
-  async executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules, mode) {
+  async executeRequest(session, message, onChunk, signal, systemPrompt, editMessageId, selectedRules, mode, images) {
     const timeout = 5 * 60 * 1000;
     let timeoutReject;
     const timeoutPromise = new Promise((_, reject) => {
@@ -141,6 +141,7 @@ export class ChatService {
             ...(systemPrompt ? { systemPrompt: systemPrompt } : {}),
             ...(editMessageId ? { editMessageId: editMessageId } : {}),
             ...(selectedRules && selectedRules.length > 0 ? { selectedRules: selectedRules } : {}),
+            ...(images && images.length > 0 ? { images: images } : {}),
             mode: mode || 'coding'
           })
         }),

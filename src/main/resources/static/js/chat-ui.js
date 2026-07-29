@@ -65,6 +65,7 @@ export class ChatUI {
         <div class="empty-hero-input-area">
           <div class="hero-input-wrapper">
             <div class="empty-hero-input-refs" id="heroInputRefs"></div>
+            <div class="input-img-preview" id="heroImgPreview" style="display:none"></div>
             <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1" spellcheck="false"></textarea>
           </div>
           <div class="hero-input-actions">

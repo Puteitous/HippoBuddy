@@ -8,7 +8,11 @@ import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.rule.RuleLoader;
 import com.example.agent.llm.exception.LlmException;
+import com.example.agent.llm.model.ContentPart;
+import com.example.agent.llm.model.ImagePart;
 import com.example.agent.llm.model.Message;
+import com.example.agent.llm.model.TextPart;
+import com.example.agent.tools.ImageStoreService;
 import com.example.agent.web.orchestrator.WebAgentOrchestrator;
 import com.example.agent.web.session.SessionCancelManager;
 import com.example.agent.web.server.WebInitializer;
@@ -29,6 +33,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class ChatApiHandler implements HttpHandler {
@@ -124,7 +130,17 @@ public class ChatApiHandler implements HttpHandler {
                 }
             }
 
-            if (userMessage.isEmpty()) {
+            // 解析图片列表
+            List<String> images = new java.util.ArrayList<>();
+            if (json.has("images") && json.get("images").isArray()) {
+                for (com.fasterxml.jackson.databind.JsonNode img : json.get("images")) {
+                    if (img.isTextual() && !img.asText().isEmpty()) {
+                        images.add(img.asText());
+                    }
+                }
+            }
+
+            if (userMessage.isEmpty() && images.isEmpty()) {
                 sseWriter.sendSseEvent("error", "{\"message\":\"消息不能为空\"}");
                 return;
             }
@@ -185,7 +201,7 @@ public class ChatApiHandler implements HttpHandler {
                         staleDeletePending.confirmId);
                 }
 
-                Message userMsg = conversationService.addUserMessage(conversation, userMessage);
+                Message userMsg = createUserMessage(conversation, userMessage, images);
                 sseWriter.sendSseEvent("message_id", "{\"id\":\"" + userMsg.getId() + "\"}");
             }
 
@@ -236,5 +252,58 @@ public class ChatApiHandler implements HttpHandler {
             outputStreamWriter.close();
             exchange.close();
         }
+    }
+
+    /**
+     * 创建用户消息（支持纯文本和多模态）。
+     * <p>
+     * 如果请求中携带了图片，会先将图片保存到本地 {@code .hippo/images/}，
+     * 然后构建含图片引用的多模态 Message 并添加到会话中。
+     * </p>
+     *
+     * @param conversation 当前会话
+     * @param text         用户输入的文本
+     * @param images       用户上传的图片（data: URI 列表）
+     * @return 已添加到会话中的 Message
+     */
+    private Message createUserMessage(Conversation conversation, String text, List<String> images) {
+        ConversationService conversationService = ServiceLocator.get(ConversationService.class);
+
+        // 纯文本消息，走原有逻辑
+        if (images == null || images.isEmpty()) {
+            return conversationService.addUserMessage(conversation, text);
+        }
+
+        // 多模态消息：保存图片并构建 ContentPart 数组
+        ImageStoreService imageStore = new ImageStoreService();
+        List<ContentPart> parts = new ArrayList<>();
+
+        // 文本部分
+        if (text != null && !text.isEmpty()) {
+            parts.add(new TextPart(text));
+        }
+
+        // 图片部分：保存到本地并引用 file:// 路径
+        for (String dataUri : images) {
+            try {
+                String fileUri = imageStore.saveImage(dataUri);
+                parts.add(new ImagePart(fileUri));
+                logger.debug("用户上传图片已保存: {}", fileUri);
+            } catch (Exception e) {
+                logger.warn("保存图片失败，跳过该图片: {}", e.getMessage());
+                // 图片保存失败不阻断整个消息，跳过即可
+            }
+        }
+
+        // 如果所有图片都保存失败，降级为纯文本消息
+        if (parts.isEmpty()) {
+            return conversationService.addUserMessage(conversation, text);
+        }
+
+        // 构建多模态消息
+        Message userMsg = new Message("user", "", null);
+        userMsg.setContentParts(parts);
+        conversationService.addMessage(conversation, userMsg);
+        return userMsg;
     }
 }

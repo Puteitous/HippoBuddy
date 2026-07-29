@@ -5,7 +5,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -13,7 +15,19 @@ public class Message {
 
     private String id;
     private String role;
-    private String content;
+    
+    /**
+     * 消息内容。
+     * <p>
+     * 兼容两种形态：
+     * <ul>
+     *   <li>{@code String} — 纯文本消息（向后兼容）</li>
+     *   <li>{@code List<ContentPart>} — 多模态消息（text + image_url 等）</li>
+     * </ul>
+     * Jackson 序列化时，String 输出为字符串，List 自动输出为数组。
+     * </p>
+     */
+    private Object content;
     
     @JsonProperty("reasoning_content")
     private String reasoningContent;
@@ -44,6 +58,27 @@ public class Message {
         this.role = (role != null && !role.trim().isEmpty()) ? role.trim() : "user";
         this.content = content != null ? content : "";
         this.id = java.util.UUID.randomUUID().toString();
+    }
+
+    /**
+     * 创建多模态消息（含图片等非文本内容）。
+     *
+     * @param role         消息角色（user / assistant / system / tool）
+     * @param textContent  文本内容
+     * @param imageParts   图片内容片段列表
+     */
+    public Message(String role, String textContent, List<ImagePart> imageParts) {
+        this.role = (role != null && !role.trim().isEmpty()) ? role.trim() : "user";
+        this.id = java.util.UUID.randomUUID().toString();
+
+        List<ContentPart> parts = new ArrayList<>();
+        if (textContent != null && !textContent.isEmpty()) {
+            parts.add(new TextPart(textContent));
+        }
+        if (imageParts != null) {
+            parts.addAll(imageParts);
+        }
+        this.content = parts.isEmpty() ? "" : parts;
     }
 
     public static Message system(String content) {
@@ -133,12 +168,137 @@ public class Message {
         this.role = (role != null && !role.trim().isEmpty()) ? role.trim() : "user";
     }
 
+    /**
+     * 获取文本内容。
+     * <p>
+     * 对于多模态消息（含图片），会自动提取所有 TextPart 拼接返回。
+     * 如需获取完整的内容片段列表，请使用 {@link #getContentParts()}。
+     * </p>
+     *
+     * @return 文本内容，不会为 null
+     */
     public String getContent() {
-        return content;
+        if (content instanceof String) {
+            return (String) content;
+        }
+        if (content instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<ContentPart> parts = (List<ContentPart>) content;
+            return parts.stream()
+                .filter(p -> p instanceof TextPart)
+                .map(p -> ((TextPart) p).getText())
+                .collect(Collectors.joining("\n"));
+        }
+        return "";
     }
 
+    /**
+     * 设置纯文本内容。
+     * 如果消息之前包含多模态内容（如图片），调用此方法会清除它们。
+     */
     public void setContent(String content) {
         this.content = content != null ? content : "";
+    }
+
+    /**
+     * 获取多模态内容片段列表。
+     * <p>
+     * 如果消息是纯文本（非多模态），返回 {@code null}。
+     * 返回的列表不可修改，如需修改请使用 {@link #setContentParts(List)}。
+     * </p>
+     *
+     * @return 内容片段列表，或 null（纯文本消息）
+     */
+    @SuppressWarnings("unchecked")
+    public List<ContentPart> getContentParts() {
+        if (content instanceof List) {
+            List<?> list = (List<?>) content;
+            // Jackson 反序列化 Object 类型时，数组元素可能是 LinkedHashMap
+            // 需要做一次惰性转换
+            if (!list.isEmpty() && !(list.get(0) instanceof ContentPart)) {
+                return Collections.unmodifiableList(convertContentParts(list));
+            }
+            return Collections.unmodifiableList((List<ContentPart>) content);
+        }
+        return null;
+    }
+
+    /**
+     * 将 Jackson 反序列化产生的 List&lt;Map&gt; 转换为 List&lt;ContentPart&gt;。
+     */
+    @SuppressWarnings("unchecked")
+    private List<ContentPart> convertContentParts(List<?> rawList) {
+        List<ContentPart> parts = new ArrayList<>();
+        for (Object item : rawList) {
+            if (item instanceof ContentPart) {
+                parts.add((ContentPart) item);
+            } else if (item instanceof java.util.Map) {
+                java.util.Map<String, Object> map = (java.util.Map<String, Object>) item;
+                String type = (String) map.get("type");
+                if ("text".equals(type)) {
+                    TextPart tp = new TextPart();
+                    tp.setText((String) map.get("text"));
+                    parts.add(tp);
+                } else if ("image_url".equals(type)) {
+                    ImagePart ip = new ImagePart();
+                    java.util.Map<String, Object> imgUrl = (java.util.Map<String, Object>) map.get("image_url");
+                    if (imgUrl != null) {
+                        ip.setUrl((String) imgUrl.get("url"));
+                    }
+                    parts.add(ip);
+                }
+            }
+        }
+        // 替换为转换后的列表，下次直接命中
+        this.content = parts;
+        return parts;
+    }
+
+    /**
+     * 设置多模态内容片段列表。
+     * <p>
+     * 设置后，{@link #getContent()} 返回的文本会从 TextPart 中提取拼接。
+     * 传入 null 或空列表会清除多模态内容，变为空字符串消息。
+     * </p>
+     */
+    public void setContentParts(List<ContentPart> parts) {
+        if (parts == null || parts.isEmpty()) {
+            this.content = "";
+        } else {
+            this.content = new ArrayList<>(parts);
+        }
+    }
+
+    /**
+     * 判断是否为多模态消息（含图片等非文本内容）。
+     */
+    public boolean isMultimodal() {
+        return content instanceof List;
+    }
+
+    /**
+     * 便捷方法：向消息末尾追加一个图片内容片段。
+     *
+     * @param imagePart 图片内容片段
+     */
+    public void addImage(ImagePart imagePart) {
+        if (imagePart == null) return;
+
+        List<ContentPart> parts;
+        if (content instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<ContentPart> existing = (List<ContentPart>) content;
+            parts = new ArrayList<>(existing);
+        } else {
+            parts = new ArrayList<>();
+            // 保留原有文本
+            String text = content instanceof String ? (String) content : "";
+            if (!text.isEmpty()) {
+                parts.add(new TextPart(text));
+            }
+        }
+        parts.add(imagePart);
+        this.content = parts;
     }
 
     public String getReasoningContent() {
@@ -162,13 +322,23 @@ public class Message {
     }
 
     public Message shallowCopy() {
-        Message copy = new Message(this.role, this.content);
+        Message copy = new Message();
         copy.id = this.id;
+        copy.role = this.role;
+        if (this.content instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<ContentPart> parts = (List<ContentPart>) this.content;
+            copy.content = new ArrayList<>(parts);
+        } else {
+            copy.content = this.content; // String 是不可变的，直接共享
+        }
         copy.reasoningContent = this.reasoningContent;
         copy.toolCalls = this.toolCalls != null ? new ArrayList<>(this.toolCalls) : null;
         copy.cacheControl = this.cacheControl;
         copy.toolCallId = this.toolCallId;
         copy.name = this.name;
+        copy.messageType = this.messageType;
+        copy.toolSuccess = this.toolSuccess;
         return copy;
     }
 
@@ -237,9 +407,22 @@ public class Message {
 
     @Override
     public String toString() {
+        String contentStr;
+        if (content instanceof String) {
+            String s = (String) content;
+            contentStr = s.length() > 100 ? s.substring(0, 100) + "..." : s;
+        } else if (content instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<ContentPart> parts = (List<ContentPart>) content;
+            long imageCount = parts.stream().filter(p -> p instanceof ImagePart).count();
+            long textCount = parts.stream().filter(p -> p instanceof TextPart).count();
+            contentStr = "[multimodal: " + textCount + " text, " + imageCount + " image]";
+        } else {
+            contentStr = String.valueOf(content);
+        }
         return "Message{" +
                 "role='" + role + '\'' +
-                ", content='" + (content != null && content.length() > 100 ? content.substring(0, 100) + "..." : content) + '\'' +
+                ", content=" + contentStr +
                 ", toolCalls=" + toolCalls +
                 ", toolCallId='" + toolCallId + '\'' +
                 ", name='" + name + '\'' +

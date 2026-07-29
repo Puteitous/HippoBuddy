@@ -48,6 +48,10 @@ public class LlmConfig {
     @JsonProperty("model_history")
     private List<ModelSnapshot> modelHistory = new ArrayList<>();
 
+    /** auto=自动判断, true=强制支持, false=强制不支持 */
+    @JsonProperty("vision_supported")
+    private String visionSupported;
+
     public LlmConfig() {
     }
 
@@ -143,6 +147,14 @@ public class LlmConfig {
 
     public void setResponseFormat(String responseFormat) {
         this.responseFormat = responseFormat;
+    }
+
+    public String getVisionSupported() {
+        return visionSupported;
+    }
+
+    public void setVisionSupported(String visionSupported) {
+        this.visionSupported = visionSupported;
     }
 
     public List<ModelSnapshot> getModelHistory() {

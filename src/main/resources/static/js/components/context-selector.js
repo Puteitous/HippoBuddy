@@ -121,7 +121,37 @@ export class ContextSelector {
     this._btn.innerHTML = this._getButtonHTML(total);
   }
 
+  /**
+   * 返回上下文选择器的 # 按钮。
+   * 如果按钮不在文档树中（被 DOM 替换移除），自动重建并注入到当前可见的输入区。
+   */
   getButtonElement() {
+    if (!this._btn || !document.contains(this._btn)) {
+      console.log('[ContextSelector] # 按钮不在文档树中，触发兜底重建');
+      // 重建按钮
+      const oldBtn = this._btn;
+      this._createButton();
+      if (oldBtn && oldBtn.parentNode) oldBtn.remove();
+
+      // 注入到当前可见的输入区
+      // 注意：.status-bar-left 在 #inputContainer 中，不在 #chatContainer 内，
+      // 因此 chatUI.clear() 或 innerHTML 替换不会移除它。但在 hero 模式下它被 CSS 隐藏。
+      // 所以必须根据当前模式判断注入目标，不能始终优先选 .status-bar-left。
+      const isSession = document.querySelector('.chat-panel')?.classList.contains('has-messages');
+      if (isSession) {
+        const statusBarLeft = document.querySelector('.status-bar-left');
+        if (statusBarLeft) {
+          statusBarLeft.insertBefore(this._btn, statusBarLeft.firstChild);
+          console.log('[ContextSelector] # 按钮已注入到 .status-bar-left');
+          return;
+        }
+      }
+      const heroSlot = document.getElementById('heroContextSelector');
+      if (heroSlot?.isConnected) {
+        heroSlot.prepend(this._btn);
+        console.log('[ContextSelector] # 按钮已注入到 #heroContextSelector');
+      }
+    }
     return this._btn;
   }
 
