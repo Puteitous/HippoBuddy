@@ -51,7 +51,8 @@ public class LintDiagnosticsTool implements ToolExecutor {
     @Override
     public String getDescription() {
         return "对一个或多个文件/目录进行语法诊断检查。支持 Java、JavaScript、TypeScript、Python、" +
-            "Go、Rust、HTML、CSS、JSON。检测缺少括号、分号、花括号不匹配等语法错误。\n";
+            "Go、Rust、HTML、CSS、JSON。检测缺少括号、分号、花括号不匹配等语法错误。\n" +
+            "提示：建议传入具体文件路径，避免传大目录导致扫描耗时过长。\n";
     }
 
     @Override
@@ -63,7 +64,7 @@ public class LintDiagnosticsTool implements ToolExecutor {
                     "paths": {
                         "type": "array",
                         "items": { "type": "string" },
-                        "description": "要检查的文件或目录路径列表（传目录会递归扫描其下所有匹配文件）"
+                        "description": "要检查的文件或目录路径列表（传目录会递归扫描其下所有匹配文件，建议传具体文件路径，避免传大目录导致扫描耗时过长）"
                     },
                     "language": {
                         "type": "string",

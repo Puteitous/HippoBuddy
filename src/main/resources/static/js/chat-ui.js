@@ -26,6 +26,7 @@ export class ChatUI {
 
   clear() {
     document.querySelector('.chat-panel')?.classList.remove('has-messages');
+
     this.container.innerHTML = `
       <div class="empty-state">
         <div class="empty-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
@@ -66,6 +67,10 @@ export class ChatUI {
     // Phase 2: 启用 #inputContainer 的 hero-mode
     const inputContainer = document.getElementById('inputContainer');
     if (inputContainer) {
+      // 先移除 hero-mode 强制触发 display:none，再重新添加以触发上浮动画
+      // 中间需要强制回流，否则浏览器会合并渲染帧跳过 animation 初始化
+      inputContainer.classList.remove('hero-mode');
+      void inputContainer.offsetHeight;
       inputContainer.classList.add('hero-mode');
     }
     const msgInput = document.getElementById('messageInput');

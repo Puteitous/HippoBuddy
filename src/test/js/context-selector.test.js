@@ -425,7 +425,9 @@ describe('ContextSelector', () => {
 
       selector.destroy();
 
-      expect(document.querySelector('.context-selector-btn')).toBeFalsy();
+      // Phase 2: 按钮隐藏而非移除（静态 HTML 设计）
+      expect(btn.style.display).toBe('none');
+      expect(document.querySelector('.context-selector-panel')).toBeFalsy();
       expect(selector._btn).toBeNull();
     });
   });

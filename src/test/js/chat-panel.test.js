@@ -56,7 +56,7 @@ describe('ChatPanel.js', () => {
       bindAskUserEvents: vi.fn(),
     };
 
-    const mod = await import('../../main/resources/static/js/components/ChatPanel.js');
+    const mod = await import('../../main/resources/static/js/components/chat-panel/ChatPanel.js');
     ChatPanel = mod.ChatPanel;
     chatPanel = new ChatPanel(container, mockChatService, mockChatUI);
   });

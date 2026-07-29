@@ -685,7 +685,11 @@ function updateHistoryDropdown() {
 /** 切换到 hero 空态模式：启用 #inputContainer.hero-mode，设置占位符 */
 function _switchToHeroMode() {
   const inputContainer = document.getElementById('inputContainer');
-  if (inputContainer) inputContainer.classList.add('hero-mode');
+  if (inputContainer) {
+    // 强制回流确保 display:none → flex 变化被浏览器识别为动画触发条件
+    void inputContainer.offsetHeight;
+    inputContainer.classList.add('hero-mode');
+  }
   const msgInput = document.getElementById('messageInput');
   if (msgInput) {
     msgInput.placeholder = i18n.t('chat.heroPlaceholder');
@@ -730,6 +734,7 @@ async function createNewSession() {
   appState.currentSessionId = currentSessionId; // 同步到 appState
   chatUI.clear();
   _switchToHeroMode();
+
   // 渲染默认模式（coding）的预设提示词
   chatPanel._renderPresets('coding');
 

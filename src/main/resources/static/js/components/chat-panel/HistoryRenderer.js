@@ -419,7 +419,7 @@ export class HistoryRenderer {
               if (item) {
                 const path = item.dataset.path;
                 filePopover.classList.remove('show');
-                import('../utils/diff-modal.js').then(m => m.diffModalManager.show(path));
+                import('../../utils/diff-modal.js').then(m => m.diffModalManager.show(path));
               }
             });
 
