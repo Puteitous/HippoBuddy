@@ -7,7 +7,7 @@
  * 依赖：
  *   - window.HippoDesktop（桌面端 bridge）
  *   - js/vendor/codemirror.js（esbuild 打包的 CM6 bundle）
- *   - js/components/file-binary-preview.js（二进制预览委托）
+ *   - js/components/binary-preview/BinaryPreview.js（二进制预览委托）
  */
 
 import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark, vsCodeLight,
@@ -17,7 +17,7 @@ import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark, vsCo
 import { SearchPanel } from './search-panel.js'
 import { renderMarkdown } from '../markdown-renderer.js'
 import { computeDiffDecorations } from './FilePreviewDiff.js'
-import { BinaryPreview, isImageFile, isPdfFile, isSpreadsheetFile, isDocxFile, isPptxFile, isBinaryFile } from './file-binary-preview.js'
+import { BinaryPreview, isImageFile, isPdfFile, isSpreadsheetFile, isDocxFile, isPptxFile, isBinaryFile } from './binary-preview/BinaryPreview.js'
 import { FilePreviewBrowser } from './file-preview-browser.js'
 import { FilePreviewMdPreview } from './file-preview-md.js'
 
