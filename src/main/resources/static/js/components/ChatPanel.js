@@ -219,51 +219,29 @@ export class ChatPanel {
 
   /**
    * 初始化图片上传功能。
+   * Phase 2: 使用静态 HTML 中的按钮，不再动态创建。
    */
   _initImageUpload() {
     // 保存隐藏 file input 的引用（避免后续 DOM 替换后 getElementById 找不到）
     this._imgFileRef = document.getElementById('inputImgFile');
     if (!this._imgFileRef) return;
 
-    // 检查预览容器是否存在
-    const previewSession = document.getElementById('inputImgPreview');
-    const previewHero = document.getElementById('heroImgPreview');
-
-    // 创建图片上传按钮（动态创建，避免 HTML 静态位置问题）
+    // 使用静态按钮
     this._imageBtnRef = document.getElementById('inputImgBtn');
-    if (!this._imageBtnRef) {
-      this._imageBtnRef = document.createElement('button');
-      this._imageBtnRef.className = 'input-img-btn';
-      this._imageBtnRef.id = 'inputImgBtn';
-      this._imageBtnRef.title = '上传图片';
-      this._imageBtnRef.type = 'button';
-      this._imageBtnRef.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-        <circle cx="8.5" cy="8.5" r="1.5"/>
-        <polyline points="21 15 16 10 5 21"/>
-      </svg>`;
-    }
+    if (!this._imageBtnRef) return;
 
     // 根据模型视觉能力显示/隐藏图片按钮
     const updateVisionButton = () => {
       if (!this._imageBtnRef) return;
       const supported = this._isVisionSupported();
-      this._imageBtnRef.style.display = supported ? '' : 'none';
+      this._imageBtnRef.style.display = supported ? 'flex' : 'none';
     };
     updateVisionButton();
 
     // 模型配置变化时重新检查（如用户在设置页切换了模型）
-    EventBus.on('config:model-changed', () => {
-      if (!this._imageBtnRef || !this._imageBtnRef.parentNode) {
-        this._recreateImageButton();
-      } else {
-        updateVisionButton();
-      }
-    });
+    EventBus.on('config:model-changed', updateVisionButton);
     // 会话切换时也检查（不同会话可能用不同模型）
-    EventBus.on('session:switched', () => {
-      updateVisionButton();
-    });
+    EventBus.on('session:switched', updateVisionButton);
 
     // 点击按钮 → 唤起文件选择器
     this._imageBtnRef.addEventListener('click', () => {
@@ -278,7 +256,7 @@ export class ChatPanel {
 
     // 粘贴图片（Ctrl+V）
     this._pasteHandler = (e) => {
-      const input = e.target.closest('#messageInput, #heroInput');
+      const input = e.target.closest('#messageInput');
       if (!input) return;
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -292,9 +270,6 @@ export class ChatPanel {
       }
     };
     document.addEventListener('paste', this._pasteHandler);
-
-    // 将按钮注入到 # 按钮旁边（如果还没在正确位置）
-    this._ensureImageButtonPosition(this._imageBtnRef);
   }
 
   /**
@@ -303,54 +278,21 @@ export class ChatPanel {
   _updateImageBtnVisibility() {
     if (!this._imageBtnRef) return;
     const supported = this._isVisionSupported();
-    this._imageBtnRef.style.display = supported ? '' : 'none';
+    this._imageBtnRef.style.display = supported ? 'flex' : 'none';
   }
 
   /**
-   * 确保图片上传按钮在 #（引用上下文）按钮旁边。
-   * 如果按钮已有父节点（已在 DOM 中），则跳过注入。
+   * 确保图片上传按钮可见（Phase 2: 按钮已是静态 HTML，只需确保显示）。
    */
   _ensureImageButtonPosition(imgBtn) {
     if (!imgBtn) return;
-    if (imgBtn.parentNode) return;
-    // 根据当前模式决定查找 # 按钮的范围
-    // 注意：.status-bar-left 在 #inputContainer 中，不在 #chatContainer 内，
-    // 因此始终存在于 DOM 中，但在 hero 模式下被 CSS 隐藏，不能作为目标。
-    const isSession = document.querySelector('.chat-panel')?.classList.contains('has-messages');
-    if (isSession) {
-      const statusBarLeft = document.querySelector('.status-bar-left');
-      if (statusBarLeft) {
-        const hashBtn = statusBarLeft.querySelector('.context-selector-btn');
-        if (hashBtn && document.contains(hashBtn)) {
-          hashBtn.insertAdjacentElement('afterend', imgBtn);
-          return;
-        }
-        // 降级：插入到 .status-bar-left 最前面
-        statusBarLeft.insertBefore(imgBtn, statusBarLeft.firstChild);
-        return;
-      }
-    }
-    // hero 模式（或降级）：查找 hero 区域的 # 按钮
-    const heroSlot = document.getElementById('heroContextSelector');
-    if (heroSlot?.isConnected) {
-      const hashBtn = heroSlot.querySelector('.context-selector-btn');
-      if (hashBtn && document.contains(hashBtn)) {
-        hashBtn.insertAdjacentElement('afterend', imgBtn);
-        return;
-      }
-      // 再降级：插入到 hero 操作栏最前面
-      heroSlot.prepend(imgBtn);
-    }
+    imgBtn.style.display = 'flex';
   }
 
   /**
-   * 重新创建图片上传按钮（当按钮被 DOM 替换移除时调用）。
-   * 使用 this._imageBtnRef 和 this._imgFileRef 引用，不依赖 ID 查找。
+   * 重新创建图片上传按钮（Phase 2: 按钮是静态 HTML，只需重新获取引用）。
    */
   _recreateImageButton() {
-    if (this._imageBtnRef && this._imageBtnRef.parentNode) {
-      this._imageBtnRef.remove();
-    }
     if (!this._imgFileRef || !this._imgFileRef.parentNode) {
       this._ensureImageFileInput();
       this._imgFileRef = document.getElementById('inputImgFile');
@@ -359,20 +301,11 @@ export class ChatPanel {
       console.warn('[ImgUpload] 无法重建 inputImgFile，图片上传功能不可用');
       return;
     }
-    const newBtn = document.createElement('button');
-    newBtn.className = 'input-img-btn';
-    newBtn.id = 'inputImgBtn';
-    newBtn.title = '上传图片';
-    newBtn.type = 'button';
-    newBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-      <circle cx="8.5" cy="8.5" r="1.5"/>
-      <polyline points="21 15 16 10 5 21"/>
-    </svg>`;
-    newBtn.addEventListener('click', () => this._imgFileRef.click());
-    this._imageBtnRef = newBtn;
-    this._ensureImageButtonPosition(this._imageBtnRef);
-    this._updateImageBtnVisibility();
+    this._imageBtnRef = document.getElementById('inputImgBtn');
+    if (this._imageBtnRef) {
+      this._imageBtnRef.style.display = 'flex';
+      this._updateImageBtnVisibility();
+    }
   }
 
   /**
@@ -449,11 +382,11 @@ export class ChatPanel {
   }
 
   /**
-   * 渲染图片预览缩略图（同步更新 session 和 hero 两个预览区）。
+   * 渲染图片预览缩略图。
+   * Phase 2: 统一使用 #inputImgPreview（session 和 hero 共用）。
    */
   _renderImagePreviews() {
     this._renderPreviewInContainer('inputImgPreview');
-    this._renderPreviewInContainer('heroImgPreview');
   }
 
   /**
@@ -504,7 +437,7 @@ export class ChatPanel {
     if (!this.container) return;
     // 输入框事件：统一事件代理，自动适配 hero / session
     this.container.addEventListener('keydown', (e) => {
-      const input = e.target.closest('#messageInput, #heroInput');
+      const input = e.target.closest('#messageInput');
       if (!input) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -513,9 +446,6 @@ export class ChatPanel {
         if (content) {
           input.value = '';
           input.style.height = 'auto';
-          if (input.id === 'heroInput') {
-            appState.heroDraft = ''; // 清空 hero 草稿，避免重建会话时恢复
-          }
           this.sendMessage(content);
         }
       }
@@ -533,7 +463,7 @@ export class ChatPanel {
     });
     
     this._inputResizeHandler = (e) => {
-      const input = e.target.closest('#messageInput, #heroInput');
+      const input = e.target.closest('#messageInput');
       if (!input) return;
       const prev = input.style.height;
       // 测量时临时禁用过渡，避免干扰 scrollHeight
@@ -561,6 +491,7 @@ export class ChatPanel {
             this.elements.messageInput.value = '';
             this.elements.messageInput.style.height = 'auto';
             appState.clearSessionInputDraft(appState.currentSessionId); // ✨ 发送后清除草稿
+            appState.clearHeroPendingDraft(); // ✨ 同时清除 hero 待定草稿
             this.sendMessage(content);
           }
         }
@@ -581,7 +512,7 @@ export class ChatPanel {
     // Hero 快捷建议按钮
     this.container.addEventListener('click', (e) => {
       // 河马互动：点击弹跳 + 吐泡泡
-      const hippo = e.target.closest('.empty-hero-logo');
+      const hippo = e.target.closest('.empty-logo');
       if (hippo) {
         hippo.classList.remove('bouncing');
         void hippo.offsetWidth;
@@ -592,27 +523,15 @@ export class ChatPanel {
         return;
       }
       
-      const suggestionBtn = e.target.closest('.empty-hero-suggestion');
+      const suggestionBtn = e.target.closest('.empty-suggestion');
       if (suggestionBtn) {
         const prompt = suggestionBtn.dataset.prompt;
         if (prompt) {
           this.sendMessage(prompt);
         }
       }
-      // Hero 发送按钮
-      const heroSendBtn = e.target.closest('#heroSendBtn');
-      if (heroSendBtn) {
-        const input = this._getActiveInput();
-        if (input) {
-          const content = this._getCombinedInput();
-          if (content) {
-            input.value = '';
-            input.style.height = 'auto';
-            appState.heroDraft = ''; // 清空 hero 草稿，避免重建会话时恢复
-            this.sendMessage(content);
-          }
-        }
-      }
+      // Hero 发送按钮（已迁移至 #sendBtn，此处不再需要）
+      
     });
     
     // 发送按钮
@@ -681,7 +600,7 @@ export class ChatPanel {
 
     // ── 拖拽文件到输入框 ─────────────────────────────
     this._dragOverHandler = (e) => {
-      const inputArea = e.target.closest('#inputContainer, .empty-hero-input-area');
+      const inputArea = e.target.closest('#inputContainer');
       if (!inputArea) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
@@ -689,7 +608,7 @@ export class ChatPanel {
     };
 
     this._dragLeaveHandler = (e) => {
-      const inputArea = e.target.closest('#inputContainer, .empty-hero-input-area');
+      const inputArea = e.target.closest('#inputContainer');
       if (!inputArea) return;
       // 只在真正离开容器时移除高亮
       const related = e.relatedTarget;
@@ -699,7 +618,7 @@ export class ChatPanel {
     };
 
     this._dropHandler = (e) => {
-      const inputArea = e.target.closest('#inputContainer, .empty-hero-input-area');
+      const inputArea = e.target.closest('#inputContainer');
       if (!inputArea) return;
       e.preventDefault();
       inputArea.classList.remove('drag-over');
@@ -873,17 +792,14 @@ export class ChatPanel {
     return this.container?.closest('.chat-panel')?.classList.contains('has-messages') ?? false;
   }
 
-  /** 获取当前可见的输入框元素 */
+  /** 获取当前可见的输入框元素（Phase 2: 统一使用 #messageInput） */
   _getActiveInput() {
-    // session 态用 #messageInput，hero 态用 #heroInput
-    const id = this._isSession() ? 'messageInput' : 'heroInput';
-    return document.getElementById(id) || document.getElementById('messageInput') || document.getElementById('heroInput');
+    return document.getElementById('messageInput');
   }
 
-  /** 获取当前可见的引用卡片栏 */
+  /** 获取当前可见的引用卡片栏（Phase 2: 统一使用 #inputRefs） */
   _getActiveRefsBar() {
-    const id = this._isSession() ? 'inputRefs' : 'heroInputRefs';
-    return document.getElementById(id) || document.getElementById('inputRefs') || document.getElementById('heroInputRefs');
+    return document.getElementById('inputRefs');
   }
 
   // ── 模式切换 ────────────────────────────
@@ -999,19 +915,16 @@ export class ChatPanel {
     ).join('');
   }
 
-  /** 点击预设标签 → 填充到 hero 输入框并聚焦 */
+  /** 点击预设标签 → 填充到输入框并聚焦 */
   _fillPresetToInput(prompt) {
-    const input = document.getElementById('heroInput');
+    const input = document.getElementById('messageInput');
     if (!input) return;
     input.value = prompt;
     input.style.height = 'auto';
     input.style.height = input.scrollHeight + 'px';
     input.focus();
     input.setSelectionRange(prompt.length, prompt.length);
-    // 保存草稿
-    if (typeof appState.heroDraft !== 'undefined') {
-      appState.heroDraft = prompt;
-    }
+    // 保存草稿（统一用 #messageInput，由 main.js 的 input 事件监听保存）
   }
 
   /** 转义 HTML 属性，防 XSS */
@@ -1040,54 +953,16 @@ export class ChatPanel {
     container.appendChild(input);
   }
 
-  /** 注入上下文选择器按钮和图片上传按钮到当前可见的输入区 */
+  /** 更新 # 和 📷 按钮状态（Phase 2: 按钮已是静态，只需更新显隐） */
   _injectContextSelectorButton() {
     if (!this._contextSelector) return;
-    const ctxBtn = this._contextSelector.getButtonElement();
-
-    // 如果 📷 按钮不在文档树中，触发兜底重建
-    if (!this._imageBtnRef || !document.contains(this._imageBtnRef)) {
-      this._recreateImageButton();
-      if (!this._imageBtnRef || !document.contains(this._imageBtnRef)) return;
-    }
-
-    // 直接注入到容器中，不依赖 # 按钮引用（# 按钮可能也是旧的游离引用）
-    if (this._isSession()) {
-      const statusBarLeft = document.querySelector('.status-bar-left');
-      if (statusBarLeft && this._imageBtnRef.parentNode !== statusBarLeft) {
-        const hashBtn = statusBarLeft.querySelector('.context-selector-btn');
-        if (hashBtn && document.contains(hashBtn)) {
-          hashBtn.insertAdjacentElement('afterend', this._imageBtnRef);
-        } else {
-          statusBarLeft.insertBefore(this._imageBtnRef, statusBarLeft.firstChild);
-        }
-      }
-      return;
-    }
-
-    // 空状态 → 注入到 hero 操作栏
-    const heroSlot = document.getElementById('heroContextSelector');
-    if (heroSlot?.isConnected && this._imageBtnRef.parentNode !== heroSlot) {
-      const hashBtn = heroSlot.querySelector('.context-selector-btn');
-      if (hashBtn && document.contains(hashBtn)) {
-        hashBtn.insertAdjacentElement('afterend', this._imageBtnRef);
-      } else {
-        heroSlot.prepend(this._imageBtnRef);
-      }
-    }
+    this._contextSelector.getButtonElement();
+    this._updateImageBtnVisibility();
   }
 
-  /** 重新注入上下文选择器（在 hero 重建后调用） */
+  /** 重新注入上下文选择器（Phase 2: 按钮已是静态，只需同步 UI） */
   reInjectContextSelector() {
-    this._injectContextSelectorButton();
-    // 同步模式 UI（重建后 #heroPresets 为空，需重新填充预设标签）
     this._syncModeUI(appState.getMode());
-    // 同步 hero 模型按钮的显示文本
-    const heroModelBtn = document.getElementById('heroModelQuickSelect');
-    const bottomModelBtn = document.getElementById('modelQuickSelect');
-    if (heroModelBtn && bottomModelBtn) {
-      heroModelBtn.textContent = bottomModelBtn.textContent;
-    }
   }
 
   /**
@@ -1198,7 +1073,7 @@ export class ChatPanel {
         images,
         signal: this.currentAbortController?.signal,
         systemPrompt: appState.getSystemPrompt(),
-        mode: appState.getMode(),
+        mode: appState.getSessionMode(appState.currentSessionId),
         selectedRules,
         useExecuteRequest: false,
         onMessageId: (id) => {

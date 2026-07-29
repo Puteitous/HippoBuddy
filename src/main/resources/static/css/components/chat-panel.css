@@ -572,28 +572,6 @@
                 0 0 24px rgba(123, 159, 207, 0.1);
 }
 
-.empty-hero-input-area.drag-over {
-    border-color: var(--accent-color, #4d6b99) !important;
-    box-shadow: 0 0 0 2px rgba(77, 107, 153, 0.15),
-                0 0 24px rgba(77, 107, 153, 0.08) !important;
-}
-
-.empty-hero-input-area.drag-over .empty-hero-input {
-    -webkit-mask-image: none;
-    mask-image: none;
-}
-
-[data-theme="dark"] .empty-hero-input-area.drag-over {
-    border-color: var(--accent-color, #7b9fcf) !important;
-    box-shadow: 0 0 0 2px rgba(123, 159, 207, 0.2),
-                0 0 24px rgba(123, 159, 207, 0.1) !important;
-}
-
-[data-theme="dark"] .empty-hero-input-area.drag-over .empty-hero-input {
-    -webkit-mask-image: none;
-    mask-image: none;
-}
-
 /* ── 引用卡片栏 ──────────────────────────────── */
 .input-refs {
     display: none;
@@ -674,28 +652,6 @@
 .input-ref-chip-close:hover {
     background: var(--error-bg);
     color: var(--error-text);
-}
-
-/* ── Hero 输入区引用卡片栏 ────────────────────── */
-.empty-hero-input-refs {
-    display: none;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 8px 14px 0;
-    min-height: 0;
-}
-
-.empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)) .empty-hero-input {
-    -webkit-mask-image: none;
-    mask-image: none;
-}
-
-.empty-hero-input-area:has(.empty-hero-input-refs:not(:empty)) .empty-hero-input-refs {
-    display: flex;
-}
-
-.empty-hero-input-refs .input-ref-chip {
-    max-width: 260px;
 }
 
 /* ── 历史消息用户引用卡片栏 ───────────────────── */
@@ -964,7 +920,7 @@
 
 /* ── Hero 区域模式选择器（独立于输入框上方） ── */
 
-.empty-hero-mode-selector {
+.empty-mode-selector {
     display: flex;
     justify-content: center;
     margin-top: 12px;
@@ -998,7 +954,7 @@
 
 /* ── 模式预设提示词标签 ── */
 
-.empty-hero-presets {
+.empty-presets {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1530,7 +1486,7 @@
     pointer-events: none;
 }
 
-.chat-panel .empty-state.fade-out .empty-hero-logo {
+.chat-panel .empty-state.fade-out .empty-logo {
     transform: scale(0.8);
     transition: transform 0.3s ease;
 }
@@ -1544,18 +1500,47 @@
 }
 
 .chat-panel.has-messages #inputContainer {
-    animation: input-container-enter 0.35s ease both;
+    animation: empty-fade-up 0.5s ease both;
 }
 
-@keyframes input-container-enter {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+/* ── Phase 1: hero-mode 输入区样式（为统一做准备）──
+ * 当 #inputContainer 带有 .hero-mode 类时，覆盖默认的 display:none，
+ * 并应用 hero 空态特有的样式（边距、内边距、动画等）。
+ * 这些样式在 Phase 2 激活前不会生效（.hero-mode 类尚未添加）。 */
+
+/* 覆盖 hero 模式下的隐藏 */
+.chat-panel:not(.has-messages) #inputContainer.hero-mode {
+    display: flex;
+    animation: empty-fade-up 0.5s ease both;
+    animation-delay: 0.45s;
+}
+
+/* hero 模式下输入框与 session 模式保持一致，无额外覆盖 */
+
+
+/* hero 模式下隐藏状态栏中非必要的项（token、文件计数等） */
+#inputContainer.hero-mode .status-bar-item:not(#statusBarModelSelector) {
+    display: none;
+}
+
+/* hero 模式下隐藏多余的分隔线，但保留 #/📷 与模型选择器之间的分隔线 */
+#inputContainer.hero-mode .status-bar-divider:not(:has(+ #statusBarModelSelector)) {
+    display: none;
+}
+
+/* hero 模式下隐藏 stop 按钮 */
+#inputContainer.hero-mode #stopBtn {
+    display: none !important;
+}
+
+/* hero 模式下隐藏"滚动到底部"提示按钮（!important 覆盖 JS 内联样式） */
+#inputContainer.hero-mode .new-msg-hint {
+    display: none !important;
+}
+
+/* hero 模式下默认隐藏图片上传按钮（无 !important，允许 JS 按模型视觉能力覆盖显示） */
+#inputContainer.hero-mode #inputImgBtn {
+    display: none;
 }
 
 /* ========== 代码块样式 ========== */

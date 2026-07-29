@@ -43,8 +43,8 @@ export class OnboardingTour {
           // 从 logo 顶部到输入框底部（宽度取容器完整范围）
           const emptyState = document.querySelector('.empty-state');
           if (emptyState) {
-            const logo = emptyState.querySelector('.empty-hero-logo');
-            const inputArea = emptyState.querySelector('.empty-hero-input-area');
+            const logo = emptyState.querySelector('.empty-logo');
+            const inputArea = document.getElementById('inputContainer');
             if (logo && inputArea) {
               const er = emptyState.getBoundingClientRect();
               const lr = logo.getBoundingClientRect();

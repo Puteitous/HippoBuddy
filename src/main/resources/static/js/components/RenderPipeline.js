@@ -711,7 +711,7 @@ export class RenderPipeline {
   _tagTimelineItem(segIdx, fp, html) {
     const tagEnd = html.indexOf('>');
     if (tagEnd === -1) return html;
-    const attrs = ` data-timeline-seg="${segIdx}" data-fp="${fp}"`;
+    const attrs = ` data-timeline-seg="${segIdx}" data-fp="${escapeHtml(fp)}"`;
     return html.slice(0, tagEnd) + attrs + html.slice(tagEnd);
   }
 

@@ -28,11 +28,11 @@ export class ChatUI {
     document.querySelector('.chat-panel')?.classList.remove('has-messages');
     this.container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
-        <div class="empty-hero-heading">
-          <h1 class="empty-hero-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
+        <div class="empty-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
+        <div class="empty-heading">
+          <h1 class="empty-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
         </div>
-        <div class="empty-hero-mode-selector" id="heroModeSelector">
+        <div class="empty-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
             <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
               <svg class="mode-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
@@ -61,27 +61,23 @@ export class ChatUI {
             </button>
           </span>
         </div>
-        <div class="empty-hero-presets" id="heroPresets"></div>
-        <div class="empty-hero-input-area">
-          <div class="hero-input-wrapper">
-            <div class="empty-hero-input-refs" id="heroInputRefs"></div>
-            <div class="input-img-preview" id="heroImgPreview" style="display:none"></div>
-            <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1" spellcheck="false"></textarea>
-          </div>
-          <div class="hero-input-actions">
-            <div class="hero-input-actions-left" id="heroContextSelector">
-              <span class="hero-actions-divider"></span>
-              <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">加载中...</button>
-            </div>
-            <button class="hero-send-btn" id="heroSendBtn" title="发送">
-                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="8" y1="15" x2="8" y2="1"/>
-                        <polyline points="2 7 8 1 14 7"/>
-                    </svg>
-                </button>
-          </div>
-        </div>
+        <div class="empty-presets" id="heroPresets"></div>
       </div>`;
+    // Phase 2: 启用 #inputContainer 的 hero-mode
+    const inputContainer = document.getElementById('inputContainer');
+    if (inputContainer) {
+      inputContainer.classList.add('hero-mode');
+    }
+    const msgInput = document.getElementById('messageInput');
+    if (msgInput) {
+      msgInput.placeholder = window.i18n ? window.i18n.t('chat.heroPlaceholder') : '问点什么...';
+      msgInput.value = '';
+      msgInput.style.height = 'auto';
+    }
+    // 确保 # 按钮可见
+    const ctxBtn = document.getElementById('contextSelectorBtn');
+    if (ctxBtn) ctxBtn.style.display = '';
+    // 📷 按钮由 ChatPanel._initImageUpload() 中的 EventBus 机制动态控制（与对话模式行为一致）
     requestAnimationFrame(() => {
       const es = this.container.querySelector('.empty-state');
       if (es) {
@@ -97,6 +93,7 @@ export class ChatUI {
       if (emptyState.classList.contains('fade-out')) return;
 
       document.querySelector('.chat-panel')?.classList.add('has-messages');
+      document.getElementById('inputContainer')?.classList.remove('hero-mode');
 
       this.container.dataset.emptyTransition = 'true';
 

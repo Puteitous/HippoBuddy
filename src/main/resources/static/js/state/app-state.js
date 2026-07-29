@@ -54,7 +54,37 @@ export const AppState = {
   clearSessionInputDraft(sessionId) {
     this._sessionInputDrafts.delete(sessionId);
   },
-  
+
+  // ========== Hero 待定草稿（独立于会话，回到 hero 空态时恢复） ==========
+  _heroPendingDraft: '',
+
+  saveHeroPendingDraft(text) {
+    this._heroPendingDraft = text || '';
+  },
+
+  getHeroPendingDraft() {
+    return this._heroPendingDraft;
+  },
+
+  clearHeroPendingDraft() {
+    this._heroPendingDraft = '';
+  },
+
+  // ========== 会话级模式（每个会话独立记忆，切换时恢复） ==========
+  _sessionModes: new Map(),  // sessionId → mode 字符串
+
+  saveSessionMode(sessionId, mode) {
+    if (sessionId && mode) {
+      this._sessionModes.set(sessionId, mode);
+    }
+  },
+
+  getSessionMode(sessionId) {
+    return (sessionId && this._sessionModes.has(sessionId))
+      ? this._sessionModes.get(sessionId)
+      : this.mode;  // 无记录时返回全局模式
+  },
+
   // ========== Token 统计状态 ==========
   tokenHistory: [],
   maxTrendPoints: 30,

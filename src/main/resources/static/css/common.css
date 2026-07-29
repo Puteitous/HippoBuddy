@@ -190,7 +190,7 @@ input, textarea {
   position: relative;
 }
 
-.empty-hero-logo {
+.empty-logo {
   font-size: 56px;
   line-height: 1;
   margin-bottom: 8px;
@@ -206,25 +206,16 @@ input, textarea {
   animation: hippo-float 3s ease-in-out infinite;
 }
 
-.empty-hero-logo:hover {
+.empty-logo:hover {
   transform: scale(1.12) rotate(-4deg);
   filter: grayscale(0);
 }
 
-.empty-hero-logo:hover .hippo-char {
+.empty-logo:hover .hippo-char {
   animation-play-state: paused;
 }
 
-.empty-state:has(#heroInput:focus) .empty-hero-logo {
-  transform: scale(1.12) rotate(-4deg);
-  filter: grayscale(0);
-}
-
-.empty-state:has(#heroInput:focus) .hippo-char {
-  animation-play-state: paused;
-}
-
-.empty-hero-logo.bouncing {
+.empty-logo.bouncing {
   animation: hippo-bounce 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
 }
 
@@ -338,13 +329,13 @@ input, textarea {
   border-color: var(--border);
 }
 
-.empty-hero-heading {
+.empty-heading {
   display: flex;
   align-items: baseline;
   justify-content: center;
 }
 
-.empty-hero-title {
+.empty-title {
   font-size: 26px;
   font-weight: 700;
   color: var(--text-primary);
@@ -352,164 +343,31 @@ input, textarea {
   margin: 0;
 }
 
-.empty-hero-title .title-first,
-.empty-hero-title .title-last {
+.empty-title .title-first,
+.empty-title .title-last {
   display: inline-block;
   vertical-align: middle;
 }
 
-.empty-hero-title .title-last {
+.empty-title .title-last {
   overflow: hidden;
   white-space: nowrap;
 }
 
-.empty-hero-subtitle {
+.empty-subtitle {
   font-size: 12px;
   color: var(--text-muted);
   margin: 0 0 3px 8px;
   white-space: nowrap;
 }
 
-.empty-hero-input-area {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  position: relative;
-  width: 100%;
-  max-width: 860px;
-  margin-top: 16px;
-  background: var(--bg-white);
-  border: 0.8px solid rgba(77, 107, 153, 0.18);
-  border-radius: var(--radius-lg);
-  box-shadow: rgba(24, 24, 24, 0.04) 0px 3px 8px 0px, rgba(24, 24, 24, 0.06) 0px 6px 24px -1px;
-  min-height: 100px;
-}
-
-[data-theme="dark"] .empty-hero-input-area {
-  border-color: rgba(153, 173, 204, 0.18);
-  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 8px 0px, rgba(0, 0, 0, 0.3) 0px 6px 24px -1px;
-  background: var(--bg-app);
-}
-
-.empty-hero-input-area:focus-within {
-  border-color: rgba(77, 107, 153, 0.35);
-  box-shadow: rgba(24, 24, 24, 0.06) 0px 3px 8px 0px, rgba(24, 24, 24, 0.08) 0px 6px 24px -1px;
-}
-
-[data-theme="dark"] .empty-hero-input-area:focus-within {
-  border-color: rgba(153, 173, 204, 0.35);
-}
-
-.empty-hero-input {
-  width: 100%;
-  padding: 12px 16px 4px 16px;
-  border: none;
-  border-radius: 0;
-  font-size: var(--font-size-lg);
-  font-family: inherit;
-  background: transparent;
-  color: var(--text-primary);
-  outline: none;
-  transition: height 0.2s ease;
-  resize: none;
-  line-height: 1.6;
-  min-height: 56px;
-  max-height: 300px;
-  overflow-y: auto;
-  scroll-behavior: smooth;
-  overscroll-behavior: contain;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 3px, black calc(100% - 10px), transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 10px), transparent 100%);
-}
-
-.hero-input-wrapper {
-  display: flex;
-  flex-direction: column;
-}
-
-/* ── Hero 输入区底部操作栏 ── */
-.hero-input-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px 8px 8px;
-  user-select: none;
-  min-height: 28px;
-}
-
-.hero-input-actions-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* hero 操作栏垂直分隔线 */
-.hero-actions-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-
-
-.hero-send-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--bg-app);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-size: 16px;
-  line-height: 1;
-  overflow: hidden;
-}
-
-.hero-send-btn:hover {
-  background: var(--bg-code);
-  color: var(--text-primary);
-  transform: scale(1.05);
-}
-
-.hero-send-btn:active {
-  transform: scale(0.92);
-  transition-duration: 0.05s;
-}
-
-.hero-send-btn svg {
-  transition: transform var(--transition-fast);
-}
-
-.hero-send-btn:hover svg {
-  transform: translateY(-1px);
-}
-
-
-.empty-hero-input:focus {
-  border-color: #d1d5db;
-  box-shadow: none;
-}
-
-[data-theme="dark"] .empty-hero-input:focus {
-  border-color: #4b5563;
-}
-
 [data-theme="dark"] .hippo-bubble {
   background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.6), rgba(96,165,250,0.4) 50%, rgba(96,165,250,0.15));
 }
 
-.empty-hero-input::placeholder {
-  color: var(--text-muted);
-}
-
 /* ===== 新建会话空状态入场动画 ===== */
 
-.empty-state.animate .empty-hero-logo {
+.empty-state.animate .empty-logo {
   animation: empty-hippo-drop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
@@ -522,19 +380,14 @@ input, textarea {
   animation-delay: 0.45s;
 }
 
-.empty-state.animate .empty-hero-mode-selector {
+.empty-state.animate .empty-mode-selector {
   animation: empty-fade-up 0.5s ease both;
   animation-delay: 0.30s;
 }
 
-.empty-state.animate .empty-hero-presets {
+.empty-state.animate .empty-presets {
   animation: empty-fade-up 0.5s ease both;
   animation-delay: 0.375s;
-}
-
-.empty-state.animate .empty-hero-input-area {
-  animation: empty-fade-up 0.5s ease both;
-  animation-delay: 0.45s;
 }
 
 @keyframes empty-hippo-drop {

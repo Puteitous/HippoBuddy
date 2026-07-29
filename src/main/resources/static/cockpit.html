@@ -388,11 +388,11 @@
             </div>
             <div class="chat-container" id="chatContainer">
                 <div class="empty-state">
-                    <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
-                    <div class="empty-hero-heading">
-                        <h1 class="empty-hero-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
+                    <div class="empty-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
+                    <div class="empty-heading">
+                        <h1 class="empty-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
                     </div>
-                    <div class="empty-hero-mode-selector" id="heroModeSelector">
+                    <div class="empty-mode-selector" id="heroModeSelector">
                         <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
                             <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
                                 <svg class="mode-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
@@ -421,25 +421,7 @@
                             </button>
                         </span>
                     </div>
-                    <div class="empty-hero-presets" id="heroPresets"></div>
-                    <div class="empty-hero-input-area">
-                        <div class="hero-input-wrapper">
-                            <div class="empty-hero-input-refs" id="heroInputRefs"></div>
-                            <textarea class="empty-hero-input" id="heroInput" placeholder="问点什么..." rows="1" spellcheck="false"></textarea>
-                        </div>
-                        <div class="hero-input-actions">
-                            <div class="hero-input-actions-left" id="heroContextSelector">
-                                <span class="hero-actions-divider"></span>
-                                <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">加载中...</button>
-                            </div>
-                            <button class="hero-send-btn" id="heroSendBtn" title="发送">
-                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="8" y1="15" x2="8" y2="1"/>
-                                    <polyline points="2 7 8 1 14 7"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+                    <div class="empty-presets" id="heroPresets"></div>
                 </div>
             </div>
 
@@ -464,6 +446,17 @@
                     </div>
                     <div class="input-status-bar" id="inputStatusBar">
                         <div class="status-bar-left">
+                            <!-- Phase 1: 静态 # 按钮和 📷 按钮（初始隐藏，Phase 2 启用） -->
+                            <button class="context-selector-btn" id="contextSelectorBtn" style="display:none">
+                                <span class="context-selector-hash">#</span>
+                            </button>
+                            <button class="input-img-btn" id="inputImgBtn" style="display:none" title="上传图片" type="button">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                            </button>
                             <span class="status-bar-divider"></span>
                             <span class="status-bar-item" id="statusBarToken" data-section="token" title="Token 使用率">
                                 <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

@@ -90,7 +90,8 @@ export class ContextSelector {
   }
 
   destroy() {
-    this._btn?.remove();
+    // Phase 2: 按钮是静态 HTML，隐藏而非移除
+    if (this._btn) this._btn.style.display = 'none';
     this._panel?.remove();
     this._btn = null;
     this._panel = null;
@@ -99,10 +100,22 @@ export class ContextSelector {
   // ==================== 按钮 ====================
 
   _createButton() {
-    this._btn = document.createElement('button');
-    this._btn.className = 'context-selector-btn';
+    // Phase 2: 优先使用静态 HTML 中的按钮
+    this._btn = document.getElementById('contextSelectorBtn');
+    if (!this._btn) {
+      // 兜底：动态创建（旧路径/测试环境）
+      this._btn = document.createElement('button');
+      this._btn.className = 'context-selector-btn';
+    }
+    this._btn.style.display = '';
     this._btn.title = window.i18n.t('contextSelector.title');
     this._btn.innerHTML = this._getButtonHTML(0);
+    // 移除旧事件避免重复绑定（用新 button 替换自身来清除所有监听器）
+    const newBtn = this._btn.cloneNode(true);
+    if (this._btn.parentNode) {
+      this._btn.parentNode.replaceChild(newBtn, this._btn);
+    }
+    this._btn = newBtn;
     this._btn.addEventListener('click', () => this._togglePanel());
     this._btn.addEventListener('mouseenter', () => this._onButtonEnter());
     this._btn.addEventListener('mouseleave', () => this._onButtonLeave());
@@ -123,35 +136,9 @@ export class ContextSelector {
 
   /**
    * 返回上下文选择器的 # 按钮。
-   * 如果按钮不在文档树中（被 DOM 替换移除），自动重建并注入到当前可见的输入区。
+   * Phase 2: 按钮已是静态 HTML，始终在文档树中，无需兜底重建。
    */
   getButtonElement() {
-    if (!this._btn || !document.contains(this._btn)) {
-      console.log('[ContextSelector] # 按钮不在文档树中，触发兜底重建');
-      // 重建按钮
-      const oldBtn = this._btn;
-      this._createButton();
-      if (oldBtn && oldBtn.parentNode) oldBtn.remove();
-
-      // 注入到当前可见的输入区
-      // 注意：.status-bar-left 在 #inputContainer 中，不在 #chatContainer 内，
-      // 因此 chatUI.clear() 或 innerHTML 替换不会移除它。但在 hero 模式下它被 CSS 隐藏。
-      // 所以必须根据当前模式判断注入目标，不能始终优先选 .status-bar-left。
-      const isSession = document.querySelector('.chat-panel')?.classList.contains('has-messages');
-      if (isSession) {
-        const statusBarLeft = document.querySelector('.status-bar-left');
-        if (statusBarLeft) {
-          statusBarLeft.insertBefore(this._btn, statusBarLeft.firstChild);
-          console.log('[ContextSelector] # 按钮已注入到 .status-bar-left');
-          return;
-        }
-      }
-      const heroSlot = document.getElementById('heroContextSelector');
-      if (heroSlot?.isConnected) {
-        heroSlot.prepend(this._btn);
-        console.log('[ContextSelector] # 按钮已注入到 #heroContextSelector');
-      }
-    }
     return this._btn;
   }
 
@@ -222,11 +209,8 @@ export class ContextSelector {
     this._panel.className = 'context-selector-panel';
     this._render();
 
-    // 会话态使用 .input-inner（可见），hero 态使用 .empty-hero-input-area（可见）
-    const inputInner = document.querySelector('.input-inner');
-    const parent = (inputInner && inputInner.offsetParent)
-      ? inputInner
-      : document.querySelector('.empty-hero-input-area') || document.body;
+    // Phase 2: 统一使用 .input-inner（hero 和 session 都使用 #inputContainer）
+    const parent = document.querySelector('.input-inner') || document.body;
     parent.appendChild(this._panel);
     this._positionPanel();
 

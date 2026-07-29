@@ -234,6 +234,8 @@ function init() {
     appState.currentSessionId = currentSessionId;
     sessionManager.loadSessions().then(() => updateHistoryDropdown?.());
     updateChatPanelTitle(currentSessionId);
+    _switchToHeroMode();
+    chatPanel._renderPresets('coding');
   })();
   
   // 11. 启动自动更新
@@ -422,21 +424,8 @@ function bindGlobalEvents() {
   
   // 工作区清除由 workspace-manager.js 处理，此处不再重复绑定
 
-  // 实时保存 hero 界面输入（通过事件委托，因为 heroInput 会动态创建和销毁）
-  chatContainer.addEventListener('input', (e) => {
-    if (e.target.id === 'heroInput') {
-      appState.heroDraft = e.target.value;
-    }
-  });
-
-  // hero 模型选择按钮（独立实例，与底部互不干扰）
-  chatContainer.addEventListener('click', (e) => {
-    const heroTrigger = e.target.closest('#heroModelQuickSelect');
-    if (heroTrigger && heroModelDropdown) {
-      e.preventDefault();
-      heroModelDropdown.toggle();
-    }
-  });
+  // Phase 2: 输入草稿由 createNewSession/switchSession 统一管理，无需单独监听 heroInput
+  // Phase 2: 模型选择已统一使用底部 #modelQuickSelect
   
   // 聊天面板头部 - 历史会话下拉点击外部关闭
   document.addEventListener('click', (e) => {
@@ -691,30 +680,68 @@ function updateHistoryDropdown() {
   listEl.appendChild(fragment);
 }
 
+// ── Phase 2: 模式切换辅助函数 ─────────────────────
+
+/** 切换到 hero 空态模式：启用 #inputContainer.hero-mode，设置占位符 */
+function _switchToHeroMode() {
+  const inputContainer = document.getElementById('inputContainer');
+  if (inputContainer) inputContainer.classList.add('hero-mode');
+  const msgInput = document.getElementById('messageInput');
+  if (msgInput) {
+    msgInput.placeholder = i18n.t('chat.heroPlaceholder');
+    msgInput.value = '';
+    msgInput.style.height = 'auto';
+  }
+  // 确保静态按钮可见
+  const ctxBtn = document.getElementById('contextSelectorBtn');
+  if (ctxBtn) ctxBtn.style.display = '';
+  const imgBtn = document.getElementById('inputImgBtn');
+  if (imgBtn) imgBtn.style.display = '';
+}
+
+/** 切换到 session 模式：关闭 #inputContainer.hero-mode */
+function _switchToSessionMode() {
+  const inputContainer = document.getElementById('inputContainer');
+  if (inputContainer) inputContainer.classList.remove('hero-mode');
+  const msgInput = document.getElementById('messageInput');
+  if (msgInput) {
+    msgInput.placeholder = i18n.t('chat.placeholder');
+  }
+}
+
 // ========== 会话管理 ==========
 async function createNewSession() {
   // 刷新后 hero 被 skip-hero-style 隐藏了，新建会话时恢复
   document.getElementById('skip-hero-style')?.remove();
 
+  // 保存当前 hero 输入内容（在 chatUI.clear 之前）
+  const msgInput = document.getElementById('messageInput');
+  const isInChatMode = !!document.querySelector('.chat-panel.has-messages');
+  
+  // 在 hero 空态时将输入同步保存为"待定草稿"，切到聊天模式再回来也能恢复
+  if (msgInput && !isInChatMode) {
+    appState.saveHeroPendingDraft(msgInput.value);
+  }
+  
+  // 从聊天模式点击新建会话时，恢复上次的 hero 待定草稿而非取当前输入框（那是历史会话的内容）
+  const savedDraft = msgInput && !isInChatMode ? msgInput.value : appState.getHeroPendingDraft();
+
   currentSessionId = await sessionManager.createNewSession();
   appState.currentSessionId = currentSessionId; // 同步到 appState
   chatUI.clear();
-  chatPanel?.reInjectContextSelector();
-  refreshHeroModelDropdown();
+  _switchToHeroMode();
+  // 渲染默认模式（coding）的预设提示词
+  chatPanel._renderPresets('coding');
 
-  // 恢复 hero 输入内容（appState.heroDraft 由 input 事件实时保存）
-  if (appState.heroDraft) {
-    requestAnimationFrame(() => {
-      const newHeroInput = document.getElementById('heroInput');
-      if (newHeroInput) {
-        newHeroInput.value = appState.heroDraft;
-      }
-    });
+  // 恢复 hero 输入内容 — 直接持久化到草稿 Map 并恢复，避免 rAF 竞态
+  if (savedDraft) {
+    appState.saveSessionInputDraft(currentSessionId, savedDraft);
   }
-
+  // ✨ 为新会话记录当前模式
+  appState.saveSessionMode(currentSessionId, appState.mode);
   if (elements.messageInput) {
-    elements.messageInput.value = '';
-    elements.messageInput.style.height = 'auto';
+    elements.messageInput.value = savedDraft;
+    elements.messageInput.style.height = savedDraft ? elements.messageInput.scrollHeight + 'px' : 'auto';
     elements.messageInput.focus();
   }
   try { localStorage.setItem('hippo-last-session-id', currentSessionId); } catch(e) {}
@@ -733,9 +760,17 @@ async function createNewSession() {
 async function switchSession(sessionId) {
   if (sessionId === currentSessionId) return;
   
-  // ✨ 保存当前会话的输入草稿（在 currentSessionId 被覆盖之前）
+  // ✨ 保存当前会话的输入草稿 + 模式（在 currentSessionId 被覆盖之前）
   if (currentSessionId && elements.messageInput) {
-    appState.saveSessionInputDraft(currentSessionId, elements.messageInput.value);
+    const text = elements.messageInput.value;
+    appState.saveSessionInputDraft(currentSessionId, text);
+    // 如果当前在 hero 空态，同步保存待定草稿，方便后续回到 hero 界面时恢复
+    if (!document.querySelector('.chat-panel.has-messages')) {
+      appState.saveHeroPendingDraft(text);
+    }
+  }
+  if (currentSessionId) {
+    appState.saveSessionMode(currentSessionId, appState.mode);
   }
   
   // 清理残留的回滚面板
@@ -759,11 +794,11 @@ async function switchSession(sessionId) {
       chatContainer.classList.remove('switching');
       chatContainer.innerHTML = `
         <div class="empty-state">
-          <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
-          <div class="empty-hero-heading">
-            <h1 class="empty-hero-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
+          <div class="empty-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
+          <div class="empty-heading">
+            <h1 class="empty-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
           </div>
-          <div class="empty-hero-mode-selector" id="heroModeSelector">
+          <div class="empty-mode-selector" id="heroModeSelector">
             <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
               <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
                 <svg class="mode-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
@@ -792,30 +827,10 @@ async function switchSession(sessionId) {
               </button>
             </span>
           </div>
-          <div class="empty-hero-presets" id="heroPresets"></div>
-          <div class="empty-hero-input-area">
-            <div class="hero-input-wrapper">
-              <div class="empty-hero-input-refs" id="heroInputRefs"></div>
-              <div class="input-img-preview" id="heroImgPreview" style="display:none"></div>
-              <textarea class="empty-hero-input" id="heroInput" placeholder="${i18n.t('chat.heroPlaceholder')}" rows="1" spellcheck="false"></textarea>
-            </div>
-            <div class="hero-input-actions">
-              <div class="hero-input-actions-left" id="heroContextSelector">
-                <span class="hero-actions-divider"></span>
-                <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">${i18n.t('chat.loading')}</button>
-              </div>
-              <button class="hero-send-btn" id="heroSendBtn" title="${i18n.t('chat.sendMessage')}">
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="8" y1="15" x2="8" y2="1"/>
-                  <polyline points="2 7 8 1 14 7"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div>${i18n.t('chat.enterHint')}</div>
+          <div class="empty-presets" id="heroPresets"></div>
         </div>`;
-      chatPanel?.reInjectContextSelector();
-      refreshHeroModelDropdown();
+      _switchToHeroMode();
+      chatPanel._renderPresets('coding');
       // ✨ 恢复该会话的输入草稿
       if (elements.messageInput) {
         const draft = appState.getSessionInputDraft(sessionId);
@@ -832,7 +847,7 @@ async function switchSession(sessionId) {
         chatContainer.querySelectorAll('.message-row.animate-in').forEach(el => el.classList.remove('animate-in'));
       });
       document.querySelector('.chat-panel')?.classList.add('has-messages');
-      chatPanel?.reInjectContextSelector();
+      _switchToSessionMode();
       // ✨ 恢复该会话的输入草稿
       if (elements.messageInput) {
         const draft = appState.getSessionInputDraft(sessionId);
@@ -842,6 +857,13 @@ async function switchSession(sessionId) {
           elements.messageInput.style.height = elements.messageInput.scrollHeight + 'px';
         }
       }
+    }
+    
+    // ✨ 恢复该会话的模式（切换全局 mode + 同步 UI）
+    const sessionMode = appState.getSessionMode(sessionId);
+    if (sessionMode && sessionMode !== appState.mode) {
+      appState.setMode(sessionMode);
+      chatPanel._syncModeUI(sessionMode);
     }
     
     // 保存为上次活跃会话
@@ -864,11 +886,11 @@ async function switchSession(sessionId) {
     updateChatPanelTitle(sessionId);
     chatContainer.innerHTML = `
       <div class="empty-state">
-        <div class="empty-hero-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
-        <div class="empty-hero-heading">
-          <h1 class="empty-hero-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
+        <div class="empty-logo"><span class="hippo-char"><svg viewBox="0 0 64 64" width="56" height="56"><use href="#hippoIcon"/></svg></span></div>
+        <div class="empty-heading">
+          <h1 class="empty-title"><span class="title-first">HippoBuddy,</span> <span class="title-last">Let's Code!</span></h1>
         </div>
-        <div class="empty-hero-mode-selector" id="heroModeSelector">
+        <div class="empty-mode-selector" id="heroModeSelector">
           <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
             <button class="mode-btn" data-mode="chat" title="Chat Mode — Read-only exploration">
               <svg class="mode-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
@@ -897,29 +919,10 @@ async function switchSession(sessionId) {
             </button>
           </span>
         </div>
-        <div class="empty-hero-presets" id="heroPresets"></div>
-        <div class="empty-hero-input-area">
-          <div class="hero-input-wrapper">
-            <div class="empty-hero-input-refs" id="heroInputRefs"></div>
-            <div class="input-img-preview" id="heroImgPreview" style="display:none"></div>
-            <textarea class="empty-hero-input" id="heroInput" placeholder="${i18n.t('chat.heroPlaceholder')}" rows="1" spellcheck="false"></textarea>
-          </div>
-          <div class="hero-input-actions">
-            <div class="hero-input-actions-left" id="heroContextSelector">
-              <span class="hero-actions-divider"></span>
-              <button class="dd-trigger model-dropdown-trigger" id="heroModelQuickSelect">${i18n.t('chat.loading')}</button>
-            </div>
-            <button class="hero-send-btn" id="heroSendBtn" title="${i18n.t('chat.sendMessage')}">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="8" y1="15" x2="8" y2="1"/>
-              <polyline points="2 7 8 1 14 7"/>
-            </svg>
-          </button>
-          </div>
-        </div>
-    </div>`;
-    chatPanel?.reInjectContextSelector();
-    refreshHeroModelDropdown();
+        <div class="empty-presets" id="heroPresets"></div>
+      </div>`;
+    _switchToHeroMode();
+    chatPanel._renderPresets('coding');
   }
   
   requestAnimationFrame(() => {
@@ -1279,13 +1282,12 @@ function saveModelConfigToCache(data) {
   }
 }
 
-/** 用数据更新下拉框（底部 + hero 各一个独立实例） */
+/** 用数据更新下拉框 */
 function applyModelConfigToDropdown(data) {
   const provider = data.provider || '';
   const model = data.model || '';
   const currentCombo = provider + ':' + model;
   const items = buildModelDropdownItems(data);
-  const heroTrigger = document.getElementById('heroModelQuickSelect');
 
   // 共享的选中回调
   const onSelect = (item) => {
@@ -1304,7 +1306,7 @@ function applyModelConfigToDropdown(data) {
     }
   };
 
-  // 底部栏实例
+  // 底部栏实例（Phase 2: 统一使用 #modelQuickSelect）
   if (!modelDropdown) {
     if (!modelQuickSelectTrigger) return;
     modelDropdown = new CustomDropdown({
@@ -1318,34 +1320,11 @@ function applyModelConfigToDropdown(data) {
     modelDropdown.setItems(items);
     modelDropdown.setSelectedValue(provider && model ? currentCombo : '');
   }
-
-  // hero 实例
-  if (!heroModelDropdown) {
-    if (!heroTrigger) return;
-    heroModelDropdown = new CustomDropdown({
-      trigger: heroTrigger,
-      items,
-      selectedValue: provider && model ? currentCombo : '',
-      onSelect,
-    });
-  } else {
-    heroModelDropdown.setItems(items);
-    heroModelDropdown.setSelectedValue(provider && model ? currentCombo : '');
-  }
 }
 
 const ADD_MODEL_VALUE = '__add_model__';
 const modelQuickSelectTrigger = document.getElementById('modelQuickSelect');
 let modelDropdown = null;
-let heroModelDropdown = null;
-
-/** hero 界面重建后，刷新 heroModelDropdown 的 trigger 引用 */
-function refreshHeroModelDropdown() {
-  const heroTrigger = document.getElementById('heroModelQuickSelect');
-  if (heroTrigger && heroModelDropdown) {
-    heroModelDropdown.setTrigger(heroTrigger);
-  }
-}
 
 /** 构建下拉选项列表 */
 function buildModelDropdownItems(data) {
