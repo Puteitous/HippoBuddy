@@ -548,6 +548,27 @@ export class FilePreview {
     }
   }
 
+  /**
+   * 清除指定文件的滚动位置记录（关闭标签时调用）
+   * 从内存 Map 和 localStorage 中同时移除，确保重新打开文件时从顶部开始
+   * @param {string} filePath
+   */
+  clearScrollPosition(filePath) {
+    if (!filePath) return;
+    this._scrollPositions.delete(filePath);
+    // 同步更新 localStorage
+    try {
+      const raw = localStorage.getItem(this._SCROLL_KEY);
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      if (filePath in obj) {
+        delete obj[filePath];
+        localStorage.setItem(this._SCROLL_KEY, JSON.stringify(obj));
+      }
+    } catch (e) {
+    }
+  }
+
   // ==================== CodeMirror ====================
 
   _initEditor(content, filePath) {

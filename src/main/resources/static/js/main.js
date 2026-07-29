@@ -11,7 +11,7 @@ import { appState } from './state/app-state.js';
 import { ChatService } from './chat-service.js';
 import { ChatUI } from './chat-ui.js';
 import { SessionManager } from './session-manager.js';
-import { ChatPanel } from './components/ChatPanel.js';
+import { ChatPanel } from './components/chat-panel/ChatPanel.js';
 import { ChatNav } from './components/ChatNav.js';
 import { TokenMonitor } from './components/TokenMonitor.js';
 import { MetricsPanel } from './components/MetricsPanel.js';

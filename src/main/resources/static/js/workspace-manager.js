@@ -726,6 +726,8 @@ tools:
     if (fileTabs.count === 0) {
       hidePreview();
     }
+    // 关闭标签时清除该文件的滚动位置记忆，重新打开时从顶部开始
+    filePreview.clearScrollPosition(filePath);
     // 关闭标签后持久化标签页状态
     _saveWorkspaceSession();
   }
