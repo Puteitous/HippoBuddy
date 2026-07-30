@@ -477,6 +477,10 @@ public class ConversationService {
             }
             
             if (message.isUser()) {
+                logger.debug("addMessage: user message to transcript, multimodal={}, contentLength={}, contentPreview={}",
+                    message.isMultimodal(),
+                    message.getContent() != null ? message.getContent().length() : 0,
+                    message.getContent() != null ? message.getContent().substring(0, Math.min(message.getContent().length(), 50)) : "null");
                 components.transcript.appendUserMessage(message);
             } else if (message.isAssistant()) {
                 components.transcript.appendAssistantMessage(message, conversation.getLastKnownUsage());

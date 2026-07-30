@@ -347,7 +347,7 @@
 }
 
 .settings-model-list {
-    max-height: 320px;
+    max-height: 480px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;

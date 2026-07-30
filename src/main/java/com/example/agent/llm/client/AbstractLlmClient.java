@@ -304,6 +304,12 @@ public abstract class AbstractLlmClient implements LlmClient {
         long startMs = System.currentTimeMillis();
         try {
             String requestBody = objectMapper.writeValueAsString(request);
+            
+            if (requestBody.contains("image_url")) {
+                logger.info("[Stream] Request contains image, model={}, bodySize={} bytes",
+                    getModel(), requestBody.length());
+            }
+            
             String url = buildUrl(getBaseUrl(), getChatCompletionsPath());
             
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
@@ -739,6 +745,12 @@ public abstract class AbstractLlmClient implements LlmClient {
     protected ChatResponse doExecuteRequest(ChatRequest request) throws LlmException {
         try {
             String requestBody = objectMapper.writeValueAsString(request);
+            
+            if (requestBody.contains("image_url")) {
+                logger.info("[NonStream] Request contains image, model={}, bodySize={} bytes",
+                    getModel(), requestBody.length());
+            }
+            
             String url = buildUrl(getBaseUrl(), getChatCompletionsPath());
             
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()

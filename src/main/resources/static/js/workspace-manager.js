@@ -691,7 +691,8 @@ tools:
     const displayName = filePath.split('/').pop() || filePath;
     await fileTabs.openTab(filePath, displayName);
     await fileTree.revealFile(filePath);
-    showPreview(filePath);
+    // 注意：openTab → _selectTab → handleTabSelect 内部已调用 showPreview，
+    // 此处不再重复调用，避免竞态条件导致滚动位置错误恢复到其他文件的位置
     // 打开文件后持久化标签页状态
     _saveWorkspaceSession();
   }

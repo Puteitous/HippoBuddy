@@ -393,6 +393,15 @@ export class ChatPanel {
     container.appendChild(input);
   }
 
+  /**
+   * 渲染当前模式的预设提示词标签
+   * 委托给 modePresets 处理
+   * @param {string} mode 模式名称（chat/office/coding）
+   */
+  _renderPresets(mode) {
+    this.modePresets.renderPresets(mode);
+  }
+
   /** 更新 # 和 📷 按钮状态（Phase 2: 按钮已是静态，只需更新显隐） */
   _injectContextSelectorButton() {
     if (!this._contextSelector) return;
@@ -458,13 +467,15 @@ export class ChatPanel {
       this.elements.messageInput.style.height = 'auto';
     }
     
-    this.refChips.clearRefs();
     this._contextSelector.clearSelection();
     
     // 收集待发送的图片（需在 this.lastUserMessage 前定义 images）
     const pendingImages = this.imageUpload._pendingImages.slice();
     this.imageUpload.clearPending();
     const images = pendingImages.map(img => img.dataUrl);
+    
+    // 收集完图片后再清空引用卡片（避免 clearRefs 误清 _pendingImages）
+    this.refChips.clearRefs();
     
     this.lastUserMessage = content || (images.length > 0 ? '[图片]' : '');
     EventBus.emit('session:auto-name', { sessionId: appState.currentSessionId });
@@ -475,7 +486,7 @@ export class ChatPanel {
     const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     this._lastUserMessageId = tempId;
     const displayContent = content || (images.length > 0 ? '📷 发送了 ' + images.length + ' 张图片' : '');
-    const { msgDiv } = this.chatUI.appendUserMessage(displayContent, tempId, true);
+    const { msgDiv } = this.chatUI.appendUserMessage(displayContent, tempId, true, images);
     this._lastUserMsgDiv = msgDiv;
 
     // hero 已被移除，将上下文选择器注入到底部状态栏
@@ -534,10 +545,6 @@ export class ChatPanel {
     this.isCompleted = true;
     this.setSendingState(false);
     this.currentAbortController = null;
-    
-    if (this.elements.messageInput) {
-      this.elements.messageInput.focus();
-    }
     
     EventBus.emit('message:sent');
   }

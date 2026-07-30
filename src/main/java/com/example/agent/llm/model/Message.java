@@ -1,5 +1,6 @@
 package com.example.agent.llm.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -177,6 +178,7 @@ public class Message {
      *
      * @return 文本内容，不会为 null
      */
+    @JsonIgnore
     public String getContent() {
         if (content instanceof String) {
             return (String) content;
@@ -201,6 +203,25 @@ public class Message {
     }
 
     /**
+     * 用于 Jackson 序列化的 content 字段。
+     * <p>
+     * 纯文本消息返回 String，多模态消息返回 ContentPart 数组。
+     * 这样发往 LLM API 时 content 字段格式正确：
+     * <ul>
+     *   <li>纯文本: {@code "content": "hello"}</li>
+     *   <li>多模态: {@code "content": [{"type":"text","text":"..."},{"type":"image_url",...}]}</li>
+     * </ul>
+     * </p>
+     */
+    @JsonProperty("content")
+    public Object getContentForSerialization() {
+        if (content instanceof List) {
+            return content; // Jackson 会序列化为 JSON 数组
+        }
+        return getContent(); // 纯文本，返回 String
+    }
+
+    /**
      * 获取多模态内容片段列表。
      * <p>
      * 如果消息是纯文本（非多模态），返回 {@code null}。
@@ -209,6 +230,7 @@ public class Message {
      *
      * @return 内容片段列表，或 null（纯文本消息）
      */
+    @JsonIgnore
     @SuppressWarnings("unchecked")
     public List<ContentPart> getContentParts() {
         if (content instanceof List) {

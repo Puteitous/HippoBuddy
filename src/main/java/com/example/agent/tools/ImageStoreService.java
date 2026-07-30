@@ -154,9 +154,13 @@ public class ImageStoreService {
 
     /**
      * 将 file:// 路径转为前端可访问的 HTTP URL。
+     * <p>
+     * 返回的 HTTP URL 使用 {@code hippoRoot} 的绝对路径拼接，确保
+     * {@link com.example.agent.web.handler.RawFileHandler} 在任何工作目录下都能正确解析。
+     * </p>
      *
      * @param fileUri file:// 路径
-     * @return HTTP 路径（如 {@code /api/files/raw?path=.hippo/images/abc123.png}），或原始 URI（如已是 data: URI）
+     * @return HTTP 路径（如 {@code /api/file/raw?path=/abs/path/to/.hippo/images/abc.png}），或原始 URI（如已是 data: URI）
      */
     public String toHttpUrl(String fileUri) {
         if (fileUri == null || fileUri.isEmpty()) {
@@ -169,7 +173,10 @@ public class ImageStoreService {
         Matcher matcher = FILE_URI_PATTERN.matcher(fileUri);
         if (matcher.matches()) {
             String relativePath = matcher.group(1);
-            return "/api/files/raw?path=" + relativePath;
+            // 使用绝对路径，确保 RawFileHandler 在任何 CWD 下都能找到
+            Path hippoRoot = WorkspaceManager.getHippoRoot();
+            String absolutePath = hippoRoot.resolve(relativePath).normalize().toAbsolutePath().toString().replace("\\", "/");
+            return "/api/file/raw?path=" + absolutePath;
         }
         return fileUri;
     }
@@ -212,14 +219,20 @@ public class ImageStoreService {
     }
 
     private String toFileUri(Path imageFile) {
-        return "file://" + imagesDir.relativize(imageFile).toString().replace("\\", "/");
+        // 相对于 .hippo 根目录的路径：file://images/{filename}
+        // 注意：不含 .hippo 前缀，因为 .hippo 本身是 hippoRoot
+        Path hippoRoot = WorkspaceManager.getHippoRoot();
+        String relative = hippoRoot.relativize(imageFile).toString().replace("\\", "/");
+        return "file://" + relative;
     }
 
     private Path resolveFileUri(String fileUri) {
         Matcher matcher = FILE_URI_PATTERN.matcher(fileUri);
         if (matcher.matches()) {
             String relativePath = matcher.group(1);
-            return imagesDir.resolve(relativePath).normalize();
+            // 从 .hippo 根目录解析
+            Path hippoRoot = WorkspaceManager.getHippoRoot();
+            return hippoRoot.resolve(relativePath).normalize();
         }
         return null;
     }

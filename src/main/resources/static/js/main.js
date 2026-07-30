@@ -236,6 +236,15 @@ function init() {
     updateChatPanelTitle(currentSessionId);
     _switchToHeroMode();
     chatPanel._renderPresets('coding');
+
+    // ✨ 刷新后触发空状态入场动画
+    requestAnimationFrame(() => {
+      const es = chatContainer?.querySelector('.empty-state');
+      if (es) {
+        es.classList.add('animate');
+        setTimeout(() => es.classList.remove('animate'), 1000);
+      }
+    });
   })();
   
   // 11. 启动自动更新
@@ -696,11 +705,10 @@ function _switchToHeroMode() {
     msgInput.value = '';
     msgInput.style.height = 'auto';
   }
-  // 确保静态按钮可见
+  // 确保 # 静态按钮可见
   const ctxBtn = document.getElementById('contextSelectorBtn');
   if (ctxBtn) ctxBtn.style.display = '';
-  const imgBtn = document.getElementById('inputImgBtn');
-  if (imgBtn) imgBtn.style.display = '';
+  // 📷 按钮由 ImageUpload.updateBtnVisibility() 根据模型视觉能力动态控制，此处不干涉
 }
 
 /** 切换到 session 模式：关闭 #inputContainer.hero-mode */

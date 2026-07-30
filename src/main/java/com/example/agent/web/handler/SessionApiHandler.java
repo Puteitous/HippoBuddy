@@ -6,12 +6,10 @@ import com.example.agent.context.ManualCompactor;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
-import com.example.agent.llm.model.Message;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.service.TitleGenerationService;
 import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.web.util.ConversationJsonlReader;
-import com.example.agent.web.util.MessageConverter;
 import com.example.agent.web.util.SessionListBuilder;
 import com.example.agent.web.util.TokenStatsResponseBuilder;
 import com.example.agent.web.session.WebSessionManager;
@@ -37,7 +35,6 @@ public class SessionApiHandler implements HttpHandler {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final ConversationJsonlReader jsonlReader = new ConversationJsonlReader(objectMapper);
     private static final SessionListBuilder sessionListBuilder = new SessionListBuilder(jsonlReader);
-    private static final MessageConverter messageConverter = new MessageConverter();
     private static final TokenStatsResponseBuilder tokenStatsResponseBuilder = new TokenStatsResponseBuilder();
     private static final SessionRewindHandler rewindHandler = new SessionRewindHandler();
 
@@ -119,15 +116,10 @@ public class SessionApiHandler implements HttpHandler {
         FileChangeTracker.clearSessionChanges();
         FileChangeTracker.loadSessionChanges(sessionId);
 
-        Map<String, Conversation> activeSessions = com.example.agent.web.session.WebSessionManager.getInstance().getSessions();
-        Conversation conversation = activeSessions.get(sessionId);
-
-        if (conversation != null) {
-            List<Map<String, Object>> messages = extractMessages(conversation.getMessages());
-            sendJson(exchange, messages);
-            return;
-        }
-
+        // 始终从 JSONL 文件读取，不依赖内存中被 detectAndFixInterruption 修改过的 Message 对象。
+        // 内存中的 Conversation 在 resumeConversation() 时可能被 detectAndFixInterruption() 修改
+        // （如清空最后一条 assistant 的 toolCalls、追加 [会话中断] 标记），
+        // 导致 F5 刷新后前端渲染异常（tool timeline 全部显示 cancelled、LLM 文本内容丢失）。
         Path jsonl = jsonlReader.findJsonlFile(sessionId);
         if (jsonl != null) {
             List<Map<String, Object>> messages = jsonlReader.readMessages(jsonl);
@@ -136,10 +128,6 @@ public class SessionApiHandler implements HttpHandler {
         }
 
         sendJson(exchange, List.of());
-    }
-
-    private List<Map<String, Object>> extractMessages(List<Message> msgList) {
-        return messageConverter.convertMessages(msgList);
     }
 
     private void handleDeleteSession(HttpExchange exchange, String sessionId) throws IOException {

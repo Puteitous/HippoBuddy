@@ -139,6 +139,8 @@ public class ChatApiHandler implements HttpHandler {
                     }
                 }
             }
+            logger.info("收到聊天请求: session={}, messageLength={}, images={}, editMessageId={}", 
+                sessionId, userMessage.length(), images.size(), editMessageId != null);
 
             if (userMessage.isEmpty() && images.isEmpty()) {
                 sseWriter.sendSseEvent("error", "{\"message\":\"消息不能为空\"}");
@@ -271,8 +273,11 @@ public class ChatApiHandler implements HttpHandler {
 
         // 纯文本消息，走原有逻辑
         if (images == null || images.isEmpty()) {
+            logger.info("createUserMessage: 纯文本消息（无图片）, text={}", text);
             return conversationService.addUserMessage(conversation, text);
         }
+
+        logger.info("createUserMessage: 多模态消息, images={}, text={}", images.size(), text);
 
         // 多模态消息：保存图片并构建 ContentPart 数组
         ImageStoreService imageStore = new ImageStoreService();

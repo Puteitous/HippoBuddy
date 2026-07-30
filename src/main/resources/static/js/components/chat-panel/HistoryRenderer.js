@@ -51,7 +51,22 @@ export class HistoryRenderer {
       }
 
       if (msg.role === 'user') {
-        messageRows.push({ type: 'user', content: msg.content, id: msg.id });
+        // 多模态消息：提取文本和图片
+        let text = msg.content;
+        let images = [];
+        if (Array.isArray(msg.content)) {
+          text = '';
+          images = [];
+          for (const part of msg.content) {
+            if (part.type === 'text') {
+              text += part.text || '';
+            } else if (part.type === 'image_url') {
+              const url = part.image_url?.url;
+              if (url) images.push(url);
+            }
+          }
+        }
+        messageRows.push({ type: 'user', content: text, id: msg.id, images });
         i++;
         continue;
       }
@@ -220,6 +235,24 @@ export class HistoryRenderer {
                 refsBar.appendChild(cp.chatUI._createRefChip(ref, true));
               });
               userMsgDiv.appendChild(refsBar);
+            }
+
+            // 图片展示区域（历史消息中的多模态图片）
+            if (row.images && row.images.length > 0) {
+              const imgGallery = document.createElement('div');
+              imgGallery.className = 'message-user-images';
+              row.images.forEach(imgUrl => {
+                const imgItem = document.createElement('div');
+                imgItem.className = 'message-user-image-item';
+                const imgEl = document.createElement('img');
+                imgEl.src = imgUrl;
+                imgEl.loading = 'lazy';
+                imgEl.alt = '用户上传图片';
+                imgEl.draggable = false;
+                imgItem.appendChild(imgEl);
+                imgGallery.appendChild(imgItem);
+              });
+              userMsgDiv.appendChild(imgGallery);
             }
 
             const userContentDiv = document.createElement('div');

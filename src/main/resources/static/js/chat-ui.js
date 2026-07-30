@@ -119,7 +119,7 @@ export class ChatUI {
     }
   }
 
-  appendUserMessage(content, messageId, animate = true) {
+  appendUserMessage(content, messageId, animate = true, images = []) {
     this.removeEmptyState();
     const row = document.createElement('div');
     row.className = 'message-row user-row';
@@ -140,6 +140,24 @@ export class ChatUI {
     }
 
     const displayContent = remainingContent ?? content;
+
+    // 图片展示区域（位于文本内容上方）
+    if (images && images.length > 0) {
+      const imgGallery = document.createElement('div');
+      imgGallery.className = 'message-user-images';
+      images.forEach(img => {
+        const imgItem = document.createElement('div');
+        imgItem.className = 'message-user-image-item';
+        const imgEl = document.createElement('img');
+        imgEl.src = img;
+        imgEl.loading = 'lazy';
+        imgEl.alt = '用户上传图片';
+        imgEl.draggable = false;
+        imgItem.appendChild(imgEl);
+        imgGallery.appendChild(imgItem);
+      });
+      msgDiv.appendChild(imgGallery);
+    }
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';

@@ -74,14 +74,26 @@ public class ConversationJsonlReader {
                     String type = node.path("type").asText("");
                     JsonNode msgNode = node.path("message");
                     String role = msgNode.path("role").asText("");
-                    String content = msgNode.path("content").asText("");
+                    JsonNode contentNode = msgNode.path("content");
+
+                    // 多模态消息：content 可能是数组 [{type:"text",...},{type:"image_url",...}]
+                    Object content;
+                    boolean isMultimodal = contentNode.isArray();
+                    if (isMultimodal) {
+                        content = convertMultimodalContent(contentNode);
+                    } else {
+                        content = contentNode.asText("");
+                    }
+                    String contentStr = content instanceof String ? (String) content : "";
 
                     if ("system".equals(role) || "system".equals(type)) return;
                     if (!"user".equals(role) && !"assistant".equals(role) && !"tool".equals(role) && !"tool-result".equals(type)) return;
 
                     boolean hasToolCalls = "assistant".equals(role) && msgNode.has("tool_calls");
                     boolean hasReasoning = msgNode.has("reasoning_content") && !msgNode.path("reasoning_content").asText().isBlank();
-                    if (content.isBlank() && !"tool-result".equals(type) && !hasToolCalls && !hasReasoning) return;
+                    // 多模态消息（content 为非空数组）不应被跳过
+                    boolean hasMultimodalContent = isMultimodal && content instanceof List && !((List<?>) content).isEmpty();
+                    if (contentStr.isBlank() && !hasMultimodalContent && !"tool-result".equals(type) && !hasToolCalls && !hasReasoning) return;
 
                     Map<String, Object> msgMap = new HashMap<>();
                     msgMap.put("id", msgNode.path("id").asText(""));
@@ -116,8 +128,8 @@ public class ConversationJsonlReader {
                             success = msgNode.path("tool_success").asBoolean(true);
                         } else if (msgNode.has("isError")) {
                             success = !msgNode.path("isError").asBoolean();
-                        } else if (content != null && !content.isBlank()) {
-                            String lowerContent = content.toLowerCase();
+                        } else if (!contentStr.isBlank()) {
+                            String lowerContent = contentStr.toLowerCase();
                             if (lowerContent.contains("错误:") ||
                                 lowerContent.contains("error:") ||
                                 lowerContent.contains("失败") ||
@@ -140,6 +152,64 @@ public class ConversationJsonlReader {
             logger.warn("读取 JSONL 失败: {}", jsonl, e);
         }
         return messages;
+    }
+
+    /**
+     * 将多模态 content 的 JSON 数组节点转为前端可用的 List&lt;Map&gt;。
+     * <p>
+     * JSONL 中存储的 content 格式：
+     * <pre>{@code
+     * [{"type":"text","text":"描述下图片"},
+     *  {"type":"image_url","image_url":{"url":"file://.hippo/images/abc123.png"}}]
+     * }</pre>
+     * 转换后 image_url 的 url 从 file:// 转为 HTTP URL。
+     * </p>
+     */
+    private List<Map<String, Object>> convertMultimodalContent(JsonNode contentNode) {
+        List<Map<String, Object>> parts = new ArrayList<>();
+        if (contentNode == null || !contentNode.isArray()) return parts;
+
+        for (JsonNode item : contentNode) {
+            String type = item.path("type").asText("");
+            Map<String, Object> part = new HashMap<>();
+            part.put("type", type);
+
+            if ("text".equals(type)) {
+                part.put("text", item.path("text").asText(""));
+            } else if ("image_url".equals(type)) {
+                // JSONL 中可能有两种格式：
+                //   1. 嵌套格式: {"type":"image_url","image_url":{"url":"file://..."}}  (OpenAI 格式，前端渲染用)
+                //   2. 扁平格式: {"type":"image_url","url":"file://..."}  (Jackson @JsonAnyGetter 序列化的 JSONL 格式)
+                String url;
+                JsonNode imageUrlNode = item.path("image_url");
+                if (!imageUrlNode.isMissingNode()) {
+                    url = imageUrlNode.path("url").asText("");
+                } else {
+                    url = item.path("url").asText("");
+                }
+                // 将 file:// 路径转为前端可访问的 HTTP URL（使用绝对路径）
+                if (url != null && url.startsWith("file://")) {
+                    String relativePath = url.substring(7);
+                    Path hippoRoot = WorkspaceManager.getHippoRoot();
+                    // 兼容旧格式：file://{filename}（相对于 imagesDir） vs 新格式：file://images/{filename}（相对于 hippoRoot）
+                    Path resolved;
+                    if (relativePath.contains("/")) {
+                        // 新格式：包含目录前缀，相对于 hippoRoot 解析
+                        resolved = hippoRoot.resolve(relativePath);
+                    } else {
+                        // 旧格式：只有文件名，相对于 imagesDir 解析
+                        resolved = hippoRoot.resolve("images").resolve(relativePath);
+                    }
+                    url = resolved.normalize().toAbsolutePath().toString().replace("\\", "/");
+                    url = "/api/file/raw?path=" + url;
+                }
+                Map<String, Object> urlObj = new HashMap<>();
+                urlObj.put("url", url);
+                part.put("image_url", urlObj);
+            }
+            parts.add(part);
+        }
+        return parts;
     }
 
     public String extractFirstUserMessage(Path jsonl) {

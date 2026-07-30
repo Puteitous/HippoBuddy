@@ -692,6 +692,43 @@
     display: none;
 }
 
+/* ── 用户消息图片展示 ──────────────────────── */
+.message-user-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 0 8px 0;
+    max-width: 100%;
+}
+
+.message-user-image-item {
+    flex: 0 0 auto;
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: var(--bg-canvas);
+}
+
+.message-user-image-item img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.message-user-image-item img:hover {
+    transform: scale(1.05);
+}
+
+/* 图片点击放大预览 */
+.message-user-image-item img:active {
+    transform: scale(1);
+}
+
 .input-row {
     display: flex;
     align-items: center;

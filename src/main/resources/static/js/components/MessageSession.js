@@ -117,7 +117,6 @@ export class MessageSession {
 
       content: (parsed, contentDiv) => {
         if (s._reasoningSegment) {
-          s._logReasoning('content_done');
           s._reasoningSegment.done = true;
           s._renderPipeline.flush(s._segments, s._currentText);
           s._reasoningSegment = null;
