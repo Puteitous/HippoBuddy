@@ -8,6 +8,7 @@ import { showToast } from './utils/toast.js';
 import { ReviewState } from './utils/review-state.js';
 import { getFileIconInfo } from './utils/file-icons.js';
 import { diffModalManager } from './utils/diff-modal.js';
+import { imageLightbox } from './utils/image-lightbox.js';
 import { renderToolCard as renderToolCardFn, renderToolTimelineRow as renderToolTimelineRowFn } from './components/tool-renderers/index.js';
 import { renderBashCard as renderBashCardFn } from './components/tool-renderers/bash.js';
 import { renderEditFileCard as renderEditFileCardFn } from './components/tool-renderers/edit-file.js';
@@ -153,6 +154,10 @@ export class ChatUI {
         imgEl.loading = 'lazy';
         imgEl.alt = '用户上传图片';
         imgEl.draggable = false;
+        // 点击放大查看
+        imgEl.addEventListener('click', () => {
+          imageLightbox.show(img, '用户上传图片');
+        });
         imgItem.appendChild(imgEl);
         imgGallery.appendChild(imgItem);
       });

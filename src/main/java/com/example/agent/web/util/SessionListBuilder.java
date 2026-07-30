@@ -59,6 +59,12 @@ public class SessionListBuilder {
                 sessionInfo.put("lastActivityAt", lastActivityAt);
             }
 
+            // 从 session.json 读取 mode
+            String mode = resolveMode(entry.getKey(), null);
+            if (mode != null) {
+                sessionInfo.put("mode", mode);
+            }
+
             sessionList.add(sessionInfo);
             seenIds.add(entry.getKey());
         }
@@ -96,6 +102,12 @@ public class SessionListBuilder {
             String lastActivityAt = resolveLastActivityAt(sessionId, jsonl);
             if (lastActivityAt != null) {
                 sessionInfo.put("lastActivityAt", lastActivityAt);
+            }
+
+            // 从 session.json 读取 mode
+            String mode = resolveMode(sessionId, jsonl);
+            if (mode != null) {
+                sessionInfo.put("mode", mode);
             }
 
             sessionList.add(sessionInfo);
@@ -178,6 +190,38 @@ public class SessionListBuilder {
                     com.fasterxml.jackson.databind.JsonNode la = node.get("lastActivityAt");
                     if (la != null && !la.asText().isBlank()) {
                         return la.asText();
+                    }
+                }
+            } catch (IOException e) {
+                // ignore
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 从 session.json 读取会话模式。
+     *
+     * @param sessionId 会话 ID
+     * @param jsonlPath 会话的 JSONL 文件路径，为 null 时自动计算
+     * @return mode 字符串（chat/coding/office），没有则返回 null
+     */
+    private String resolveMode(String sessionId, Path jsonlPath) {
+        Path sessionDir;
+        if (jsonlPath != null) {
+            sessionDir = jsonlPath.getParent();
+        } else {
+            sessionDir = com.example.agent.logging.WorkspaceManager.getSessionDir(sessionId);
+        }
+        Path metadataFile = sessionDir.resolve("session.json");
+        if (Files.exists(metadataFile)) {
+            try {
+                byte[] bytes = Files.readAllBytes(metadataFile);
+                if (bytes.length > 0) {
+                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(bytes);
+                    com.fasterxml.jackson.databind.JsonNode m = node.get("mode");
+                    if (m != null && !m.asText().isBlank()) {
+                        return m.asText();
                     }
                 }
             } catch (IOException e) {

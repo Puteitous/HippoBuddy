@@ -220,7 +220,13 @@ function init() {
         const messages = await chatService.getSessionMessages(lastSessionId);
         if (messages && messages.length > 0) {
           await switchSession(lastSessionId);
-          sessionManager.loadSessions().then(() => updateHistoryDropdown?.());
+          sessionManager.loadSessions().then(() => {
+            updateHistoryDropdown?.();
+            // 从后端同步会话模式到内存 Map
+            if (sessionManager.sessions) {
+              appState.batchSetSessionModes(sessionManager.sessions);
+            }
+          });
           return;
         }
       } catch (e) {
@@ -232,8 +238,13 @@ function init() {
     currentSessionId = generateSessionId();
     sessionManager.setCurrentSession(currentSessionId);
     appState.currentSessionId = currentSessionId;
-    sessionManager.loadSessions().then(() => updateHistoryDropdown?.());
-    updateChatPanelTitle(currentSessionId);
+    sessionManager.loadSessions().then(() => {
+      updateHistoryDropdown?.();
+      // 从后端同步会话模式到内存 Map
+      if (sessionManager.sessions) {
+        appState.batchSetSessionModes(sessionManager.sessions);
+      }
+    });
     _switchToHeroMode();
     chatPanel._renderPresets('coding');
 
@@ -726,9 +737,13 @@ async function createNewSession() {
   // 刷新后 hero 被 skip-hero-style 隐藏了，新建会话时恢复
   document.getElementById('skip-hero-style')?.remove();
 
-  // 保存当前 hero 输入内容（在 chatUI.clear 之前）
+  // 保存当前会话的输入草稿（如果当前在聊天模式且有输入内容）
   const msgInput = document.getElementById('messageInput');
   const isInChatMode = !!document.querySelector('.chat-panel.has-messages');
+  
+  if (msgInput && isInChatMode && currentSessionId) {
+    appState.saveSessionInputDraft(currentSessionId, msgInput.value);
+  }
   
   // 在 hero 空态时将输入同步保存为"待定草稿"，切到聊天模式再回来也能恢复
   if (msgInput && !isInChatMode) {
@@ -772,7 +787,6 @@ async function createNewSession() {
 
 async function switchSession(sessionId) {
   if (sessionId === currentSessionId) return;
-  
   // ✨ 保存当前会话的输入草稿 + 模式（在 currentSessionId 被覆盖之前）
   if (currentSessionId && elements.messageInput) {
     const text = elements.messageInput.value;
@@ -872,11 +886,14 @@ async function switchSession(sessionId) {
       }
     }
     
-    // ✨ 恢复该会话的模式（切换全局 mode + 同步 UI）
-    const sessionMode = appState.getSessionMode(sessionId);
+    // ✨ 恢复该会话的模式（优先用后端返回的，再查内存 Map）
+    const sessionData = sessionManager?.sessions?.find(s => s.id === sessionId);
+    const sessionMode = sessionData?.mode || appState.getSessionMode(sessionId);
     if (sessionMode && sessionMode !== appState.mode) {
       appState.setMode(sessionMode);
       chatPanel._syncModeUI(sessionMode);
+      // 同步到内存 Map，后续 getSessionMode 直接命中
+      appState.saveSessionMode(sessionId, sessionMode);
     }
     
     // 保存为上次活跃会话

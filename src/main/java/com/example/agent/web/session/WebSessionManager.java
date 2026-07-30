@@ -10,6 +10,7 @@ import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.application.ConversationService;
 import com.example.agent.prompt.PromptLibrary;
 import com.example.agent.prompt.PromptService;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,12 +111,16 @@ public class WebSessionManager implements SessionManager {
     public void setMode(String sessionId, String mode) {
         if (sessionId != null) {
             sessionModes.put(sessionId, mode);
+            persistModeToDisk(sessionId, mode);
         }
     }
 
     @Override
     public String getMode(String sessionId) {
-        return sessionModes.get(sessionId);
+        if (sessionId == null) return null;
+        String mode = sessionModes.get(sessionId);
+        if (mode != null) return mode;
+        return loadModeFromDisk(sessionId);
     }
 
     // =================
@@ -381,6 +386,11 @@ public class WebSessionManager implements SessionManager {
             }
 
             metadata.put("lastActivityAt", String.valueOf(System.currentTimeMillis()));
+            // 同时持久化 mode，确保首次发消息时 mode 也能落到磁盘
+            String currentMode = sessionModes.get(sessionId);
+            if (currentMode != null) {
+                metadata.put("mode", currentMode);
+            }
             objectMapper.writeValue(metadataFile.toFile(), metadata);
         } catch (IOException e) {
             logger.debug("更新 lastActivityAt 失败: sessionId={}", sessionId, e);
@@ -423,6 +433,64 @@ public class WebSessionManager implements SessionManager {
         } catch (IOException e) {
             logger.debug("写入 session.json 失败：sessionId={}", sessionId, e);
         }
+    }
+
+    /**
+     * 将会话模式持久化到 session.json。
+     * 每次 setMode 时调用，确保模式不会丢失。
+     */
+    private void persistModeToDisk(String sessionId, String mode) {
+        if (sessionId == null || mode == null || mode.isBlank()) return;
+        try {
+            Path metadataFile = WorkspaceManager.getSessionMetadataFile(sessionId);
+            if (!Files.exists(metadataFile.getParent())) {
+                return; // 会话目录还没创建，跳过（后续 updateLastActivityAt 会补写）
+            }
+
+            Map<String, Object> metadata = new HashMap<>();
+            if (Files.exists(metadataFile)) {
+                try {
+                    byte[] bytes = Files.readAllBytes(metadataFile);
+                    if (bytes.length > 0) {
+                        JsonNode node = objectMapper.readTree(bytes);
+                        if (node.isObject()) {
+                            metadata = objectMapper.convertValue(node, Map.class);
+                        }
+                    }
+                } catch (IOException ignored) {
+                }
+            }
+
+            metadata.put("mode", mode);
+            objectMapper.writeValue(metadataFile.toFile(), metadata);
+        } catch (IOException e) {
+            logger.debug("持久化 mode 失败: sessionId={}", sessionId, e);
+        }
+    }
+
+    /**
+     * 从 session.json 读取会话模式（重启恢复用）。
+     * 读取后回填到内存 Map，避免重复读盘。
+     */
+    private String loadModeFromDisk(String sessionId) {
+        if (sessionId == null) return null;
+        try {
+            Path metadataFile = WorkspaceManager.getSessionMetadataFile(sessionId);
+            if (Files.exists(metadataFile)) {
+                byte[] bytes = Files.readAllBytes(metadataFile);
+                if (bytes.length > 0) {
+                    JsonNode node = objectMapper.readTree(bytes);
+                    JsonNode m = node.get("mode");
+                    if (m != null && !m.asText().isBlank()) {
+                        String mode = m.asText();
+                        sessionModes.put(sessionId, mode); // 回填内存
+                        return mode;
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return null;
     }
 
     private Path getSessionJsonlPath(String sessionId) {

@@ -85,6 +85,16 @@ export const AppState = {
       : this.mode;  // 无记录时返回全局模式
   },
 
+  // ========== 从后端批量更新会话模式 ==========
+  batchSetSessionModes(sessions) {
+    if (!sessions || !Array.isArray(sessions)) return;
+    for (const s of sessions) {
+      if (s.id && s.mode) {
+        this._sessionModes.set(s.id, s.mode);
+      }
+    }
+  },
+
   // ========== Token 统计状态 ==========
   tokenHistory: [],
   maxTrendPoints: 30,

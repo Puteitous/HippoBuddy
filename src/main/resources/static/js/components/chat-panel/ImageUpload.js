@@ -4,6 +4,7 @@
  */
 import { showToast } from '../../utils/toast.js';
 import { EventBus } from '../../utils/event-bus.js';
+import { imageLightbox } from '../../utils/image-lightbox.js';
 
 /**
  * @typedef {Object} PendingImage
@@ -59,6 +60,10 @@ export class ImageUpload {
       if (!items) return;
       for (const item of items) {
         if (item.type.startsWith('image/')) {
+          if (!this._isVisionSupported()) {
+            showToast('当前模型不支持图片上传', { type: 'warning', duration: 3000 });
+            return;
+          }
           e.preventDefault();
           const blob = item.getAsFile();
           if (blob) this._readImageFile(blob);
@@ -222,10 +227,17 @@ export class ImageUpload {
       const item = document.createElement('div');
       item.className = 'input-img-preview-item';
       item.innerHTML = `
-        <img src="${img.dataUrl}" alt="${img.name}">
+        <img src="${img.dataUrl}" alt="${img.name}" class="input-img-preview-thumb">
         <button class="img-remove-btn" data-index="${index}" title="移除图片">×</button>
       `;
-      item.querySelector('.img-remove-btn').addEventListener('click', () => {
+      const imgEl = item.querySelector('img');
+      // 点击缩略图放大查看
+      imgEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        imageLightbox.show(img.dataUrl, img.name);
+      });
+      item.querySelector('.img-remove-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
         this._pendingImages.splice(index, 1);
         this.renderPreviews();
       });

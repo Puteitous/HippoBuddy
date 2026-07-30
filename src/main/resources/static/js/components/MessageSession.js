@@ -9,7 +9,7 @@ import { deepMergeTodoList, parseTodoArgs } from './tool-renderers/shared.js';
 const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
 export class MessageSession {
-  constructor({ chatUI, renderPipeline, chatService, smartScroll }) {
+  constructor({ chatUI, renderPipeline, chatService, smartScroll, todoTreeCacheHolder }) {
     this._chatUI = chatUI;
     this._renderPipeline = renderPipeline;
     this._chatService = chatService;
@@ -20,7 +20,7 @@ export class MessageSession {
     this._reasoningSegment = null;
     this._hasReceivedData = false;
     this._runningToolCallIds = new Set();
-    this._todoTreeCache = null;
+    this._todoTreeCacheHolder = todoTreeCacheHolder || { value: null };
     this._streamCompleted = false;
 
     this._contentDiv = null;
@@ -69,7 +69,7 @@ export class MessageSession {
         s._currentText = '';
         s._segments = [];
         s._reasoningSegment = null;
-        s._todoTreeCache = null;
+        // 缓存由 ChatPanel 管控生命周期，此处不清空
         contentDiv.innerHTML = '';
       },
 
@@ -77,7 +77,7 @@ export class MessageSession {
         contentDiv.innerHTML = `<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🔄 ${escapeHtml(parsed.message)}</div>`;
         s._currentText = '';
         s._segments = [];
-        s._todoTreeCache = null;
+        // 缓存由 ChatPanel 管控生命周期，此处不清空
       },
 
       sse_error: (parsed) => {
@@ -474,7 +474,7 @@ export class MessageSession {
     this._currentText = '';
     this._segments = [];
     this._reasoningSegment = null;
-    this._todoTreeCache = null;
+    // 缓存由 ChatPanel 管控生命周期，此处不清空
   }
 
   clearReasoning() {
@@ -707,12 +707,13 @@ export class MessageSession {
   }
 
   _mergeTodos(incomingTodos, mode) {
+    const holder = this._todoTreeCacheHolder;
     if (mode === 'replace') {
-      this._todoTreeCache = deepMergeTodoList([], incomingTodos);
+      holder.value = deepMergeTodoList([], incomingTodos);
     } else {
-      this._todoTreeCache = deepMergeTodoList(this._todoTreeCache || [], incomingTodos);
+      holder.value = deepMergeTodoList(holder.value || [], incomingTodos);
     }
-    return this._todoTreeCache;
+    return holder.value;
   }
 
   _classifyError(error) {

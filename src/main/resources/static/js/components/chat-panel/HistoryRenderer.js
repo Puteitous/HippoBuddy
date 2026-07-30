@@ -5,6 +5,7 @@ import { getFileIconInfo } from '../../utils/file-icons.js';
 import { parseTodoArgs, deepMergeTodoList } from '../tool-renderers/shared.js';
 import { RenderPipeline } from '../RenderPipeline.js';
 import { EventBus } from '../../utils/event-bus.js';
+import { imageLightbox } from '../../utils/image-lightbox.js';
 
 // ── 多模式预设提示词 ──
 const _ = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
@@ -249,6 +250,10 @@ export class HistoryRenderer {
                 imgEl.loading = 'lazy';
                 imgEl.alt = '用户上传图片';
                 imgEl.draggable = false;
+                // 点击放大查看
+                imgEl.addEventListener('click', () => {
+                  imageLightbox.show(imgUrl, '用户上传图片');
+                });
                 imgItem.appendChild(imgEl);
                 imgGallery.appendChild(imgItem);
               });

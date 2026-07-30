@@ -807,6 +807,7 @@
     height: 100%;
     object-fit: cover;
     display: block;
+    cursor: pointer;
 }
 
 .input-img-preview-item .img-remove-btn {
@@ -1755,4 +1756,86 @@
 
 [data-theme="dark"] .selection-action-btn:hover {
     background: var(--bg-code);
+}
+
+/* ========== 图片 Lightbox 放大查看 ========== */
+.image-lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.image-lightbox-overlay.active {
+    opacity: 1;
+}
+
+.image-lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.image-lightbox-container {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: scale(0.92);
+    transition: transform 0.25s ease;
+}
+
+.image-lightbox-overlay.active .image-lightbox-container {
+    transform: scale(1);
+}
+
+.image-lightbox-close {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.15s;
+    z-index: 10000;
+    line-height: 1;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.image-lightbox-close:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+}
+
+.image-lightbox-close:active {
+    transform: scale(0.95);
+}
+
+.image-lightbox-img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+    cursor: zoom-out;
 }

@@ -33,6 +33,9 @@ export class ChatPanel {
 
     this._activeSession = null;
 
+    // 跨轮次 todo 树缓存（通过 holder 对象引用共享给 MessageSession）
+    this._todoTreeCacheHolder = { value: null };
+
     // 图片上传处理
     this.imageUpload = new ImageUpload();
 
@@ -351,7 +354,11 @@ export class ChatPanel {
         }
         // 图片文件 → 读取为 base64 预览
         if (imageFiles.length > 0) {
-          this.imageUpload._handleImageFiles(imageFiles);
+          if (!this.imageUpload._isVisionSupported()) {
+            showToast('当前模型不支持图片上传', { type: 'warning', duration: 3000 });
+          } else {
+            this.imageUpload._handleImageFiles(imageFiles);
+          }
         }
         // 非图片文件 → 添加为引用卡片
         for (const file of textFiles) {
@@ -412,6 +419,14 @@ export class ChatPanel {
   /** 重新注入上下文选择器（Phase 2: 按钮已是静态，只需同步 UI） */
   reInjectContextSelector() {
     this.modePresets.syncUI(appState.getMode());
+  }
+
+  /**
+   * 同步模式 UI（由 switchSession / i18n 切换时调用）
+   * @param {string} mode - chat / coding / office
+   */
+  _syncModeUI(mode) {
+    this.modePresets.syncUI(mode);
   }
 
   /**
@@ -503,7 +518,8 @@ export class ChatPanel {
       chatUI: this.chatUI,
       renderPipeline: this.renderPipeline,
       chatService: this.chatService,
-      smartScroll: () => this.smartScroll()
+      smartScroll: () => this.smartScroll(),
+      todoTreeCacheHolder: this._todoTreeCacheHolder
     });
     this._activeSession = session;
 
@@ -599,6 +615,8 @@ export class ChatPanel {
         const session = s();
         if (!session) return;
         session.clearAll();
+        // 清空跨轮次 todo 缓存，因为当前消息内容被完全清空（错误恢复/重新开始）
+        this._todoTreeCacheHolder.value = null;
         contentDiv.innerHTML = '';
       },
 
@@ -607,6 +625,8 @@ export class ChatPanel {
         const session = s();
         if (!session) return;
         session.clearAll();
+        // 重试时清空 todo 缓存，让新一轮从头开始
+        this._todoTreeCacheHolder.value = null;
       },
 
       sse_error: (parsed) => {
