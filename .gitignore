@@ -56,3 +56,6 @@ coverage/
 electron/node_modules/
 electron/out/
 electron/dist/
+
+# 营销素材
+/marketing/

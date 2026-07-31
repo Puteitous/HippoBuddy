@@ -264,7 +264,7 @@ export function renderToolTimelineRow(tool) {
     if (fp) {
       const jsFp = fp.replace(/\\/g, '/');
       const isVisible = status === 'success';
-      viewBtnHtml = `<span class="tool-timeline-view-btn" style="visibility:${isVisible ? 'visible' : 'hidden'}" onclick="event.stopPropagation();window.showFileDiff('${escapeHtml(jsFp)}','${escapeHtml(tool.id||'')}')">${_t('tool.default.view')}</span>`;
+      viewBtnHtml = `<span class="tool-timeline-view-btn" style="${isVisible ? '' : 'display:none'}" onclick="event.stopPropagation();window.showFileDiff('${escapeHtml(jsFp)}','${escapeHtml(tool.id||'')}')">${_t('tool.default.view')}</span>`;
     }
   }
 

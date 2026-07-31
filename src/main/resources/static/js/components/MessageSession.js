@@ -346,7 +346,9 @@ export class MessageSession {
       if (!this._pendingInteraction) {
         this._btnContainer.style.display = 'flex';
       }
-      // renderFinal 内部已通过 afterRender 调用 smartScroll，无需重复
+      // btnContainer 从 display:none → flex 导致 footer 增高约 28px，
+      // renderFinal 中 smartScroll 时按钮尚未显示，需再次跟随
+      this._smartScroll?.();
 
       this._streamCompleted = true;
       this._updateFileIndicator();
