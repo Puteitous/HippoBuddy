@@ -249,7 +249,6 @@
     'tool.bash.waitConfirm':       { zh: '等待确认', en: 'Awaiting Confirmation' },
     'tool.bash.deny':              { zh: '拒绝', en: 'Deny' },
     'tool.bash.execute':           { zh: '执行', en: 'Execute' },
-    'tool.bash.dontAskAgain':      { zh: '本次会话不再询问此类命令', en: "Don't ask again this session" },
     'tool.bash.copyCmd':           { zh: '复制命令', en: 'Copy Command' },
 
     'tool.write.title':            { zh: '写入文件', en: 'Write File' },
@@ -301,7 +300,12 @@
     'tool.confirm.lowRisk':        { zh: '低风险', en: 'Low Risk' },
     'tool.confirm.deny':           { zh: '拒绝', en: 'Deny' },
     'tool.confirm.execute':        { zh: '执行', en: 'Execute' },
-    'tool.confirm.dontAskAgain':   { zh: '本次会话不再询问此类命令', en: "Don't ask again this session" },
+
+    /* ==================== Blocker 风险原因 ==================== */
+    'blocker.bash.chainedCommand': { zh: '检测到链式命令，请确认后执行', en: 'Chained command detected, please confirm to execute' },
+    'blocker.bash.localScript':    { zh: '执行本地脚本可能带来未知风险', en: 'Executing local script may introduce unknown risks' },
+    'blocker.bash.sideEffect':     { zh: '命令 "{cmd}" 可能有副作用，请确认后执行', en: 'Command "{cmd}" may have side effects, please confirm to execute' },
+    'blocker.bash.unknownCommand': { zh: '未知命令 "{cmd}"，请确认安全后执行', en: 'Unknown command "{cmd}", please confirm it is safe to execute' },
 
     'tool.askUser.title':          { zh: '需要确认', en: 'Confirmation Required' },
     'tool.todo.title':             { zh: '任务清单', en: 'Task List' },
@@ -563,9 +567,6 @@
     'settingsPage.contextToolHint':         { zh: '单工具结果最大 token 数，read 工具不设限', en: 'Max tokens per tool result, read tool unlimited' },
 
     'settingsPage.toolsNeedConfirm':        { zh: '需确认', en: 'Requires Confirmation' },
-    'settingsPage.toolsWhitelist':          { zh: '命令白名单', en: 'Command Whitelist' },
-    'settingsPage.toolsWhitelistHint':      { zh: '逗号分隔，留空=允许全部', en: 'comma-separated, empty = allow all' },
-    'settingsPage.toolsWhitelistPh':        { zh: 'git, mvn, npm, docker, ls, cat, grep', en: 'git, mvn, npm, docker, ls, cat, grep' },
     'settingsPage.toolsSearchProvider':     { zh: '搜索 Provider', en: 'Search Provider' },
     'settingsPage.toolsProviderHint':       { zh: '搜索引擎服务商', en: 'Search engine provider' },
     'settingsPage.toolsApiKey':             { zh: 'API Key', en: 'API Key' },

@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -37,7 +36,6 @@ public class WebSessionManager implements SessionManager {
     private static final Map<String, PendingToolCall> pendingToolCalls = new ConcurrentHashMap<>();
     private static final Map<String, PendingBashConfirmation> pendingBashConfirmations = new ConcurrentHashMap<>();
     private static final Map<String, PendingDeleteConfirmation> pendingDeleteConfirmations = new ConcurrentHashMap<>();
-    private static final Map<String, Set<String>> sessionAutoAllowRules = new ConcurrentHashMap<>();
     private static final Map<String, String> sessionModes = new ConcurrentHashMap<>();
     private static final Map<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
     /** 会话 Agent 执行状态：true=正在运行，false=空闲 */
@@ -87,25 +85,8 @@ public class WebSessionManager implements SessionManager {
         pendingToolCalls.clear();
         pendingBashConfirmations.clear();
         pendingDeleteConfirmations.clear();
-        sessionAutoAllowRules.clear();
         sessionLocks.clear();
     }
-
-    @Override
-    public void addAutoAllowRule(String sessionId, String commandName) {
-        if (sessionId == null || commandName == null) return;
-        sessionAutoAllowRules.computeIfAbsent(sessionId, k -> ConcurrentHashMap.newKeySet()).add(commandName);
-        logger.info("添加 auto-allow 规则: sessionId={}, command={}", sessionId, commandName);
-    }
-
-    @Override
-    public boolean isAutoAllowed(String sessionId, String commandName) {
-        if (sessionId == null || commandName == null) return false;
-        Set<String> rules = sessionAutoAllowRules.get(sessionId);
-        return rules != null && rules.contains(commandName);
-    }
-
-    // === Mode 存储 ===
 
     @Override
     public void setMode(String sessionId, String mode) {

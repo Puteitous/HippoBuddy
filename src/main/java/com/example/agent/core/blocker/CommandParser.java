@@ -44,32 +44,6 @@ public final class CommandParser {
     }
 
     /**
-     * 命令是否包含链式/管道操作符（&amp; | ;，含 &amp;&amp; / || 双字符形式）。
-     * 引号内的操作符不计算。用于判断命令是否可安全泛化为 auto-allow 规则。
-     */
-    public static boolean hasChainOperator(String command) {
-        if (command == null) {
-            return false;
-        }
-        char quote = 0;
-        for (int i = 0; i < command.length(); i++) {
-            char c = command.charAt(i);
-            if (quote != 0) {
-                if (c == quote) {
-                    quote = 0;
-                }
-                continue;
-            }
-            if (c == '\'' || c == '"') {
-                quote = c;
-            } else if (c == '&' || c == '|' || c == ';') {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * 切分命令为多个命令段。空白段被忽略，段按出现顺序返回。
      * 分隔符：&amp; | ;（含 &amp;&amp;、|| 双字符形式），引号内的分隔符不生效。
      */

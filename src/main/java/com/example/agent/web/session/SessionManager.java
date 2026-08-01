@@ -49,14 +49,6 @@ public interface SessionManager {
 
     // ============================
 
-    // === Session 级 auto-allow ===
-
-    void addAutoAllowRule(String sessionId, String commandName);
-
-    boolean isAutoAllowed(String sessionId, String commandName);
-
-    // ============================
-
     // === Mode 存储 ===
 
     void setMode(String sessionId, String mode);

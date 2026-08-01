@@ -2,7 +2,7 @@
  * ToolsSettingsPage — 工具管理页面
  *
  * 配置内置工具行为：
- * - bash: { enabled, whitelist, requireConfirmation }
+ * - bash: { enabled, requireConfirmation }
  * - webSearch: { provider, apiKey }
  * - subagent: { enabled }
  * - delete_file: { requireConfirmation }
@@ -98,7 +98,6 @@ export class ToolsSettingsPage {
 
     // ── Bash 配置 ──
     const bash = tools.bash || {};
-    const whitelistStr = (bash.whitelist || []).join(', ');
 
     // ── Delete File 配置 ──
     const deleteFile = tools.delete_file || {};
@@ -123,14 +122,6 @@ export class ToolsSettingsPage {
                 <span class="settings-switch-slider"></span>
               </label>
             </div>
-          </div>
-          <div class="settings-field">
-            <div class="settings-field-label">
-              <div>${_t('settingsPage.toolsWhitelist')}</div>
-              <div class="settings-field-hint">${_t('settingsPage.toolsWhitelistHint')}</div>
-            </div>
-            <textarea class="settings-input" id="toolsBashWhitelist" rows="1" placeholder="${_t('settingsPage.toolsWhitelistPh')}"
-              style="resize:vertical;font-family:var(--font-mono);font-size:12px;padding:6px 8px;width:430px;margin-left:auto;">${whitelistStr}</textarea>
           </div>
         </div>
       </div>
@@ -236,7 +227,7 @@ export class ToolsSettingsPage {
     });
 
     // 绑定 text input/textarea 失焦自动保存
-    const inputIds = ['toolsBashWhitelist', 'toolsWebApiKey'];
+    const inputIds = ['toolsWebApiKey'];
     inputIds.forEach(id => {
       document.getElementById(id)?.addEventListener('blur', () => this._saveConfig());
     });
@@ -248,11 +239,8 @@ export class ToolsSettingsPage {
 
       // Bash
       const bashConfirm = document.getElementById('toolsBashConfirm')?.checked;
-      const whitelistRaw = document.getElementById('toolsBashWhitelist')?.value || '';
-      const whitelist = whitelistRaw.split(',').map(s => s.trim()).filter(Boolean);
       values.bash = {
         require_confirmation: bashConfirm !== false,
-        whitelist,
       };
 
       // Web Search

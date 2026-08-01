@@ -95,29 +95,4 @@ class CommandParserTest {
         assertEquals("shutdown", CommandParser.normalizeCommandName("shutdown.EXE"));
         assertEquals("taskkill", CommandParser.normalizeCommandName("taskkill.exe"));
     }
-
-    // ==================== 链式操作符检测 ====================
-
-    @Test
-    void hasChainOperator_shouldDetectAllKinds() {
-        assertTrue(CommandParser.hasChainOperator("echo a && echo b"));
-        assertTrue(CommandParser.hasChainOperator("echo a || echo b"));
-        assertTrue(CommandParser.hasChainOperator("echo a; echo b"));
-        assertTrue(CommandParser.hasChainOperator("echo a & echo b"));
-        assertTrue(CommandParser.hasChainOperator("git log | grep x"));
-    }
-
-    @Test
-    void hasChainOperator_shouldIgnoreQuoted() {
-        assertFalse(CommandParser.hasChainOperator("echo \"a && b\""));
-        assertFalse(CommandParser.hasChainOperator("echo 'x | y'"));
-    }
-
-    @Test
-    void hasChainOperator_shouldReturnFalseForSimpleCommands() {
-        assertFalse(CommandParser.hasChainOperator("git status"));
-        assertFalse(CommandParser.hasChainOperator("rm file.txt"));
-        assertFalse(CommandParser.hasChainOperator(null));
-        assertFalse(CommandParser.hasChainOperator(""));
-    }
 }

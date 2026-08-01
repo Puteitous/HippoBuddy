@@ -2,6 +2,8 @@ package com.example.agent.core.blocker;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +100,45 @@ public class BashDangerousCommandBlocker implements Blocker {
         "| bash", "| sh", "| zsh",
         // Fork 炸弹
         ":(){ :|:& };:", "fork bomb"
+    );
+
+    /**
+     * 未知命令的破坏性特征：内容级兜底检查（不依赖命令名）。
+     * <p>
+     * 语义：未知命令（不在任何名单）默认放行，避免卡死新工具/冷门命令
+     * （如 bun、uv、jq、rg 等）；但命中"明显破坏行为"特征时仍然严格拒绝。
+     * 这些特征按<b>命令内容</b>判断而非命令名，可覆盖"未知命令 + 危险参数"
+     * 的组合场景（如 powershell -Command "taskkill /f /im explorer.exe"）。
+     * 已知命令已有 ALLOWED / REQUIRES_CONFIRMATION / STRICTLY_BLOCKED
+     * 名单及 token 级签名精细管控，此处仅兜底未知命令。
+     */
+    private static final List<Pattern> DESTRUCTIVE_FEATURES = List.of(
+        // 1. 重定向写入 Windows 系统路径（> C:\Windows\...、> C:\Program Files\...）
+        Pattern.compile("(?i)>\\s*[a-z]:\\\\windows(\\\\|\\s|$)"),
+        Pattern.compile("(?i)>\\s*[a-z]:\\\\program\\s+files(\\\\|\\s|$)"),
+        // 2. 重定向写入 Unix 系统路径（> /etc/...、> /usr/...）
+        Pattern.compile("(?i)>\\s*/(etc|usr|var|boot|bin|sbin|lib)(/|\\s|$)"),
+        // 3. 路径穿越 + 写入/删除（..\..\ 逃出工作区配合破坏操作，无序匹配）
+        Pattern.compile("(?i)(?=.*\\.\\.(\\\\|/))(?=.*(>|>>|del\\s|rm\\s|remove|delete|erase))"),
+        // 4. Windows 系统配置修改（注册表/防火墙/服务/引导/计划任务）
+        Pattern.compile("(?i)reg\\s+add\\s+HKLM"),
+        Pattern.compile("(?i)netsh\\s+(advfirewall|firewall)"),
+        Pattern.compile("(?i)sc\\s+config"),
+        Pattern.compile("(?i)bcdedit\\s+/"),
+        Pattern.compile("(?i)schtasks\\s+/create"),
+        // 5. 系统用户/权限管理
+        Pattern.compile("(?i)net\\s+(user|localgroup)(\\s|$)"),
+        Pattern.compile("(?i)(usermod|passwd)(\\s+|$)"),
+        // 6. 系统关键进程强杀（含嵌入未知命令的组合场景）
+        Pattern.compile("(?i)taskkill\\s+/f\\s+/im\\s+(explorer|winlogon|lsass|svchost|csrss|services)(\\.exe)?"),
+        Pattern.compile("(?i)kill\\s+-9\\s+[123](\\s|$)"),
+        // wmic 进程终止（Windows 弃用但部分环境仍可用）
+        Pattern.compile("(?i)wmic\\s+process.*call\\s+terminate"),
+        // 7. 防火墙全局规则清空/禁用
+        Pattern.compile("(?i)iptables\\s+-[FX]"),
+        Pattern.compile("(?i)ufw\\s+(disable|reset)"),
+        // 8. 磁盘级数据擦除
+        Pattern.compile("(?i)(shred|sdelete|secure\\s+erase)(\\s+|$)")
     );
 
     /**
@@ -232,7 +273,7 @@ public class BashDangerousCommandBlocker implements Blocker {
         }
         if (anyConfirmation) {
             return HookResult.requireConfirmation(
-                "命令包含需要确认的操作（链式命令），请确认是否执行",
+                "i18n:blocker.bash.chainedCommand",
                 "medium",
                 command
             );
@@ -247,7 +288,7 @@ public class BashDangerousCommandBlocker implements Blocker {
         // 本地脚本执行
         if (raw.startsWith("./") || raw.startsWith("../")) {
             return HookResult.requireConfirmation(
-                "执行本地脚本可能带来未知风险",
+                "i18n:blocker.bash.localScript",
                 "medium",
                 raw
             );
@@ -280,7 +321,7 @@ public class BashDangerousCommandBlocker implements Blocker {
         // 六级检查：需要确认名单
         if (REQUIRES_CONFIRMATION.contains(commandName)) {
             return HookResult.requireConfirmation(
-                "命令 '" + commandName + "' 可能有副作用，请确认是否执行",
+                "i18n:blocker.bash.sideEffect:cmd=" + URLEncoder.encode(commandName, StandardCharsets.UTF_8),
                 "medium",
                 raw
             );
@@ -291,9 +332,16 @@ public class BashDangerousCommandBlocker implements Blocker {
             return HookResult.allow();
         }
 
-        // 默认策略：未知命令降级为用户确认（用户可在确认卡片中检查命令内容）
+        // 默认策略：未知命令降级为用户确认（用户可在确认卡片中检查命令内容）。
+        // 命中破坏性特征 → 严格拒绝（不受 require_confirmation 开关影响）；
+        // 未命中 → 需确认（关闭开关后放行，避免卡死新工具/冷门命令）。
+        if (hasDestructiveFeatures(raw)) {
+            return HookResult.block(
+                "安全限制: 检测到破坏性操作特征，禁止执行"
+            );
+        }
         return HookResult.requireConfirmation(
-            "未知命令 '" + commandName + "'，请检查命令内容确认安全后执行",
+            "i18n:blocker.bash.unknownCommand:cmd=" + URLEncoder.encode(commandName, StandardCharsets.UTF_8),
             "medium",
             raw
         );
@@ -305,11 +353,18 @@ public class BashDangerousCommandBlocker implements Blocker {
     }
 
     /**
-     * 命令是否可安全纳入 auto-allow（"同类命令免确认"）泛化：
-     * 含链式/管道操作符的命令不做 auto-allow —— 用户确认的是整条链，
-     * 无法安全泛化到命令名级别。
+     * 未知命令的破坏性特征检查。
+     * <p>
+     * 语义：未知命令默认可执行（不因"未被评审"而卡死新工具/冷门命令），
+     * 但命中明显破坏行为（写系统路径、改系统配置、管理用户、清防火墙、
+     * 擦除磁盘、逃出工作区配合写删等）时仍严格拒绝。
      */
-    public static boolean isSafeForAutoAllow(String command) {
-        return command != null && !CommandParser.hasChainOperator(command);
+    private boolean hasDestructiveFeatures(String command) {
+        for (Pattern p : DESTRUCTIVE_FEATURES) {
+            if (p.matcher(command).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

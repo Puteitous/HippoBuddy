@@ -345,65 +345,6 @@ class WebSessionManagerTest {
     }
 
     @Nested
-    @DisplayName("Session 级 auto-allow")
-    class SessionAutoAllowTests {
-
-        @Test
-        @DisplayName("新会话默认无 auto-allow 规则")
-        void newSessionHasNoRules() {
-            assertFalse(manager.isAutoAllowed("session-1", "rm"));
-        }
-
-        @Test
-        @DisplayName("添加规则后 isAutoAllowed 应返回 true")
-        void addRuleThenIsAllowed() {
-            manager.addAutoAllowRule("session-1", "rm");
-            assertTrue(manager.isAutoAllowed("session-1", "rm"));
-        }
-
-        @Test
-        @DisplayName("不同会话的 auto-allow 规则互不干扰")
-        void rulesAreIsolatedBySession() {
-            manager.addAutoAllowRule("session-a", "rm");
-            manager.addAutoAllowRule("session-b", "curl");
-
-            assertTrue(manager.isAutoAllowed("session-a", "rm"));
-            assertFalse(manager.isAutoAllowed("session-a", "curl"));
-            assertTrue(manager.isAutoAllowed("session-b", "curl"));
-            assertFalse(manager.isAutoAllowed("session-b", "rm"));
-        }
-
-        @Test
-        @DisplayName("同一会话可添加多条规则")
-        void multipleRulesForSameSession() {
-            manager.addAutoAllowRule("session-1", "rm");
-            manager.addAutoAllowRule("session-1", "curl");
-            manager.addAutoAllowRule("session-1", "git");
-
-            assertTrue(manager.isAutoAllowed("session-1", "rm"));
-            assertTrue(manager.isAutoAllowed("session-1", "curl"));
-            assertTrue(manager.isAutoAllowed("session-1", "git"));
-        }
-
-        @Test
-        @DisplayName("clear() 应清除所有 auto-allow 规则")
-        void clearClearsAutoAllowRules() {
-            manager.addAutoAllowRule("session-1", "rm");
-            manager.clear();
-            assertFalse(manager.isAutoAllowed("session-1", "rm"));
-        }
-
-        @Test
-        @DisplayName("null 参数不抛异常")
-        void nullParamsDoNotThrow() {
-            assertDoesNotThrow(() -> manager.addAutoAllowRule(null, "rm"));
-            assertDoesNotThrow(() -> manager.addAutoAllowRule("session-1", null));
-            assertFalse(manager.isAutoAllowed(null, "rm"));
-            assertFalse(manager.isAutoAllowed("session-1", null));
-        }
-    }
-
-    @Nested
     @DisplayName("loadTokenCache")
     class LoadTokenCacheTests {
 

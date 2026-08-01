@@ -1544,54 +1544,6 @@
     padding: 0 12px;
 }
 
-.confirmation-auto-allow {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    cursor: pointer;
-    flex-shrink: 0;
-    user-select: none;
-}
-
-.confirmation-auto-allow input[type="checkbox"] {
-    width: 13px;
-    height: 13px;
-    cursor: pointer;
-    outline: none;
-    appearance: none;
-    -webkit-appearance: none;
-    margin: 0;
-    border: 1px solid var(--border-color);
-    border-radius: 2px;
-    background: transparent;
-    flex-shrink: 0;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.confirmation-auto-allow input[type="checkbox"]:checked {
-    background: #fff;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='2.5 6 5 8.5 9.5 3.5' fill='none' stroke='rgb(17,24,39)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
-.confirmation-auto-allow input[type="checkbox"]:focus {
-    outline: none;
-    box-shadow: none;
-}
-
-/* 链式命令等无法记住"不再询问"的场景：禁用复选框并弱化视觉 */
-.confirmation-auto-allow.disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-}
-
-.confirmation-auto-allow.disabled input[type="checkbox"] {
-    cursor: not-allowed;
-}
-
 .confirmation-buttons {
     display: flex;
     gap: 6px;

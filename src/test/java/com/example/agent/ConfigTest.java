@@ -122,8 +122,6 @@ class ConfigTest {
         
         assertTrue(tools.getBash().isEnabled());
         assertTrue(tools.getBash().isRequireConfirmation());
-        assertTrue(tools.getBash().getWhitelist().contains("git"));
-        assertTrue(tools.getBash().getWhitelist().contains("mvn"));
     }
 
     @Test
@@ -190,17 +188,6 @@ class ConfigTest {
     }
 
     @Test
-    void testBashToolCommandAllowed() throws Exception {
-        Config config = createConfigInstance();
-        ToolsConfig.BashToolConfig bash = config.getTools().getBash();
-        
-        assertTrue(bash.isCommandAllowed("git status"));
-        assertTrue(bash.isCommandAllowed("mvn compile"));
-        assertFalse(bash.isCommandAllowed("rm -rf /"));
-        assertFalse(bash.isCommandAllowed("format c:"));
-    }
-
-    @Test
     void testYamlSerialization() throws Exception {
         Config config = createConfigInstance();
         config.getLlm().setApiKey("test-key-123");
@@ -234,7 +221,6 @@ class ConfigTest {
             tools:
               bash:
                 enabled: false
-                whitelist: [git, npm]
                 require_confirmation: false
             session:
             ui:

@@ -740,6 +740,12 @@ export class ChatPanel {
         session.handleToolConfirmation(parsed);
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
         // flush 已立即渲染，无需重复 scheduleRender
+      },
+
+      token_update: (parsed) => {
+        // 确认流中也可能收到 token_update（后端回合结束校准值），
+        // 与 MessageSession 主流一致，通过 EventBus 交给 TokenMonitor 实时渲染
+        EventBus.emit('token:update', parsed);
       }
     });
   }

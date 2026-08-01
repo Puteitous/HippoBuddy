@@ -438,15 +438,135 @@ class BashDangerousCommandBlockerTest {
         assertRequiresConfirmation("rd emptydir");
     }
 
-    // ==================== auto-allow 安全性 ====================
+    // ==================== 🆕 严格禁止名单补齐（名单内但原未覆盖） ====================
 
     @Test
-    void autoAllowSafety_shouldRejectChainedCommands() {
-        assertTrue(BashDangerousCommandBlocker.isSafeForAutoAllow("rm file.txt"));
-        assertTrue(BashDangerousCommandBlocker.isSafeForAutoAllow("git status"));
-        assertFalse(BashDangerousCommandBlocker.isSafeForAutoAllow("echo ok && rm file.txt"));
-        assertFalse(BashDangerousCommandBlocker.isSafeForAutoAllow("git log | grep fix"));
-        assertFalse(BashDangerousCommandBlocker.isSafeForAutoAllow("cd dir; ls"));
+    void strictBlockedRemaining_shouldBeBlocked() {
+        assertBlocked("parted /dev/sda");
+        assertBlocked("parted -s /dev/sda mklabel gpt");
+        assertBlocked("fsck /dev/sda1");
+        assertBlocked("fsck -y /dev/sda1");
+        assertBlocked("poweroff");
+        assertBlocked("poweroff now");
+    }
+
+    @Test
+    void mkfsVariant_shouldBeBlocked() {
+        assertBlocked("mkfs.xfs /dev/sda1");
+        assertBlocked("mkfs -t ext4 /dev/sdb");
+        assertBlocked("mkfs.vfat /dev/sdc1");
+    }
+
+    // ==================== 🆕 需确认名单补齐（名单内但原未覆盖） ====================
+
+    @Test
+    void windowsFileOps_shouldRequireConfirmation() {
+        assertRequiresConfirmation("copy a.txt b.txt");
+        assertRequiresConfirmation("xcopy src dest /s");
+        assertRequiresConfirmation("move a.txt b.txt");
+        assertRequiresConfirmation("rename old.txt new.txt");
+        assertRequiresConfirmation("ren old.txt new.txt");
+        assertRequiresConfirmation("attrib +r file.txt");
+    }
+
+    @Test
+    void compressionOps_shouldRequireConfirmation() {
+        assertRequiresConfirmation("gzip file.txt");
+        assertRequiresConfirmation("gunzip file.gz");
+        assertRequiresConfirmation("7z x archive.7z");
+        assertRequiresConfirmation("7z a archive.7z file.txt");
+    }
+
+    @Test
+    void suAndWipe_shouldRequireConfirmation() {
+        assertRequiresConfirmation("su - root");
+        assertRequiresConfirmation("su root -c \"whoami\"");
+        assertRequiresConfirmation("wipe /dev/sda");
+        assertRequiresConfirmation("wipe -f /dev/sda1");
+    }
+
+    // ==================== 🆕 变体补充（大小写 / 多空格） ====================
+
+    @Test
+    void caseInsensitiveVariant_shouldBeBlocked() {
+        assertBlocked("Rm -Rf /");
+        assertBlocked("FORMAT C:");
+        assertBlocked("SHUTDOWN /s /f");
+        assertBlocked("DISKPART clean");
+        assertBlocked("Reg Delete HKLM /f");
+    }
+
+    @Test
+    void multipleSpacesVariant_shouldBeBlocked() {
+        assertBlocked("rm  -rf  /");
+        assertBlocked("rm  -r  -f  /");
+        assertBlocked("del  /s  /q  F:\\*");
+    }
+
+    // ==================== 🧨 未知命令破坏性特征（方案 B） ====================
+
+    @Test
+    void unknownCommand_withDestructiveFeature_shouldBeBlocked() {
+        // 写 Windows 系统路径
+        assertBlocked("foo > C:\\Windows\\system.ini");
+        assertBlocked("foo > c:\\WINDOWS\\Temp\\evil.bat");
+        assertBlocked("foo > C:\\Program Files\\evil.exe");
+        // 写 Unix 系统路径
+        assertBlocked("bar > /etc/passwd");
+        assertBlocked("bar > /usr/local/bin/x");
+        // 路径穿越 + 写入/删除
+        assertBlocked("baz x > ..\\..\\config.ini");
+        assertBlocked("baz x > ../../config.ini");
+        assertBlocked("qux delete ..\\..\\old.dat");
+        // 系统配置修改（未知命令包装组合）
+        assertBlocked("powershell -Command \"taskkill /f /im explorer.exe\"");
+        assertBlocked("powershell -Command \"REG ADD HKLM\\Software\\MyApp /v Run\"");
+        assertBlocked("bcdedit /set {bootmgr} device partition=C:");
+        assertBlocked("schtasks /create /tn MyTask /tr calc.exe /sc onstart");
+        assertBlocked("wmic process where name='explorer.exe' call terminate");
+        // 系统用户/权限管理
+        assertBlocked("net user hacker P@ss /add");
+        assertBlocked("net localgroup administrators hacker /add");
+        assertBlocked("usermod -aG sudo root");
+        assertBlocked("passwd root");
+        // 防火墙全局规则清空/禁用
+        assertBlocked("iptables -F");
+        assertBlocked("iptables -X");
+        assertBlocked("ufw disable");
+        assertBlocked("ufw reset");
+        // 磁盘级数据擦除
+        assertBlocked("shred secret.txt");
+        assertBlocked("sdelete -p 3 D:\\old.exe");
+        assertBlocked("perl -e 'secure erase /dev/sda'");
+    }
+
+    @Test
+    void unknownCommand_withoutDestructiveFeature_shouldRequireConfirmation() {
+        // 新工具/冷门命令（无破坏特征）→ 需确认（关闭开关后放行），不被卡死
+        assertRequiresConfirmation("bun run dev");
+        assertRequiresConfirmation("uv pip install requests");
+        assertRequiresConfirmation("jq . package.json");
+        assertRequiresConfirmation("rg \"class Foo\" src/");
+        assertRequiresConfirmation("tree -L 2");
+        assertRequiresConfirmation("fswatch src/");
+    }
+
+    @Test
+    void chainedCommand_withDestructiveUnknownSegment_shouldBeBlocked() {
+        // 链式中任一段为"未知命令 + 破坏特征"→ 整条严格禁止
+        assertBlocked("git status && powershell -Command \"taskkill /f /im explorer.exe\"");
+        assertBlocked("echo ok && iptables -F");
+        assertBlocked("dir; net user hacker /add");
+    }
+
+    @Test
+    void knownCommand_shouldNotBeAffectedByDestructiveCheck() {
+        // 已知命令维持原有语义，破坏性特征检查仅兜底未知命令
+        assertAllowed("git status");
+        assertAllowed("echo hello > README.md");
+        assertRequiresConfirmation("rm old-file.txt");
+        assertRequiresConfirmation("reg add HKCU\\Software\\MyApp /v x /d y");
+        assertRequiresConfirmation("wipe /dev/sda");
     }
 
     // ==================== 辅助方法 ====================

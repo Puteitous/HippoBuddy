@@ -50,9 +50,6 @@ public final class TestConfigFactory {
     }
 
     public static class Tools {
-        public static final List<String> DEFAULT_WHITELIST = List.of(
-                "git", "mvn", "npm", "docker", "ls", "cat", "grep", "find"
-        );
     }
 
     public static class Session {

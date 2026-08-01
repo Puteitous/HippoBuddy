@@ -74,7 +74,6 @@ public class ToolConfirmHandler implements HttpHandler {
             sessionId = json.has("sessionId") ? json.get("sessionId").asText() : null;
             String confirmId = json.has("confirmId") ? json.get("confirmId").asText() : "";
             String decision = json.has("decision") ? json.get("decision").asText() : "deny";
-            boolean autoAllowSimilar = json.has("autoAllowSimilar") && json.get("autoAllowSimilar").asBoolean();
 
             if (sessionId == null || sessionId.isEmpty()) {
                 sendJsonError(exchange, 400, "缺少 sessionId");
@@ -110,7 +109,7 @@ public class ToolConfirmHandler implements HttpHandler {
             Conversation conversation = sessionManager.getOrCreateConversation(sessionId, null);
 
             if (bashPending != null) {
-                handleBashConfirmation(bashPending, sessionId, confirmId, decision, autoAllowSimilar,
+                handleBashConfirmation(bashPending, sessionId, confirmId, decision,
                     sseWriter, conversationService, toolRegistry, conversation, objectMapper);
             } else {
                 handleDeleteConfirmation(deletePending, sessionId, confirmId, decision,
@@ -137,7 +136,7 @@ public class ToolConfirmHandler implements HttpHandler {
     }
 
     private void handleBashConfirmation(PendingBashConfirmation pending, String sessionId,
-                                         String confirmId, String decision, boolean autoAllowSimilar,
+                                         String confirmId, String decision,
                                          SseWriter sseWriter, ConversationService conversationService,
                                          ToolRegistry toolRegistry, Conversation conversation,
                                          ObjectMapper objectMapper) throws LlmException {
@@ -206,15 +205,6 @@ public class ToolConfirmHandler implements HttpHandler {
                 sseWriter.sendSseEvent("tool_result",
                     buildToolResultJson(pending.toolCallId, pending.toolName, false, null, errorMsg,
                         safeArgs(pending.arguments, pending.toolCallId)));
-            }
-
-            // session 级 auto-allow 存储（链式命令不泛化：确认的是整条链，无法安全按命令名记忆）
-            if (autoAllowSimilar && com.example.agent.core.blocker.BashDangerousCommandBlocker.isSafeForAutoAllow(pending.command)) {
-                String commandName = extractCommandName(pending.command);
-                sessionManager.addAutoAllowRule(sessionId, commandName);
-                logger.info("已存储 auto-allow 规则: sessionId={}, command={}", sessionId, commandName);
-            } else if (autoAllowSimilar) {
-                logger.info("链式命令不记录 auto-allow: sessionId={}, command={}", sessionId, pending.command);
             }
         } else {
             logger.info("用户拒绝执行命令：confirmId={}, command={}", confirmId, pending.command);
@@ -359,11 +349,4 @@ public class ToolConfirmHandler implements HttpHandler {
         return node.toString();
     }
 
-    private static String extractCommandName(String command) {
-        if (command == null || command.isEmpty()) return "";
-        java.util.List<com.example.agent.core.blocker.CommandParser.Segment> segments =
-            com.example.agent.core.blocker.CommandParser.parse(command);
-        return segments.isEmpty() ? "" : segments.get(0).getCommandName();
-    }
-
-    }
+}

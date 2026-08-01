@@ -112,7 +112,7 @@ export class ConfirmHandler {
   /**
    * 执行工具确认
    */
-  doConfirm(confirmId, decision, autoAllowSimilar, session, item) {
+  doConfirm(confirmId, decision, session, item) {
     const cp = this.chatPanel;
     // 清除 segment 的确认状态，UI 从确认弹窗切换到"运行中..."，防止重复点击
     if (session && confirmId) {
@@ -125,7 +125,7 @@ export class ConfirmHandler {
         cp.renderPipeline.flush(session.getSegments(), session.getCurrentText());
       }
     }
-    this._sendToolConfirmResponse(confirmId, decision, autoAllowSimilar);
+    this._sendToolConfirmResponse(confirmId, decision);
 
     // 卡片模式：显式收起确认卡，避免 flush 完成前卡在展开态
     const card = document.querySelector(`.confirmation-btn[data-confirm-id="${confirmId}"]`)
@@ -152,7 +152,7 @@ export class ConfirmHandler {
   /**
    * 发送工具确认的 SSE 请求
    */
-  _sendToolConfirmResponse(confirmId, decision, autoAllowSimilar) {
+  _sendToolConfirmResponse(confirmId, decision) {
     const cp = this.chatPanel;
     const sessionId = appState.currentSessionId;
     if (!sessionId || !confirmId) return;
@@ -172,8 +172,7 @@ export class ConfirmHandler {
       body: JSON.stringify({
         sessionId,
         confirmId,
-        decision,
-        autoAllowSimilar: !!autoAllowSimilar
+        decision
       }),
       signal: cp.currentAbortController.signal
     }).then(async response => {
@@ -319,13 +318,11 @@ export class ConfirmHandler {
     const confirmId = btn.dataset.confirmId;
     const decision = btn.classList.contains('allow') ? 'allow' : 'deny';
     const item = btn.closest('.tool-timeline-item');
-    const checkbox = item?.querySelector('.auto-allow-checkbox');
-    const autoAllowSimilar = checkbox ? checkbox.checked : false;
     const session = cp._activeSession;
 
     // 拒绝操作或非删除确认，直接执行
     if (decision !== 'allow' || !btn.classList.contains('delete-confirm')) {
-      this.doConfirm(confirmId, decision, autoAllowSimilar, session, item);
+      this.doConfirm(confirmId, decision, session, item);
       return;
     }
 
@@ -343,7 +340,7 @@ export class ConfirmHandler {
       overlay.style.display = 'none';
       document.getElementById('deleteConfirmOk').removeEventListener('click', onConfirm);
       document.getElementById('deleteConfirmCancel').removeEventListener('click', onCancel);
-      this.doConfirm(confirmId, decision, autoAllowSimilar, session, item);
+      this.doConfirm(confirmId, decision, session, item);
     };
     const onCancel = () => {
       overlay.style.display = 'none';

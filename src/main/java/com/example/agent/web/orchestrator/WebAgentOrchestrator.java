@@ -430,98 +430,57 @@ public class WebAgentOrchestrator {
             try (var _session = FileChangeTracker.withContext(sessionId, null)) {
                 RequestContext.set(RequestContext.ContextType.WEB);
 
-                // 对 bash 工具做预检查：三级安全模型 + session auto-allow
+                // 对 bash 工具做预检查：三级安全模型
                 if ("bash".equals(toolName)) {
                     JsonNode args = objectMapper.readTree(arguments);
                     String command = args.has("command") ? args.get("command").asText() : "";
 
-                    // session 级 auto-allow 检测：用户之前授权过同类命令，直接放行
                     if (!command.isEmpty()) {
-                        String commandName = extractCommandName(command);
-                        if (sessionManager.isAutoAllowed(sessionId, commandName)) {
-                            // auto-allow 只能跳过"确认弹窗"，绝不能跳过安全检查：
-                            // 严格禁止的命令（含链式命令中任一段危险）即使 auto-allow 也不执行
-                            HookResult autoAllowCheck = toolRegistry.getBlockerChain().check(toolName, args);
-                            if (autoAllowCheck.isDenied()) {
-                                String errorMsg = autoAllowCheck.getReason();
-                                getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
-                                sseWriter.sendSseEvent("tool_result",
-                                    buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
-                                continue;
-                            }
-                            logger.debug("auto-allow 跳过确认: sessionId={}, command={}", sessionId, commandName);
-                            ToolExecutor executor = toolRegistry.getExecutor(toolName);
-                            if (executor != null) {
-                                long[] lastProgressTime = {0};
-                                BashTool.setCurrentToolCallId(toolCall.getId());
-                                try {
-                                    String rawResult = executor.execute(args, line -> {
-                                        long now = System.currentTimeMillis();
-                                        if (now - lastProgressTime[0] > 200) {
-                                            lastProgressTime[0] = now;
-                                            sseWriter.sendSseEvent("tool_progress",
-                                                buildProgressJson(toolCall.getId(), line));
-                                        }
-                                    });
-                                    String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
-                                    getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
-                                    sseWriter.sendSseEvent("tool_result",
-                                        buildToolResultJson(toolCall.getId(), toolName, true, truncatedResult, null, arguments, toolCall.getId()));
-                                    SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
-                                    stats.addToolCall();
-                                } finally {
-                                    BashTool.clearCurrentToolCallId();
+                        HookResult hookResult = toolRegistry.getBlockerChain().check(toolName, args);
+
+                        if (hookResult.isDenied()) {
+                            String errorMsg = hookResult.getReason();
+                            getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                            sseWriter.sendSseEvent("tool_result",
+                                buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
+                            continue;
+                        }
+
+                        if (hookResult.isConfirmationRequired()) {
+                            // 检查配置：如果用户关闭了"需确认"开关，跳过确认直接执行
+                            if (!Config.getInstance().getTools().getBash().isRequireConfirmation()) {
+                                // ⚠️ 安全提示：确认弹窗已被配置关闭，需确认级别的命令将直接执行；
+                                // 严格禁止（denied）的命令不受此开关影响，仍会被拦截。
+                                logger.warn("bash 确认已全局关闭（require_confirmation=false），" +
+                                        "需确认命令直接执行: sessionId={}, command={}, riskLevel={}",
+                                    sessionId, command, hookResult.getRiskLevel());
+                                // 放行，走到下方的流式执行逻辑
+                            } else {
+                                String confirmId = java.util.UUID.randomUUID().toString();
+
+                                PendingBashConfirmation pending = new PendingBashConfirmation(
+                                    confirmId, toolCall.getId(), toolName,
+                                    command, arguments, hookResult.getRiskLevel(), hookResult.getReason()
+                                );
+                                sessionManager.setPendingBashConfirmation(sessionId, pending);
+
+                                String confirmJson = buildBashConfirmJson(confirmId, command,
+                                    hookResult.getRiskLevel(), hookResult.getReason());
+                                sseWriter.sendSseEvent("tool_confirmation", confirmJson);
+                                logger.info("发送 tool_confirmation 事件: confirmId={}, command={}, riskLevel={}",
+                                    confirmId, command, hookResult.getRiskLevel());
+                                // 保存当前轮中尚未执行的剩余工具，确认弹窗关闭后继续执行
+                                // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，确认/拒绝一个不影响其他
+                                if (i < toolCalls.size() - 1) {
+                                    List<ToolCall> remaining = toolCalls.subList(i + 1, toolCalls.size());
+                                    String remainingIds = remaining.stream()
+                                        .map(tc -> tc.getId() + "(" + tc.getFunction().getName() + ")")
+                                        .collect(java.util.stream.Collectors.joining(", "));
+                                    remainingToolCalls.put(sessionId, remaining);
+                                    logger.info("暂存剩余工具调用: sessionId={}, 数量={}, 列表=[{}]",
+                                        sessionId, remaining.size(), remainingIds);
                                 }
-                                continue;
-                            }
-                        } else {
-                            HookResult hookResult = toolRegistry.getBlockerChain().check(toolName, args);
-
-                            if (hookResult.isDenied()) {
-                                String errorMsg = hookResult.getReason();
-                                getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
-                                sseWriter.sendSseEvent("tool_result",
-                                    buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
-                                continue;
-                            }
-
-                            if (hookResult.isConfirmationRequired()) {
-                                // 检查配置：如果用户关闭了"需确认"开关，跳过确认直接执行
-                                if (!Config.getInstance().getTools().getBash().isRequireConfirmation()) {
-                                    // ⚠️ 安全提示：确认弹窗已被配置关闭，需确认级别的命令将直接执行；
-                                    // 严格禁止（denied）的命令不受此开关影响，仍会被拦截。
-                                    logger.warn("bash 确认已全局关闭（require_confirmation=false），" +
-                                            "需确认命令直接执行: sessionId={}, command={}, riskLevel={}",
-                                        sessionId, command, hookResult.getRiskLevel());
-                                    // 放行，走到下方的流式执行逻辑
-                                } else {
-                                    String confirmId = java.util.UUID.randomUUID().toString();
-
-                                    PendingBashConfirmation pending = new PendingBashConfirmation(
-                                        confirmId, toolCall.getId(), toolName,
-                                        command, arguments, hookResult.getRiskLevel(), hookResult.getReason()
-                                    );
-                                    sessionManager.setPendingBashConfirmation(sessionId, pending);
-
-                                    String confirmJson = buildBashConfirmJson(confirmId, command,
-                                        hookResult.getRiskLevel(), hookResult.getReason(),
-                                        BashDangerousCommandBlocker.isSafeForAutoAllow(command));
-                                    sseWriter.sendSseEvent("tool_confirmation", confirmJson);
-                                    logger.info("发送 tool_confirmation 事件: confirmId={}, command={}, riskLevel={}",
-                                        confirmId, command, hookResult.getRiskLevel());
-                                    // 保存当前轮中尚未执行的剩余工具，确认弹窗关闭后继续执行
-                                    // LLM 一次返回的多个 tool call 是并行语义，工具间无依赖，确认/拒绝一个不影响其他
-                                    if (i < toolCalls.size() - 1) {
-                                        List<ToolCall> remaining = toolCalls.subList(i + 1, toolCalls.size());
-                                        String remainingIds = remaining.stream()
-                                            .map(tc -> tc.getId() + "(" + tc.getFunction().getName() + ")")
-                                            .collect(java.util.stream.Collectors.joining(", "));
-                                        remainingToolCalls.put(sessionId, remaining);
-                                        logger.info("暂存剩余工具调用: sessionId={}, 数量={}, 列表=[{}]",
-                                            sessionId, remaining.size(), remainingIds);
-                                    }
-                                    return false;
-                                }
+                                return false;
                             }
                         }
                     }
@@ -743,15 +702,6 @@ public class WebAgentOrchestrator {
         return nonSystemMessages;
     }
 
-    private static String extractCommandName(String command) {
-        if (command == null || command.isEmpty()) {
-            return "";
-        }
-        java.util.List<com.example.agent.core.blocker.CommandParser.Segment> segments =
-            com.example.agent.core.blocker.CommandParser.parse(command);
-        return segments.isEmpty() ? "" : segments.get(0).getCommandName();
-    }
-
     /**
      * 将 session 中存储的 mode 字符串解析为 AgentMode 枚举。
      * null / 空 / 无法识别时返回默认的 CODING 模式。
@@ -830,18 +780,14 @@ public class WebAgentOrchestrator {
 
     /**
      * 使用 ObjectMapper 安全构建 tool_confirmation（bash）SSE 事件 JSON。
-     * @param autoAllowable 是否可勾选"不再询问同类命令"（链式命令为 false，
-     *                      因为确认的是整条链，无法安全泛化到命令名级别）
      */
     private static String buildBashConfirmJson(String confirmId, String command,
-                                                String riskLevel, String riskReason,
-                                                boolean autoAllowable) {
+                                                String riskLevel, String riskReason) {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("confirmId", confirmId);
         node.put("command", command);
         node.put("riskLevel", riskLevel);
         node.put("riskReason", riskReason);
-        node.put("autoAllowable", autoAllowable);
         return node.toString();
     }
 
