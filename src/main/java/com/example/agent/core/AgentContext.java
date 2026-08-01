@@ -189,6 +189,8 @@ public class AgentContext {
         // 增强系统提示词（使用 PromptLibrary）
         String basePrompt = promptService.getBasePrompt(null);
         String enhancedSystemPrompt = this.ruleManager.enhanceSystemPrompt(basePrompt);
+        // 注入运行环境信息，让 LLM 明确平台与 shell 类型
+        enhancedSystemPrompt += com.example.agent.desktop.WorkspaceContext.getEnvironmentPromptSnippet();
         this.conversation = conversationService.create(enhancedSystemPrompt, config.getContext().getMaxTokens(), sessionId);
 
         logger.info("✅ 四层架构落地: ConversationService(应用层) + Conversation(领域层)");
@@ -204,6 +206,8 @@ public class AgentContext {
             };
             String prompt = promptService.getBasePrompt(taskMode);
             String enhancedPrompt = ruleManager.enhanceSystemPrompt(prompt);
+            // 注入运行环境信息，让 LLM 明确平台与 shell 类型
+            enhancedPrompt += com.example.agent.desktop.WorkspaceContext.getEnvironmentPromptSnippet();
             
             // ✅ 核心：preserveHistory = true
             conversationService.setSystemPrompt(conversation, enhancedPrompt, true);
@@ -232,6 +236,8 @@ public class AgentContext {
         if (this.ruleManager != null) {
             this.ruleManager.reload();
             String enhancedSystemPrompt = this.ruleManager.enhanceSystemPrompt(basePrompt);
+            // 注入运行环境信息，让 LLM 明确平台与 shell 类型
+            enhancedSystemPrompt += com.example.agent.desktop.WorkspaceContext.getEnvironmentPromptSnippet();
             this.conversation = conversationService.create(enhancedSystemPrompt, config.getContext().getMaxTokens(), sessionId);
         } else {
             this.conversation = conversationService.create(basePrompt, config.getContext().getMaxTokens(), sessionId);

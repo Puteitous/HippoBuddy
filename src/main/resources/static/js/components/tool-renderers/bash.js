@@ -4,6 +4,58 @@ import { parseToolArgs } from './shared.js';
 // i18n 辅助函数
 const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
+/**
+ * 解析 BashTool 后端返回的结果文本（BashTool.formatResult 格式）：
+ *   命令执行结果
+ *   命令: xxx
+ *   工作目录: xxx
+ *   退出码: 0 成功
+ *   执行时间: 123 ms
+ *   输出:
+ *   <实际命令输出内容>
+ *
+ * 兼容中英文标记（输出:/Output: 及全角冒号），并按实际匹配长度偏移，
+ * 修复原先硬编码 +3 字符偏移在英文界面下截取错位的问题。
+ *
+ * @returns {{output: string, exitCode: number|null, exitSuccess: boolean, duration: number|null}}
+ */
+function parseBashResultContent(resultContent) {
+  const empty = { output: '', exitCode: null, exitSuccess: true, duration: null };
+  if (!resultContent) return empty;
+
+  const lines = resultContent.split('\n');
+  let output = '';
+  let exitCode = null;
+  let exitSuccess = true;
+  let duration = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith(_t('tool.bash.exitCode')) || line.startsWith('Exit Code:') || line.startsWith('退出代码:')) {
+      const match = line.match(/(\d+)/);
+      if (match) exitCode = match[1];
+      exitSuccess = line.includes(_t('tool.bash.success')) || line.includes('success') || line.includes('成功');
+    } else if (line.startsWith(_t('tool.bash.execTime')) || line.startsWith('Execution Time:') || line.startsWith('执行时间:')) {
+      const match = line.match(/(\d+)\s*ms/);
+      if (match) duration = match[1];
+    }
+  }
+
+  // 定位输出标记行（输出:/输出：/Output:/Output：），取第一个匹配行
+  const outputMarker = resultContent.match(/^(?:输出:|输出：|Output:|Output：)/m);
+  if (outputMarker) {
+    const markerStart = outputMarker.index;
+    const markerLen = outputMarker[0].length;
+    output = resultContent.substring(markerStart + markerLen);
+    // 去掉可能跟随的分隔线（──）
+    output = output.replace(/^[─]+/, '').trim();
+    const endMarker = output.lastIndexOf('──');
+    if (endMarker >= 0) output = output.substring(0, endMarker).trim();
+  }
+
+  return { output, exitCode, exitSuccess, duration };
+}
+
 export function renderBashCard(tool) {
   const isPendingConfirm = !!(tool.confirmationData);
 
@@ -15,39 +67,12 @@ export function renderBashCard(tool) {
   const args = parseToolArgs(tool.args);
   const command = args.command || '';
   const workingDir = args.working_dir || '';
+  const { output, exitCode, exitSuccess, duration } = parseBashResultContent(tool.resultContent);
   const isSuccess = tool.result === 'success';
   const isError = tool.result === 'error';
   const isRunning = !tool.result;
   const isCancelled = tool.result === 'cancelled';
   const isInterrupted = tool.result === 'interrupted';
-
-  let output = '';
-  let exitCode = null;
-  let exitSuccess = true;
-  let duration = null;
-  if (tool.resultContent) {
-    const lines = tool.resultContent.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.startsWith(_t('tool.bash.exitCode')) || line.startsWith('Exit Code:') || line.startsWith('退出代码:')) {
-        const match = line.match(/(\d+)/);
-        if (match) exitCode = match[1];
-        exitSuccess = line.includes(_t('tool.bash.success')) || line.includes('success');
-      } else if (line.startsWith(_t('tool.bash.execTime')) || line.startsWith('Execution Time:')) {
-        const match = line.match(/(\d+)\s*ms/);
-        if (match) duration = match[1];
-      }
-    }
-    const outputStart = tool.resultContent.indexOf(_t('tool.bash.output')) >= 0
-      ? tool.resultContent.indexOf(_t('tool.bash.output'))
-      : tool.resultContent.indexOf('输出:');
-    if (outputStart >= 0) {
-      output = tool.resultContent.substring(outputStart + 3);
-      output = output.replace(/^[─]+/, '').trim();
-      const endMarker = output.lastIndexOf('──');
-      if (endMarker >= 0) output = output.substring(0, endMarker).trim();
-    }
-  }
 
   const statusSvg = isSuccess
     ? '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 7 11 12 5"/></svg>'
@@ -121,33 +146,7 @@ function renderBashConfirmCard(tool) {
 }
 
 export function renderBashDetail(tool) {
-  let output = '';
-  let exitCode = null;
-  let exitSuccess = true;
-  let duration = null;
-  if (tool.resultContent) {
-    const lines = tool.resultContent.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.startsWith(_t('tool.bash.exitCode')) || line.startsWith('Exit Code:') || line.startsWith('退出代码:')) {
-        const match = line.match(/(\d+)/);
-        if (match) exitCode = match[1];
-        exitSuccess = line.includes(_t('tool.bash.success')) || line.includes('success');
-      } else if (line.startsWith(_t('tool.bash.execTime')) || line.startsWith('Execution Time:')) {
-        const match = line.match(/(\d+)\s*ms/);
-        if (match) duration = match[1];
-      }
-    }
-    const outputStart = tool.resultContent.indexOf(_t('tool.bash.output')) >= 0
-      ? tool.resultContent.indexOf(_t('tool.bash.output'))
-      : tool.resultContent.indexOf('输出:');
-    if (outputStart >= 0) {
-      output = tool.resultContent.substring(outputStart + 3);
-      output = output.replace(/^[─]+/, '').trim();
-      const endMarker = output.lastIndexOf('──');
-      if (endMarker >= 0) output = output.substring(0, endMarker).trim();
-    }
-  }
+  const { output, exitCode, exitSuccess, duration } = parseBashResultContent(tool.resultContent);
 
   let html = '';
   if (output) {

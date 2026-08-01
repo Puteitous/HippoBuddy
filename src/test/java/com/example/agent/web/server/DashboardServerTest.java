@@ -224,7 +224,7 @@ class DashboardServerTest {
             conn.setReadTimeout(2000);
 
             assertEquals(200, conn.getResponseCode());
-            assertEquals("text/event-stream", conn.getHeaderField("Content-Type"));
+            assertEquals("text/event-stream; charset=utf-8", conn.getHeaderField("Content-Type"));
             assertEquals("no-cache", conn.getHeaderField("Cache-Control"));
             assertEquals("keep-alive", conn.getHeaderField("Connection"));
 

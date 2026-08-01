@@ -72,6 +72,22 @@ public final class WorkspaceContext {
         return defaultDir.equals(Paths.get(currentFolder).toAbsolutePath().normalize());
     }
 
+    /**
+     * 返回注入到 System Prompt 的运行环境描述。
+     * <p>
+     * 让 LLM 明确知道当前平台和 shell 类型，避免它按训练语料里占多数的
+     * Unix 语法生成 bash 命令。具体的语法映射（dir/type/findstr 代替
+     * ls/cat/grep）由 bash 工具自身的 description 承担，这里只告知环境事实。
+     */
+    public static String getEnvironmentPromptSnippet() {
+        String os = System.getProperty("os.name", "unknown");
+        String arch = System.getProperty("os.arch", "");
+        boolean windows = os.toLowerCase().contains("win");
+        String shell = windows ? "cmd" : "bash";
+        String archPart = arch.isBlank() ? "" : " (" + arch + ")";
+        return "\n\n## 运行环境\n操作系统: " + os + archPart + "\nbash 命令执行环境: " + shell;
+    }
+
     private static Path getConfigPath() {
         return WorkspaceManager.getGlobalConfigDir().resolve("workspace.txt");
     }

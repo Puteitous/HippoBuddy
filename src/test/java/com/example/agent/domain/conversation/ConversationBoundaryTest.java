@@ -49,7 +49,9 @@ class ConversationBoundaryTest {
     void extremelySmallTokenBudget() {
         Conversation tinyConv = new Conversation(10, tokenEstimator);
 
-        tinyConv.addMessage(Message.user("Even a short message"));
+        // 消息需要足够长，确保在任何 TokenEstimator 实现（tiktoken / simple）下
+        // 估算结果都超过 10 token 预算，从而验证 ratio 可以超过 1.0
+        tinyConv.addMessage(Message.user(generateLongContent(10)));
 
         assertThat(tinyConv.getUsageRatio()).isGreaterThan(1.0);
     }

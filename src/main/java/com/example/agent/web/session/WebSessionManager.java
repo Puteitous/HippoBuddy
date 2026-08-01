@@ -534,6 +534,9 @@ public class WebSessionManager implements SessionManager {
             }
         }
 
+        // 注入运行环境信息，让 LLM 明确平台与 shell 类型
+        prompt += WorkspaceContext.getEnvironmentPromptSnippet();
+
         return prompt;
     }
 

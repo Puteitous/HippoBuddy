@@ -25,8 +25,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -211,14 +213,17 @@ public class DashboardServer {
     private static class SseHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
+            exchange.getResponseHeaders().set("Content-Type", "text/event-stream; charset=utf-8");
             exchange.getResponseHeaders().set("Cache-Control", "no-cache");
             exchange.getResponseHeaders().set("Connection", "keep-alive");
             exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
 
             exchange.sendResponseHeaders(200, 0);
 
-            PrintWriter writer = new PrintWriter(exchange.getResponseBody(), true);
+            // 显式指定 UTF-8，避免 PrintWriter(OutputStream) 使用 JVM 默认编码
+            // （若被环境变量覆盖为 GBK 等，会导致 SSE 中文乱码）
+            PrintWriter writer = new PrintWriter(
+                new OutputStreamWriter(exchange.getResponseBody(), StandardCharsets.UTF_8), true);
             clients.add(writer);
 
             writer.write("event: connected\n");

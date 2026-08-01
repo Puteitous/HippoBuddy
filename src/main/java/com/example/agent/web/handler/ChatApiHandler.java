@@ -114,6 +114,8 @@ public class ChatApiHandler implements HttpHandler {
                         basePrompt += "\n\n## 当前工作区\n用户已选择以下文件夹作为当前工作区。Agent 的所有文件操作应以此目录为根目录：\n"
                             + workspacePath;
                     }
+                    // 注入运行环境信息，让 LLM 明确平台与 shell 类型
+                    basePrompt += com.example.agent.desktop.WorkspaceContext.getEnvironmentPromptSnippet();
                     systemPromptOverride = basePrompt;
                 } catch (Exception e) {
                     logger.warn("无法解析 mode={}, 使用默认提示词", mode);
