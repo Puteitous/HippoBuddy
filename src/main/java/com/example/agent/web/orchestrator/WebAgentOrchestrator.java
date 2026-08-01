@@ -18,6 +18,7 @@ import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Tool;
 import com.example.agent.llm.model.ToolCall;
+import com.example.agent.llm.model.Usage;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.tools.BashTool;
@@ -232,6 +233,14 @@ public class WebAgentOrchestrator {
                         }
                     }
                 }
+
+                // 实时推送 Token usage：
+                // - Anthropic 协议：message_start 推送 input_tokens 真实值，message_delta 持续推送 output_tokens 累计值
+                // - Responses API：response.completed / incomplete 终态推送完整 usage（回合结束立即校准）
+                // - Chat Completions 兼容：最后一个 chunk 推送完整 usage
+                if (chunk.hasUsage()) {
+                    pushTokenUpdate(sseWriter, chunk.getUsage());
+                }
             });
 
             if (cancelManager.isCancelled(sessionId)) {
@@ -342,6 +351,33 @@ public class WebAgentOrchestrator {
         }
 
         sseWriter.sendSseEvent("done", "{}");
+    }
+
+    /**
+     * 构建并推送 token_update SSE 事件（实时 Token 统计快照）。
+     * <p>
+     * 与 {@code /api/sessions/{id}/tokens} 接口返回结构保持一致，但标注 live=true，
+     * 前端据此识别为流式实时推送，直接渲染而不污染趋势图历史记录。
+     * </p>
+     */
+    private void pushTokenUpdate(SseWriter sseWriter, Usage usage) {
+        try {
+            if (usage == null) return;
+            int prompt = usage.getPromptTokens();
+            int completion = usage.getCompletionTokens();
+            int total = usage.getTotalTokens() > 0 ? usage.getTotalTokens() : (prompt + completion);
+            ObjectNode node = objectMapper.createObjectNode();
+            node.put("live", true);
+            node.put("hasKnownUsage", true);
+            node.put("promptTokens", prompt);
+            node.put("completionTokens", completion);
+            node.put("totalTokens", total);
+            node.put("cacheHitTokens", usage.getCacheReadInputTokens());
+            node.put("cacheHitRate", Math.round(usage.getCacheHitRate() * 10.0) / 10.0);
+            sseWriter.sendSseEvent("token_update", node.toString());
+        } catch (Exception e) {
+            logger.debug("推送 token_update 失败: {}", e.getMessage());
+        }
     }
 
     private boolean executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId, AgentMode mode) {

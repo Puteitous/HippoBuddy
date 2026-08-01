@@ -261,6 +261,44 @@ export class TokenMonitor {
   }
   
   /**
+   * 处理后端 token_update SSE 实时推送（流式中真实值 / 回合结束校准值）。
+   * <p>
+   * 与轮询 {@link #updateTokenStats} 不同：此方法不拉取 /tokens 接口、不写趋势图历史，
+   * 仅把实时 usage 快照直接渲染到状态栏 / 右侧面板 / Activity Bar 面板，
+   * 消除"回合一结束还要等最多 30s 轮询"的滞后感。
+   * </p>
+   * @param {Object} data - 后端 pushTokenUpdate 推送的字段：promptTokens / completionTokens /
+   *                        totalTokens / cacheHitTokens / cacheHitRate / hasKnownUsage
+   */
+  onLiveTokenUpdate(data) {
+    if (!data || !data.hasKnownUsage) return;
+    // 尚无轮询基准（maxTokens 未知）时先跳过，首次轮询填充后再接管实时渲染
+    const base = this._lastStats;
+    if (!base || !base.maxTokens) return;
+
+    const prompt = data.promptTokens || 0;
+    const completion = data.completionTokens || 0;
+    const total = data.totalTokens || (prompt + completion);
+    const usagePercent = Math.round(total * 1000.0 / base.maxTokens) / 10.0;
+
+    // 以最近一次完整统计为基础，仅覆盖当前回合实时字段，
+    // 保留 sessionTotal / llmCalls / toolCalls 等累计值（避免 tooltip 显示为 0）
+    const stats = {
+      ...base,
+      currentTokens: total,
+      promptTokens: prompt,
+      completionTokens: completion,
+      totalTokens: total,
+      hasKnownUsage: true,
+      cacheHitTokens: data.cacheHitTokens || 0,
+      cacheHitRate: data.cacheHitRate || 0,
+      usagePercent,
+      live: true
+    };
+    this.updateTokenVisual(stats);
+  }
+  
+  /**
    * 更新 Activity Bar 面板中的 Token 元素
    * 支持懒加载：元素可能晚于 TokenMonitor 初始化，每次检查并自动重缓存
    */

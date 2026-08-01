@@ -644,6 +644,15 @@ public class AnthropicLlmClient extends AbstractLlmClient {
                                     }
                                 }
                             }
+                            // 实时传出 input_tokens 真实值（Anthropic 协议第一帧即携带，
+                            // 使前端 Token 状态栏在流式开始就能显示真实输入 token 数）
+                            if (usage != null && onChunk != null) {
+                                Usage live = copyUsage(usage);
+                                live.setTotalTokens(live.getPromptTokens() + live.getCompletionTokens());
+                                StreamChunk usageChunk = new StreamChunk();
+                                usageChunk.setUsage(live);
+                                onChunk.accept(usageChunk);
+                            }
 
                         } else if ("content_block_start".equals(type)) {
                             JsonNode block = eventData.get("content_block");
@@ -730,6 +739,15 @@ public class AnthropicLlmClient extends AbstractLlmClient {
                                     }
                                 }
                                 usage = u;
+                                // 实时传出 output_tokens 累计真实值（Anthropic 协议在流式
+                                // 过程中持续推送 message_delta.usage，前端据此实时更新状态栏）
+                                if (usage != null && onChunk != null) {
+                                    Usage live = copyUsage(usage);
+                                    live.setTotalTokens(live.getPromptTokens() + live.getCompletionTokens());
+                                    StreamChunk usageChunk = new StreamChunk();
+                                    usageChunk.setUsage(live);
+                                    onChunk.accept(usageChunk);
+                                }
                             }
 
                         } else if ("message_stop".equals(type)) {
@@ -766,6 +784,26 @@ public class AnthropicLlmClient extends AbstractLlmClient {
         }
 
         return buildAnthropicChatResponse(fullContent.toString(), fullReasoning.toString(), toolCalls, finishReason, usage, messageId, messageModel);
+    }
+
+    /**
+     * 深拷贝 Usage，用于流式实时传出（避免外部回调持有同一引用导致后续变更互相干扰）。
+     */
+    private Usage copyUsage(Usage src) {
+        if (src == null) return null;
+        Usage copy = new Usage();
+        copy.setPromptTokens(src.getPromptTokens());
+        copy.setCompletionTokens(src.getCompletionTokens());
+        copy.setTotalTokens(src.getTotalTokens());
+        copy.setPromptCacheHitTokens(src.getPromptCacheHitTokens());
+        copy.setPromptCacheMissTokens(src.getPromptCacheMissTokens());
+        if (src.getPromptTokensDetails() != null) {
+            PromptTokensDetails ptd = new PromptTokensDetails();
+            ptd.setCachedTokens(src.getPromptTokensDetails().getCachedTokens());
+            ptd.setCacheCreationInputTokens(src.getPromptTokensDetails().getCacheCreationInputTokens());
+            copy.setPromptTokensDetails(ptd);
+        }
+        return copy;
     }
 
     private ChatResponse buildAnthropicChatResponse(String content, String reasoning, List<ToolCall> toolCalls,

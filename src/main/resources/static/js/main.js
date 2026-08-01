@@ -281,6 +281,13 @@ function init() {
       sessionManager?.loadSessions();
     }, 1500);
   });
+
+  // 流式实时 Token 统计推送（后端 token_update SSE 事件 → MessageSession → EventBus）
+  // 直接交给 TokenMonitor 渲染，避免 30s 轮询滞后；趋势图历史记录仍以轮询拉取为准
+  EventBus.on('token:update', (data) => {
+    if (!data) return;
+    tokenMonitor?.onLiveTokenUpdate(data);
+  });
   
   EventBus.on('session:auto-name', ({ sessionId }) => {
     if (sessionId && sessionManager) {

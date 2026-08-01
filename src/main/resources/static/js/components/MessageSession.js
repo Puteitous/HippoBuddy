@@ -56,6 +56,12 @@ export class MessageSession {
         if (s._onMessageId) s._onMessageId(parsed.id);
       },
 
+      token_update: (parsed) => {
+        // 流式实时 Token 统计推送（后端 token_update SSE 事件），
+        // 交给 TokenMonitor 直接渲染（✓ 真实值 / ~ 估算值），不依赖轮询
+        EventBus.emit('token:update', parsed);
+      },
+
       thinking: () => {
         s._pushTextSegment();
         if (s._reasoningSegment) {

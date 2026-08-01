@@ -74,6 +74,11 @@ export class EventRouter {
       return;
     }
 
+    if (parsed._eventType === 'token_update' && parsed.hasKnownUsage) {
+      this.handlers.token_update(parsed);
+      return;
+    }
+
     if (parsed._eventType === 'waiting_user') {
       this.handlers.waiting_user(parsed, contentDiv);
       return;

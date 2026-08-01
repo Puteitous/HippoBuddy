@@ -804,6 +804,12 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                             if (u != null) {
                                 usage = u;
                             }
+                            // 实时传出终态 usage（回合结束立即校准，前端无需等待轮询）
+                            if (usage != null && onChunk != null) {
+                                StreamChunk usageChunk = new StreamChunk();
+                                usageChunk.setUsage(usage);
+                                onChunk.accept(usageChunk);
+                            }
                             // 若 output 中存在 function_call → finishReason = tool_calls
                             JsonNode output = respNode.get("output");
                             if (output != null && output.isArray()) {
@@ -827,6 +833,12 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                             Usage u = parseResponsesUsage(respNode.get("usage"));
                             if (u != null) {
                                 usage = u;
+                            }
+                            // 实时传出终态 usage（截断时同样立即校准）
+                            if (usage != null && onChunk != null) {
+                                StreamChunk usageChunk = new StreamChunk();
+                                usageChunk.setUsage(usage);
+                                onChunk.accept(usageChunk);
                             }
                             finishReason = "length";
                             streamEnded = true;

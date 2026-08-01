@@ -489,11 +489,14 @@ public abstract class AbstractLlmClient implements LlmClient {
                     continue;
                 }
                 
+                boolean delivered = false;
+                
                 if (chunk.hasContent()) {
                     contentChunkCount++;
                     fullContent.append(chunk.getContent());
                     if (onChunk != null) {
                         onChunk.accept(chunk);
+                        delivered = true;
                     }
                 }
                 
@@ -502,6 +505,7 @@ public abstract class AbstractLlmClient implements LlmClient {
                     fullReasoning.append(chunk.getReasoning());
                     if (onChunk != null) {
                         onChunk.accept(chunk);
+                        delivered = true;
                     }
                 }
                 
@@ -510,6 +514,7 @@ public abstract class AbstractLlmClient implements LlmClient {
                     mergeToolCallDeltas(toolCalls, chunk.getToolCallDeltas());
                     if (onChunk != null) {
                         onChunk.accept(chunk);
+                        delivered = true;
                     }
                 }
                 
@@ -519,6 +524,14 @@ public abstract class AbstractLlmClient implements LlmClient {
                 
                 if (chunk.hasUsage()) {
                     usage = chunk.getUsage();
+                    // 纯 usage chunk（如 OpenAI 兼容协议最后一帧仅含 usage）也要传出，
+                    // 让上层能实时感知"回合结束、usage 已就绪"并立即校准 Token 状态栏。
+                    // 若本 chunk 已携带 content/reasoning/toolCall 被 accept 过（usage 同帧），
+                    // 无需重复 accept，上层已能从同一 chunk 中读取 usage。
+                    if (onChunk != null && !delivered) {
+                        onChunk.accept(chunk);
+                        delivered = true;
+                    }
                 }
             }
             
