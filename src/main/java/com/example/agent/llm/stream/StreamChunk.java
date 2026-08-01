@@ -16,6 +16,8 @@ public class StreamChunk {
     private String finishReason;
     private boolean isToolCall;
     private Usage usage;
+    private boolean webSearchStarted;
+    private boolean webSearchDone;
 
     public StreamChunk() {
     }
@@ -94,6 +96,22 @@ public class StreamChunk {
         return usage != null;
     }
 
+    public boolean isWebSearchStarted() {
+        return webSearchStarted;
+    }
+
+    public void setWebSearchStarted(boolean webSearchStarted) {
+        this.webSearchStarted = webSearchStarted;
+    }
+
+    public boolean isWebSearchDone() {
+        return webSearchDone;
+    }
+
+    public void setWebSearchDone(boolean webSearchDone) {
+        this.webSearchDone = webSearchDone;
+    }
+
     @Override
     public String toString() {
         return "StreamChunk{" +
@@ -103,6 +121,8 @@ public class StreamChunk {
                 ", finishReason='" + finishReason + '\'' +
                 ", isToolCall=" + isToolCall +
                 ", usage=" + usage +
+                ", webSearchStarted=" + webSearchStarted +
+                ", webSearchDone=" + webSearchDone +
                 '}';
     }
 }

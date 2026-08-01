@@ -656,6 +656,20 @@ export class ChatPanel {
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
       },
 
+      web_search_start: (parsed, contentDiv) => {
+        const session = s();
+        if (!session) return;
+        session.handleWebSearchStart(parsed, contentDiv);
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
+      },
+
+      web_search_done: () => {
+        const session = s();
+        if (!session) return;
+        session.handleWebSearchDone();
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
+      },
+
       content: (parsed, contentDiv) => {
         const session = s();
         if (!session) return;

@@ -144,6 +144,7 @@ public class WebAgentOrchestrator {
             boolean[] reasoningPhase = {true};
             List<Map<String, Object>> streamToolCalls = new ArrayList<>();
             boolean[] hasAskUser = {false};
+            boolean[] webSearched = {false};
 
             MessageSanitizer.removeOrphanToolCalls(messages);
 
@@ -241,6 +242,17 @@ public class WebAgentOrchestrator {
                 if (chunk.hasUsage()) {
                     pushTokenUpdate(sseWriter, chunk.getUsage());
                 }
+
+                // 服务端联网搜索（Responses API web_search 内置工具）：转发轻量状态标记，
+                // 前端展示「正在联网搜索…」→「已联网搜索」，不模拟 tool_start/tool_result 卡片
+                if (chunk.isWebSearchStarted()) {
+                    webSearched[0] = true;
+                    sseWriter.sendSseEvent("web_search_start", "{}");
+                }
+                if (chunk.isWebSearchDone()) {
+                    webSearched[0] = true;
+                    sseWriter.sendSseEvent("web_search_done", "{}");
+                }
             });
 
             if (cancelManager.isCancelled(sessionId)) {
@@ -294,6 +306,12 @@ public class WebAgentOrchestrator {
                     response.getUsage().getCacheReadInputTokens(),
                     response.getUsage().getPromptCacheMissTokens()
                 );
+            }
+
+            // 流式路径：web_search 状态经 StreamChunk 传递；非流式路径：parseResponsesBody 已置标记。
+            // 此处统一合并，确保落库的 assistant 消息携带 web_searched 标记（随 JSONL 持久化）。
+            if (webSearched[0] || assistantMessage.isWebSearched()) {
+                assistantMessage.setWebSearched(true);
             }
 
             getConversationService().addAssistantMessage(conversation, assistantMessage, response.getUsage());

@@ -27,7 +27,13 @@ public class Message {
      * </ul>
      * Jackson 序列化时，String 输出为字符串，List 自动输出为数组。
      * </p>
+     * <p>
+     * 字段上标注 {@code @JsonProperty("content")}，确保反序列化时 content
+     * 能被正确写入（{@code getContent()} 上有 {@code @JsonIgnore}，
+     * 若仅靠 getter/setter 推断会导致 content 属性被当作只读而丢失）。
+     * </p>
      */
+    @JsonProperty("content")
     private Object content;
     
     @JsonProperty("reasoning_content")
@@ -49,6 +55,13 @@ public class Message {
 
     @JsonProperty("tool_success")
     private Boolean toolSuccess;
+
+    /**
+     * 本回合是否执行过服务端联网搜索（Responses API 的 web_search 内置工具）。
+     * 用于前端展示「已联网搜索」标记，随消息持久化到 JSONL，刷新后保持一致。
+     */
+    @JsonProperty("web_searched")
+    private Boolean webSearched;
 
     public Message() {
         this.id = java.util.UUID.randomUUID().toString();
@@ -361,6 +374,7 @@ public class Message {
         copy.name = this.name;
         copy.messageType = this.messageType;
         copy.toolSuccess = this.toolSuccess;
+        copy.webSearched = this.webSearched;
         return copy;
     }
 
@@ -420,6 +434,18 @@ public class Message {
 
     public boolean isToolSuccess() {
         return toolSuccess != null && toolSuccess;
+    }
+
+    public Boolean getWebSearched() {
+        return webSearched;
+    }
+
+    public void setWebSearched(Boolean webSearched) {
+        this.webSearched = webSearched;
+    }
+
+    public boolean isWebSearched() {
+        return webSearched != null && webSearched;
     }
 
     public Message withId(String id) {

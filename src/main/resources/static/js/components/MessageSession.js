@@ -121,6 +121,14 @@ export class MessageSession {
         }
       },
 
+      web_search_start: (parsed, contentDiv) => {
+        s.handleWebSearchStart(parsed, contentDiv);
+      },
+
+      web_search_done: () => {
+        s.handleWebSearchDone();
+      },
+
       content: (parsed, contentDiv) => {
         if (s._reasoningSegment) {
           s._reasoningSegment.done = true;
@@ -367,6 +375,10 @@ export class MessageSession {
         }
         for (const seg of this._segments) {
           if (seg.type === 'thinking' && !seg.done) {
+            seg.done = true;
+          }
+          if (seg.type === 'web-search' && !seg.done) {
+            // 搜索已发起（started 已收到），停止时收尾为完成态，避免悬空「正在联网搜索…」
             seg.done = true;
           }
         }
@@ -697,6 +709,40 @@ export class MessageSession {
     if (this._currentText.trim()) {
       this._segments.push({ type: 'text', content: this._currentText });
       this._currentText = '';
+    }
+  }
+
+  /**
+   * 服务端联网搜索开始（Responses API web_search 内置工具）。
+   * 展示瞬态标记「正在联网搜索…」，与 tool_start 一致先收起 reasoning 段。
+   */
+  handleWebSearchStart(parsed, contentDiv) {
+    if (!this._hasReceivedData) {
+      this._hasReceivedData = true;
+      contentDiv?.querySelector('.typing-indicator')?.remove();
+    }
+    if (this._reasoningSegment) {
+      this._reasoningSegment.done = true;
+      this._reasoningSegment = null;
+      this._renderPipeline.flush(this._segments, this._currentText);
+    }
+    // 复用未完成的 web-search 段（防止重复事件），否则 push 一个新的瞬态标记
+    const existing = this._segments.find(seg => seg.type === 'web-search' && !seg.done);
+    if (!existing) {
+      this._pushTextSegment();
+      this._segments.push({ type: 'web-search', done: false });
+      this._renderPipeline.flush(this._segments, this._currentText);
+    }
+  }
+
+  /**
+   * 服务端联网搜索结束（completed / failed）。将瞬态标记更新为「已联网搜索」。
+   */
+  handleWebSearchDone() {
+    const seg = this._segments.find(seg => seg.type === 'web-search' && !seg.done);
+    if (seg) {
+      seg.done = true;
+      this._renderPipeline.flush(this._segments, this._currentText);
     }
   }
 

@@ -407,6 +407,7 @@ public class ResponsesLlmClient extends AbstractLlmClient {
             StringBuilder contentBuilder = new StringBuilder();
             StringBuilder reasoningBuilder = new StringBuilder();
             List<ToolCall> toolCalls = new ArrayList<>();
+            boolean webSearched = false;
 
             JsonNode output = root.get("output");
             if (output != null && output.isArray()) {
@@ -437,7 +438,8 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                         tc.setFunction(func);
                         toolCalls.add(tc);
                     } else if ("web_search_call".equals(type)) {
-                        // 服务端联网搜索已执行，无需客户端处理
+                        // 服务端联网搜索已执行：记录标记，供前端展示「已联网搜索」（随消息持久化）
+                        webSearched = true;
                     }
                 }
             }
@@ -458,6 +460,9 @@ public class ResponsesLlmClient extends AbstractLlmClient {
             }
             if (!toolCalls.isEmpty()) {
                 message.setToolCalls(toolCalls);
+            }
+            if (webSearched) {
+                message.setWebSearched(true);
             }
 
             Choice choice = new Choice();
@@ -853,9 +858,29 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                             throw new LlmApiException("Responses API 流式错误: " + errMsg, 0, data);
                         }
 
-                        // 注意：response.web_search_call.* 事件（started / completed / failed）在此
-                        // 静默忽略——web_search 是模型内置能力，由服务端执行，搜索结果已通过
-                        // output_text 流注入正文，客户端无需展示进度卡片。
+                        case "response.web_search_call.in_progress":
+                        case "response.web_search_call.searching": {
+                            // 服务端联网搜索发起/执行中（OpenAI Responses 协议事件）：
+                            // 向前端传递轻量状态标记（不模拟 tool_start 卡片）
+                            if (onChunk != null) {
+                                StreamChunk chunk = new StreamChunk();
+                                chunk.setWebSearchStarted(true);
+                                onChunk.accept(chunk);
+                            }
+                            break;
+                        }
+
+                        case "response.web_search_call.completed":
+                        case "response.web_search_call.failed": {
+                            // 服务端联网搜索结束（completed；failed 为兼容保留，官方协议无此事件）：
+                            // 输出完成标记，前端将「正在搜索」更新为「已联网搜索」
+                            if (onChunk != null) {
+                                StreamChunk chunk = new StreamChunk();
+                                chunk.setWebSearchDone(true);
+                                onChunk.accept(chunk);
+                            }
+                            break;
+                        }
 
                         default:
                             // 其他事件（content_part 等）忽略

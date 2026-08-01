@@ -267,7 +267,7 @@ class ResponsesLlmClientTest {
         }
 
         @Test
-        @DisplayName("web_search_call 被忽略，不产生工具调用")
+        @DisplayName("web_search_call 不产生工具调用，但置 web_searched 标记")
         void testParseWebSearchCallIgnored() throws Exception {
             String body = "{\"id\":\"resp_4\",\"object\":\"response\",\"model\":\"deepseek-v4-flash\","
                     + "\"output\":["
@@ -281,6 +281,9 @@ class ResponsesLlmClientTest {
 
             assertEquals("搜索完成", response.getContent());
             assertFalse(response.hasToolCalls());
+            // 服务端联网搜索已执行：message 携带 web_searched 标记（供前端展示 + 持久化）
+            assertTrue(response.getFirstMessage().isWebSearched(),
+                "web_search_call 应将 assistant 消息标记为 web_searched");
         }
     }
 
@@ -380,11 +383,15 @@ class ResponsesLlmClientTest {
         }
 
         @Test
-        @DisplayName("web_search_call 流式事件静默忽略，不产生 tool_start/tool_result 信号")
-        void testStreamWebSearchCallSilentlyIgnored() throws Exception {
-            String sse = "event: response.web_search_call.started\n"
-                    + "data: {\"type\":\"response.web_search_call.started\",\"item_id\":\"ws_1\","
+        @DisplayName("web_search_call 流式事件产生轻量标记信号，不产生 tool_start/tool_result 信号")
+        void testStreamWebSearchCallProducesSignals() throws Exception {
+            // OpenAI Responses 协议真实事件序列：in_progress → searching → completed
+            String sse = "event: response.web_search_call.in_progress\n"
+                    + "data: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_1\","
                     + "\"item\":{\"id\":\"ws_1\",\"call_id\":\"websearch_123\",\"type\":\"web_search_call\",\"status\":\"in_progress\"}}\n\n"
+                    + "event: response.web_search_call.searching\n"
+                    + "data: {\"type\":\"response.web_search_call.searching\",\"item_id\":\"ws_1\","
+                    + "\"item\":{\"id\":\"ws_1\",\"call_id\":\"websearch_123\",\"type\":\"web_search_call\",\"status\":\"searching\"}}\n\n"
                     + "event: response.web_search_call.completed\n"
                     + "data: {\"type\":\"response.web_search_call.completed\",\"item_id\":\"ws_1\","
                     + "\"item\":{\"id\":\"ws_1\",\"call_id\":\"websearch_123\",\"type\":\"web_search_call\",\"status\":\"completed\"}}\n\n"
@@ -398,19 +405,24 @@ class ResponsesLlmClientTest {
 
             ChatResponse response = client.processResponsesStreamLines(reader, chunks::add);
 
-            // web_search 是模型内置能力：不产生任何 tool_start/tool_result 信号（静默化）
+            // web_search 是模型内置能力：不产生 tool_start/tool_result 信号（不模拟卡片）
             assertTrue(chunks.stream().noneMatch(StreamChunk::isToolCall),
                 "web_search_call 不应产生 tool_start 信号");
+            // 但产生轻量标记信号：in_progress/searching → started（前端「正在联网搜索…」）
+            assertEquals(2, chunks.stream().filter(StreamChunk::isWebSearchStarted).count(),
+                "web_search_call.in_progress 与 .searching 各应产生一次 webSearchStarted 信号");
+            assertEquals(1, chunks.stream().filter(StreamChunk::isWebSearchDone).count(),
+                "web_search_call.completed 应产生 webSearchDone 信号");
             // 搜索结果仍作为文本正常输出，且不产生 ToolCall（服务端已执行）
             assertEquals("搜索结果为…", response.getContent());
             assertFalse(response.hasToolCalls());
         }
 
         @Test
-        @DisplayName("web_search_call.failed 静默忽略，不产生任何信号")
-        void testStreamWebSearchCallFailedSilentlyIgnored() throws Exception {
-            String sse = "event: response.web_search_call.started\n"
-                    + "data: {\"type\":\"response.web_search_call.started\",\"item_id\":\"ws_1\","
+        @DisplayName("web_search_call.failed（兼容事件）产生 done 信号，流正常收尾不抛异常")
+        void testStreamWebSearchCallFailedProducesDoneSignal() throws Exception {
+            String sse = "event: response.web_search_call.in_progress\n"
+                    + "data: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_1\","
                     + "\"item\":{\"id\":\"ws_1\",\"call_id\":\"websearch_9\",\"type\":\"web_search_call\",\"status\":\"in_progress\"}}\n\n"
                     + "event: response.web_search_call.failed\n"
                     + "data: {\"type\":\"response.web_search_call.failed\",\"item_id\":\"ws_1\","
@@ -423,7 +435,11 @@ class ResponsesLlmClientTest {
 
             ChatResponse response = client.processResponsesStreamLines(reader, chunks::add);
 
-            // failed 事件静默忽略：不产生 tool_start / tool_result 信号，流正常收尾
+            // failed 事件同样产生 done 信号（前端标记为「已联网搜索」），不抛异常、流正常收尾
+            assertEquals(1, chunks.stream().filter(StreamChunk::isWebSearchStarted).count(),
+                "web_search_call.in_progress 应产生 webSearchStarted 信号");
+            assertEquals(1, chunks.stream().filter(StreamChunk::isWebSearchDone).count(),
+                "web_search_call.failed 应产生 webSearchDone 信号");
             assertTrue(chunks.stream().noneMatch(StreamChunk::isToolCall),
                 "web_search_call.failed 不应产生 tool_start 信号");
             assertEquals("stop", response.getChoices().get(0).getFinishReason());

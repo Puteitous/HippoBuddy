@@ -178,6 +178,61 @@ input, textarea {
   border-left-color: rgba(255, 255, 255, 0.12);
 }
 
+/* ===== 联网搜索标记行（Responses API 服务端 web_search） ===== */
+.web-search-row {
+  margin: 4px 0;
+}
+
+.web-search-row .web-search-row-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.web-search-row .web-search-row-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.web-search-row .web-search-row-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.web-search-row.streaming .web-search-row-icon {
+  color: var(--accent-color, var(--text-muted));
+  animation: web-search-pulse 1.4s ease-in-out infinite;
+}
+
+.web-search-row.streaming .web-search-row-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.web-search-row.completed .web-search-row-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+@keyframes web-search-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+[data-theme="dark"] .web-search-row.completed .web-search-row-label {
+  color: var(--text-secondary);
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;

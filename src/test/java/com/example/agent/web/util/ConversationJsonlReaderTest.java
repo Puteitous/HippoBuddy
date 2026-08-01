@@ -165,6 +165,24 @@ class ConversationJsonlReaderTest {
         }
 
         @Test
+        @DisplayName("提取 web_searched 字段（联网搜索标记）")
+        void parsesWebSearchedFlag(@TempDir Path tempDir) throws Exception {
+            Path jsonl = tempDir.resolve("web-searched.jsonl");
+            Files.writeString(jsonl, """
+                {"type":"assistant","message":{"id":"msg-1","role":"assistant","content":"搜索答案","web_searched":true}}
+                {"type":"assistant","message":{"id":"msg-2","role":"assistant","content":"普通回答"}}
+                """.stripIndent());
+
+            List<Map<String, Object>> messages = reader.readMessages(jsonl);
+
+            assertEquals(2, messages.size());
+            assertEquals(true, messages.get(0).get("web_searched"),
+                "web_searched=true 的 assistant 消息应透出该标记（前端刷新恢复「已联网搜索」）");
+            assertFalse(messages.get(1).containsKey("web_searched"),
+                "无 web_searched 字段的消息不应输出该键");
+        }
+
+        @Test
         @DisplayName("解析 assistant 的 tool_calls 列表")
         void parsesMultipleToolCalls(@TempDir Path tempDir) throws Exception {
             Path jsonl = tempDir.resolve("multi-tool-calls.jsonl");

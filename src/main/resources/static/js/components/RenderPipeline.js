@@ -55,6 +55,10 @@ export class RenderPipeline {
       // done 状态切换 + 内容长度 + 末尾采样（避免超长内容全量对比）
       return `T|${seg.done ? '1' : '0'}|${seg.content.length}|${seg.content.slice(-30)}`;
     }
+    if (seg.type === 'web-search') {
+      // 仅 done 状态影响渲染（streaming 样式 vs 完成标记）
+      return `W|${seg.done ? '1' : '0'}`;
+    }
     if (seg.type === 'text') {
       return `X|${seg.content.length}|${seg.content.slice(-30)}`;
     }
@@ -80,11 +84,15 @@ export class RenderPipeline {
       .filter(s => s.type === 'thinking')
       .map(s => `${s.done}:${s.content.length}`)
       .join('|');
+    const webSearchDone = segments
+      .filter(s => s.type === 'web-search')
+      .map(s => (s.done ? '1' : '0'))
+      .join('|');
     const toolStatuses = segments
       .filter(s => s.type === 'tool')
       .map(s => `${s.name}:${s.result || 'running'}`)
       .join('|');
-    return { segments: segments.length, thinkingDone, textLen: currentText.length, toolStatuses };
+    return { segments: segments.length, thinkingDone, webSearchDone, textLen: currentText.length, toolStatuses };
   }
 
   _fingerprintChanged(f) {
@@ -92,6 +100,7 @@ export class RenderPipeline {
     if (!last) return true;
     return last.segments !== f.segments
       || last.thinkingDone !== f.thinkingDone
+      || last.webSearchDone !== f.webSearchDone
       || last.textLen !== f.textLen
       || last.toolStatuses !== f.toolStatuses;
   }
@@ -204,6 +213,9 @@ export class RenderPipeline {
       if (seg.type === 'thinking') {
         flushTimeline();
         plan.push({ type: 'thinking', segIdx: i, key: `seg-${i}`, fingerprint: fp });
+      } else if (seg.type === 'web-search') {
+        flushTimeline();
+        plan.push({ type: 'web-search', segIdx: i, key: `seg-${i}`, fingerprint: fp });
       } else if (seg.type === 'text') {
         flushTimeline();
         plan.push({ type: 'text', segIdx: i, key: `seg-${i}`, fingerprint: fp });
@@ -577,6 +589,11 @@ export class RenderPipeline {
       return RenderPipeline.renderThinkingBubble(seg);
     }
 
+    if (unit.type === 'web-search') {
+      const seg = segments[unit.segIdx];
+      return RenderPipeline.renderWebSearchRow(seg);
+    }
+
     if (unit.type === 'text') {
       const seg = segments[unit.segIdx];
       if (seg.content) {
@@ -839,6 +856,31 @@ export class RenderPipeline {
           <span class="thinking-row-label">${window.i18n.t('render.thinking')}</span>
         </div>
         <div class="thinking-row-content">${escapedContent}</div>
+      </div>`;
+  }
+
+  /**
+   * 渲染服务端联网搜索标记（Responses API web_search 内置工具）。
+   * 轻量状态行：进行中显示「正在联网搜索…」，完成显示「已联网搜索」。
+   * 不模拟 tool 卡片（无查询词/结果可展示），仅作为存在感标记。
+   */
+  static renderWebSearchRow(segment) {
+    const searchSvg = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
+    if (segment.done) {
+      return `
+        <div class="web-search-row completed">
+          <div class="web-search-row-header">
+            <span class="web-search-row-icon">${searchSvg}</span>
+            <span class="web-search-row-label">${window.i18n.t('render.webSearchDone')}</span>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="web-search-row streaming">
+        <div class="web-search-row-header">
+          <span class="web-search-row-icon">${searchSvg}</span>
+          <span class="web-search-row-label">${window.i18n.t('render.webSearching')}</span>
+        </div>
       </div>`;
   }
 

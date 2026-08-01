@@ -103,6 +103,9 @@ export class HistoryRenderer {
             if (amReasoning) {
               segments.push({ type: 'thinking', content: amReasoning, done: true });
             }
+            if (am.web_searched) {
+              segments.push({ type: 'web-search', done: true });
+            }
             text = amText;
             i++;
             break;
@@ -115,6 +118,10 @@ export class HistoryRenderer {
 
           if (amReasoning) {
             segments.push({ type: 'thinking', content: amReasoning, done: true });
+          }
+
+          if (am.web_searched) {
+            segments.push({ type: 'web-search', done: true });
           }
 
           if (amText.trim()) {
@@ -336,6 +343,10 @@ export class HistoryRenderer {
               if (seg.type === 'thinking') {
                 flushToolTimeline();
                 html += RenderPipeline.renderThinkingBubble(seg);
+              } else if (seg.type === 'web-search') {
+                // 历史消息中联网搜索标记：随 assistant 消息持久化，刷新后恢复「已联网搜索」行
+                flushToolTimeline();
+                html += RenderPipeline.renderWebSearchRow(seg);
               } else if (seg.type === 'tool') {
                 if (seg.name === 'todo_write' || seg.name === 'ask_user') {
                   flushToolTimeline();

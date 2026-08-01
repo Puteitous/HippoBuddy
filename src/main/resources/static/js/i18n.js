@@ -402,6 +402,8 @@
     /* ==================== Render Pipeline ==================== */
     'render.thinkingDone':         { zh: '已思考', en: 'Thought' },
     'render.thinking':             { zh: '思考中...', en: 'Thinking...' },
+    'render.webSearching':         { zh: '正在联网搜索…', en: 'Searching the web…' },
+    'render.webSearchDone':        { zh: '已联网搜索', en: 'Web search completed' },
 
     /* ==================== File Preview Browser ==================== */
     'browser.back':                { zh: '后退', en: 'Back' },

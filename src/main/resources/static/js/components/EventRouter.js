@@ -49,6 +49,16 @@ export class EventRouter {
       return;
     }
 
+    if (parsed._eventType === 'web_search_start') {
+      this.handlers.web_search_start(parsed, contentDiv);
+      return;
+    }
+
+    if (parsed._eventType === 'web_search_done') {
+      this.handlers.web_search_done(parsed);
+      return;
+    }
+
     if (parsed._eventType === 'content' && parsed.content) {
       this.handlers.content(parsed, contentDiv);
       return;

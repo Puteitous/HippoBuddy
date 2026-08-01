@@ -104,6 +104,11 @@ public class ConversationJsonlReader {
                         msgMap.put("reasoning_content", msgNode.path("reasoning_content").asText());
                     }
 
+                    // 服务端联网搜索标记：随 assistant 消息持久化，刷新后前端据此恢复「已联网搜索」标记
+                    if (msgNode.has("web_searched") && msgNode.path("web_searched").asBoolean()) {
+                        msgMap.put("web_searched", true);
+                    }
+
                     if ("assistant".equals(role) && msgNode.has("tool_calls")) {
                         JsonNode toolCalls = msgNode.path("tool_calls");
                         List<Map<String, Object>> calls = new ArrayList<>();
