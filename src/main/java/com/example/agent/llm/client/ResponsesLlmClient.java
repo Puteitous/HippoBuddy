@@ -19,7 +19,6 @@ import com.example.agent.llm.model.Usage;
 import com.example.agent.llm.retry.RetryPolicy;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.llm.stream.ToolCallDelta;
-import com.example.agent.llm.stream.ToolResultDelta;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -842,48 +841,9 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                             throw new LlmApiException("Responses API 流式错误: " + errMsg, 0, data);
                         }
 
-                        case "response.web_search_call.started": {
-                            // 服务端内置 web_search 开始 → 模拟 tool_start，前端显示搜索进度卡片。
-                            // id 与后续 completed/failed 的 call_id 保持一致，供 tool_result 匹配收尾。
-                            String wsId = extractWebSearchCallId(eventData);
-                            if (wsId == null || onChunk == null) {
-                                break;
-                            }
-                            ToolCallDelta tcd = new ToolCallDelta();
-                            tcd.setId(wsId);
-                            tcd.setType("web_search");
-                            ToolCallDelta.FunctionDelta fd = new ToolCallDelta.FunctionDelta();
-                            fd.setName("web_search");
-                            fd.setArguments("{}");
-                            tcd.setFunction(fd);
-                            StreamChunk chunk = new StreamChunk(List.of(tcd));
-                            chunk.setToolCall(true);
-                            onChunk.accept(chunk);
-                            break;
-                        }
-
-                        case "response.web_search_call.completed":
-                        case "response.web_search_call.failed": {
-                            // 服务端搜索结束 → 模拟 tool_result 收尾搜索进度卡片。
-                            // 搜索结果已由服务端注入 output_text 流，无需客户端处理内容。
-                            String wsId = extractWebSearchCallId(eventData);
-                            if (wsId == null || onChunk == null) {
-                                break;
-                            }
-                            boolean success = "response.web_search_call.completed".equals(type);
-                            ToolResultDelta trd = new ToolResultDelta();
-                            trd.setId(wsId);
-                            trd.setName("web_search");
-                            trd.setSuccess(success);
-                            if (!success) {
-                                trd.setError("服务端搜索失败");
-                            }
-                            StreamChunk chunk = new StreamChunk();
-                            chunk.setToolResult(true);
-                            chunk.setToolResultDeltas(List.of(trd));
-                            onChunk.accept(chunk);
-                            break;
-                        }
+                        // 注意：response.web_search_call.* 事件（started / completed / failed）在此
+                        // 静默忽略——web_search 是模型内置能力，由服务端执行，搜索结果已通过
+                        // output_text 流注入正文，客户端无需展示进度卡片。
 
                         default:
                             // 其他事件（content_part 等）忽略
@@ -972,27 +932,6 @@ public class ResponsesLlmClient extends AbstractLlmClient {
             return accumulators.size() - 1;
         }
         return -1;
-    }
-
-    /**
-     * 从 web_search_call 事件中提取稳定的调用 ID，用于 tool_start / tool_result 卡片匹配。
-     * 优先 item.call_id，其次 item.id，最后兜底 eventData.item_id，确保 started 与
-     * completed/failed 两个事件取到同一 ID。
-     */
-    private String extractWebSearchCallId(JsonNode eventData) {
-        JsonNode item = eventData.get("item");
-        if (item != null && item.isObject()) {
-            String callId = getTextValue(item, "call_id");
-            if (callId != null && !callId.isEmpty()) {
-                return callId;
-            }
-            String id = getTextValue(item, "id");
-            if (id != null && !id.isEmpty()) {
-                return id;
-            }
-        }
-        String itemId = getTextValue(eventData, "item_id");
-        return itemId != null && !itemId.isEmpty() ? itemId : null;
     }
 
     /**

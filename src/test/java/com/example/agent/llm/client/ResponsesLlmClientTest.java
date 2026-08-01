@@ -380,8 +380,8 @@ class ResponsesLlmClientTest {
         }
 
         @Test
-        @DisplayName("web_search_call 开始/完成事件 → 依次发出 tool_start 与 tool_result 信号")
-        void testStreamWebSearchCallProgressSignals() throws Exception {
+        @DisplayName("web_search_call 流式事件静默忽略，不产生 tool_start/tool_result 信号")
+        void testStreamWebSearchCallSilentlyIgnored() throws Exception {
             String sse = "event: response.web_search_call.started\n"
                     + "data: {\"type\":\"response.web_search_call.started\",\"item_id\":\"ws_1\","
                     + "\"item\":{\"id\":\"ws_1\",\"call_id\":\"websearch_123\",\"type\":\"web_search_call\",\"status\":\"in_progress\"}}\n\n"
@@ -398,30 +398,17 @@ class ResponsesLlmClientTest {
 
             ChatResponse response = client.processResponsesStreamLines(reader, chunks::add);
 
-            // started → tool_start 信号（卡片出现）
-            StreamChunk startChunk = chunks.stream()
-                .filter(StreamChunk::isToolCall)
-                .findFirst().orElseThrow(() -> new AssertionError("应收到 web_search tool_start 信号"));
-            ToolCallDelta startDelta = startChunk.getToolCallDeltas().get(0);
-            assertEquals("websearch_123", startDelta.getId());
-            assertEquals("web_search", startDelta.getFunction().getName());
-
-            // completed → tool_result 信号（卡片收尾），id 与 tool_start 一致
-            StreamChunk resultChunk = chunks.stream()
-                .filter(StreamChunk::isToolResult)
-                .findFirst().orElseThrow(() -> new AssertionError("应收到 web_search tool_result 信号"));
-            assertEquals("websearch_123", resultChunk.getToolResultDeltas().get(0).getId());
-            assertEquals("web_search", resultChunk.getToolResultDeltas().get(0).getName());
-            assertTrue(resultChunk.getToolResultDeltas().get(0).isSuccess());
-
-            // 搜索结果作为文本正常输出，且不产生 ToolCall（服务端已执行）
+            // web_search 是模型内置能力：不产生任何 tool_start/tool_result 信号（静默化）
+            assertTrue(chunks.stream().noneMatch(StreamChunk::isToolCall),
+                "web_search_call 不应产生 tool_start 信号");
+            // 搜索结果仍作为文本正常输出，且不产生 ToolCall（服务端已执行）
             assertEquals("搜索结果为…", response.getContent());
             assertFalse(response.hasToolCalls());
         }
 
         @Test
-        @DisplayName("web_search_call.failed → tool_result 信号标记失败")
-        void testStreamWebSearchCallFailedSignalsError() throws Exception {
+        @DisplayName("web_search_call.failed 静默忽略，不产生任何信号")
+        void testStreamWebSearchCallFailedSilentlyIgnored() throws Exception {
             String sse = "event: response.web_search_call.started\n"
                     + "data: {\"type\":\"response.web_search_call.started\",\"item_id\":\"ws_1\","
                     + "\"item\":{\"id\":\"ws_1\",\"call_id\":\"websearch_9\",\"type\":\"web_search_call\",\"status\":\"in_progress\"}}\n\n"
@@ -434,14 +421,13 @@ class ResponsesLlmClientTest {
             List<StreamChunk> chunks = new ArrayList<>();
             BufferedReader reader = new BufferedReader(new StringReader(sse));
 
-            client.processResponsesStreamLines(reader, chunks::add);
+            ChatResponse response = client.processResponsesStreamLines(reader, chunks::add);
 
-            StreamChunk resultChunk = chunks.stream()
-                .filter(StreamChunk::isToolResult)
-                .findFirst().orElseThrow(() -> new AssertionError("应收到 web_search tool_result 失败信号"));
-            assertFalse(resultChunk.getToolResultDeltas().get(0).isSuccess());
-            assertNotNull(resultChunk.getToolResultDeltas().get(0).getError());
-            assertEquals("websearch_9", resultChunk.getToolResultDeltas().get(0).getId());
+            // failed 事件静默忽略：不产生 tool_start / tool_result 信号，流正常收尾
+            assertTrue(chunks.stream().noneMatch(StreamChunk::isToolCall),
+                "web_search_call.failed 不应产生 tool_start 信号");
+            assertEquals("stop", response.getChoices().get(0).getFinishReason());
+            assertFalse(response.hasToolCalls());
         }
 
         @Test

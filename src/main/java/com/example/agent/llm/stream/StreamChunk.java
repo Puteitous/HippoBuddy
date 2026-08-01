@@ -13,10 +13,8 @@ public class StreamChunk {
     private String content;
     private String reasoning;
     private List<ToolCallDelta> toolCallDeltas;
-    private List<ToolResultDelta> toolResultDeltas;
     private String finishReason;
     private boolean isToolCall;
-    private boolean isToolResult;
     private Usage usage;
 
     public StreamChunk() {
@@ -54,26 +52,6 @@ public class StreamChunk {
 
     public void setToolCallDeltas(List<ToolCallDelta> toolCallDeltas) {
         this.toolCallDeltas = toolCallDeltas;
-    }
-
-    public boolean isToolResult() {
-        return isToolResult;
-    }
-
-    public void setToolResult(boolean toolResult) {
-        isToolResult = toolResult;
-    }
-
-    public List<ToolResultDelta> getToolResultDeltas() {
-        return toolResultDeltas;
-    }
-
-    public void setToolResultDeltas(List<ToolResultDelta> toolResultDeltas) {
-        this.toolResultDeltas = toolResultDeltas;
-    }
-
-    public boolean hasToolResults() {
-        return toolResultDeltas != null && !toolResultDeltas.isEmpty();
     }
 
     public String getFinishReason() {

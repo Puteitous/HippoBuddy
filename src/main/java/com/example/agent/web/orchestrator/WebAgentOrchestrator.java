@@ -232,18 +232,6 @@ public class WebAgentOrchestrator {
                         }
                     }
                 }
-
-                if (chunk.isToolResult() && chunk.getToolResultDeltas() != null) {
-                    // 服务端内置工具（如 deepseek-responses 的 web_search）完成 → 收尾前端进度卡片。
-                    // 该工具由服务端执行，assistantMessage 中无对应 ToolCall，不会进入 executeToolCalls。
-                    for (var trd : chunk.getToolResultDeltas()) {
-                        String resultId = trd.getId();
-                        if (resultId == null) continue;
-                        sseWriter.sendSseEvent("tool_result",
-                            buildToolResultJson(resultId, trd.getName(), trd.isSuccess(),
-                                trd.getResultContent(), trd.getError(), "{}", resultId));
-                    }
-                }
             });
 
             if (cancelManager.isCancelled(sessionId)) {

@@ -455,10 +455,12 @@ class WebAgentOrchestratorTest {
         @Test
         @DisplayName("工具执行失败时 tool_result 应包含 success=false 及 error 信息")
         void toolResultErrorContainsErrorField() throws Exception {
-            registerFailingTool("failing_tool");
+            // 注意：必须使用 CODING 白名单内的工具名，否则会被模式权限拦截，
+            // 走的是"不允许使用工具"分支而非真实执行失败分支。
+            registerFailingTool("read_file");
 
             mockLlmClient.enqueueResponse(
-                LlmResponseBuilder.withToolCall("failing_tool", "{}")
+                LlmResponseBuilder.withToolCall("read_file", "{}")
             );
             mockLlmClient.enqueueSuccessResponse("已处理。");
 
@@ -492,20 +494,25 @@ class WebAgentOrchestratorTest {
     class ClientDisconnectionTests {
 
         @Test
-        @DisplayName("执行前断开应跳过所有 SSE 事件并直接返回")
-        void disconnectedBeforeExecute() throws Exception {
+        @DisplayName("断开标志不影响 Agent 执行（后台继续运行）")
+        void disconnectedFlagDoesNotBlockExecution() throws Exception {
+            // 设计变更（2026-07-27, 69f0404）：断开客户端不终止 Agent 执行。
+            // 生产代码不再读取 SseWriter.isClientDisconnected()，Agent 照常输出并持久化。
             mockLlmClient.enqueueSuccessResponse("Hello");
 
             SseWriter.setClientDisconnected(true);
 
             orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
 
-            assertTrue(sseOutput().isEmpty(), "断开后不应有任何 SSE 输出");
+            assertFalse(sseOutput().isEmpty(), "断开标志不应阻止 SSE 输出");
+            assertTrue(sseContains("done"), "Agent 应正常完成");
+            verify(mockConversationService, atLeastOnce())
+                .addAssistantMessage(any(), any(Message.class), any());
         }
 
         @Test
-        @DisplayName("流式回调中断开应调用 abortCurrentRequest 并跳过持久化")
-        void disconnectDuringStreamAbortsAndSkipsPersistence() throws Exception {
+        @DisplayName("流式回调中断开后 Agent 继续执行并持久化（后台恢复）")
+        void disconnectDuringStreamContinuesAndPersists() throws Exception {
             SseWriter.removeClientDisconnected();
 
             Writer failAfterThinkingWriter = new Writer() {
@@ -531,62 +538,59 @@ class WebAgentOrchestratorTest {
 
             orchestrator.execute(TEST_SESSION_ID, conversation, disconnectSseWriter);
 
-            assertTrue(mockLlmClient.isAborted(), "客户端断开时应调用 abortCurrentRequest()");
-            verify(mockConversationService, never())
+            // 新设计：断开后不 abort、Agent 继续执行并写入 conversation.jsonl
+            assertFalse(mockLlmClient.isAborted(), "客户端断开后不应 abort 请求（后台继续执行）");
+            verify(mockConversationService, atLeastOnce())
                 .addAssistantMessage(any(), any(Message.class), any());
         }
 
         @Test
-        @DisplayName("工具执行期间断开应跳过剩余工具调用")
-        void disconnectDuringToolExecutionSkipsRemainingTools() throws Exception {
-            ToolExecutor disconnectTrigger = mock(ToolExecutor.class);
-            lenient().when(disconnectTrigger.getName()).thenReturn("disconnect_trigger");
-            lenient().when(disconnectTrigger.getDescription()).thenReturn("Triggers disconnect during execution");
-            lenient().when(disconnectTrigger.getParametersSchema())
-                .thenReturn("{\"type\":\"object\",\"properties\":{}}");
-            try {
-                lenient().when(disconnectTrigger.execute(any(JsonNode.class))).thenAnswer(invocation -> {
-                    SseWriter.setClientDisconnected(true);
-                    return "{}";
-                });
-            } catch (ToolExecutionException e) {
-                throw new RuntimeException(e);
-            }
-            toolRegistry.register(disconnectTrigger);
+        @DisplayName("工具执行期间客户端断开后剩余工具仍会执行（后台继续）")
+        void disconnectDuringToolExecutionContinuesRemainingTools() throws Exception {
+            registerMockTool("read_file", "first result");
+            registerMockTool("grep", "second result");
 
-            ToolExecutor normalTool = mock(ToolExecutor.class);
-            lenient().when(normalTool.getName()).thenReturn("normal_tool");
-            lenient().when(normalTool.getDescription()).thenReturn("Normal tool that should be skipped");
-            lenient().when(normalTool.getParametersSchema())
-                .thenReturn("{\"type\":\"object\",\"properties\":{}}");
-            try {
-                lenient().when(normalTool.execute(any(JsonNode.class))).thenReturn("normal result");
-            } catch (ToolExecutionException e) {
-                throw new RuntimeException(e);
-            }
-            toolRegistry.register(normalTool);
+            // 用 Writer 在第一个 tool_result 之后抛 IOException 模拟客户端断开，
+            // 验证断开后剩余工具仍会执行（新设计：后台继续，不跳过剩余工具）。
+            Writer disconnectWriter = new Writer() {
+                private int eventCount = 0;
+                @Override
+                public void write(char[] cbuf, int off, int len) throws IOException {
+                    String text = new String(cbuf, off, len);
+                    if (text.startsWith("event: ")) {
+                        eventCount++;
+                    }
+                    // thinking(1) + tool_start#1(2) + tool_result#1(3) 之后断开
+                    if (eventCount >= 4) {
+                        throw new IOException("Broken pipe");
+                    }
+                }
+                @Override
+                public void flush() throws IOException {}
+                @Override
+                public void close() throws IOException {}
+            };
+            SseWriter disconnectSseWriter = new SseWriter(disconnectWriter);
 
             List<ToolCall> toolCalls = List.of(
-                createToolCall("call-1", "disconnect_trigger", "{}"),
-                createToolCall("call-2", "normal_tool", "{}")
+                createToolCall("call-1", "read_file", "{\"path\":\"a.txt\"}"),
+                createToolCall("call-2", "grep", "{\"pattern\":\"test\"}")
             );
             mockLlmClient.enqueueResponse(
                 LlmResponseBuilder.withToolCalls(toolCalls)
             );
             mockLlmClient.enqueueSuccessResponse("Done.");
 
-            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+            orchestrator.execute(TEST_SESSION_ID, conversation, disconnectSseWriter);
 
-            String output = sseOutput();
-            assertTrue(output.contains("\"name\":\"disconnect_trigger\""),
-                "第一个工具应有 tool_start 事件");
-            assertFalse(output.contains("\"name\":\"normal_tool\""),
-                "断开后第二个工具的 tool_start 不应发送");
+            // 两个工具都应执行并持久化（断开不中断剩余工具）
+            verify(mockConversationService, times(2))
+                .addToolResult(any(), anyString(), anyString(), anyString(), eq(true));
         }
 
         @Test
-        @DisplayName("多轮：第一轮工具完整执行，第二轮流式输出中断 → 第一轮完整、第二轮不残留")
-        void multiTurn_interruptDuringSecondTurnStreaming() throws Exception {
+        @DisplayName("多轮：第二轮流式输出中断后 Agent 仍完成执行并持久化（后台恢复）")
+        void multiTurn_interruptDuringSecondTurnStreaming_continuesAndPersists() throws Exception {
             SseWriter.removeClientDisconnected();
 
             Writer multiTurnWriter = new Writer() {
@@ -608,21 +612,22 @@ class WebAgentOrchestratorTest {
             };
             SseWriter turn2SseWriter = new SseWriter(multiTurnWriter);
 
-            registerMockTool("tool_turn1", "result from turn 1");
+            registerMockTool("read_file", "result from turn 1");
 
             mockLlmClient.enqueueResponse(
-                LlmResponseBuilder.withToolCall("tool_turn1", "{}")
+                LlmResponseBuilder.withToolCall("read_file", "{}")
             );
             mockLlmClient.enqueueSuccessResponse("Turn 2 response content");
 
             orchestrator.execute(TEST_SESSION_ID, conversation, turn2SseWriter);
 
-            verify(mockConversationService, times(1))
+            // 新设计：断开后不 abort，第二轮仍照常持久化（共 2 次 addAssistantMessage）
+            assertFalse(mockLlmClient.isAborted(),
+                "第二轮流式回调中断开后不应 abort（后台继续执行）");
+            verify(mockConversationService, times(2))
                 .addAssistantMessage(any(), any(Message.class), any());
             verify(mockConversationService, times(1))
-                .addToolResult(any(), anyString(), eq("tool_turn1"), anyString(), eq(true));
-            assertTrue(mockLlmClient.isAborted(),
-                "第二轮流式回调中断开时应调用 abortCurrentRequest()");
+                .addToolResult(any(), anyString(), eq("read_file"), anyString(), eq(true));
         }
     }
 
