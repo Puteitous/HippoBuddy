@@ -208,11 +208,13 @@ public class ToolConfirmHandler implements HttpHandler {
                         safeArgs(pending.arguments, pending.toolCallId)));
             }
 
-            // session 级 auto-allow 存储
-            if (autoAllowSimilar) {
+            // session 级 auto-allow 存储（链式命令不泛化：确认的是整条链，无法安全按命令名记忆）
+            if (autoAllowSimilar && com.example.agent.core.blocker.BashDangerousCommandBlocker.isSafeForAutoAllow(pending.command)) {
                 String commandName = extractCommandName(pending.command);
                 sessionManager.addAutoAllowRule(sessionId, commandName);
                 logger.info("已存储 auto-allow 规则: sessionId={}, command={}", sessionId, commandName);
+            } else if (autoAllowSimilar) {
+                logger.info("链式命令不记录 auto-allow: sessionId={}, command={}", sessionId, pending.command);
             }
         } else {
             logger.info("用户拒绝执行命令：confirmId={}, command={}", confirmId, pending.command);
@@ -359,19 +361,9 @@ public class ToolConfirmHandler implements HttpHandler {
 
     private static String extractCommandName(String command) {
         if (command == null || command.isEmpty()) return "";
-        String firstPart = command.split("\\|")[0].trim();
-        firstPart = firstPart.split(">")[0].trim();
-        firstPart = firstPart.split(">>")[0].trim();
-        String[] parts = firstPart.split("\\s+");
-        if (parts.length > 0) {
-            String cmd = parts[0];
-            int lastSlash = cmd.lastIndexOf('/');
-            if (lastSlash >= 0 && lastSlash < cmd.length() - 1) {
-                return cmd.substring(lastSlash + 1).toLowerCase();
-            }
-            return cmd.toLowerCase();
-        }
-        return command.toLowerCase();
+        java.util.List<com.example.agent.core.blocker.CommandParser.Segment> segments =
+            com.example.agent.core.blocker.CommandParser.parse(command);
+        return segments.isEmpty() ? "" : segments.get(0).getCommandName();
     }
 
     }

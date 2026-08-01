@@ -3,6 +3,7 @@ package com.example.agent.web.orchestrator;
 import com.example.agent.core.AgentMode;
 import com.example.agent.application.ConversationService;
 import com.example.agent.config.Config;
+import com.example.agent.core.blocker.BashDangerousCommandBlocker;
 import com.example.agent.core.blocker.HookResult;
 import com.example.agent.core.blocker.RequestContext;
 import com.example.agent.core.di.ServiceLocator;
@@ -438,6 +439,16 @@ public class WebAgentOrchestrator {
                     if (!command.isEmpty()) {
                         String commandName = extractCommandName(command);
                         if (sessionManager.isAutoAllowed(sessionId, commandName)) {
+                            // auto-allow 只能跳过"确认弹窗"，绝不能跳过安全检查：
+                            // 严格禁止的命令（含链式命令中任一段危险）即使 auto-allow 也不执行
+                            HookResult autoAllowCheck = toolRegistry.getBlockerChain().check(toolName, args);
+                            if (autoAllowCheck.isDenied()) {
+                                String errorMsg = autoAllowCheck.getReason();
+                                getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                                sseWriter.sendSseEvent("tool_result",
+                                    buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
+                                continue;
+                            }
                             logger.debug("auto-allow 跳过确认: sessionId={}, command={}", sessionId, commandName);
                             ToolExecutor executor = toolRegistry.getExecutor(toolName);
                             if (executor != null) {
@@ -477,8 +488,11 @@ public class WebAgentOrchestrator {
                             if (hookResult.isConfirmationRequired()) {
                                 // 检查配置：如果用户关闭了"需确认"开关，跳过确认直接执行
                                 if (!Config.getInstance().getTools().getBash().isRequireConfirmation()) {
-                                    logger.debug("bash 无需确认（配置关闭），直接执行: sessionId={}, command={}",
-                                        sessionId, command);
+                                    // ⚠️ 安全提示：确认弹窗已被配置关闭，需确认级别的命令将直接执行；
+                                    // 严格禁止（denied）的命令不受此开关影响，仍会被拦截。
+                                    logger.warn("bash 确认已全局关闭（require_confirmation=false），" +
+                                            "需确认命令直接执行: sessionId={}, command={}, riskLevel={}",
+                                        sessionId, command, hookResult.getRiskLevel());
                                     // 放行，走到下方的流式执行逻辑
                                 } else {
                                     String confirmId = java.util.UUID.randomUUID().toString();
@@ -490,7 +504,8 @@ public class WebAgentOrchestrator {
                                     sessionManager.setPendingBashConfirmation(sessionId, pending);
 
                                     String confirmJson = buildBashConfirmJson(confirmId, command,
-                                        hookResult.getRiskLevel(), hookResult.getReason());
+                                        hookResult.getRiskLevel(), hookResult.getReason(),
+                                        BashDangerousCommandBlocker.isSafeForAutoAllow(command));
                                     sseWriter.sendSseEvent("tool_confirmation", confirmJson);
                                     logger.info("发送 tool_confirmation 事件: confirmId={}, command={}, riskLevel={}",
                                         confirmId, command, hookResult.getRiskLevel());
@@ -729,19 +744,12 @@ public class WebAgentOrchestrator {
     }
 
     private static String extractCommandName(String command) {
-        String firstPart = command.split("\\|")[0].trim();
-        firstPart = firstPart.split(">")[0].trim();
-        firstPart = firstPart.split(">>")[0].trim();
-        String[] parts = firstPart.split("\\s+");
-        if (parts.length > 0) {
-            String cmd = parts[0];
-            int lastSlash = cmd.lastIndexOf('/');
-            if (lastSlash >= 0 && lastSlash < cmd.length() - 1) {
-                return cmd.substring(lastSlash + 1).toLowerCase();
-            }
-            return cmd.toLowerCase();
+        if (command == null || command.isEmpty()) {
+            return "";
         }
-        return command.toLowerCase();
+        java.util.List<com.example.agent.core.blocker.CommandParser.Segment> segments =
+            com.example.agent.core.blocker.CommandParser.parse(command);
+        return segments.isEmpty() ? "" : segments.get(0).getCommandName();
     }
 
     /**
@@ -822,14 +830,18 @@ public class WebAgentOrchestrator {
 
     /**
      * 使用 ObjectMapper 安全构建 tool_confirmation（bash）SSE 事件 JSON。
+     * @param autoAllowable 是否可勾选"不再询问同类命令"（链式命令为 false，
+     *                      因为确认的是整条链，无法安全泛化到命令名级别）
      */
     private static String buildBashConfirmJson(String confirmId, String command,
-                                                String riskLevel, String riskReason) {
+                                                String riskLevel, String riskReason,
+                                                boolean autoAllowable) {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("confirmId", confirmId);
         node.put("command", command);
         node.put("riskLevel", riskLevel);
         node.put("riskReason", riskReason);
+        node.put("autoAllowable", autoAllowable);
         return node.toString();
     }
 

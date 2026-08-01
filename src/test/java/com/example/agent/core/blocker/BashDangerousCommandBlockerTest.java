@@ -345,6 +345,110 @@ class BashDangerousCommandBlockerTest {
         assertRequiresConfirmation("./scripts/build.py");
     }
 
+    // ==================== 🔗 链式命令绕过（核心漏洞修复） ====================
+
+    @Test
+    void chainedCommand_withDangerousSecondSegment_shouldBeBlocked() {
+        // 旧实现只提取第一个 token（echo → 放行），现在逐段检查必须拦截
+        assertBlocked("echo ok && rd /s /q D:\\");
+        assertBlocked("dir & erase /s *.java");
+        assertBlocked("git status ; diskpart clean");
+        assertBlocked("echo ok || reg delete HKLM /f");
+        assertBlocked("dir && diskpart list disk");
+        assertBlocked("cd /d D:\\ && rd /s /q .");
+    }
+
+    @Test
+    void chainedCommand_withConfirmationSecondSegment_shouldRequireConfirmation() {
+        // 链式中任一段需确认 → 整条需确认（不可因首段安全而放行）
+        assertRequiresConfirmation("echo ok && rm file.txt");
+        assertRequiresConfirmation("git status && taskkill /f /im java.exe");
+    }
+
+    @Test
+    void harmlessChainedCommand_shouldStillBeAllowed() {
+        assertAllowed("echo hello && dir");
+        assertAllowed("git status && git log");
+        assertAllowed("mvn compile; mvn test");
+    }
+
+    @Test
+    void quotedChainOperator_shouldNotSplitCommand() {
+        // 引号内的 && 不是链式操作符，不应导致误判
+        assertAllowed("echo \"a && b\"");
+        assertAllowed("echo 'x | y'");
+    }
+
+    // ==================== 🧩 token 级变体绕过（防参数顺序/合并变体） ====================
+
+    @Test
+    void rmVariant_shouldBeBlocked() {
+        assertBlocked("rm -r -f /");
+        assertBlocked("rm -Rf ~");
+        assertBlocked("rm -rf /home/user");
+        assertBlocked("rm -r -f /etc");
+        assertBlocked("/usr/bin/rm -rf /var");
+    }
+
+    @Test
+    void delVariant_shouldBeBlocked() {
+        assertBlocked("del /q /s F:\\*");
+        assertBlocked("del /s /q C:\\Windows\\Temp\\*");
+        assertBlocked("erase /q /s D:\\data");
+    }
+
+    @Test
+    void windowsExeSuffix_shouldNormalizeAndBlock() {
+        assertBlocked("shutdown.exe /s /f");
+        assertBlocked("format.com c:");
+        assertBlocked("C:\\Windows\\System32\\shutdown.exe /s /f");
+    }
+
+    // ==================== 🆕 严格禁止名单扩展 ====================
+
+    @Test
+    void diskpart_shouldBeStrictlyBlocked() {
+        assertBlocked("diskpart clean");
+        assertBlocked("diskpart list disk");
+        assertBlocked("echo ok && diskpart clean");
+    }
+
+    @Test
+    void rdRecursiveDelete_shouldBeBlocked() {
+        assertBlocked("rd /s /q D:\\");
+        assertBlocked("rd /s D:\\data");
+    }
+
+    @Test
+    void regDelete_shouldBeBlocked_butQueryShouldRequireConfirmation() {
+        assertBlocked("reg delete HKLM\\Software\\Test /f");
+        assertBlocked("echo ok && reg delete HKCU /f");
+        assertRequiresConfirmation("reg query HKLM\\Software");
+    }
+
+    @Test
+    void cipherWipe_shouldBeBlocked() {
+        assertBlocked("cipher /w:C:\\");
+        assertBlocked("cipher /w D:\\free");
+    }
+
+    @Test
+    void eraseAndRd_singleTarget_shouldRequireConfirmation() {
+        assertRequiresConfirmation("erase a.tmp");
+        assertRequiresConfirmation("rd emptydir");
+    }
+
+    // ==================== auto-allow 安全性 ====================
+
+    @Test
+    void autoAllowSafety_shouldRejectChainedCommands() {
+        assertTrue(BashDangerousCommandBlocker.isSafeForAutoAllow("rm file.txt"));
+        assertTrue(BashDangerousCommandBlocker.isSafeForAutoAllow("git status"));
+        assertFalse(BashDangerousCommandBlocker.isSafeForAutoAllow("echo ok && rm file.txt"));
+        assertFalse(BashDangerousCommandBlocker.isSafeForAutoAllow("git log | grep fix"));
+        assertFalse(BashDangerousCommandBlocker.isSafeForAutoAllow("cd dir; ls"));
+    }
+
     // ==================== 辅助方法 ====================
 
     private void assertBlocked(String command) {

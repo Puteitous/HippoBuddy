@@ -2,7 +2,12 @@ package com.example.agent.core.blocker;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
+import java.util.regex.Pattern;
 
 public class BashDangerousCommandBlocker implements Blocker {
 
@@ -40,11 +45,11 @@ public class BashDangerousCommandBlocker implements Blocker {
 
     /** ❓ 需要用户确认 — 有副作用但使用场景常见 */
     private static final Set<String> REQUIRES_CONFIRMATION = Set.of(
-        // 删除操作
-        "rm", "del", "rmdir", "rd",
+        // 删除操作（含 Windows 别名，对齐 del/rmdir）
+        "rm", "del", "rmdir", "rd", "erase",
         // 文件操作（可能覆盖）
         "cp", "copy", "xcopy", "mv", "move", "rename", "ren", "ln",
-        // 权限修改（非 777 级别已在 DANGEROUS_PATTERNS）
+        // 权限修改（非 777 级别已在 DANGEROUS_PATTERNS/签名层）
         "chmod", "chown", "attrib",
         // 进程管理
         "kill", "pkill", "taskkill",
@@ -53,26 +58,40 @@ public class BashDangerousCommandBlocker implements Blocker {
         // 提权
         "sudo", "su",
         // 脚本执行
-        "sh", "bash", "zsh"
+        "sh", "bash", "zsh",
+        // Windows 注册表 / 磁盘工具（危险子命令在签名层严格禁止）
+        "reg", "cipher",
+        // 数据擦除
+        "wipe"
     );
 
     /** 🚫 严格禁止 — 系统破坏/不可逆操作 */
     private static final Set<String> STRICTLY_BLOCKED = Set.of(
         "format", "fdisk", "parted", "mkfs", "fsck",
         "shutdown", "reboot", "halt", "poweroff",
-        "dd"
+        "dd",
+        // 磁盘分区工具：clean/format/delete 等子命令均不可逆，整体禁止
+        "diskpart"
     );
 
     private static final Set<String> DANGEROUS_PATTERNS = Set.of(
         // 毁灭性删除
         "rm -rf /", "rm -fr /", "rm -rf ~",
         "rmdir /s", "del /f", "del /s",
+        // Windows 递归删除别名（与 rmdir /s、del /s 对齐）
+        "rd /s", "erase /s",
         // 磁盘操作
         "format c:", "fdisk", "parted", "mkfs", "dd if=",
         // 公开权限
         "chmod 777", "chmod -r 777",
         // 系统控制
         "shutdown", "reboot", "halt", "poweroff",
+        // 注册表删除
+        "reg delete",
+        // 磁盘覆写（cipher /w 覆写删除数据）
+        "cipher /w",
+        // 磁盘分区工具
+        "diskpart",
         // 危险设备写入
         "> /dev/",
         // 管道到 shell（curl/wget ... | bash/sh）
@@ -80,6 +99,83 @@ public class BashDangerousCommandBlocker implements Blocker {
         // Fork 炸弹
         ":(){ :|:& };:", "fork bomb"
     );
+
+    /**
+     * token 级危险签名：命令名 + 必须出现的参数组合。
+     * 解决子串黑名单挡不住"参数顺序变体 / 合并参数"的问题
+     * （如 rm -r -f /、del /q /s F:\*、chmod -R 777）。
+     * <p>
+     * 匹配规则：段参数（含合并 flag 展开，如 -rf → -r、-f）必须包含全部
+     * requiredTokens；若指定 targetPattern，则至少一个位置参数命中。
+     */
+    private static final class DangerSignature {
+        private final Set<String> requiredTokens;
+        private final Pattern targetPattern;
+
+        DangerSignature(Set<String> requiredTokens, Pattern targetPattern) {
+            this.requiredTokens = requiredTokens;
+            this.targetPattern = targetPattern;
+        }
+
+        boolean matches(CommandParser.Segment seg) {
+            List<String> args = seg.getArgs();
+            // 合并 flag 展开：-rf → -r、-f；/sq → /s、/q（保留原始 token）
+            Set<String> expanded = new HashSet<>(args);
+            for (String a : args) {
+                if (isExpandableFlag(a)) {
+                    char prefix = a.charAt(0);
+                    for (int i = 1; i < a.length(); i++) {
+                        expanded.add(String.valueOf(prefix) + a.charAt(i));
+                    }
+                }
+            }
+            if (!expanded.containsAll(requiredTokens)) {
+                return false;
+            }
+            if (targetPattern == null) {
+                return true;
+            }
+            // 不按 "-/开头" 排除 token：DANGEROUS_TARGET 本身足够精确
+            // （只匹配根/家目录/系统目录/盘符根），普通 flag（如 /s、-r）不会误命中。
+            for (String a : args) {
+                if (targetPattern.matcher(a).matches()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static boolean isExpandableFlag(String a) {
+            return a.length() > 2 && (a.startsWith("-") || a.startsWith("/"))
+                    && !a.startsWith("--") && !a.startsWith("//");
+        }
+    }
+
+    /** 危险删除目标：根、家目录、系统目录、Windows 盘符根 */
+    private static final Pattern DANGEROUS_TARGET = Pattern.compile(
+        "(?i)^(/|/(home|etc|usr|var|boot|bin|sbin|lib|lib64)(/.*)?|[a-z]:[\\\\/]|~(/.*)?)$"
+    );
+
+    /** 命令名 → 危险签名列表（任一命中即严格禁止） */
+    private static final Map<String, List<DangerSignature>> DANGEROUS_SIGNATURES = new HashMap<>();
+
+    static {
+        // Unix：rm 递归强制删除危险目标（rm -rf /、rm -r -f /home、rm -rf ~ 等变体）
+        DANGEROUS_SIGNATURES.put("rm", List.of(
+            new DangerSignature(Set.of("-r", "-f"), DANGEROUS_TARGET)
+        ));
+        // Windows：递归删除（任意目标都不可逆，与子串 rmdir /s、del /s 对齐）
+        DANGEROUS_SIGNATURES.put("del", List.of(new DangerSignature(Set.of("/s"), null)));
+        DANGEROUS_SIGNATURES.put("erase", List.of(new DangerSignature(Set.of("/s"), null)));
+        DANGEROUS_SIGNATURES.put("rmdir", List.of(new DangerSignature(Set.of("/s"), null)));
+        DANGEROUS_SIGNATURES.put("rd", List.of(new DangerSignature(Set.of("/s"), null)));
+        // 注册表删除（reg query 等只读子命令仍走需确认）
+        DANGEROUS_SIGNATURES.put("reg", List.of(new DangerSignature(Set.of("delete"), null)));
+        // 磁盘覆写删除
+        DANGEROUS_SIGNATURES.put("cipher", List.of(new DangerSignature(Set.of("/w"), null)));
+        // 公开权限（chmod 777 任意目标；-R 组合在参数展开后同样命中）
+        DANGEROUS_SIGNATURES.put("chmod", List.of(new DangerSignature(Set.of("777"), null)));
+    }
 
     @Override
     public HookResult check(String toolName, JsonNode arguments) {
@@ -114,17 +210,53 @@ public class BashDangerousCommandBlocker implements Blocker {
             }
         }
 
-        // 提取命令名前先检查是否以 ./ 或 ../ 开头（本地脚本执行）
-        if (command.startsWith("./") || command.startsWith("../")) {
+        // 三级检查：逐段解析 — 链式命令的每一段都独立走完整分级。
+        // 任一段严格禁止 → 整条禁止；无禁止但任一段需确认 → 整条需确认。
+        List<CommandParser.Segment> segments = CommandParser.parse(command);
+        if (segments.isEmpty()) {
+            return HookResult.allow();
+        }
+        if (segments.size() == 1) {
+            return checkSegment(segments.get(0));
+        }
+
+        boolean anyConfirmation = false;
+        for (CommandParser.Segment seg : segments) {
+            HookResult result = checkSegment(seg);
+            if (result.isDenied()) {
+                return result;
+            }
+            if (result.isConfirmationRequired()) {
+                anyConfirmation = true;
+            }
+        }
+        if (anyConfirmation) {
             return HookResult.requireConfirmation(
-                "执行本地脚本可能带来未知风险",
+                "命令包含需要确认的操作（链式命令），请确认是否执行",
                 "medium",
                 command
             );
         }
+        return HookResult.allow();
+    }
 
-        // 提取命令名
-        String commandName = extractCommandName(command);
+    /** 对单个命令段执行完整分级检查 */
+    private HookResult checkSegment(CommandParser.Segment seg) {
+        String raw = seg.getRaw();
+
+        // 本地脚本执行
+        if (raw.startsWith("./") || raw.startsWith("../")) {
+            return HookResult.requireConfirmation(
+                "执行本地脚本可能带来未知风险",
+                "medium",
+                raw
+            );
+        }
+
+        String commandName = seg.getCommandName();
+        if (commandName.isEmpty()) {
+            return HookResult.allow();
+        }
 
         // 四级检查：严格禁止名单
         if (STRICTLY_BLOCKED.contains(commandName)) {
@@ -133,16 +265,28 @@ public class BashDangerousCommandBlocker implements Blocker {
             );
         }
 
-        // 五级检查：需要确认名单
+        // 五级检查：token 级危险签名（防参数变体绕过）
+        List<DangerSignature> signatures = DANGEROUS_SIGNATURES.get(commandName);
+        if (signatures != null) {
+            for (DangerSignature sig : signatures) {
+                if (sig.matches(seg)) {
+                    return HookResult.block(
+                        "安全限制: 检测到危险命令用法 '" + commandName + "'"
+                    );
+                }
+            }
+        }
+
+        // 六级检查：需要确认名单
         if (REQUIRES_CONFIRMATION.contains(commandName)) {
             return HookResult.requireConfirmation(
                 "命令 '" + commandName + "' 可能有副作用，请确认是否执行",
                 "medium",
-                command
+                raw
             );
         }
 
-        // 六级检查：自动放行名单
+        // 七级检查：自动放行名单
         if (ALLOWED_COMMANDS.contains(commandName)) {
             return HookResult.allow();
         }
@@ -151,7 +295,7 @@ public class BashDangerousCommandBlocker implements Blocker {
         return HookResult.requireConfirmation(
             "未知命令 '" + commandName + "'，请检查命令内容确认安全后执行",
             "medium",
-            command
+            raw
         );
     }
 
@@ -160,21 +304,12 @@ public class BashDangerousCommandBlocker implements Blocker {
         return command.contains("`") || command.contains("$(");
     }
 
-    private String extractCommandName(String command) {
-        String firstPart = command.split("\\|")[0].trim();
-        firstPart = firstPart.split(">")[0].trim();
-        firstPart = firstPart.split(">>")[0].trim();
-        String[] parts = firstPart.split("\\s+");
-        if (parts.length > 0) {
-            String cmd = parts[0];
-            int lastSlash = cmd.lastIndexOf('/');
-            if (lastSlash >= 0 && lastSlash < cmd.length() - 1) {
-                return cmd.substring(lastSlash + 1)
-                    .replaceAll("[^a-zA-Z0-9]$", "")
-                    .toLowerCase();
-            }
-            return cmd.replaceAll("[^a-zA-Z0-9]$", "").toLowerCase();
-        }
-        return command.replaceAll("[^a-zA-Z0-9]$", "").toLowerCase();
+    /**
+     * 命令是否可安全纳入 auto-allow（"同类命令免确认"）泛化：
+     * 含链式/管道操作符的命令不做 auto-allow —— 用户确认的是整条链，
+     * 无法安全泛化到命令名级别。
+     */
+    public static boolean isSafeForAutoAllow(String command) {
+        return command != null && !CommandParser.hasChainOperator(command);
     }
 }

@@ -30,6 +30,10 @@ llm:
 tools:
   bash:
     enabled: true
+    # 白名单（命令名，不含参数）。安全语义：
+    #  - 白名单未配置（空/缺失）→ 配置层默认拒绝所有命令，由 Blocker 安全链兜底
+    #  - 命中白名单 → 仍需通过 Blocker 链检查（危险用法照样拦截）
+    #  - 未命中白名单 → 交由 Blocker 链判定（自动放行/需确认/严格禁止）
     whitelist:
       - git
       - mvn
@@ -39,6 +43,9 @@ tools:
       - cat
       - grep
       - find
+    # ⚠️ 关闭后"需确认"级别的命令将直接执行（不弹确认框）。
+    # 严格禁止的命令（format/shutdown/diskpart/rm -rf / 等）不受此开关影响，仍会被拦截。
+    # 默认 true（推荐保持开启）；生产环境请勿设为 false。
     require_confirmation: true
   web_search:
     enabled: false                # 启用/禁用联网搜索

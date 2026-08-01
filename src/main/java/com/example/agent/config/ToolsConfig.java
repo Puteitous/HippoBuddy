@@ -66,12 +66,22 @@ public class ToolsConfig {
             this.requireConfirmation = requireConfirmation;
         }
 
+        /**
+         * 配置层是否允许该命令。
+         * <p>
+         * ⚠️ 安全语义：白名单未配置（空/null）时按<b>拒绝</b>处理（默认拒绝，
+         * 宁缺毋滥），由 Blocker 链作为最终安全防线兜底。
+         * 注意：本方法在生产执行路径上由 Blocker 链承担最终判断，此配置层
+         * 检查仅作第一道粗粒度过滤。
+         */
         public boolean isCommandAllowed(String command) {
             if (!enabled) {
                 return false;
             }
             if (whitelist == null || whitelist.isEmpty()) {
-                return true;
+                // 未配置白名单 → 配置层不表态放行，按拒绝处理
+                logger.warn("bash whitelist 未配置（空），配置层默认拒绝所有命令，由 Blocker 链兜底");
+                return false;
             }
             String trimmedCommand = command.trim();
             if (trimmedCommand.isEmpty()) {

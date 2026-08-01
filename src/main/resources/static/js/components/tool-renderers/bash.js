@@ -113,6 +113,8 @@ function renderBashConfirmCard(tool) {
   const cmd = data.command || '';
   const riskLevel = data.riskLevel || 'medium';
   const riskReason = data.riskReason || '';
+  // 链式命令（autoAllowable=false）无法按命令名记住"不再询问"，禁用复选框避免误导
+  const autoAllowable = data.autoAllowable !== false;
   const riskLabel = riskLevel === 'high' ? _t('tool.bash.highRisk') : riskLevel === 'low' ? _t('tool.bash.lowRisk') : _t('tool.bash.mediumRisk');
   const riskSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z"/><line x1="8" y1="5" x2="8" y2="9"/><line x1="8" y1="11" x2="8.01" y2="11"/></svg>';
   const terminalSvg = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 4 8 8 4 12"/><line x1="11" y1="12" x2="12" y2="12"/></svg>';
@@ -130,8 +132,8 @@ function renderBashConfirmCard(tool) {
         <div class="confirmation-body">
           ${riskReason ? `<div class="confirmation-reason">${escapeHtml(riskReason)}</div>` : ''}
           <div class="confirmation-footer">
-            <label class="confirmation-auto-allow">
-              <input type="checkbox" class="auto-allow-checkbox" data-confirm-id="${escapeHtml(data.confirmId)}">
+            <label class="confirmation-auto-allow ${autoAllowable ? '' : 'disabled'}" ${autoAllowable ? '' : 'title="链式命令无法记住免确认设置"'}>
+              <input type="checkbox" class="auto-allow-checkbox" data-confirm-id="${escapeHtml(data.confirmId)}" ${autoAllowable ? '' : 'disabled'}>
               <span>${_t('tool.bash.dontAskAgain')}</span>
             </label>
             <div class="confirmation-buttons">

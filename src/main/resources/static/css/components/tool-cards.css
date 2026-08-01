@@ -1582,6 +1582,16 @@
     box-shadow: none;
 }
 
+/* 链式命令等无法记住"不再询问"的场景：禁用复选框并弱化视觉 */
+.confirmation-auto-allow.disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.confirmation-auto-allow.disabled input[type="checkbox"] {
+    cursor: not-allowed;
+}
+
 .confirmation-buttons {
     display: flex;
     gap: 6px;

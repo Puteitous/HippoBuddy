@@ -283,7 +283,8 @@ export class MessageSession {
               confirmId: parsed.confirmId,
               command: parsed.command,
               riskLevel: parsed.riskLevel,
-              riskReason: parsed.riskReason
+              riskReason: parsed.riskReason,
+              autoAllowable: parsed.autoAllowable !== false
             };
             bashSegment._savedCommand = parsed.command;
             s._renderPipeline.flush(s._segments, s._currentText);
@@ -687,7 +688,8 @@ export class MessageSession {
           confirmId: parsed.confirmId,
           command: parsed.command,
           riskLevel: parsed.riskLevel,
-          riskReason: parsed.riskReason
+          riskReason: parsed.riskReason,
+          autoAllowable: parsed.autoAllowable !== false
         };
         bashSegment._savedCommand = parsed.command;
       }

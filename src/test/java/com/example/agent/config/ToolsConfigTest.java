@@ -68,17 +68,19 @@ class ToolsConfigTest {
     void testIsCommandAllowedWithEmptyWhitelist() {
         ToolsConfig.BashToolConfig bash = toolsConfig.getBash();
         bash.setWhitelist(Collections.emptyList());
-        
-        assertTrue(bash.isCommandAllowed("git status"));
-        assertTrue(bash.isCommandAllowed("rm -rf /"));
+
+        // 收紧：空白名单不再全放行，配置层默认拒绝，由 Blocker 链兜底
+        assertFalse(bash.isCommandAllowed("git status"));
+        assertFalse(bash.isCommandAllowed("rm -rf /"));
     }
 
     @Test
     void testIsCommandAllowedWithNullWhitelist() {
         ToolsConfig.BashToolConfig bash = toolsConfig.getBash();
         bash.setWhitelist(null);
-        
-        assertTrue(bash.isCommandAllowed("git status"));
+
+        // 收紧：null 白名单同样默认拒绝
+        assertFalse(bash.isCommandAllowed("git status"));
     }
 
     @Test
