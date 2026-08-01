@@ -226,12 +226,22 @@ public class WebAgentOrchestrator {
                                 toolCall.put("args", arguments);
                                 streamToolCalls.add(toolCall);
 
-                                String toolStartData = "{\"id\":\"" + SseWriter.escapeJson(toolCallId)
-                                    + "\",\"name\":\"" + SseWriter.escapeJson(toolName)
-                                    + "\",\"args\":" + SseWriter.escapeJsonForValue(arguments) + "}";
+                                String toolStartData = buildStartJson(toolCallId, toolName, arguments);
                                 sseWriter.sendSseEvent("tool_start", toolStartData);
                             }
                         }
+                    }
+                }
+
+                if (chunk.isToolResult() && chunk.getToolResultDeltas() != null) {
+                    // 服务端内置工具（如 deepseek-responses 的 web_search）完成 → 收尾前端进度卡片。
+                    // 该工具由服务端执行，assistantMessage 中无对应 ToolCall，不会进入 executeToolCalls。
+                    for (var trd : chunk.getToolResultDeltas()) {
+                        String resultId = trd.getId();
+                        if (resultId == null) continue;
+                        sseWriter.sendSseEvent("tool_result",
+                            buildToolResultJson(resultId, trd.getName(), trd.isSuccess(),
+                                trd.getResultContent(), trd.getError(), "{}", resultId));
                     }
                 }
             });
@@ -753,7 +763,7 @@ public class WebAgentOrchestrator {
     private static String buildStartJson(String id, String name, String argsJson) {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("id", id);
-        node.put("name", name);
+        node.put("name", name != null ? name : "");
         node.set("args", safeArgs(argsJson, id));
         return node.toString();
     }

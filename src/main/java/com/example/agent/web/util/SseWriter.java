@@ -1,5 +1,6 @@
 package com.example.agent.web.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,6 +10,8 @@ import java.io.Writer;
 public class SseWriter {
 
     private static final Logger logger = LoggerFactory.getLogger(SseWriter.class);
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final ThreadLocal<Boolean> clientDisconnected = ThreadLocal.withInitial(() -> false);
 
@@ -77,9 +80,23 @@ public class SseWriter {
 
     public static String escapeJsonForValue(String input) {
         if (input == null) return "null";
-        if (input.startsWith("{") || input.startsWith("[")) {
+        if ((input.startsWith("{") || input.startsWith("[")) && isValidJson(input)) {
             return input;
         }
         return "\"" + escapeJson(input) + "\"";
+    }
+
+    /**
+     * 判断输入是否为合法 JSON。用于 escapeJsonForValue 的安全校验：
+     * 流式工具调用增量（如 Responses API 的 function_call_arguments.delta）可能是
+     * 以 { / [ 开头的残缺 JSON 片段（如 "{\"command\":"），若盲目原样拼接，
+     * 会让整个 SSE data 行成为非法 JSON，导致前端 JSON.parse 崩溃。
+     */
+    private static boolean isValidJson(String input) {
+        try {
+            return OBJECT_MAPPER.readTree(input) != null;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

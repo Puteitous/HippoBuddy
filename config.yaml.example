@@ -1,8 +1,15 @@
 llm:
+  # provider 可选值：
+  #   deepseek             — DeepSeek Chat Completions（OpenAI 兼容，功能全：视觉/全模型）
+  #   deepseek-responses   — DeepSeek Responses API（仅 deepseek-v4-flash；服务端联网搜索 + Codex 兼容；无视觉、无状态）
+  #   dashscope / openai / anthropic / ollama / zhipu / moonshot / minimax
+  #   stepfun / lingyi / doubao / siliconflow / xunfei / azure / custom
   provider: deepseek
   api_key: ${DEEPSEEK_API_KEY:-your-api-key-here}
   model: deepseek-v4-flash
   base_url: https://api.deepseek.com
+  # 注意：provider 为 deepseek-responses 时，base_url 默认 https://api.deepseek.com（不带 /v1），
+  #       且仅支持 deepseek-v4-flash 模型（deepseek-v4-pro 预计 2026-08 初支持）
   max_tokens: 0                     # 单次 LLM 调用输出上限（0=不限制，使用模型默认值）
                                     # 限制范围：reasoning_content（思维链）+ content（回答）
                                     # 不涉及：工具定义（tools 参数）、工具执行结果（属于后续请求的输入）
@@ -39,6 +46,9 @@ tools:
     api_key: "your-api-key"
     # Brave Search 免费注册: https://brave.com/search/api/（月 2,000 次）
     # Tavily 免费注册: https://tavily.com/（月 1,000 basic + 100 advanced）
+    # 💡 提示：provider 为 deepseek-responses 时，web_search 自动切换为 DeepSeek
+    #   服务端内置搜索（{"type":"web_search"}，无需 api_key，服务端执行）；其他
+    #   provider 仍使用上方 brave/tavily 客户端搜索。
   subagent:
     # Sub-Agent 并行任务（默认关闭）
     # 启用后注册 fork_agent / fork_agents / list_subagents / cancel_subagent 工具

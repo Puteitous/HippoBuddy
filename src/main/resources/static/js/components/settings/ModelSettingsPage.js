@@ -14,6 +14,7 @@ const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 /** Provider 可选列表（与 main.js 一致） */
 const PROVIDER_ITEMS = [
   { label: 'DeepSeek', value: 'deepseek' },
+  { label: 'DeepSeek Responses', value: 'deepseek-responses' },
   { label: 'DashScope', value: 'dashscope' },
   { label: 'OpenAI', value: 'openai' },
   { label: _t('settingsPage.zhipu'), value: 'zhipu' },
@@ -46,7 +47,7 @@ const REASONING_EFFORT_ITEMS = [
 ];
 
 /** 支持思考模式的 Provider 列表 */
-const THINKING_SUPPORTED_PROVIDERS = ['deepseek', 'openai', 'anthropic'];
+const THINKING_SUPPORTED_PROVIDERS = ['deepseek', 'deepseek-responses', 'openai', 'anthropic'];
 const VISION_SUPPORTED_PROVIDERS = ['openai', 'anthropic', 'google', 'gemini'];
 
 /** 根据 provider value 获取显示用 label */

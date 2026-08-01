@@ -19,6 +19,7 @@ public class LlmClientFactory {
         ANTHROPIC,
         CUSTOM,
         DEEPSEEK,
+        DEEPSEEK_RESPONSES,
         ZHIPU,
         MOONSHOT,
         MINIMAX,
@@ -68,6 +69,8 @@ public class LlmClientFactory {
                 return createCustomClient(config, retryPolicy);
             case DEEPSEEK:
                 return new OpenAiLlmClient(config, retryPolicy);
+            case DEEPSEEK_RESPONSES:
+                return new ResponsesLlmClient(config, retryPolicy);
             case ZHIPU:
                 return new OpenAiLlmClient(config, retryPolicy);
             case MOONSHOT:
@@ -131,6 +134,11 @@ public class LlmClientFactory {
             case "DEEPSEEK":
             case "DS":
                 return Provider.DEEPSEEK;
+            case "DEEPSEEK_RESPONSES":
+            case "DEEPSEEK-RESPONSES":
+            case "DS_RESPONSES":
+            case "RESPONSES":
+                return Provider.DEEPSEEK_RESPONSES;
             case "ZHIPU":
             case "GLM":
                 return Provider.ZHIPU;
@@ -185,6 +193,8 @@ public class LlmClientFactory {
                 return OllamaLlmClient.getDefaultBaseUrlStatic();
             case DEEPSEEK:
                 return "https://api.deepseek.com/v1";
+            case DEEPSEEK_RESPONSES:
+                return ResponsesLlmClient.getDefaultBaseUrlStatic();
             case ZHIPU:
                 return "https://open.bigmodel.cn/api/paas/v4";
             case MOONSHOT:
@@ -219,6 +229,8 @@ public class LlmClientFactory {
                 return OllamaLlmClient.getDefaultModelStatic();
             case DEEPSEEK:
                 return "deepseek-v4-flash";
+            case DEEPSEEK_RESPONSES:
+                return ResponsesLlmClient.getDefaultModelStatic();
             case ZHIPU:
                 return "GLM-4.7-Flash";
             case MOONSHOT:

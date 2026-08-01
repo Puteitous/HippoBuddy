@@ -349,6 +349,7 @@ const HippoWorkspace = (() => {
 | 厂商 | 官网（建议直接搜索品牌名） | API 地址示例 |
 |------|---------------------------|-------------|
 | **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com) | \`https://api.deepseek.com\` |
+| **DeepSeek Responses**（仅 \`deepseek-v4-flash\`，服务端联网搜索） | [platform.deepseek.com](https://platform.deepseek.com) | \`https://api.deepseek.com\`（不带 /v1） |
 | **OpenAI** | [platform.openai.com](https://platform.openai.com) | \`https://api.openai.com/v1\` |
 | **Anthropic** | [console.anthropic.com](https://console.anthropic.com) | \`https://api.anthropic.com\` |
 | **Google Gemini** | [aistudio.google.com](https://aistudio.google.com) | \`https://generativelanguage.googleapis.com/v1beta\` |
@@ -392,6 +393,8 @@ tools:
     provider: brave           # brave | tavily
     api_key: "your-api-key"
 \`\`\`
+
+> 💡 **提示**：当模型 Provider 为 \`deepseek-responses\` 时，联网搜索会自动切换为 **DeepSeek 服务端搜索**（无需上面的 API Key，服务端执行）。其他 Provider 仍使用 Brave / Tavily 客户端搜索。
 
 ---
 
