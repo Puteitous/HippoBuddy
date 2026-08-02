@@ -129,7 +129,7 @@ Startup
 ```bash
 # Java packaging and running
 mvn clean package
-# → target/hippo-buddy-1.0.0.jar
+# → target/hippo-buddy-1.0.2.jar
 
 # Runs on any machine with JDK installed
 java -jar hippo-buddy.jar

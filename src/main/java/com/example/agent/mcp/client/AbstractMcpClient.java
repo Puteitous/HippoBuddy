@@ -193,7 +193,7 @@ public abstract class AbstractMcpClient implements McpClient {
         params.put("protocolVersion", "2024-11-05");
         Map<String, Object> clientInfo = new HashMap<>();
         clientInfo.put("name", "hippo-agent");
-        clientInfo.put("version", "1.0.0");
+        clientInfo.put("version", "1.0.2");
         params.put("clientInfo", clientInfo);
         Map<String, Object> capabilities = new HashMap<>();
         params.put("capabilities", capabilities);

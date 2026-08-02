@@ -129,7 +129,7 @@ Python 的假设：系统装一个 Python，所有脚本都能跑
 ```bash
 # Java 的打包与运行
 mvn clean package
-# → target/hippo-buddy-1.0.0.jar
+# → target/hippo-buddy-1.0.2.jar
 
 # 任何装了 JDK 的机器都能跑
 java -jar hippo-buddy.jar

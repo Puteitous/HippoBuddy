@@ -49,7 +49,7 @@ try {
 
 Write-Host "[2/4] Copying JAR to resources..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path "$ScriptDir\resources" | Out-Null
-Copy-Item "$ProjectRoot\target\HippoBuddy-1.0.0.jar" "$ScriptDir\resources\hippo-agent.jar" -Force
+Copy-Item "$ProjectRoot\target\HippoBuddy-1.0.2.jar" "$ScriptDir\resources\hippo-agent.jar" -Force
 
 # ---- 3. jlink: trim minimal JRE ----
 if (-not $SkipJre) {
