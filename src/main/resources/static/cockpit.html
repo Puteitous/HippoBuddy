@@ -475,6 +475,7 @@
                                 <span class="status-bar-value" id="statusBarFilesValue">0</span>
                                 <!-- 文件变更悬浮面板 -->
                                 <div class="status-bar-files-popover" id="statusBarFilesPopover">
+                                    <div class="file-changes-summary" id="filesPopoverSummary" style="display:none;"></div>
                                     <div class="files-popover-body" id="filesPopoverBody"></div>
                                 </div>
                             </span>
@@ -520,6 +521,7 @@
                 <div class="diff-modal-title">
                     <span data-i18n="diff.title">文件变更对比</span>
                     <span class="diff-file-path" id="diffFilePath"></span>
+                    <span class="diff-file-netstats" id="diffFileNetStats" style="display:none;"></span>
                 </div>
                 <button class="diff-modal-close" id="diffModalClose">✕</button>
             </div>
@@ -837,6 +839,7 @@
 
     <template id="abFilesPanel">
         <div class="file-changes-panel">
+            <div class="file-changes-summary" id="abFileChangesSummary" style="display:none;"></div>
             <div class="file-changes-empty" data-i18n="fileChanges.empty" id="abFileChangesEmpty">暂无文件变更</div>
             <div class="file-changes-list" id="abFileChangesList"></div>
         </div>

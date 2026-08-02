@@ -211,6 +211,9 @@ public class FileChangeTracker {
         String tcid = (toolCallId != null && !toolCallId.isEmpty()) ? toolCallId : getCurrentToolCallId();
         FileChange change = new FileChange(filePath, originalContent, newContent, toolName, System.currentTimeMillis(), newFile, sid, originalBytes, tcid, binary);
 
+        // 记录 AI 写入时刻，供 FileSnapshotService 与外部变更去重（AI 写入已有即时刷新链路）
+        FileSnapshotService.markAiWrite(filePath);
+
         Map<String, List<FileChange>> sessionChanges = getOrCreateSessionChanges(sid);
         String normalizedKey = normalizePath(filePath);
         List<FileChange> list = sessionChanges.computeIfAbsent(normalizedKey, k -> new CopyOnWriteArrayList<>());
@@ -258,6 +261,29 @@ public class FileChangeTracker {
         all.sort((a, b) -> Long.compare(b.timestamp, a.timestamp));
         int end = Math.min(limit, all.size());
         return all.subList(0, end);
+    }
+
+    /**
+     * 按会话 ID 获取文件分组视图：path → 该文件在该会话内的全部变更（按时间升序）。
+     * 用于会话级汇总统计（净变化行数、A/M/D 计数）。
+     * <p>
+     * sessionId 为 null/空时，跨所有会话按文件路径合并分组（与 getRecentChanges 无参版本口径一致）。
+     * 返回的 Map 直接引用内部存储（跨会话合并时为新 Map），调用方只应做只读遍历。
+     */
+    public static Map<String, List<FileChange>> getSessionFileChanges(String sessionId) {
+        ensureInitialized();
+        if (sessionId != null && !sessionId.isEmpty()) {
+            Map<String, List<FileChange>> sessionChanges = changesBySession.get(sessionId);
+            return sessionChanges != null ? sessionChanges : Map.of();
+        }
+        // 无 sessionId：跨所有会话合并（不做排序，调用方需按 timestamp 自行取最早/最新）
+        Map<String, List<FileChange>> merged = new HashMap<>();
+        for (Map<String, List<FileChange>> sessionChanges : changesBySession.values()) {
+            for (Map.Entry<String, List<FileChange>> e : sessionChanges.entrySet()) {
+                merged.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).addAll(e.getValue());
+            }
+        }
+        return merged;
     }
 
     public static FileChange getLastChange(String filePath) {

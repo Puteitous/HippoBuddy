@@ -270,12 +270,13 @@ export class FileTabs {
   // ==================== 关闭 ====================
 
   /** 关闭一个 tab */
-  async closeTab(filePath) {
+  async closeTab(filePath, { silent = false } = {}) {
     const tabEl = this._tabs.get(filePath);
     if (!tabEl) return;
 
-    // 关闭前询问（脏检查），批量关闭时跳过（已在 _confirmBatchClose 中处理）
-    if (!this._batchClosing && this._onBeforeClose) {
+    // 关闭前询问（脏检查），批量关闭时跳过（已在 _confirmBatchClose 中处理）；
+    // silent 模式（文件已不存在等场景）跳过询问，保存无意义
+    if (!silent && !this._batchClosing && this._onBeforeClose) {
       if (!(await this._onBeforeClose(filePath))) return;
     }
 
@@ -300,6 +301,15 @@ export class FileTabs {
     }
 
     this._onTabClose(filePath);
+  }
+
+  /**
+   * 静默关闭一个 tab（跳过脏检查弹窗）
+   * 用于文件已被外部删除/重命名等场景——文件已不存在，保存无意义
+   * @param {string} filePath - 要关闭的文件路径
+   */
+  async closeTabSilent(filePath) {
+    await this.closeTab(filePath, { silent: true });
   }
 
   /** 关闭除指定的以外所有 tab */

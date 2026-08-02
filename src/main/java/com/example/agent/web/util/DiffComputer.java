@@ -15,8 +15,11 @@ public class DiffComputer {
 
     public static final DiffComputer DEFAULT = new DiffComputer();
 
-    /** 按行分割，去掉文件末尾 \n 带来的尾部空串 */
+    /** 按行分割，去掉文件末尾 \n 带来的尾部空串；空文本视为 0 行 */
     private static List<String> splitLines(String text) {
+        if (text == null || text.isEmpty()) {
+            return new ArrayList<>();
+        }
         List<String> lines = new ArrayList<>(Arrays.asList(text.split("\n", -1)));
         // 文件结尾有 \n 时 split("\n", -1) 会多一个空串，去掉它
         if (lines.size() > 1 && lines.get(lines.size() - 1).isEmpty()) {
@@ -150,8 +153,10 @@ public class DiffComputer {
     }
 
     public int[] countDiffStats(String original, String modified) {
-        List<String> origLines = Arrays.asList(original.split("\n", -1));
-        List<String> modLines = Arrays.asList(modified.split("\n", -1));
+        // 复用 splitLines：空文本视为 0 行，去掉末尾 \n 的尾空串，
+        // 避免 split("\n", -1) 把空串误算成 1 行导致统计失真
+        List<String> origLines = splitLines(original);
+        List<String> modLines = splitLines(modified);
 
         Patch<String> patch = DiffUtils.diff(origLines, modLines);
 

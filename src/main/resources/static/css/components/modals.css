@@ -323,6 +323,30 @@
     flex-shrink: 0;
 }
 
+/* 标题栏净统计：该文件所有变更的净变化行数（+新增 -删除） */
+.diff-file-netstats {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
+    padding: 1px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-code);
+    cursor: default;
+}
+
+.diff-file-netstats .diff-file-netstats-add {
+    color: var(--success-color);
+}
+
+.diff-file-netstats .diff-file-netstats-del {
+    color: var(--error-color);
+}
+
 .diff-modal-close {
     width: 32px;
     height: 32px;
@@ -542,6 +566,11 @@
 
 .diff-stats {
     display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
 }
 
 .diff-stats .diff-added-count {

@@ -27,6 +27,7 @@ export class DiffModalManager {
     this.contentPanel = document.getElementById('diffContentPanel');
     this.filePathEl = document.getElementById('diffFilePath');
     this.statsEl = document.getElementById('diffStats');
+    this.netStatsEl = document.getElementById('diffFileNetStats');
     this.rollbackBtn = document.getElementById('diffRollbackBtn');
 
     if (!this.overlay) {
@@ -73,6 +74,12 @@ export class DiffModalManager {
       this.filePathEl.innerHTML = `<img class="diff-file-icon" src="icons/${iconFile}" draggable="false" alt=""> ${escapeHtml(fileName)}`;
     }
 
+    // 重置标题栏净统计（等待接口返回后填充）
+    if (this.netStatsEl) {
+      this.netStatsEl.innerHTML = '';
+      this.netStatsEl.style.display = 'none';
+    }
+
     if (this.timeline) {
       this.timeline.innerHTML = `<div class="diff-timeline-loading">${window.i18n.t('diff.loading')}</div>`;
     }
@@ -81,6 +88,7 @@ export class DiffModalManager {
     }
     if (this.statsEl) {
       this.statsEl.innerHTML = '';
+      this.statsEl.style.display = 'none';
     }
     if (this.rollbackBtn) {
       this.rollbackBtn.classList.remove('rolling');
@@ -94,6 +102,22 @@ export class DiffModalManager {
       }
       const data = await apiGet(url);
       this.allChanges = data.allChanges || [];
+
+      // 标题栏净统计：整个文件的净变化（最早 original vs 最新 newContent）
+      if (this.netStatsEl) {
+        const ns = data.netStats;
+        if (ns && (ns[0] > 0 || ns[1] > 0)) {
+          this.netStatsEl.innerHTML =
+            `<span class="diff-file-netstats-add">+${ns[0]}</span>` +
+            `<span class="diff-file-netstats-del">-${ns[1]}</span>`;
+          this.netStatsEl.title = window.i18n.t('diff.netStatsTip');
+          this.netStatsEl.style.display = 'inline-flex';
+        } else {
+          this.netStatsEl.innerHTML = '';
+          this.netStatsEl.style.display = 'none';
+        }
+      }
+
       this.renderTimeline();
       if (this.allChanges.length > 0) {
         let targetIndex = data.targetIndex != null ? data.targetIndex : this.allChanges.length - 1;
@@ -200,11 +224,13 @@ export class DiffModalManager {
 
     if (data.binary) {
       this.contentPanel.innerHTML = `<div class="diff-binary-notice">${window.i18n.t('diff.binary')}</div>`;
+      this.updateStats(0, 0);
       return;
     }
 
     if (!data.changes || data.changes.length === 0) {
       this.contentPanel.innerHTML = `<div class="diff-empty">${window.i18n.t('diff.noContent')}</div>`;
+      this.updateStats(0, 0);
       return;
     }
 
@@ -231,6 +257,7 @@ export class DiffModalManager {
     }
 
     this.contentPanel.innerHTML = `<div class="diff-content">${html}</div>`;
+    this.updateStats(addedCount, removedCount);
 
     // 立即定位到第一个变更行，与 innerHTML 在同一帧内完成，避免闪烁
     const firstChange = this.contentPanel.querySelector('.diff-line.added, .diff-line.removed');
@@ -238,6 +265,23 @@ export class DiffModalManager {
       const panel = this.contentPanel;
       panel.scrollTop = Math.max(0, firstChange.offsetTop - panel.clientHeight / 2 + firstChange.offsetHeight / 2);
     }
+  }
+
+  /**
+   * 更新底部统计栏：显示当前选中变更的 +/- 行数。
+   * 无变更（二进制文件 / 空 diff）时清空并隐藏。
+   */
+  updateStats(added, removed) {
+    if (!this.statsEl) return;
+    if (added === 0 && removed === 0) {
+      this.statsEl.innerHTML = '';
+      this.statsEl.style.display = 'none';
+      return;
+    }
+    this.statsEl.innerHTML =
+      `<span class="diff-added-count">+${added}</span>` +
+      `<span class="diff-removed-count">-${removed}</span>`;
+    this.statsEl.style.display = 'inline-flex';
   }
 
   showRollbackWarning() {

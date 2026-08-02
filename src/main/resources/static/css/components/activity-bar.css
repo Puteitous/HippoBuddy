@@ -637,6 +637,39 @@
     padding: 4px 0;
 }
 
+/* 会话级汇总条（面板顶部） */
+.file-changes-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    margin: 0 4px 6px;
+    border-radius: var(--radius-md);
+    background: var(--bg-code);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.file-changes-summary .fcs-count {
+    color: var(--text-primary);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.file-changes-summary .fcs-stats {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.file-changes-summary .fcs-add { color: #2ea043; }
+.file-changes-summary .fcs-del { color: #f85149; }
+
 .file-changes-empty {
     font-size: var(--font-size-xs);
     color: var(--text-muted);

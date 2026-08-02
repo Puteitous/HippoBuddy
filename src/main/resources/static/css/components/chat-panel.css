@@ -1090,6 +1090,15 @@
     display: flex;
 }
 
+/* 状态栏 popover 顶部的会话级汇总条（复用 .file-changes-summary 基础样式） */
+#filesPopoverSummary.file-changes-summary {
+    margin: 6px 8px 4px;
+    padding: 5px 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
 .files-popover-body {
     flex: 1;
     overflow-y: auto;

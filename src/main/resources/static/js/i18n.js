@@ -182,6 +182,7 @@
     /* ==================== File Changes Panel ==================== */
     'fileChanges.empty':           { zh: '暂无文件变更', en: 'No file changes' },
     'fileChanges.title':           { zh: '文件变更', en: 'File Changes' },
+    'fileChanges.summaryFiles':    { zh: '{count} 个文件', en: '{count} files' },
     'fileChanges.rollback':        { zh: '回滚', en: 'Rollback' },
     'fileChanges.rollingBack':     { zh: '回滚中...', en: 'Rolling back...' },
     'fileChanges.rollbackFailed':  { zh: '回滚失败：', en: 'Rollback failed: ' },
@@ -323,6 +324,7 @@
 
     /* ==================== Diff Modal ==================== */
     'diff.title':                  { zh: '文件变更对比', en: 'File Diff' },
+    'diff.netStatsTip':            { zh: '该文件累计净变化行数', en: 'Net changes of this file' },
     'diff.loading':                { zh: '加载中...', en: 'Loading...' },
     'diff.noRecords':              { zh: '无变更记录', en: 'No change records' },
     'diff.noRecordsRollback':      { zh: '该变更已被回滚，暂无变更记录可查看', en: 'This change was rolled back, no records available' },
@@ -452,6 +454,8 @@
     'workspace.switched':          { zh: '工作区已切换: ', en: 'Workspace switched: ' },
     'workspace.openFolder':        { zh: '打开工作目录', en: 'Open Workspace' },
     'workspace.unsavedSingle':     { zh: '"{name}" 有未保存的修改，是否保存？', en: '"{name}" has unsaved changes. Save?' },
+    'workspace.fileRemoved':       { zh: '文件已被移除，已自动关闭标签: ', en: 'File was removed, tab closed: ' },
+    'workspace.externalChangedDirty': { zh: '"{name}" 已被外部修改，但你有未保存的本地更改，未自动重载', en: '"{name}" was modified externally but has unsaved local changes; not auto-reloaded' },
 
     /* ==================== Skill Market ==================== */
     'skillMarket.title':           { zh: '技能市场', en: 'Skill Market' },

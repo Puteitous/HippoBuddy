@@ -18,7 +18,7 @@ import { FileTabs } from './components/FileTabs.js';
 import { FilePreview } from './components/FilePreview.js';
 import { EventBus } from './utils/event-bus.js';
 import { ConfirmDialog } from './utils/modal.js';
-import { showBottomToast } from './utils/toast.js';
+import { showBottomToast, showToast } from './utils/toast.js';
 
 const HippoWorkspace = (() => {
   const isDesktop = window.electronAPI && window.electronAPI.isElectron;
@@ -106,11 +106,39 @@ const HippoWorkspace = (() => {
 
   const filePreview = new FilePreview({
     container: els.previewContent,
-    onError: (err) => console.error('FilePreview:', err),
+    onError: handlePreviewError,
     onDirtyChange: (filePath, dirty) => {
       fileTabs.setDirty(filePath, dirty);
     },
   });
+
+  // ========== 预览错误处理 ==========
+
+  /**
+   * 预览错误统一处理：
+   * - ENOENT（文件已被外部删除/重命名）→ 静默关闭死标签 + 刷新文件树 + toast 提示，控制台降级为 warn
+   * - 其他错误 → 保持原样输出到控制台
+   */
+  function handlePreviewError(err) {
+    const errMsg = err?.message || '';
+    const isENOENT = errMsg.includes('ENOENT') || errMsg.includes('no such file');
+    const filePath = filePreview.currentPath;
+
+    if (isENOENT && filePath && !filePath.startsWith('url:')) {
+      const displayName = filePath.split(/[/\\]/).pop() || filePath;
+      console.warn('FilePreview: file not found, closing stale tab:', filePath);
+      // 静默关闭死标签（文件已不存在，保存无意义）；fire-and-forget 防止阻塞预览流程
+      fileTabs.closeTabSilent(filePath).catch(e => {
+        console.warn('FilePreview: failed to close stale tab:', e);
+      });
+      // 刷新文件树，移除已删除的条目
+      fileTree.refresh();
+      // 提示用户
+      showToast(i18n.t('workspace.fileRemoved') + ' ' + displayName, { type: 'warning' });
+      return;
+    }
+    console.error('FilePreview:', err);
+  }
 
   // ========== 状态 ==========
   let _currentRoot = null;
@@ -916,6 +944,26 @@ tools:
   EventBus.on('file:rollback-completed', () => {
     if (filePreview.currentPath) {
       filePreview.reload();
+    }
+  });
+
+  // 外部程序（非 AI 工具）修改了工作区文件 → 刷新文件树；
+  // 若修改的正是当前预览文件则重载预览（带 dirty 保护，不覆盖未保存修改）
+  EventBus.on('file:external-changed', ({ changes }) => {
+    fileTree.refresh();
+    if (!changes || changes.length === 0) return;
+    const current = filePreview.currentPath?.replace(/\\/g, '/').toLowerCase();
+    if (!current || current.startsWith('url:')) return;
+    for (const c of changes) {
+      const p = (c.path || '').replace(/\\/g, '/').toLowerCase();
+      if (p !== current) continue;
+      if (filePreview.isDirty) {
+        const name = filePreview.currentPath.split('/').pop() || filePreview.currentPath;
+        showToast(i18n.t('workspace.externalChangedDirty', { name }), { type: 'warning', duration: 4000 });
+      } else {
+        filePreview.reload();
+      }
+      break;
     }
   });
 

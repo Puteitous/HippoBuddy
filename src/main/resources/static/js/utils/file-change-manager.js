@@ -39,8 +39,33 @@ export class FileChangeManager {
       this.updateFileChanges();
     }, 15000);
 
+    // 外部文件变更检测（简化 A：磁盘快照对比轮询，感知延迟 ≤ 15s）
+    // 立即执行一次用于初始化快照（首次调用后端不返回变更，不会误报）
+    this.checkExternalChanges();
+    this._externalTimer = setInterval(() => {
+      this.checkExternalChanges();
+    }, 15000);
+
     // ── 文件变更悬浮面板 hover 逻辑 ──
     this._bindPopoverHover();
+  }
+
+  /**
+   * 检测外部程序（非 AI 工具）对工作区文件的修改。
+   * 后端通过磁盘快照对比识别变更并做 AI 写入去重；有变更时广播
+   * file:external-changed 事件，由 workspace-manager 负责刷新文件树、
+   * 重载预览（含 dirty 保护）。失败静默，等待下次轮询重试。
+   */
+  async checkExternalChanges() {
+    try {
+      const root = window.HippoWorkspace?.currentPath;
+      if (!root) return;
+      const data = await apiGet(`/api/files/snapshot?path=${encodeURIComponent(root)}`);
+      if (!data || !Array.isArray(data.changes) || data.changes.length === 0) return;
+      EventBus.emit('file:external-changed', { changes: data.changes });
+    } catch (e) {
+      // 后端不可用 / 网络错误等：静默失败，不影响主流程
+    }
   }
 
   _bindPopoverHover() {
@@ -94,6 +119,10 @@ export class FileChangeManager {
       clearInterval(this._refreshTimer);
       this._refreshTimer = null;
     }
+    if (this._externalTimer) {
+      clearInterval(this._externalTimer);
+      this._externalTimer = null;
+    }
   }
 
   _handleFileClick(e) {
@@ -135,6 +164,7 @@ export class FileChangeManager {
         const abList = document.getElementById('abFileChangesList');
         if (abList) abList.innerHTML = '';
         if (abEmpty) abEmpty.style.display = 'block';
+        this._hideSummary();
         if (statusBarFiles) statusBarFiles.textContent = '';
         return;
       }
@@ -229,6 +259,9 @@ export class FileChangeManager {
       const abList = document.getElementById('abFileChangesList');
       if (abList) abList.innerHTML = fileHtml;
 
+      // 异步获取会话级汇总并渲染（失败静默，不影响主列表）
+      this._updateSummary(sessionId);
+
       // 渲染悬浮面板
       this._renderFilesPopover();
     } catch (e) {
@@ -242,6 +275,11 @@ export class FileChangeManager {
 
     if (this._cachedFileGroups.size === 0) {
       popoverBody.innerHTML = `<div class="popover-empty">${window.i18n.t('fileChanges.empty')}</div>`;
+      const popoverSummary = document.getElementById('filesPopoverSummary');
+      if (popoverSummary) {
+        popoverSummary.innerHTML = '';
+        popoverSummary.style.display = 'none';
+      }
       return;
     }
 
@@ -284,6 +322,67 @@ export class FileChangeManager {
     }
 
     popoverBody.innerHTML = html;
+  }
+
+  /**
+   * 获取会话级文件变更汇总（净变化行数 + 文件计数），失败静默。
+   */
+  async _updateSummary(sessionId) {
+    try {
+      const url = sessionId
+        ? `/api/files/summary?sessionId=${encodeURIComponent(sessionId)}`
+        : '/api/files/summary';
+      const summary = await apiGet(url);
+      this._renderSummary(summary);
+    } catch (e) {
+      // 汇总接口失败不影响主列表：隐藏汇总条
+      this._hideSummary();
+    }
+  }
+
+  /**
+   * 渲染会话级汇总条（活动栏文件面板顶部 + 状态栏 popover 顶部）。
+   * 格式：N 个文件 · +X -Y（A/M/D 细分见列表，不重复展示）
+   */
+  _renderSummary(summary) {
+    const html = this._buildSummaryHtml(summary);
+    const targets = ['abFileChangesSummary', 'filesPopoverSummary'];
+    for (const id of targets) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      if (html) {
+        el.innerHTML = html;
+        el.style.display = 'flex';
+      } else {
+        el.innerHTML = '';
+        el.style.display = 'none';
+      }
+    }
+  }
+
+  /** 构建汇总条 HTML；无有效数据返回 null */
+  _buildSummaryHtml(summary) {
+    if (!summary || summary.fileCount === 0) return null;
+    const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+    return `
+      <span class="fcs-count">${t('fileChanges.summaryFiles', { count: summary.fileCount })}</span>
+      <span class="fcs-stats">
+        <span class="fcs-add">+${summary.insertions}</span>
+        <span class="fcs-del">-${summary.deletions}</span>
+      </span>
+    `;
+  }
+
+  /** 隐藏所有位置的汇总条（活动栏面板 + 状态栏 popover） */
+  _hideSummary() {
+    const targets = ['abFileChangesSummary', 'filesPopoverSummary'];
+    for (const id of targets) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.innerHTML = '';
+        el.style.display = 'none';
+      }
+    }
   }
 
   async _rollbackFile(filePath, btnEl) {
