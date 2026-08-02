@@ -16,6 +16,7 @@ import com.example.agent.llm.model.PromptTokensDetails;
 import com.example.agent.llm.model.Tool;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.Usage;
+import com.example.agent.llm.model.WebSearchAction;
 import com.example.agent.llm.retry.RetryPolicy;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.llm.stream.ToolCallDelta;
@@ -451,6 +452,7 @@ public class ResponsesLlmClient extends AbstractLlmClient {
             StringBuilder reasoningBuilder = new StringBuilder();
             List<ToolCall> toolCalls = new ArrayList<>();
             boolean webSearched = false;
+            List<WebSearchAction> webSearchActions = new ArrayList<>();
 
             JsonNode output = root.get("output");
             if (output != null && output.isArray()) {
@@ -483,6 +485,12 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                     } else if ("web_search_call".equals(type)) {
                         // 服务端联网搜索已执行：记录标记，供前端展示「已联网搜索」（随消息持久化）
                         webSearched = true;
+                        // 收集 action 明细（search 搜索词 / open_page 网页 / find_in_page 页内查找），
+                        // 供前端完成态聚合摘要展示（不含搜索结果正文，仅元数据）
+                        WebSearchAction action = parseWebSearchAction(item);
+                        if (action != null) {
+                            webSearchActions.add(action);
+                        }
                     }
                 }
             }
@@ -506,6 +514,9 @@ public class ResponsesLlmClient extends AbstractLlmClient {
             }
             if (webSearched) {
                 message.setWebSearched(true);
+            }
+            if (!webSearchActions.isEmpty()) {
+                message.setWebSearchActions(webSearchActions);
             }
 
             Choice choice = new Choice();
@@ -857,6 +868,18 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                                 if (acc.name == null) {
                                     acc.name = getTextValue(item, "name");
                                 }
+                            } else if (item != null && "web_search_call".equals(getTextValue(item, "type"))) {
+                                // web_search_call 完成（唯一携带 action 的流式事件）：
+                                // in_progress / searching / completed 事件 data 均不含 action，
+                                // 仅此处（output_item.done）能拿到搜索词 / URL / 查找关键词等元数据。
+                                // 输出 done 信号 + action 详情，供前端完成态聚合摘要展示。
+                                WebSearchAction action = parseWebSearchAction(item);
+                                if (action != null && onChunk != null) {
+                                    StreamChunk chunk = new StreamChunk();
+                                    chunk.setWebSearchDone(true);
+                                    chunk.setWebSearchAction(action);
+                                    onChunk.accept(chunk);
+                                }
                             }
                             break;
                         }
@@ -1190,6 +1213,52 @@ public class ResponsesLlmClient extends AbstractLlmClient {
             return sb.toString();
         }
         return null;
+    }
+
+    /**
+     * 从 web_search_call 节点解析联网搜索动作明细。
+     * <p>
+     * 兼容两种输入形态：
+     * <ul>
+     *   <li>非流式 output 数组中的 {@code web_search_call} item（含 action）</li>
+     *   <li>流式 {@code response.output_item.done} 事件中嵌套的 item（含 action）</li>
+     * </ul>
+     * 只提取服务端已给出的 action 元数据（type / queries / url / pattern / status），
+     * 不含搜索结果正文。action 缺失或类型未知时返回 null（调用方静默跳过）。
+     * </p>
+     */
+    private WebSearchAction parseWebSearchAction(JsonNode webSearchCallNode) {
+        if (webSearchCallNode == null) {
+            return null;
+        }
+        String actionType = getTextValue(webSearchCallNode, "type");
+        if (!"web_search_call".equals(actionType)) {
+            return null;
+        }
+        JsonNode actionNode = webSearchCallNode.get("action");
+        if (actionNode == null || !actionNode.isObject()) {
+            return null;
+        }
+        WebSearchAction action = new WebSearchAction();
+        action.setType(getTextValue(actionNode, "type"));
+        action.setUrl(getTextValue(actionNode, "url"));
+        action.setPattern(getTextValue(actionNode, "pattern"));
+        action.setStatus(getTextValue(webSearchCallNode, "status"));
+        // search 动作的搜索词列表（queries）
+        JsonNode queries = actionNode.get("queries");
+        if (queries != null && queries.isArray() && queries.size() > 0) {
+            List<String> queryList = new ArrayList<>();
+            for (JsonNode q : queries) {
+                String text = q.asText(null);
+                if (text != null && !text.isEmpty()) {
+                    queryList.add(text);
+                }
+            }
+            if (!queryList.isEmpty()) {
+                action.setQueries(queryList);
+            }
+        }
+        return action;
     }
 
     /**

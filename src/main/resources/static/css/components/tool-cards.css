@@ -1089,7 +1089,7 @@
 }
 
 .tool-timeline-row:hover {
-    background: var(--bg-light);
+    background: var(--bg-canvas);
 }
 
 .tool-timeline-row:active {
@@ -1429,7 +1429,7 @@
 }
 
 [data-theme="dark"] .tool-timeline-row:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--bg-canvas);
 }
 
 /* ===== 待确认状态样式 ===== */

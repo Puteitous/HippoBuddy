@@ -8,6 +8,7 @@ import com.example.agent.llm.model.FunctionCall;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Tool;
 import com.example.agent.llm.model.ToolCall;
+import com.example.agent.llm.model.WebSearchAction;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.llm.stream.ToolCallDelta;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -325,6 +326,72 @@ class ResponsesLlmClientTest {
             assertTrue(response.getFirstMessage().isWebSearched(),
                 "web_search_call 应将 assistant 消息标记为 web_searched");
         }
+
+        @Test
+        @DisplayName("web_search_call 收集三种 action 明细（search/open_page/find_in_page），failed 保留 status")
+        void testParseWebSearchActionsCollected() throws Exception {
+            // 模拟真实响应：search（queries）/ open_page（url）/ find_in_page（url+pattern）/ failed（status）
+            String body = "{\"id\":\"resp_5\",\"object\":\"response\",\"model\":\"deepseek-v4-flash\","
+                    + "\"output\":["
+                    + "{\"type\":\"web_search_call\",\"id\":\"ws_1\",\"status\":\"completed\","
+                    + "\"action\":{\"type\":\"search\",\"queries\":[\"人工智能 最新新闻\",\"AI news today\"]}},"
+                    + "{\"type\":\"web_search_call\",\"id\":\"ws_2\",\"status\":\"completed\","
+                    + "\"action\":{\"type\":\"open_page\",\"url\":\"https://news.youth.cn/1#ws_call_id=ws_2\"}},"
+                    + "{\"type\":\"web_search_call\",\"id\":\"ws_3\",\"status\":\"completed\","
+                    + "\"action\":{\"type\":\"find_in_page\",\"url\":\"https://example.com#ws_call_id=ws_3\",\"pattern\":\"OpenAI\"}},"
+                    + "{\"type\":\"web_search_call\",\"id\":\"ws_4\",\"status\":\"failed\","
+                    + "\"action\":{\"type\":\"open_page\",\"url\":\"https://blocked.example.com#ws_call_id=ws_4\"}},"
+                    + "{\"type\":\"message\",\"id\":\"msg_1\",\"role\":\"assistant\","
+                    + "\"content\":[{\"type\":\"output_text\",\"text\":\"已搜索\"}]}"
+                    + "],"
+                    + "\"status\":\"completed\"}";
+
+            ChatResponse response = client.parseResponsesBody(body);
+
+            assertTrue(response.getFirstMessage().isWebSearched());
+            List<WebSearchAction> actions = response.getFirstMessage().getWebSearchActions();
+            assertNotNull(actions);
+            assertEquals(4, actions.size(), "应收集 4 个 action（含 failed）");
+
+            // search：type + queries
+            WebSearchAction search = actions.get(0);
+            assertEquals("search", search.getType());
+            assertEquals(List.of("人工智能 最新新闻", "AI news today"), search.getQueries());
+            assertEquals("completed", search.getStatus());
+
+            // open_page：type + url
+            WebSearchAction openPage = actions.get(1);
+            assertEquals("open_page", openPage.getType());
+            assertEquals("https://news.youth.cn/1#ws_call_id=ws_2", openPage.getUrl());
+
+            // find_in_page：type + url + pattern
+            WebSearchAction findInPage = actions.get(2);
+            assertEquals("find_in_page", findInPage.getType());
+            assertEquals("OpenAI", findInPage.getPattern());
+
+            // failed：status 如实记录
+            WebSearchAction failed = actions.get(3);
+            assertEquals("open_page", failed.getType());
+            assertEquals("failed", failed.getStatus());
+        }
+
+        @Test
+        @DisplayName("web_search_call 无 action 时标记仍置位，actions 为空列表")
+        void testParseWebSearchCallWithoutAction() throws Exception {
+            String body = "{\"id\":\"resp_6\",\"object\":\"response\",\"model\":\"deepseek-v4-flash\","
+                    + "\"output\":["
+                    + "{\"type\":\"web_search_call\",\"id\":\"ws_1\",\"status\":\"completed\"},"
+                    + "{\"type\":\"message\",\"id\":\"msg_1\",\"role\":\"assistant\","
+                    + "\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}"
+                    + "],"
+                    + "\"status\":\"completed\"}";
+
+            ChatResponse response = client.parseResponsesBody(body);
+
+            assertTrue(response.getFirstMessage().isWebSearched());
+            assertNull(response.getFirstMessage().getWebSearchActions(),
+                "无 action 时不应设置 web_search_actions（保持 null，与旧会话兼容）");
+        }
     }
 
     @Nested
@@ -484,6 +551,81 @@ class ResponsesLlmClientTest {
                 "web_search_call.failed 不应产生 tool_start 信号");
             assertEquals("stop", response.getChoices().get(0).getFinishReason());
             assertFalse(response.hasToolCalls());
+        }
+
+        @Test
+        @DisplayName("output_item.done 携带 action 明细（真实协议：仅此事件有 action）")
+        void testStreamOutputItemDoneCarriesAction() throws Exception {
+            // 实测协议序列：in_progress/searching/completed 事件 data 均不含 action，
+            // 仅 response.output_item.done 的 item 携带完整 action（含 search 搜索词）
+            String sse = "event: response.output_item.added\n"
+                    + "data: {\"type\":\"response.output_item.added\",\"item\":{\"id\":\"ws_1\",\"type\":\"web_search_call\",\"status\":\"in_progress\"},\"output_index\":0}\n\n"
+                    + "event: response.web_search_call.in_progress\n"
+                    + "data: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_1\",\"output_index\":0}\n\n"
+                    + "event: response.web_search_call.searching\n"
+                    + "data: {\"type\":\"response.web_search_call.searching\",\"item_id\":\"ws_1\",\"output_index\":0}\n\n"
+                    + "event: response.web_search_call.completed\n"
+                    + "data: {\"type\":\"response.web_search_call.completed\",\"item_id\":\"ws_1\",\"output_index\":0}\n\n"
+                    + "event: response.output_item.done\n"
+                    + "data: {\"type\":\"response.output_item.done\",\"item\":{\"id\":\"ws_1\",\"type\":\"web_search_call\",\"status\":\"completed\","
+                    + "\"action\":{\"type\":\"search\",\"queries\":[\"人工智能 最新新闻\",\"AI news today\"]}},\"output_index\":0}\n\n"
+                    + "event: response.completed\n"
+                    + "data: {\"type\":\"response.completed\",\"output\":[{\"type\":\"message\"}]}\n";
+
+            List<StreamChunk> chunks = new ArrayList<>();
+            BufferedReader reader = new BufferedReader(new StringReader(sse));
+
+            ChatResponse response = client.processResponsesStreamLines(reader, chunks::add);
+
+            // in_progress/searching → started 信号（前端「正在联网搜索…」）
+            assertEquals(2, chunks.stream().filter(StreamChunk::isWebSearchStarted).count(),
+                "in_progress 与 searching 各应产生一次 started 信号");
+            // completed 事件产生无 action 的 done 信号（标记完成），output_item.done 追加带 action 的 done 信号
+            assertEquals(2, chunks.stream().filter(StreamChunk::isWebSearchDone).count(),
+                "completed 与 output_item.done 各产生一次 done 信号");
+            assertEquals(1, chunks.stream()
+                    .filter(StreamChunk::isWebSearchDone)
+                    .filter(c -> c.getWebSearchAction() != null).count(),
+                "仅 output_item.done 携带 action 的 done 信号应有一次");
+            // done 信号携带的 action 明细正确（search + queries）——取带 action 的那个 done chunk
+            StreamChunk doneChunk = chunks.stream()
+                    .filter(StreamChunk::isWebSearchDone)
+                    .filter(c -> c.getWebSearchAction() != null)
+                    .findFirst().orElseThrow();
+            assertNotNull(doneChunk.getWebSearchAction(), "done 信号应携带 action");
+            assertEquals("search", doneChunk.getWebSearchAction().getType());
+            assertEquals(List.of("人工智能 最新新闻", "AI news today"),
+                doneChunk.getWebSearchAction().getQueries());
+            assertEquals("completed", doneChunk.getWebSearchAction().getStatus());
+            // 不产生 tool 信号（web_search 是服务端内置能力）
+            assertTrue(chunks.stream().noneMatch(StreamChunk::isToolCall));
+            assertFalse(response.hasToolCalls());
+        }
+
+        @Test
+        @DisplayName("output_item.done 无 action 时静默降级（不抛异常，信号照发）")
+        void testStreamOutputItemDoneWithoutActionFallsBack() throws Exception {
+            // 防御：output_item.done 的 item 无 action（或非 web_search_call）时，
+            // done 信号仍由 completed 事件产生，不抛异常、不输出 action chunk
+            String sse = "event: response.web_search_call.in_progress\n"
+                    + "data: {\"type\":\"response.web_search_call.in_progress\",\"item_id\":\"ws_1\"}\n\n"
+                    + "event: response.web_search_call.completed\n"
+                    + "data: {\"type\":\"response.web_search_call.completed\",\"item_id\":\"ws_1\"}\n\n"
+                    + "event: response.output_item.done\n"
+                    + "data: {\"type\":\"response.output_item.done\",\"item\":{\"id\":\"ws_1\",\"type\":\"web_search_call\",\"status\":\"completed\"}}\n\n"
+                    + "event: response.completed\n"
+                    + "data: {\"type\":\"response.completed\",\"output\":[{\"type\":\"message\"}]}\n";
+
+            List<StreamChunk> chunks = new ArrayList<>();
+            BufferedReader reader = new BufferedReader(new StringReader(sse));
+
+            ChatResponse response = client.processResponsesStreamLines(reader, chunks::add);
+
+            // completed 事件产生 done 信号（无 action），output_item.done 无 action 不追加 chunk
+            assertEquals(1, chunks.stream().filter(StreamChunk::isWebSearchDone).count());
+            assertTrue(chunks.stream().allMatch(c -> c.getWebSearchAction() == null),
+                "无 action 时所有 chunk 的 webSearchAction 应为 null");
+            assertEquals("stop", response.getChoices().get(0).getFinishReason());
         }
 
         @Test

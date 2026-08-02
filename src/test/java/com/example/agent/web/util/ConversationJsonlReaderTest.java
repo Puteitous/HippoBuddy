@@ -183,6 +183,43 @@ class ConversationJsonlReaderTest {
         }
 
         @Test
+        @DisplayName("提取 web_search_actions 字段（联网搜索动作明细，刷新恢复聚合摘要）")
+        void parsesWebSearchActions(@TempDir Path tempDir) throws Exception {
+            Path jsonl = tempDir.resolve("web-search-actions.jsonl");
+            Files.writeString(jsonl, """
+                {"type":"assistant","message":{"id":"msg-1","role":"assistant","content":"搜索答案","web_searched":true,"web_search_actions":[{"type":"search","queries":["人工智能 最新新闻","AI news today"],"status":"completed"},{"type":"open_page","url":"https://news.youth.cn/1#ws_call_id=ws_2","status":"completed"},{"type":"find_in_page","url":"https://example.com#ws_call_id=ws_3","pattern":"OpenAI","status":"completed"},{"type":"open_page","url":"https://blocked.example.com","status":"failed"}]}}
+                {"type":"assistant","message":{"id":"msg-2","role":"assistant","content":"普通回答","web_searched":true}}
+                """.stripIndent());
+
+            List<Map<String, Object>> messages = reader.readMessages(jsonl);
+
+            assertEquals(2, messages.size());
+
+            // 消息 1：透出 web_search_actions（含三种 action + failed）
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> actions =
+                (List<Map<String, Object>>) messages.get(0).get("web_search_actions");
+            assertNotNull(actions, "web_search_actions 应透出");
+            assertEquals(4, actions.size());
+
+            assertEquals("search", actions.get(0).get("type"));
+            assertEquals(List.of("人工智能 最新新闻", "AI news today"), actions.get(0).get("queries"));
+            assertEquals("completed", actions.get(0).get("status"));
+
+            assertEquals("open_page", actions.get(1).get("type"));
+            assertEquals("https://news.youth.cn/1#ws_call_id=ws_2", actions.get(1).get("url"));
+
+            assertEquals("find_in_page", actions.get(2).get("type"));
+            assertEquals("OpenAI", actions.get(2).get("pattern"));
+
+            assertEquals("failed", actions.get(3).get("status"));
+
+            // 消息 2：无 web_search_actions 字段不输出该键（与旧会话兼容）
+            assertFalse(messages.get(1).containsKey("web_search_actions"),
+                "无 web_search_actions 字段的消息不应输出该键");
+        }
+
+        @Test
         @DisplayName("解析 assistant 的 tool_calls 列表")
         void parsesMultipleToolCalls(@TempDir Path tempDir) throws Exception {
             Path jsonl = tempDir.resolve("multi-tool-calls.jsonl");

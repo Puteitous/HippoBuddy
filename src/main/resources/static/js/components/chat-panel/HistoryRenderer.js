@@ -104,7 +104,7 @@ export class HistoryRenderer {
               segments.push({ type: 'thinking', content: amReasoning, done: true });
             }
             if (am.web_searched) {
-              segments.push({ type: 'web-search', done: true });
+              segments.push({ type: 'web-search', done: true, actions: am.web_search_actions || [] });
             }
             text = amText;
             i++;
@@ -121,7 +121,7 @@ export class HistoryRenderer {
           }
 
           if (am.web_searched) {
-            segments.push({ type: 'web-search', done: true });
+            segments.push({ type: 'web-search', done: true, actions: am.web_search_actions || [] });
           }
 
           if (amText.trim()) {

@@ -97,7 +97,7 @@ input, textarea {
 }
 
 .thinking-row .thinking-row-header:hover {
-  background: var(--bg-light);
+  background: var(--bg-canvas);
 }
 
 .thinking-row .thinking-row-icon {
@@ -170,10 +170,6 @@ input, textarea {
   mask-image: none;
 }
 
-[data-theme="dark"] .thinking-row .thinking-row-header:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
 [data-theme="dark"] .thinking-row.completed.expanded .thinking-row-content {
   border-left-color: rgba(255, 255, 255, 0.12);
 }
@@ -231,6 +227,102 @@ input, textarea {
 
 [data-theme="dark"] .web-search-row.completed .web-search-row-label {
   color: var(--text-secondary);
+}
+
+/* 完成态摘要行可点击展开详情 */
+.web-search-row.completed .web-search-row-header.toggleable {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+
+.web-search-row.completed .web-search-row-header.toggleable:hover {
+  background: var(--bg-canvas);
+}
+
+/* 展开箭头（chevron）：可展开时显示，展开后旋转 90° */
+.web-search-row.completed .web-search-row-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  opacity: 0.7;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.web-search-row.completed.expanded .web-search-row-chevron {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+
+/* 展开详情（默认收起） */
+.web-search-row.completed .web-search-row-detail {
+  display: none;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0 12px 0 14px;
+  margin: 0 0 0 16px;
+  border-top: none;
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.25s ease, margin-top 0.25s ease;
+}
+
+.web-search-row.completed.expanded .web-search-row-detail {
+  display: block;
+  opacity: 1;
+  overflow: hidden;
+  padding: 8px 12px 8px 14px;
+  margin: 4px 0 0 16px;
+  border-left: 2px solid var(--border-color);
+}
+
+[data-theme="dark"] .web-search-row.completed.expanded .web-search-row-detail {
+  border-left-color: rgba(255, 255, 255, 0.12);
+}
+
+.web-search-row-detail .web-search-detail-group {
+  margin-bottom: 6px;
+}
+
+.web-search-row-detail .web-search-detail-group:last-child {
+  margin-bottom: 0;
+}
+
+.web-search-row-detail .web-search-detail-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.web-search-row-detail .web-search-detail-item {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  word-break: break-all;
+  padding-left: 4px;
+}
+
+.web-search-row-detail .web-search-detail-link {
+  color: var(--accent-color, var(--text-primary));
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.web-search-row-detail .web-search-detail-link:hover {
+  text-decoration: underline;
+}
+
+.web-search-row-detail .web-search-detail-item.failed .web-search-detail-link {
+  color: var(--danger-color, var(--text-muted));
+  /* 链接自身 text-decoration:none 会覆盖父级删除线，此处显式恢复（失败项仍可点击尝试） */
+  text-decoration: line-through;
+}
+
+.web-search-row-detail .web-search-detail-item.failed {
+  color: var(--danger-color, var(--text-muted));
+  text-decoration: line-through;
 }
 
 .empty-state {

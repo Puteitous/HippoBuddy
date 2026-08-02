@@ -20,6 +20,7 @@ import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Tool;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.Usage;
+import com.example.agent.llm.model.WebSearchAction;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.tools.BashTool;
@@ -146,6 +147,8 @@ public class WebAgentOrchestrator {
             List<Map<String, Object>> streamToolCalls = new ArrayList<>();
             boolean[] hasAskUser = {false};
             boolean[] webSearched = {false};
+            // 流式 output_item.done 事件收集的联网搜索动作明细（唯一携带 action 的流式事件）
+            List<WebSearchAction>[] streamWebSearchActions = new List[]{new ArrayList<>()};
 
             MessageSanitizer.removeOrphanToolCalls(messages);
 
@@ -244,15 +247,21 @@ public class WebAgentOrchestrator {
                     pushTokenUpdate(sseWriter, chunk.getUsage());
                 }
 
-                // 服务端联网搜索（Responses API web_search 内置工具）：转发轻量状态标记，
-                // 前端展示「正在联网搜索…」→「已联网搜索」，不模拟 tool_start/tool_result 卡片
+                // 服务端联网搜索（Responses API web_search 内置工具）：转发状态标记 + 动作详情。
+                // 前端展示「正在联网搜索…」→「已联网搜索」（含完成态聚合摘要），不模拟 tool_start/tool_result 卡片。
+                // 注意：in_progress/searching/completed 事件不含 action，仅 output_item.done 携带，
+                // 因此 started 事件 payload 恒为空，done 事件在 output_item.done 到达时携带 action。
                 if (chunk.isWebSearchStarted()) {
                     webSearched[0] = true;
-                    sseWriter.sendSseEvent("web_search_start", "{}");
+                    sseWriter.sendSseEvent("web_search_start", buildWebSearchPayload(null));
                 }
                 if (chunk.isWebSearchDone()) {
                     webSearched[0] = true;
-                    sseWriter.sendSseEvent("web_search_done", "{}");
+                    WebSearchAction action = chunk.getWebSearchAction();
+                    if (action != null) {
+                        streamWebSearchActions[0].add(action);
+                    }
+                    sseWriter.sendSseEvent("web_search_done", buildWebSearchPayload(action));
                 }
             });
 
@@ -313,6 +322,13 @@ public class WebAgentOrchestrator {
             // 此处统一合并，确保落库的 assistant 消息携带 web_searched 标记（随 JSONL 持久化）。
             if (webSearched[0] || assistantMessage.isWebSearched()) {
                 assistantMessage.setWebSearched(true);
+            }
+            // 合并流式（output_item.done 收集）与非流式（parseResponsesBody 收集）的联网搜索动作明细，
+            // 去重后随消息落库，刷新后前端据此恢复聚合摘要。
+            List<WebSearchAction> mergedActions = mergeWebSearchActions(
+                streamWebSearchActions[0], assistantMessage.getWebSearchActions());
+            if (mergedActions != null && !mergedActions.isEmpty()) {
+                assistantMessage.setWebSearchActions(mergedActions);
             }
 
             getConversationService().addAssistantMessage(conversation, assistantMessage, response.getUsage());
@@ -766,6 +782,66 @@ public class WebAgentOrchestrator {
         node.put("name", name != null ? name : "");
         node.set("args", safeArgs(argsJson, id));
         return node.toString();
+    }
+
+    /**
+     * 构建 web_search SSE 事件 payload。
+     * <p>
+     * 进行中（web_search_start）恒为空对象（流式 in_progress/searching 事件不含 action）；
+     * 完成（web_search_done）在 output_item.done 到达时携带 action 明细（可能为 null 时回退空对象）。
+     * </p>
+     */
+    private static String buildWebSearchPayload(WebSearchAction action) {
+        if (action == null) {
+            return "{}";
+        }
+        return objectMapper.valueToTree(action).toString();
+    }
+
+    /**
+     * 合并流式与非流式来源的联网搜索动作明细。
+     * <p>
+     * 两条路径可能收集到相同动作（同轮请求同时走流式输出与最终响应解析），
+     * 按动作指纹去重：type + queries（search）/ type + url + pattern（open_page / find_in_page）。
+     * 返回新的合并列表，不修改入参。
+     * </p>
+     */
+    private static List<WebSearchAction> mergeWebSearchActions(
+            List<WebSearchAction> streamActions, List<WebSearchAction> nonStreamActions) {
+        List<WebSearchAction> merged = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        if (streamActions != null) {
+            for (WebSearchAction action : streamActions) {
+                String key = webSearchActionFingerprint(action);
+                if (key != null && seen.add(key)) {
+                    merged.add(action);
+                }
+            }
+        }
+        if (nonStreamActions != null) {
+            for (WebSearchAction action : nonStreamActions) {
+                String key = webSearchActionFingerprint(action);
+                if (key != null && seen.add(key)) {
+                    merged.add(action);
+                }
+            }
+        }
+        return merged;
+    }
+
+    /** 生成动作去重指纹；关键字段缺失时返回 null（跳过该动作，避免空指纹误合并）。 */
+    private static String webSearchActionFingerprint(WebSearchAction action) {
+        if (action == null || action.getType() == null) {
+            return null;
+        }
+        String type = action.getType();
+        if ("search".equals(type)) {
+            List<String> queries = action.getQueries();
+            return "search:" + (queries == null ? "" : String.join("|", queries));
+        }
+        String url = action.getUrl() != null ? action.getUrl() : "";
+        String pattern = action.getPattern() != null ? action.getPattern() : "";
+        return type + ":" + url + "#" + pattern;
     }
 
     /**

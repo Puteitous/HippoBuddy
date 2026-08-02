@@ -6,6 +6,7 @@ import com.example.agent.llm.model.FunctionCall;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.Usage;
+import com.example.agent.llm.model.WebSearchAction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,8 @@ public class LlmResponseBuilder {
     private Usage usage;
     private int promptTokens = 100;
     private int completionTokens = 50;
+    private boolean webSearched;
+    private List<WebSearchAction> webSearchActions = new ArrayList<>();
 
     private LlmResponseBuilder() {
     }
@@ -87,6 +90,21 @@ public class LlmResponseBuilder {
         return this;
     }
 
+    public LlmResponseBuilder webSearched(boolean webSearched) {
+        this.webSearched = webSearched;
+        return this;
+    }
+
+    public LlmResponseBuilder webSearchActions(List<WebSearchAction> webSearchActions) {
+        this.webSearchActions = new ArrayList<>(webSearchActions);
+        return this;
+    }
+
+    public LlmResponseBuilder addWebSearchAction(WebSearchAction action) {
+        this.webSearchActions.add(action);
+        return this;
+    }
+
     public ChatResponse build() {
         ChatResponse response = new ChatResponse();
         response.setId(id);
@@ -103,6 +121,13 @@ public class LlmResponseBuilder {
         
         if (!toolCalls.isEmpty()) {
             message.setToolCalls(toolCalls);
+        }
+        
+        if (webSearched) {
+            message.setWebSearched(true);
+        }
+        if (!webSearchActions.isEmpty()) {
+            message.setWebSearchActions(webSearchActions);
         }
 
         Choice choice = new Choice();

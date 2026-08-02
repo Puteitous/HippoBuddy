@@ -63,6 +63,14 @@ public class Message {
     @JsonProperty("web_searched")
     private Boolean webSearched;
 
+    /**
+     * 本回合服务端联网搜索的动作明细（search / open_page / find_in_page）。
+     * 仅承载 action 元数据（搜索词/URL/查找关键词），不含搜索结果正文。
+     * 随消息持久化到 JSONL，刷新后前端据此恢复聚合摘要。
+     */
+    @JsonProperty("web_search_actions")
+    private List<WebSearchAction> webSearchActions;
+
     public Message() {
         this.id = java.util.UUID.randomUUID().toString();
     }
@@ -375,6 +383,9 @@ public class Message {
         copy.messageType = this.messageType;
         copy.toolSuccess = this.toolSuccess;
         copy.webSearched = this.webSearched;
+        if (this.webSearchActions != null) {
+            copy.webSearchActions = new ArrayList<>(this.webSearchActions);
+        }
         return copy;
     }
 
@@ -446,6 +457,14 @@ public class Message {
 
     public boolean isWebSearched() {
         return webSearched != null && webSearched;
+    }
+
+    public List<WebSearchAction> getWebSearchActions() {
+        return webSearchActions;
+    }
+
+    public void setWebSearchActions(List<WebSearchAction> webSearchActions) {
+        this.webSearchActions = webSearchActions;
     }
 
     public Message withId(String id) {

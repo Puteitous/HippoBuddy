@@ -410,6 +410,18 @@
     'render.thinking':             { zh: '思考中...', en: 'Thinking...' },
     'render.webSearching':         { zh: '正在联网搜索…', en: 'Searching the web…' },
     'render.webSearchDone':        { zh: '已联网搜索', en: 'Web search completed' },
+    'render.webSearchSummary':     { zh: '已联网搜索{detail}', en: 'Web search completed{detail}' },
+    'render.webSearchQueries':     { zh: ' · {n} 个关键词', en: ' · {n} queries' },
+    'render.webSearchQueryOne':    { zh: ' · 1 个关键词', en: ' · 1 query' },
+    'render.webSearchOpenPages':   { zh: ' · 打开 {n} 个网页', en: ' · opened {n} pages' },
+    'render.webSearchOpenPageOne': { zh: ' · 打开 1 个网页', en: ' · opened 1 page' },
+    'render.webSearchFindPages':   { zh: ' · 页内查找 {n} 次', en: ' · in-page search {n} times' },
+    'render.webSearchFindPageOne': { zh: ' · 页内查找 1 次', en: ' · in-page search 1 time' },
+    'render.webSearchDetailQueries': { zh: '搜索关键词', en: 'Search queries' },
+    'render.webSearchDetailPages':   { zh: '打开的网页', en: 'Opened pages' },
+    'render.webSearchDetailFinds':   { zh: '页内查找', en: 'In-page searches' },
+    'render.webSearchDetailFailed':  { zh: '（失败）', en: ' (failed)' },
+    'render.webSearchToggleHint':    { zh: '点击展开/收起详情', en: 'Click to expand/collapse details' },
 
     /* ==================== File Preview Browser ==================== */
     'browser.back':                { zh: '后退', en: 'Back' },

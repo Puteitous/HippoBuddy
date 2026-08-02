@@ -56,8 +56,12 @@ export class RenderPipeline {
       return `T|${seg.done ? '1' : '0'}|${seg.content.length}|${seg.content.slice(-30)}`;
     }
     if (seg.type === 'web-search') {
-      // 仅 done 状态影响渲染（streaming 样式 vs 完成标记）
-      return `W|${seg.done ? '1' : '0'}`;
+      // done 状态 + actions 明细都影响渲染（完成态聚合摘要随 output_item.done 的 action 追加而更新）
+      const actions = seg.actions || [];
+      const actionsSig = actions
+        .map(a => `${a.type}:${(a.queries || []).length}:${a.url || ''}:${a.pattern || ''}:${a.status || ''}`)
+        .join('|');
+      return `W|${seg.done ? '1' : '0'}|${actionsSig}`;
     }
     if (seg.type === 'text') {
       return `X|${seg.content.length}|${seg.content.slice(-30)}`;
@@ -86,7 +90,13 @@ export class RenderPipeline {
       .join('|');
     const webSearchDone = segments
       .filter(s => s.type === 'web-search')
-      .map(s => (s.done ? '1' : '0'))
+      .map(s => {
+        const actions = s.actions || [];
+        const actionsSig = actions
+          .map(a => `${a.type}:${(a.queries || []).length}:${a.url || ''}:${a.pattern || ''}:${a.status || ''}`)
+          .join('|');
+        return `${s.done ? '1' : '0'}|${actionsSig}`;
+      })
       .join('|');
     const toolStatuses = segments
       .filter(s => s.type === 'tool')
@@ -862,17 +872,24 @@ export class RenderPipeline {
   /**
    * 渲染服务端联网搜索标记（Responses API web_search 内置工具）。
    * 轻量状态行：进行中显示「正在联网搜索…」，完成显示「已联网搜索」。
-   * 不模拟 tool 卡片（无查询词/结果可展示），仅作为存在感标记。
+   * 完成态若携带 action 明细（search 搜索词 / open_page 网页 / find_in_page 页内查找），
+   * 聚合成摘要行（如「已联网搜索 · 3 个关键词 · 打开 4 个网页」）；无 action 时回退旧文案。
+   * 不模拟 tool 卡片（不含搜索结果正文/来源摘要，仅元数据）。
    */
   static renderWebSearchRow(segment) {
     const searchSvg = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
+    const chevronSvg = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
     if (segment.done) {
+      const details = RenderPipeline._buildWebSearchDetails(segment);
+      const toggleable = details.length > 0;
       return `
         <div class="web-search-row completed">
-          <div class="web-search-row-header">
+          <div class="web-search-row-header${toggleable ? ' toggleable' : ''}" ${toggleable ? `onclick="window.toggleWebSearchRow(this)" title="${window.i18n.t('render.webSearchToggleHint')}"` : ''}>
             <span class="web-search-row-icon">${searchSvg}</span>
-            <span class="web-search-row-label">${window.i18n.t('render.webSearchDone')}</span>
+            <span class="web-search-row-label">${RenderPipeline._buildWebSearchSummary(segment)}</span>
+            ${toggleable ? `<span class="web-search-row-chevron">${chevronSvg}</span>` : ''}
           </div>
+          ${details}
         </div>`;
     }
     return `
@@ -882,6 +899,135 @@ export class RenderPipeline {
           <span class="web-search-row-label">${window.i18n.t('render.webSearching')}</span>
         </div>
       </div>`;
+  }
+
+  /**
+   * 生成联网搜索完成态的展开详情（点击摘要行展开查看具体内容）。
+   * 按动作类型分组：搜索关键词（queries）/ 打开的网页（url）/ 页内查找（url + pattern）。
+   * 无 action 时不生成详情容器（旧会话兼容，行不可展开）。
+   */
+  static _buildWebSearchDetails(segment) {
+    const actions = (segment && segment.actions) || [];
+    if (!actions.length) return '';
+    const groups = [];
+    const queries = [];
+    const pages = [];
+    const finds = [];
+    for (const action of actions) {
+      if (!action || !action.type) continue;
+      if (action.type === 'search') {
+        if (Array.isArray(action.queries)) {
+          for (const q of action.queries) {
+            if (q && q.length > 0) queries.push(escapeHtml(q));
+          }
+        }
+      } else if (action.type === 'open_page') {
+        pages.push({ url: RenderPipeline._stripWsCallId(action.url), failed: action.status === 'failed' });
+      } else if (action.type === 'find_in_page') {
+        finds.push({
+          url: RenderPipeline._stripWsCallId(action.url),
+          pattern: action.pattern || '',
+          failed: action.status === 'failed'
+        });
+      }
+    }
+    if (queries.length) {
+      groups.push(`<div class="web-search-detail-group">
+        <div class="web-search-detail-title">${window.i18n.t('render.webSearchDetailQueries')}</div>
+        ${queries.map(q => `<div class="web-search-detail-item">${q}</div>`).join('')}
+      </div>`);
+    }
+    if (pages.length) {
+      groups.push(`<div class="web-search-detail-group">
+        <div class="web-search-detail-title">${window.i18n.t('render.webSearchDetailPages')}</div>
+        ${pages.map(p => `<div class="web-search-detail-item${p.failed ? ' failed' : ''}">${RenderPipeline._buildWebUrlLink(p.url)}${p.failed ? window.i18n.t('render.webSearchDetailFailed') : ''}</div>`).join('')}
+      </div>`);
+    }
+    if (finds.length) {
+      groups.push(`<div class="web-search-detail-group">
+        <div class="web-search-detail-title">${window.i18n.t('render.webSearchDetailFinds')}</div>
+        ${finds.map(f => `<div class="web-search-detail-item${f.failed ? ' failed' : ''}">${RenderPipeline._buildWebUrlLink(f.url)}${f.pattern ? ` · ${escapeHtml(f.pattern)}` : ''}${f.failed ? window.i18n.t('render.webSearchDetailFailed') : ''}</div>`).join('')}
+      </div>`);
+    }
+    if (!groups.length) return '';
+    return `<div class="web-search-row-detail">${groups.join('')}</div>`;
+  }
+
+  /** 剥掉服务端附加的 #ws_call_id=xxx 尾巴（展示用）。 */
+  static _stripWsCallId(url) {
+    if (!url) return '';
+    return url.replace(/#ws_call_id=[^#]*$/, '');
+  }
+
+  /** 超长 URL 截断（60 字符 + 省略号）。 */
+  static _truncateUrl(url) {
+    if (!url) return '';
+    return url.length > 60 ? url.slice(0, 60) + '…' : url;
+  }
+
+  /**
+   * 生成可点击的网页链接（打开网页 / 页内查找条目用）。
+   * <p>
+   * 安全防御：
+   * <ul>
+   *   <li>仅 http/https 协议生成 &lt;a&gt;，其余协议（如 javascript:）回退纯文本展示</li>
+   *   <li>href 与显示文本均 escapeHtml；显示文本超长截断，href 用完整地址</li>
+   *   <li>target=_blank 配 rel=noopener noreferrer（防 tabnabbing）</li>
+   * </ul>
+   * </p>
+   */
+  static _buildWebUrlLink(url) {
+    if (!url) return '';
+    const display = escapeHtml(RenderPipeline._truncateUrl(url));
+    if (!/^https?:\/\//i.test(url)) return display;
+    const href = escapeHtml(url);
+    return `<a class="web-search-detail-link" href="${href}" target="_blank" rel="noopener noreferrer">${display}</a>`;
+  }
+
+  /**
+   * 生成联网搜索完成态的聚合摘要。
+   * 统计 actions 中的搜索词数（search.queries 累计）、成功打开的网页数（open_page 且非 failed）、
+   * 页内查找次数（find_in_page 且非 failed）；无 actions 或无有效计数时回退「已联网搜索」。
+   */
+  static _buildWebSearchSummary(segment) {
+    const actions = (segment && segment.actions) || [];
+    if (!actions.length) {
+      return window.i18n.t('render.webSearchDone');
+    }
+    let queryCount = 0;
+    let openCount = 0;
+    let findCount = 0;
+    for (const action of actions) {
+      if (!action || !action.type) continue;
+      if (action.type === 'search') {
+        queryCount += Array.isArray(action.queries) ? action.queries.length : 0;
+      } else if (action.type === 'open_page') {
+        // failed 动作不计入成功打开数
+        if (action.status !== 'failed') openCount++;
+      } else if (action.type === 'find_in_page') {
+        if (action.status !== 'failed') findCount++;
+      }
+    }
+    const parts = [];
+    if (queryCount > 0) {
+      parts.push(queryCount === 1
+        ? window.i18n.t('render.webSearchQueryOne')
+        : window.i18n.t('render.webSearchQueries', { n: queryCount }));
+    }
+    if (openCount > 0) {
+      parts.push(openCount === 1
+        ? window.i18n.t('render.webSearchOpenPageOne')
+        : window.i18n.t('render.webSearchOpenPages', { n: openCount }));
+    }
+    if (findCount > 0) {
+      parts.push(findCount === 1
+        ? window.i18n.t('render.webSearchFindPageOne')
+        : window.i18n.t('render.webSearchFindPages', { n: findCount }));
+    }
+    if (!parts.length) {
+      return window.i18n.t('render.webSearchDone');
+    }
+    return window.i18n.t('render.webSearchSummary', { detail: parts.join('') });
   }
 
   // ==================== 生命周期 ====================

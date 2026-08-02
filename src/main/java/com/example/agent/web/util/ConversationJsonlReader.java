@@ -109,6 +109,40 @@ public class ConversationJsonlReader {
                         msgMap.put("web_searched", true);
                     }
 
+                    // 服务端联网搜索动作明细：随 assistant 消息持久化，刷新后前端据此恢复聚合摘要
+                    if ("assistant".equals(role) && msgNode.has("web_search_actions")
+                            && msgNode.path("web_search_actions").isArray()) {
+                        JsonNode actions = msgNode.path("web_search_actions");
+                        List<Map<String, Object>> actionList = new ArrayList<>();
+                        for (JsonNode act : actions) {
+                            Map<String, Object> actionMap = new HashMap<>();
+                            String actType = act.path("type").asText("");
+                            if (!actType.isEmpty()) {
+                                actionMap.put("type", actType);
+                            }
+                            if (act.has("queries") && act.path("queries").isArray()) {
+                                List<String> queries = new ArrayList<>();
+                                for (JsonNode q : act.path("queries")) {
+                                    queries.add(q.asText());
+                                }
+                                actionMap.put("queries", queries);
+                            }
+                            if (act.has("url")) {
+                                actionMap.put("url", act.path("url").asText());
+                            }
+                            if (act.has("pattern")) {
+                                actionMap.put("pattern", act.path("pattern").asText());
+                            }
+                            if (act.has("status")) {
+                                actionMap.put("status", act.path("status").asText());
+                            }
+                            actionList.add(actionMap);
+                        }
+                        if (!actionList.isEmpty()) {
+                            msgMap.put("web_search_actions", actionList);
+                        }
+                    }
+
                     if ("assistant".equals(role) && msgNode.has("tool_calls")) {
                         JsonNode toolCalls = msgNode.path("tool_calls");
                         List<Map<String, Object>> calls = new ArrayList<>();

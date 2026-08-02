@@ -125,8 +125,8 @@ export class MessageSession {
         s.handleWebSearchStart(parsed, contentDiv);
       },
 
-      web_search_done: () => {
-        s.handleWebSearchDone();
+      web_search_done: (parsed) => {
+        s.handleWebSearchDone(parsed);
       },
 
       content: (parsed, contentDiv) => {
@@ -715,6 +715,7 @@ export class MessageSession {
   /**
    * 服务端联网搜索开始（Responses API web_search 内置工具）。
    * 展示瞬态标记「正在联网搜索…」，与 tool_start 一致先收起 reasoning 段。
+   * 流式 in_progress/searching 事件不含 action，此处仅创建段，详情由 done 事件追加。
    */
   handleWebSearchStart(parsed, contentDiv) {
     if (!this._hasReceivedData) {
@@ -730,20 +731,48 @@ export class MessageSession {
     const existing = this._segments.find(seg => seg.type === 'web-search' && !seg.done);
     if (!existing) {
       this._pushTextSegment();
-      this._segments.push({ type: 'web-search', done: false });
+      this._segments.push({ type: 'web-search', done: false, actions: [] });
       this._renderPipeline.flush(this._segments, this._currentText);
     }
   }
 
   /**
-   * 服务端联网搜索结束（completed / failed）。将瞬态标记更新为「已联网搜索」。
+   * 服务端联网搜索结束（completed / failed）。
+   * 将瞬态标记更新为完成态；若事件携带 action 明细（output_item.done），追加到段 actions，
+   * 驱动渲染层生成聚合摘要（已完成段也可追加——completed 事件先到标 done，action 后到）。
    */
-  handleWebSearchDone() {
+  handleWebSearchDone(parsed) {
+    const action = this._extractWebSearchAction(parsed);
     const seg = this._segments.find(seg => seg.type === 'web-search' && !seg.done);
     if (seg) {
+      if (action) seg.actions.push(action);
       seg.done = true;
       this._renderPipeline.flush(this._segments, this._currentText);
+    } else if (action) {
+      const doneSeg = this._segments.find(s => s.type === 'web-search' && s.done);
+      if (doneSeg) {
+        doneSeg.actions.push(action);
+        this._renderPipeline.flush(this._segments, this._currentText);
+      }
     }
+  }
+
+  /**
+   * 从 SSE payload 提取联网搜索动作明细（buildWebSearchPayload 平铺输出的 action 字段）。
+   * payload 为空（{}）或字段缺失时返回 null，调用方静默跳过。
+   */
+  _extractWebSearchAction(parsed) {
+    if (!parsed) return null;
+    const type = parsed.type;
+    if (type !== 'search' && type !== 'open_page' && type !== 'find_in_page') return null;
+    const action = { type };
+    if (Array.isArray(parsed.queries) && parsed.queries.length > 0) {
+      action.queries = parsed.queries.filter(q => q && q.length > 0);
+    }
+    if (parsed.url) action.url = parsed.url;
+    if (parsed.pattern) action.pattern = parsed.pattern;
+    if (parsed.status) action.status = parsed.status;
+    return action;
   }
 
   _setupCopyButton() {

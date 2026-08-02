@@ -663,10 +663,10 @@ export class ChatPanel {
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
       },
 
-      web_search_done: () => {
+      web_search_done: (parsed) => {
         const session = s();
         if (!session) return;
-        session.handleWebSearchDone();
+        session.handleWebSearchDone(parsed);
         this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
       },
 
@@ -1087,6 +1087,40 @@ window.toggleThinkingRow = function(headerEl) {
   const row = headerEl.closest('.thinking-row.completed');
   if (!row) return;
   const content = row.querySelector('.thinking-row-content');
+  if (!content) return;
+
+  if (row.classList.contains('expanded')) {
+    content.style.maxHeight = '0';
+    row.classList.remove('expanded');
+    content.style.overflowY = '';
+  } else {
+    content.style.display = 'block';
+    const h = content.scrollHeight;
+    const expandedPadding = 16;
+    const totalH = h + expandedPadding;
+    const isCapped = totalH > 300;
+    content.style.maxHeight = isCapped ? '300px' : totalH + 'px';
+    content.style.overflowY = 'hidden';
+    row.classList.add('expanded');
+    const onEnd = (e) => {
+      if (e.propertyName !== 'max-height') return;
+      content.removeEventListener('transitionend', onEnd);
+      if (isCapped) {
+        content.style.overflowY = 'auto';
+      }
+    };
+    content.addEventListener('transitionend', onEnd);
+  }
+};
+
+/**
+ * 展开/收起联网搜索摘要行的详情列表（与 toggleThinkingRow 同机制）。
+ * 仅在完成态且有详情（web-search-row-detail）时可展开。
+ */
+window.toggleWebSearchRow = function(headerEl) {
+  const row = headerEl.closest('.web-search-row.completed');
+  if (!row) return;
+  const content = row.querySelector('.web-search-row-detail');
   if (!content) return;
 
   if (row.classList.contains('expanded')) {

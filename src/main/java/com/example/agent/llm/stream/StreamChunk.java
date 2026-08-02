@@ -1,6 +1,7 @@
 package com.example.agent.llm.stream;
 
 import com.example.agent.llm.model.Usage;
+import com.example.agent.llm.model.WebSearchAction;
 
 import java.util.List;
 
@@ -18,6 +19,7 @@ public class StreamChunk {
     private Usage usage;
     private boolean webSearchStarted;
     private boolean webSearchDone;
+    private WebSearchAction webSearchAction;
 
     public StreamChunk() {
     }
@@ -112,6 +114,14 @@ public class StreamChunk {
         this.webSearchDone = webSearchDone;
     }
 
+    public WebSearchAction getWebSearchAction() {
+        return webSearchAction;
+    }
+
+    public void setWebSearchAction(WebSearchAction webSearchAction) {
+        this.webSearchAction = webSearchAction;
+    }
+
     @Override
     public String toString() {
         return "StreamChunk{" +
@@ -123,6 +133,7 @@ public class StreamChunk {
                 ", usage=" + usage +
                 ", webSearchStarted=" + webSearchStarted +
                 ", webSearchDone=" + webSearchDone +
+                ", webSearchAction=" + webSearchAction +
                 '}';
     }
 }

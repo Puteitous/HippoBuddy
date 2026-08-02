@@ -9,6 +9,7 @@ import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.FunctionCall;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.ToolCall;
+import com.example.agent.llm.model.WebSearchAction;
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.testutil.MockLlmClient;
 import com.example.agent.testutil.LlmResponseBuilder;
@@ -39,6 +40,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @DisplayName("WebAgentOrchestrator 单元测试")
 class WebAgentOrchestratorTest {
@@ -931,6 +933,122 @@ class WebAgentOrchestratorTest {
             JsonNode result = (JsonNode) safeArgsMethod.invoke(orchestrator, "", "tc-empty");
             assertInstanceOf(TextNode.class, result, "空字符串应返回 TextNode");
             assertEquals("", result.asText());
+        }
+    }
+
+    @Nested
+    @DisplayName("联网搜索动作透传")
+    class WebSearchActionTests {
+
+        @Test
+        @DisplayName("非流式响应带 web_search_actions 时落库的 assistant 消息携带该字段")
+        void nonStreamingWebSearchActionsPersisted() throws Exception {
+            // 非流式路径：parseResponsesBody 已在 message 上设置 web_search_actions
+            WebSearchAction search = new WebSearchAction();
+            search.setType("search");
+            search.setQueries(List.of("人工智能 最新新闻", "AI news today"));
+            search.setStatus("completed");
+
+            WebSearchAction openPage = new WebSearchAction();
+            openPage.setType("open_page");
+            openPage.setUrl("https://news.youth.cn/1#ws_call_id=ws_2");
+            openPage.setStatus("completed");
+
+            mockLlmClient.enqueueResponse(
+                LlmResponseBuilder.create()
+                    .content("已搜索完成。")
+                    .webSearched(true)
+                    .webSearchActions(List.of(search, openPage))
+                    .build()
+            );
+
+            orchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+            verify(mockConversationService).addAssistantMessage(any(), messageCaptor.capture(), any());
+            Message saved = messageCaptor.getValue();
+
+            assertTrue(saved.isWebSearched(), "落库消息应携带 web_searched 标记");
+            assertNotNull(saved.getWebSearchActions(), "落库消息应携带 web_search_actions");
+            assertEquals(2, saved.getWebSearchActions().size());
+            assertEquals("search", saved.getWebSearchActions().get(0).getType());
+            assertEquals(List.of("人工智能 最新新闻", "AI news today"),
+                saved.getWebSearchActions().get(0).getQueries());
+            assertEquals("https://news.youth.cn/1#ws_call_id=ws_2",
+                saved.getWebSearchActions().get(1).getUrl());
+        }
+
+        @Test
+        @DisplayName("mergeWebSearchActions 按指纹去重流式与非流式来源")
+        void mergeWebSearchActionsDeduplicates() throws Exception {
+            Method mergeMethod = WebAgentOrchestrator.class.getDeclaredMethod(
+                "mergeWebSearchActions", List.class, List.class);
+            mergeMethod.setAccessible(true);
+
+            // 流式来源：search（queries）+ open_page（url）
+            WebSearchAction streamSearch = new WebSearchAction();
+            streamSearch.setType("search");
+            streamSearch.setQueries(List.of("AI news today"));
+            streamSearch.setStatus("completed");
+
+            WebSearchAction streamOpen = new WebSearchAction();
+            streamOpen.setType("open_page");
+            streamOpen.setUrl("https://a.example.com#ws_call_id=a");
+            streamOpen.setStatus("completed");
+
+            // 非流式来源：search 与流式重复（应去重）+ find_in_page（应保留）
+            WebSearchAction nonStreamSearch = new WebSearchAction();
+            nonStreamSearch.setType("search");
+            nonStreamSearch.setQueries(List.of("AI news today"));
+            nonStreamSearch.setStatus("completed");
+
+            WebSearchAction nonStreamFind = new WebSearchAction();
+            nonStreamFind.setType("find_in_page");
+            nonStreamFind.setUrl("https://a.example.com#ws_call_id=a");
+            nonStreamFind.setPattern("OpenAI");
+            nonStreamFind.setStatus("completed");
+
+            @SuppressWarnings("unchecked")
+            List<WebSearchAction> merged = (List<WebSearchAction>) mergeMethod.invoke(
+                orchestrator,
+                List.of(streamSearch, streamOpen),
+                List.of(nonStreamSearch, nonStreamFind)
+            );
+
+            assertNotNull(merged);
+            assertEquals(3, merged.size(),
+                "search 去重（流式/非流式各一份 → 合并为 1）+ open_page + find_in_page = 3");
+            // 顺序：流式优先，去重保留首个
+            assertEquals("search", merged.get(0).getType());
+            assertEquals("open_page", merged.get(1).getType());
+            assertEquals("find_in_page", merged.get(2).getType());
+        }
+
+        @Test
+        @DisplayName("mergeWebSearchActions 处理 null 入参（流式无 action 时）")
+        void mergeWebSearchActionsHandlesNull() throws Exception {
+            Method mergeMethod = WebAgentOrchestrator.class.getDeclaredMethod(
+                "mergeWebSearchActions", List.class, List.class);
+            mergeMethod.setAccessible(true);
+
+            WebSearchAction nonStreamSearch = new WebSearchAction();
+            nonStreamSearch.setType("search");
+            nonStreamSearch.setQueries(List.of("关键词A"));
+            nonStreamSearch.setStatus("completed");
+
+            @SuppressWarnings("unchecked")
+            List<WebSearchAction> merged = (List<WebSearchAction>) mergeMethod.invoke(
+                orchestrator, null, List.of(nonStreamSearch));
+
+            assertNotNull(merged, "null 流式来源不应抛异常");
+            assertEquals(1, merged.size());
+            assertEquals("search", merged.get(0).getType());
+
+            @SuppressWarnings("unchecked")
+            List<WebSearchAction> bothNull = (List<WebSearchAction>) mergeMethod.invoke(
+                orchestrator, null, null);
+            assertNotNull(bothNull, "双 null 应返回空列表而非抛异常");
+            assertTrue(bothNull.isEmpty());
         }
     }
 }
