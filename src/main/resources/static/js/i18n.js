@@ -163,7 +163,7 @@
     'tokenPanel.sessionTotal':     { zh: '会话总消耗', en: 'Session Total' },
     'tokenPanel.tokens':           { zh: 'tokens', en: 'tokens' },
     'tokenPanel.trend':            { zh: 'Token 消耗趋势', en: 'Token Usage Trend' },
-    'tokenPanel.records':          { zh: '次记录', en: ' records' },
+    'tokenPanel.records':          { zh: ' 次记录', en: ' records' },
     'tokenPanel.waiting':          { zh: '等待数据...', en: 'Waiting for data...' },
 
     /* ==================== Monitor Panel ==================== */
@@ -176,6 +176,8 @@
     'monitor.totalCalls':          { zh: '总调用', en: 'Total Calls' },
     'monitor.failed':              { zh: '失败', en: 'Failed' },
     'monitor.latencyTrend':        { zh: '延迟趋势', en: 'Latency Trend' },
+    'monitor.trendCountZero':      { zh: '0 次记录', en: '0 records' },
+    'monitor.trendCount':          { zh: '{count} 次记录 · 最近 {max}ms', en: '{count} records · last {max}ms' },
 
     /* ==================== File Changes Panel ==================== */
     'fileChanges.empty':           { zh: '暂无文件变更', en: 'No file changes' },

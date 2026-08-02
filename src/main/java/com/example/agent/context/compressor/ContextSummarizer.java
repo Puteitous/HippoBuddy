@@ -75,7 +75,11 @@ public class ContextSummarizer {
             }
         }
 
-        int splitIndex = Math.max(1, historyMessages.size() / 2);
+        // 切分点选择在"轮次边界"上（后半段第一条必须是 user 消息），
+        // 而不是按条数一刀切：assistant(function_call) 与其 tool 响应
+        // 天然属于同一轮，永不跨切分点分离，从源头避免产生孤立 tool 消息
+        // （否则压缩后残留孤立 function_call_output，触发 API 400）。
+        int splitIndex = findTurnBoundarySplit(historyMessages);
         List<Message> toSummarize = historyMessages.subList(0, splitIndex);
         List<Message> toKeep = historyMessages.subList(splitIndex, historyMessages.size());
 
@@ -100,6 +104,53 @@ public class ContextSummarizer {
         );
 
         return result;
+    }
+
+    /**
+     * 找到安全的切分点（轮次边界）。
+     * <p>
+     * 切分点 {@code index} 将历史分为：前半段 {@code [0, index)} 进摘要，
+     * 后半段 {@code [index, size)} 完整保留。安全条件：{@code messages[index]}
+     * 是 user 消息（新一轮的起点），从而 assistant(function_call) 与其后续
+     * tool 响应属于同一轮，永不跨切分点分离。
+     * </p>
+     * <p>
+     * 从中间位置向两边搜索最近的轮次边界，尽量贴近原"对半切分"的语义，
+     * 保证压缩力度不会明显偏离。
+     * </p>
+     *
+     * @return 切分点索引，满足 {@code 1 <= index <= size-1}
+     */
+    private int findTurnBoundarySplit(List<Message> messages) {
+        int size = messages.size();
+        if (size <= 1) {
+            return size;
+        }
+        int mid = size / 2;
+        // 从中间向两边找最近的轮次边界
+        for (int offset = 0; offset <= mid; offset++) {
+            if (isTurnBoundary(messages, mid - offset)) {
+                return mid - offset;
+            }
+            if (isTurnBoundary(messages, mid + offset)) {
+                return mid + offset;
+            }
+        }
+        // 兜底：极端场景下找不到 user 边界（如历史中没有 user 消息），
+        // 至少保留最后 1 条；孤立 tool 由发送前的 MessageSanitizer 兜底过滤。
+        return Math.max(1, size - 1);
+    }
+
+    /**
+     * 判断 {@code index} 是否为安全的轮次边界切分点。
+     * 要求切分点在 {@code [1, size-1]} 内（前后各至少 1 条），
+     * 且后半段起点是 user 消息。
+     */
+    private boolean isTurnBoundary(List<Message> messages, int index) {
+        if (index < 1 || index >= messages.size()) {
+            return false;
+        }
+        return messages.get(index).isUser();
     }
 
     private String getOrGenerateSummary(List<Message> messages) {

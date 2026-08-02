@@ -69,7 +69,11 @@ public class BashTool implements ToolExecutor {
                "支持管道（|）和重定向（>）操作。" +
                "Windows 环境使用 cmd：用 dir/type/findstr 代替 ls/cat/grep（Unix 命令不保证可用）。" +
                "自动适配系统编码以解决中文乱码问题。" +
-               "执行前会进行安全检查，危险命令需要用户确认。";
+               "⚠️ 严禁执行系统级破坏性命令（format/fdisk/diskpart/dd/shutdown/reboot/halt/poweroff/mkfs）、" +
+               "递归删除系统/根/家目录（rm -rf /、rm -rf ~、del /s 系统盘）、命令替换注入（`、$()）、" +
+               "磁盘擦除（cipher /w、shred、sdelete）、清空防火墙（iptables -F、ufw disable）、" +
+               "管道下载执行（curl/wget | bash|sh）——这些操作会被安全机制直接拦截，不要尝试。" +
+               "删除/覆盖/提权（sudo/su）/强杀进程（kill/taskkill）等操作可能触发用户确认，执行前请确认意图。";
     }
 
     @Override

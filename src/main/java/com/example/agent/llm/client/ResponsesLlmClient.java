@@ -37,8 +37,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -65,6 +67,12 @@ public class ResponsesLlmClient extends AbstractLlmClient {
     private static final String RESPONSES_PATH = "/responses";
     private static final String DEFAULT_BASE_URL = "https://api.deepseek.com";
     private static final String DEFAULT_MODEL = "deepseek-v4-flash";
+
+    /**
+     * Responses API 对"发送了 function_call_output 但找不到对应 function_call"的 400 错误标记。
+     * 命中此错误时执行一次自愈重试（剔除孤立 tool 消息后重发）。
+     */
+    private static final String ORPHAN_TOOL_CALL_ERROR_MARKER = "No tool call found";
 
     public ResponsesLlmClient() {
         this(Config.getInstance());
@@ -158,9 +166,17 @@ public class ResponsesLlmClient extends AbstractLlmClient {
 
             if ("tool".equals(role)) {
                 // 工具执行结果 → function_call_output item
+                // call_id 缺失/为空时跳过：空字符串无法匹配任何 function_call，
+                // 服务端会返回 "No tool call found for tool output" 400 错误。
+                String callId = msg.getToolCallId();
+                if (callId == null || callId.isBlank()) {
+                    logger.warn("Responses API: 跳过无 call_id 的 function_call_output（孤立工具结果，name={}）",
+                        msg.getName());
+                    continue;
+                }
                 ObjectNode item = objectMapper.createObjectNode();
                 item.put("type", "function_call_output");
-                item.put("call_id", msg.getToolCallId() != null ? msg.getToolCallId() : "");
+                item.put("call_id", callId);
                 item.put("output", msg.getContent() != null ? msg.getContent() : "");
                 input.add(item);
                 continue;
@@ -245,6 +261,17 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                     toolsArray.add(wsNode);
                     continue;
                 }
+                if ("web_fetch".equals(name)) {
+                    // web_fetch 与模型服务端内置的 open_page 功能重复：
+                    // DeepSeek Responses API 声明 web_search 后，服务端内置
+                    // search / open_page / find_in_page 三个联网工具，其中
+                    // open_page（打开网页抓取内容）与客户端 WebFetchTool 能力
+                    // 完全重叠。此处过滤掉客户端 web_fetch 声明，避免工具重复
+                    // 暴露，由服务端内置 open_page 承担网页抓取；其他 provider
+                    //（OpenAI 兼容 / Anthropic / Ollama）无服务端内置工具，
+                    // web_fetch 仍照常暴露，不受影响。
+                    continue;
+                }
                 ObjectNode toolNode = objectMapper.createObjectNode();
                 toolNode.put("type", "function");
                 toolNode.put("name", name);
@@ -313,6 +340,22 @@ public class ResponsesLlmClient extends AbstractLlmClient {
 
     @Override
     protected ChatResponse doExecuteRequest(ChatRequest request) throws LlmException {
+        try {
+            return doExecuteRequestInternal(request);
+        } catch (LlmApiException e) {
+            // L3 自愈兜底：命中"孤立 function_call_output"400 错误时，
+            // 剔除孤立 tool 消息后重发一次（仅当确实移除了消息才重试，天然限 1 次）
+            ChatRequest healed = healOrphanToolCallRequest(request, e);
+            if (healed != null) {
+                logger.warn("Responses API 检测到孤立 function_call_output (HTTP 400)，剔除孤立 tool 消息后自愈重试一次: {}",
+                    e.getMessage());
+                return doExecuteRequestInternal(healed);
+            }
+            throw e;
+        }
+    }
+
+    private ChatResponse doExecuteRequestInternal(ChatRequest request) throws LlmException {
         try {
             String requestBody = buildResponsesRequestBody(request);
 
@@ -486,6 +529,25 @@ public class ResponsesLlmClient extends AbstractLlmClient {
 
     @Override
     protected ChatResponse executeStreamRequest(
+            ChatRequest request,
+            Consumer<StreamChunk> onChunk) throws LlmException {
+
+        try {
+            return executeStreamRequestInternal(request, onChunk);
+        } catch (LlmApiException e) {
+            // L3 自愈兜底：与 doExecuteRequest 同理，流式请求同样可能命中
+            // "孤立 function_call_output" 400 错误，剔除孤立 tool 消息后重发一次
+            ChatRequest healed = healOrphanToolCallRequest(request, e);
+            if (healed != null) {
+                logger.warn("Responses API 流式检测到孤立 function_call_output (HTTP 400)，剔除孤立 tool 消息后自愈重试一次: {}",
+                    e.getMessage());
+                return executeStreamRequestInternal(healed, onChunk);
+            }
+            throw e;
+        }
+    }
+
+    private ChatResponse executeStreamRequestInternal(
             ChatRequest request,
             Consumer<StreamChunk> onChunk) throws LlmException {
 
@@ -1153,5 +1215,91 @@ public class ResponsesLlmClient extends AbstractLlmClient {
         }
         JsonNode fieldNode = node.get(field);
         return fieldNode.isNull() ? null : fieldNode.asText();
+    }
+
+    // ========================================================================
+    //  L3 自愈兜底：孤立 function_call_output 400 错误
+    // ========================================================================
+
+    /**
+     * 判断是否为"孤立 function_call_output"导致的 400 错误。
+     * <p>
+     * Responses API 在收到无法匹配任何 function_call 的 function_call_output 时，
+     * 返回形如 {@code "No tool call found for tool output with call_id ..."} 的 400。
+     * </p>
+     */
+    private boolean isOrphanToolCallError(LlmApiException e) {
+        if (e == null || e.getStatusCode() != 400) {
+            return false;
+        }
+        String body = e.getErrorBody();
+        return body != null
+            && body.toLowerCase().contains(ORPHAN_TOOL_CALL_ERROR_MARKER.toLowerCase());
+    }
+
+    /**
+     * 自愈请求：从消息列表中剔除"孤立 tool 消息"（call_id 为空，或没有任何
+     * 对应 function_call），重建 ChatRequest。
+     * <p>
+     * 仅在错误确为孤立 function_call_output 且确实剔除了消息时返回新请求；
+     * 否则返回 {@code null}（表示不应重试，原样抛出）。
+     * 天然限 1 次：第二次请求已不含孤立消息，若仍失败则直接抛出。
+     * </p>
+     */
+    ChatRequest healOrphanToolCallRequest(ChatRequest request, LlmApiException e) {
+        if (!isOrphanToolCallError(e) || request == null) {
+            return null;
+        }
+        List<Message> messages = request.getMessages();
+        if (messages == null || messages.isEmpty()) {
+            return null;
+        }
+
+        // 收集所有 function_call id
+        Set<String> knownCallIds = new HashSet<>();
+        for (Message m : messages) {
+            if (m != null && m.isAssistant() && m.getToolCalls() != null) {
+                for (ToolCall tc : m.getToolCalls()) {
+                    if (tc != null && tc.getId() != null && !tc.getId().isEmpty()) {
+                        knownCallIds.add(tc.getId());
+                    }
+                }
+            }
+        }
+
+        // 剔除孤立 tool 消息
+        boolean removed = false;
+        List<Message> cleaned = new ArrayList<>(messages.size());
+        for (Message m : messages) {
+            if (m != null && m.isTool()) {
+                String callId = m.getToolCallId();
+                if (callId == null || callId.isEmpty() || !knownCallIds.contains(callId)) {
+                    logger.warn("  自愈剔除孤立 tool 消息: call_id={}, name={}",
+                        callId, m.getName());
+                    removed = true;
+                    continue;
+                }
+            }
+            cleaned.add(m);
+        }
+
+        if (!removed || cleaned.isEmpty()) {
+            return null;
+        }
+
+        // 重建 ChatRequest（保留全部字段）
+        ChatRequest healed = ChatRequest.of(request.getModel(), cleaned);
+        healed.tools(request.getTools());
+        healed.setToolChoice(request.getToolChoice());
+        healed.setMaxTokens(request.getMaxTokens());
+        healed.setTemperature(request.getTemperature());
+        healed.setTopP(request.getTopP());
+        healed.setStream(request.getStream());
+        healed.setStreamOptions(request.getStreamOptions());
+        healed.setExtraBody(request.getExtraBody());
+        healed.setReasoningEffort(request.getReasoningEffort());
+        healed.setResponseFormat(request.getResponseFormat());
+        healed.setThinking(request.getThinking());
+        return healed;
     }
 }

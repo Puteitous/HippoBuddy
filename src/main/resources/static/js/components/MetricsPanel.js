@@ -11,6 +11,13 @@ export class MetricsPanel {
     this._latencyHistory = [];
     this._lastKnownTotal = 0;
     
+    // 语言切换时重新渲染趋势图（动态文本如 "N 次记录" 需要更新）
+    this._onI18nChange = () => {
+      this._ensureElements();
+      this._renderTrendChart();
+    };
+    window.addEventListener('i18n:change', this._onI18nChange);
+    
     this.init();
   }
   
@@ -153,7 +160,9 @@ export class MetricsPanel {
     
     container.innerHTML = svg;
     if (countEl) {
-      countEl.textContent = `${values.length} 次记录 · 最近 ${Math.round(max)}ms`;
+      countEl.textContent = window.i18n
+        ? window.i18n.t('monitor.trendCount', { count: values.length, max: Math.round(max) })
+        : `${values.length} 次记录 · 最近 ${Math.round(max)}ms`;
     }
   }
 
@@ -236,7 +245,8 @@ export class MetricsPanel {
       
       // ====== 更新时间 ======
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('zh-CN', {
+      const locale = window.i18n && window.i18n.currentLang === 'en' ? 'en-US' : 'zh-CN';
+      const timeStr = now.toLocaleTimeString(locale, {
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
       const i18n = window.i18n;
@@ -326,5 +336,6 @@ export class MetricsPanel {
    */
   destroy() {
     this.stopAutoUpdate();
+    if (this._onI18nChange) window.removeEventListener('i18n:change', this._onI18nChange);
   }
 }

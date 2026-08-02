@@ -16,6 +16,12 @@ import java.util.stream.Collectors;
  * 在发送给 LLM 前，校验 assistant(tool_calls) 与后续 tool 消息的配对完整性。
  * LLM API 要求每个 {@code assistant(tool_calls)} 之后必须紧跟一组完整对应的 tool 消息，
  * 顺序无关但必须全部存在。不完整时清空 tool_calls 并移除残余 tool 消息，避免 API 400 错误。
+ * <p>
+ * 同时做反向校验：移除没有任何对应 {@code function_call} 的孤立 tool 消息
+ * （如上下文压缩/截断时 assistant 消息被摘要化而 tool 响应残留的场景）。
+ * 这类消息发送给 Responses API 会触发
+ * {@code "No tool call found for tool output"} 400 错误。
+ * </p>
  */
 public final class MessageSanitizer {
 
@@ -111,6 +117,41 @@ public final class MessageSanitizer {
             logger.info("已清理孤立 tool_calls，避免后续 API 调用失败");
         }
 
-        return foundOrphan;
+        // ===== 反向校验：移除没有对应 function_call 的孤立 tool 消息 =====
+        // 场景：上下文压缩/截断时 assistant(function_call) 被摘要化而 tool 响应残留，
+        // 或 tool 消息 call_id 缺失/为空。这些消息发送给 Responses API 会触发
+        // "No tool call found for tool output" 400 错误。
+        // 注意：此处必须在正向清理之后执行——正向已清空孤立 assistant 的 tool_calls
+        // 并移除其残余 tool 消息，反向只需处理"只有 tool 消息、完全没有 function_call"的情况。
+        boolean foundOrphanTool = false;
+        Set<String> knownToolCallIds = new HashSet<>();
+        Set<Message> orphanTools = new HashSet<>();
+
+        for (Message msg : messages) {
+            if (msg == null) {
+                continue;
+            }
+            if (msg.isAssistant() && msg.getToolCalls() != null) {
+                for (ToolCall tc : msg.getToolCalls()) {
+                    if (tc != null && tc.getId() != null && !tc.getId().isEmpty()) {
+                        knownToolCallIds.add(tc.getId());
+                    }
+                }
+            } else if (msg.isTool()) {
+                String callId = msg.getToolCallId();
+                if (callId == null || callId.isEmpty() || !knownToolCallIds.contains(callId)) {
+                    orphanTools.add(msg);
+                }
+            }
+        }
+
+        if (!orphanTools.isEmpty()) {
+            messages.removeAll(orphanTools);
+            logger.warn("检测到 {} 条孤立 tool 消息（无对应 function_call），已移除避免 API 400 错误",
+                orphanTools.size());
+            foundOrphanTool = true;
+        }
+
+        return foundOrphan || foundOrphanTool;
     }
 }

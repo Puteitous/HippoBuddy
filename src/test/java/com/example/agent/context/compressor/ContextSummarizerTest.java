@@ -1,6 +1,8 @@
 package com.example.agent.context.compressor;
 
+import com.example.agent.llm.model.FunctionCall;
 import com.example.agent.llm.model.Message;
+import com.example.agent.llm.model.ToolCall;
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.service.TokenEstimatorFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -348,6 +350,117 @@ class ContextSummarizerTest {
 
             long avgTime = totalTime / 10;
             assertTrue(avgTime < 1000, "平均压缩时间应该小于1秒，实际: " + avgTime + "ms");
+        }
+    }
+
+    @Nested
+    @DisplayName("工具调用对完整性测试（L4）")
+    class ToolPairIntegrityTests {
+
+        private List<Message> createToolConversation(int turnCount) {
+            List<Message> messages = new ArrayList<>();
+            for (int i = 0; i < turnCount; i++) {
+                messages.add(Message.user("User question " + i + " " + "x".repeat(50)));
+                ToolCall tc = new ToolCall("call-" + i, new FunctionCall("bash", "{}"));
+                messages.add(Message.assistantWithToolCalls(List.of(tc)));
+                messages.add(Message.toolResult("call-" + i, "bash", "result " + i));
+            }
+            return messages;
+        }
+
+        /**
+         * 校验结果中每条 tool 消息的 call_id 都必须在结果中有对应的 function_call。
+         */
+        private void assertNoOrphanTool(List<Message> result) {
+            java.util.Set<String> knownIds = new java.util.HashSet<>();
+            for (Message m : result) {
+                if (m.isAssistant() && m.getToolCalls() != null) {
+                    for (ToolCall tc : m.getToolCalls()) {
+                        if (tc.getId() != null && !tc.getId().isEmpty()) {
+                            knownIds.add(tc.getId());
+                        }
+                    }
+                }
+            }
+            for (Message m : result) {
+                if (m.isTool()) {
+                    assertTrue(knownIds.contains(m.getToolCallId()),
+                        "压缩结果中存在孤立 tool 消息: call_id=" + m.getToolCallId());
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("工具调用对不跨切分点：压缩结果无孤立 tool 消息")
+        void toolPairNeverSplitAcrossBoundary() {
+            List<Message> messages = createToolConversation(5); // 15 条
+
+            List<Message> result = summarizer.compact(messages, 10000);
+
+            assertNotNull(result);
+            assertNoOrphanTool(result);
+        }
+
+        @Test
+        @DisplayName("偶数轮次工具对同样保持完整")
+        void evenToolTurnsKeptComplete() {
+            List<Message> messages = createToolConversation(6); // 18 条
+
+            List<Message> result = summarizer.compact(messages, 10000);
+
+            assertNotNull(result);
+            assertNoOrphanTool(result);
+        }
+
+        @Test
+        @DisplayName("保留区（toKeep）首条必须是 user 消息")
+        void keptRegionStartsWithUser() {
+            List<Message> messages = createToolConversation(8); // 24 条
+
+            List<Message> result = summarizer.compact(messages, 10000);
+
+            assertNotNull(result);
+            // 找到摘要边界后的第一条真实历史消息
+            boolean afterBoundary = false;
+            for (Message m : result) {
+                if (m.isSystem() && m.getContent() != null
+                    && m.getContent().contains("COMPACTION BOUNDARY")) {
+                    afterBoundary = true;
+                    continue;
+                }
+                if (afterBoundary && m.isUser()) {
+                    return; // 找到，符合预期
+                }
+            }
+            fail("保留区首条消息不是 user（未找到摘要边界后的 user 消息）");
+        }
+
+        @Test
+        @DisplayName("纯对话（无工具调用）压缩行为不受影响")
+        void plainConversationUnaffected() {
+            List<Message> messages = createConversation(10);
+
+            List<Message> result = summarizer.compact(messages, 10000);
+
+            assertNotNull(result);
+            assertTrue(result.size() > 0);
+            assertTrue(result.size() < messages.size());
+        }
+
+        @Test
+        @DisplayName("合并数量保持在对半附近（压缩力度不退化）")
+        void mergeCountNearHalf() {
+            List<Message> messages = createToolConversation(8); // 24 条
+
+            summarizer.compact(messages, 10000);
+
+            ContextSummarizer.CompactionResult result = summarizer.getLastResult();
+            assertNotNull(result);
+            // 轮次边界切分可能略偏离对半（±1 轮 = 3 条），但不该严重退化
+            assertTrue(result.getMergedCount() > 0);
+            assertTrue(result.getMergedCount() <= messages.size() / 2 + 3,
+                "合并数量偏离对半过多: merged=" + result.getMergedCount()
+                    + ", size=" + messages.size());
         }
     }
 

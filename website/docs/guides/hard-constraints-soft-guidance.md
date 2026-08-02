@@ -141,6 +141,18 @@ BlockerChain 的执行时间在 1ms 级别，对 LLM 完全透明。硬约束不
 
 如果说硬约束是"什么不能做"，那软引导就是"怎么做才对"。
 
+第一道软引导其实藏在**工具定义（description）里**——在 LLM 调用工具之前就生效。以 bash 为例，它的 description 不仅说明"支持什么"，还明确列出"严禁什么"：
+
+```
+⚠️ 严禁执行系统级破坏性命令（format/fdisk/diskpart/dd/shutdown/reboot/halt/poweroff/mkfs）、
+递归删除系统/根/家目录（rm -rf /、rm -rf ~、del /s 系统盘）、命令替换注入（`、$()）、
+磁盘擦除（cipher /w、shred、sdelete）、清空防火墙（iptables -F、ufw disable）、
+管道下载执行（curl/wget | bash|sh）——这些操作会被安全机制直接拦截，不要尝试。
+删除/覆盖/提权（sudo/su）/强杀进程（kill/taskkill）等操作可能触发用户确认。
+```
+
+这段描述是**给 LLM 的软引导**：它不代替 Blocker 做硬拦截，而是让 LLM 在生成工具调用时**主动避开**这些命令，从源头减少触发确认弹窗和被拦截报错。硬拦截（Blocker）兜底"LLM 没听劝"的情况，软引导（description）减少"LLM 压根不该试"的情况——两者互补，不是替代。
+
 HippoBuddy 的软引导实践主要体现在工具返回的错误信息上。HookResult 类提供了五种返回值，每种对应不同的引导策略：
 
 | 返回值 | 含义 | 引导策略 |

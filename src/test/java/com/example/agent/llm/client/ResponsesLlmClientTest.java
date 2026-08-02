@@ -178,6 +178,46 @@ class ResponsesLlmClientTest {
         }
 
         @Test
+        @DisplayName("web_fetch 被过滤（与服务端内置 open_page 功能重复），普通 function 工具不受影响")
+        void testWebFetchToolFilteredOut() throws Exception {
+            Tool webFetch = Tool.of("web_fetch", "获取指定 URL 的网页内容",
+                    Map.of("type", "object", "properties", Map.of("url", Map.of("type", "string"))));
+            Tool weather = Tool.of("get_weather", "查询天气",
+                    Map.of("type", "object", "properties", Map.of("city", Map.of("type", "string"))));
+
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(Message.user("hi")))
+                    .tools(List.of(webFetch, weather));
+
+            JsonNode body = objectMapper.readTree(client.buildResponsesRequestBody(request));
+            JsonNode tools = body.get("tools");
+
+            assertTrue(tools.isArray());
+            // web_fetch 与模型服务端内置 open_page 重复：被过滤，仅剩 get_weather
+            assertEquals(1, tools.size());
+            assertEquals("function", tools.get(0).get("type").asText());
+            assertEquals("get_weather", tools.get(0).get("name").asText());
+            // tools 中不出现 web_fetch
+            for (JsonNode tool : tools) {
+                assertNotEquals("web_fetch", tool.get("name").asText());
+            }
+        }
+
+        @Test
+        @DisplayName("仅有 web_fetch 工具时整体不输出 tools 字段（全部被过滤）")
+        void testOnlyWebFetchToolResultsInNoTools() throws Exception {
+            Tool webFetch = Tool.of("web_fetch", "获取指定 URL 的网页内容",
+                    Map.of("type", "object", "properties", Map.of("url", Map.of("type", "string"))));
+
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(Message.user("hi")))
+                    .tools(List.of(webFetch));
+
+            JsonNode body = objectMapper.readTree(client.buildResponsesRequestBody(request));
+
+            // 全部工具被过滤 → toolsArray 为空 → 不输出 tools 字段
+            assertFalse(body.has("tools"));
+        }
+
+        @Test
         @DisplayName("reasoning.effort 与 text.format 正确映射")
         void testReasoningAndFormat() throws Exception {
             ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(Message.user("hi")))
@@ -564,6 +604,132 @@ class ResponsesLlmClientTest {
                 () -> client.processResponsesStreamLines(reader, chunk -> {
                 }));
             assertTrue(ex.getMessage().contains("模型不可用"));
+        }
+    }
+
+    // =========================================================
+    // L3 自愈兜底：孤立 function_call_output 400 错误
+    // =========================================================
+    @Nested
+    @DisplayName("🩹 L3 自愈：孤立 function_call_output 400 错误")
+    class SelfHealTests {
+
+        private LlmApiException orphanError() {
+            String body = "{\"error\":{\"message\":\"No tool call found for tool output with call_id call-ghost\"}}";
+            return new LlmApiException("Responses API 返回错误 (HTTP 400): " + body, 400, body);
+        }
+
+        @Test
+        @DisplayName("命中孤立 function_call_output 400 + 有孤立 tool → 返回剔除后的请求")
+        void healsOrphanTool() {
+            ToolCall tc = new ToolCall("call-1", new FunctionCall("bash", "{}"));
+            Message toolGhost = Message.toolResult("call-ghost", "bash", "result");
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(
+                Message.user("执行命令"),
+                Message.assistantWithToolCalls(List.of(tc)),
+                Message.toolResult("call-1", "bash", "ok"),
+                toolGhost
+            ));
+
+            ChatRequest healed = client.healOrphanToolCallRequest(request, orphanError());
+
+            assertNotNull(healed);
+            assertEquals(3, healed.getMessages().size());
+            // 孤立 tool 消息被剔除
+            for (Message m : healed.getMessages()) {
+                assertFalse(m.isTool() && "call-ghost".equals(m.getToolCallId()));
+            }
+            // 正常配对的 tool 保留
+            assertTrue(healed.getMessages().stream().anyMatch(m -> m.isTool() && "call-1".equals(m.getToolCallId())));
+        }
+
+        @Test
+        @DisplayName("命中错误但无孤立 tool → 返回 null（不重试）")
+        void noOrphanToolReturnsNull() {
+            ToolCall tc = new ToolCall("call-1", new FunctionCall("bash", "{}"));
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(
+                Message.user("执行命令"),
+                Message.assistantWithToolCalls(List.of(tc)),
+                Message.toolResult("call-1", "bash", "ok")
+            ));
+
+            assertNull(client.healOrphanToolCallRequest(request, orphanError()));
+        }
+
+        @Test
+        @DisplayName("非 400 错误 → 返回 null")
+        void non400ReturnsNull() {
+            ToolCall tc = new ToolCall("call-1", new FunctionCall("bash", "{}"));
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(
+                Message.assistantWithToolCalls(List.of(tc)),
+                Message.toolResult("call-1", "bash", "ok"),
+                Message.toolResult("call-ghost", "bash", "x")
+            ));
+            LlmApiException serverError = new LlmApiException("HTTP 500", 500, "server error");
+
+            assertNull(client.healOrphanToolCallRequest(request, serverError));
+        }
+
+        @Test
+        @DisplayName("400 但错误体不含标记 → 返回 null")
+        void unrelated400ReturnsNull() {
+            ToolCall tc = new ToolCall("call-1", new FunctionCall("bash", "{}"));
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(
+                Message.assistantWithToolCalls(List.of(tc)),
+                Message.toolResult("call-1", "bash", "ok")
+            ));
+            LlmApiException other400 = new LlmApiException(
+                "HTTP 400: invalid_request_error", 400, "{\"error\":{\"message\":\"invalid parameter\"}}");
+
+            assertNull(client.healOrphanToolCallRequest(request, other400));
+        }
+
+        @Test
+        @DisplayName("自愈重建保留请求其它字段（tools / temperature / stream 等）")
+        void healsPreserveOtherFields() {
+            Tool ghost = Tool.of("bash", "执行命令", Map.of("type", "object"));
+            ToolCall tc = new ToolCall("call-1", new FunctionCall("bash", "{}"));
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(
+                Message.assistantWithToolCalls(List.of(tc)),
+                Message.toolResult("call-1", "bash", "ok"),
+                Message.toolResult("call-ghost", "bash", "x")
+            ))
+                .tools(List.of(ghost))
+                .toolChoiceAuto()
+                .stream(true)
+                .maxTokens(500)
+                .temperature(0.3)
+                .reasoningEffort("high")
+                .responseFormat(Map.of("type", "json_object"));
+
+            ChatRequest healed = client.healOrphanToolCallRequest(request, orphanError());
+
+            assertNotNull(healed);
+            assertEquals("deepseek-v4-flash", healed.getModel());
+            assertEquals(1, healed.getTools().size());
+            assertEquals("auto", healed.getToolChoice());
+            assertEquals(Boolean.TRUE, healed.getStream());
+            assertEquals(500, healed.getMaxTokens());
+            assertEquals(0.3, healed.getTemperature());
+            assertEquals("high", healed.getReasoningEffort());
+            assertEquals("json_object", healed.getResponseFormat().get("type"));
+        }
+
+        @Test
+        @DisplayName("空 call_id 的 tool 消息也被剔除")
+        void healsEmptyCallIdTool() {
+            Message emptyIdTool = new Message("tool", "result");
+            emptyIdTool.setToolCallId("");
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(
+                Message.user("hi"),
+                emptyIdTool
+            ));
+
+            ChatRequest healed = client.healOrphanToolCallRequest(request, orphanError());
+
+            assertNotNull(healed);
+            assertEquals(1, healed.getMessages().size());
+            assertFalse(healed.getMessages().stream().anyMatch(Message::isTool));
         }
     }
 }
