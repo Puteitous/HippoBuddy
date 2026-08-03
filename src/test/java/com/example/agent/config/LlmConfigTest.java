@@ -16,15 +16,17 @@ class LlmConfigTest {
 
     @Test
     void testDefaultValues() {
-        assertEquals("dashscope", llmConfig.getProvider());
-        assertEquals("qwen3.5-plus", llmConfig.getModel());
-        assertEquals("https://dashscope.aliyuncs.com", llmConfig.getBaseUrl());
-        assertEquals(2048, llmConfig.getMaxTokens());
+        // 默认值已在 config.yaml 中配置（见 config.yaml.example 的 llm 段），
+        // LlmConfig 作为 POJO 的字段初始值为空/0
+        assertNull(llmConfig.getProvider());
+        assertNull(llmConfig.getModel());
+        assertNull(llmConfig.getBaseUrl());
+        assertEquals(0, llmConfig.getMaxTokens());
         assertEquals(0.7, llmConfig.getTemperature());
         assertEquals(60000, llmConfig.getTimeout());
         assertNull(llmConfig.getApiKey());
         assertTrue(llmConfig.isThinkingEnabled());
-        assertEquals("high", llmConfig.getReasoningEffort());
+        assertEquals("", llmConfig.getReasoningEffort());
     }
 
     @Test
@@ -94,7 +96,8 @@ class LlmConfigTest {
 
     @Test
     void testReasoningEffort() {
-        assertEquals("high", llmConfig.getReasoningEffort());
+        // 默认空串 = 使用模型默认思考强度（配置默认值见 config.yaml 的 reasoning_effort）
+        assertEquals("", llmConfig.getReasoningEffort());
         
         llmConfig.setReasoningEffort("max");
         assertEquals("max", llmConfig.getReasoningEffort());
@@ -231,9 +234,11 @@ class LlmConfigTest {
 
     @Test
     void testToStringContainsExpectedFields() {
+        llmConfig.setProvider("dashscope");
         llmConfig.setApiKey("sk-test-key-12345678");
         llmConfig.setModel("qwen-max");
         llmConfig.setBaseUrl("https://api.test.com");
+        llmConfig.setMaxTokens(2048);
         
         String str = llmConfig.toString();
         
@@ -352,7 +357,9 @@ class LlmConfigTest {
 
     @Test
     void testFindSnapshotWithNullModel() {
-        llmConfig.snapshotToHistory();
+        // 空 provider/model 时 snapshotToHistory 不应保存空快照（key 为 ":" 无意义）
+        assertFalse(llmConfig.snapshotToHistory());
+        assertTrue(llmConfig.getModelHistory().isEmpty());
         assertNull(llmConfig.findSnapshot(null, null));
     }
 
@@ -402,5 +409,90 @@ class LlmConfigTest {
         assertEquals(16384, llmConfig.getMaxTokens());
         assertFalse(llmConfig.isThinkingEnabled());
         assertEquals("max", llmConfig.getReasoningEffort());
+    }
+
+    @Test
+    void testRemoveSnapshotByKey() {
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.snapshotToHistory();
+        llmConfig.setProvider("dashscope");
+        llmConfig.setModel("qwen-max");
+        llmConfig.snapshotToHistory();
+        assertEquals(2, llmConfig.getModelHistory().size());
+
+        // 移除已存在条目
+        assertTrue(llmConfig.removeSnapshotByKey("dashscope:qwen-max"));
+        assertEquals(1, llmConfig.getModelHistory().size());
+        assertNull(llmConfig.findSnapshot("dashscope", "qwen-max"));
+
+        // 移除不存在的条目
+        assertFalse(llmConfig.removeSnapshotByKey("openai:gpt-5"));
+        assertEquals(1, llmConfig.getModelHistory().size());
+
+        // 空 key 安全处理
+        assertFalse(llmConfig.removeSnapshotByKey(null));
+        assertFalse(llmConfig.removeSnapshotByKey(""));
+    }
+
+    @Test
+    void testEditHistorySnapshotReplacesOldEntry() {
+        // 模拟场景：
+        // 当前生效配置 = openai:gpt-4o（已在历史中）
+        // 历史中还有一条 deepseek:reasoner（非当前生效，用户点击编辑它）
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.setApiKey("sk-openai");
+        llmConfig.snapshotToHistory();
+
+        llmConfig.setProvider("deepseek");
+        llmConfig.setModel("reasoner");
+        llmConfig.setApiKey("sk-deepseek");
+        llmConfig.snapshotToHistory();
+
+        // 用户切换到 openai:gpt-4o（模拟快速切换恢复）
+        llmConfig.findSnapshot("openai", "gpt-4o").applyTo(llmConfig);
+        assertEquals(2, llmConfig.getModelHistory().size());
+
+        // ===== 编辑历史条目 deepseek:reasoner，改名为 deepseek:new =====
+        // 1. 前端携带 editingKey = 旧 key
+        String editingKey = "deepseek:reasoner";
+        // 2. 后端先移除旧快照
+        assertTrue(llmConfig.removeSnapshotByKey(editingKey));
+        // 3. 后端快照当前生效配置（openai:gpt-4o，保留切换前记录）
+        llmConfig.snapshotToHistory();
+        // 4. 后端应用新字段并快照
+        llmConfig.setProvider("deepseek");
+        llmConfig.setModel("new");
+        llmConfig.setApiKey("sk-deepseek-new");
+        llmConfig.snapshotToHistory();
+
+        // 旧条目 deepseek:reasoner 不应再存在，新条目 deepseek:new 已加入
+        assertNull(llmConfig.findSnapshot("deepseek", "reasoner"));
+        assertNotNull(llmConfig.findSnapshot("deepseek", "new"));
+        // 当前生效配置 openai:gpt-4o 仍在历史中
+        assertNotNull(llmConfig.findSnapshot("openai", "gpt-4o"));
+        // 总共 2 条：openai:gpt-4o + deepseek:new，无重复
+        assertEquals(2, llmConfig.getModelHistory().size());
+        assertEquals("sk-deepseek-new", llmConfig.findSnapshot("deepseek", "new").getApiKey());
+    }
+
+    @Test
+    void testEditHistorySnapshotSameKeyNoDuplicate() {
+        // 编辑历史条目但 provider:model 不变（只改 API Key 等字段），
+        // 移除旧快照后重新快照，不应产生重复
+        llmConfig.setProvider("openai");
+        llmConfig.setModel("gpt-4o");
+        llmConfig.setApiKey("sk-old");
+        llmConfig.snapshotToHistory();
+
+        String editingKey = "openai:gpt-4o";
+        llmConfig.removeSnapshotByKey(editingKey);
+        llmConfig.snapshotToHistory(); // 当前配置仍为 openai:gpt-4o（旧值）
+        llmConfig.setApiKey("sk-new");
+        llmConfig.snapshotToHistory(); // 新值覆盖
+
+        assertEquals(1, llmConfig.getModelHistory().size());
+        assertEquals("sk-new", llmConfig.getModelHistory().get(0).getApiKey());
     }
 }

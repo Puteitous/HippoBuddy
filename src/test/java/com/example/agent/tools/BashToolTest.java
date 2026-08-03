@@ -460,6 +460,126 @@ class BashToolTest {
         }
     }
 
+    // ===== 外部取消（用户点击终止按钮）与超时终止 =====
+
+    @Test
+    void testExternalCancelMarksOutputAsTerminated() throws Exception {
+        String id = "test-external-cancel-" + System.nanoTime();
+        BashTool.setCurrentToolCallId(id);
+        try {
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("command", longRunningCommand());
+            args.put("timeout", 5); // 若取消失效，5 秒超时兜底，避免测试挂死
+
+            // 500ms 后触发外部取消（模拟 ToolAbortHandler 调用）
+            new Thread(() -> {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ignored) {
+                }
+                BashProcessManager.getInstance().cancel(id, 200);
+            }).start();
+
+            String result = tool.execute(args);
+
+            assertTrue(result.contains("已被用户终止"),
+                "被外部取消的命令应标注'已被用户终止'，实际: " + result);
+            assertTrue(result.contains("终止方式"),
+                "应说明终止方式（递归终止进程树），实际: " + result);
+        } finally {
+            BashTool.clearCurrentToolCallId();
+        }
+    }
+
+    @Test
+    void testTimeoutReturnsTimeoutResult() throws Exception {
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("command", longRunningCommand());
+        args.put("timeout", 1); // 最小超时 1 秒，快速触发超时分支
+
+        String result = tool.execute(args);
+
+        assertTrue(result.contains("执行超时"),
+            "超时命令应标注'执行超时'，实际: " + result);
+        assertTrue(result.contains("退出码: 124"),
+            "超时命令退出码应为 124，实际: " + result);
+    }
+
+    @Test
+    void testExternalCancelReturnsQuicklyInsteadOfWaitingFullTimeout() throws Exception {
+        // 关键回归测试：取消后必须快速返回，不得继续按命令自身 timeout（默认 30s）长等
+        String id = "test-quick-cancel-" + System.nanoTime();
+        BashTool.setCurrentToolCallId(id);
+        try {
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("command", longRunningCommand());
+            // 不指定 timeout，使用默认 30s：若取消感知失效，本测试将耗时约 30s 并触发超时分支
+
+            new Thread(() -> {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ignored) {
+                }
+                BashProcessManager.getInstance().cancel(id, 200);
+            }).start();
+
+            long start = System.currentTimeMillis();
+            String result = tool.execute(args);
+            long elapsed = System.currentTimeMillis() - start;
+
+            assertTrue(result.contains("已被用户终止"),
+                "被外部取消的命令应标注'已被用户终止'，实际: " + result);
+            assertTrue(elapsed < 10_000,
+                "取消后应在 10 秒内返回（实际 " + elapsed + "ms），不得等满命令 timeout");
+        } finally {
+            BashTool.clearCurrentToolCallId();
+        }
+    }
+
+    @Test
+    void testFormatResultCancelFailureIncludesPidHint() throws Exception {
+        // 终止失败（进程未能被终止，转入后台）时，输出应包含 PID 与补救命令
+        String result = invokeFormatResult("mvn test", "partial output\n", -1,
+            5000, java.nio.file.Paths.get("."), false, "all", -1,
+            true, true, 12345L);
+
+        assertTrue(result.contains("终止失败"), "应标注终止失败，实际: " + result);
+        assertTrue(result.contains("进程 PID: 12345"), "应包含进程 PID，实际: " + result);
+        assertTrue(result.contains("taskkill /F /T /PID 12345"), "应包含补救命令，实际: " + result);
+        assertTrue(result.contains("后台继续运行"), "应说明转入后台，实际: " + result);
+    }
+
+    @Test
+    void testFormatResultExternalCancelLabel() throws Exception {
+        // 正常终止成功（非失败）时保持原标注，且不出现终止失败字样
+        String result = invokeFormatResult("echo hi", "hi\n", 137,
+            1000, java.nio.file.Paths.get("."), false, "all", -1,
+            true, false, -1);
+
+        assertTrue(result.contains("已被用户终止"), "应标注'已被用户终止'，实际: " + result);
+        assertFalse(result.contains("终止失败"), "终止成功时不应出现'终止失败'，实际: " + result);
+    }
+
+    private static String invokeFormatResult(String command, String output, int exitCode,
+                                             long duration, java.nio.file.Path workPath,
+                                             boolean isTimeout, String outputMode, int maxLines,
+                                             boolean externallyCancelled, boolean cancelFailed,
+                                             long pid) throws Exception {
+        java.lang.reflect.Method method = BashTool.class.getDeclaredMethod(
+            "formatResult", String.class, String.class, int.class, long.class,
+            java.nio.file.Path.class, boolean.class, String.class, int.class,
+            boolean.class, boolean.class, long.class);
+        method.setAccessible(true);
+        return (String) method.invoke(new BashTool(), command, output, exitCode, duration,
+            workPath, isTimeout, outputMode, maxLines, externallyCancelled, cancelFailed, pid);
+    }
+
+    private static String longRunningCommand() {
+        return System.getProperty("os.name").toLowerCase().contains("win")
+            ? "ping 127.0.0.1 -n 100 > nul"
+            : "sleep 100";
+    }
+
     private static String invokeTranslateCommandForUnix(String command, String outputMode, int maxLines) throws Exception {
         java.lang.reflect.Method method = BashTool.class.getDeclaredMethod(
             "translateCommandForUnix", String.class, String.class, int.class);

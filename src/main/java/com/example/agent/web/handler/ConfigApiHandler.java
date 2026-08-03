@@ -151,6 +151,16 @@ public class ConfigApiHandler implements HttpHandler {
             llm.snapshotToHistory();
         } else {
             // ========== 完整保存（来自配置弹窗） ==========
+            // 如果正在编辑历史中的某条记录（前端携带 editingKey = 旧 provider:model），
+            // 先移除该旧快照，避免保存后旧条目（尤其改名为新 key 时）与新条目并存
+            String editingKey = null;
+            if (json.has("editingKey") && !json.get("editingKey").isNull()) {
+                editingKey = json.get("editingKey").asText();
+            }
+            if (editingKey != null && !editingKey.isEmpty()) {
+                llm.removeSnapshotByKey(editingKey);
+            }
+
             // 先把当前配置快照到历史（切换前的旧模型保留记录）
             // 仅当前配置有意义的 provider+model 时才保存，防止首次添加模型时产生空记录
             if (llm.getProvider() != null && !llm.getProvider().isEmpty()

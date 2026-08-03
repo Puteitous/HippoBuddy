@@ -288,6 +288,33 @@ describe('ChatUI', () => {
       expect(html).toContain('command not found');
     });
 
+    it('渲染终止失败（进程未被终止，转入后台）', () => {
+      const html = chatUI.renderBashCard({
+        name: 'bash',
+        args: '{"command":"mvn test"}',
+        result: 'error',
+        resultContent: [
+          '命令执行结果',
+          '命令: mvn test',
+          '工作目录: .',
+          '退出码: -1（终止失败：进程未能被终止，已转入后台继续运行）',
+          '进程 PID: 12345',
+          '补救: 如需强制清理，请在系统终端执行: taskkill /F /T /PID 12345',
+          '执行时间: 5000 ms',
+          '输出:',
+          'partial output',
+          '提示: 该命令未能被终止，正在后台继续运行。以上输出为终止时已产生的部分。'
+        ].join('\n')
+      });
+      expect(html).toContain('终止失败');
+      expect(html).toContain('进程未能被终止');
+      expect(html).toContain('进程 PID');
+      expect(html).toContain('12345');
+      expect(html).toContain('taskkill /F /T /PID 12345');
+      expect(html).toContain('退出码: -1');
+      expect(html).toContain('partial output');
+    });
+
     it('没有内联 onclick', () => {
       const html = chatUI.renderBashCard({ name: 'bash', args: '{}' });
       expect(html).not.toContain('onclick=');

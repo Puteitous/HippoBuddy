@@ -286,6 +286,7 @@ export class ModelSettingsPage {
 
   _showCreateModel() {
     this._editingIndex = -2;
+    this._editingModel = null;
     this._renderModelEditor(null, true);
   }
 
@@ -491,6 +492,16 @@ export class ModelSettingsPage {
       apiKey: apiKeyInput?.value || '',
     };
 
+    // 编辑已有模型时，携带被编辑条目的 key(provider:model)，供后端定位并替换旧快照，
+    // 避免保存后旧条目和新条目同时出现在历史列表中
+    if (!isNew && this._editingModel) {
+      const oldProvider = this._editingModel.provider || '';
+      const oldModel = this._editingModel.model || this._editingModel.name || '';
+      if (oldProvider && oldModel) {
+        body.editingKey = oldProvider + ':' + oldModel;
+      }
+    }
+
     // 思考模式参数（仅支持的 Provider 才发送）
     if (this._isThinkingSupported(provider)) {
       const thinkingCheckbox = document.getElementById('modelEditThinkingEnabled');
@@ -535,6 +546,7 @@ export class ModelSettingsPage {
   _closeEditor() {
     this._destroyDropdowns();
     this._editingIndex = -1;
+    this._editingModel = null;
     const headerActions = document.querySelector('#settingsModelCreate')?.closest('.settings-item-list-actions');
     if (headerActions) headerActions.style.display = '';
     this._loadModelConfig();

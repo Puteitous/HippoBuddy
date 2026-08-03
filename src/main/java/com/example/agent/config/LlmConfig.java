@@ -167,6 +167,10 @@ public class LlmConfig {
 
     /** 将当前配置作为快照加入历史（去重），返回 true 表示新增 */
     public boolean snapshotToHistory() {
+        // provider 或 model 为空时无意义，不产生空快照（如 ":" 这种 key）
+        if (provider == null || provider.isEmpty() || model == null || model.isEmpty()) {
+            return false;
+        }
         ModelSnapshot snap = ModelSnapshot.from(this);
         String key = snap.getKey();
         // 移除旧的同 key 快照
@@ -188,6 +192,20 @@ public class LlmConfig {
             }
         }
         return null;
+    }
+
+    /**
+     * 按 key(provider:model) 从历史中移除指定快照。
+     * 用于"编辑已有历史条目"场景：保存前先移除被编辑条目的旧快照，
+     * 避免旧条目与保存后的新条目（尤其改名为新 key 时）在历史中并存。
+     *
+     * @return true 表示确实移除了一条
+     */
+    public boolean removeSnapshotByKey(String key) {
+        if (key == null || key.isEmpty()) {
+            return false;
+        }
+        return modelHistory.removeIf(s -> s.getKey().equals(key));
     }
 
     public boolean isValid() {

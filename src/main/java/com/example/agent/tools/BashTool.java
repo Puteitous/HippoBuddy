@@ -27,6 +27,12 @@ public class BashTool implements ToolExecutor {
     private static final int MAX_OUTPUT_CHARS_WARN = 30000;
     private static final String OUTPUT_TRUNCATE_MARKER = "\n... [输出过长，已截断 %d 字符，共 %d 字符] ...\n";
 
+    // ===== 取消感知与短等待窗口 =====
+    /** 主线程轮询进程状态的间隔：250ms 内即可感知外部取消，避免取消后仍按命令 timeout 长等 */
+    private static final long CANCELLATION_POLL_INTERVAL_MS = 250;
+    /** 取消已发起后，确认进程是否真的被终止的短窗口：超过则判定"终止失败，转入后台" */
+    private static final long CANCELLATION_CONFIRM_TIMEOUT_MS = 5000;
+
     // ===== 输出策略（output_mode + max_lines）=====
     private static final String OUTPUT_MODE_ALL = "all";
     private static final Set<String> VALID_OUTPUT_MODES = Set.of("all", "head", "tail", "errors");
@@ -310,36 +316,74 @@ public class BashTool implements ToolExecutor {
             readerThread.setDaemon(true);
             readerThread.start();
             
-            // 主线程等待进程完成或超时（这才是真正的超时控制）
-            boolean finished = process.waitFor(timeout, TimeUnit.SECONDS);
-            long duration = System.currentTimeMillis() - startTime;
-            
-            if (!finished) {
-                // 超时：强制杀掉进程
-                process.destroyForcibly();
+            // 主线程等待进程完成或超时（步长轮询，便于及时感知外部取消）。
+            // 取消已发起后不再按命令自身 timeout 长等：进入短确认窗口，
+            // 进程未能在窗口内死亡则判定"终止失败"，立即返回而非干等。
+            boolean finished = false;
+            boolean externallyCancelled = false;
+            boolean cancelFailed = false;
+            long deadline = startTime + timeout * 1000L;
+            while (!finished) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    break; // 命令自身超时
+                }
+                long step = Math.min(CANCELLATION_POLL_INTERVAL_MS, remaining);
+                finished = process.waitFor(step, TimeUnit.MILLISECONDS);
+                if (finished) {
+                    break;
+                }
+                // 外部取消已发起（用户点击终止按钮）：进入短确认窗口
+                if (toolCallId != null && BashProcessManager.getInstance().isCancelledRequested(toolCallId)) {
+                    externallyCancelled = true;
+                    long confirmDeadline = System.currentTimeMillis() + CANCELLATION_CONFIRM_TIMEOUT_MS;
+                    while (!finished && System.currentTimeMillis() < confirmDeadline) {
+                        finished = process.waitFor(CANCELLATION_POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);
+                    }
+                    if (!finished) {
+                        // taskkill 未能终止进程：放弃等待，转入后台（进程保持运行），
+                        // 并记录"终止失败"标志供 Orchestrator 将 tool_result 标记为非成功
+                        cancelFailed = true;
+                        BashProcessManager.getInstance().markCancelFailed(toolCallId);
+                    }
+                    break;
+                }
             }
-            
+            long duration = System.currentTimeMillis() - startTime;
+
+            if (!finished && !cancelFailed) {
+                // 纯超时：递归终止整棵进程树（避免只杀 cmd/bash 根进程而遗留孤儿子进程）
+                BashProcessManager.getInstance().terminateTree(process, false);
+            }
+
             // 等待读取线程处理完剩余输出
             readerThread.join(3000);
-            
-            if (!finished) {
-                String rawOutput;
-                synchronized (output) {
-                    rawOutput = output.toString();
-                }
-                // 先按输出策略做行级截断，再做字符级兜底（防超长单行/异常输出）
-                return formatResult(command, truncateOutput(applyOutputMode(rawOutput, outputMode, maxLines)),
-                    124, duration, workPath, true, outputMode, maxLines);
+
+            // 清理取消标志（供标注使用；进程已自然结束时 consumeCancelled 返回 false）
+            if (toolCallId != null) {
+                BashProcessManager.getInstance().consumeCancelled(toolCallId);
             }
-            
-            int exitCode = process.exitValue();
+
             String rawOutput;
             synchronized (output) {
                 rawOutput = output.toString();
             }
-            
-            return formatResult(command, truncateOutput(applyOutputMode(rawOutput, outputMode, maxLines)),
-                exitCode, duration, workPath, false, outputMode, maxLines);
+            String processedOutput = truncateOutput(applyOutputMode(rawOutput, outputMode, maxLines));
+
+            if (cancelFailed) {
+                // 终止失败：进程仍在后台运行，附 PID 与补救命令，不让用户干等
+                return formatResult(command, processedOutput, -1, duration, workPath,
+                    false, outputMode, maxLines, true, true, process.pid());
+            }
+            if (!finished) {
+                // 超时
+                return formatResult(command, processedOutput, 124, duration, workPath,
+                    true, outputMode, maxLines, externallyCancelled, false, -1);
+            }
+
+            int exitCode = process.exitValue();
+            return formatResult(command, processedOutput, exitCode, duration, workPath,
+                false, outputMode, maxLines, externallyCancelled, false, -1);
         } finally {
             if (readerThread != null && readerThread.isAlive()) {
                 readerThread.interrupt();
@@ -583,14 +627,22 @@ public class BashTool implements ToolExecutor {
 
     private String formatResult(String command, String output, int exitCode, 
                                long duration, Path workPath, boolean isTimeout,
-                               String outputMode, int maxLines) {
+                               String outputMode, int maxLines, boolean externallyCancelled,
+                               boolean cancelFailed, long pid) {
         StringBuilder result = new StringBuilder();
         
         result.append("命令执行结果\n");
         result.append("命令: ").append(command).append("\n");
         result.append("工作目录: ").append(PathSecurityUtils.getRelativePath(workPath)).append("\n");
         
-        if (isTimeout) {
+        if (cancelFailed) {
+            result.append("退出码: -1（终止失败：进程未能被终止，已转入后台继续运行）\n");
+            result.append("进程 PID: ").append(pid).append("\n");
+            result.append("补救: 如需强制清理，请在系统终端执行: taskkill /F /T /PID ").append(pid).append("\n");
+        } else if (externallyCancelled) {
+            result.append("退出码: ").append(exitCode).append("（已被用户终止）\n");
+            result.append("终止方式: 已递归终止整棵进程树（含所有子进程）\n");
+        } else if (isTimeout) {
             result.append("退出码: 124（执行超时，超过 ").append(duration / 1000).append(" 秒）\n");
         } else {
             result.append("退出码: ").append(exitCode).append(" ");
@@ -615,7 +667,11 @@ public class BashTool implements ToolExecutor {
             }
         }
         
-        if (isTimeout) {
+        if (cancelFailed) {
+            result.append("\n提示: 该命令未能被终止，正在后台继续运行。以上输出为终止时已产生的部分。\n");
+        } else if (externallyCancelled) {
+            result.append("\n提示: 该命令在完成前被用户终止，以上输出为终止时已产生的部分。\n");
+        } else if (isTimeout) {
             result.append("\n提示: 该命令执行超过 ").append(duration / 1000).append(" 秒未完成，已被自动终止。\n");
             result.append("建议你在终端手动执行该命令，将完整结果贴回来。\n");
         }

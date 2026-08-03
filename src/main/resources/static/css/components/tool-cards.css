@@ -648,6 +648,36 @@
     font-size: var(--font-size-sm);
 }
 
+/* 终止失败：进程未能被终止，转入后台继续运行 */
+.bash-terminate-failed {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: var(--error-bg);
+    border: 1px solid var(--error-border, rgba(220, 60, 60, 0.4));
+    border-radius: var(--radius-sm);
+}
+
+.bash-terminate-failed-title {
+    color: var(--error-text);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    margin-bottom: 6px;
+}
+
+.bash-terminate-failed .bash-meta {
+    color: var(--error-text);
+    opacity: 0.9;
+}
+
+.bash-terminate-failed code {
+    background: rgba(0, 0, 0, 0.12);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    word-break: break-all;
+}
+
 /* ========== EditFile / WriteFile 卡片 ========== */
 .editfile-card,
 .writefile-card {

@@ -23,6 +23,7 @@ import com.example.agent.llm.model.Usage;
 import com.example.agent.llm.model.WebSearchAction;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.service.TokenEstimatorFactory;
+import com.example.agent.tools.BashProcessManager;
 import com.example.agent.tools.BashTool;
 import com.example.agent.tools.DeleteFileTool;
 import com.example.agent.tools.FileChangeTracker;
@@ -521,10 +522,13 @@ public class WebAgentOrchestrator {
                                         + "\",\"line\":\"" + SseWriter.escapeJson(line) + "\"}");
                                 }
                             });
+                            // 终止失败（进程未能被终止，转入后台）：tool_result 标记为非成功
+                            boolean cancelFailed = BashProcessManager.getInstance().consumeCancelFailed(toolCall.getId());
+                            boolean toolSuccess = !cancelFailed;
                             String truncatedResult = truncationService.truncateToolOutput(toolName, rawResult);
-                            getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, true);
+                            getConversationService().addToolResult(conversation, toolCall.getId(), toolName, truncatedResult, toolSuccess);
                             sseWriter.sendSseEvent("tool_result",
-                                buildToolResultJson(toolCall.getId(), toolName, true, truncatedResult, null, arguments, toolCall.getId()));
+                                buildToolResultJson(toolCall.getId(), toolName, toolSuccess, truncatedResult, null, arguments, toolCall.getId()));
                             SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                             stats.addToolCall();
                         } finally {
