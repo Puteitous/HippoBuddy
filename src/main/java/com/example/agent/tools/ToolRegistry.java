@@ -11,15 +11,15 @@ import org.slf4j.LoggerFactory;
 
 import com.example.agent.core.AgentMode;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ToolRegistry {
 
     private static final Logger logger = LoggerFactory.getLogger(ToolRegistry.class);
 
-    private final Map<String, ToolExecutor> executors = new HashMap<>();
+    private final Map<String, ToolExecutor> executors = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
     private final BlockerChain blockerChain = new BlockerChain();
 
@@ -38,6 +38,11 @@ public class ToolRegistry {
     public ToolRegistry register(ToolExecutor executor) {
         executors.put(executor.getName(), executor);
         return this;
+    }
+
+    /** 移除指定工具。返回被移除的执行器，若不存在返回 null。 */
+    public ToolExecutor unregister(String name) {
+        return executors.remove(name);
     }
 
     public ToolExecutor getExecutor(String name) {

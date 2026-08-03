@@ -35,6 +35,7 @@ class WebSearchToolTest {
     @BeforeEach
     void setUp() {
         config = new WebSearchConfig();
+        config.setEnabled(true);
         objectMapper = new ObjectMapper();
     }
 
@@ -67,13 +68,14 @@ class WebSearchToolTest {
 
     @Test
     void testExecuteThrowsWhenConfigDisabled() {
-        // apiKey 为空 → isEnabled() = false
+        // 显式禁用 → execute() 应立即抛「已禁用」
+        config.setEnabled(false);
         tool = new WebSearchTool(config);
         JsonNode args = objectMapper.createObjectNode().put("query", "test");
 
         ToolExecutionException ex = assertThrows(ToolExecutionException.class,
                 () -> tool.execute(args));
-        assertTrue(ex.getMessage().contains("API Key"));
+        assertTrue(ex.getMessage().contains("已禁用"));
     }
 
     @Test

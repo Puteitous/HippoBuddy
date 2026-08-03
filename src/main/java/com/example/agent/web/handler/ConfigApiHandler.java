@@ -4,6 +4,10 @@ import com.example.agent.config.Config;
 import com.example.agent.config.ConfigLoader;
 import com.example.agent.config.LlmConfig;
 import com.example.agent.config.ModelSnapshot;
+import com.example.agent.core.di.ServiceLocator;
+import com.example.agent.tools.ToolRegistry;
+import com.example.agent.tools.web.WebSearchConfig;
+import com.example.agent.tools.web.WebSearchTool;
 import com.example.agent.web.orchestrator.WebAgentOrchestrator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -265,6 +269,12 @@ public class ConfigApiHandler implements HttpHandler {
         }
 
         Config config = Config.getInstance();
+
+        // 记录热更新开关在本次更新前的状态（仅 tools 节需要）
+        boolean webSearchWasEnabled = values.has("tools")
+                ? config.getTools().getWebSearch().isEnabled()
+                : false;
+
         if (values.has("session")) {
             MAPPER.readerForUpdating(config.getSession()).readValue(values.get("session"));
         }
@@ -285,9 +295,47 @@ public class ConfigApiHandler implements HttpHandler {
         }
         config.save();
 
+        // 热更新 web_search 工具注册状态（无需重启）
+        if (values.has("tools")) {
+            syncWebSearchTool(webSearchWasEnabled,
+                    config.getTools().getWebSearch().isEnabled(),
+                    config.getTools().getWebSearch());
+        }
+
         ObjectNode resp = MAPPER.createObjectNode();
         resp.put("success", true);
         sendJson(exchange, 200, MAPPER.writeValueAsString(resp));
+    }
+
+    /**
+     * 根据 web_search.enabled 的变化，动态注册/注销 WebSearchTool，无需重启应用。
+     * 只在 enabled 状态翻转时生效；provider/apiKey 等字段通过共享的
+     * WebSearchConfig 引用被工具自动读取，无需重建工具实例。
+     */
+    private void syncWebSearchTool(boolean wasEnabled, boolean isEnabled) {
+        syncWebSearchTool(wasEnabled, isEnabled, Config.getInstance().getTools().getWebSearch());
+    }
+
+    /**
+     * 包级可见重载：接受注入的 WebSearchConfig，便于单元测试（避免触碰 Config 单例）。
+     */
+    void syncWebSearchTool(boolean wasEnabled, boolean isEnabled, WebSearchConfig webSearchConfig) {
+        if (wasEnabled == isEnabled) {
+            return;
+        }
+
+        ToolRegistry toolRegistry = ServiceLocator.get(ToolRegistry.class);
+        if (isEnabled) {
+            if (toolRegistry.hasTool("web_search")) {
+                logger.info("🔄 热更新: web_search 工具已注册，跳过重复注册");
+                return;
+            }
+            toolRegistry.register(new WebSearchTool(webSearchConfig));
+            logger.info("🔄 热更新: web_search 工具已启用并注册");
+        } else {
+            toolRegistry.unregister("web_search");
+            logger.info("🔄 热更新: web_search 工具已禁用并注销");
+        }
     }
 
     /** 将 LlmConfig 序列化为 JSON 树，并遮掩 apiKey。 */

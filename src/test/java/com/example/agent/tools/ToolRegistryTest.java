@@ -1,5 +1,6 @@
 package com.example.agent.tools;
 
+import com.example.agent.llm.model.Tool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -134,6 +135,37 @@ public class ToolRegistryTest {
 
         assertTrue(registry.hasTool("tool1"));
         assertTrue(registry.hasTool("tool2"));
+    }
+
+    @Test
+    void testUnregisterRemovesTool() {
+        registry.register(new MockTool("tool1", "Tool 1"));
+
+        ToolExecutor removed = registry.unregister("tool1");
+
+        assertNotNull(removed);
+        assertFalse(registry.hasTool("tool1"));
+        assertNull(registry.getExecutor("tool1"));
+    }
+
+    @Test
+    void testUnregisterNonExistentReturnsNull() {
+        assertNull(registry.unregister("never_registered"));
+    }
+
+    @Test
+    void testUnregisterThenReRegister() {
+        registry.register(new MockTool("tool1", "Tool 1"));
+        registry.unregister("tool1");
+        assertFalse(registry.hasTool("tool1"));
+
+        // 模拟热更新：重新启用后再次注册，toTools() 应立即包含该工具
+        registry.register(new MockTool("tool1", "Tool 1 again"));
+        assertTrue(registry.hasTool("tool1"));
+
+        List<Tool> tools = registry.toTools();
+        assertEquals(1, tools.size());
+        assertEquals("tool1", tools.get(0).getFunction().getName());
     }
 
     private static class MockTool implements ToolExecutor {
