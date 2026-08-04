@@ -158,8 +158,18 @@ export class FileTabs {
     return this._openTabInternal(key, displayName || this._getUrlDisplayName(url), true);
   }
 
+  /**
+   * 打开（或切换到）一个文件变更对比标签页
+   * @param {string} filePath - 目标文件真实路径
+   * @param {string} [displayName] - 标签显示名，如 "app.js (diff)"
+   */
+  async openDiffTab(filePath, displayName) {
+    const key = 'diff:' + filePath;
+    return this._openTabInternal(key, displayName || this._getDisplayName(filePath) + ' diff', false, true);
+  }
+
   /** @private 内部打开 tab 逻辑 */
-  async _openTabInternal(key, displayName, isWeb) {
+  async _openTabInternal(key, displayName, isWeb, isDiff) {
     const existing = this._tabs.get(key);
     if (existing) {
       await this._selectTab(key);
@@ -167,11 +177,21 @@ export class FileTabs {
     }
 
     const tabEl = document.createElement('div');
-    tabEl.className = 'file-tab' + (isWeb ? ' web-tab' : '');
+    tabEl.className = 'file-tab' + (isWeb ? ' web-tab' : '') + (isDiff ? ' diff-tab' : '');
     tabEl.dataset.path = key;
     if (isWeb) tabEl.dataset.isWeb = 'true';
+    if (isDiff) tabEl.dataset.isDiff = 'true';
 
-    if (isWeb) {
+    if (isDiff) {
+      // Diff 标签 — diff 风格图标（主色）
+      const iconEl = document.createElement('span');
+      iconEl.className = 'file-tab-icon diff-tab-icon';
+      iconEl.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 5h6M1 9h6M11 5h4M11 9h4M11 3v8"/>
+        <path d="M8 2v12" stroke-dasharray="1.5 1.5"/>
+      </svg>`;
+      tabEl.appendChild(iconEl);
+    } else if (isWeb) {
       // Web 标签 — 使用 globe SVG 图标
       const iconEl = document.createElement('span');
       iconEl.className = 'file-tab-icon web-tab-icon';

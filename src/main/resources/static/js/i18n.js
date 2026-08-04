@@ -328,6 +328,15 @@
 
     /* ==================== Diff Modal ==================== */
     'diff.title':                  { zh: '文件变更对比', en: 'File Diff' },
+    'diff.overall':                { zh: '整体变更', en: 'Overall' },
+    'diff.hunkSkipped':            { zh: '共 {count} 行未变化', en: '{count} unchanged lines' },
+    'diff.hunkExpandTip':          { zh: '点击展开全部上下文', en: 'Click to expand all context' },
+    'diff.hunkExpanded':           { zh: '已展开 {count} 行，点击收起', en: '{count} lines expanded, click to collapse' },
+    'diff.hunkCollapseTip':        { zh: '点击收起上下文', en: 'Click to collapse' },
+    'diff.hunkTooLarge':           { zh: '该段上下文过长，无法展开', en: 'Context too large to expand' },
+    'diff.tabSuffix':              { zh: '(diff)', en: '(diff)' },
+    'diff.revealInTreeTip':        { zh: '在文件树中显示', en: 'Reveal in File Tree' },
+    'diff.revealNoWorkspace':      { zh: '请先打开工作区，才能在文件树中定位该文件', en: 'Open a workspace first to reveal this file in the tree' },
     'diff.netStatsTip':            { zh: '该文件累计净变化行数', en: 'Net changes of this file' },
     'diff.loading':                { zh: '加载中...', en: 'Loading...' },
     'diff.noRecords':              { zh: '无变更记录', en: 'No change records' },

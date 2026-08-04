@@ -509,14 +509,15 @@ function bindGlobalEvents() {
   });
   
   // 状态条各模块 → 打开 Activity Bar 对应面板
+  // 注意：files 不在此联动列表 —— 状态栏文件项的点击由 FileChangeManager 处理（切换 popover 固定显示）
   const statusBarItems = document.querySelectorAll('.status-bar-item');
   statusBarItems.forEach(item => {
     item.addEventListener('click', () => {
       const section = item.dataset.section;
       if (!section || !activityBar) return;
       
-      // 映射 data-section → Activity Bar 面板名
-      const panelMap = { token: 'token', monitor: 'monitor', files: 'files' };
+      // 映射 data-section → Activity Bar 面板名（files 除外，独立处理）
+      const panelMap = { token: 'token', monitor: 'monitor' };
       const panelName = panelMap[section];
       if (!panelName) return;
       

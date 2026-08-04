@@ -196,6 +196,17 @@ export class FileTree {
     this._container.innerHTML = '';
   }
 
+  /** 折叠全部目录（保留根层级），滚动回顶部 */
+  collapseAll() {
+    if (!this._rootPath) return;
+    this._expandedDirs.clear();
+    this._loadingDirs.clear();
+    this._activeFilePath = null;
+    this._doRefresh().then(() => {
+      this._container.scrollTop = 0;
+    });
+  }
+
   /** 高亮当前激活的文件/目录，并滚动到可视区域 */
   setActiveFile(filePath) {
     this._activeFilePath = filePath;
@@ -660,6 +671,23 @@ export class FileTree {
     return this._container.querySelector(`.file-tree-node:not([data-is-dir])[data-path="${this._escapeCss(path)}"]`);
   }
 
+  /**
+   * 收起目录后确保节点仍在视口内；若已滚出视口则平滑滚回。
+   * 等待一帧让收起后的 DOM 塌缩完成，再基于最新布局判断。
+   */
+  _ensureVisibleAfterCollapse(nodeEl) {
+    requestAnimationFrame(() => {
+      const container = this._container;
+      if (!container || !nodeEl || !nodeEl.isConnected) return;
+      const cRect = container.getBoundingClientRect();
+      const nRect = nodeEl.getBoundingClientRect();
+      const fullyVisible = nRect.top >= cRect.top && nRect.bottom <= cRect.bottom;
+      if (!fullyVisible) {
+        nodeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }
+
   _escapeCss(value) {
     if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(value);
     return value.replace(/[!"#$%&'()*+,.\/:;<=>?@[\]^`{|}~ \\]/g, '\\$&');
@@ -850,6 +878,8 @@ export class FileTree {
         childrenEl.style.display = 'none';
         childrenEl.innerHTML = '';
         this._loadingDirs.delete(leafDir);
+        // 收起后确保节点仍在视口内（已滚出则平滑滚回）
+        this._ensureVisibleAfterCollapse(nodeEl);
       } else {
         if (this._loadingDirs.has(leafDir)) return;
         this._loadingDirs.add(leafDir);
@@ -960,6 +990,8 @@ export class FileTree {
         childrenEl.innerHTML = '';
         // 清理加载中标记，便于下次展开重新加载
         this._loadingDirs.delete(fullPath);
+        // 收起后确保节点仍在视口内（已滚出则平滑滚回）
+        this._ensureVisibleAfterCollapse(nodeEl);
       } else {
         // 防止异步加载未完成时重复点击导致竞态
         if (this._loadingDirs.has(fullPath)) return;

@@ -444,30 +444,34 @@ export class TokenMonitor {
    * 根据使用率返回对应的 SVG 表情图标（三档）
    */
   _getTokenEmoji(percent) {
+    // 根据当前主题选择表情颜色：浅色=黑，深色=白
+    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    const stroke = (theme === 'dark' || theme === 'midnight') ? '#fff' : '#000';
+
     // 😊 开心 — 余量充足（≤ 50%）
     if (percent <= 50) {
       return `<svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="#333" stroke-width="4" stroke-linejoin="round"/>
-        <path d="M31 18V19" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M17 18V19" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M31 31C31 31 29 35 24 35C19 35 17 31 17 31" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M31 18V19" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M17 18V19" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M31 31C31 31 29 35 24 35C19 35 17 31 17 31" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`;
     }
     // 😐 平静 — 注意占用（50% ~ 75%）
     if (percent <= 75) {
       return `<svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="#333" stroke-width="4" stroke-linejoin="round"/>
-        <path d="M31 18V19" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M17 18V19" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <rect x="20" y="24" width="8" height="12" rx="4" fill="none" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M31 18V19" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M17 18V19" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="20" y="24" width="8" height="12" rx="4" fill="none" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`;
     }
     // 😰 焦虑 — 占用较高（≥ 75%）
     return `<svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="#333" stroke-width="4" stroke-linejoin="round"/>
-      <path d="M24 29C29 29 31 33 31 33H17C17 33 19 29 24 29Z" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M32 17L29 20L32 23" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M16 17L19 20L16 23" stroke="#333" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" fill="none" stroke="${stroke}" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M24 29C29 29 31 33 31 33H17C17 33 19 29 24 29Z" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M32 17L29 20L32 23" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16 17L19 20L16 23" stroke="${stroke}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>`;
   }
 

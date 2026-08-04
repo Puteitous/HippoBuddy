@@ -11,6 +11,7 @@ export class FileChangeManager {
     this._lastChangeSnapshot = null; // 记录上一次变更快照，用于检测新变更
     this._cachedFileGroups = new Map(); // 缓存分组后的文件列表，用于 popover 渲染
     this._popoverHideTimer = null; // 悬浮面板隐藏防抖定时器
+    this._popoverPinned = false; // 悬浮面板是否被点击固定显示
   }
 
   init() {
@@ -82,6 +83,8 @@ export class FileChangeManager {
     };
 
     const hidePopover = () => {
+      // 固定显示时移出不隐藏，需点击或点击外部关闭
+      if (this._popoverPinned) return;
       if (this._popoverHideTimer) {
         clearTimeout(this._popoverHideTimer);
       }
@@ -96,22 +99,54 @@ export class FileChangeManager {
     popover.addEventListener('mouseenter', showPopover);
     popover.addEventListener('mouseleave', hidePopover);
 
-    // 点击状态栏文件项也切换显隐（点击时打开活动栏面板，隐藏 popover）
+    // 点击状态栏文件项 → 切换 popover 固定显示（不再联动 Activity 面板）
     statusBarFiles.addEventListener('click', () => {
+      this._popoverPinned = !this._popoverPinned;
+      if (this._popoverHideTimer) {
+        clearTimeout(this._popoverHideTimer);
+        this._popoverHideTimer = null;
+      }
+      if (this._popoverPinned) {
+        popover.classList.add('show');
+      } else {
+        popover.classList.remove('show');
+      }
+    });
+
+    // 点击 popover 外部取消固定并隐藏（排除状态栏项和 popover 自身）
+    document.addEventListener('click', (e) => {
+      if (!this._popoverPinned) return;
+      if (statusBarFiles.contains(e.target) || popover.contains(e.target)) return;
+      this._popoverPinned = false;
       popover.classList.remove('show');
     });
 
-    // 点击 popover 中的文件项 → 打开 diff 弹窗
+    // 点击 popover 中的文件项 → 打开 diff（桌面端标签页 / Web 端弹窗）
     popover.addEventListener('click', (e) => {
       const fileItem = e.target.closest('.popover-file-item');
       if (fileItem) {
         const filePath = fileItem.dataset.path;
         if (filePath) {
+          this._popoverPinned = false;
           popover.classList.remove('show');
-          diffModalManager.show(filePath);
+          this._openFileDiff(filePath);
         }
       }
     });
+  }
+
+  /**
+   * 打开文件变更对比：桌面端打开 diff 标签页（可常驻回看），
+   * Web 端（无工作区标签系统）降级为弹窗。
+   * @param {string} filePath
+   */
+  _openFileDiff(filePath) {
+    const ws = window.HippoWorkspace;
+    if (ws && ws.isAvailable && typeof ws.openFileDiff === 'function') {
+      ws.openFileDiff(filePath);
+    } else {
+      diffModalManager.show(filePath);
+    }
   }
 
   destroy() {
@@ -136,7 +171,7 @@ export class FileChangeManager {
     if (rollbackBtn) {
       this._rollbackFile(filePath, rollbackBtn);
     } else {
-      diffModalManager.show(filePath);
+      this._openFileDiff(filePath);
     }
   }
 

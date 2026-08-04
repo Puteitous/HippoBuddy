@@ -40,6 +40,8 @@ const HippoWorkspace = (() => {
     fileTreeView: document.getElementById('fileTreeView'),
     fileTreeBody: document.getElementById('fileTreeBody'),
     fileTreeEmpty: document.getElementById('fileTreeEmpty'),
+    fileTreeRefresh: document.getElementById('fileTreeRefresh'),
+    fileTreeCollapseAll: document.getElementById('fileTreeCollapseAll'),
     tabBar: document.getElementById('fileTabBar'),
     tabs: document.getElementById('fileTabs'),
     previewPanel: document.getElementById('previewPanel'),
@@ -124,7 +126,7 @@ const HippoWorkspace = (() => {
     const isENOENT = errMsg.includes('ENOENT') || errMsg.includes('no such file');
     const filePath = filePreview.currentPath;
 
-    if (isENOENT && filePath && !filePath.startsWith('url:')) {
+    if (isENOENT && filePath && !filePath.startsWith('url:') && !filePath.startsWith('diff:')) {
       const displayName = filePath.split(/[/\\]/).pop() || filePath;
       console.warn('FilePreview: file not found, closing stale tab:', filePath);
       // 静默关闭死标签（文件已不存在，保存无意义）；fire-and-forget 防止阻塞预览流程
@@ -229,6 +231,10 @@ const HippoWorkspace = (() => {
       if (filePath.startsWith('url:')) {
         const url = filePath.slice(4);
         await fileTabs.openWebTab(url, displayName);
+      } else if (filePath.startsWith('diff:')) {
+        const target = filePath.slice(5);
+        const diffName = (target.split('/').pop() || target) + ' ' + i18n.t('diff.tabSuffix');
+        await fileTabs.openDiffTab(target, diffName);
       } else {
         await fileTabs.openTab(filePath, displayName);
       }
@@ -595,6 +601,18 @@ tools:
     },
 
     /**
+     * 打开文件变更对比标签页（diff tab）
+     * @param {string} filePath - 目标文件真实路径
+     */
+    async openFileDiff(filePath) {
+      if (!filePath) return;
+      switchView('files');
+      const fileName = filePath.split(/[/\\]/).pop() || filePath;
+      await fileTabs.openDiffTab(filePath, fileName + ' ' + i18n.t('diff.tabSuffix'));
+      _saveWorkspaceSession();
+    },
+
+    /**
      * 浏览器地址栏 URL 变更回调（由 FilePreview._bindBrowserEvents 调用）
      * 用于更新 web 标签的 key，使下次切换时能命中
      */
@@ -649,6 +667,28 @@ tools:
         setTimeout(() => filePreview.scrollToLine(startLine, endLine), 100);
       }
     },
+
+    /**
+     * 在文件树中定位文件：切换到文件视图、展开父目录并高亮该文件（不打开预览）。
+     * 若工作区未打开或路径无效，返回 false，由调用方降级处理。
+     * @param {string} filePath - 绝对或相对路径
+     * @returns {Promise<boolean>} 是否定位成功
+     */
+    async revealFileInTree(filePath) {
+      if (!_currentRoot) return false;
+      let absPath = filePath;
+      // 相对路径 → 拼接工作区根路径
+      if (absPath && !absPath.startsWith('/') && !absPath.match(/^[a-zA-Z]:/)) {
+        absPath = _currentRoot + '/' + absPath;
+      }
+      if (!absPath) return false;
+      // 统一为 / 分隔（revealFile 内部依赖 lastIndexOf('/') 与 split('/')）
+      absPath = absPath.replace(/\\/g, '/');
+
+      switchView('files');
+      await fileTree.revealFile(absPath);
+      return true;
+    },
   };
 
   // ========== 侧栏视图切换 ==========
@@ -685,10 +725,16 @@ tools:
       // 文件夹图标
       icon.innerHTML = '<path d="M2 4h5l2 2h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>';
       title.textContent = i18n.t('session.fileBrowse');
+      // 头部操作按钮（刷新 / 折叠全部）仅在打开工作区时显示
+      const showActions = _currentRoot ? '' : 'none';
+      if (els.fileTreeRefresh) els.fileTreeRefresh.style.display = showActions;
+      if (els.fileTreeCollapseAll) els.fileTreeCollapseAll.style.display = showActions;
     } else {
       // 会话气泡图标
       icon.innerHTML = '<path d="M13.5 2H2.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2.5l2 2 2-2h4.5a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>';
       title.textContent = i18n.t('session.title');
+      if (els.fileTreeRefresh) els.fileTreeRefresh.style.display = 'none';
+      if (els.fileTreeCollapseAll) els.fileTreeCollapseAll.style.display = 'none';
     }
   }
 
@@ -699,6 +745,30 @@ tools:
         switchView(btn.dataset.view);
       });
     }
+  }
+
+  // 绑定折叠全部按钮
+  if (els.fileTreeCollapseAll) {
+    els.fileTreeCollapseAll.addEventListener('click', () => {
+      fileTree.collapseAll();
+    });
+  }
+
+  // 绑定刷新按钮：触发文件树刷新 + 图标旋转反馈
+  if (els.fileTreeRefresh) {
+    els.fileTreeRefresh.addEventListener('click', () => {
+      fileTree.refresh();
+      const icon = els.fileTreeRefresh.querySelector('.file-tree-refresh-icon');
+      if (icon) {
+        icon.classList.remove('spinning');
+        // 强制重排，确保动画可重复触发
+        void icon.offsetWidth;
+        icon.classList.add('spinning');
+        icon.addEventListener('animationend', () => {
+          icon.classList.remove('spinning');
+        }, { once: true });
+      }
+    });
   }
 
   // ========== 面包屑路径段点击导航 ==========
@@ -747,6 +817,23 @@ tools:
         els.previewToolbar.style.display = 'none';
       }
       // 持久化标签页（包含 web tab）
+      _saveWorkspaceSession();
+      return;
+    }
+    // 检测是否为 diff 标签
+    if (filePath && filePath.startsWith('diff:')) {
+      const target = filePath.slice(5);
+      filePreview.showDiff(target);
+      if (els.previewPanel) {
+        els.previewPanel.classList.remove('hidden');
+      }
+      if (els.previewPath) {
+        els.previewPath.textContent = i18n.t('diff.overall') + ' · ' + target;
+        els.previewPath.title = target;
+      }
+      if (els.previewToolbar) {
+        els.previewToolbar.style.display = 'none';
+      }
       _saveWorkspaceSession();
       return;
     }
@@ -930,6 +1017,8 @@ tools:
 
   EventBus.on('file:changes-updated', () => {
     fileTree.refresh();
+    // 当前处于 diff 标签页时自动重载（回滚/变更后保持数据新鲜）
+    filePreview.reloadDiffView();
   });
 
   // AI 工具修改了当前预览的文件时，自动重新加载预览

@@ -281,6 +281,20 @@
                     </svg>
                     <span class="session-header-title" id="sessionHeaderTitle">会话</span>
                 </div>
+                <div class="session-header-actions">
+                    <button class="toolbar-btn file-tree-header-btn" id="fileTreeRefresh" title="刷新文件树" style="display:none;">
+                        <svg class="file-tree-refresh-icon" viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M36.7279 36.7279C33.4706 39.9853 28.9706 42 24 42C14.0589 42 6 33.9411 6 24C6 14.0589 14.0589 6 24 6C28.9706 6 33.4706 8.01472 36.7279 11.2721C38.3859 12.9301 42 17 42 17"/>
+                            <path d="M42 8V17H33"/>
+                        </svg>
+                    </button>
+                    <button class="toolbar-btn file-tree-header-btn" id="fileTreeCollapseAll" title="折叠全部" style="display:none;">
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3.5 5.5L8 1l4.5 4.5"/>
+                            <path d="M3.5 11.5L8 7l4.5 4.5"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="session-list" id="sessionList"></div>
             <!-- 文件树视图（桌面端，替代会话列表） -->
@@ -325,6 +339,13 @@
                         <button class="preview-btn" id="previewSearchBtn" title="搜索 (Ctrl+F)" style="display:none;">
                             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="7" cy="7" r="3"/><line x1="9.5" y1="9.5" x2="13" y2="13"/>
+                            </svg>
+                        </button>
+                        <button class="preview-btn" id="previewWrapBtn" title="自动换行" style="display:none;">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="2" y1="4" x2="14" y2="4"/>
+                                <path d="M2 8h10a2 2 0 1 1 0 4H8.5"/>
+                                <polyline points="11 10.5 12.5 12 11 13.5"/>
                             </svg>
                         </button>
                         <button class="preview-btn" id="previewRefreshBtn" title="重新加载" style="display:none;">
@@ -526,14 +547,8 @@
                 <button class="diff-modal-close" id="diffModalClose">✕</button>
             </div>
             <div class="diff-modal-body" id="diffModalBody">
-                <div class="diff-timeline" id="diffTimeline"></div>
-                <div class="diff-content-panel" id="diffContentPanel">
-                    <div class="diff-empty" id="diffEmpty" data-i18n="diff.loading">加载中...</div>
-                </div>
-            </div>
-            <div class="diff-modal-footer">
-                <div class="diff-stats" id="diffStats"></div>
-                <button class="diff-rollback-btn" id="diffRollbackBtn" data-i18n="diff.rollbackBtn">回滚此变更</button>
+                <!-- FileDiffView 挂载点（弹窗内嵌共享 diff 组件） -->
+                <div id="diffModalViewHost"></div>
             </div>
         </div>
     </div>
@@ -858,8 +873,6 @@
           'sessionHeaderTitle':      'session.title',
           'splashSkipHint':          'html.splash.skip',
           'diffModalTitle':          'diff.title',
-          'diffEmpty':               'diff.loading',
-          'diffRollbackBtn':         'diff.rollbackBtn',
           'promptModalTitle':        'promptModal.title',
           'promptModalText':         'promptModal.placeholder',
           'promptModalHint':         'promptModal.hint',

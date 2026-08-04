@@ -20,6 +20,7 @@ import { computeDiffDecorations } from './FilePreviewDiff.js'
 import { BinaryPreview, isImageFile, isPdfFile, isSpreadsheetFile, isDocxFile, isPptxFile, isBinaryFile } from './binary-preview/BinaryPreview.js'
 import { FilePreviewBrowser } from './file-preview-browser.js'
 import { FilePreviewMdPreview } from './file-preview-md.js'
+import { FileDiffView } from './FileDiffView.js'
 
 /**
  * 文本/代码文件 → CodeMirror 6 编辑器（可编辑，支持 Ctrl+S 保存）。
@@ -45,6 +46,12 @@ export class FilePreview {
     this._diffCompartment = new Compartment();
     /** @private AI 修改前的文件原始内容（用于 diff 对比） */
     this._originalContent = null;
+    /** @private Compartment 用于动态切换自动换行，避免重建编辑器 */
+    this._wrapCompartment = new Compartment();
+    /** @private 当前文件是否启用自动换行 */
+    this._wrapEnabled = false;
+    /** @private localStorage 持久化键名：文件路径 → 是否自动换行 */
+    this._WRAP_KEY = 'hippo-wrap-enabled';
 
     /** @private Map<string, number> 文件路径 → 上次滚动位置 */
     this._scrollPositions = new Map();
@@ -56,8 +63,10 @@ export class FilePreview {
     this._boundScrollHandler = null;
     /** @private 绑定的 beforeunload 回调引用，用于清理 */
     this._boundBeforeUnload = null;
-    /** @private 二进制预览类型：'image' | 'pdf' | 'spreadsheet' | 'docx' | null */
+    /** @private 二进制预览类型：'image' | 'pdf' | 'spreadsheet' | 'docx' | 'browser' | 'diff' | null */
     this._binaryViewType = null;
+    /** @private diff 视图实例（diff 标签页模式） */
+    this._diffView = null;
 
     /** @private 二进制文件预览委托实例 */
     this._binaryPreview = new BinaryPreview({
@@ -92,6 +101,8 @@ export class FilePreview {
     this._registerHtmlPreviewBtn();
     // 绑定刷新按钮
     this._registerRefreshBtn();
+    // 绑定自动换行按钮
+    this._registerWrapBtn();
     // 绑定在外部程序中打开按钮（Office 文件）
     this._registerOpenInOfficeBtn();
 
@@ -137,6 +148,7 @@ export class FilePreview {
       }
       this._updateSearchBtn();
       this._updateMdToggleBtn();
+      this._updateWrapBtn();
     });
   }
 
@@ -168,8 +180,70 @@ export class FilePreview {
     if (!btn) return;
     btn.addEventListener('click', () => {
       if (!this._currentPath) return;
+      // diff 标签页模式：重载 diff 视图，不走文件读取
+      if (this._binaryViewType === 'diff') {
+        this.reloadDiffView();
+        return;
+      }
       this.show(this._currentPath);
     });
+  }
+
+  /** @private 绑定自动换行按钮点击事件 */
+  _registerWrapBtn() {
+    const btn = document.getElementById('previewWrapBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (!this._view || !this._currentPath) return;
+      this._wrapEnabled = !this._wrapEnabled;
+      // 通过 Compartment 动态切换换行，不重建编辑器、不丢光标/滚动位置
+      this._view.dispatch({
+        effects: this._wrapCompartment.reconfigure(
+          this._wrapEnabled ? EditorView.lineWrapping : []
+        ),
+      });
+      this._setWrapPreference(this._currentPath, this._wrapEnabled);
+      this._updateWrapBtn();
+    });
+  }
+
+  /** @private 读取文件是否启用自动换行（持久化优先，默认 md 换行、其余不换行） */
+  _getWrapEnabled(filePath) {
+    if (!filePath) return false;
+    try {
+      const raw = localStorage.getItem(this._WRAP_KEY);
+      if (raw) {
+        const obj = JSON.parse(raw);
+        if (typeof obj[filePath] === 'boolean') return obj[filePath];
+      }
+    } catch (e) {
+    }
+    return this._isMarkdown(filePath);
+  }
+
+  /** @private 持久化文件换行偏好到 localStorage */
+  _setWrapPreference(filePath, enabled) {
+    if (!filePath) return;
+    try {
+      const raw = localStorage.getItem(this._WRAP_KEY);
+      const obj = raw ? JSON.parse(raw) : {};
+      obj[filePath] = enabled;
+      localStorage.setItem(this._WRAP_KEY, JSON.stringify(obj));
+    } catch (e) {
+    }
+  }
+
+  /** @private 同步换行按钮显示与激活态 */
+  _updateWrapBtn() {
+    const btn = document.getElementById('previewWrapBtn');
+    if (!btn) return;
+    // 仅文本/代码编辑器显示；二进制文件、md 预览模式、无文件时隐藏
+    if (!this._view || !this._currentPath || this._mdPreview.isPreview) {
+      btn.style.display = 'none';
+      return;
+    }
+    btn.style.display = '';
+    btn.classList.toggle('active', !!this._wrapEnabled);
   }
 
   /** @private 绑定在外部程序中打开按钮（Office 文件） */
@@ -213,6 +287,12 @@ export class FilePreview {
   }
 
   async show(filePath) {
+    // diff: 前缀 → 委托 showDiff（防御性，防止误调用）
+    if (filePath && filePath.startsWith('diff:')) {
+      this.showDiff(filePath.slice(5));
+      return;
+    }
+
     // 上游（FileTabs onBeforeSwitch）已处理脏检查弹窗，此处只清理旧 dirty 状态
     if (this._dirty) {
       this._dirty = false;
@@ -243,6 +323,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateWrapBtn();
       this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
@@ -256,6 +337,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateWrapBtn();
       this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
@@ -270,6 +352,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateWrapBtn();
       this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
@@ -283,6 +366,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateWrapBtn();
       this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
@@ -296,6 +380,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateWrapBtn();
       this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
@@ -309,6 +394,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateWrapBtn();
       this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
@@ -322,6 +408,7 @@ export class FilePreview {
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
+      this._updateWrapBtn();
       this._updateOpenInOfficeBtn();
       this._updateStatusbar(filePath);
       return;
@@ -362,6 +449,7 @@ export class FilePreview {
     this._updateSearchBtn();
     this._updateMdToggleBtn();
     this._updateRefreshBtn();
+    this._updateWrapBtn();
     this._updateOpenInOfficeBtn();
     this._updateStatusbar(filePath);
     // HTML 文件显示预览按钮
@@ -427,10 +515,51 @@ export class FilePreview {
     this._updateSearchBtn();
     this._updateMdToggleBtn();
     this._updateRefreshBtn();
+    this._updateWrapBtn();
     this._updateStatusbar(this._currentPath);
   }
 
+  /**
+   * 打开文件变更对比视图（diff 标签页模式，委托 FileDiffView）
+   * @param {string} filePath - 目标文件真实路径（不含 diff: 前缀）
+   */
+  showDiff(filePath) {
+    // 先销毁旧的 diff 视图实例（_destroyEditor 会清空容器 DOM）
+    if (this._diffView) {
+      this._diffView.destroy();
+      this._diffView = null;
+    }
+    this._destroyEditor();
+    this._binaryViewType = 'diff';
+    this._currentPath = 'diff:' + filePath;
+    this._container.dataset.currentPath = this._currentPath;
+    this._dirty = false;
+
+    this._diffView = new FileDiffView(this._container, {
+      onNetStats: () => this._updateStatusbar(this._currentPath),
+    });
+    this._diffView.load(filePath);
+
+    this._updateSearchBtn();
+    this._updateMdToggleBtn();
+    this._updateRefreshBtn();
+    this._updateWrapBtn();
+    this._updateOpenInOfficeBtn();
+    this._updateStatusbar(this._currentPath);
+  }
+
+  /** 若当前处于 diff 标签页模式，重新加载（回滚/外部变更后调用） */
+  reloadDiffView() {
+    if (this._binaryViewType === 'diff' && this._diffView) {
+      this._diffView.reload();
+    }
+  }
+
   clear() {
+    if (this._diffView) {
+      this._diffView.destroy();
+      this._diffView = null;
+    }
     this._destroyEditor();
     this._binaryViewType = null;
     this._currentPath = null;
@@ -441,6 +570,7 @@ export class FilePreview {
     delete this._container.dataset.currentPath;
     this._updateSearchBtn();
     this._updateRefreshBtn();
+    this._updateWrapBtn();
     this._updateOpenInOfficeBtn();
     this._updateStatusbar(null);
   }
@@ -576,6 +706,10 @@ export class FilePreview {
 
     const lang = this._getLanguageExtension(filePath);
     const isDark = this._isDarkTheme();
+    // 自动换行：默认 md 软换行、代码文件不换行；用户可通过工具栏按钮切换，
+    // 选择记录到 localStorage（按文件路径），下次打开同一文件自动恢复。
+    this._wrapEnabled = this._getWrapEnabled(filePath);
+    const wrapExt = this._wrapEnabled ? EditorView.lineWrapping : [];
 
     const saveKeyBinding = keymap.of([{
       key: 'Mod-s',
@@ -587,6 +721,7 @@ export class FilePreview {
       extensions: [
         basicSetup,
         lang,
+        this._wrapCompartment.of(wrapExt),
         this._themeCompartment.of(isDark ? oneDark : this._getLightTheme()),
         this._diffCompartment.of([]), // 暂不启用 diff，等 _fetchOriginalContent 完成后激活
         saveKeyBinding,
@@ -780,8 +915,8 @@ export class FilePreview {
       java,
       html, htm: html, vue: html, svelte: html,
       css, scss: sass, less: sass,
-      json,
-      md: markdown, markdown,
+      json, jsonl: json, jsonc: json, geojson: json,
+      md: markdown, markdown, mdx: markdown,
       xml, svg: xml,
       yaml, yml: yaml,
       sql,
@@ -853,6 +988,7 @@ export class FilePreview {
       <p>${this._escapeHtml(message)}</p>
     </div>`;
     this._updateSearchBtn();
+    this._updateWrapBtn();
   }
 
   /** @private 构建二进制文件占位提示 HTML */
@@ -923,6 +1059,8 @@ export class FilePreview {
       parts.push('PPTX');
     } else if (filePath.startsWith('url:')) {
       parts.push('Browser');
+    } else if (filePath.startsWith('diff:')) {
+      parts.push('Diff');
     } else if (this._binaryViewType === 'binary') {
       parts.push(filePath.split('.').pop().toUpperCase());
     } else {

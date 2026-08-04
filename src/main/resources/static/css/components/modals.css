@@ -314,6 +314,16 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: -2px -6px;
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.diff-modal-title .diff-file-path:hover {
+    color: var(--accent);
+    background: rgba(108, 168, 215, 0.12);
 }
 
 .diff-file-icon {
@@ -372,6 +382,48 @@
     display: flex;
     overflow: hidden;
     padding: 0;
+}
+
+/* FileDiffView 挂载点（弹窗 body 内） */
+.diff-modal-body > #diffModalViewHost {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+}
+
+/* ========== FileDiffView 共享组件（弹窗 + diff 标签页） ========== */
+
+.file-diff-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+/* 预览区（标签页模式）：占满 file-preview-content */
+.file-preview-content > .file-diff-view {
+    height: 100%;
+    flex: 1;
+}
+
+.diff-view-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+    min-width: 0;
+}
+
+.diff-view-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-light);
+    flex-shrink: 0;
 }
 
 .diff-timeline {
@@ -480,6 +532,28 @@
     font-weight: 600;
 }
 
+/* 整体变更置顶条目（git 式整文件对比） */
+.diff-timeline-item.overall .diff-timeline-time {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.diff-timeline-item.overall .diff-timeline-dot {
+    background: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-color-alpha, rgba(59, 130, 246, 0.2));
+}
+
+.diff-timeline-item.overall::after {
+    display: none;
+}
+
+.diff-timeline-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 6px 12px;
+}
+
 .diff-content-panel {
     flex: 1;
     overflow-y: auto;
@@ -536,6 +610,39 @@
     white-space: pre-wrap;
     word-break: break-all;
     color: var(--text-primary);
+}
+
+/* 整体视图：hunk 折叠分隔行 */
+.diff-line.diff-hunk {
+    justify-content: center;
+    padding: 2px 12px;
+    border-bottom: none;
+    background: var(--bg-code);
+}
+
+.diff-line.diff-hunk:hover {
+    background: var(--bg-code);
+}
+
+/* 可展开/收起的折叠段：光标提示 + hover 高亮 */
+.diff-line.diff-hunk.clickable {
+    cursor: pointer;
+}
+
+.diff-line.diff-hunk.clickable:hover {
+    background: var(--bg-hover, rgba(128, 128, 128, 0.12));
+}
+
+.diff-line.diff-hunk.clickable .diff-hunk-info {
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+}
+
+.diff-hunk-info {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    user-select: none;
 }
 
 .diff-line.added {

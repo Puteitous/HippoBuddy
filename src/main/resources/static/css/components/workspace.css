@@ -21,6 +21,34 @@
     position: relative;
 }
 
+/* 文件树视图头部右侧操作按钮（刷新 / 折叠全部等） */
+.session-header .session-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.session-header .file-tree-header-btn {
+    width: 24px;
+    height: 24px;
+}
+
+.session-header .file-tree-header-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* 刷新按钮点击时图标旋转反馈 */
+.session-header .file-tree-header-btn .file-tree-refresh-icon.spinning {
+    animation: file-tree-refresh-spin 0.6s ease-in-out;
+}
+
+@keyframes file-tree-refresh-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
 .file-tree-body {
     flex: 1;
     overflow-y: auto;
@@ -208,6 +236,27 @@
 
 .file-tab.web-tab.active {
     color: var(--accent);
+}
+
+/* Diff 标签（文件变更对比）特殊样式：主色区分，避免与普通文件标签混淆 */
+.file-tab.diff-tab {
+    color: var(--primary-color, var(--accent));
+}
+
+.file-tab.diff-tab.active {
+    color: var(--primary-color, var(--accent));
+    border-bottom-color: var(--primary-color, var(--accent));
+}
+
+.diff-tab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+}
+
+.diff-tab-icon svg {
+    display: block;
 }
 
 /* 深色/午夜主题：标签文字提亮 */

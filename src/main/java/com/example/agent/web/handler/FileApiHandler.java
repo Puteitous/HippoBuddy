@@ -200,6 +200,28 @@ public class FileApiHandler implements HttpHandler {
     }
 
     /**
+     * 构建整个文件的净 diff（git 式整体对比）：
+     * 取列表中最先一条 originalContent 与最后一条 newContent 做一次逐行 diff。
+     * 任一端为二进制文件（无内容可比）或列表为空时返回空列表。
+     */
+    static List<Map<String, String>> buildNetDiff(List<FileChangeTracker.FileChange> list) {
+        if (list == null || list.isEmpty()) return List.of();
+
+        FileChangeTracker.FileChange first = null;
+        FileChangeTracker.FileChange last = null;
+        for (FileChangeTracker.FileChange c : list) {
+            if (first == null || c.timestamp < first.timestamp) first = c;
+            if (last == null || c.timestamp >= last.timestamp) last = c;
+        }
+
+        if (first.binary || last.binary) return List.of();
+
+        String original = first.originalContent != null ? first.originalContent : "";
+        String modified = last.newContent != null ? last.newContent : "";
+        return diffComputer.computeDiffAsMap(original, modified);
+    }
+
+    /**
      * GET /api/files/snapshot?path=xxx — 检测自上次调用以来的外部文件变更。
      * 前端每 15 秒轮询一次；首次调用仅初始化快照并返回空列表。
      */
@@ -314,6 +336,8 @@ public class FileApiHandler implements HttpHandler {
             // 整个文件的净变化行数（最早 original vs 最新 newContent）
             int[] netStats = netDiffStats(changes);
             response.put("netStats", netStats != null ? netStats : new int[]{0, 0});
+            // 整个文件的净 diff（git 式整体对比）：最早 original vs 最新 newContent 的逐行 diff
+            response.put("netDiff", buildNetDiff(changes));
             sendJson(exchange, 200, objectMapper.writeValueAsString(response));
             return;
         }
