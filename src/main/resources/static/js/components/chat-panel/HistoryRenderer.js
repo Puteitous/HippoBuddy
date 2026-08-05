@@ -468,7 +468,8 @@ export class HistoryRenderer {
               if (item) {
                 const path = item.dataset.path;
                 filePopover.classList.remove('show');
-                import('../../utils/diff-modal.js').then(m => m.diffModalManager.show(path));
+                // 统一分流：桌面端 diff 标签页 / Web 端弹窗降级
+                window.showFileDiff(path);
               }
             });
 

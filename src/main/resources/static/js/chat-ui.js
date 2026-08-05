@@ -7,7 +7,8 @@ import { EventBus } from './utils/event-bus.js';
 import { showToast } from './utils/toast.js';
 import { ReviewState } from './utils/review-state.js';
 import { getFileIconInfo } from './utils/file-icons.js';
-import { diffModalManager } from './utils/diff-modal.js';
+// 加载 diff-modal 副作用（定义 window.showFileDiff 统一分流入口）
+import './utils/diff-modal.js';
 import { imageLightbox } from './utils/image-lightbox.js';
 import { renderToolCard as renderToolCardFn, renderToolTimelineRow as renderToolTimelineRowFn } from './components/tool-renderers/index.js';
 import { renderBashCard as renderBashCardFn } from './components/tool-renderers/bash.js';
@@ -375,7 +376,8 @@ export class ChatUI {
         const filePath = card.dataset.filePath;
         const toolCallId = card.dataset.toolCallId;
         if (filePath) {
-          diffModalManager.show(filePath, toolCallId);
+          // 统一分流：桌面端 diff 标签页 / Web 端弹窗降级
+          window.showFileDiff(filePath, toolCallId);
         }
       });
     }

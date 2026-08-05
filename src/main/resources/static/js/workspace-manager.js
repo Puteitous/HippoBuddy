@@ -603,12 +603,13 @@ tools:
     /**
      * 打开文件变更对比标签页（diff tab）
      * @param {string} filePath - 目标文件真实路径
+     * @param {string} [toolCallId] - 定位到该次变更；缺省默认展示"整体变更"
      */
-    async openFileDiff(filePath) {
+    async openFileDiff(filePath, toolCallId) {
       if (!filePath) return;
       switchView('files');
       const fileName = filePath.split(/[/\\]/).pop() || filePath;
-      await fileTabs.openDiffTab(filePath, fileName + ' ' + i18n.t('diff.tabSuffix'));
+      await fileTabs.openDiffTab(filePath, fileName + ' ' + i18n.t('diff.tabSuffix'), toolCallId);
       _saveWorkspaceSession();
     },
 
@@ -833,7 +834,10 @@ tools:
     // 检测是否为 diff 标签
     if (filePath && filePath.startsWith('diff:')) {
       const target = filePath.slice(5);
-      filePreview.showDiff(target);
+      // 从标签 dataset 取暂存的 toolCallId（工具卡片进入时精确到该次变更；无则默认整体视图）
+      const tabEl = fileTabs._tabs.get(filePath);
+      const toolCallId = tabEl ? (tabEl.dataset.toolCallId || '') : '';
+      filePreview.showDiff(target, toolCallId);
       if (els.previewPanel) {
         els.previewPanel.classList.remove('hidden');
       }

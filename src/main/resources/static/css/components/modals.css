@@ -645,6 +645,35 @@
     user-select: none;
 }
 
+/* 整体视图折叠段工具条（展开全部 / 收起全部） */
+.diff-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+    background: var(--bg-light);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.diff-toolbar-btn {
+    font-size: 11px;
+    color: var(--primary-color);
+    background: transparent;
+    border: 1px dashed var(--primary-color);
+    border-radius: 4px;
+    padding: 2px 12px;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.diff-toolbar-btn:hover {
+    background: var(--primary-color);
+    color: #fff;
+}
+
 .diff-line.added {
     background: var(--success-bg);
 }

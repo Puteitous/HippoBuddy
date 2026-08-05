@@ -522,8 +522,9 @@ export class FilePreview {
   /**
    * 打开文件变更对比视图（diff 标签页模式，委托 FileDiffView）
    * @param {string} filePath - 目标文件真实路径（不含 diff: 前缀）
+   * @param {string} [toolCallId] - 定位到该次变更；缺省默认展示"整体变更"
    */
-  showDiff(filePath) {
+  showDiff(filePath, toolCallId) {
     // 先销毁旧的 diff 视图实例（_destroyEditor 会清空容器 DOM）
     if (this._diffView) {
       this._diffView.destroy();
@@ -537,14 +538,14 @@ export class FilePreview {
 
     this._diffView = new FileDiffView(this._container, {
       onNetStats: () => this._updateStatusbar(this._currentPath),
-      // 点击"在编辑器中打开"→ 跳转到该文件的编辑 tab（桌面端）
-      onOpenInEditor: (fp) => {
+      // 点击"在编辑器中打开"→ 跳转到该文件的编辑 tab（桌面端），并定位到首个变更行
+      onOpenInEditor: (fp, line) => {
         if (window.HippoWorkspace && typeof window.HippoWorkspace.navigateToFile === 'function') {
-          window.HippoWorkspace.navigateToFile(fp);
+          window.HippoWorkspace.navigateToFile(fp, line || undefined);
         }
       },
     });
-    this._diffView.load(filePath);
+    this._diffView.load(filePath, toolCallId);
 
     this._updateSearchBtn();
     this._updateMdToggleBtn();

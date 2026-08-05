@@ -132,7 +132,9 @@ export class FileDiffView {
    * @param {Object} [options]
    * @param {Function} [options.onNetStats] - (netStats: [add, del]) 净统计回调（弹窗 header / 状态栏用）
    * @param {Function} [options.onRollback] - 回滚成功后回调（弹窗关闭 / 标签页刷新用）
-   * @param {Function} [options.onOpenInEditor] - (filePath) 点击"在编辑器中打开"回调（宿主跳转到编辑 tab）
+   * @param {Function} [options.onOpenInEditor] - (filePath, line) 点击"在编辑器中打开"回调；
+   *   line 为当前选中视图首个变更行对应的新文件行号（1-based，可能为 null 表示无法定位）。
+   *   宿主据此跳转到编辑 tab 并滚动到该行。
    */
   constructor(container, options = {}) {
     this._container = container;
@@ -174,7 +176,8 @@ export class FileDiffView {
     this._openEditorBtn = this._el.querySelector('.diff-open-editor-btn');
     this._openEditorBtn.addEventListener('click', () => {
       if (this._options.onOpenInEditor && this._currentFilePath) {
-        this._options.onOpenInEditor(this._currentFilePath);
+        // 携带当前选中视图首个变更行的新文件行号，宿主可据此滚动到对应行
+        this._options.onOpenInEditor(this._currentFilePath, this._getFirstChangeLine());
       }
     });
   }
@@ -445,6 +448,20 @@ export class FileDiffView {
       ? buildHunkSequence(data.changes)
       : data.changes.map((ch, idx) => ({ idx, type: ch.type, content: ch.content || '' }));
 
+    // 整体视图折叠段工具条：展开全部 / 收起全部（按钮带当前折叠段计数）
+    let toolbarHtml = '';
+    if (isOverall) {
+      const hunks = displaySeq.filter(it => it.type === 'hunk');
+      if (hunks.length > 0) {
+        const collapsedCount = hunks.filter(h => !this._expandedHunks.has(h.from)).length;
+        const allExpanded = collapsedCount === 0;
+        toolbarHtml = `
+          <div class="diff-toolbar">
+            <button class="diff-toolbar-btn" data-action="${allExpanded ? 'collapse' : 'expand'}">${allExpanded ? escapeHtml(this._t('diff.collapseAll')) : escapeHtml(this._t('diff.expandAll', { count: collapsedCount }))}</button>
+          </div>`;
+      }
+    }
+
     for (const item of displaySeq) {
       // hunk 折叠分隔行：未展开时跳过；已展开时渲染收起行 + 完整上下文
       if (item.type === 'hunk') {
@@ -516,13 +533,22 @@ export class FileDiffView {
       </div>`;
     }
 
-    this._contentPanel.innerHTML = `<div class="diff-content">${html}</div>`;
+    this._contentPanel.innerHTML = `<div class="diff-content">${toolbarHtml}${html}</div>`;
     this._updateStats(addedCount, removedCount);
 
     // 绑定折叠段展开/收起点击事件
     this._contentPanel.querySelectorAll('.diff-line.diff-hunk.clickable').forEach(el => {
       el.addEventListener('click', () => this._toggleHunk(parseInt(el.dataset.hunkFrom)));
     });
+
+    // 绑定"展开全部 / 收起全部"工具条按钮
+    const toolbarBtn = this._contentPanel.querySelector('.diff-toolbar-btn');
+    if (toolbarBtn) {
+      toolbarBtn.addEventListener('click', () => {
+        if (toolbarBtn.dataset.action === 'expand') this._expandAllHunks();
+        else this._collapseAllHunks();
+      });
+    }
 
     // 展开/收起重渲染时保留原滚动位置，避免跳动
     if (preserveScrollTop != null) {
@@ -559,9 +585,74 @@ export class FileDiffView {
     }
 
     // 保留当前滚动位置重渲染
+    this._rerenderPreservingScroll();
+  }
+
+  /** 展开全部折叠段（跳过超限段；无可展开段时 toast 提示） */
+  _expandAllHunks() {
+    if (!this._currentDiffData) return;
+    const seq = buildHunkSequence(this._currentDiffData.changes);
+    const hunks = seq.filter(it => it.type === 'hunk');
+    if (hunks.length === 0) return;
+    const expandable = hunks.filter(h => h.count <= HUNK_EXPAND_MAX_LINES);
+    if (expandable.length === 0) {
+      showToast(this._t('diff.hunkTooLarge'), { type: 'warning', duration: 2500 });
+      return;
+    }
+    for (const h of expandable) this._expandedHunks.add(h.from);
+    this._rerenderPreservingScroll();
+  }
+
+  /** 收起全部折叠段 */
+  _collapseAllHunks() {
+    this._expandedHunks.clear();
+    this._rerenderPreservingScroll();
+  }
+
+  /** 保留当前滚动位置重渲染当前 diff 数据（展开/收起后调用，避免跳动） */
+  _rerenderPreservingScroll() {
     const panel = this._contentPanel;
     const savedTop = panel ? panel.scrollTop : 0;
     this._renderDiff(this._currentDiffData, savedTop);
+  }
+
+  /**
+   * 计算当前选中视图首个变更行对应的新文件行号（1-based），供"在编辑器中打开"定位。
+   *
+   * 语义：编辑 tab 打开的是文件当前内容（最新版本），故一律定位到"新文件中存在的行"。
+   * - 首个变更行是 added → 直接取其新行号（该行就在新文件里）
+   * - 首个变更行是 removed → 该行在新文件中不存在，向后取紧随其后的第一个
+   *   added/same 行的新行号（删除点之后的位置）
+   * - 整个文件只剩删除（删空）→ 无行可定位，返回 null
+   *
+   * 行号口径与 `_renderDiff` 一致：新文件行号从 1 起，对 added/same 行递增、
+   * removed 行不占位；整体视图（绝对行号）与历史视图（该次变更完整 diff）同源。
+   * @returns {number|null}
+   */
+  _getFirstChangeLine() {
+    const data = this._currentDiffData;
+    if (!data || !Array.isArray(data.changes) || data.changes.length === 0) return null;
+    const changes = data.changes;
+
+    // 找到首个变更行（added/removed）下标
+    let firstIdx = -1;
+    for (let k = 0; k < changes.length; k++) {
+      if (changes[k].type === 'added' || changes[k].type === 'removed') {
+        firstIdx = k;
+        break;
+      }
+    }
+    if (firstIdx === -1) return null;
+
+    // 从 firstIdx 起找第一个"新文件中存在的行"（added/same），返回其新行号
+    let newLineNum = 1;
+    for (let k = 0; k < changes.length; k++) {
+      if (changes[k].type === 'removed') continue;
+      if (k >= firstIdx) return newLineNum;
+      newLineNum++;
+    }
+    // 仅剩删除（文件删空）→ 无法定位
+    return null;
   }
 
   /**

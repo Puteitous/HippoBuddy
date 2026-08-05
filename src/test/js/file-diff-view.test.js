@@ -144,7 +144,7 @@ describe('FileDiffView._renderWordLine', () => {
 // ── "在编辑器中打开"按钮回调 ───────────────────────────
 
 describe('FileDiffView onOpenInEditor', () => {
-  it('点击按钮触发 onOpenInEditor 回调并携带当前文件路径', async () => {
+  it('点击按钮触发 onOpenInEditor 回调并携带当前文件路径（无 diff 数据时 line 为 null）', async () => {
     const container = document.createElement('div');
     const onOpen = vi.fn();
     const view = new FileDiffView(container, { onOpenInEditor: onOpen });
@@ -154,7 +154,58 @@ describe('FileDiffView onOpenInEditor', () => {
     view._openEditorBtn.click();
 
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(onOpen).toHaveBeenCalledWith('src/app.js');
+    expect(onOpen).toHaveBeenCalledWith('src/app.js', null);
+  });
+
+  it('首个变更行为 added 时携带其新文件行号', () => {
+    const container = document.createElement('div');
+    const onOpen = vi.fn();
+    const view = new FileDiffView(container, { onOpenInEditor: onOpen });
+    view._currentFilePath = 'src/app.js';
+    // changes: same(1) → added(2) → removed，首个变更 added 的新行号 = 2
+    view._currentDiffData = {
+      overall: true,
+      changes: [
+        { type: 'same', content: 'a' },
+        { type: 'added', content: 'b' },
+        { type: 'removed', content: 'c' },
+      ],
+    };
+    view._openEditorBtn.click();
+    expect(onOpen).toHaveBeenCalledWith('src/app.js', 2);
+  });
+
+  it('首个变更行为 removed 时定位到其后第一个新文件行的行号', () => {
+    const container = document.createElement('div');
+    const onOpen = vi.fn();
+    const view = new FileDiffView(container, { onOpenInEditor: onOpen });
+    view._currentFilePath = 'src/app.js';
+    // changes: removed → same(1) → added(2)，删除点后第一行 same 的新行号 = 1
+    view._currentDiffData = {
+      overall: true,
+      changes: [
+        { type: 'removed', content: 'old' },
+        { type: 'same', content: 'keep' },
+        { type: 'added', content: 'new' },
+      ],
+    };
+    view._openEditorBtn.click();
+    expect(onOpen).toHaveBeenCalledWith('src/app.js', 1);
+  });
+
+  it('文件被删空（仅 removed 行）时 line 为 null', () => {
+    const container = document.createElement('div');
+    const onOpen = vi.fn();
+    const view = new FileDiffView(container, { onOpenInEditor: onOpen });
+    view._currentFilePath = 'src/app.js';
+    view._currentDiffData = {
+      changes: [
+        { type: 'removed', content: 'a' },
+        { type: 'removed', content: 'b' },
+      ],
+    };
+    view._openEditorBtn.click();
+    expect(onOpen).toHaveBeenCalledWith('src/app.js', null);
   });
 
   it('未提供 onOpenInEditor 时点击按钮不报错', () => {
@@ -243,5 +294,108 @@ describe('行号映射语义（oldNumAt/newNumAt 与词级索引一致）', () =
     expect(oldNumAt.get(9)).toBe(10);   // 第 10 行 same
     expect(oldNumAt.get(10)).toBe(11);  // removed = 旧文件第 11 行
     expect(newNumAt.get(11)).toBe(11);  // added = 新文件第 11 行
+  });
+});
+
+// ── 展开全部 / 收起全部 ──────────────────────────────
+
+describe('FileDiffView 展开全部 / 收起全部', () => {
+  /** 两个远距离变更块 → 产生 1 个折叠段（整体视图数据） */
+  function twoHunkData() {
+    const changes = [];
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'H' + i });
+    changes.push({ type: 'added', content: 'A1' });
+    for (let i = 0; i < 10; i++) changes.push({ type: 'same', content: 'M' + i });
+    changes.push({ type: 'added', content: 'A2' });
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'T' + i });
+    return { overall: true, changes };
+  }
+
+  it('有折叠段时渲染工具条按钮（展开全部动作）', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    view._renderDiff(twoHunkData());
+    const btn = container.querySelector('.diff-toolbar-btn');
+    expect(btn).toBeTruthy();
+    expect(btn.dataset.action).toBe('expand');
+  });
+
+  it('无折叠段时不渲染工具条', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    // 单变更块，无 hunk
+    const changes = [];
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'L' + i });
+    changes.push({ type: 'added', content: 'A' });
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'T' + i });
+    view._renderDiff({ overall: true, changes });
+    expect(container.querySelector('.diff-toolbar-btn')).toBeNull();
+  });
+
+  it('展开全部 → 收起全部闭环：状态与按钮动作切换', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    view._renderDiff(twoHunkData());
+
+    // 展开全部
+    container.querySelector('.diff-toolbar-btn').click();
+    expect(view._expandedHunks.size).toBe(1);
+    expect(container.querySelector('.diff-toolbar-btn').dataset.action).toBe('collapse');
+
+    // 收起全部
+    container.querySelector('.diff-toolbar-btn').click();
+    expect(view._expandedHunks.size).toBe(0);
+    expect(container.querySelector('.diff-toolbar-btn').dataset.action).toBe('expand');
+  });
+
+  it('全部折叠段超限时展开全部不展开并 toast 提示', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    // 两个变更块之间夹 3010 行未变化 → 折叠段 count 3004 > 3000 超限
+    const changes = [];
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'H' + i });
+    changes.push({ type: 'added', content: 'A1' });
+    for (let i = 0; i < 3010; i++) changes.push({ type: 'same', content: 'M' + i });
+    changes.push({ type: 'added', content: 'A2' });
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'T' + i });
+    view._renderDiff({ overall: true, changes });
+    view._expandAllHunks();
+    expect(view._expandedHunks.size).toBe(0); // 超限段未被展开
+  });
+
+  it('混合场景：可展开段 + 超限段 → 展开全部只展开可展开段', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    // 变更块1 → 8 行 same → 变更块2 → 3010 行 same → 变更块3
+    // hunk1（块1~块2 之间）count 2 可展开；hunk2（块2~块3 之间）count 3004 超限
+    const changes = [];
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'H' + i });
+    changes.push({ type: 'added', content: 'A1' });
+    for (let i = 0; i < 8; i++) changes.push({ type: 'same', content: 'M1_' + i });
+    changes.push({ type: 'added', content: 'A2' });
+    for (let i = 0; i < 3010; i++) changes.push({ type: 'same', content: 'M2_' + i });
+    changes.push({ type: 'added', content: 'A3' });
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'T' + i });
+    view._renderDiff({ overall: true, changes });
+    view._expandAllHunks();
+    // 只展开了可展开的 hunk1（超限的 hunk2 被跳过）
+    expect(view._expandedHunks.size).toBe(1);
+  });
+
+  it('多段时展开全部覆盖所有可展开段', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    // 三个远距离变更块 → 2 个折叠段
+    const changes = [];
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'H' + i });
+    changes.push({ type: 'added', content: 'A1' });
+    for (let i = 0; i < 10; i++) changes.push({ type: 'same', content: 'M1_' + i });
+    changes.push({ type: 'added', content: 'A2' });
+    for (let i = 0; i < 10; i++) changes.push({ type: 'same', content: 'M2_' + i });
+    changes.push({ type: 'removed', content: 'R' });
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'T' + i });
+    view._renderDiff({ overall: true, changes });
+    view._expandAllHunks();
+    expect(view._expandedHunks.size).toBe(2); // 2 个折叠段全部展开
   });
 });

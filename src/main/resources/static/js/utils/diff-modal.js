@@ -113,12 +113,12 @@ export class DiffModalManager {
       this._view = new FileDiffView(this.viewHost, {
         onNetStats: (ns) => this._updateNetStats(ns),
         onRollback: () => this.close(),
-        // 点击"在编辑器中打开"→ 关闭弹窗并跳转到该文件的编辑 tab
-        onOpenInEditor: (fp) => {
+        // 点击"在编辑器中打开"→ 关闭弹窗并跳转到该文件的编辑 tab，定位到首个变更行
+        onOpenInEditor: (fp, line) => {
           this.close();
           const ws = window.HippoWorkspace;
           if (ws && typeof ws.navigateToFile === 'function') {
-            ws.navigateToFile(fp);
+            ws.navigateToFile(fp, line || undefined);
           }
         },
       });
@@ -151,4 +151,12 @@ export class DiffModalManager {
 
 export const diffModalManager = new DiffModalManager();
 // 全局函数，供 inline onclick 使用（tool-timeline-view-btn）
-window.showFileDiff = (filePath, toolCallId) => diffModalManager.show(filePath, toolCallId);
+// 统一分流：桌面端（有工作区标签系统）→ diff 标签页；Web 端 → 弹窗降级
+window.showFileDiff = (filePath, toolCallId) => {
+  const ws = window.HippoWorkspace;
+  if (ws && ws.isAvailable && typeof ws.openFileDiff === 'function') {
+    ws.openFileDiff(filePath, toolCallId);
+  } else {
+    diffModalManager.show(filePath, toolCallId);
+  }
+};

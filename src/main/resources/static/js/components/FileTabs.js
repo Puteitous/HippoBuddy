@@ -162,14 +162,23 @@ export class FileTabs {
    * 打开（或切换到）一个文件变更对比标签页
    * @param {string} filePath - 目标文件真实路径
    * @param {string} [displayName] - 标签显示名，如 "app.js (diff)"
+   * @param {string} [toolCallId] - 定位到该次变更；缺省默认展示"整体变更"
    */
-  async openDiffTab(filePath, displayName) {
+  async openDiffTab(filePath, displayName, toolCallId) {
     const key = 'diff:' + filePath;
-    return this._openTabInternal(key, displayName || this._getDisplayName(filePath) + ' diff', false, true);
+    const existing = this._tabs.get(key);
+    if (existing) {
+      // 同文件 diff 标签已打开：更新定位参数（工具卡片再次点击携带新的 toolCallId）
+      existing.dataset.toolCallId = toolCallId || '';
+      // 即使该标签已是激活态也强制触发 _onTabSelect，让宿主重新定位到该次变更
+      await this._selectTab(key, { force: true });
+      return;
+    }
+    return this._openTabInternal(key, displayName || this._getDisplayName(filePath) + ' diff', false, true, toolCallId);
   }
 
   /** @private 内部打开 tab 逻辑 */
-  async _openTabInternal(key, displayName, isWeb, isDiff) {
+  async _openTabInternal(key, displayName, isWeb, isDiff, toolCallId) {
     const existing = this._tabs.get(key);
     if (existing) {
       await this._selectTab(key);
@@ -180,7 +189,11 @@ export class FileTabs {
     tabEl.className = 'file-tab' + (isWeb ? ' web-tab' : '') + (isDiff ? ' diff-tab' : '');
     tabEl.dataset.path = key;
     if (isWeb) tabEl.dataset.isWeb = 'true';
-    if (isDiff) tabEl.dataset.isDiff = 'true';
+    if (isDiff) {
+      tabEl.dataset.isDiff = 'true';
+      // 暂存定位参数，供 handleTabSelect 切换时按 toolCallId 重新定位
+      tabEl.dataset.toolCallId = toolCallId || '';
+    }
 
     if (isDiff) {
       // Diff 标签 — diff 风格图标（主色）
@@ -263,8 +276,9 @@ export class FileTabs {
   }
 
   /** 切换到指定 tab */
-  async _selectTab(filePath, { _internal = false } = {}) {
-    if (this._activePath === filePath) return;
+  async _selectTab(filePath, { _internal = false, force = false } = {}) {
+    // force：即使目标已是激活标签也继续（用于同文件 diff 标签重复打开时重新定位）
+    if (this._activePath === filePath && !force) return;
 
     // 切换前询问（脏检查），内部操作（如关闭 tab 后的自动切换）跳过
     if (!_internal && this._onBeforeSwitch && this._activePath) {
