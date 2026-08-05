@@ -82,7 +82,7 @@ const HippoWorkspace = (() => {
     onTabClose: handleTabClose,
     onBeforeSwitch: async (fromPath, toPath) => {
       if (filePreview.isDirty && filePreview.currentPath === fromPath) {
-        const name = fromPath.split('/').pop() || fromPath;
+        const name = fromPath.split(/[/\\]/).pop() || fromPath;
         const result = await ConfirmDialog.saveDiscardCancel(i18n.t('workspace.unsavedSingle', { name }));
         if (result === 'save') {
           await filePreview.save();
@@ -94,7 +94,7 @@ const HippoWorkspace = (() => {
     },
     onBeforeClose: async (filePath) => {
       if (filePreview.isDirty && filePreview.currentPath === filePath) {
-        const name = filePath.split('/').pop() || filePath;
+        const name = filePath.split(/[/\\]/).pop() || filePath;
         const result = await ConfirmDialog.closeConfirm(i18n.t('workspace.unsavedSingle', { name }));
         if (result === 'save') {
           await filePreview.save();
@@ -227,13 +227,13 @@ const HippoWorkspace = (() => {
     fileTabs._onTabSelect = () => {};
 
     for (const filePath of files) {
-      const displayName = filePath.split('/').pop() || filePath;
+      const displayName = filePath.split(/[/\\]/).pop() || filePath;
       if (filePath.startsWith('url:')) {
         const url = filePath.slice(4);
         await fileTabs.openWebTab(url, displayName);
       } else if (filePath.startsWith('diff:')) {
         const target = filePath.slice(5);
-        const diffName = (target.split('/').pop() || target) + ' ' + i18n.t('diff.tabSuffix');
+        const diffName = (target.split(/[/\\]/).pop() || target) + ' ' + i18n.t('diff.tabSuffix');
         await fileTabs.openDiffTab(target, diffName);
       } else {
         await fileTabs.openTab(filePath, displayName);
@@ -250,12 +250,16 @@ const HippoWorkspace = (() => {
     // 恢复回调（放在 _selectTab 之后，防止切换时误触 handleTabSelect 清除折叠状态）
     fileTabs._onTabSelect = savedCallback;
 
-    // 显式触发预览（_selectTab 在目标已是 activePath 时会提前返回，不触发回调）
+    // 显式触发预览（_selectTab 在目标已是 activePath 时会提前返回，不触发回调）。
+    // 必须走 handleTabSelect 完整分流：恢复的 diff/url 标签与正常切换一致——
+    // diff 标签隐藏 toolbar、显示相对路径面包屑、保留可点击样式；
+    // 若直接调 showPreview(target)，diff: 前缀会被当普通文件处理，
+    // 导致 toolbar 错误显示、面包屑错乱（刷新后复现）。
     const target = session.activeFile && files.includes(session.activeFile)
       ? session.activeFile
       : files[files.length - 1];
     fileTree.setActiveFile(target);
-    showPreview(target);
+    await handleTabSelect(target);
 
     // 预览面板刚刚变为可见，重新滚动标签到激活标签位置
     // （之前的 _scrollTabIntoView 因面板 display:none 而无效）
@@ -646,6 +650,9 @@ tools:
         absPath = _currentRoot ? _currentRoot + '/' + absPath : absPath;
       }
       if (!absPath) return;
+      // 统一为 / 分隔（面包屑相对路径计算 / fileTree.revealFile 均依赖正斜杠，
+      // 与 revealFileInTree 同口径，避免 Windows 反斜杠绝对路径导致 startsWith 匹配失败）
+      absPath = absPath.replace(/\\/g, '/');
 
       // 检测路径是否为目录
       try {
@@ -799,7 +806,7 @@ tools:
   async function handleFileSelect(filePath) {
     // 用户主动点击文件，清除折叠状态，恢复预览显示
     localStorage.removeItem('hippo-preview-collapsed');
-    const displayName = filePath.split('/').pop() || filePath;
+    const displayName = filePath.split(/[/\\]/).pop() || filePath;
     await fileTabs.openTab(filePath, displayName);
     await fileTree.revealFile(filePath);
     // 注意：openTab → _selectTab → handleTabSelect 内部已调用 showPreview，
@@ -842,7 +849,12 @@ tools:
         els.previewPanel.classList.remove('hidden');
       }
       if (els.previewPath) {
-        els.previewPath.textContent = i18n.t('diff.overall') + ' · ' + target;
+        // 相对工作区根目录显示，与普通文件标签的面包屑同口径（避免显示完整绝对路径）
+        const normalized = target.replace(/\\/g, '/');
+        const rel = _currentRoot && normalized.startsWith(_currentRoot)
+          ? normalized.slice(_currentRoot.length + 1)
+          : normalized;
+        els.previewPath.textContent = i18n.t('diff.overall') + ' · ' + rel;
         els.previewPath.title = i18n.t('diff.openInEditorTip') + ' ' + target;
         els.previewPath.classList.add('preview-path-clickable');
       }
@@ -1064,7 +1076,7 @@ tools:
       const p = (c.path || '').replace(/\\/g, '/').toLowerCase();
       if (p !== current) continue;
       if (filePreview.isDirty) {
-        const name = filePreview.currentPath.split('/').pop() || filePreview.currentPath;
+        const name = filePreview.currentPath.split(/[/\\]/).pop() || filePreview.currentPath;
         showToast(i18n.t('workspace.externalChangedDirty', { name }), { type: 'warning', duration: 4000 });
       } else {
         filePreview.reload();

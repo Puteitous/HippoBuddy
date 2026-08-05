@@ -158,7 +158,7 @@ export class FilePreview {
     if (!btn) return;
     btn.addEventListener('click', async () => {
       if (!this._currentPath) return;
-      const displayName = this._currentPath.split('/').pop() || '预览';
+      const displayName = this._currentPath.split(/[/\\]/).pop() || '预览';
       console.debug('[HTML预览] 点击预览按钮, path:', this._currentPath);
       // 桌面端：直接用 file:// 协议在系统浏览器中打开，浏览器会以文件所在目录为基准
       // 解析相对路径（<script src="app.js"> → file:///F:/test/calculator/app.js），

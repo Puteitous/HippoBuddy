@@ -533,7 +533,7 @@ export class FileDiffView {
       </div>`;
     }
 
-    this._contentPanel.innerHTML = `<div class="diff-content">${toolbarHtml}${html}</div>`;
+    this._contentPanel.innerHTML = `<div class="diff-content${toolbarHtml ? ' has-toolbar' : ''}">${toolbarHtml}${html}</div>`;
     this._updateStats(addedCount, removedCount);
 
     // 绑定折叠段展开/收起点击事件
