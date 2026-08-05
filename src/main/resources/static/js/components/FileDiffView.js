@@ -132,6 +132,7 @@ export class FileDiffView {
    * @param {Object} [options]
    * @param {Function} [options.onNetStats] - (netStats: [add, del]) 净统计回调（弹窗 header / 状态栏用）
    * @param {Function} [options.onRollback] - 回滚成功后回调（弹窗关闭 / 标签页刷新用）
+   * @param {Function} [options.onOpenInEditor] - (filePath) 点击"在编辑器中打开"回调（宿主跳转到编辑 tab）
    */
   constructor(container, options = {}) {
     this._container = container;
@@ -159,6 +160,7 @@ export class FileDiffView {
       </div>
       <div class="diff-view-footer">
         <div class="diff-stats"></div>
+        <button class="diff-open-editor-btn">${window.i18n ? window.i18n.t('diff.openInEditor') : '在编辑器中打开'}</button>
         <button class="diff-rollback-btn">${window.i18n ? window.i18n.t('diff.rollbackBtn') : '回滚此变更'}</button>
       </div>
     `;
@@ -169,6 +171,12 @@ export class FileDiffView {
     this._statsEl = this._el.querySelector('.diff-stats');
     this._rollbackBtn = this._el.querySelector('.diff-rollback-btn');
     this._rollbackBtn.addEventListener('click', () => this._rollbackCurrentFile());
+    this._openEditorBtn = this._el.querySelector('.diff-open-editor-btn');
+    this._openEditorBtn.addEventListener('click', () => {
+      if (this._options.onOpenInEditor && this._currentFilePath) {
+        this._options.onOpenInEditor(this._currentFilePath);
+      }
+    });
   }
 
   get filePath() { return this._currentFilePath; }
@@ -202,6 +210,7 @@ export class FileDiffView {
 
       this._allChanges = data.allChanges || [];
       this._netDiff = data.netDiff || null;
+      this._netWordDiff = data.netWordDiff || null;
 
       // 净统计回调（弹窗 header / 标签页状态栏）
       if (this._options.onNetStats) {
@@ -362,7 +371,8 @@ export class FileDiffView {
       const netData = {
         changes: this._netDiff || [],
         binary: false,
-        overall: true
+        overall: true,
+        wordDiff: this._netWordDiff || null
       };
       this._renderDiff(netData);
       return;
@@ -408,6 +418,9 @@ export class FileDiffView {
     let oldLineNum = 1;
 
     const isOverall = !!data.overall;
+
+    // 词级 diff（行内精确变更）：{old: [...], new: [...]}，按行号索引
+    const wordDiff = data.wordDiff || null;
 
     // 整块高亮后按行切分（对原始 changes 序列高亮，hunk 折叠项不参与）
     const highlightedLines = this._highlightDiffLines(data.changes);
@@ -466,20 +479,35 @@ export class FileDiffView {
       if (type === 'added') addedCount++;
       if (type === 'removed') removedCount++;
 
-      // 高亮失败或长度不匹配时回退纯文本
-      const contentHtml = (highlightedLines && item.idx < highlightedLines.length)
-        ? highlightedLines[item.idx]
-        : escapeHtml(content);
-
       // 行号：整体视图查表（绝对行号）；历史视图递增计数（该次变更的完整 diff 从 1 开始）
       let numHtml;
+      let lineNoForWord; // removed 用旧行号 / added 用新行号，供词级标记索引
       if (isOverall && newNumAt) {
         numHtml = type === 'removed' ? oldNumAt.get(item.idx) : newNumAt.get(item.idx);
+        lineNoForWord = numHtml;
       } else {
         numHtml = type === 'removed' ? oldLineNum : newLineNum;
+        lineNoForWord = numHtml;
         if (type !== 'added') oldLineNum++;
         if (type !== 'removed') newLineNum++;
       }
+
+      // 词级标记（行内精确变更）：按行号索引 wordDiff 对应行。
+      // removed 行查 wordDiff.old[旧行号-1]，added 行查 wordDiff.new[新行号-1]；
+      // 该行存在 delete/insert 词时才做词级渲染，否则回退整行高亮/纯文本。
+      let wordTokens = null;
+      if (type !== 'same' && wordDiff) {
+        const lines = type === 'removed' ? wordDiff.old : wordDiff.new;
+        const toks = lines && Array.isArray(lines) ? lines[lineNoForWord - 1] : null;
+        if (toks && toks.some(t => (type === 'removed' ? t.type === 'delete' : t.type === 'insert'))) {
+          wordTokens = toks;
+        }
+      }
+
+      // 词级优先；否则高亮失败或长度不匹配时回退纯文本
+      const contentHtml = wordTokens
+        ? this._renderWordLine(wordTokens, type)
+        : ((highlightedLines && item.idx < highlightedLines.length) ? highlightedLines[item.idx] : escapeHtml(content));
 
       html += `<div class="diff-line ${type}">
         <span class="diff-line-num">${numHtml}</span>
@@ -534,6 +562,27 @@ export class FileDiffView {
     const panel = this._contentPanel;
     const savedTop = panel ? panel.scrollTop : 0;
     this._renderDiff(this._currentDiffData, savedTop);
+  }
+
+  /**
+   * 渲染词级标记行：把词 token 序列转为 HTML。
+   * removed 行中 delete 词包 <del>，added 行中 insert 词包 <ins>，其余原样输出。
+   * @param {Array<{type: string, value: string}>} tokens
+   * @param {'removed'|'added'} lineType
+   */
+  _renderWordLine(tokens, lineType) {
+    let html = '';
+    for (const t of tokens || []) {
+      const v = escapeHtml(t.value != null ? t.value : '');
+      if (lineType === 'removed' && t.type === 'delete') {
+        html += `<del class="diff-word-del">${v}</del>`;
+      } else if (lineType === 'added' && t.type === 'insert') {
+        html += `<ins class="diff-word-ins">${v}</ins>`;
+      } else {
+        html += v;
+      }
+    }
+    return html;
   }
 
   /**
@@ -648,3 +697,6 @@ export class FileDiffView {
     }
   }
 }
+
+// 导出纯函数供单元测试（vitest）复用；对运行时无影响
+export { buildHunkSequence, splitHighlightedLines, DIFF_CONTEXT_LINES, HUNK_EXPAND_MAX_LINES };

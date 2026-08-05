@@ -661,6 +661,21 @@
     color: var(--error-text);
 }
 
+/* 词级 diff 标记（行内精确变更）：删除词 / 新增词 */
+.diff-line.removed .diff-line-content del.diff-word-del {
+    background: var(--diff-word-del-bg);
+    border-radius: 2px;
+    text-decoration: line-through;
+    color: var(--error-text);
+}
+
+.diff-line.added .diff-line-content ins.diff-word-ins {
+    background: var(--diff-word-ins-bg);
+    border-radius: 2px;
+    text-decoration: none;
+    color: var(--success-text);
+}
+
 .diff-modal-footer {
     padding: 12px 20px;
     border-top: 1px solid var(--border-color);
@@ -710,6 +725,26 @@
 .diff-rollback-btn.rolling {
     opacity: 0.5;
     pointer-events: none;
+}
+
+/* "在编辑器中打开"按钮（常规操作，非破坏性） */
+.diff-open-editor-btn {
+    margin-left: 16px;
+    padding: 6px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-white);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.diff-open-editor-btn:hover {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    background: var(--bg-hover);
 }
 
 .diff-empty {

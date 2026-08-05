@@ -222,6 +222,29 @@ public class FileApiHandler implements HttpHandler {
     }
 
     /**
+     * 构建整个文件的净词级 diff（整体视图的行内精确变更标记）：
+     * 与 {@link #buildNetDiff} 同口径（最早 original vs 最新 newContent），
+     * 返回按行组织的 {old, new} 词标记结构，供前端按行号直接索引。
+     * 任一端为二进制文件（无内容可比）或列表为空时返回空结构。
+     */
+    static Map<String, Object> buildNetWordDiff(List<FileChangeTracker.FileChange> list) {
+        if (list == null || list.isEmpty()) return Map.of("old", List.of(), "new", List.of());
+
+        FileChangeTracker.FileChange first = null;
+        FileChangeTracker.FileChange last = null;
+        for (FileChangeTracker.FileChange c : list) {
+            if (first == null || c.timestamp < first.timestamp) first = c;
+            if (last == null || c.timestamp >= last.timestamp) last = c;
+        }
+
+        if (first.binary || last.binary) return Map.of("old", List.of(), "new", List.of());
+
+        String original = first.originalContent != null ? first.originalContent : "";
+        String modified = last.newContent != null ? last.newContent : "";
+        return diffComputer.computeWordDiffLines(original, modified);
+    }
+
+    /**
      * GET /api/files/snapshot?path=xxx — 检测自上次调用以来的外部文件变更。
      * 前端每 15 秒轮询一次；首次调用仅初始化快照并返回空列表。
      */
@@ -317,7 +340,7 @@ public class FileApiHandler implements HttpHandler {
                     String original = c.originalContent != null ? c.originalContent : "";
                     String modified = c.newContent != null ? c.newContent : "";
                     changeItem.put("changes", buildDiffList(original, modified));
-                    changeItem.put("wordDiff", buildWordDiffList(original, modified));
+                    changeItem.put("wordDiff", buildWordDiffLines(original, modified));
                 }
                 if (toolCallId != null && !toolCallId.isEmpty() && toolCallId.equals(c.toolCallId)) {
                     targetIndex = ci;
@@ -338,6 +361,8 @@ public class FileApiHandler implements HttpHandler {
             response.put("netStats", netStats != null ? netStats : new int[]{0, 0});
             // 整个文件的净 diff（git 式整体对比）：最早 original vs 最新 newContent 的逐行 diff
             response.put("netDiff", buildNetDiff(changes));
+            // 整个文件的净词级 diff（整体视图行内精确变更标记）：与 netDiff 同口径
+            response.put("netWordDiff", buildNetWordDiff(changes));
             sendJson(exchange, 200, objectMapper.writeValueAsString(response));
             return;
         }
@@ -358,7 +383,7 @@ public class FileApiHandler implements HttpHandler {
             String original = targetChange.originalContent != null ? targetChange.originalContent : "";
             String modified = targetChange.newContent != null ? targetChange.newContent : "";
             response.put("changes", buildDiffList(original, modified));
-            response.put("wordDiff", buildWordDiffList(original, modified));
+            response.put("wordDiff", buildWordDiffLines(original, modified));
         }
 
         sendJson(exchange, 200, objectMapper.writeValueAsString(response));
@@ -368,8 +393,13 @@ public class FileApiHandler implements HttpHandler {
         return diffComputer.computeDiffAsMap(original, modified);
     }
 
-    private static List<Map<String, Object>> buildWordDiffList(String original, String modified) {
-        return diffComputer.computeWordDiff(original, modified);
+    /**
+     * 单次变更的词级 diff（行内精确变更标记）：
+     * 返回按行组织的 {old, new} 词标记结构（type ∈ equal/delete / equal/insert），
+     * 前端按已算好的行号（removed 旧行号 / added 新行号）直接索引。
+     */
+    private static Map<String, Object> buildWordDiffLines(String original, String modified) {
+        return diffComputer.computeWordDiffLines(original, modified);
     }
 
     private void handleRollback(HttpExchange exchange) throws IOException {

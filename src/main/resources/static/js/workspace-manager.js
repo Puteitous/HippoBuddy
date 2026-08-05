@@ -774,6 +774,15 @@ tools:
   // ========== 面包屑路径段点击导航 ==========
   if (els.previewPath) {
     els.previewPath.addEventListener('click', (e) => {
+      // diff 模式：点击面包屑（整体变更 · <path>）→ 跳转到该文件的编辑 tab
+      const cp = filePreview.currentPath || '';
+      if (cp.startsWith('diff:')) {
+        const target = cp.slice(5);
+        if (target) {
+          HippoWorkspace.navigateToFile(target);
+        }
+        return;
+      }
       const segment = e.target.closest('.path-segment');
       if (!segment) return;
       const dirPath = segment.dataset.path;
@@ -812,6 +821,7 @@ tools:
       if (els.previewPath) {
         els.previewPath.textContent = url;
         els.previewPath.title = url;
+        els.previewPath.classList.remove('preview-path-clickable');
       }
       if (els.previewToolbar) {
         els.previewToolbar.style.display = 'none';
@@ -829,7 +839,8 @@ tools:
       }
       if (els.previewPath) {
         els.previewPath.textContent = i18n.t('diff.overall') + ' · ' + target;
-        els.previewPath.title = target;
+        els.previewPath.title = i18n.t('diff.openInEditorTip') + ' ' + target;
+        els.previewPath.classList.add('preview-path-clickable');
       }
       if (els.previewToolbar) {
         els.previewToolbar.style.display = 'none';
@@ -860,6 +871,8 @@ tools:
     }
     filePreview.show(filePath);
     if (els.previewPath) {
+      // 非 diff 模式：移除可点击样式（避免从 diff 标签切换回来残留）
+      els.previewPath.classList.remove('preview-path-clickable');
       // 显示相对于工作区根目录的路径，IDE 面包屑风格 (xx > xx > xx)
       const relativePath = _currentRoot && filePath.startsWith(_currentRoot)
         ? filePath.slice(_currentRoot.length + 1)

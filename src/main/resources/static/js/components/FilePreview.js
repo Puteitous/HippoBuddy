@@ -537,6 +537,12 @@ export class FilePreview {
 
     this._diffView = new FileDiffView(this._container, {
       onNetStats: () => this._updateStatusbar(this._currentPath),
+      // 点击"在编辑器中打开"→ 跳转到该文件的编辑 tab（桌面端）
+      onOpenInEditor: (fp) => {
+        if (window.HippoWorkspace && typeof window.HippoWorkspace.navigateToFile === 'function') {
+          window.HippoWorkspace.navigateToFile(fp);
+        }
+      },
     });
     this._diffView.load(filePath);
 

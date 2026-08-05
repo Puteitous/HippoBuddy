@@ -385,6 +385,21 @@
     background: var(--bg-hover, rgba(128,128,128,0.1));
 }
 
+/* diff 模式面包屑（整体变更 · <path>）：整体可点击跳转编辑 tab */
+.file-preview-path.preview-path-clickable {
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-radius: 3px;
+    padding: 0 2px;
+    transition: color 0.15s, background 0.15s;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+}
+.file-preview-path.preview-path-clickable:hover {
+    color: var(--primary-color);
+    background: var(--bg-hover, rgba(128,128,128,0.1));
+}
+
 .file-preview-content {
     flex: 1;
     min-height: 0;

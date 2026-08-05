@@ -335,6 +335,8 @@
     'diff.hunkCollapseTip':        { zh: '点击收起上下文', en: 'Click to collapse' },
     'diff.hunkTooLarge':           { zh: '该段上下文过长，无法展开', en: 'Context too large to expand' },
     'diff.tabSuffix':              { zh: '(diff)', en: '(diff)' },
+    'diff.openInEditor':           { zh: '在编辑器中打开', en: 'Open in Editor' },
+    'diff.openInEditorTip':        { zh: '在编辑器中打开：', en: 'Open in editor: ' },
     'diff.revealInTreeTip':        { zh: '在文件树中显示', en: 'Reveal in File Tree' },
     'diff.revealNoWorkspace':      { zh: '请先打开工作区，才能在文件树中定位该文件', en: 'Open a workspace first to reveal this file in the tree' },
     'diff.netStatsTip':            { zh: '该文件累计净变化行数', en: 'Net changes of this file' },

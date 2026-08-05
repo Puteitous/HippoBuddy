@@ -152,6 +152,67 @@ public class DiffComputer {
         return result;
     }
 
+    /**
+     * 词级 diff 按行组织（供前端行内精确变更标记）。
+     * <p>
+     * 返回 {@code {old: [...], new: [...]}}：
+     * <ul>
+     *   <li>{@code old[i]}：旧文件第 i+1 行的词标记序列，type ∈ {equal, delete}，
+     *       delete 词表示该行中被删掉的词（供 removed 行渲染删除标记）</li>
+     *   <li>{@code new[i]}：新文件第 i+1 行的词标记序列，type ∈ {equal, insert}，
+     *       insert 词表示该行中新插入的词（供 added 行渲染新增标记）</li>
+     * </ul>
+     * 前端已持有每行精确行号（removed 用旧行号、added 用新行号），直接按行号索引，
+     * 无需再做词序列 → 行的对齐，杜绝行级 diff 与词级 diff 对不上的问题。
+     */
+    public Map<String, Object> computeWordDiffLines(String original, String modified) {
+        List<Map<String, Object>> flat = computeWordDiff(original, modified);
+
+        List<List<Map<String, Object>>> oldLines = new ArrayList<>();
+        List<List<Map<String, Object>>> newLines = new ArrayList<>();
+        List<Map<String, Object>> curOld = new ArrayList<>();
+        List<Map<String, Object>> curNew = new ArrayList<>();
+
+        for (Map<String, Object> item : flat) {
+            String type = (String) item.get("type");
+            String value = item.get("value") != null ? (String) item.get("value") : "";
+            // value 可能包含换行（词级切分把 \n 作为独立 token，也可能出现在边界）
+            String[] parts = value.split("\n", -1);
+            for (int p = 0; p < parts.length; p++) {
+                String part = parts[p];
+                if (!part.isEmpty()) {
+                    // old 侧只含 equal 与 delete（insert 属于新文本）
+                    if (!"insert".equals(type)) {
+                        curOld.add(Map.of("type", "equal".equals(type) ? "equal" : "delete", "value", part));
+                    }
+                    // new 侧只含 equal 与 insert（delete 属于旧文本）
+                    if (!"delete".equals(type)) {
+                        curNew.add(Map.of("type", "equal".equals(type) ? "equal" : "insert", "value", part));
+                    }
+                }
+                // 换行符（非最后一段）→ 结束当前行
+                if (p < parts.length - 1) {
+                    oldLines.add(curOld);
+                    curOld = new ArrayList<>();
+                    newLines.add(curNew);
+                    curNew = new ArrayList<>();
+                }
+            }
+        }
+        // 文本以换行结尾时，末尾 \n 后会产生一个空行占位；与 splitLines 的行号语义对齐：
+        // 末尾两侧都为空的行不保留（空文本 → 0 行，末尾换行 → 不产生多余行）。
+        // 中间"单侧空行"（如删整行时 new 侧）无害且保留，前端只按真实变更行号索引。
+        if (!curOld.isEmpty() || !curNew.isEmpty()) {
+            oldLines.add(curOld);
+            newLines.add(curNew);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("old", oldLines);
+        result.put("new", newLines);
+        return result;
+    }
+
     public int[] countDiffStats(String original, String modified) {
         // 复用 splitLines：空文本视为 0 行，去掉末尾 \n 的尾空串，
         // 避免 split("\n", -1) 把空串误算成 1 行导致统计失真
