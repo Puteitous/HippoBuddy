@@ -16,11 +16,12 @@ import { EditorView, keymap, EditorState, Compartment, basicSetup, oneDark, vsCo
   rust, php, go, sass } from '../vendor/codemirror.js'
 import { SearchPanel } from './search-panel.js'
 import { renderMarkdown } from '../markdown-renderer.js'
-import { computeDiffDecorations } from './FilePreviewDiff.js'
+import { computeDiffInfo, buildDiffGutter, computeOverviewMarkers } from './FilePreviewDiff.js'
 import { BinaryPreview, isImageFile, isPdfFile, isSpreadsheetFile, isDocxFile, isPptxFile, isBinaryFile } from './binary-preview/BinaryPreview.js'
 import { FilePreviewBrowser } from './file-preview-browser.js'
 import { FilePreviewMdPreview } from './file-preview-md.js'
 import { FileDiffView } from './FileDiffView.js'
+import { appState } from '../state/app-state.js'
 
 /**
  * 文本/代码文件 → CodeMirror 6 编辑器（可编辑，支持 Ctrl+S 保存）。
@@ -46,6 +47,14 @@ export class FilePreview {
     this._diffCompartment = new Compartment();
     /** @private AI 修改前的文件原始内容（用于 diff 对比） */
     this._originalContent = null;
+    /** @private 编辑后 diff 标记重算的防抖定时器句柄 */
+    this._diffRefreshTimer = null;
+    /** @private 当前文档的 diff 行信息（Map<行号, {type, origText}>，供 gutter 竖条 / 滚动条色带使用） */
+    this._diffLineInfo = null;
+    /** @private 滚动条整文色带容器（VS Code 式 overview，挂在 .cm-editor 下） */
+    this._diffOverviewEl = null;
+    /** @private 色带尺寸监听（ResizeObserver，观察 scrollDOM 尺寸变化） */
+    this._diffOverviewRO = null;
     /** @private Compartment 用于动态切换自动换行，避免重建编辑器 */
     this._wrapCompartment = new Compartment();
     /** @private 当前文件是否启用自动换行 */
@@ -202,6 +211,9 @@ export class FilePreview {
           this._wrapEnabled ? EditorView.lineWrapping : []
         ),
       });
+      // 自动换行改变行高/文档高度：滚动条色带需按新比例重绘
+      // （wrap 只改 scrollHeight 不触发 ResizeObserver，需主动刷新）
+      this._renderDiffOverview();
       this._setWrapPreference(this._currentPath, this._wrapEnabled);
       this._updateWrapBtn();
     });
@@ -487,6 +499,8 @@ export class FilePreview {
       this._content = content;
       this._dirty = false;
       this._originalContent = null; // 保存后清空原始内容基准，diff 标记自动清除
+      this._diffLineInfo = null; // 同步清空行信息，gutter / 色带标记不再生效
+      this._removeDiffOverview(); // 同步移除滚动条色带（保存 = 接受内容，标记使命完成）
       this._onDirtyChange(this._currentPath, false);
       this._updateSearchBtn();
       // 重新配置 diff 扩展为空（清除 gutter 标记和行背景色）
@@ -621,7 +635,10 @@ export class FilePreview {
     // 记录发起请求时的 sessionGen，回调时对比防止 stale 覆盖
     const gen = this._sessionGen || 0;
     try {
-      const resp = await fetch(`/api/diff/original?path=${encodeURIComponent(filePath)}`);
+      // 携带当前会话 ID：后端按会话过滤，只显示"这一轮会话"里 AI 对该文件的改动。
+      // 刷新/重启后恢复同一会话 → 基线仍可查到，标记重新出现（保存仍清空基线）。
+      const sid = (appState && appState.currentSessionId) || '';
+      const resp = await fetch(`/api/diff/original?path=${encodeURIComponent(filePath)}&sessionId=${encodeURIComponent(sid)}`);
       if (!resp.ok) {
         return;
       }
@@ -645,17 +662,132 @@ export class FilePreview {
   }
 
   /**
+   * 编辑后防抖重算 diff 标记，保持标记与当前文档同步。
+   * 仅当存在 AI 基线（_originalContent）时生效——保存后基线清空，不再重算，
+   * 符合"保存 = 接受内容，标记使命完成"的语义。
+   * 防抖合并连续输入（如快速打字/粘贴），避免每次击键触发全量 Myers 重算。
+   */
+  _scheduleDiffRefresh() {
+    if (!this._view || this._originalContent == null) return;
+    if (this._diffRefreshTimer) clearTimeout(this._diffRefreshTimer);
+    this._diffRefreshTimer = setTimeout(() => {
+      this._diffRefreshTimer = null;
+      this._refreshDiffDecorations();
+    }, 300);
+  }
+
+  /**
    * @private 使用当前的 _originalContent 重新计算并注入 diff decorations
+   * 同时缓存行变更信息（_diffLineInfo）供 gutter 竖条 / 滚动条色带使用。
    * 可安全地多次调用，仅当 _view 和 _originalContent 都存在时生效
    */
   _refreshDiffDecorations() {
     if (!this._view || this._originalContent == null) return;
-    const decoSet = computeDiffDecorations(this._view.state.doc, this._originalContent);
+    const { decoSet, lineInfo } = computeDiffInfo(this._view.state.doc, this._originalContent);
+    this._diffLineInfo = lineInfo;
+    // 同时注入：整行淡背景（decoSet）+ 行号旁 gutter 竖条（IDE 式，绿=新增/蓝=修改）
     this._view.dispatch({
-      effects: this._diffCompartment.reconfigure(
-        EditorView.decorations.of(decoSet)
-      ),
+      effects: this._diffCompartment.reconfigure([
+        EditorView.decorations.of(decoSet),
+        ...buildDiffGutter(lineInfo),
+      ]),
     });
+    // 滚动条整文色带与 gutter 同源（同一份 lineInfo），一并刷新
+    this._renderDiffOverview();
+  }
+
+  // ==================== 滚动条整文色带（VS Code 式 overview） ====================
+
+  /**
+   * 渲染滚动条旁的全文件改动分布色带。
+   * 数据复用 _diffLineInfo（与 gutter 同源），映射到 .cm-editor 右侧色带。
+   * 色块位置用"文档绝对坐标 × 比例"映射（computeOverviewMarkers），与滚动无关——
+   * 滚动时零重算；仅数据变化（_refreshDiffDecorations）或尺寸变化（ResizeObserver）时重绘。
+   */
+  _renderDiffOverview() {
+    if (!this._view || !this._diffLineInfo || this._diffLineInfo.size === 0 || this._originalContent == null) {
+      this._removeDiffOverview();
+      return;
+    }
+    const scrollDOM = this._view.scrollDOM;
+    const docHeight = scrollDOM.scrollHeight;
+    const stripHeight = scrollDOM.clientHeight;
+    if (!(docHeight > 0) || !(stripHeight > 0)) return;
+
+    // 收集变更行的文档像素范围（lineBlockAt 精确反映行高，含自动换行后的多行块）
+    // deleted 是删除锚点（删除的行不在当前文档）：压缩为固定短块，表达"这一带被删过"，
+    //   与 added/modified 的"实有行"形态区分；空文档（全删）时映射到色带顶部
+    const lineBlocks = [];
+    const DELETED_BLOCK_HEIGHT = 2;
+    for (const [lineNum, info] of this._diffLineInfo) {
+      if (info.type === 'deleted') {
+        const anchorLine = Math.min(lineNum, this._view.state.doc.lines);
+        let top = 0;
+        if (anchorLine >= 1) {
+          const block = this._view.lineBlockAt(this._view.state.doc.line(anchorLine).from);
+          if (block) top = block.top;
+        }
+        lineBlocks.push({ top, bottom: top + DELETED_BLOCK_HEIGHT, type: 'deleted' });
+        continue;
+      }
+      const block = this._view.lineBlockAt(this._view.state.doc.line(lineNum).from);
+      if (!block) continue;
+      lineBlocks.push({ top: block.top, bottom: block.bottom, type: info.type });
+    }
+    if (lineBlocks.length === 0) {
+      this._removeDiffOverview();
+      return;
+    }
+
+    const markers = computeOverviewMarkers(lineBlocks, docHeight, stripHeight);
+
+    // 惰性创建容器：挂到 .cm-editor（CM6 baseTheme 保证 position:relative）下，
+    // 作为 scrollDOM 的兄弟节点，absolute 定位不随内容滚动
+    if (!this._diffOverviewEl) {
+      const el = document.createElement('div');
+      el.className = 'cm-diff-overview';
+      this._view.dom.appendChild(el);
+      this._diffOverviewEl = el;
+    }
+    const host = this._diffOverviewEl;
+    host.textContent = '';
+    for (const m of markers) {
+      const seg = document.createElement('div');
+      seg.className = `cm-diff-overview-marker ${m.type}`;
+      seg.style.top = m.top + 'px';
+      seg.style.height = m.height + 'px';
+      host.appendChild(seg);
+    }
+  }
+
+  /** 移除滚动条色带容器 */
+  _removeDiffOverview() {
+    if (this._diffOverviewEl) {
+      this._diffOverviewEl.remove();
+      this._diffOverviewEl = null;
+    }
+  }
+
+  /**
+   * 启动色带尺寸监听：scrollDOM 尺寸变化（窗口 resize / 面板开合）时重算比例。
+   * 自动换行切换只改变 scrollHeight 不改变 clientHeight，不触发 RO，
+   * 由 _registerWrapBtn 主动调用 _renderDiffOverview() 覆盖。
+   */
+  _startDiffOverviewObserver() {
+    this._stopDiffOverviewObserver();
+    if (this._view && typeof ResizeObserver === 'function') {
+      this._diffOverviewRO = new ResizeObserver(() => {
+        this._renderDiffOverview();
+      });
+      this._diffOverviewRO.observe(this._view.scrollDOM);
+    }
+  }
+
+  _stopDiffOverviewObserver() {
+    if (this._diffOverviewRO) {
+      this._diffOverviewRO.disconnect();
+      this._diffOverviewRO = null;
+    }
   }
 
   // ==================== 滚动位置持久化 ====================
@@ -764,6 +896,9 @@ export class FilePreview {
             this._onDirtyChange(this._currentPath, true);
             this._updateSearchBtn();
           }
+          // 编辑后防抖重算 diff 标记，保持标记与当前文档同步
+          // （如：新改的行变绿、把 AI 改的行改回原样后绿色消失）
+          this._scheduleDiffRefresh();
         }
       },
     });
@@ -848,6 +983,8 @@ export class FilePreview {
     this._view.scrollDOM.addEventListener('scroll', this._boundScrollHandler, { passive: true });
 
     this._startThemeObserver();
+    // 滚动条整文色带：监听 scrollDOM 尺寸变化（resize/面板开合）重算比例
+    this._startDiffOverviewObserver();
   }
 
   _destroyEditor() {
@@ -860,6 +997,16 @@ export class FilePreview {
       clearTimeout(this._scrollThrottleTimer);
       this._scrollThrottleTimer = null;
     }
+    // 清理 diff 标记重算防抖定时器（切文件/销毁编辑器时不得残留）
+    if (this._diffRefreshTimer) {
+      clearTimeout(this._diffRefreshTimer);
+      this._diffRefreshTimer = null;
+    }
+    // 清理 diff 行信息（gutter / 色带标记的数据源）
+    this._diffLineInfo = null;
+    // 清理滚动条整文色带（容器 DOM + ResizeObserver）
+    this._stopDiffOverviewObserver();
+    this._removeDiffOverview();
     if (this._view && this._boundScrollHandler) {
       this._view.scrollDOM.removeEventListener('scroll', this._boundScrollHandler);
       this._boundScrollHandler = null;

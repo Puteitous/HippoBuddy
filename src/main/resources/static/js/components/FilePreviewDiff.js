@@ -17,6 +17,8 @@
 
 import {
   Decoration,
+  gutter,
+  GutterMarker,
 } from '../vendor/codemirror.js'
 
 // ── Diff 算法 ────────────────────────────────────────
@@ -188,27 +190,50 @@ function computeChangesLinear(origLines, curLines) {
   return changes
 }
 
-// ── 从编辑脚本提取当前文档行的类型 ─────────────────────
-// 返回 Map<lineNumber (1-based), 'added'|'modified'>
+// ── 从编辑脚本提取当前文档行的变更信息 ─────────────────
+// 返回 Map<lineNumber (1-based), { type: 'added'|'modified'|'deleted', origText: string|null }>
+//   - added：该行是纯新增（AI 新插入，无对应旧行）→ origText = null
+//   - modified：该行是修改（AI 改写了旧行）→ origText = 改前内容（旧文件对应行的文本）
+//   - deleted：该行附近被 AI 删除过（删除的行不在当前文档，锚定"删除发生处"的当前文档行）
+//       → origText = 被删行文本（多行以 \n 连接），当前供滚动条色带画短红块
+// 锚点语义：delete 行被后续 insert 消费 → modified；未消费（被 equal 或文件末尾终结）→ deleted，
+//   锚点行 = 删除发生处对应的当前文档行号（中间删除锚定 equal 行，末尾删除锚定最后一行）。
+// origText 为 FIFO 配对的副产物，供 gutter 竖条按行标记（type）使用；
+// 保留改前文本便于将来做"点击变更行 → 跳转 FileDiffView 对应位置"等增强。
+// 导出为纯函数，便于单元测试（file-preview-diff.test.js）。
 
-function extractLineTypes(changes) {
-  const types = new Map()
-  if (!changes) return types
+export function extractLineInfo(changes) {
+  const info = new Map()
+  if (!changes) return info
 
   let curIdx = 1
+  let pendingDeletes = [] // 相邻 delete 行的改前文本（FIFO，与后续 insert 行配对）
+  const flushDeletes = (atLine) => {
+    if (pendingDeletes.length === 0) return
+    // 纯删除（未与 insert 配对）：锚定删除发生处对应的当前文档行
+    info.set(atLine, { type: 'deleted', origText: pendingDeletes.join('\n') })
+    pendingDeletes = []
+  }
   for (let i = 0; i < changes.length; i++) {
     const c = changes[i]
     if (c.type === 'equal') {
+      // 等号行断开 delete/insert 配对：此前未配对的 delete 为纯删除，锚点 = 当前行
+      flushDeletes(curIdx)
       curIdx++
+    } else if (c.type === 'delete') {
+      // 删除行不在当前文档中，只记改前文本待配对
+      pendingDeletes.push(c.text)
     } else if (c.type === 'insert') {
-      // 统一标记为 added（绿色），表示"AI 影响了这行"
-      // 具体是新增还是修改，用户点工具"查看变更"看 unified diff 即可
-      types.set(curIdx, 'added')
+      const origText = pendingDeletes.length > 0 ? pendingDeletes.shift() : null
+      info.set(curIdx, { type: origText != null ? 'modified' : 'added', origText })
       curIdx++
     }
-    // delete 行不在当前文档中，跳过
   }
-  return types
+  // 文件末尾残留的 delete：纯删除，锚点 = 当前文档下一行（curIdx，可能越界，
+  // 由 FilePreview._renderDiffOverview 侧 clamp 到文档末尾；用 curIdx 而非 curIdx-1
+  // 避免与最后一行的 modified/added 撞 key 覆盖）
+  flushDeletes(curIdx)
+  return info
 }
 
 // ── 纯函数：计算 diff 的 Decoration set ───────────────
@@ -226,11 +251,20 @@ function extractLineTypes(changes) {
 // @returns {DecorationSet} Decoration.none 或 Decoration.set(...)
 
 export function computeDiffDecorations(doc, originalContent) {
-  if (originalContent == null) return Decoration.none
+  return computeDiffInfo(doc, originalContent).decoSet
+}
 
+// ── 合并导出：Decoration set + 行变更信息 ──────────────
+// FilePreview 一次调用同时拿到装饰集与行信息（gutter 竖条 / 滚动条色带用），
+// 避免 decoSet 与 lineInfo 各算一次 diff。
+// @returns {{ decoSet: DecorationSet, lineInfo: Map<number, {type, origText}> | null }}
+
+export function computeDiffInfo(doc, originalContent) {
+  if (originalContent == null) {
+    return { decoSet: Decoration.none, lineInfo: null }
+  }
   const origLines = originalContent.split('\n')
-  const result = computeDiffData(doc, origLines)
-  return result.decoSet
+  return computeDiffData(doc, origLines)
 }
 
 // ── 内部 diff 计算 ────────────────────────────────────
@@ -241,27 +275,127 @@ function computeDiffData(doc, origLines) {
   // 内容完全相同 → 无 diff
   if (origLines.length === curLines.length &&
       origLines.every((l, i) => l === curLines[i])) {
-    return { decoSet: Decoration.none }
+    return { decoSet: Decoration.none, lineInfo: null }
   }
 
   const changes = computeChanges(origLines, curLines)
-  if (!changes) return { decoSet: Decoration.none }
+  if (!changes) return { decoSet: Decoration.none, lineInfo: null }
 
-  let lineTypes = extractLineTypes(changes)
-  if (lineTypes.size === 0) return { decoSet: Decoration.none }
+  const lineInfo = extractLineInfo(changes)
+  if (lineInfo.size === 0) return { decoSet: Decoration.none, lineInfo }
 
   // 构建 Decoration set
-  // 注意：extractLineTypes 按行号递增遍历，但类型检查仍确保排序
-  const sortedLines = [...lineTypes.entries()].sort((a, b) => a[0] - b[0])
+  // 注意：extractLineInfo 按行号递增遍历，但类型检查仍确保排序
+  const sortedLines = [...lineInfo.entries()].sort((a, b) => a[0] - b[0])
   const decos = []
-  for (const [lineNum, type] of sortedLines) {
+  for (const [lineNum, info] of sortedLines) {
     const line = doc.line(lineNum)
     decos.push(
-      Decoration.line({ class: `cm-diff-line-${type}` }).range(line.from)
+      Decoration.line({ class: `cm-diff-line-${info.type}` }).range(line.from)
     )
   }
 
   return {
     decoSet: decos.length > 0 ? Decoration.set(decos) : Decoration.none,
+    lineInfo,
   }
+}
+
+// ── Gutter 竖条标记（IDE 式）──────────────────────────
+// 在编辑器左侧行号旁渲染窄色条，标记 AI 变更行：
+//   绿条 = 新增（added），蓝条 = 修改（modified）
+// 不遮挡代码，与 VS Code / JetBrains 的 gutter 标记一致。
+// 数据来源：computeDiffInfo 返回的 lineInfo（Map<行号, {type, origText}>）。
+
+class DiffGutterMarker extends GutterMarker {
+  constructor(type) {
+    super()
+    this.type = type
+  }
+  eq(other) {
+    return this.type === other.type
+  }
+  toDOM() {
+    const el = document.createElement('div')
+    el.className = `cm-diff-gutter-marker ${this.type}`
+    return el
+  }
+}
+
+// ── 滚动条整文色带（VS Code 式 overview）────────────────
+// 把每个变更行映射成滚动条旁色带上的一个色块，一眼看到全文件改动分布。
+// 与 gutter 同源（同一份 _diffLineInfo），但这里的输入是"行的文档像素范围"：
+//   由调用方用 view.lineBlockAt(行首) 取得 {top, bottom}（文档绝对坐标，含 wrap 行高），
+//   本函数只做 归一化 + 合并，纯函数便于单元测试。
+//
+// 归一化：scale = stripHeight / docHeight，色块 top/height = 行坐标 × scale。
+//   注意：使用文档绝对坐标比例映射，位置与滚动无关——滚动时零重算。
+// 合并规则（防密集改动糊成一片）：
+//   - 单块最小高度 2px（再小的行在色带上不可见）
+//   - 相邻同类型块（间隙 < 1px）合并成连续段
+//   - 不同类型（added/modified）即使相邻也不合并，保留颜色语义
+
+const OVERVIEW_MIN_HEIGHT = 2
+const OVERVIEW_MERGE_GAP = 1
+
+/**
+ * 计算滚动条色带的色块列表（纯函数）。
+ * @param {Array<{top:number, bottom:number, type:'added'|'modified'}>|null} lineBlocks
+ *   变更行的文档绝对像素范围（view.lineBlockAt 返回的 block 提取）
+ * @param {number} docHeight 文档总高度（scrollDOM.scrollHeight）
+ * @param {number} stripHeight 色带可用高度（scrollDOM.clientHeight）
+ * @returns {Array<{top:number, height:number, type:'added'|'modified'}>}
+ *   归一化到色带坐标（top ∈ [0, stripHeight]）的色块，已做最小高度/相邻合并
+ */
+export function computeOverviewMarkers(lineBlocks, docHeight, stripHeight) {
+  if (!lineBlocks || lineBlocks.length === 0) return []
+  if (!(docHeight > 0) || !(stripHeight > 0)) return []
+
+  const scale = stripHeight / docHeight
+  const raw = []
+  for (const lb of lineBlocks) {
+    if (lb == null || !(lb.bottom > lb.top)) continue
+    let top = lb.top * scale
+    let height = Math.max(OVERVIEW_MIN_HEIGHT, (lb.bottom - lb.top) * scale)
+    // 底部越界时把色块收回色带内（贴近底边）
+    if (top + height > stripHeight) {
+      top = Math.max(0, stripHeight - height)
+    }
+    raw.push({ top, height, type: lb.type })
+  }
+  if (raw.length === 0) return []
+
+  // 相邻同类型块合并成连续段（间隙 < OVERVIEW_MERGE_GAP 视为连续）
+  const merged = []
+  for (const b of raw) {
+    const last = merged[merged.length - 1]
+    if (last && last.type === b.type && b.top - (last.top + last.height) < OVERVIEW_MERGE_GAP) {
+      // 段范围 = 从 last 起点到两块中较远终点；round 到 3 位小数消除浮点累积误差
+      last.height = Math.round(Math.max(last.height, b.top + b.height - last.top) * 1000) / 1000
+    } else {
+      merged.push(b)
+    }
+  }
+  return merged
+}
+
+/**
+ * 构建 gutter 扩展（行号旁竖条标记）。
+ * @param {Map<number, {type: 'added'|'modified', origText}>|null} lineInfo
+ * @returns {Array} CM6 扩展数组（无变更时为 []，直接 reconfigure 空数组即可）
+ */
+export function buildDiffGutter(lineInfo) {
+  if (!lineInfo || lineInfo.size === 0) return []
+  return gutter({
+    class: 'cm-diff-gutter',
+    // 只为视口内的行调用，性能开销小；按行查 lineInfo 决定是否画竖条
+    // 注意：lineMarker 的 line 是 BlockInfo（属性 from/length/top/height，无 .number），
+    //   必须用 lineAt(line.from) 取文档行号，直接读 line.number 恒为 undefined
+    // deleted 不画竖条：锚点行是删除发生处的现存行，画条会误导成"这行被改"，
+    //   删除的呈现交给滚动条色带（短红块，见 FilePreview._renderDiffOverview）
+    lineMarker: (view, line) => {
+      const info = lineInfo.get(view.state.doc.lineAt(line.from).number)
+      return info && info.type !== 'deleted' ? new DiffGutterMarker(info.type) : null
+    },
+  })
 }

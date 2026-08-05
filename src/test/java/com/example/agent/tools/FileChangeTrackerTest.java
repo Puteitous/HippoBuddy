@@ -585,4 +585,114 @@ class FileChangeTrackerTest {
         assertFalse(oldSessionChanges.isEmpty(),
             "旧会话的变更应不受新会话创建的影响");
     }
+
+    // ==================== getSessionFileChanges(sessionId, filePath) ====================
+    // 供编辑器内联 diff 使用：按"当前会话 + 文件"取变更链（升序），不跨会话合并。
+
+    @Test
+    void testGetSessionFileChangesByFile() {
+        FileChangeTracker.setStorageDirForTest(tempDir);
+        FileChangeTracker.setCurrentSessionId("session-diff");
+        try {
+            String filePath = tempDir.resolve("diff_target.txt").toString();
+            String otherPath = tempDir.resolve("diff_other.txt").toString();
+            FileChangeTracker.recordChange(filePath, "v0", "v1", "write_file");
+            FileChangeTracker.recordChange(filePath, "v1", "v2", "edit_file");
+            FileChangeTracker.recordChange(otherPath, "o0", "o1", "write_file");
+
+            // 只返回该文件在该会话内的变更，按时间升序 → get(0) 即最早（diff 基线）
+            List<FileChangeTracker.FileChange> changes =
+                FileChangeTracker.getSessionFileChanges("session-diff", filePath);
+            assertEquals(2, changes.size());
+            assertEquals("v0", changes.get(0).originalContent, "最早一条应作为基线");
+            assertEquals("v1", changes.get(1).originalContent);
+
+            // 其他文件不受影响
+            List<FileChangeTracker.FileChange> otherChanges =
+                FileChangeTracker.getSessionFileChanges("session-diff", otherPath);
+            assertEquals(1, otherChanges.size());
+            assertEquals("o0", otherChanges.get(0).originalContent);
+        } finally {
+            FileChangeTracker.clearCurrentSessionId();
+        }
+    }
+
+    @Test
+    void testGetSessionFileChangesIsolatedBySession() {
+        FileChangeTracker.setStorageDirForTest(tempDir);
+        String filePath = tempDir.resolve("shared.txt").toString();
+
+        FileChangeTracker.setCurrentSessionId("session-a");
+        try {
+            FileChangeTracker.recordChange(filePath, "a0", "a1", "write_file");
+        } finally {
+            FileChangeTracker.clearCurrentSessionId();
+        }
+
+        FileChangeTracker.setCurrentSessionId("session-b");
+        try {
+            FileChangeTracker.recordChange(filePath, "b0", "b1", "write_file");
+        } finally {
+            FileChangeTracker.clearCurrentSessionId();
+        }
+
+        // 会话隔离：A 只看到 A 的变更，B 只看到 B 的变更，不跨会话合并
+        List<FileChangeTracker.FileChange> aChanges =
+            FileChangeTracker.getSessionFileChanges("session-a", filePath);
+        assertEquals(1, aChanges.size());
+        assertEquals("a0", aChanges.get(0).originalContent);
+
+        List<FileChangeTracker.FileChange> bChanges =
+            FileChangeTracker.getSessionFileChanges("session-b", filePath);
+        assertEquals(1, bChanges.size());
+        assertEquals("b0", bChanges.get(0).originalContent);
+    }
+
+    @Test
+    void testGetSessionFileChangesEdgeCases() {
+        FileChangeTracker.setStorageDirForTest(tempDir);
+        String filePath = tempDir.resolve("edge.txt").toString();
+
+        // 不存在的会话 → 空列表
+        List<FileChangeTracker.FileChange> none =
+            FileChangeTracker.getSessionFileChanges("no-such-session", filePath);
+        assertNotNull(none);
+        assertTrue(none.isEmpty());
+
+        // null / 空 sessionId → 空列表（安全降级：不显示标记）
+        assertTrue(FileChangeTracker.getSessionFileChanges(null, filePath).isEmpty());
+        assertTrue(FileChangeTracker.getSessionFileChanges("", filePath).isEmpty());
+
+        // null / 空文件路径 → 空列表
+        assertTrue(FileChangeTracker.getSessionFileChanges("session-x", null).isEmpty());
+        assertTrue(FileChangeTracker.getSessionFileChanges("session-x", "").isEmpty());
+    }
+
+    @Test
+    void testGetSessionFileChangesSurvivesReload(@TempDir Path storageDir) throws Exception {
+        // 模拟刷新/重启：记录变更持久化到磁盘，清空内存后从磁盘重新加载同一会话，
+        // getSessionFileChanges(sessionId, filePath) 仍可取到最早基线 → 内联 diff 标记重新出现。
+        FileChangeTracker.resetForTest();
+        FileChangeTracker.setStorageDirForTest(storageDir);
+
+        String filePath = storageDir.resolve("survive.txt").toString();
+        FileChangeTracker.setCurrentSessionId("session-relive");
+        try {
+            FileChangeTracker.recordChange(filePath, "v0", "v1", "write_file");
+            FileChangeTracker.recordChange(filePath, "v1", "v2", "edit_file");
+        } finally {
+            FileChangeTracker.clearCurrentSessionId();
+        }
+
+        // 模拟重启：重置内存态后从存储目录重新加载
+        FileChangeTracker.resetForTest();
+        FileChangeTracker.setStorageDirForTest(storageDir);
+        FileChangeTracker.loadSessionChanges("session-relive");
+
+        List<FileChangeTracker.FileChange> changes =
+            FileChangeTracker.getSessionFileChanges("session-relive", filePath);
+        assertEquals(2, changes.size());
+        assertEquals("v0", changes.get(0).originalContent,
+            "重启后从磁盘恢复同一会话，最早一条仍可作为 diff 基线");
+    }
 }

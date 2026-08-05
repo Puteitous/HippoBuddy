@@ -1922,14 +1922,117 @@
    由 FilePreviewDiff.js 插件渲染
    ══════════════════════════════════════════════════ */
 
-/* ── Diff 行背景色 ── */
-/* 变更行（绿色，AI 实际增/改的行） */
-.cm-diff-line-added {
-    background: rgba(45, 164, 78, 0.20) !important;
+/* ── Diff 行背景色（极淡，安全垫）── */
+/* 变更行：极淡绿色背景辅助定位；主要信息由 gutter 竖条承担（IDE 式），
+   背景只做轻量提示，避免大面积着色干扰编辑 */
+.cm-diff-line-added,
+.cm-diff-line-modified {
+    background: rgba(45, 164, 78, 0.06) !important;
 }
 
-[data-theme="dark"] .cm-diff-line-added {
-    background: rgba(45, 164, 78, 0.20) !important;
+[data-theme="dark"] .cm-diff-line-added,
+[data-theme="dark"] .cm-diff-line-modified {
+    background: rgba(45, 164, 78, 0.06) !important;
+}
+
+/* ── Diff gutter 竖条（IDE 式，行号旁）── */
+/* 绿条 = AI 新增行（added）、蓝条 = AI 修改行（modified），
+   与 VS Code / JetBrains 的 gutter 变更标记一致；
+   竖条不遮挡代码，hover 定位/提示仍作用于整行。
+   透明度 0.75：3px 细条需保留较高辨识度（低于色带的 0.45，主次分明） */
+.cm-diff-gutter {
+    width: 3px;
+}
+
+.cm-diff-gutter .cm-gutterElement {
+    padding: 0;
+}
+
+.cm-diff-gutter-marker {
+    width: 100%;
+    height: 100%;
+}
+
+.cm-diff-gutter-marker.added {
+    background: rgba(45, 164, 78, 0.75);
+}
+
+/* modified = AI 改写行（新旧混合）→ 横向明暗斑马纹，与 added 纯色实心形成
+   "实 = 纯、纹 = 混" 的信息形态对照；3px 宽放不下斜纹/竖纹，沿行高方向做
+   明暗交替（6px 周期 = 4px 深 + 2px 浅缝，深色主导、间隔细，条纹感强；
+   密集区域节奏一致，不花）。明暗纹理同时提升色弱可读性——即使色觉异常
+   也能靠"实 vs 纹"区分 added/modified */
+.cm-diff-gutter-marker.modified {
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(31, 111, 235, 0.75) 0 4px,
+        rgba(31, 111, 235, 0.30) 4px 6px
+    );
+}
+
+[data-theme="dark"] .cm-diff-gutter-marker.added,
+[data-theme="midnight"] .cm-diff-gutter-marker.added {
+    background: rgba(63, 185, 80, 0.75);
+}
+
+[data-theme="dark"] .cm-diff-gutter-marker.modified,
+[data-theme="midnight"] .cm-diff-gutter-marker.modified {
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(88, 166, 255, 0.75) 0 4px,
+        rgba(88, 166, 255, 0.30) 4px 6px
+    );
+}
+
+/* ── 滚动条整文色带（VS Code 式 overview）── */
+/* 挂在 .cm-editor（CM6 baseTheme 保证 position:relative）下、scrollDOM 的兄弟节点，
+   absolute 定位盖在滚动条轨道内侧，不随内容滚动——滚动零开销；
+   数据复用 _diffLineInfo（与 gutter/hover 同源），pointer-events:none 不挡拖拽。
+   宽度 4px 与 VS Code overviewRuler 一致；色块带透明度，长段不压滚动条、观感柔和 */
+.cm-editor .cm-diff-overview {
+    position: absolute;
+    top: 0;
+    right: 2px;
+    width: 4px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.cm-diff-overview-marker {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-radius: 2px;
+}
+
+.cm-diff-overview-marker.added {
+    background: rgba(45, 164, 78, 0.45);
+}
+
+.cm-diff-overview-marker.modified {
+    background: rgba(31, 111, 235, 0.45);
+}
+
+/* deleted = AI 删除行（不在当前文档）→ 短红块锚定在删除发生处附近，
+   压缩高度（JS 侧 2px）表达"这一带被删过"，与 added/modified 的"实有行"区分 */
+.cm-diff-overview-marker.deleted {
+    background: rgba(248, 81, 73, 0.45);
+}
+
+[data-theme="dark"] .cm-diff-overview-marker.added,
+[data-theme="midnight"] .cm-diff-overview-marker.added {
+    background: rgba(63, 185, 80, 0.45);
+}
+
+[data-theme="dark"] .cm-diff-overview-marker.modified,
+[data-theme="midnight"] .cm-diff-overview-marker.modified {
+    background: rgba(88, 166, 255, 0.45);
+}
+
+[data-theme="dark"] .cm-diff-overview-marker.deleted,
+[data-theme="midnight"] .cm-diff-overview-marker.deleted {
+    background: rgba(255, 123, 114, 0.45);
 }
 
 /* ══════════════════════════════════════════════════

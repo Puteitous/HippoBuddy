@@ -139,9 +139,11 @@ public class FileApiHandler implements HttpHandler {
 
             fileCount++;
             // A/M/D 判定与前端变更列表一致：取最新一条 toolName
+            // 注意：同毫秒内多条变更时取最后一条（与 netDiffStats 的 last 选取一致），
+            // 否则删除+重建落在同一毫秒会漏选重建记录，误判 A/M/D。
             FileChangeTracker.FileChange last = null;
             for (FileChangeTracker.FileChange c : list) {
-                if (last == null || c.timestamp > last.timestamp) last = c;
+                if (last == null || c.timestamp >= last.timestamp) last = c;
             }
             switch (last.toolName) {
                 case "delete_file" -> deletedFiles++;

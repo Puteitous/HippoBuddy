@@ -12,18 +12,26 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * 获取文件 AI 修改前的原始内容。
+ * 获取文件 AI 修改前的原始内容（作为编辑器内联 diff 的基线）。
  *
- * 策略：仅从 AI 变更记录（FileChangeTracker）中取原始内容。
- *   git 路线已注释（以前 git show HEAD 为准，但会显示全量 diff 而非仅 AI 改动）。
+ * 策略：仅从 AI 变更记录（FileChangeTracker）按"前端当前会话"取最早一次变更的
+ *   originalContent 作基线，git 路线已废弃（git show HEAD 为准会显示"工作区 vs
+ *   上次提交"的全量 diff，包含用户自己的改动，与"标记 AI 改动"的语义冲突）。
  *
- * 查询参数：?path=<绝对路径>
- * 返回 JSON：{"content":"...", "source":"ai"} 或 {"error":"..."}
+ * 会话语义（跟随当前激活会话）：
+ *   前端传入 sessionId（当前正在使用的会话）→ 只查该会话内该文件的变更，
+ *   取最早一条作基线，展示"这一轮会话里 AI 对文件动的所有行"（会话净变化）。
+ *   刷新 / 重启后前端恢复同一会话 → 基线仍在磁盘，标记重新出现；
+ *   切到其他会话 → 按该会话自己的变更显示，不跨会话叠加。
+ *
+ * 查询参数：?path=<绝对路径>&sessionId=<当前会话ID>
+ * 返回 JSON：{"content":"...", "source":"ai"} 或 {"error":"..."} 或 {}（无基线）
  */
 public class DiffOriginalHandler implements HttpHandler {
 
@@ -37,12 +45,17 @@ public class DiffOriginalHandler implements HttpHandler {
 
         String query = exchange.getRequestURI().getQuery();
         String filePath = null;
+        String sessionId = null;
 
         if (query != null) {
             for (String param : query.split("&")) {
                 String[] kv = param.split("=", 2);
-                if (kv.length == 2 && "path".equals(kv[0])) {
-                    filePath = java.net.URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                if (kv.length == 2) {
+                    if ("path".equals(kv[0])) {
+                        filePath = java.net.URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                    } else if ("sessionId".equals(kv[0])) {
+                        sessionId = java.net.URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                    }
                 }
             }
         }
@@ -58,106 +71,42 @@ public class DiffOriginalHandler implements HttpHandler {
             return;
         }
 
-        // 1) 优先尝试 git（已注释，统一走 AI 路线）
-//        String gitContent = tryGitShow(absPath);
-//        if (gitContent != null) {
-//            sendJson(exchange, 200, toJson(gitContent, "git"));
-//            return;
-//        }
-
-        // 2) AI 变更记录
-        String aiContent = tryAiTracker(absPath);
+        // AI 变更记录（按当前会话过滤）
+        String aiContent = tryAiTracker(absPath, sessionId);
         if (aiContent != null) {
             sendJson(exchange, 200, toJson(aiContent, "ai"));
             return;
         }
 
-        // 3) 无可用基线
+        // 无可用基线
         sendJson(exchange, 200, "{}");
     }
 
     /**
-     * 执行 git show HEAD:<relativePath>（已注释，当前统一走 AI 路线）。
-     */
-    private static String tryGitShow(Path absPath) {
-//        try {
-//            // 查找 git 根目录
-//            Path dir = absPath.getParent();
-//            ProcessBuilder rootPb = new ProcessBuilder(
-//                "git", "-C", dir.toString(), "rev-parse", "--show-toplevel"
-//            );
-//            rootPb.redirectErrorStream(true);
-//            rootPb.environment().put("GIT_PAGER", "cat");
-//
-//            Process rootProc = rootPb.start();
-//            if (!rootProc.waitFor(3, TimeUnit.SECONDS)) {
-//                rootProc.destroyForcibly();
-//                return null;
-//            }
-//            if (rootProc.exitValue() != 0) return null;
-//
-//            String gitRoot;
-//            try (BufferedReader br = new BufferedReader(
-//                    new InputStreamReader(rootProc.getInputStream(), StandardCharsets.UTF_8))) {
-//                gitRoot = br.readLine();
-//            }
-//            if (gitRoot == null || gitRoot.isBlank()) return null;
-//
-//            // 计算相对路径
-//            Path gitRootPath = Path.of(gitRoot).normalize();
-//            String relativePath = gitRootPath.relativize(absPath).toString().replace('\\', '/');
-//
-//            // git show HEAD:<relativePath>
-//            ProcessBuilder showPb = new ProcessBuilder(
-//                "git", "-C", gitRoot, "show", "HEAD:" + relativePath
-//            );
-//            showPb.redirectErrorStream(true);
-//            showPb.environment().put("GIT_PAGER", "cat");
-//
-//            Process showProc = showPb.start();
-//            if (!showProc.waitFor(5, TimeUnit.SECONDS)) {
-//                showProc.destroyForcibly();
-//                return null;
-//            }
-//
-//            // 读取全部输出
-//            StringBuilder out = new StringBuilder();
-//            try (BufferedReader br = new BufferedReader(
-//                    new InputStreamReader(showProc.getInputStream(), StandardCharsets.UTF_8))) {
-//                String line;
-//                while ((line = br.readLine()) != null) {
-//                    if (out.length() > 0) out.append('\n');
-//                    out.append(line);
-//                }
-//            }
-//
-//            if (showProc.exitValue() != 0) return null;
-//            // 空内容也是有效的原始内容（空文件）
-//            return out.toString();
-//        } catch (Exception e) {
-//            logger.debug("git show 失败: {} - {}", absPath, e.getMessage());
-//            return null;
-//        }
-        return null;
-    }
-
-    /**
-     * 从 AI 变更记录中取最后一次变更的原始内容。
-     * 新建文件也返回空字符串（diff 插件会标记所有行为新增）。
+     * 从"当前会话"的 AI 变更记录中取最早一次变更的原始内容作为 diff 基线。
      * <p>
-     * 如果变更是从磁盘加载的历史记录（恢复旧会话），
-     * 则跳过 diff 展示，避免编辑器中出现不必要的行标记。
+     * 仅按前端传入的 sessionId（当前激活会话）过滤，不跨会话合并：
+     * 显示的是"这一轮会话里 AI 对文件动的所有行"（会话净变化，IDE 式），
+     * 而非仅最后一次变更——避免前几次编辑动过的行在编辑器中隐身。
+     * <p>
+     * 刷新 / 重启后前端恢复同一会话 → 基线仍可从磁盘加载的会话记录取到，
+     * 标记重新出现；切到其他会话 → 按该会话自己的变更显示。
+     * <p>
+     * sessionId 缺失 / 会话无该文件变更 → 返回 null（不显示标记）。
+     * 新建文件返回空字符串（diff 插件会标记所有行为新增）。
+     * 二进制文件跳过（未保存原始内容）。
      */
-    private static String tryAiTracker(Path absPath) {
+    static String tryAiTracker(Path absPath, String sessionId) {
         try {
-            FileChangeTracker.FileChange change = FileChangeTracker.getLastChange(absPath.toString());
-            if (change != null) {
-                // 非 git 项目的历史变更（从磁盘加载）→ 跳过 preview diff
-                if (FileChangeTracker.isHistoricalChange(change)) {
-                    return null;
-                }
-                return change.originalContent != null ? change.originalContent : "";
-            }
+            if (sessionId == null || sessionId.isEmpty()) return null;
+            List<FileChangeTracker.FileChange> changes =
+                FileChangeTracker.getSessionFileChanges(sessionId, absPath.toString());
+            if (changes == null || changes.isEmpty()) return null;
+
+            // 基线 = 该会话内最早一条（getSessionFileChanges 已按时间升序，get(0) 即最早）
+            FileChangeTracker.FileChange first = changes.get(0);
+            if (first.binary) return null;
+            return first.originalContent != null ? first.originalContent : "";
         } catch (Exception e) {
             logger.debug("AI 变更记录查询失败: {} - {}", absPath, e.getMessage());
         }

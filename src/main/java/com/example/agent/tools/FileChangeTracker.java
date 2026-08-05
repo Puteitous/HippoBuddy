@@ -286,6 +286,26 @@ public class FileChangeTracker {
         return merged;
     }
 
+    /**
+     * 按会话 + 文件路径获取该文件在该会话内的全部变更（按时间升序）。
+     * <p>
+     * 用于编辑器内联 diff：只显示"当前会话"中 AI 对该文件的改动（会话净变化），
+     * 不跨会话合并——刷新/重启后前端恢复同一会话，标记重新出现；
+     * 切到其他会话则按该会话自己的变更显示。
+     * <p>
+     * 会话无记录 / 文件无变更 → 返回空列表（调用方据此不显示标记）。
+     */
+    public static List<FileChange> getSessionFileChanges(String sessionId, String filePath) {
+        ensureInitialized();
+        if (sessionId == null || sessionId.isEmpty() || filePath == null || filePath.isEmpty()) {
+            return List.of();
+        }
+        Map<String, List<FileChange>> sessionChanges = changesBySession.get(sessionId);
+        if (sessionChanges == null) return List.of();
+        List<FileChange> list = sessionChanges.get(normalizePath(filePath));
+        return list != null ? list : List.of();
+    }
+
     public static FileChange getLastChange(String filePath) {
         ensureInitialized();
         String normalizedPath = normalizePath(filePath);
