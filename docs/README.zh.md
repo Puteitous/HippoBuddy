@@ -35,7 +35,7 @@
 | macOS (Apple Silicon) | [HippoBuddy-arm64.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 | Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 
-> 📖 在线文档：[https://puteitous.github.io/HippoBuddy/](https://puteitous.github.io/HippoBuddy/)
+> 📖 在线文档：[https://www.hippobuddy.cn/](https://www.hippobuddy.cn/)
 
 ---
 
@@ -165,11 +165,11 @@ src/main/java/com/example/agent/
 
 | 文档标题 | 链接 |
 |---|---|
-| HippoBuddy — 项目介绍 | [docs/intro](https://puteitous.github.io/HippoBuddy/docs/intro) |
-| 快速开始 | [docs/quick-start](https://puteitous.github.io/HippoBuddy/docs/quick-start) |
-| HippoBuddy 架构哲学 | [docs/architecture/philosophy](https://puteitous.github.io/HippoBuddy/docs/architecture/philosophy) |
-| AI Agent 使用心得 | [docs/guides/agent-mindset](https://puteitous.github.io/HippoBuddy/docs/guides/agent-mindset) |
-| AI 桌面应用，启动时到底在加载什么？ | [docs/guides/startup-loading](https://puteitous.github.io/HippoBuddy/docs/guides/startup-loading) |
+| HippoBuddy — 项目介绍 | [docs/intro](https://www.hippobuddy.cn/docs/intro) |
+| 快速开始 | [docs/quick-start](https://www.hippobuddy.cn/docs/quick-start) |
+| HippoBuddy 架构哲学 | [docs/architecture/philosophy](https://www.hippobuddy.cn/docs/architecture/philosophy) |
+| AI Agent 使用心得 | [docs/guides/agent-mindset](https://www.hippobuddy.cn/docs/guides/agent-mindset) |
+| AI 桌面应用，启动时到底在加载什么？ | [docs/guides/startup-loading](https://www.hippobuddy.cn/docs/guides/startup-loading) |
 
 ---
 

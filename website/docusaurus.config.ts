@@ -11,8 +11,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://puteitous.github.io',
-  baseUrl: '/HippoBuddy/',
+  url: 'https://www.hippobuddy.cn',
+  baseUrl: '/',
 
   organizationName: 'Puteitous',
   projectName: 'HippoBuddy',

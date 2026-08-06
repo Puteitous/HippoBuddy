@@ -6,11 +6,11 @@ AI-powered desktop assistant for chat, coding, and office productivity.
 
 ## 界面预览
 
-![HippoBuddy 主界面](pathname:///HippoBuddy/img/screenshot-main.png)
+![HippoBuddy 主界面](pathname:///img/screenshot-main.png)
 
 *主界面：聊天面板与工具调用可视化*
 
-![Chat 与预览面板](pathname:///HippoBuddy/img/screenshot-chat.png)
+![Chat 与预览面板](pathname:///img/screenshot-chat.png)
 
 *Chat 面板与预览面板协同工作*
 

@@ -34,7 +34,7 @@
 | macOS (Apple Silicon) | [HippoBuddy-arm64.dmg](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 | Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 
-> 📖 Online documentation: [https://puteitous.github.io/HippoBuddy/](https://puteitous.github.io/HippoBuddy/)
+> 📖 Online documentation: [https://www.hippobuddy.cn/](https://www.hippobuddy.cn/)
 
 ---
 
@@ -161,11 +161,11 @@ src/main/java/com/example/agent/
 
 | Title | Link |
 |---|---|
-| HippoBuddy — Introduction | [docs/intro](https://puteitous.github.io/HippoBuddy/docs/intro) |
-| Quick Start | [docs/quick-start](https://puteitous.github.io/HippoBuddy/docs/quick-start) |
-| HippoBuddy Architecture Philosophy | [docs/architecture/philosophy](https://puteitous.github.io/HippoBuddy/docs/architecture/philosophy) |
-| AI Agent Usage Tips | [docs/guides/agent-mindset](https://puteitous.github.io/HippoBuddy/docs/guides/agent-mindset) |
-| What Is an AI Desktop App Loading on Startup? | [docs/guides/startup-loading](https://puteitous.github.io/HippoBuddy/docs/guides/startup-loading) |
+| HippoBuddy — Introduction | [docs/intro](https://www.hippobuddy.cn/docs/intro) |
+| Quick Start | [docs/quick-start](https://www.hippobuddy.cn/docs/quick-start) |
+| HippoBuddy Architecture Philosophy | [docs/architecture/philosophy](https://www.hippobuddy.cn/docs/architecture/philosophy) |
+| AI Agent Usage Tips | [docs/guides/agent-mindset](https://www.hippobuddy.cn/docs/guides/agent-mindset) |
+| What Is an AI Desktop App Loading on Startup? | [docs/guides/startup-loading](https://www.hippobuddy.cn/docs/guides/startup-loading) |
 
 ---
 
