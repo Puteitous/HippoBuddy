@@ -76,6 +76,8 @@ export class FilePreview {
     this._binaryViewType = null;
     /** @private diff 视图实例（diff 标签页模式） */
     this._diffView = null;
+    /** @private diff 标签页重载防抖定时器（合并连续 file:changes-updated 事件） */
+    this._reloadDiffDebounceTimer = null;
 
     /** @private 二进制文件预览委托实例 */
     this._binaryPreview = new BinaryPreview({
@@ -539,6 +541,8 @@ export class FilePreview {
    * @param {string} [toolCallId] - 定位到该次变更；缺省默认展示"整体变更"
    */
   showDiff(filePath, toolCallId) {
+    // 清理旧的重载防抖定时器（切换 diff 标签/重建视图时不得残留，防止回调命中已销毁实例）
+    this._clearReloadDiffDebounce();
     // 先销毁旧的 diff 视图实例（_destroyEditor 会清空容器 DOM）
     if (this._diffView) {
       this._diffView.destroy();
@@ -569,14 +573,33 @@ export class FilePreview {
     this._updateStatusbar(this._currentPath);
   }
 
-  /** 若当前处于 diff 标签页模式，重新加载（回滚/外部变更后调用） */
+  /**
+   * 若当前处于 diff 标签页模式，重新加载（回滚/外部变更后调用）。
+   * 防抖合并连续触发（一次 edit 可能触发多次 file:changes-updated），
+   * 避免重复请求/渲染导致 diff 预览区闪烁。
+   */
   reloadDiffView() {
-    if (this._binaryViewType === 'diff' && this._diffView) {
-      this._diffView.reload();
+    if (this._binaryViewType !== 'diff' || !this._diffView) return;
+    if (this._reloadDiffDebounceTimer) clearTimeout(this._reloadDiffDebounceTimer);
+    this._reloadDiffDebounceTimer = setTimeout(() => {
+      this._reloadDiffDebounceTimer = null;
+      if (this._binaryViewType === 'diff' && this._diffView) {
+        this._diffView.reload();
+      }
+    }, 150);
+  }
+
+  /** @private 清理 diff 标签页重载防抖定时器（销毁视图/切换标签时，防止残留回调触发已销毁的视图） */
+  _clearReloadDiffDebounce() {
+    if (this._reloadDiffDebounceTimer) {
+      clearTimeout(this._reloadDiffDebounceTimer);
+      this._reloadDiffDebounceTimer = null;
     }
   }
 
   clear() {
+    // 清理 diff 标签页重载防抖定时器
+    this._clearReloadDiffDebounce();
     if (this._diffView) {
       this._diffView.destroy();
       this._diffView = null;

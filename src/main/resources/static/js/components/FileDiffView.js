@@ -189,19 +189,30 @@ export class FileDiffView {
    * 加载指定文件的变更对比。
    * @param {string} filePath
    * @param {string} [toolCallId] - 传入时定位到该次变更；缺省时默认展示"整体变更"
+   * @param {Object} [options]
+   * @param {boolean} [options.silent=false] - 静默刷新：请求返回前保留现有 DOM（不显示加载态），
+   *   数据就绪后原地更新并恢复刷新前的视图；用于外部变更后 reload，避免每次闪烁。
    */
-  async load(filePath, toolCallId) {
+  async load(filePath, toolCallId, options = {}) {
+    const silent = !!options.silent;
     this._currentFilePath = filePath;
-    this._currentToolCallId = '';
 
-    // 重置加载状态
-    this._timeline.innerHTML = `<div class="diff-timeline-loading">${this._t('diff.loading')}</div>`;
-    this._contentPanel.innerHTML = `<div class="diff-empty">${this._t('diff.loading')}</div>`;
-    this._statsEl.innerHTML = '';
-    this._statsEl.style.display = 'none';
-    this._rollbackBtn.classList.remove('rolling');
-    this._rollbackBtn.textContent = this._t('diff.rollbackBtn');
-    this._rollbackBtn.style.display = '';
+    // 静默刷新时记录当前视图，数据返回后据此恢复（变更列表可能已变化，index 会失效）
+    const prevActiveIndex = silent ? this._activeIndex : null;
+    const prevToolCallId = silent ? this._currentToolCallId : '';
+
+    if (!silent) {
+      this._currentToolCallId = toolCallId || '';
+
+      // 重置加载状态（仅首次加载/切换文件时显示加载态；静默刷新保留旧 DOM 直到新数据就绪）
+      this._timeline.innerHTML = `<div class="diff-timeline-loading">${this._t('diff.loading')}</div>`;
+      this._contentPanel.innerHTML = `<div class="diff-empty">${this._t('diff.loading')}</div>`;
+      this._statsEl.innerHTML = '';
+      this._statsEl.style.display = 'none';
+      this._rollbackBtn.classList.remove('rolling');
+      this._rollbackBtn.textContent = this._t('diff.rollbackBtn');
+      this._rollbackBtn.style.display = '';
+    }
 
     try {
       let url = `/api/files/diff?path=${encodeURIComponent(filePath)}&all=true`;
@@ -223,6 +234,37 @@ export class FileDiffView {
       this._renderTimeline();
 
       const hasNetDiff = Array.isArray(this._netDiff) && this._netDiff.length > 0;
+
+      // ── 静默刷新：原地更新，不闪烁 ──
+      if (silent) {
+        if (prevActiveIndex === -1 && hasNetDiff) {
+          // 刷新前在"整体变更"视图 → 恢复整体视图
+          this._selectChange(-1);
+        } else if (this._allChanges.length > 0) {
+          // 刷新前选中某条历史变更：优先按 toolCallId 定位（列表可能已变）；
+          // 找不到（该次变更被回滚）则降级到最后一条
+          let targetIndex = -1;
+          if (prevToolCallId) {
+            targetIndex = this._allChanges.findIndex(c => c.toolCallId === prevToolCallId);
+          }
+          if (targetIndex < 0) {
+            targetIndex = this._allChanges.length - 1;
+          }
+          this._selectChange(targetIndex);
+        } else {
+          // 所有变更均被回滚：显示空状态
+          this._contentPanel.innerHTML = '';
+          const emptyDiv = document.createElement('div');
+          emptyDiv.className = 'diff-empty';
+          emptyDiv.textContent = this._t('diff.noRecords');
+          this._contentPanel.appendChild(emptyDiv);
+          this._rollbackBtn.style.display = 'none';
+          this._statsEl.style.display = 'none';
+        }
+        return;
+      }
+
+      // ── 首次加载 / 切换文件 ──
       if (!toolCallId && hasNetDiff) {
         this._selectChange(-1);
       } else if (this._allChanges.length > 0) {
@@ -250,15 +292,20 @@ export class FileDiffView {
       }
     } catch (e) {
       if (this._destroyed) return;
+      // 静默刷新失败：保留现有内容，仅 toast 提示，避免内容被清空后无法恢复
+      if (silent) {
+        showToast(this._t('diff.loadFailed') + e.message, { type: 'error', duration: 3000 });
+        return;
+      }
       this._contentPanel.innerHTML = `<div class="diff-empty">${this._t('diff.loadFailed')}${escapeHtml(e.message)}</div>`;
       this._timeline.innerHTML = '';
     }
   }
 
-  /** 重新加载当前文件（回滚/外部变更后刷新） */
+  /** 重新加载当前文件（回滚/外部变更后刷新）——静默刷新，不闪烁且恢复原视图 */
   async reload() {
     if (this._currentFilePath) {
-      await this.load(this._currentFilePath);
+      await this.load(this._currentFilePath, '', { silent: true });
     }
   }
 
