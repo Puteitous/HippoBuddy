@@ -159,6 +159,37 @@ class BashProcessManagerTest {
         manager.markCancelFailed(null);
     }
 
+    @Test
+    void testTerminateAttemptDoneMarkedOnCancel() throws Exception {
+        Process process = startLongRunningProcess();
+        // 用全局唯一 id：manager 是跨测试方法共享的单例，避免与其他测试残留的 "test-N" 冲突
+        String id = "term-done-" + System.nanoTime();
+        manager.register(id, process);
+
+        // 取消前：未标记
+        assertFalse(manager.isTerminateAttemptDone(id));
+        assertFalse(manager.isTerminateAttemptDone("unknown"));
+        assertFalse(manager.isTerminateAttemptDone(null));
+
+        // 取消后：终止操作完成标志应被标记（cancel 返回即已执行完 taskkill/强杀）
+        assertTrue(manager.cancel(id, 200));
+        assertTrue(manager.isTerminateAttemptDone(id), "cancel 返回后应标记终止操作完成");
+        assertTrue(manager.isTerminateAttemptDone(id), "重复查询不应消费标志");
+
+        // 消费后：清除
+        manager.consumeTerminateAttemptDone(id);
+        assertFalse(manager.isTerminateAttemptDone(id), "消费后标志应被清除");
+        manager.consumeTerminateAttemptDone(null);
+    }
+
+    @Test
+    void testCancelUnknownIdDoesNotMarkTerminateAttemptDone() {
+        // 未知/空 toolCallId：cancel 返回 false，不应标记终止操作完成
+        assertFalse(manager.cancel("no-such-id", 100));
+        assertFalse(manager.isTerminateAttemptDone("no-such-id"));
+        assertFalse(manager.isTerminateAttemptDone(null));
+    }
+
     private void awaitCondition(BooleanSupplier condition, long timeoutMs, String message) throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {

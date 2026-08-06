@@ -44,6 +44,11 @@ public class BashProcessManager {
     /** 终止失败（进程未能被终止，转入后台）的 toolCallId 集合，供 Orchestrator 消费并决定 tool_result 状态 */
     private final Set<String> cancelFailedToolCallIds = ConcurrentHashMap.newKeySet();
 
+    /** 终止操作（taskkill/descendants 强杀）已执行完成的 toolCallId 集合。
+     *  <p>由 {@link #cancel(String, long)} 在 finally 中标记，供 {@link BashTool} 确认窗口查询：
+     *  一旦终止操作已完成但进程仍存活，即可立即判定"终止失败"，无需再盲等固定窗口。 */
+    private final Set<String> terminateAttemptDoneToolCallIds = ConcurrentHashMap.newKeySet();
+
     private BashProcessManager() {
     }
 
@@ -100,6 +105,8 @@ public class BashProcessManager {
         }
 
         cancelledToolCallIds.add(toolCallId);
+        logger.info("bash 取消：开始终止进程树: toolCallId={}, pid={}, gracefulTimeoutMs={}",
+            toolCallId, process.pid(), gracefulTimeoutMs);
         try {
             if (isWindows()) {
                 // Windows 无可靠优雅终止手段（taskkill 不带 /F 对控制台程序无效），直接强杀整棵树
@@ -120,6 +127,11 @@ public class BashProcessManager {
             destroyProcessTree(process, false);
         } finally {
             processes.remove(toolCallId);
+            // 终止操作已执行完成：供 BashTool 确认窗口查询，
+            // 若此时进程仍存活即可立即判定"终止失败"，不必盲等固定窗口
+            terminateAttemptDoneToolCallIds.add(toolCallId);
+            logger.info("bash 终止操作完成，terminateDone 已标记: toolCallId={}, pid={}",
+                toolCallId, process.pid());
         }
         return true;
     }
@@ -142,6 +154,27 @@ public class BashProcessManager {
      */
     public boolean isCancelledRequested(String toolCallId) {
         return toolCallId != null && cancelledToolCallIds.contains(toolCallId);
+    }
+
+    /**
+     * 查询"终止操作是否已执行完成"（不消费标志，可多次调用）。
+     * <p>
+     * 由 {@link BashTool} 在确认窗口轮询：终止操作已完成（cancel 已返回）但进程仍存活时，
+     * 说明 taskkill/强杀确实失败了，立即判定"终止失败"，无需再等固定窗口。
+     */
+    public boolean isTerminateAttemptDone(String toolCallId) {
+        return toolCallId != null && terminateAttemptDoneToolCallIds.contains(toolCallId);
+    }
+
+    /**
+     * 消费"终止操作完成"标志（清除后不再被查询命中）。
+     * <p>
+     * 由 {@link BashTool} 在执行结束清理时调用，避免集合泄漏。
+     */
+    public void consumeTerminateAttemptDone(String toolCallId) {
+        if (toolCallId != null) {
+            terminateAttemptDoneToolCallIds.remove(toolCallId);
+        }
     }
 
     /**

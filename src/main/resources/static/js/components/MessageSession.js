@@ -3,6 +3,7 @@ import { renderMarkdown } from '../markdown-renderer.js';
 import { escapeHtml } from '../utils.js';
 import { getFileIconInfo } from '../utils/file-icons.js';
 import { EventBus } from '../utils/event-bus.js';
+import { RunningToolRegistry } from '../state/running-tool-registry.js';
 import { deepMergeTodoList, parseTodoArgs } from './tool-renderers/shared.js';
 
 /** 安全 i18n 辅助函数 */
@@ -19,7 +20,8 @@ export class MessageSession {
     this._currentText = '';
     this._reasoningSegment = null;
     this._hasReceivedData = false;
-    this._runningToolCallIds = new Set();
+    // 运行中工具调用统一登记到全局 RunningToolRegistry（单例），
+    // 供 stopGeneration 等消费方一次性收集全部运行中工具
     this._todoTreeCacheHolder = todoTreeCacheHolder || { value: null };
     this._streamCompleted = false;
 
@@ -147,7 +149,7 @@ export class MessageSession {
 
       tool_start: (parsed, contentDiv) => {
         if (parsed.id) {
-          if (s._runningToolCallIds.has(parsed.id)) {
+          if (RunningToolRegistry.has(parsed.id)) {
             // 第二次 tool_start（来自 executeToolCalls）带有完整的 args，
             // 覆盖流式阶段创建的 segment 中可能不完整的 args，并触发重渲染
             const existing = s._segments.find(seg => seg.type === 'tool' && seg.id === parsed.id);
@@ -166,7 +168,7 @@ export class MessageSession {
             }
             return;
           }
-          s._runningToolCallIds.add(parsed.id);
+          RunningToolRegistry.add(parsed.id);
         }
         if (!s._hasReceivedData) {
           s._hasReceivedData = true;
@@ -205,7 +207,7 @@ export class MessageSession {
       tool_result: (parsed) => {
         const resultId = parsed.tool_call_id || parsed.id;
         if (resultId) {
-          s._runningToolCallIds.delete(resultId);
+          RunningToolRegistry.delete(resultId);
         }
         let existingTool;
         if (parsed.tool_call_id) {
@@ -553,7 +555,7 @@ export class MessageSession {
   handleToolResult(parsed) {
     const resultId = parsed.tool_call_id || parsed.id;
     if (resultId) {
-      this._runningToolCallIds.delete(resultId);
+      RunningToolRegistry.delete(resultId);
     }
     let existingTool;
     if (parsed.tool_call_id) {

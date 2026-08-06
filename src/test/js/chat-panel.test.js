@@ -28,6 +28,9 @@ describe('ChatPanel.js', () => {
     container = document.getElementById('chatContainer');
     // 设置模型配置，避免 sendMessage 中的模型配置检查提前返回
     localStorage.setItem('hippo_model_config', JSON.stringify({ provider: 'test-provider', model: 'test-model' }));
+    // 清理 RunningToolRegistry 单例，避免跨用例串扰
+    const { RunningToolRegistry } = await import('../../main/resources/static/js/state/running-tool-registry.js');
+    RunningToolRegistry.clear();
 
     mockChatService = {
       sendMessage: vi.fn().mockResolvedValue(undefined),
@@ -154,6 +157,47 @@ describe('ChatPanel.js', () => {
 
       expect(mockChatService.stopGeneration).not.toHaveBeenCalled();
     });
+
+    it('点击停止后立即恢复发送状态（不等 SSE abort 生效）', () => {
+      chatPanel.setSendingState(true);
+      chatPanel.currentAbortController = new AbortController();
+
+      chatPanel.stopGeneration();
+
+      expect(chatPanel.isSendingMessage).toBe(false);
+      expect(chatPanel.elements.sendBtn.disabled).toBe(false);
+      expect(chatPanel.elements.sendBtn.style.display).toBe('inline-block');
+      expect(chatPanel.elements.stopBtn.style.display).toBe('none');
+    });
+
+    it('主流会话中运行的 bash toolCallId 也会发到 abort（统一走 RunningToolRegistry）', async () => {
+      const { appState } = await import('../../main/resources/static/js/state/app-state.js');
+      const { RunningToolRegistry } = await import('../../main/resources/static/js/state/running-tool-registry.js');
+      appState.currentSessionId = 'session-test-abort';
+      const controller = new AbortController();
+      chatPanel.currentAbortController = controller;
+      chatPanel.setSendingState(true);
+
+      // 主/确认两条 SSE 流注册到同一个 Registry（MessageSession 与 ChatPanel 共用）
+      RunningToolRegistry.add('call_main_bash_1');
+      RunningToolRegistry.add('call_confirm_bash_2');
+
+      const fetchMock = vi.fn(() => Promise.resolve({ ok: true }));
+      const origFetch = global.fetch;
+      global.fetch = fetchMock;
+      try {
+        chatPanel.stopGeneration();
+
+        const bodies = fetchMock.mock.calls.map(([, opts]) => JSON.parse(opts.body));
+        expect(bodies.some(b => b.toolCallId === 'call_main_bash_1')).toBe(true);
+        expect(bodies.some(b => b.toolCallId === 'call_confirm_bash_2')).toBe(true);
+        expect(bodies.some(b => b.toolCallId === null)).toBe(true); // 会话级兜底仍发送
+        expect(RunningToolRegistry.all().length).toBe(0); // 停止后清空
+      } finally {
+        global.fetch = origFetch;
+        delete appState.currentSessionId;
+      }
+    });
   });
 
   describe('sendMessage', () => {
@@ -230,7 +274,6 @@ describe('ChatPanel.js', () => {
         _currentText: '',
         _reasoningSegment: null,
         _hasReceivedData: false,
-        _runningToolCallIds: new Set(),
         getSegments() { return this._segments; },
         getCurrentText() { return this._currentText; },
         setCurrentText(text) { this._currentText = text; },
@@ -697,7 +740,6 @@ describe('ChatPanel.js', () => {
         _currentText: '',
         _reasoningSegment: null,
         _hasReceivedData: false,
-        _runningToolCallIds: new Set(),
         getSegments() { return this._segments; },
         getCurrentText() { return this._currentText; },
         setCurrentText(text) { this._currentText = text; },

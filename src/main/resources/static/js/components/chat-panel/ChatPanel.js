@@ -1,5 +1,6 @@
 // 聊天面板核心组件
 import { appState } from '../../state/app-state.js';
+import { RunningToolRegistry } from '../../state/running-tool-registry.js';
 import { escapeHtml } from '../../utils.js';
 import { showToast } from '../../utils/toast.js';
 import { EventBus } from '../../utils/event-bus.js';
@@ -27,7 +28,6 @@ export class ChatPanel {
     this.lastUserMessage = '';
     this._lastUserMsgDiv = null;
     this._lastUserMessageId = null;
-    this._runningToolCallIds = new Set();
     this._stuckTimer = null;
     this._destroyed = false;
 
@@ -441,6 +441,11 @@ export class ChatPanel {
     }
     
     this.isCompleted = false;
+    // 会话代际：自增序号标记本次发送。旧一轮 session.start 的收尾（await 返回后）若发现
+    // 序号已变（用户已开始新一轮发送），则不再清理 isCompleted/currentAbortController，
+    // 避免旧流收尾污染新消息（流式输出被丢弃、终止按钮失效）。
+    this._sendSeq = (this._sendSeq || 0) + 1;
+    const mySendSeq = this._sendSeq;
     
     const content = (typeof overrideContent === 'string' && overrideContent)
       ? overrideContent
@@ -473,7 +478,7 @@ export class ChatPanel {
 
     // 新消息开始，清理跨轮残留的 runningToolCallIds 和上一轮的 stuck 定时器
     this._clearStuckTimer();
-    this._runningToolCallIds.clear();
+    RunningToolRegistry.clear();
 
     this._healStuckToolCards(true);
 
@@ -558,9 +563,14 @@ export class ChatPanel {
     // SSE 流结束，启动兜底定时器检查 stuck tool（30s 后运行）
     this._startStuckTimer();
 
-    this.isCompleted = true;
-    this.setSendingState(false);
-    this.currentAbortController = null;
+    // 代际守卫：仅当没有更新的发送（用户没在等待期间发新消息）时才清理本轮状态，
+    // 否则旧流收尾会污染新消息（isCompleted 被置 true 导致流式输出被丢弃、
+    // currentAbortController 被置空导致终止按钮失效）。
+    if (this._sendSeq === mySendSeq) {
+      this.isCompleted = true;
+      this.setSendingState(false);
+      this.currentAbortController = null;
+    }
     
     EventBus.emit('message:sent');
   }
@@ -682,13 +692,14 @@ export class ChatPanel {
       tool_start: (parsed, contentDiv) => {
         const session = s();
         if (!session) return;
-        if (parsed.id && this._runningToolCallIds.has(parsed.id)) {
+        // 确认 SSE 流：运行中工具统一登记到全局 Registry（主流的登记在 MessageSession 里）
+        if (parsed.id && RunningToolRegistry.has(parsed.id)) {
           return;
         }
-        if (parsed.id) this._runningToolCallIds.add(parsed.id);
+        if (parsed.id) RunningToolRegistry.add(parsed.id);
         // 检查 session._segments 中是否已存在相同 id 的 tool segment
-        // 主 SSE 流通过 MessageSession._eventRouter 创建 segment，不会更新 ChatPanel._runningToolCallIds
-        // 确认 SSE 流通过 ChatPanel.eventRouter 到达此处，需要二次防重
+        // 主 SSE 流通过 MessageSession._eventRouter 创建 segment（toolCallId 已登记进 RunningToolRegistry）
+        // 确认 SSE 流通过 ChatPanel.eventRouter 到达此处（上面也已登记进同一 Registry），需要二次防重
         if (parsed.id && session.getSegments().some(seg => seg.type === 'tool' && seg.id === parsed.id)) {
           return;
         }
@@ -956,6 +967,10 @@ export class ChatPanel {
       }).catch(() => {});
     }
 
+    // 立即恢复发送状态：不等 SSE abort 生效，用户点终止后可马上发新消息。
+    // 旧流的收尾逻辑由 sendMessage 的代际守卫保护，不会污染新一轮发送。
+    this.setSendingState(false);
+
     if (!this.currentAbortController) {
       return;
     }
@@ -968,15 +983,17 @@ export class ChatPanel {
       this.elements.stopBtn.disabled = true;
     }
     
-    // 中止服务端正在运行的 bash 进程
-    for (const toolCallId of this._runningToolCallIds) {
+    // 中止服务端正在运行的 bash 进程。
+    // 运行中工具统一登记在全局 RunningToolRegistry（主 SSE 流与确认 SSE 流共用一份），
+    // 一次性收集全部 toolCallId 发 abort，避免漏掉任一入口注册的运行中进程。
+    for (const toolCallId of RunningToolRegistry.all()) {
       fetch('/api/tool/abort', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ toolCallId, sessionId })
       }).catch(() => {});
     }
-    this._runningToolCallIds.clear();
+    RunningToolRegistry.clear();
     
     this.chatService.stopGeneration(this.currentAbortController);
 
