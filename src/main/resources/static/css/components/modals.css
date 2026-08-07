@@ -613,7 +613,7 @@
     color: var(--text-primary);
 }
 
-/* 整体视图：hunk 折叠分隔行 */
+/* hunk 折叠分隔行（整体视图与历史视图共用） */
 .diff-line.diff-hunk {
     justify-content: center;
     padding: 2px 12px;

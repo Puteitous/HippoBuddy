@@ -9,7 +9,7 @@
  * 数据源：GET /api/files/diff?path=xxx&all=true
  * 视图：
  *   - "整体变更"（置顶）：整个会话内文件从最早到最新的 git 式对比（上下文 + hunk 折叠）
- *   - 历史时间线：每次工具变更的逐行 diff
+ *   - 历史时间线：每次工具变更的 diff（同样是"变更前 vs 变更后"完整文件对比，同样折叠）
  */
 
 import { escapeHtml, apiGet, apiPost } from '../utils.js';
@@ -88,7 +88,8 @@ const DIFF_CONTEXT_LINES = 3;
 
 /**
  * 将整文件 diff（含大量 same 上下文行）折叠为 git 风格：
- * 每个变更块前后保留 DIFF_CONTEXT_LINES 行上下文，连续未变化的中间段折叠为 hunk 分隔行。
+ * 每个变更块前后保留 DIFF_CONTEXT_LINES 行上下文，连续未变化的段折叠为 hunk 分隔行。
+ * 头部/尾部未变化段同样折叠为 hunk（默认收起，点击可展开查看完整文件），不留永久盲区。
  * 返回显示序列：[{ idx: 原始changes下标, type, content } | { idx: -1, type: 'hunk', count, from, to }]
  * hunk 项的 from/to 为折叠段在原始 changes 中的下标范围 [from, to)，供"展开上下文"使用。
  */
@@ -113,10 +114,8 @@ function buildHunkSequence(changes) {
     } else {
       let j = i;
       while (j < n && !show[j]) j++;
-      // 仅在两个显示段之间的中间段折叠；头部/尾部未变化段直接丢弃
-      if (i > 0 && j < n) {
-        out.push({ idx: -1, type: 'hunk', count: j - i, from: i, to: j });
-      }
+      // 未显示段（含头部/尾部）一律折叠为 hunk，点击可展开；展开全部时一并对齐
+      out.push({ idx: -1, type: 'hunk', count: j - i, from: i, to: j });
       i = j;
     }
   }
@@ -464,10 +463,6 @@ export class FileDiffView {
     let addedCount = 0;
     let removedCount = 0;
     let html = '';
-    let newLineNum = 1;
-    let oldLineNum = 1;
-
-    const isOverall = !!data.overall;
 
     // 词级 diff（行内精确变更）：{old: [...], new: [...]}，按行号索引
     const wordDiff = data.wordDiff || null;
@@ -475,38 +470,35 @@ export class FileDiffView {
     // 整块高亮后按行切分（对原始 changes 序列高亮，hunk 折叠项不参与）
     const highlightedLines = this._highlightDiffLines(data.changes);
 
-    // 整体视图：预计算每个原始下标对应的旧/新文件行号。
+    // 行号映射表：预计算每个原始下标对应的旧/新文件行号。
     // 覆盖全部 changes（含被折叠/丢弃的头部上下文段），保证行号是绝对准确的文件行号。
-    let oldNumAt = null, newNumAt = null;
-    if (isOverall) {
-      oldNumAt = new Map();
-      newNumAt = new Map();
-      let o = 1, n = 1;
-      for (let k = 0; k < data.changes.length; k++) {
-        const t = data.changes[k].type;
-        if (t === 'removed') { oldNumAt.set(k, o); o++; }
-        else if (t === 'added') { newNumAt.set(k, n); n++; }
-        else { oldNumAt.set(k, o); newNumAt.set(k, n); o++; n++; }
-      }
+    // 历史视图的 diff 同样是"变更前完整文件 vs 变更后完整文件"的逐行对比，
+    // 顺序递增即真实文件行号，与整体视图共用同一映射算法，折叠/展开后行号依旧准确。
+    const oldNumAt = new Map();
+    const newNumAt = new Map();
+    let o = 1, n = 1;
+    for (let k = 0; k < data.changes.length; k++) {
+      const t = data.changes[k].type;
+      if (t === 'removed') { oldNumAt.set(k, o); o++; }
+      else if (t === 'added') { newNumAt.set(k, n); n++; }
+      else { oldNumAt.set(k, o); newNumAt.set(k, n); o++; n++; }
     }
 
-    // 整体视图：git 式折叠上下文行；历史视图：逐行原样渲染
-    const displaySeq = isOverall
-      ? buildHunkSequence(data.changes)
-      : data.changes.map((ch, idx) => ({ idx, type: ch.type, content: ch.content || '' }));
+    // git 式折叠上下文行：整体视图与历史视图一致。
+    // 每个变更块前后保留 DIFF_CONTEXT_LINES 行上下文，连续未变化段折叠为 hunk；
+    // 头部/尾部未变化段同样折叠为 hunk（默认收起，点击可展开查看完整文件）。
+    const displaySeq = buildHunkSequence(data.changes);
 
-    // 整体视图折叠段工具条：展开全部 / 收起全部（按钮带当前折叠段计数）
+    // 折叠段工具条：展开全部 / 收起全部（按钮带当前折叠段计数）；无折叠段时不渲染
     let toolbarHtml = '';
-    if (isOverall) {
-      const hunks = displaySeq.filter(it => it.type === 'hunk');
-      if (hunks.length > 0) {
-        const collapsedCount = hunks.filter(h => !this._expandedHunks.has(h.from)).length;
-        const allExpanded = collapsedCount === 0;
-        toolbarHtml = `
-          <div class="diff-toolbar">
-            <button class="diff-toolbar-btn" data-action="${allExpanded ? 'collapse' : 'expand'}">${allExpanded ? escapeHtml(this._t('diff.collapseAll')) : escapeHtml(this._t('diff.expandAll', { count: collapsedCount }))}</button>
-          </div>`;
-      }
+    const hunks = displaySeq.filter(it => it.type === 'hunk');
+    if (hunks.length > 0) {
+      const collapsedCount = hunks.filter(h => !this._expandedHunks.has(h.from)).length;
+      const allExpanded = collapsedCount === 0;
+      toolbarHtml = `
+        <div class="diff-toolbar">
+          <button class="diff-toolbar-btn" data-action="${allExpanded ? 'collapse' : 'expand'}">${allExpanded ? escapeHtml(this._t('diff.collapseAll')) : escapeHtml(this._t('diff.expandAll', { count: collapsedCount }))}</button>
+        </div>`;
     }
 
     for (const item of displaySeq) {
@@ -543,18 +535,11 @@ export class FileDiffView {
       if (type === 'added') addedCount++;
       if (type === 'removed') removedCount++;
 
-      // 行号：整体视图查表（绝对行号）；历史视图递增计数（该次变更的完整 diff 从 1 开始）
-      let numHtml;
-      let lineNoForWord; // removed 用旧行号 / added 用新行号，供词级标记索引
-      if (isOverall && newNumAt) {
-        numHtml = type === 'removed' ? oldNumAt.get(item.idx) : newNumAt.get(item.idx);
-        lineNoForWord = numHtml;
-      } else {
-        numHtml = type === 'removed' ? oldLineNum : newLineNum;
-        lineNoForWord = numHtml;
-        if (type !== 'added') oldLineNum++;
-        if (type !== 'removed') newLineNum++;
-      }
+      // 行号：查映射表取绝对行号（removed 旧行号 / added 新行号 / same 两表都有）。
+      // 与之前"顺序递增"完全等价（历史视图的 diff 就是完整文件对比，递增即真实行号），
+      // 折叠/展开后行号依旧准确。
+      const numHtml = type === 'removed' ? oldNumAt.get(item.idx) : newNumAt.get(item.idx);
+      const lineNoForWord = numHtml; // removed 用旧行号 / added 用新行号，供词级标记索引
 
       // 词级标记（行内精确变更）：按行号索引 wordDiff 对应行。
       // removed 行查 wordDiff.old[旧行号-1]，added 行查 wordDiff.new[新行号-1]；

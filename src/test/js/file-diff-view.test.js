@@ -5,6 +5,7 @@
  *   - buildHunkSequence：git 式折叠（重叠块合并、远距离折叠、开头/末尾丢弃）
  *   - FileDiffView._renderWordLine：行内词级标记 HTML
  *   - 行号映射（oldNumAt / newNumAt 语义）与词级索引对齐
+ *   - 历史视图折叠：非 overall 的 diff 同样 git 式折叠（折叠行/工具条/行号衔接/头尾丢弃）
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { buildHunkSequence, splitHighlightedLines, DIFF_CONTEXT_LINES } from '../../main/resources/static/js/components/FileDiffView.js';
@@ -15,25 +16,34 @@ import { FileDiffView } from '../../main/resources/static/js/components/FileDiff
 describe('buildHunkSequence', () => {
   const mk = (type, content) => ({ type, content });
 
-  it('无变更时全部折叠（头部/末尾丢弃）', () => {
+  it('无变更时整体折叠为单个 hunk（可展开）', () => {
     const changes = [
       mk('same', '1'), mk('same', '2'), mk('same', '3'), mk('same', '4'), mk('same', '5'),
     ];
     const seq = buildHunkSequence(changes);
-    expect(seq).toEqual([]);
+    expect(seq).toEqual([{ idx: -1, type: 'hunk', count: 5, from: 0, to: 5 }]);
   });
 
-  it('单个变更块保留前后上下文', () => {
+  it('单个变更块保留前后上下文（头尾折叠为 hunk）', () => {
     const changes = [
       mk('same', '1'), mk('same', '2'), mk('same', '3'), mk('same', '4'), mk('same', '5'),
       mk('removed', '6'), mk('added', '7'),
       mk('same', '8'), mk('same', '9'), mk('same', '10'), mk('same', '11'), mk('same', '12'),
     ];
     const seq = buildHunkSequence(changes);
-    // 变更行下标 5,6 → 显示范围 [5-3, 6+3] = [2, 9]
-    const types = seq.map(s => s.type);
-    expect(types).toEqual(['same', 'same', 'same', 'removed', 'added', 'same', 'same', 'same']);
-    expect(seq.map(s => s.idx)).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
+    // 变更行下标 5,6 → 显示范围 [5-3, 6+3] = [2, 9]；头部 idx0-1 与尾部 idx10-11 折叠为 hunk
+    expect(seq).toEqual([
+      { idx: -1, type: 'hunk', count: 2, from: 0, to: 2 },
+      { idx: 2, type: 'same', content: '3' },
+      { idx: 3, type: 'same', content: '4' },
+      { idx: 4, type: 'same', content: '5' },
+      { idx: 5, type: 'removed', content: '6' },
+      { idx: 6, type: 'added', content: '7' },
+      { idx: 7, type: 'same', content: '8' },
+      { idx: 8, type: 'same', content: '9' },
+      { idx: 9, type: 'same', content: '10' },
+      { idx: -1, type: 'hunk', count: 2, from: 10, to: 12 },
+    ]);
   });
 
   it('相邻变更块合并（中间未变化段不足 2*context 时不再折叠）', () => {
@@ -45,11 +55,13 @@ describe('buildHunkSequence', () => {
       mk('same', '9'), mk('same', '10'),
     ];
     const seq = buildHunkSequence(changes);
-    // 变更 4 与 7 的上下文重叠 → 不产生 hunk
-    expect(seq.some(s => s.type === 'hunk')).toBe(false);
+    // 变更 4 与 7 的上下文重叠 → 中间不产生 hunk；仅头部 idx0 折叠为 hunk
+    const hunks = seq.filter(s => s.type === 'hunk');
+    expect(hunks.length).toBe(1);
+    expect(hunks[0]).toMatchObject({ count: 1, from: 0, to: 1 });
   });
 
-  it('远距离变更块之间折叠为 hunk 项（from/to 指向原始下标）', () => {
+  it('远距离变更块之间折叠为 hunk 项（from/to 指向原始下标；头部同样折叠）', () => {
     const changes = [
       mk('same', '1'), mk('same', '2'), mk('same', '3'), mk('same', '4'),
       mk('removed', '5'),
@@ -61,23 +73,25 @@ describe('buildHunkSequence', () => {
     ];
     const seq = buildHunkSequence(changes);
     const hunks = seq.filter(s => s.type === 'hunk');
-    expect(hunks.length).toBe(1);
-    const hunk = hunks[0];
+    // 头部 idx0 折叠 + 中间段折叠
+    expect(hunks.length).toBe(2);
+    expect(hunks[0]).toMatchObject({ count: 1, from: 0, to: 1 });
     // 变更 4 → 显示到 7；变更 17 → 显示从 14 起；折叠段 [8, 14)
-    expect(hunk.from).toBe(8);
-    expect(hunk.to).toBe(14);
-    expect(hunk.count).toBe(6);
+    const mid = hunks.find(h => h.from === 8);
+    expect(mid).toMatchObject({ to: 14, count: 6 });
   });
 
-  it('头部未变化段直接丢弃（与 git 一致）', () => {
+  it('头部未变化段折叠为 hunk（可展开查看文件开头）', () => {
     const changes = [
       mk('same', '1'), mk('same', '2'), mk('same', '3'), mk('same', '4'), mk('same', '5'),
       mk('removed', '6'), mk('added', '7'),
       mk('same', '8'), mk('same', '9'),
     ];
     const seq = buildHunkSequence(changes);
-    expect(seq[0].idx).toBe(2); // 不从 0 开始
-    expect(seq.some(s => s.type === 'hunk')).toBe(false); // 尾部不足 context 不折叠
+    // 头部 idx0-1 折叠为 hunk；尾部 idx7-8 是变更块上下文（不足折叠）
+    expect(seq[0]).toMatchObject({ type: 'hunk', count: 2, from: 0, to: 2 });
+    expect(seq[1].idx).toBe(2); // 头部 hunk 之后从变更块上下文开始
+    expect(seq.filter(s => s.type === 'hunk').length).toBe(1);
   });
 
   it('上下文行数等于 DIFF_CONTEXT_LINES 常量', () => {
@@ -397,5 +411,86 @@ describe('FileDiffView 展开全部 / 收起全部', () => {
     view._renderDiff({ overall: true, changes });
     view._expandAllHunks();
     expect(view._expandedHunks.size).toBe(2); // 2 个折叠段全部展开
+  });
+});
+
+// ── 历史视图折叠（非 overall 的 diff 同样 git 式折叠）──────
+
+describe('FileDiffView 历史视图折叠', () => {
+  /** 历史视图数据：完整文件 diff（变更前 vs 变更后），两个远距离变更块 → 1 个折叠段 */
+  function historicalData() {
+    const changes = [];
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'H' + i });
+    changes.push({ type: 'added', content: 'A1' });
+    for (let i = 0; i < 10; i++) changes.push({ type: 'same', content: 'M' + i });
+    changes.push({ type: 'added', content: 'A2' });
+    for (let i = 0; i < 3; i++) changes.push({ type: 'same', content: 'T' + i });
+    return { changes }; // 无 overall 字段 → 历史视图
+  }
+
+  it('有远距离变更块时渲染折叠行与工具条', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    view._renderDiff(historicalData());
+    expect(container.querySelector('.diff-line.diff-hunk')).toBeTruthy();
+    expect(container.querySelector('.diff-toolbar-btn')).toBeTruthy();
+  });
+
+  it('展开折叠段后行号与后续块衔接（全部行号连续无跳变）', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    view._renderDiff(historicalData());
+    const hunk = container.querySelector('.diff-line.diff-hunk');
+    view._toggleHunk(parseInt(hunk.dataset.hunkFrom));
+    // 折叠前：1..7、hunk、12..18；展开后折叠段（M3..M6=8..11）填补空隙 → 1..18 连续
+    const nums = [...container.querySelectorAll('.diff-line .diff-line-num')].map(el => parseInt(el.textContent));
+    expect(nums).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
+  });
+
+  it('变更块在中部时头部/尾部超出上下文的段折叠为 hunk', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    const changes = [];
+    for (let i = 0; i < 6; i++) changes.push({ type: 'same', content: 'HEAD' + i });
+    changes.push({ type: 'removed', content: 'R' });
+    changes.push({ type: 'added', content: 'A' });
+    for (let i = 0; i < 6; i++) changes.push({ type: 'same', content: 'TAIL' + i });
+    view._renderDiff({ changes });
+    // 变更块 idx6-7 → 显示 [3, 10]；头部 idx0-2 与尾部 idx11-13 折叠为 hunk
+    const hunks = [...container.querySelectorAll('.diff-line.diff-hunk')];
+    expect(hunks.length).toBe(2);
+    // 行号：HEAD3=4 HEAD4=5 HEAD5=6 R=旧7 A=新7 TAIL0=8 TAIL1=9 TAIL2=10
+    const nums = [...container.querySelectorAll('.diff-line .diff-line-num')].map(el => parseInt(el.textContent));
+    expect(nums).toEqual([4, 5, 6, 7, 7, 8, 9, 10]);
+  });
+
+  it('点击头部 hunk 展开后可看到文件开头（行号从 1 开始）', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    const changes = [];
+    for (let i = 0; i < 6; i++) changes.push({ type: 'same', content: 'HEAD' + i });
+    changes.push({ type: 'removed', content: 'R' });
+    changes.push({ type: 'added', content: 'A' });
+    for (let i = 0; i < 6; i++) changes.push({ type: 'same', content: 'TAIL' + i });
+    view._renderDiff({ changes });
+    // 第一个 hunk 是头部（from=0），展开后显示 HEAD0..2（行号 1..3）
+    const headHunk = [...container.querySelectorAll('.diff-line.diff-hunk')][0];
+    view._toggleHunk(parseInt(headHunk.dataset.hunkFrom));
+    const nums = [...container.querySelectorAll('.diff-line .diff-line-num')].map(el => parseInt(el.textContent));
+    expect(nums.slice(0, 3)).toEqual([1, 2, 3]);
+  });
+
+  it('全部为变更行（无 same 上下文）时不折叠、无工具条', () => {
+    const container = document.createElement('div');
+    const view = new FileDiffView(container);
+    view._renderDiff({ changes: [
+      { type: 'added', content: 'a' },
+      { type: 'added', content: 'b' },
+      { type: 'removed', content: 'c' },
+    ] });
+    expect(container.querySelector('.diff-line.diff-hunk')).toBeNull();
+    expect(container.querySelector('.diff-toolbar-btn')).toBeNull();
+    const nums = [...container.querySelectorAll('.diff-line .diff-line-num')].map(el => parseInt(el.textContent));
+    expect(nums).toEqual([1, 2, 1]); // added 用新行号（1、2）；removed 用旧行号（1）
   });
 });
