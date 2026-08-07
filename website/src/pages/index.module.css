@@ -291,52 +291,236 @@
   padding: 0 5vw;
 }
 
-.screenshotHeading {
-  text-align: center;
-  font-size: 1.8rem;
-  margin-bottom: 2.5rem;
+/* ── 区块头部 · 对齐 chrome 刊头 + kicker + 大标题 (与 Features/Metrics 同语言) ── */
+.shotHead {
+  margin-bottom: 3rem;
+}
+
+.shotChrome {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+  margin-bottom: 2.6rem;
 }
 
-.screenshotIcon {
-  opacity: 0.65;
-  flex-shrink: 0;
+[data-theme='dark'] .shotChrome {
+  color: rgba(255, 255, 255, 0.62);
 }
 
+.shotKicker {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.85rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 0.7rem;
+}
+
+[data-theme='dark'] .shotKicker {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.shotTitle {
+  font-weight: 200;
+  font-size: clamp(2rem, 4.2vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin-bottom: 0;
+  color: #1a1a1a;
+}
+
+[data-theme='dark'] .shotTitle {
+  color: #ffffff;
+}
+
+/* ── 截图网格 · 1 大 + 2 小 (对齐瑞士网格语言) ── */
 .screenshotGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 2.5rem;
-  max-width: min(1000px, 100%);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3rem 2rem;
+  max-width: min(1100px, 100%);
   margin: 0 auto;
 }
 
+/* 首张大图跨满两列 */
+.screenshotGrid > :first-child {
+  grid-column: 1 / -1;
+}
+
+/* 错峰: 第 2、3 张依次延后 */
+.screenshotGrid > :nth-child(2) {
+  transition-delay: 0.15s;
+}
+
+.screenshotGrid > :nth-child(3) {
+  transition-delay: 0.3s;
+}
+
+/* 移动端: 回到单列 */
+@media (max-width: 996px) {
+  .screenshotGrid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+}
+
 .screenshotCard {
+  margin: 0;
   text-align: center;
+  /* button 重置: 无边框无背景, 继承文本 */
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: zoom-in;
+  display: block;
+  width: 100%;
   transition: transform .35s ease, box-shadow .35s ease;
 }
 
 .screenshotCard:hover {
-  transform: scale(1.02);
+  transform: translateY(-4px);
 }
 
 .screenshotCard img {
   width: 100%;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, .12);
+  display: block;
+  border-radius: 0;                      /* 直角 · 对齐瑞士语言 */
+  border: 1px solid rgba(0, 0, 0, 0.14); /* 发丝边框 */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
+}
+
+[data-theme='dark'] .screenshotCard img {
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .screenshotCard:hover img {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, .18);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.16);
 }
 
-.screenshotCard p {
-  margin-top: .6rem;
-  font-size: .9rem;
-  opacity: 0.7;
+/* ── 截图 caption · mono 编号 + 描述 ── */
+.shotCaption {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] .shotCaption {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.shotNo {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='dark'] .shotNo {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── Lightbox 截图放大 · 近黑遮罩 (与 Hero --ink 同色系) ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.92);
+  backdrop-filter: blur(6px);
+  padding: 5vh 5vw;
+  animation: lightboxFadeIn .25s ease-out;
+}
+
+.lightboxInner {
+  margin: 0;
+  max-width: min(1400px, 90vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lightboxInner img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 0; /* 直角 · 对齐瑞士语言 */
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* lightbox 内 caption 反白 */
+.lightbox .shotCaption {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.lightbox .shotNo {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lightboxClose {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease;
+}
+
+.lightboxClose:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.lightboxHint {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+@keyframes lightboxFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightbox {
+    animation: none;
+  }
 }
 
 /* ── Scroll reveal ── */

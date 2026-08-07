@@ -1,0 +1,215 @@
+.metrics {
+  padding: 4rem 0 5rem;
+  width: 100%;
+  background: #fafaf8; /* 纸白 · 对齐 ppt-demo --paper */
+}
+
+[data-theme='dark'] .metrics {
+  background: #0a0a0a;
+}
+
+/* 全宽容器 · 对齐 Hero (5vw 留白) */
+.metrics :global(.container) {
+  max-width: none;
+  padding: 0 5vw;
+}
+
+/* ── Scroll reveal container (background stays visible, only rows animate) ── */
+.reveal {
+  /* no opacity — background should always be solid */
+}
+
+/* ── 区块头部 · 对齐 ppt-demo 第 2 页 (chrome 刊头 + kicker + 大标题) ── */
+.metricsHead {
+  margin-bottom: 3rem;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity .55s ease-out, transform .55s ease-out;
+}
+
+.revealVisible .metricsHead {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* chrome 刊头 · 对齐 PPT .chrome-min (mono 两端对齐) */
+.chrome {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+  margin-bottom: 2.6rem;
+}
+
+[data-theme='dark'] .chrome {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* kicker · 对齐 PPT t-cat (mono 大字距) */
+.kicker {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.85rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 0.7rem;
+}
+
+[data-theme='dark'] .kicker {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* 大标题 · 对齐 PPT h2 (200 超细 + 紧字距) */
+.headTitle {
+  font-weight: 200;
+  font-size: clamp(2rem, 4.2vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin-bottom: 0;
+  color: #1a1a1a;
+}
+
+[data-theme='dark'] .headTitle {
+  color: #ffffff;
+}
+
+/* ── 纵向账本 · 对齐 PPT .stacked-ledger ── */
+.ledger {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(0, 0, 0, 0.14); /* 顶部发丝线 */
+}
+
+[data-theme='dark'] .ledger {
+  border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+.ledgerRow {
+  display: grid;
+  /* label | 点线(弹性) | 数字 | 图标 — 点线填满中间空白, 数字保持右对齐冲击 */
+  grid-template-columns: auto minmax(1.5rem, 1fr) auto min(3.4rem, 9vw);
+  gap: 1.25rem;
+  align-items: center;
+  padding: 1.1rem 0;
+  /* 行间无线 — 连接由中间点线承担, 避免双重线 */
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity .55s ease-out, transform .55s ease-out;
+}
+
+/* 账本点线 · 对齐数字基线 (经典账单/目录 leader) */
+.ledgerDash {
+  align-self: end;
+  min-width: 1.5rem;
+  border-bottom: 1px dotted rgba(0, 0, 0, 0.28);
+  margin-bottom: 0.45em;
+}
+
+[data-theme='dark'] .ledgerDash {
+  border-bottom-color: rgba(255, 255, 255, 0.28);
+}
+
+.revealVisible .ledgerRow {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* stagger: 头部先出, 每行依次跟上 (头部 0s → 行 .12s 起, 每行 +.08s) */
+.ledgerRow:nth-child(1) { transition-delay: .12s; }
+.ledgerRow:nth-child(2) { transition-delay: .2s; }
+.ledgerRow:nth-child(3) { transition-delay: .28s; }
+.ledgerRow:nth-child(4) { transition-delay: .36s; }
+.ledgerRow:nth-child(5) { transition-delay: .44s; }
+.ledgerRow:nth-child(6) { transition-delay: .52s; }
+
+/* 左列 · 名称 + 副标题 (对齐 PPT .ledger-label) */
+.ledgerLabel {
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  line-height: 1.35;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+[data-theme='dark'] .ledgerLabel {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.ledgerSub {
+  display: block;
+  font-size: 0.85rem;
+  opacity: 0.68;
+  margin-top: 0.15rem;
+}
+
+/* 中列 · 超细 200 大数字 (对齐 PPT .ledger-num, tnum 等宽数字) */
+.ledgerNum {
+  font-family: var(--ifm-font-family-base);
+  font-weight: 200;
+  font-size: clamp(2.2rem, 4.5vw, 4rem);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  font-feature-settings: 'tnum', 'ss01';
+  text-align: right;
+  white-space: nowrap;
+  color: #111111;
+}
+
+[data-theme='dark'] .ledgerNum {
+  color: #ffffff;
+}
+
+.ledgerUnit {
+  font-size: 0.34em;
+  font-weight: 300;
+  opacity: 0.6;
+  /* em 相对自身字号(0.34em)计算: 0.45em ≈ 数字字号的 0.15, 留出舒适呼吸 */
+  margin-left: 0.45em;
+  vertical-align: 0.42em;
+}
+
+/* 右列 · 细线图标 (对齐 PPT .ledger-icon, stroke 1.4) */
+.ledgerIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='dark'] .ledgerIcon {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ledgerIcon svg {
+  width: min(2rem, 5vw);
+  height: min(2rem, 5vw);
+  stroke-width: 1.4;
+}
+
+/* ── 移动端 (≤996px): 隐藏图标列, 点线继续填充 ── */
+@media (max-width: 996px) {
+  .ledgerRow {
+    grid-template-columns: auto minmax(1.25rem, 1fr) auto;
+    gap: 1rem;
+  }
+  .ledgerIcon {
+    display: none;
+  }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .metricsHead,
+  .ledgerRow {
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

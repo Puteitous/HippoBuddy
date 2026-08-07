@@ -4,6 +4,7 @@ import Translate, {translate} from '@docusaurus/Translate';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import HomepageMetrics from '@site/src/components/HomepageMetrics';
 import Heading from '@theme/Heading';
 
 import styles from './index.module.css';
@@ -33,6 +34,56 @@ function ScrollReveal({children, className = ''}: {children: ReactNode; classNam
       ref={ref}
       className={`${styles.reveal} ${visible ? styles.revealVisible : ''} ${className}`}>
       {children}
+    </div>
+  );
+}
+
+/* ============== Lightbox 截图放大 · 页内查看原图 ==============
+   点击截图打开遮罩放大; Esc / 点击遮罩 / 关闭按钮 均可关闭.
+   打开时锁定 body 滚动, 关闭时恢复.                                 */
+type LightboxItem = {
+  src: string;
+  alt: string;
+  no: string;
+  desc: ReactNode;
+};
+
+function Lightbox({item, onClose}: {item: LightboxItem; onClose: () => void}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className={styles.lightbox}
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.alt}
+      onClick={onClose}>
+      <figure className={styles.lightboxInner} onClick={(e) => e.stopPropagation()}>
+        <img src={item.src} alt={item.alt} />
+        <figcaption className={styles.shotCaption}>
+          <span className={styles.shotNo}>{item.no}</span>
+          {item.desc}
+        </figcaption>
+      </figure>
+      <button
+        type="button"
+        className={styles.lightboxClose}
+        aria-label="关闭"
+        onClick={onClose}>
+        ✕
+      </button>
+      <span className={styles.lightboxHint}>ESC 关闭</span>
     </div>
   );
 }
@@ -247,6 +298,7 @@ function HomepageHeader() {
 
 export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
+  const [lightboxItem, setLightboxItem] = useState<LightboxItem | null>(null);
 
   /* 首页时给导航栏加 home 类, 使其与黑色 Hero 无缝融合; 离开首页自动移除 */
   useEffect(() => {
@@ -265,36 +317,89 @@ export default function Home(): ReactNode {
       <HomepageHeader />
       <main>
         <HomepageFeatures />
+        <HomepageMetrics />
 
         <section className={styles.screenshotSection}>
           <div className="container">
+            {/* 区块头部 · 对齐 chrome 刊头 + kicker + 大标题 */}
             <ScrollReveal>
-              <Heading as="h2" className={styles.screenshotHeading}>
-                <svg className={styles.screenshotIcon} width="28" height="28" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" clipRule="evenodd" d="M5 10C5 8.89543 5.89543 8 7 8L41 8C42.1046 8 43 8.89543 43 10V38C43 39.1046 42.1046 40 41 40H7C5.89543 40 5 39.1046 5 38V10Z" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path fillRule="evenodd" clipRule="evenodd" d="M14.5 18C15.3284 18 16 17.3284 16 16.5C16 15.6716 15.3284 15 14.5 15C13.6716 15 13 15.6716 13 16.5C13 17.3284 13.6716 18 14.5 18Z" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M15 24L20 28L26 21L43 34V38C43 39.1046 42.1046 40 41 40H7C5.89543 40 5 39.1046 5 38V34L15 24Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round"/>
-                </svg>
-                <Translate>界面预览</Translate>
-              </Heading>
+              <div className={styles.shotHead}>
+                <div className={styles.shotChrome}>
+                  <span>Interface · 界面</span>
+                  <span>HB · INTERFACE</span>
+                </div>
+                <div className={styles.shotKicker}>Screenshots · 实际运行界面</div>
+                <Heading as="h2" className={styles.shotTitle}>
+                  <Translate>所见即所得</Translate>
+                </Heading>
+              </div>
             </ScrollReveal>
             <div className={styles.screenshotGrid}>
               <ScrollReveal>
-                <div className={styles.screenshotCard}>
+                <button
+                  type="button"
+                  className={styles.screenshotCard}
+                  onClick={() =>
+                    setLightboxItem({
+                      src: 'img/screenshot-main.png',
+                      alt: translate({message: 'HippoBuddy 主界面'}),
+                      no: 'FIG · 01',
+                      desc: <Translate>主界面：聊天面板与工具调用可视化</Translate>,
+                    })
+                  }>
                   <img src="img/screenshot-main.png" alt={translate({message: 'HippoBuddy 主界面'})} />
-                  <p><Translate>主界面：聊天面板与工具调用可视化</Translate></p>
-                </div>
+                  <span className={styles.shotCaption}>
+                    <span className={styles.shotNo}>FIG · 01</span>
+                    <Translate>主界面：聊天面板与工具调用可视化</Translate>
+                  </span>
+                </button>
               </ScrollReveal>
               <ScrollReveal>
-                <div className={styles.screenshotCard}>
+                <button
+                  type="button"
+                  className={styles.screenshotCard}
+                  onClick={() =>
+                    setLightboxItem({
+                      src: 'img/screenshot-chat.png',
+                      alt: translate({message: 'Chat 与预览面板'}),
+                      no: 'FIG · 02',
+                      desc: <Translate>Chat 面板与预览面板协同工作</Translate>,
+                    })
+                  }>
                   <img src="img/screenshot-chat.png" alt={translate({message: 'Chat 与预览面板'})} />
-                  <p><Translate>Chat 面板与预览面板协同工作</Translate></p>
-                </div>
+                  <span className={styles.shotCaption}>
+                    <span className={styles.shotNo}>FIG · 02</span>
+                    <Translate>Chat 面板与预览面板协同工作</Translate>
+                  </span>
+                </button>
+              </ScrollReveal>
+              <ScrollReveal>
+                <button
+                  type="button"
+                  className={styles.screenshotCard}
+                  onClick={() =>
+                    setLightboxItem({
+                      src: 'img/screenshot-token.png',
+                      alt: translate({message: 'Token 监控与 diff 便签'}),
+                      no: 'FIG · 03',
+                      desc: <Translate>Token 用量与 diff 便签：每步变更透明可见</Translate>,
+                    })
+                  }>
+                  <img src="img/screenshot-token.png" alt={translate({message: 'Token 监控与 diff 便签'})} />
+                  <span className={styles.shotCaption}>
+                    <span className={styles.shotNo}>FIG · 03</span>
+                    <Translate>Token 用量与 diff 便签：每步变更透明可见</Translate>
+                  </span>
+                </button>
               </ScrollReveal>
             </div>
           </div>
         </section>
       </main>
+
+      {lightboxItem && (
+        <Lightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+      )}
     </Layout>
   );
 }
