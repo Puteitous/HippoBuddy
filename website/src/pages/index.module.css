@@ -1,251 +1,251 @@
-/* ── Hero ── */
+/* ── Hero · Swiss Style (IKB 克莱因蓝) · 非对称三段式 ── */
 .heroBanner {
-  padding: 6rem 0;
-  text-align: center;
   position: relative;
   z-index: 1;
   overflow: hidden;
-  background: #ffffff;
-  color: #1a1a2e;
+  /* 铺满首屏: 视口高度 - Docusaurus 导航栏; 左右留白交给 heroContainer 的 5vw (对齐 PPT .slide padding) */
+  padding: 5.5vh 0 7vh 0;
+  isolation: isolate;
+  /* 铺满首屏: 视口高度 - Docusaurus 导航栏 */
+  min-height: calc(100vh - var(--ifm-navbar-height));
+  display: flex;
+  flex-direction: column;
+  /* 深底恒亮, light/dark 主题下 Hero 一致 · 与 ppt-demo 首页 --ink #0a0a0a 统一 */
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: 'Inter', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
 }
 
+/* 全宽容器 · 对齐 PPT 首页: 内容铺满视口, 左右 5vw 留白随屏幕同比例缩放 */
+.heroContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  padding: 0 5vw;
+}
+
+/* 底部淡出到页面底色, 与 Features 区自然衔接 */
 .heroBanner::after {
   content: '';
   position: absolute;
-  bottom: 0;
   left: 0;
   right: 0;
-  height: 80px;
-  background: linear-gradient(to bottom, transparent, #f5f5f7);
+  bottom: 0;
+  height: 96px;
+  background: linear-gradient(to bottom, transparent, rgba(10, 10, 10, 0.92));
   pointer-events: none;
+  z-index: 2;
 }
 
-[data-theme='dark'] .heroBanner {
-  background: linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 50%, #0a2342 100%);
-  color: #ffffff;
-}
-
-[data-theme='dark'] .heroBanner::after {
-  background: linear-gradient(to bottom, transparent, #0d0d1a);
-}
-
-/* ── Starfield ── */
-.starfield {
+/* ── ASCII 字符呼吸场 (canvas) ── */
+.asciiField {
   position: absolute;
   inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.star {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(60, 80, 160, 0.7);
-  animation: twinkle ease-in-out infinite;
-}
-
-.starDrift {
-  animation-name: twinkleDrift;
-}
-
-[data-theme='dark'] .star {
-  background: #ffffff;
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0.4; transform: scale(0.85); }
-  50% { opacity: 1; transform: scale(1); }
-}
-
-@keyframes twinkleDrift {
-  0%, 100% { opacity: 0.4; transform: translateY(0px) scale(0.85); }
-  25% { opacity: 0.6; transform: translateY(-1.5px) scale(0.9); }
-  50% { opacity: 1; transform: translateY(-3px) scale(1); }
-  75% { opacity: 0.6; transform: translateY(-1.5px) scale(0.9); }
-}
-
-/* ── Shooting stars ── */
-.shootingStar {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 8px 3px rgba(255, 255, 255, 0.5);
-  opacity: 0;
-  animation: shoot ease-in-out infinite;
-}
-
-[data-theme='dark'] .shootingStar {
-  background: #fff;
-  box-shadow: 0 0 8px 3px rgba(255, 255, 255, 0.5);
-}
-
-@keyframes shoot {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  2% {
-    opacity: 1;
-    box-shadow:
-      0 0 10px 4px rgba(255, 255, 255, 0.6),
-      15px -11px 3px 0 rgba(255, 255, 255, 0.15),
-      30px -22px 4px 0 rgba(255, 255, 255, 0.06),
-      45px -33px 5px 0 rgba(255, 255, 255, 0.02);
-  }
-  7% {
-    opacity: 1;
-    box-shadow:
-      0 0 10px 4px rgba(255, 255, 255, 0.6),
-      15px -11px 3px 0 rgba(255, 255, 255, 0.15),
-      30px -22px 4px 0 rgba(255, 255, 255, 0.06),
-      45px -33px 5px 0 rgba(255, 255, 255, 0.02);
-  }
-  9% {
-    opacity: 0;
-    transform: translate(-320px, 240px);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-320px, 240px);
-  }
-}
-
-/* ── Big Dipper constellation ── */
-.constStar {
-  position: absolute;
-  background: #fff;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  animation: constPulse 4s ease-in-out infinite;
-}
-
-[data-theme='dark'] .constStar {
-  background: #fff;
-}
-
-@keyframes constPulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 0.75; }
-}
-
-/* ── Polaris ── */
-.polarisStar {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: #fffde7;
-  border-radius: 50%;
-  box-shadow: 0 0 5px 2.5px rgba(255, 235, 59, 0.3);
-  transform: translate(-50%, -50%);
-  animation: polarisPulse 3s ease-in-out infinite;
-}
-
-@keyframes polarisPulse {
-  0%, 100% { opacity: 0.45; box-shadow: 0 0 3px 1.5px rgba(255, 235, 59, 0.2); }
-  50% { opacity: 0.8; box-shadow: 0 0 6px 3px rgba(255, 235, 59, 0.35); }
-}
-
-.heroLogo {
-  margin-bottom: 1.5rem;
-  animation: scaleIn .55s ease-out both;
-}
-
-.heroTitle {
-  font-size: 3rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  animation: fadeInUp .55s ease-out both;
-  animation-delay: .15s;
-}
-
-.heroSubtitle {
-  font-size: 1.3rem;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  mix-blend-mode: screen;
   opacity: 0.9;
-  margin-bottom: 2rem;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-  animation: fadeInUp .55s ease-out both;
-  animation-delay: .3s;
+  pointer-events: none;
 }
 
-.buttons {
+/* ── 三段式容器: 顶部 chrome / 中间 main / 底部 footer ── */
+.heroInner {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  flex: 1;
+  min-height: min(480px, 70vh);
+  display: flex;
+  flex-direction: column;
+  /* 入场动画改为各元素独立错峰 (见各元素 animation) */
+}
+
+/* 顶部 chrome · 两端对齐 (mono) · PPT: rgba(255,255,255,.62) */
+.heroChrome {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-family: var(--ifm-font-family-monospace), 'JetBrains Mono', monospace;
+  font-size: max(11px, .78rem);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .62);
+  animation: heroFadeUp .4s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+/* 主内容 · grid 三行 (对齐 PPT 封面): kicker 左 / 标题居中巨字 / lead 左 */
+.heroMain {
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 2.6vh;
+  align-items: start;
+  min-height: 0;
+}
+
+/* 等宽标签行: 左侧短线 + 大字距 (PPT t-meta 风格) */
+.heroKicker {
+  font-family: var(--ifm-font-family-monospace), 'JetBrains Mono', monospace;
+  font-size: 14px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .78);
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.2em;
+  animation: heroFadeUp .4s cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: .08s;
+}
+.heroKicker::before {
+  content: '';
+  width: 30px;
+  height: 1px;
+  background: currentColor;
+  opacity: .5;
+}
+
+/* 超细字重大标题 · 垂直居中于中间行 (完全对齐 PPT 封面: align-self:center / min(11.6vw,19vh) / -.025em) */
+.heroTitle {
+  align-self: center;
+  font-weight: 200;
+  font-size: min(11.6vw, 19vh);
+  line-height: .94;
+  letter-spacing: -.025em;
+  color: #ffffff;
+  margin: 0;
+  /* 标题入场: 微缩放 + 上浮, 冲击力最强的一拍 · 延迟制造悬念, 等 kicker 完全浮现后再出 */
+  animation: heroZoomIn .6s cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: .4s;
+}
+.heroTitleItalic {
+  font-style: italic;
+  font-weight: 500;
+  /* 空心描边字: 透明填充 + IKB 提亮蓝描边 (0.018em 随字号缩放) */
+  color: transparent;
+  -webkit-text-stroke: 0.018em var(--ifm-color-primary-bright);
+  paint-order: stroke fill; /* 描边绘制在外侧, 避免文字变细 */
+  /* 单独出场: Hippo 先至, Buddy 随后淡入 "盖章" (纯淡入不位移, 避免与父级缩放叠加) */
+  animation: heroFadeIn .4s ease-out both;
+  animation-delay: .6s;
+}
+/* 不支持 text-stroke 时回退为实心蓝 */
+@supports not ((-webkit-text-stroke: 1px #000) or (text-stroke: 1px #000)) {
+  .heroTitleItalic {
+    color: var(--ifm-color-primary-bright);
+    -webkit-text-stroke: 0;
+  }
+}
+
+/* 引语 lead · 左对齐 (PPT: 1.55vw · 52ch · 400) */
+.heroSubtitle {
+  justify-self: start;
+  font-size: clamp(1.1rem, 1.55vw, 1.7rem);
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: -.005em;
+  color: rgba(255, 255, 255, .86);
+  max-width: 52ch;
+  margin: 0;
+  text-align: left;
+  animation: heroFadeUp .4s cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: .55s;
+}
+
+/* ── 底部 · 发丝线 + 两端信息 ── */
+.heroFooter {
+  flex: 0 0 auto;
+  animation: heroFadeUp .4s cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: .7s;
+}
+
+.heroRule {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, .24);
+  margin-bottom: 2.2rem;
+}
+
+/* 底部行: 左按钮组 / 右下载链接 */
+.heroFooterRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.heroActions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  animation: fadeInUp .55s ease-out both;
-  animation-delay: .45s;
+  gap: .9rem;
+  flex-wrap: wrap;
 }
 
-/* ── Glass hero buttons ── */
+/* 直角按钮 · 克制的瑞士风 */
 .heroBtn {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(232, 117, 0, 0.3);
-  box-shadow: 0 4px 16px rgba(232, 117, 0, 0.12);
-  transition: all 0.3s ease;
+  border-radius: 0;
+  font-weight: 500;
+  letter-spacing: .02em;
+  padding: .8em 2em;
+  border: 1px solid transparent;
+  transition: background .25s ease, color .25s ease, transform .25s ease, box-shadow .25s ease;
 }
-.heroBtn:hover {
-  box-shadow: 0 6px 24px rgba(232, 117, 0, 0.22);
+.heroBtnPrimary {
+  background: #002FA7;
+  color: #ffffff;
+}
+.heroBtnPrimary:hover {
+  background: #0a3fc9;
+  color: #ffffff;
+  box-shadow: 0 6px 24px rgba(0, 47, 167, .35);
+  transform: translateY(-2px);
+}
+.heroBtnGhost {
+  background: rgba(255, 255, 255, .05);
+  border-color: rgba(255, 255, 255, .28);
+  color: #ffffff;
+}
+.heroBtnGhost:hover {
+  background: rgba(255, 255, 255, .12);
+  border-color: rgba(255, 255, 255, .5);
+  color: #ffffff;
   transform: translateY(-2px);
 }
 
-.heroBtnSecondary {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  color: #1a1a2e;
-}
-.heroBtnSecondary:hover {
-  background: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
-  color: #1a1a2e;
-}
-
-[data-theme='dark'] .heroBtn {
-  border-color: rgba(232, 117, 0, 0.25);
-  box-shadow: 0 4px 16px rgba(232, 117, 0, 0.08);
-}
-[data-theme='dark'] .heroBtn:hover {
-  box-shadow: 0 6px 24px rgba(232, 117, 0, 0.18);
-}
-
-[data-theme='dark'] .heroBtnSecondary {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  color: #ffffff;
-}
-[data-theme='dark'] .heroBtnSecondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-}
-
+/* 下载链接 · 右对齐 */
 .downloadLinks {
   font-size: 0.95rem;
   line-height: 1.8;
-  opacity: 0.85;
-  animation: fadeInUp .55s ease-out both;
-  animation-delay: .6s;
+  opacity: .85;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .35em;
+  flex-wrap: wrap;
 }
 
 .downloadLabel {
   position: relative;
   top: -3px;
+  white-space: nowrap;
 }
 
 .downloadLinks a {
-  color: #1a1a2e;
+  color: #ffffff;
   text-decoration: underline;
   text-underline-offset: 3px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+}
+.downloadLinks a:hover {
+  color: #5B7BFF;
 }
 
 .osIcon {
@@ -253,21 +253,26 @@
   vertical-align: middle;
 }
 
-.downloadLinks a:hover {
-  color: #e87500;
-}
-
-[data-theme='dark'] .downloadLinks a {
-  color: #ffffff;
-}
-
-[data-theme='dark'] .downloadLinks a:hover {
-  color: #ff9d33;
-}
-
 .sep {
   margin: 0 .5rem;
-  opacity: 0.5;
+  opacity: .5;
+}
+
+/* 底部 meta · 两端: 左技术栈 / 右 Open Source */
+.heroMeta {
+  margin-top: 2.4rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  font-family: var(--ifm-font-family-monospace), 'JetBrains Mono', monospace;
+  font-size: max(11px, .78rem);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .5);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 /* ── Screenshot section ── */
@@ -277,7 +282,13 @@
 }
 
 [data-theme='dark'] .screenshotSection {
-  background: #0d0d1a;
+  background: #0a0a0a;
+}
+
+/* 全宽容器 · 对齐 Hero (5vw 留白) */
+.screenshotSection :global(.container) {
+  max-width: none;
+  padding: 0 5vw;
 }
 
 .screenshotHeading {
@@ -299,7 +310,7 @@
   display: flex;
   flex-direction: column;
   gap: 2.5rem;
-  max-width: 800px;
+  max-width: min(1000px, 100%);
   margin: 0 auto;
 }
 
@@ -340,11 +351,11 @@
   transform: translateY(0);
 }
 
-/* ── Keyframes ── */
-@keyframes fadeInUp {
+/* ── Keyframes: 逐层错峰入场 (对齐 PPT 封面的分步动画) ── */
+@keyframes heroFadeUp {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(22px);
   }
   to {
     opacity: 1;
@@ -352,69 +363,95 @@
   }
 }
 
-@keyframes scaleIn {
+@keyframes heroZoomIn {
   from {
     opacity: 0;
-    transform: scale(.85);
+    transform: scale(.96) translateY(16px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes heroFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
 /* ── Responsive ── */
 @media screen and (max-width: 996px) {
   .heroBanner {
-    padding: 3rem 1rem;
+    padding: 2.8rem 0 2.4rem;
+  }
+
+  .heroInner {
+    min-height: min(440px, 72vh);
+  }
+
+  /* 顶部 chrome 右侧页码隐藏 */
+  .heroChrome > span:last-child {
+    display: none;
+  }
+
+  .heroKicker {
+    letter-spacing: .2em;
   }
 
   .heroTitle {
-    font-size: 2.2rem;
+    font-size: clamp(2.6rem, 11vw, 4.2rem);
   }
 
   .heroSubtitle {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
+    max-width: 100%;
   }
 
-  .buttons {
+  .heroFooterRow {
     flex-direction: column;
-    gap: .75rem;
+    align-items: flex-start;
+    gap: 1.6rem;
+  }
+
+  .heroActions {
+    width: 100%;
+  }
+
+  .heroBtn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .downloadLinks {
+    justify-content: flex-start;
+  }
+
+  .heroMeta {
+    letter-spacing: .14em;
   }
 }
 
-/* ── Reduced motion ── */
+/* ── Reduced motion: ASCII 呼吸场由组件内直接跳过, 这里处理 CSS 入场 ── */
 @media (prefers-reduced-motion: reduce) {
-  .heroLogo,
+  .heroChrome,
+  .heroKicker,
   .heroTitle,
+  .heroTitleItalic,
   .heroSubtitle,
-  .buttons,
-  .downloadLinks,
+  .heroFooter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
   .reveal {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
     transform: none !important;
-  }
-
-  .star {
-    animation: none !important;
-    opacity: 0.3 !important;
-    transform: none !important;
-  }
-
-  .shootingStar {
-    animation: none !important;
-    opacity: 0 !important;
-  }
-
-  .constStar {
-    animation: none !important;
-    opacity: 0.5 !important;
-  }
-
-  .polarisStar {
-    animation: none !important;
-    opacity: 0.5 !important;
   }
 }

@@ -7,7 +7,13 @@
 }
 
 [data-theme='dark'] .features {
-  background: #0d0d1a;
+  background: #0a0a0a;
+}
+
+/* 全宽容器 · 对齐 Hero (5vw 留白) */
+.features :global(.container) {
+  max-width: none;
+  padding: 0 5vw;
 }
 
 /* ── Scroll reveal container (background stays visible, only cards animate) ── */
@@ -96,12 +102,12 @@
 .featureCard:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
-  background: rgba(232, 117, 0, 0.04);
+  background: rgba(0, 47, 167, 0.04);
 }
 
 [data-theme='dark'] .featureCard:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
-  background: rgba(255, 157, 51, 0.06);
+  background: rgba(91, 123, 255, 0.06);
 }
 
 .featureCard p {

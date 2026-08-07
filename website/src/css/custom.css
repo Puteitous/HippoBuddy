@@ -1,34 +1,27 @@
 :root {
-  --ifm-color-primary: #e87500;
-  --ifm-color-primary-dark: #d16900;
-  --ifm-color-primary-darker: #c56300;
-  --ifm-color-primary-darkest: #a25200;
-  --ifm-color-primary-light: #ff8200;
-  --ifm-color-primary-lighter: #ff8a0f;
-  --ifm-color-primary-lightest: #ff9d33;
+  /* 主题色: 克莱因蓝 IKB (国际克莱因蓝 International Klein Blue) */
+  --ifm-color-primary: #002FA7;
+  --ifm-color-primary-dark: #002a96;
+  --ifm-color-primary-darker: #00278d;
+  --ifm-color-primary-darkest: #002071;
+  --ifm-color-primary-light: #0033ba;
+  --ifm-color-primary-lighter: #0a3fc9;
+  --ifm-color-primary-lightest: #2a5ad1;
+  /* IKB 提亮版 — 深底高亮用 */
+  --ifm-color-primary-bright: #5B7BFF;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #ff9d33;
-  --ifm-color-primary-dark: #ff8e14;
-  --ifm-color-primary-darker: #ff8705;
-  --ifm-color-primary-darkest: #d46f00;
-  --ifm-color-primary-light: #ffac52;
-  --ifm-color-primary-lighter: #ffb361;
-  --ifm-color-primary-lightest: #ffc98e;
+  --ifm-color-primary: #5B7BFF;
+  --ifm-color-primary-dark: #4a6cf5;
+  --ifm-color-primary-darker: #3d60e8;
+  --ifm-color-primary-darkest: #2a4ac4;
+  --ifm-color-primary-light: #6d88ff;
+  --ifm-color-primary-lighter: #7d95ff;
+  --ifm-color-primary-lightest: #9db0ff;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
-}
-
-.hero--primary {
-  --ifm-hero-background-color: #ffffff;
-  --ifm-hero-text-color: #1a1a2e;
-}
-
-[data-theme='dark'] .hero--primary {
-  --ifm-hero-background-color: linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 50%, #0a2342 100%);
-  --ifm-hero-text-color: #ffffff;
 }
 
 /* Screenshot images in docs */
@@ -37,4 +30,39 @@ article img[alt*="面板"] {
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
   margin-bottom: 0.25rem;
+}
+
+/* ── 首页导航栏: 与黑色 Hero 无缝融合 (由 index.tsx 动态添加 navbar--home 类) ── */
+.navbar--home {
+  background: #0a0a0a;
+  box-shadow: none;
+}
+.navbar--home .navbar__inner {
+  max-width: none;
+}
+.navbar--home .navbar__title,
+.navbar--home .navbar__link {
+  color: rgba(255, 255, 255, 0.82);
+}
+.navbar--home .navbar__link:hover,
+.navbar--home .navbar__link--active {
+  color: #ffffff;
+}
+.navbar--home .navbar__toggle {
+  color: rgba(255, 255, 255, 0.82);
+}
+/* 语言下拉按钮 (dropdown 内的 caret 使用 currentColor) */
+.navbar--home .navbar__item.dropdown .navbar__link {
+  color: rgba(255, 255, 255, 0.82);
+}
+.navbar--home .navbar__item.dropdown .navbar__link:hover {
+  color: #ffffff;
+}
+.navbar--home .dropdown > .navbar__link::after {
+  border-color: currentcolor transparent;
+}
+
+/* 暗色主题下同理保持黑色 (Hero 恒深底) */
+[data-theme='dark'] .navbar--home {
+  background: #0a0a0a;
 }
