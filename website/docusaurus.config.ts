@@ -51,10 +51,10 @@ const config: Config = {
     ],
   ],
 
-  // 瑞士风字体: Inter(超细字重) + JetBrains Mono(等宽标签) + Noto Sans SC(中文回退)
+  // 瑞士风字体: Inter(超细字重) + JetBrains Mono(等宽标签) + Noto Sans SC(中文回退) + Noto Serif SC(slogan 衬线)
   stylesheets: [
     {
-      href: 'https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600&family=Noto+Sans+SC:wght@200;300;400;500;700;900&display=swap',
+      href: 'https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600&family=Noto+Sans+SC:wght@200;300;400;500;700;900&family=Noto+Serif+SC:wght@200;300;400;500;600;700;900&display=swap',
       type: 'text/css',
     },
   ],

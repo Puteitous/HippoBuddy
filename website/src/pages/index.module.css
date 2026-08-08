@@ -246,6 +246,20 @@
   animation-delay: .55s;
 }
 
+/* slogan 英文段: 与 hero chrome/kicker 的 mono 标签语言统一 */
+.heroSloganEn {
+  font-family: var(--ifm-font-family-monospace), 'JetBrains Mono', monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* slogan 中文段: 衬线宋体, 与 mono 英文形成「科技 × 人文」混搭 */
+.heroSloganZh {
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
+  font-weight: 400;
+  letter-spacing: .02em;
+}
+
 /* ── 底部 · 发丝线 + 两端信息 ── */
 .heroFooter {
   flex: 0 0 auto;

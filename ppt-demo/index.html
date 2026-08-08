@@ -6,7 +6,7 @@
 <title>HippoBuddy · AI 桌面助手 · Demo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600&family=Noto+Sans+SC:wght@200;300;400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600&family=Noto+Sans+SC:wght@200;300;400;500;700;900&family=Noto+Serif+SC:wght@200;300;400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
     /* ============ 主题色(默认: 🔵 克莱因蓝 IKB) ============
@@ -39,6 +39,7 @@
     --sans:"Inter","Helvetica Neue","Helvetica","Arial","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;
     --sans-zh:"PingFang SC","Hiragino Sans GB","Source Han Sans SC","Noto Sans SC","Microsoft YaHei UI","Microsoft YaHei","微软雅黑",sans-serif;
     --mono:"JetBrains Mono","IBM Plex Mono","SF Mono","Cascadia Code","Consolas","Courier New",ui-monospace,monospace;
+    --serif-zh:"Noto Serif SC","Source Han Serif SC","Songti SC","SimSun",serif;
 
     /* ============ Carbon 2x Grid 间距模数 (基础 8px) ============
        参考: https://carbondesignsystem.com/elements/2x-grid/overview/
@@ -1359,7 +1360,7 @@
       <h1 data-anim="title" style="align-self:center;font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(11.6vw,19vh);line-height:.94;letter-spacing:-.025em;color:#fff">Hippo<span class="brand-outline">Buddy</span></h1>
 
       <div data-anim="bottom" style="display:grid;grid-template-rows:auto auto;gap:1.6vh;border-top:1px solid rgba(255,255,255,.22);padding-top:2vh">
-        <div data-anim="lead" class="lead" style="max-width:52ch;color:rgba(255,255,255,.86)">写代码、写周报、看文档 —— 一个 AI 桌面助手，三个工作模式，一个应用全搞定。</div>
+        <div data-anim="lead" class="lead" style="max-width:52ch;color:rgba(255,255,255,.86)"><span style="font-family:var(--mono);letter-spacing:.12em">HI, BUDDY.</span> <span style="font-family:var(--serif-zh);letter-spacing:.02em">想得到，就做得到。</span></div>
         <div style="display:flex;justify-content:space-between;align-items:end">
           <div class="t-meta" style="color:rgba(255,255,255,.6)">Java 21 × Electron 32 · Apache 2.0</div>
           <div class="t-meta" style="color:rgba(255,255,255,.6)">→ swipe / arrow keys</div>
@@ -1613,7 +1614,7 @@ const SPEAKER_NOTES = [
   {
     id: 'cover', title: '封面 · HippoBuddy', section: '开场', minutes: 0.4,
     purpose: '亮出产品名与核心定位：AI 桌面助手，完全开源免费',
-    talk: ['开场白直接念：今天给大家介绍一个我自己开发的 AI 桌面助手 HippoBuddy，完全开源免费', '写代码、写周报、看文档，一个应用全搞定', '这句是视频的钩子，语气自然即可'],
+    talk: ['开场白直接念：今天给大家介绍一个我自己开发的 AI 桌面助手 HippoBuddy，完全开源免费', '念出品牌口号：HI, BUDDY. 想得到，就做得到。 —— 你只管想，剩下的交给它', '这句是视频的钩子，语气自然即可'],
     transition: '封面介绍完，进入实机演示 Coding 模式'
   },
   {

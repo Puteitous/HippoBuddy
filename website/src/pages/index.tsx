@@ -468,7 +468,7 @@ function HomepageHeader() {
             </Heading>
 
             <p className={styles.heroSubtitle}>
-              <Translate>写代码、写周报、看文档 —— 一个 AI 桌面助手，一个应用全搞定。</Translate>
+              <span className={styles.heroSloganEn}>HI, BUDDY.</span> <span className={styles.heroSloganZh}><Translate>想得到，就做得到。</Translate></span>
             </p>
           </div>
 
