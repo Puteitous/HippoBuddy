@@ -214,7 +214,229 @@ function AsciiField() {
   return <canvas ref={canvasRef} className={styles.asciiField} aria-hidden="true" />;
 }
 
+/* ============== 标题 ASCII 点阵呼吸场 · 与背景 AsciiField 同构 ==============
+   标题文字渲染到离屏 canvas → 按 10px 网格采样字形掩码,
+   每帧只对掩码内格子用与背景相同的 4 正弦波公式绘制字符:
+   - 波形/字符集/运动节奏与背景同构 → 标题与背景呼吸场融为一体
+   - 完整性优先: 空间频率减半(斑块平滑) + 去掉熄灭阈值(永不缺笔画) + 慢节奏(t*0.25)
+     → 字形始终完整可读, 明暗只在字形内部缓慢流动
+   - 网格更密(8 vs 16px)、字符占满格子、亮度更高(alpha 0.55~1.0 vs 背景 0.08~0.55)
+   - 掩码 3×3 子采样: 细字笔画不落孔 → 字形饱满不残缺
+   - Hippo 字重 200→300: 笔画自然加粗, 像素密度向 Buddy(500) 靠拢, 视觉均衡
+   - Hippo 白 / Buddy 亮蓝白(alpha 单独 +0.15 补偿蓝色感知亮度), 视觉均衡
+   字体加载完成前保持 CSS 像素版兜底, 加载后 canvas 接管(父级 class 隐藏文字) */
+function TitleAsciiField({onReady}: {onReady: () => void}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const readyRef = useRef(false);
+
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const host: HTMLCanvasElement = el;
+
+    // 去掉开头空格: 任何 v≥0.08 的格子都画出可见字符, 字形内部无空洞
+    const PALETTE = '...:::---+++***◦◦••▢▣';
+    const CELL = 8;   // 网格比背景(16)更密 → 字形内部格子多, 标题呈"实心字符块"
+    const FONT_SIZE = 10; // 字符占满格子 → 密实; 与背景(16/13)的稀疏感形成对比
+    const mono = (
+      getComputedStyle(document.documentElement)
+        .getPropertyValue('--ifm-font-family-monospace') || 'JetBrains Mono, monospace'
+    ).trim();
+    const FONT_SANS = "'Inter', 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif";
+    const RGB_WHITE = '255,255,255';
+    // 亮蓝白: 感知亮度 ≈218 vs 白色 255 (原 150,200,255 为 ≈193),
+    // 蓝色系中接近白色的高亮档, 深底上 Buddy 与 Hippo 明度几乎持平
+    const RGB_BLUE = '180,225,255';
+
+    let W = 0;
+    let H = 0;
+    let cols = 0;
+    let rows = 0;
+    let hippoCols = 0;
+    let mask: Uint8Array | null = null;
+    let raf = 0;
+    let running = false;
+    let visible = false;
+    let fontsReady = false;
+    let disposed = false;
+    let t0 = performance.now();
+
+    /* 离屏渲染标题文字 → 逐格采样 alpha → 字形掩码 (resize 时重建) */
+    function buildMask(): boolean {
+      const h1 = host.parentElement as HTMLElement | null;
+      if (!h1) return false;
+      const f = parseFloat(getComputedStyle(h1).fontSize);
+      if (!(f > 0)) return false;
+      // line-height .94 → 文字在行框内垂直居中, 顶部在盒顶上方 (lineH - f)/2 处;
+      // 掩码画字位置与实际文字对齐, 避免网格边界 ±1 格偏差
+      const lineH = parseFloat(getComputedStyle(h1).lineHeight) || f;
+      const yOff = (lineH - f) / 2;
+      const off = document.createElement('canvas');
+      off.width = W;
+      off.height = H;
+      const octx = off.getContext('2d');
+      if (!octx) return false;
+      octx.clearRect(0, 0, W, H);
+      octx.textBaseline = 'top';
+      octx.font = `300 ${f}px ${FONT_SANS}`; // Hippo 字重 200→300: 笔画自然加粗, 像素密度向 Buddy(500) 靠拢
+      // letter-spacing -.025em 与 .heroTitle 一致; 不支持的浏览器忽略(误差 <1 格)
+      (octx as CanvasRenderingContext2D & {letterSpacing?: string}).letterSpacing = '-0.025em';
+      const hippoW = octx.measureText('Hippo').width;
+      octx.fillText('Hippo', 0, yOff);
+      octx.font = `italic 500 ${f}px ${FONT_SANS}`;
+      octx.fillText('Buddy', hippoW, yOff);
+
+      const img = octx.getImageData(0, 0, W, H);
+      const data = img.data;
+      cols = Math.ceil(W / CELL);
+      rows = Math.ceil(H / CELL);
+      hippoCols = Math.ceil(hippoW / CELL);
+      mask = new Uint8Array(cols * rows);
+      // 3×3 子采样: 每格取 9 个采样点, 任一命中笔画即算格内。
+      // 关键: Hippo 是 font-weight 200 超细字, 单点采样易落在笔画间隙 → 掩码残缺;
+      // 子采样保证细笔画只要穿过格子的任一部分就被标记, 字形饱满不空洞。
+      const SS = 3;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let hit = 0;
+          for (let sy = 0; sy < SS && !hit; sy++) {
+            for (let sx = 0; sx < SS; sx++) {
+              const px = Math.min(W - 1, Math.round(c * CELL + (CELL * (sx + 0.5)) / SS));
+              const py = Math.min(H - 1, Math.round(r * CELL + (CELL * (sy + 0.5)) / SS));
+              if (data[(py * W + px) * 4 + 3] > 64) {
+                hit = 1;
+                break;
+              }
+            }
+          }
+          mask[r * cols + c] = hit;
+        }
+      }
+      return true;
+    }
+
+    function setup(): boolean {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const h1 = host.parentElement as HTMLElement | null;
+      if (!h1) return false;
+      const rect = h1.getBoundingClientRect();
+      if (rect.width < 4 || rect.height < 4) return false;
+      W = Math.round(rect.width);
+      H = Math.round(rect.height);
+      host.width = Math.round(W * dpr);
+      host.height = Math.round(H * dpr);
+      const ctx = host.getContext('2d');
+      if (!ctx) return false;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.font = `500 ${FONT_SIZE}px ${mono}`;
+      ctx.textBaseline = 'top';
+      return buildMask();
+    }
+
+    /* 慢速大尺度波流: 与背景同构但更平缓
+       - 空间频率减半 → 明暗斑块更大更平滑, 相邻格子亮度连续, 字形不破碎
+       - 去掉熄灭阈值 → 掩码内所有格子永远画字符, 仅明暗起伏 → 字形始终完整 */
+    function draw(t: number) {
+      const ctx = host.getContext('2d');
+      if (!ctx || !mask) return;
+      ctx.clearRect(0, 0, W, H);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (!mask[r * cols + c]) continue;
+          const n =
+            (
+              Math.sin(c * 0.09 + t) +
+              Math.sin(r * 0.12 - t * 0.35) +
+              Math.sin((c + r) * 0.06 + t * 0.22) +
+              Math.sin(Math.hypot(c - cols * 0.5, r - rows * 0.5) * 0.08 - t * 0.28)
+            ) / 4; // [-1, 1]
+          const v = (n + 1) / 2; // [0, 1] → 永不熄灭: 所有掩码格子均画字符, 仅亮度随波流动
+          const idx = Math.min(PALETTE.length - 1, Math.floor(v * PALETTE.length));
+          const ch = PALETTE[idx];
+          // 窄幅明暗: 波谷也保持高亮(0.78/0.82), 波峰接近满亮 → 字形始终饱满,
+          // 只留小幅亮度起伏保留呼吸感, 完整性优先
+          const isBuddy = c >= hippoCols;
+          const alpha = isBuddy
+            ? 0.82 + v * 0.16   // Buddy: 0.82~0.98
+            : 0.78 + v * 0.18;  // Hippo: 0.78~0.96
+          ctx.fillStyle = `rgba(${isBuddy ? RGB_BLUE : RGB_WHITE},${alpha.toFixed(3)})`;
+          ctx.fillText(ch, c * CELL, r * CELL);
+        }
+      }
+    }
+
+    function tick(now: number) {
+      if (!running) {
+        raf = 0;
+        return;
+      }
+      draw((now - t0) / 1000 * 0.25); // 慢节奏: 约为背景(0.55)一半, 波流舒缓不晃眼
+      raf = requestAnimationFrame(tick);
+    }
+
+    function start() {
+      if (running || !visible || !fontsReady || disposed) return;
+      if (!setup()) return;
+      t0 = performance.now();
+      running = true;
+      draw(0); // 先画一帧再通知父级隐藏 CSS 文字, 避免空白闪烁
+      if (!readyRef.current) {
+        readyRef.current = true;
+        onReady();
+      }
+      raf = requestAnimationFrame(tick);
+    }
+
+    function stop() {
+      running = false;
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      // 保留最后一帧: 回滚视口时立即有内容, 无空白闪烁
+    }
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry.isIntersecting;
+        if (visible) start();
+        else stop();
+      },
+      {threshold: 0},
+    );
+    io.observe(host);
+
+    let resizeTimer = 0;
+    const onResize = () => {
+      cancelAnimationFrame(resizeTimer);
+      resizeTimer = requestAnimationFrame(() => {
+        stop();
+        start();
+      });
+    };
+    window.addEventListener('resize', onResize, {passive: true});
+
+    /* 等 Inter 加载完成再启动: 掩码需精确字形, 字体未就绪时保持 CSS 兜底 */
+    document.fonts.ready.then(() => {
+      if (disposed) return;
+      fontsReady = true;
+      start();
+    });
+
+    return () => {
+      disposed = true;
+      io.disconnect();
+      stop();
+      cancelAnimationFrame(resizeTimer);
+      window.removeEventListener('resize', onResize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onReady 语义稳定, 仅需执行一次
+  }, []);
+
+  return <canvas ref={canvasRef} className={styles.titleAsciiField} aria-hidden="true" />;
+}
+
 function HomepageHeader() {
+  const [titleCanvas, setTitleCanvas] = useState(false);
   return (
     <header className={styles.heroBanner}>
       <AsciiField />
@@ -232,8 +454,11 @@ function HomepageHeader() {
               <Translate>DESKTOP AI ASSISTANT · 完全开源免费</Translate>
             </div>
 
-            <Heading as="h1" className={styles.heroTitle}>
-              Hippo<span className={styles.heroTitleItalic}>Buddy</span>
+            <Heading
+              as="h1"
+              className={`${styles.heroTitle} ${titleCanvas ? styles.titleCanvasOn : ''}`}>
+              <span className={styles.heroTitleSolid} data-text="Hippo">Hippo</span><span className={styles.heroTitleItalic} data-text="Buddy">Buddy</span>
+              <TitleAsciiField onReady={() => setTitleCanvas(true)} />
             </Heading>
 
             <p className={styles.heroSubtitle}>

@@ -109,10 +109,11 @@
   opacity: .5;
 }
 
-/* 超细字重大标题 · 垂直居中于中间行 (完全对齐 PPT 封面: align-self:center / min(11.6vw,19vh) / -.025em) */
+/* 细字重大标题 · 垂直居中于中间行 (完全对齐 PPT 封面: align-self:center / min(11.6vw,19vh) / -.025em) */
 .heroTitle {
+  position: relative; /* canvas 标题覆盖层的定位锚 */
   align-self: center;
-  font-weight: 200;
+  font-weight: 300;
   font-size: min(11.6vw, 19vh);
   line-height: .94;
   letter-spacing: -.025em;
@@ -122,23 +123,112 @@
   animation: heroZoomIn .6s cubic-bezier(.22, 1, .36, 1) both;
   animation-delay: .4s;
 }
+
+/* ── 标题 canvas 覆盖层: 与背景 AsciiField 同构的点阵呼吸场 ──
+   absolute 铺满 h1 盒, 掩码只画字形内的格子, 其余透明;
+   z-index 高于文字层, pointer-events 穿透不挡交互 */
+.titleAsciiField {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  /* 与背景 AsciiField 同款 screen 混合: 亮色叠加更亮, 标题与背景同步发亮 */
+  mix-blend-mode: screen;
+  /* 三层霓虹辉光: 近层勾勒字形, 中层形成光晕, 远层铺开环境光 → 标题整体强烈发光 */
+  filter: drop-shadow(0 0 10px rgba(170, 215, 255, .7))
+          drop-shadow(0 0 26px rgba(170, 215, 255, .4))
+          drop-shadow(0 0 56px rgba(170, 215, 255, .18));
+}
+
+/* canvas 接管后隐藏 CSS 像素文字(保留占位, 尺寸不变, 避免 canvas 重算) */
+.titleCanvasOn .heroTitleSolid,
+.titleCanvasOn .heroTitleItalic {
+  opacity: 0;
+}
+/* ── 动态流动像素: 与背景 ASCII 呼吸场同语言 ──
+   三层结构模拟背景的 4 正弦波叠加:
+   ① 主元素 = 双层点阵 (密层亮 + 疏层暗, 颗粒感) · 小位移无缝循环
+   ② ::before = 大尺度径向光斑 · 绕字形缓慢移动 + 亮度起伏 (模拟 sin 波的明暗涌动)
+   ③ ::after  = 第二光斑 · 不同周期/方向, 与 ② 干涉出"波浪流过"的多频流动感 */
+.heroTitleSolid,
+.heroTitleItalic {
+  position: relative;
+  display: inline-block;
+  /* 关键修复: 父级 line-height .94 过紧, y 的下降部(descender)超出盒高,
+     background-clip:text 只裁剪盒内背景 → 尾巴无点阵而"不完整"。
+     上下补 padding 扩大背景平铺区, 负 margin 抵消布局占位, 位置与行高不变 */
+  padding: .12em 0 .25em 0;
+  margin: -.12em 0 -.25em 0;
+}
+/* 光斑层: 复制同文字, background-clip:text 裁到字形, 叠加在主点阵之上 */
+.heroTitleSolid::before,
+.heroTitleSolid::after,
+.heroTitleItalic::before,
+.heroTitleItalic::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  font: inherit;
+  letter-spacing: inherit;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* ── Hippo: 白色像素点阵 + 白色光斑涌动 ── */
+.heroTitleSolid {
+  color: transparent;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .95) 1px, transparent 1.6px),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .32) 1px, transparent 2.4px);
+  background-size: 5px 5px, 11px 11px;
+  background-position: 0 0, 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: pixelsFlow 14s linear infinite;
+}
+.heroTitleSolid::before {
+  background-image: radial-gradient(ellipse at 35% 45%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 62%);
+  background-size: 230% 230%;
+  animation: lumenDriftA 16s ease-in-out infinite;
+}
+.heroTitleSolid::after {
+  background-image: radial-gradient(ellipse at 70% 60%, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 55%);
+  background-size: 180% 180%;
+  animation: lumenDriftB 22s ease-in-out infinite;
+}
+
+/* ── Buddy: 克莱因蓝像素点阵 + 斜体 + 蓝色光斑涌动 · 反向漂移形成呼应 ── */
 .heroTitleItalic {
   font-style: italic;
   font-weight: 500;
-  /* 空心描边字: 透明填充 + IKB 提亮蓝描边 (0.018em 随字号缩放) */
   color: transparent;
-  -webkit-text-stroke: 0.018em var(--ifm-color-primary-bright);
-  paint-order: stroke fill; /* 描边绘制在外侧, 避免文字变细 */
-  /* 单独出场: Hippo 先至, Buddy 随后淡入 "盖章" (纯淡入不位移, 避免与父级缩放叠加) */
-  animation: heroFadeIn .4s ease-out both;
-  animation-delay: .6s;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(139, 233, 255, .95) 1px, transparent 1.6px),
+    radial-gradient(circle at 50% 50%, rgba(91, 123, 255, .40) 1px, transparent 2.4px);
+  background-size: 5px 5px, 11px 11px;
+  background-position: 0 0, 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  /* y 斜体尾巴向右下甩出盒宽: 右侧补 padding 扩大背景平铺区, 负 margin 抵消布局;
+     不加左侧 padding 以免文字被顶右移破坏与 Hippo 的衔接 */
+  padding-right: .2em;
+  margin-right: -.2em;
+  animation: pixelsFlow 16s linear infinite reverse;
 }
-/* 不支持 text-stroke 时回退为实心蓝 */
-@supports not ((-webkit-text-stroke: 1px #000) or (text-stroke: 1px #000)) {
-  .heroTitleItalic {
-    color: var(--ifm-color-primary-bright);
-    -webkit-text-stroke: 0;
-  }
+.heroTitleItalic::before {
+  background-image: radial-gradient(ellipse at 30% 40%, rgba(139, 233, 255, .95), rgba(139, 233, 255, 0) 60%);
+  background-size: 220% 220%;
+  animation: lumenDriftA 18s ease-in-out infinite;
+}
+.heroTitleItalic::after {
+  background-image: radial-gradient(ellipse at 75% 65%, rgba(91, 123, 255, .85), rgba(91, 123, 255, 0) 52%);
+  background-size: 190% 190%;
+  animation: lumenDriftB 26s ease-in-out infinite;
 }
 
 /* 引语 lead · 左对齐 (PPT: 1.55vw · 52ch · 400) */
@@ -558,13 +648,26 @@
   }
 }
 
-@keyframes heroFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/* ── 像素漂移: 双层点阵对角流动, 位移取各自 size 的整数倍实现无缝循环 ── */
+@keyframes pixelsFlow {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 20px 20px, 33px 11px; }
+}
+
+/* ── 光斑涌动: 大尺寸径向光斑绕字形走一圈 + 亮度起伏 (首尾同态, 无缝循环) ── */
+@keyframes lumenDriftA {
+  0%   { background-position: 0% 0%;   opacity: .18; }
+  25%  { background-position: 100% 0%; opacity: .5; }
+  50%  { background-position: 100% 100%; opacity: .28; }
+  75%  { background-position: 0% 100%;  opacity: .52; }
+  100% { background-position: 0% 0%;   opacity: .18; }
+}
+@keyframes lumenDriftB {
+  0%   { background-position: 100% 100%; opacity: .3; }
+  25%  { background-position: 0% 100%;  opacity: .14; }
+  50%  { background-position: 0% 0%;    opacity: .5; }
+  75%  { background-position: 100% 0%;  opacity: .22; }
+  100% { background-position: 100% 100%; opacity: .3; }
 }
 
 /* ── Responsive ── */
@@ -624,12 +727,33 @@
   .heroChrome,
   .heroKicker,
   .heroTitle,
+  .heroTitleSolid,
   .heroTitleItalic,
   .heroSubtitle,
   .heroFooter {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  /* 像素点阵兜底: 减弱动效时去掉点阵与光斑层, 显示纯色实心可读字 */
+  .heroTitleSolid,
+  .heroTitleItalic {
+    background-image: none !important;
+    animation: none !important;
+  }
+  .heroTitleSolid {
+    color: #ffffff !important;
+  }
+  .heroTitleItalic {
+    color: var(--ifm-color-primary-bright, #5b7bff) !important;
+  }
+  .heroTitleSolid::before,
+  .heroTitleSolid::after,
+  .heroTitleItalic::before,
+  .heroTitleItalic::after {
+    animation: none !important;
+    opacity: 0 !important;
   }
 
   .reveal {
