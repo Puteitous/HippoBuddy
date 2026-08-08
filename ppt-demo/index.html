@@ -176,6 +176,21 @@
   .tag.solid{background:currentColor;color:var(--paper);border-color:transparent}
   .tag.accent{background:var(--accent);color:var(--accent-on);border-color:transparent;opacity:1}
 
+  /* ============ 品牌斜体描边 (对齐官网 heroTitleItalic: 透明填充 + IKB 提亮蓝描边) ============ */
+  .brand-outline{
+    font-style:italic;
+    font-weight:500;
+    color:transparent;
+    -webkit-text-stroke:.018em var(--accent-bright);
+    paint-order:stroke fill; /* 描边绘制在外侧, 避免文字变细 */
+  }
+  @supports not ((-webkit-text-stroke:1px #000) or (text-stroke:1px #000)){
+    .brand-outline{
+      color:var(--accent-bright);
+      -webkit-text-stroke:0;
+    }
+  }
+
   /* ============ 标题层级 (无衬线 · 极轻字重 · 极致字号对比) ============ */
   .h-hero{
     font-family:var(--sans),var(--sans-zh);
@@ -1315,14 +1330,33 @@
   <div class="canvas-card nav-safe-bottom">
     <canvas class="ascii-bg" aria-hidden="true"></canvas>
     <div class="chrome-min">
-      <div class="l">HippoBuddy · Open Source Demo</div>
+      <div class="l" style="display:flex;align-items:center;gap:.8em;min-width:0">
+        <svg viewBox="0 0 64 64" style="height:2.6em;width:auto;flex:0 0 auto" aria-hidden="true">
+          <path d="m42 9h20l-.859 4.293a5.332 5.332 0 0 1 -.463 1.351 5.38 5.38 0 0 1 -5.407 2.942l-1.071-.119-6.559-.91z" fill="#786c68"/>
+          <path d="m55.271 17.586-1.071-.119-6.559-.91-2.653-3.557h16.212l-.059.293a5.332 5.332 0 0 1 -.463 1.351 5.38 5.38 0 0 1 -5.407 2.942z" fill="#69574f"/>
+          <path d="m22 9h-20l.859 4.293a5.332 5.332 0 0 0 .463 1.351 5.38 5.38 0 0 0 5.407 2.942l1.071-.119 6.559-.91z" fill="#786c68"/>
+          <path d="m8.729 17.586 1.071-.119 6.559-.91 2.653-3.557h-16.212l.059.293a5.332 5.332 0 0 0 .463 1.351 5.38 5.38 0 0 0 5.407 2.942z" fill="#69574f"/>
+          <path d="m6.005 30.51a26 26 0 0 1 51.99 0" fill="#786c68"/>
+          <path d="m32 5c-.555 0-1.105.023-1.652.058-5.424 3.569-8.828 8.709-8.828 14.423a15.969 15.969 0 0 0 4.736 11.029h31.744a26 26 0 0 0 -26-25.51z" fill="#766f6b"/>
+          <path d="m27.323 21.23c1.524-.152 3.086-.23 4.677-.23s3.153.078 4.677.23a6 6 0 0 1 11.323 2.695c8.412 3.365 14 9.307 14 16.075 0 10.493-13.431 19-30 19s-30-8.507-30-19c0-6.768 5.588-12.71 14-16.075a6 6 0 0 1 11.323-2.695z" fill="#e2c8e4"/>
+          <path d="m48 23.925a6 6 0 0 0 -11.323-2.695c-1.524-.152-3.086-.23-4.677-.23s-3.153.078-4.677.23a6 6 0 0 0 -11.323 2.695c-.3.12-.588.251-.882.377a44.541 44.541 0 0 0 -.558 7.013 40.734 40.734 0 0 0 9.772 27.056 46.578 46.578 0 0 0 7.668.629c16.569 0 30-8.507 30-19 0-6.768-5.588-12.71-14-16.075z" fill="#e3cce5"/>
+          <g fill="#3a2727">
+            <path d="m24 13h5v2h-5z"/>
+            <path d="m35 13h5v2h-5z"/>
+            <circle cx="22" cy="24" r="2"/>
+            <circle cx="42" cy="24" r="2"/>
+            <path d="m36 54a5 5 0 0 1 -4-2 5 5 0 0 1 -9-3h2a3 3 0 0 0 6 0 1 1 0 0 1 2 0 3 3 0 0 0 6 0h2a5.006 5.006 0 0 1 -5 5z"/>
+          </g>
+        </svg>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">HippoBuddy · Open Source Demo</span>
+      </div>
       <div class="r">HB · 2026.08 · 01 / 05</div>
     </div>
 
     <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr auto;gap:2.6vh">
       <div data-anim="kicker" class="t-meta" style="color:rgba(255,255,255,.78);letter-spacing:.22em">DESKTOP AI ASSISTANT · 完全开源免费</div>
 
-      <h1 data-anim="title" style="align-self:center;font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(11.6vw,19vh);line-height:.94;letter-spacing:-.025em;color:#fff">Hippo<span style="font-style:italic;font-weight:300">Buddy</span></h1>
+      <h1 data-anim="title" style="align-self:center;font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(11.6vw,19vh);line-height:.94;letter-spacing:-.025em;color:#fff">Hippo<span class="brand-outline">Buddy</span></h1>
 
       <div data-anim="bottom" style="display:grid;grid-template-rows:auto auto;gap:1.6vh;border-top:1px solid rgba(255,255,255,.22);padding-top:2vh">
         <div data-anim="lead" class="lead" style="max-width:52ch;color:rgba(255,255,255,.86)">写代码、写周报、看文档 —— 一个 AI 桌面助手，三个工作模式，一个应用全搞定。</div>
@@ -1368,14 +1402,14 @@
           <div class="ledger-icon"><i data-lucide="zap"></i></div>
         </div>
         <div class="ledger-row">
-          <div class="ledger-label">社区技能<br><span style="font-size:.82em;opacity:.72">技能市场 · 一键安装即用</span></div>
-          <div class="ledger-num">1595<span class="unit">+Skills</span></div>
-          <div class="ledger-icon"><i data-lucide="package-open"></i></div>
+          <div class="ledger-label">跨平台<br><span style="font-size:.82em;opacity:.72">Windows / macOS / Linux 一套安装</span></div>
+          <div class="ledger-num">3<span class="unit">Platforms</span></div>
+          <div class="ledger-icon"><i data-lucide="monitor"></i></div>
         </div>
         <div class="ledger-row">
-          <div class="ledger-label">Anthropic 官方技能库<br><span style="font-size:.82em;opacity:.72">skill 生态标准 · 质量最稳</span></div>
-          <div class="ledger-num">60.9<span class="unit">k Stars</span></div>
-          <div class="ledger-icon"><i data-lucide="star"></i></div>
+          <div class="ledger-label">核心模块<br><span style="font-size:.82em;opacity:.72">LLM / 工具 / 编排 / 记忆 / 会话 分层解耦</span></div>
+          <div class="ledger-num">15<span class="unit">Modules</span></div>
+          <div class="ledger-icon"><i data-lucide="layers"></i></div>
         </div>
         <div class="ledger-row">
           <div class="ledger-label">Token 实时监控<br><span style="font-size:.82em;opacity:.72">用量 / 成本 / 缓存命中一目了然</span></div>
@@ -1584,8 +1618,8 @@ const SPEAKER_NOTES = [
   },
   {
     id: 'metrics', title: '六个数字看懂 HippoBuddy', section: '数据', minutes: 0.4,
-    purpose: '用真实数据建立产品分量感，为后面的技能市场亮点做铺垫',
-    talk: ['3 种工作模式：Chat / Coding / Office', '20+ 内置工具', '12 个快捷预设（每模式 4 个）', '1595+ 社区技能、Anthropic 官方技能库 60.9k stars —— 这两个数字后面技能市场还会再展示', '100% 透明：Token 用量和成本实时可见'],
+    purpose: '用真实数据建立产品分量感',
+    talk: ['3 种工作模式：Chat / Coding / Office', '20+ 内置工具', '12 个快捷预设（每模式 4 个）', '3 个平台：Windows / macOS / Linux 一套安装', '15 个核心模块：LLM / 工具 / 编排 / 记忆 / 会话 分层解耦', '100% 透明：Token 用量和成本实时可见'],
     transition: '数字讲完，切实机演示各模式'
   },
   {
