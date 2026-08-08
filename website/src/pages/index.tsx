@@ -79,11 +79,11 @@ function Lightbox({item, onClose}: {item: LightboxItem; onClose: () => void}) {
       <button
         type="button"
         className={styles.lightboxClose}
-        aria-label="关闭"
+        aria-label={translate({message: '关闭'})}
         onClick={onClose}>
         ✕
       </button>
-      <span className={styles.lightboxHint}>ESC 关闭</span>
+      <span className={styles.lightboxHint}><Translate>ESC 关闭</Translate></span>
     </div>
   );
 }
@@ -325,10 +325,10 @@ export default function Home(): ReactNode {
             <ScrollReveal>
               <div className={styles.shotHead}>
                 <div className={styles.shotChrome}>
-                  <span>Interface · 界面</span>
+                  <span><Translate>Interface · 界面</Translate></span>
                   <span>HB · INTERFACE</span>
                 </div>
-                <div className={styles.shotKicker}>Screenshots · 实际运行界面</div>
+                <div className={styles.shotKicker}><Translate>Screenshots · 实际运行界面</Translate></div>
                 <Heading as="h2" className={styles.shotTitle}>
                   <Translate>所见即所得</Translate>
                 </Heading>

@@ -149,7 +149,7 @@ export default function HomepageFeatures(): ReactNode {
         {/* ── 区块头部 · 对齐 ppt-demo 第 3 页 (chrome 刊头 + kicker + 大标题) ── */}
         <div className={styles.featuresHead}>
           <div className={styles.chrome}>
-            <span className={styles.chromeL}>Capabilities · 六项能力</span>
+            <span className={styles.chromeL}><Translate>Capabilities · 六项能力</Translate></span>
             <span className={styles.chromeR}>HB · FEATURES</span>
           </div>
           <div className={styles.kicker}>One App · Six Features</div>

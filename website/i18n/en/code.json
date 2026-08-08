@@ -44,13 +44,112 @@
   "内置工具集": {
     "message": "Built-in Toolset"
   },
-  "10+ 种内置工具：终端、浏览器、搜索、代码分析等，覆盖日常开发全场景。": {
-    "message": "10+ built-in tools: terminal, browser, search, code analysis, covering all daily development scenarios."
+  "20+ 种内置工具：终端、浏览器、搜索、代码分析等，覆盖日常开发全场景。": {
+    "message": "20+ built-in tools: terminal, browser, search, code analysis, covering all daily development scenarios."
   },
   "实时监控": {
     "message": "Real-time Monitoring"
   },
   "Token 统计、上下文用量、LLM 调用监控，全方位掌握 Agent 运行状态。": {
     "message": "Token stats, context usage, LLM call monitoring — full visibility into Agent runtime status."
+  },
+  "DESKTOP AI ASSISTANT · 完全开源免费": {
+    "message": "DESKTOP AI ASSISTANT · FREE & OPEN SOURCE"
+  },
+  "写代码、写周报、看文档 —— 一个 AI 桌面助手，一个应用全搞定。": {
+    "message": "Code, reports, docs — one AI desktop assistant for everything."
+  },
+  "所见即所得": {
+    "message": "What You See Is What You Get"
+  },
+  "Interface · 界面": {
+    "message": "Interface"
+  },
+  "Screenshots · 实际运行界面": {
+    "message": "Screenshots · Real App Captures"
+  },
+  "Token 用量与 diff 便签：每步变更透明可见": {
+    "message": "Token usage & diff notes: every change fully transparent"
+  },
+  "关闭": {
+    "message": "Close"
+  },
+  "ESC 关闭": {
+    "message": "ESC to close"
+  },
+  "一个应用，全场景": {
+    "message": "One App, Every Scenario"
+  },
+  "Capabilities · 六项能力": {
+    "message": "Capabilities · Six Core Features"
+  },
+  "六个数字，一个产品": {
+    "message": "Six Numbers, One Product"
+  },
+  "Metrics · 数字看懂 HippoBuddy": {
+    "message": "Metrics · HippoBuddy by the Numbers"
+  },
+  "工作模式": {
+    "message": "Work Modes"
+  },
+  "Chat · Coding · Office 随时切换": {
+    "message": "Chat · Coding · Office, switch anytime"
+  },
+  "内置工具": {
+    "message": "Built-in Tools"
+  },
+  "终端 / 搜索 / 文件 / Office / 审查…": {
+    "message": "Terminal / Search / Files / Office / Review…"
+  },
+  "快捷预设": {
+    "message": "Quick Presets"
+  },
+  "代码审查 / 生成测试 / 重构优化 / 写周报": {
+    "message": "Code review / test gen / refactor / weekly reports"
+  },
+  "跨平台": {
+    "message": "Cross-platform"
+  },
+  "Windows / macOS / Linux 一套安装": {
+    "message": "Windows / macOS / Linux, one installer"
+  },
+  "核心模块": {
+    "message": "Core Modules"
+  },
+  "LLM / 工具 / 编排 / 记忆 / 会话 分层解耦": {
+    "message": "LLM / tools / orchestration / memory / sessions, decoupled"
+  },
+  "Token 监控": {
+    "message": "Token Monitor"
+  },
+  "用量 / 成本 / 缓存命中一目了然": {
+    "message": "Usage / cost / cache hits at a glance"
+  },
+  "% 透明": {
+    "message": "% Transparent"
+  },
+  "HippoBuddy 主界面": {
+    "message": "HippoBuddy main interface"
+  },
+  "Chat 与预览面板": {
+    "message": "Chat with preview panel"
+  },
+  "Token 监控与 diff 便签": {
+    "message": "Token monitor with diff notes"
+  },
+  "Modes": {
+    "message": "Modes"
+  },
+  "+Tools": {
+    "message": "+Tools"
+  },
+  "Presets": {
+    "message": "Presets"
+  },
+  "Platforms": {
+    "message": "Platforms"
+  },
+  "Modules": {
+    "message": "Modules"
   }
 }

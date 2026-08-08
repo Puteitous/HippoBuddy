@@ -4,10 +4,10 @@ import Heading from '@theme/Heading';
 import styles from './styles.module.css';
 
 type MetricItem = {
-  label: string;
-  sub: string;
+  labelKey: string;
+  subKey: string;
   num: string;
-  unit: string;
+  unitKey: string;
   icon: ReactNode;
 };
 
@@ -70,60 +70,60 @@ function ActivityIcon() {
 const MetricList: MetricItem[] = [
   {
     icon: <GridIcon />,
-    label: '工作模式',
-    sub: 'Chat · Coding · Office 随时切换',
+    labelKey: '工作模式',
+    subKey: 'Chat · Coding · Office 随时切换',
     num: '3',
-    unit: 'Modes',
+    unitKey: 'Modes',
   },
   {
     icon: <WrenchIcon />,
-    label: '内置工具',
-    sub: '终端 / 搜索 / 文件 / Office / 审查…',
+    labelKey: '内置工具',
+    subKey: '终端 / 搜索 / 文件 / Office / 审查…',
     num: '20',
-    unit: '+Tools',
+    unitKey: '+Tools',
   },
   {
     icon: <ZapIcon />,
-    label: '快捷预设',
-    sub: '代码审查 / 生成测试 / 重构优化 / 写周报',
+    labelKey: '快捷预设',
+    subKey: '代码审查 / 生成测试 / 重构优化 / 写周报',
     num: '12',
-    unit: 'Presets',
+    unitKey: 'Presets',
   },
   {
     icon: <MonitorIcon />,
-    label: '跨平台',
-    sub: 'Windows / macOS / Linux 一套安装',
+    labelKey: '跨平台',
+    subKey: 'Windows / macOS / Linux 一套安装',
     num: '3',
-    unit: 'Platforms',
+    unitKey: 'Platforms',
   },
   {
     icon: <LayersIcon />,
-    label: '核心模块',
-    sub: 'LLM / 工具 / 编排 / 记忆 / 会话 分层解耦',
+    labelKey: '核心模块',
+    subKey: 'LLM / 工具 / 编排 / 记忆 / 会话 分层解耦',
     num: '15',
-    unit: 'Modules',
+    unitKey: 'Modules',
   },
   {
     icon: <ActivityIcon />,
-    label: 'Token 监控',
-    sub: '用量 / 成本 / 缓存命中一目了然',
+    labelKey: 'Token 监控',
+    subKey: '用量 / 成本 / 缓存命中一目了然',
     num: '100',
-    unit: '% 透明',
+    unitKey: '% 透明',
   },
 ];
 
-function MetricRow({label, sub, num, unit, icon}: MetricItem) {
+function MetricRow({labelKey, subKey, num, unitKey, icon}: MetricItem) {
   return (
     <div className={styles.ledgerRow}>
       <div className={styles.ledgerLabel}>
-        {label}
-        <span className={styles.ledgerSub}>{sub}</span>
+        <Translate>{labelKey}</Translate>
+        <span className={styles.ledgerSub}><Translate>{subKey}</Translate></span>
       </div>
       {/* 账本点线 · 填充 label 与数字之间的空白 (经典账单/目录手法) */}
       <span className={styles.ledgerDash} aria-hidden="true" />
       <div className={styles.ledgerNum}>
         {num}
-        <span className={styles.ledgerUnit}>{unit}</span>
+        <span className={styles.ledgerUnit}><Translate>{unitKey}</Translate></span>
       </div>
       <div className={styles.ledgerIcon}>{icon}</div>
     </div>
@@ -161,7 +161,7 @@ export default function HomepageMetrics(): ReactNode {
             <span className={styles.chromeL}>Six Numbers</span>
             <span className={styles.chromeR}>HB · METRICS</span>
           </div>
-          <div className={styles.kicker}>Metrics · 数字看懂 HippoBuddy</div>
+          <div className={styles.kicker}><Translate>Metrics · 数字看懂 HippoBuddy</Translate></div>
           <Heading as="h2" className={styles.headTitle}>
             <Translate>六个数字，一个产品</Translate>
           </Heading>
