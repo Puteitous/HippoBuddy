@@ -869,6 +869,10 @@ tools:
   }
 
   function handleTabClose(filePath) {
+    // 关闭 web 标签时释放内嵌浏览器缓存（销毁 iframe，避免内存/网络连接残留）
+    if (filePath && filePath.startsWith('url:')) {
+      filePreview.disposeBrowser(filePath.slice(4));
+    }
     if (fileTabs.count === 0) {
       hidePreview();
     }
@@ -956,6 +960,10 @@ tools:
     resizer.addEventListener('mousedown', (e) => {
       e.preventDefault();
       resizer.classList.add('resizing');
+      // 拖拽期间：全局 col-resize 光标 + 屏蔽预览面板 iframe 的指针事件。
+      // iframe 是独立文档，鼠标移入后 mousemove/mouseup 不再冒泡到父页面，
+      // 会导致拖动"脱手"、松手后 resizing 状态残留。此处用 body class 统一控制。
+      document.body.classList.add('panel-dragging');
       const startX = e.clientX;
       const startWidth = chatPanel.offsetWidth;
       // 判断布局方向：chat 在左时拖拽方向取反
@@ -969,6 +977,7 @@ tools:
 
       const onUp = () => {
         resizer.classList.remove('resizing');
+        document.body.classList.remove('panel-dragging');
         const finalW = document.documentElement.style.getPropertyValue('--chat-panel-width').replace('px', '').trim();
         if (finalW) localStorage.setItem('hippo-chat-width', finalW);
         document.removeEventListener('mousemove', onMove);

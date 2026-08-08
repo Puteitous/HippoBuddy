@@ -235,10 +235,10 @@ function TitleAsciiField({onReady}: {onReady: () => void}) {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const host: HTMLCanvasElement = el;
 
-    // 去掉开头空格: 任何 v≥0.08 的格子都画出可见字符, 字形内部无空洞
+    // 去掉开头空格: 任何格子都画出可见字符, 字形内部无空洞
     const PALETTE = '...:::---+++***◦◦••▢▣';
-    const CELL = 8;   // 网格比背景(16)更密 → 字形内部格子多, 标题呈"实心字符块"
-    const FONT_SIZE = 10; // 字符占满格子 → 密实; 与背景(16/13)的稀疏感形成对比
+    let CELL = 8;      // 网格密度: buildMask 时随字号动态缩放, 手机端自动加密
+    let FONT_SIZE = 10; // 字符大小: 随 CELL 缩放, 始终占满格子
     const mono = (
       getComputedStyle(document.documentElement)
         .getPropertyValue('--ifm-font-family-monospace') || 'JetBrains Mono, monospace'
@@ -268,6 +268,11 @@ function TitleAsciiField({onReady}: {onReady: () => void}) {
       if (!h1) return false;
       const f = parseFloat(getComputedStyle(h1).fontSize);
       if (!(f > 0)) return false;
+      // 网格密度随字号缩放: 手机字号小 → 自动加密格子, 避免像素点稀少难辨。
+      // clamp 上限 8 = 桌面原固定值(桌面 200px 字号 / 8px ≈ 25 行格子, 保持现状不回归);
+      // clamp 下限 4: 手机 41px 字号 → 4px 格子 ≈ 10 行(原 8px 只有 5 行, 翻倍加密)。
+      CELL = Math.max(4, Math.min(8, Math.round(f * 0.09)));
+      FONT_SIZE = Math.max(5, Math.round(CELL * 1.2)); // 字符略大于格子 → 饱满
       // line-height .94 → 文字在行框内垂直居中, 顶部在盒顶上方 (lineH - f)/2 处;
       // 掩码画字位置与实际文字对齐, 避免网格边界 ±1 格偏差
       const lineH = parseFloat(getComputedStyle(h1).lineHeight) || f;
@@ -329,9 +334,7 @@ function TitleAsciiField({onReady}: {onReady: () => void}) {
       const ctx = host.getContext('2d');
       if (!ctx) return false;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.font = `500 ${FONT_SIZE}px ${mono}`;
-      ctx.textBaseline = 'top';
-      return buildMask();
+      return buildMask(); // CELL/FONT_SIZE 在此按字号缩放, ctx.font 由 draw 每帧设置
     }
 
     /* 慢速大尺度波流: 与背景同构但更平缓
@@ -341,6 +344,9 @@ function TitleAsciiField({onReady}: {onReady: () => void}) {
       const ctx = host.getContext('2d');
       if (!ctx || !mask) return;
       ctx.clearRect(0, 0, W, H);
+      // FONT_SIZE 由 buildMask 按当前字号缩放后确定, 每帧设置保证一致
+      ctx.font = `500 ${FONT_SIZE}px ${mono}`;
+      ctx.textBaseline = 'top';
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           if (!mask[r * cols + c]) continue;

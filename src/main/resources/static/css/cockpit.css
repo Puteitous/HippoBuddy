@@ -343,6 +343,20 @@ body.desktop-window {
     background: var(--accent);
 }
 
+/* 拖拽分隔条期间：全局 col-resize 光标，避免鼠标移出 4px 分隔条后光标
+   变回默认箭头造成"脱手"错觉；同时禁用预览面板内 iframe 的指针事件，
+   否则鼠标移入 iframe（独立文档）后 mousemove/mouseup 不再冒泡到父页面，
+   导致拖拽中断、松手后 resizing 状态残留 */
+body.panel-dragging {
+    cursor: col-resize !important;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body.panel-dragging .preview-panel iframe {
+    pointer-events: none;
+}
+
 /* ========== 预览面板（中间） ========== */
 .preview-panel {
     flex: 1;

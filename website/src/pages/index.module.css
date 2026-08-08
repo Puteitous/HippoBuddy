@@ -689,8 +689,11 @@
     letter-spacing: .2em;
   }
 
+  /* 移动端标题: 与桌面同构的视口驱动等比缩放(min(vw,vh)),
+     系数加大(16vw vs 桌面 11.6vw) → 手机上标题占更大视口比例;
+     纯 vw/vh 无 clamp 平台期, 任何屏幕宽度都严格跟随视口缩放 */
   .heroTitle {
-    font-size: clamp(2.6rem, 11vw, 4.2rem);
+    font-size: min(16vw, 14vh);
   }
 
   .heroSubtitle {

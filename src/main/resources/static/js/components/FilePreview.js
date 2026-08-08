@@ -307,6 +307,9 @@ export class FilePreview {
       return;
     }
 
+    // 渲染其他内容前，先摘除保活当前内嵌浏览器（若有），防止 iframe 被销毁导致页面状态丢失
+    this._browserPreview.detach();
+
     // 上游（FileTabs onBeforeSwitch）已处理脏检查弹窗，此处只清理旧 dirty 状态
     if (this._dirty) {
       this._dirty = false;
@@ -522,6 +525,9 @@ export class FilePreview {
    * @param {string} url - 要加载的 URL
    */
   showBrowser(url) {
+    // 先摘除保活当前内嵌浏览器（若有），再销毁编辑器清空容器，
+    // 否则 _destroyEditor 的 innerHTML='' 会先销毁 iframe（从浏览器 A 直接切到 B 时 A 会丢失状态）
+    this._browserPreview.detach();
     this._destroyEditor();
     this._binaryViewType = 'browser';
     this._currentPath = 'url:' + url;
@@ -536,6 +542,14 @@ export class FilePreview {
   }
 
   /**
+   * 释放指定 URL 的内嵌浏览器缓存（关闭 web 标签时调用，销毁 iframe 释放资源）
+   * @param {string} url - 与打开时一致的 URL（不含 url: 前缀）
+   */
+  disposeBrowser(url) {
+    this._browserPreview.dispose(url);
+  }
+
+  /**
    * 打开文件变更对比视图（diff 标签页模式，委托 FileDiffView）
    * @param {string} filePath - 目标文件真实路径（不含 diff: 前缀）
    * @param {string} [toolCallId] - 定位到该次变更；缺省默认展示"整体变更"
@@ -543,6 +557,8 @@ export class FilePreview {
   showDiff(filePath, toolCallId) {
     // 清理旧的重载防抖定时器（切换 diff 标签/重建视图时不得残留，防止回调命中已销毁实例）
     this._clearReloadDiffDebounce();
+    // 渲染 diff 前，先摘除保活当前内嵌浏览器（若有），防止 iframe 被销毁导致页面状态丢失
+    this._browserPreview.detach();
     // 先销毁旧的 diff 视图实例（_destroyEditor 会清空容器 DOM）
     if (this._diffView) {
       this._diffView.destroy();
@@ -600,6 +616,8 @@ export class FilePreview {
   clear() {
     // 清理 diff 标签页重载防抖定时器
     this._clearReloadDiffDebounce();
+    // 清空容器前，先摘除保活当前内嵌浏览器（若有），防止 iframe 被销毁（收起预览后切回标签不丢状态）
+    this._browserPreview.detach();
     if (this._diffView) {
       this._diffView.destroy();
       this._diffView = null;

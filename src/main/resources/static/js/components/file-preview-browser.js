@@ -3,19 +3,95 @@
  *
  * 渲染带地址栏/导航按钮的 iframe 浏览器。
  * 被 FilePreview 委托调用（用于 url: 协议的文件）。
+ *
+ * 支持标签切换保活（keep-alive）：
+ *   iframe 是独立浏览上下文，DOM 被销毁即丢失页面状态（滚动/表单/JS 状态/导航历史）。
+ *   切到其他标签时由 FilePreview 调用 detach() 把 iframe 摘除并缓存到隐藏容器，
+ *   切回时 show() 命中缓存直接恢复原 DOM，页面状态不丢失。
  */
 
 export class FilePreviewBrowser {
   constructor({ container, onUrlChange }) {
     this._container = container;
     this._onUrlChange = onUrlChange || (() => {});
+    /** @private Map<string, HTMLElement> URL(tab key) → 保活的浏览器 DOM（含 iframe） */
+    this._cache = new Map();
+    /** @private 最近一次 show() 的 URL（detach 时作为缓存 key） */
+    this._currentShownUrl = null;
+    /** @private 隐藏保活容器（iframe 移出预览区后挂在这里，避免被 innerHTML 覆盖销毁） */
+    this._keepAliveHost = null;
+  }
+
+  /** @private 懒创建隐藏保活容器：移出视口但保持渲染（不可用 display:none，会销毁 iframe） */
+  _ensureKeepAliveHost() {
+    if (this._keepAliveHost) return;
+    this._keepAliveHost = document.createElement('div');
+    this._keepAliveHost.style.cssText =
+      'position:fixed;left:-10000px;top:0;width:1280px;height:800px;overflow:hidden;pointer-events:none;';
+    this._keepAliveHost.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(this._keepAliveHost);
+  }
+
+  /**
+   * 将当前预览容器中的浏览器（若存在）摘除并保活。
+   * 在渲染其他内容（普通文件/diff/另一浏览器）之前调用，防止 iframe 被销毁导致状态丢失。
+   * 幂等：预览容器中没有浏览器时不做任何事。
+   */
+  detach() {
+    const node = this._container.querySelector('.file-browser-preview');
+    if (!node) return;
+    this._ensureKeepAliveHost();
+    this._container.removeChild(node);
+    this._keepAliveHost.appendChild(node);
+    // 缓存 key 用最近一次 show 的 URL（即 tab key），保证切回时能命中
+    const key = this._currentShownUrl;
+    if (key) {
+      this._cache.set(key, node);
+    }
+    this._currentShownUrl = null;
+  }
+
+  /**
+   * 释放指定 URL 的浏览器缓存（销毁 iframe，释放网络连接与内存）。
+   * 用于关闭 web 标签时调用。
+   * @param {string} url - 与 show() 传入一致的 URL（tab key）
+   */
+  dispose(url) {
+    if (!url) return;
+    const node = this._cache.get(url);
+    if (node) {
+      node.remove();
+      this._cache.delete(url);
+    }
   }
 
   /**
    * 渲染内嵌浏览器 — 地址栏 + iframe
+   * 若该 URL 的浏览器此前被 detach 保活，则直接恢复原 DOM（页面状态不丢失）。
    * @param {string} url - 要加载的 URL
    */
   show(url) {
+    // 先把当前预览容器中的浏览器（若有）摘除保活，避免被下面的 innerHTML 覆盖销毁
+    this.detach();
+
+    // 命中缓存：恢复保活的浏览器 DOM（节点上的事件监听器仍然有效，无需重新绑定）
+    const cached = this._cache.get(url);
+    if (cached) {
+      this._container.appendChild(cached);
+      this._cache.delete(url);
+      this._currentShownUrl = url;
+      // 尽力同步地址栏显示为 iframe 当前实际地址（跨域无法读取 location 时保留原值）
+      const iframe = cached.querySelector('.browser-iframe');
+      const input = cached.querySelector('.browser-url-input');
+      if (iframe && input) {
+        try {
+          const href = iframe.contentWindow.location.href;
+          if (href && href !== 'about:blank') input.value = href;
+        } catch { /* 跨域读取被拒绝，保留原值 */ }
+      }
+      return;
+    }
+
     const encodedUrl = encodeURI(url);
     const displayUrl = url;
 
@@ -61,6 +137,7 @@ export class FilePreviewBrowser {
         }
       </div>`;
 
+    this._currentShownUrl = url;
     this._bindBrowserEvents(url);
   }
 
