@@ -550,6 +550,42 @@ export default function Home(): ReactNode {
         <HomepageFeatures />
         <HomepageMetrics />
 
+        {/* ── 视频介绍 · 内嵌 B 站播放器 (官网无 iframe 限制, 页内直接播放) ── */}
+        <section className={styles.videoSection}>
+          <div className="container">
+            <ScrollReveal>
+              <div className={styles.videoHead}>
+                <div className={styles.videoChrome}>
+                  <span><Translate>Media · 视频介绍</Translate></span>
+                  <span>HB · VIDEO</span>
+                </div>
+                <div className={styles.videoKicker}><Translate>Watch the demo · 6 分钟快速了解</Translate></div>
+                <Heading as="h2" className={styles.videoTitle}>
+                  <Translate>眼见为实</Translate>
+                </Heading>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal>
+              <div className={styles.videoFrame}>
+                <iframe
+                  src="https://player.bilibili.com/player.html?bvid=BV13xud6KEXw&page=1&high_quality=1&danmaku=0"
+                  scrolling="no"
+                  frameBorder="0"
+                  allowFullScreen
+                  title={translate({message: 'HippoBuddy 介绍视频'})}
+                />
+              </div>
+            </ScrollReveal>
+            <ScrollReveal>
+              <p className={styles.videoHint}>
+                <a href="https://www.bilibili.com/video/BV13xud6KEXw/" target="_blank" rel="noopener noreferrer">
+                  <Translate>在 B 站打开观看</Translate> ↗
+                </a>
+              </p>
+            </ScrollReveal>
+          </div>
+        </section>
+
         <section className={styles.screenshotSection}>
           <div className="container">
             {/* 区块头部 · 对齐 chrome 刊头 + kicker + 大标题 */}

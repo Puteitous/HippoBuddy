@@ -151,5 +151,20 @@
   },
   "Modules": {
     "message": "Modules"
+  },
+  "Media · 视频介绍": {
+    "message": "Media · Video Intro"
+  },
+  "Watch the demo · 6 分钟快速了解": {
+    "message": "Watch the demo · 6-minute quick look"
+  },
+  "眼见为实": {
+    "message": "Seeing Is Believing"
+  },
+  "HippoBuddy 介绍视频": {
+    "message": "HippoBuddy Intro Video"
+  },
+  "在 B 站打开观看": {
+    "message": "Watch on Bilibili"
   }
 }

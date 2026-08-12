@@ -382,7 +382,7 @@
 /* ── Screenshot section ── */
 .screenshotSection {
   padding: 3rem 0 5rem;
-  background: #f5f5f7;
+  background: #fafaf8; /* 纸白 · 与视频区 #f5f5f7 交替 */
 }
 
 [data-theme='dark'] .screenshotSection {
@@ -537,6 +537,119 @@
 
 [data-theme='dark'] .shotNo {
   color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── Video section · 内嵌 B 站播放器 ── */
+.videoSection {
+  padding: 3rem 0 5rem;
+  background: #f5f5f7; /* 浅灰 · 与 Metrics 纸白交替 */
+}
+
+[data-theme='dark'] .videoSection {
+  background: #0a0a0a;
+}
+
+/* 全宽容器 · 对齐 Hero (5vw 留白) */
+.videoSection :global(.container) {
+  max-width: none;
+  padding: 0 5vw;
+}
+
+/* ── 区块头部 · 与截图区同语言 (chrome 刊头 + kicker + 大标题) ── */
+.videoHead {
+  margin-bottom: 3rem;
+}
+
+.videoChrome {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+  margin-bottom: 2.6rem;
+}
+
+[data-theme='dark'] .videoChrome {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.videoKicker {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.85rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 0.7rem;
+}
+
+[data-theme='dark'] .videoKicker {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.videoTitle {
+  font-weight: 200;
+  font-size: clamp(2rem, 4.2vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin-bottom: 0;
+  color: #1a1a1a;
+}
+
+[data-theme='dark'] .videoTitle {
+  color: #ffffff;
+}
+
+/* ── 播放器容器 · 16:9 自适应 · 居中限宽 ── */
+.videoFrame {
+  position: relative;
+  width: 100%;
+  max-width: min(960px, 100%);
+  margin: 0 auto;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border: 1px solid rgba(0, 0, 0, 0.14); /* 发丝边框 */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
+}
+
+[data-theme='dark'] .videoFrame {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.videoFrame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* ── 底部外链提示 · 居中 ── */
+.videoHint {
+  margin: 1.2rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme='dark'] .videoHint {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.videoHint a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.videoHint a:hover {
+  color: var(--ifm-color-primary);
 }
 
 /* ── Lightbox 截图放大 · 近黑遮罩 (与 Hero --ink 同色系) ── */
