@@ -340,13 +340,10 @@ public class SubAgentManager {
 
     private void submitTask(SubAgentTask task, SubAgentLogger subAgentLogger, SubAgentPermission permission, SubAgentConfig config) {
         ToolRegistry registry = getToolRegistry();
-        com.example.agent.tools.concurrent.ConcurrentToolExecutor toolExecutor = 
-            new com.example.agent.tools.concurrent.ConcurrentToolExecutor(registry);
         SubAgentRunner runner = new SubAgentRunner(
             task,
             subAgentLogger,
             permission,
-            toolExecutor,
             llmClient,
             registry,
             getConversationService(),

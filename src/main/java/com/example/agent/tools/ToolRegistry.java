@@ -4,6 +4,7 @@ import com.example.agent.core.blocker.BlockerChain;
 import com.example.agent.core.event.EventBus;
 import com.example.agent.core.event.ToolExecutedEvent;
 import com.example.agent.llm.model.Tool;
+import com.example.agent.tools.concurrent.FileLockManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -109,7 +110,7 @@ public class ToolRegistry {
                 throw new ToolExecutionException(errorMessage);
             }
             
-            String result = executor.execute(arguments);
+            String result = executeWithFileLock(executor, arguments);
 
             if (hookResult.isWarning()) {
                 String warning = hookResult.formatWarningMessage();
@@ -151,6 +152,28 @@ public class ToolRegistry {
                     e.getMessage()
             ));
             throw new ToolExecutionException("参数 JSON 格式错误，请检查并修正。错误: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 对 requiresFileLock() 为 true 的工具，在其受影响路径上加写锁后执行。
+     * 锁在跨会话并发写同一文件时提供互斥保护；串行执行下无额外开销。
+     * 受影响路径取自 executor.getAffectedPaths(arguments)。
+     */
+    private String executeWithFileLock(ToolExecutor executor, JsonNode arguments) throws ToolExecutionException {
+        if (!executor.requiresFileLock()) {
+            return executor.execute(arguments);
+        }
+        List<String> paths = executor.getAffectedPaths(arguments);
+        if (paths == null || paths.isEmpty()) {
+            return executor.execute(arguments);
+        }
+        try {
+            return FileLockManager.getInstance().withWriteLocks(paths, () -> executor.execute(arguments));
+        } catch (ToolExecutionException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ToolExecutionException("文件锁保护下执行失败: " + e.getMessage(), e);
         }
     }
 }

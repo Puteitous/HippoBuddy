@@ -20,10 +20,8 @@ import java.util.List;
 import com.example.agent.mcp.McpServiceManager;
 import com.example.agent.memory.MemoryStore;
 import com.example.agent.tools.ToolRegistry;
-import com.example.agent.tools.concurrent.ConcurrentToolExecutor;
 import com.example.agent.console.AgentUi;
 import com.example.agent.console.ConsoleStyle;
-import com.example.agent.orchestrator.ToolOrchestrator;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.Reference;
@@ -49,8 +47,6 @@ public class AgentContext {
     
     private LlmClient llmClient;
     private ToolRegistry toolRegistry;
-    private ConcurrentToolExecutor concurrentToolExecutor;
-    private ToolOrchestrator toolOrchestrator;
     private TokenEstimator tokenEstimator;
     private ConversationService conversationService;
     private Conversation conversation;
@@ -151,12 +147,6 @@ public class AgentContext {
         this.tokenEstimator = ServiceLocator.get(TokenEstimator.class);
         this.ruleManager = ServiceLocator.get(RuleManager.class);
         this.toolRegistry = ServiceLocator.get(ToolRegistry.class);
-        this.concurrentToolExecutor = ServiceLocator.get(ConcurrentToolExecutor.class);
-
-        // 初始化 Tool Orchestrator 工具编排引擎
-        this.toolOrchestrator = new ToolOrchestrator(concurrentToolExecutor);
-        ServiceLocator.registerSingleton(ToolOrchestrator.class, toolOrchestrator);
-        logger.info("ToolOrchestrator 初始化完成 ✅ - {}", toolOrchestrator.getStats());
 
         // RuleManager 自动在首次 enhanceSystemPrompt 时加载规则文件
         logger.info("RuleManager 就绪（懒加载模式）");
@@ -312,10 +302,6 @@ public class AgentContext {
         return toolRegistry;
     }
 
-    public ConcurrentToolExecutor getConcurrentToolExecutor() {
-        return concurrentToolExecutor;
-    }
-
     public TokenEstimator getTokenEstimator() {
         return tokenEstimator;
     }
@@ -337,12 +323,6 @@ public class AgentContext {
     public com.example.agent.memory.MemoryRetriever getMemoryRetriever() {
         return memoryRetriever;
     }
-
-    public ToolOrchestrator getToolOrchestrator() {
-        return toolOrchestrator;
-    }
-
-
 
     public McpServiceManager getMcpServiceManager() {
         return mcpServiceManager;

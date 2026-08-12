@@ -13,7 +13,6 @@ import com.example.agent.subagent.event.SubAgentProgressEvent;
 
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
-import com.example.agent.tools.concurrent.ConcurrentToolExecutor;
 import com.example.agent.tools.concurrent.ToolExecutionResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,7 +47,6 @@ public class SubAgentRunner implements Runnable {
     private final ConversationService conversationService;
     private final SubAgentPermission permission;
     private final ObjectMapper objectMapper;
-    private final ConcurrentToolExecutor toolExecutor;
     private final SubAgentConfig config;
 
     private final int maxTurns;
@@ -56,7 +54,6 @@ public class SubAgentRunner implements Runnable {
     public SubAgentRunner(SubAgentTask task,
                           SubAgentLogger subAgentLogger,
                           SubAgentPermission permission,
-                          ConcurrentToolExecutor toolExecutor,
                           LlmClient llmClient,
                           ToolRegistry toolRegistry,
                           ConversationService conversationService,
@@ -64,7 +61,6 @@ public class SubAgentRunner implements Runnable {
         this.task = task;
         this.subAgentLogger = subAgentLogger;
         this.permission = permission;
-        this.toolExecutor = toolExecutor;
         this.llmClient = llmClient;
         this.toolRegistry = toolRegistry;
         this.conversationService = conversationService;

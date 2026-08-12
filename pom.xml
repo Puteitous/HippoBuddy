@@ -125,13 +125,6 @@
             <version>1.7.5</version>
         </dependency>
 
-        <!-- ONNX Runtime for local embedding -->
-        <dependency>
-            <groupId>com.microsoft.onnxruntime</groupId>
-            <artifactId>onnxruntime</artifactId>
-            <version>1.17.1</version>
-        </dependency>
-
         <!-- Javalin for SSE dashboard -->
         <dependency>
             <groupId>io.javalin</groupId>
