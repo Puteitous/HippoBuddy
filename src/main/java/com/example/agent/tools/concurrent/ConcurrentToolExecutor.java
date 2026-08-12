@@ -79,7 +79,11 @@ public class ConcurrentToolExecutor {
         
         for (int i = 0; i < toolCalls.size(); i++) {
             ToolCall call = toolCalls.get(i);
-            String toolName = call.getFunction() != null ? call.getFunction().getName() : "";
+            String toolName = call.getFunction() != null ? call.getFunction().getName() : null;
+            if (toolName == null || toolName.isEmpty()) {
+                results.add(executeSingle(call, i, total));
+                continue;
+            }
             ToolExecutor executor = toolRegistry.getExecutor(toolName);
             
             if (executor != null && !executor.shouldRunInBackground()) {
@@ -214,15 +218,17 @@ public class ConcurrentToolExecutor {
                 } catch (Exception e2) {
                     long executionTime = System.currentTimeMillis() - startTime;
                     logger.error("❌ 宽容模式解析也失败，终止执行");
-                    return ToolExecutionResult.builder()
+                    ToolExecutionResult result = ToolExecutionResult.builder()
                             .index(index)
                             .toolCallId(toolCallId)
                             .toolName(toolName)
                             .success(false)
-                            .errorMessage("JSON 参数格式错误：" + e2.getMessage() + 
+                            .errorMessage("参数解析失败: JSON 参数格式错误：" + e2.getMessage() +
                                 " | 原始：" + truncate(arguments, 100))
                             .executionTimeMs(executionTime)
                             .build();
+                    notifyToolComplete(toolCall, result, index, total);
+                    return result;
                 }
             }
             

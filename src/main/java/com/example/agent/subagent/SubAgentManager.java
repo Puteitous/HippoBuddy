@@ -460,8 +460,7 @@ public class SubAgentManager {
         for (int i = messages.size() - 1; i >= 0; i--) {
             com.example.agent.llm.model.Message msg = messages.get(i);
             if (msg.isAssistant() && msg.getContent() != null && !msg.getContent().isBlank()) {
-                String content = msg.getContent().trim();
-                return content.length() > 500 ? content.substring(0, 500) + "..." : content;
+                return msg.getContent().trim();
             }
         }
         return "任务执行完成";
