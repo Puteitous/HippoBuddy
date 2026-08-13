@@ -352,8 +352,8 @@ public class AnthropicLlmClient extends AbstractLlmClient {
         String body = response.body();
 
         if (statusCode < 200 || statusCode >= 300) {
-            String errorMessage = parseAnthropicError(body, statusCode);
-            throw new LlmApiException("Anthropic API 返回错误 (HTTP " + statusCode + "): " + errorMessage, statusCode, body);
+            // 统一走 LlmErrorClassifier 归一化（Anthropic 529/400+insufficient_quota 等）
+            throw LlmApiException.classify("anthropic", statusCode, body);
         }
 
         try {
@@ -574,8 +574,7 @@ public class AnthropicLlmClient extends AbstractLlmClient {
         if (statusCode < 200 || statusCode >= 300) {
             try {
                 String body = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
-                String errorMessage = parseAnthropicError(body, statusCode);
-                throw new LlmApiException("Anthropic API 返回错误 (HTTP " + statusCode + "): " + errorMessage, statusCode, body);
+                throw LlmApiException.classify("anthropic", statusCode, body);
             } catch (Exception e) {
                 if (e instanceof LlmException) throw (LlmException) e;
                 throw new LlmApiException("Anthropic API 返回错误 (HTTP " + statusCode + ")", statusCode, null);
@@ -759,9 +758,9 @@ public class AnthropicLlmClient extends AbstractLlmClient {
                         } else if ("ping".equals(type)) {
                             // 心跳，忽略
                         } else if ("error".equals(type)) {
-                            JsonNode error = eventData.get("error");
-                            String errMsg = error != null ? error.toString() : "未知错误";
-                            throw new LlmApiException("Anthropic 流式错误: " + errMsg, 0, data);
+                            // Anthropic 流式错误事件：error 对象含结构化 type（如 overloaded_error），
+                            // 由 LlmErrorClassifier 归一化；statusCode=0 时靠 body type/文本分类。
+                            throw LlmApiException.classify("anthropic", 0, data);
                         }
                     } catch (LlmException e) {
                         throw e;
@@ -871,22 +870,6 @@ public class AnthropicLlmClient extends AbstractLlmClient {
             case "tool_use": return "tool_calls";
             case "stop_sequence": return "stop";
             default: return anthropicReason;
-        }
-    }
-
-    private String parseAnthropicError(String body, int statusCode) {
-        if (body == null || body.isEmpty()) return "无错误详情";
-        try {
-            JsonNode root = objectMapper.readTree(body);
-            JsonNode error = root.get("error");
-            if (error != null) {
-                String msg = getTextValue(error, "message");
-                if (msg != null) return msg;
-                return error.toString();
-            }
-            return truncate(body, 200);
-        } catch (Exception e) {
-            return truncate(body, 200);
         }
     }
 

@@ -18,4 +18,9 @@ public class LlmConnectionException extends LlmException {
     public String getBaseUrl() {
         return baseUrl;
     }
+
+    @Override
+    public String getErrorCode() {
+        return LlmErrorClassifier.CODE_NETWORK_ERROR;
+    }
 }

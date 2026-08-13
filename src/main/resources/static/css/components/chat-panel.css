@@ -168,6 +168,46 @@
     word-break: break-word;
 }
 
+/* ========== 统一错误 / 轻提示 ==========
+   对话流内错误统一为 .msg-error（红块：❌ + 加粗标题 + 小字 detail），
+   轻提示统一为 .msg-note（灰色斜体）。替换各处的内联样式。 */
+.msg-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--error-bg);
+    border-left: 3px solid var(--error-color);
+    margin: 4px 0;
+}
+
+.msg-error-icon {
+    flex-shrink: 0;
+    line-height: 1.5;
+}
+
+.msg-error-title {
+    font-weight: 600;
+    color: var(--error-color);
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.msg-error-detail {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    opacity: 0.85;
+    word-break: break-word;
+}
+
+.msg-note {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 8px;
+}
+
 .message.user .message-content {
     white-space: pre-wrap;
 }

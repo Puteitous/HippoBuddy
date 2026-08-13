@@ -17,4 +17,9 @@ public class LlmTimeoutException extends LlmException {
     public int getTimeoutSeconds() {
         return timeoutSeconds;
     }
+
+    @Override
+    public String getErrorCode() {
+        return LlmErrorClassifier.CODE_TIMEOUT;
+    }
 }

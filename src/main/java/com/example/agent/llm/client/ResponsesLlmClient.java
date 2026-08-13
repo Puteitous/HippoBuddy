@@ -411,9 +411,7 @@ public class ResponsesLlmClient extends AbstractLlmClient {
         String body = response.body();
 
         if (statusCode < 200 || statusCode >= 300) {
-            String errorMessage = parseErrorMessage(body, statusCode);
-            throw new LlmApiException(
-                "Responses API 返回错误 (HTTP " + statusCode + "): " + errorMessage, statusCode, body);
+            throw LlmApiException.classify(getProviderName(), statusCode, body);
         }
 
         return parseResponsesBody(body);
@@ -679,9 +677,7 @@ public class ResponsesLlmClient extends AbstractLlmClient {
         if (statusCode < 200 || statusCode >= 300) {
             try {
                 String body = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
-                String errorMessage = parseErrorMessage(body, statusCode);
-                throw new LlmApiException(
-                    "Responses API 返回错误 (HTTP " + statusCode + "): " + errorMessage, statusCode, body);
+                throw LlmApiException.classify(getProviderName(), statusCode, body);
             } catch (Exception e) {
                 if (e instanceof LlmException) throw (LlmException) e;
                 throw new LlmApiException("Responses API 返回错误 (HTTP " + statusCode + ")", statusCode, null);
@@ -943,11 +939,12 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                         }
 
                         case "response.failed": {
-                            // 错误信息同样嵌套在 response 对象内（OpenAI Responses 协议）
+                            // 错误信息同样嵌套在 response 对象内（OpenAI Responses 协议）：
+                            // 提取 error 对象后交由 LlmErrorClassifier 归一化
                             JsonNode respNode = getResponseSnapshot(eventData);
                             JsonNode error = respNode.get("error");
-                            String errMsg = error != null ? error.toString() : "未知错误";
-                            throw new LlmApiException("Responses API 流式错误: " + errMsg, 0, data);
+                            String errorBody = error != null ? error.toString() : "{\"error\":\"未知错误\"}";
+                            throw LlmApiException.classify(getProviderName(), 0, errorBody);
                         }
 
                         case "response.web_search_call.in_progress":

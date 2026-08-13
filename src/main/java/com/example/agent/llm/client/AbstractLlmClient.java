@@ -461,8 +461,7 @@ public abstract class AbstractLlmClient implements LlmClient {
         if (statusCode < 200 || statusCode >= 300) {
             try {
                 String body = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
-                String errorMessage = parseErrorMessage(body, statusCode);
-                throw new LlmApiException("API 返回错误 (HTTP " + statusCode + "): " + errorMessage, statusCode, body);
+                throw LlmApiException.classify(getProviderName(), statusCode, body);
             } catch (Exception e) {
                 if (e instanceof LlmException) {
                     throw (LlmException) e;
@@ -853,61 +852,9 @@ public abstract class AbstractLlmClient implements LlmClient {
             }
         }
         
-        String errorMessage = parseErrorMessage(body, statusCode);
-        
-        switch (statusCode) {
-            case 400:
-                throw new LlmApiException("请求参数错误: " + errorMessage, statusCode, body);
-            case 401:
-                throw new LlmApiException(
-                    "API Key 无效或已过期。请检查 config.json 中的 apiKey 配置。", statusCode, body);
-            case 403:
-                throw new LlmApiException(
-                    "访问被拒绝。请检查 API Key 权限或账户状态。", statusCode, body);
-            case 404:
-                throw new LlmApiException(
-                    "API 端点不存在。请检查 baseUrl 配置: " + config.getLlm().getBaseUrl(), statusCode, body);
-            case 429:
-                throw new LlmApiException(
-                    "请求过于频繁，已触发限流。请稍后重试。\n" + errorMessage, statusCode, body);
-            case 500:
-            case 502:
-            case 503:
-                throw new LlmApiException(
-                    "API 服务器错误 (" + statusCode + ")。请稍后重试。", statusCode, body);
-            default:
-                throw new LlmApiException(
-                    "API 请求失败 (HTTP " + statusCode + "): " + errorMessage, statusCode, body);
-        }
-    }
-
-    protected String parseErrorMessage(String body, int statusCode) {
-        if (body == null || body.isEmpty()) {
-            return "无错误详情";
-        }
-        
-        try {
-            JsonNode root = objectMapper.readTree(body);
-            
-            if (root.has("error")) {
-                JsonNode error = root.get("error");
-                if (error.isObject()) {
-                    if (error.has("message")) {
-                        return error.get("message").asText();
-                    }
-                    return error.toString();
-                }
-                return error.asText();
-            }
-            
-            if (root.has("message")) {
-                return root.get("message").asText();
-            }
-            
-            return truncate(body, 200);
-        } catch (Exception e) {
-            return truncate(body, 200);
-        }
+        // 统一走 LlmErrorClassifier 归一化：按 (provider, statusCode, body) 分类，
+        // message 为面向用户的友好文案，errorCode 为稳定业务错误码（供 SSE/前端渲染）。
+        throw LlmApiException.classify(getProviderName(), statusCode, body);
     }
 
     protected String truncate(String text, int maxLength) {

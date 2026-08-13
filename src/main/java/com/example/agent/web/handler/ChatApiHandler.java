@@ -7,6 +7,8 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.rule.RuleLoader;
+import com.example.agent.llm.exception.LlmApiException;
+import com.example.agent.llm.exception.LlmErrorClassifier;
 import com.example.agent.llm.exception.LlmException;
 import com.example.agent.llm.model.ContentPart;
 import com.example.agent.llm.model.ImagePart;
@@ -145,7 +147,9 @@ public class ChatApiHandler implements HttpHandler {
                 sessionId, userMessage.length(), images.size(), editMessageId != null);
 
             if (userMessage.isEmpty() && images.isEmpty()) {
-                sseWriter.sendSseEvent("error", "{\"message\":\"消息不能为空\"}");
+                sseWriter.sendSseEvent("error", buildErrorPayload(
+                    LlmErrorClassifier.CODE_INVALID_REQUEST,
+                    "消息不能为空", null));
                 return;
             }
 
@@ -153,7 +157,9 @@ public class ChatApiHandler implements HttpHandler {
             LlmConfig llmConfig = Config.getInstance().getLlm();
             if (llmConfig.getProvider() == null || llmConfig.getProvider().isBlank()
                     || llmConfig.getModel() == null || llmConfig.getModel().isBlank()) {
-                sseWriter.sendSseEvent("error", "{\"message\":\"未配置模型，请先在设置中配置模型\"}");
+                sseWriter.sendSseEvent("error", buildErrorPayload(
+                    LlmErrorClassifier.CODE_CONFIG_MISSING,
+                    "未配置模型，请先在设置中配置模型", null));
                 return;
             }
 
@@ -161,7 +167,9 @@ public class ChatApiHandler implements HttpHandler {
                 sessionManager.tryAcquireSessionLock(sessionId, 30, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                sseWriter.sendSseEvent("error", "{\"message\":\"请求被中断\"}");
+                sseWriter.sendSseEvent("error", buildErrorPayload(
+                    LlmErrorClassifier.CODE_UNKNOWN,
+                    "请求被中断", null));
                 return;
             }
             lockAcquired = true;
@@ -241,10 +249,11 @@ public class ChatApiHandler implements HttpHandler {
 
         } catch (LlmException e) {
             logger.error("LLM 调用失败", e);
-            sseWriter.sendSseEvent("error", "{\"message\":\"" + SseWriter.escapeJson(e.getMessage()) + "\"}");
+            String detail = (e instanceof LlmApiException) ? ((LlmApiException) e).getDetail() : null;
+            sseWriter.sendSseEvent("error", buildErrorPayload(e.getErrorCode(), e.getMessage(), detail));
         } catch (Exception e) {
             logger.error("处理聊天请求失败", e);
-            sseWriter.sendSseEvent("error", "{\"message\":\"" + SseWriter.escapeJson(e.getMessage()) + "\"}");
+            sseWriter.sendSseEvent("error", buildErrorPayload(null, e.getMessage(), null));
         } finally {
             if (lockAcquired && sessionId != null) {
                 sessionManager.releaseSessionLock(sessionId);
@@ -314,5 +323,24 @@ public class ChatApiHandler implements HttpHandler {
         userMsg.setContentParts(parts);
         conversationService.addMessage(conversation, userMsg);
         return userMsg;
+    }
+
+    /**
+     * 构建 SSE error 事件的 JSON 负载。
+     * <p>
+     * 结构：{@code {"code":"...","message":"...","detail":"..."}}（code/detail 可为 null，向后兼容旧前端）。
+     * 前端优先按 code 渲染 i18n 文案，无 code 时 fallback message。
+     */
+    private String buildErrorPayload(String code, String message, String detail) {
+        StringBuilder sb = new StringBuilder("{");
+        if (code != null) {
+            sb.append("\"code\":\"").append(SseWriter.escapeJson(code)).append("\",");
+        }
+        sb.append("\"message\":\"").append(SseWriter.escapeJson(message)).append("\"");
+        if (detail != null) {
+            sb.append(",\"detail\":\"").append(SseWriter.escapeJson(detail)).append("\"");
+        }
+        sb.append("}");
+        return sb.toString();
     }
 }

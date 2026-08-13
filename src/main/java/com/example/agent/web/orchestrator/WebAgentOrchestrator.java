@@ -14,6 +14,7 @@ import com.example.agent.execute.StopHook;
 import com.example.agent.llm.client.AbstractLlmClient;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.client.LlmClientFactory;
+import com.example.agent.llm.exception.LlmErrorClassifier;
 import com.example.agent.llm.exception.LlmException;
 import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.Message;
@@ -273,7 +274,8 @@ public class WebAgentOrchestrator {
 
             Message assistantMessage = response.getFirstMessage();
             if (assistantMessage == null) {
-                sseWriter.sendSseEvent("error", "{\"message\":\"未收到有效响应\"}");
+                sseWriter.sendSseEvent("error", buildErrorPayload(
+                    LlmErrorClassifier.CODE_EMPTY_RESPONSE, "未收到有效响应", null));
                 return;
             }
 
@@ -296,12 +298,23 @@ public class WebAgentOrchestrator {
                     sseWriter.sendSseEvent("reasoning_done", "{}");
                 }
 
-                String errorMessage = switch (finishReason) {
-                    case "length" -> "响应长度达到限制，请减少上下文或增加 max_tokens";
-                    case "content_filter" -> "内容被安全过滤器阻止";
-                    default -> "LLM 未返回有效内容，请重试";
-                };
-                sseWriter.sendSseEvent("error", "{\"message\":\"" + SseWriter.escapeJson(errorMessage) + "\"}");
+                String errorCode;
+                String errorMessage;
+                switch (finishReason) {
+                    case "length" -> {
+                        errorCode = LlmErrorClassifier.CODE_RESPONSE_LENGTH_EXCEEDED;
+                        errorMessage = "响应长度达到限制，请减少上下文或增加 max_tokens";
+                    }
+                    case "content_filter" -> {
+                        errorCode = LlmErrorClassifier.CODE_CONTENT_FILTERED;
+                        errorMessage = "内容被安全过滤器阻止";
+                    }
+                    default -> {
+                        errorCode = LlmErrorClassifier.CODE_EMPTY_RESPONSE;
+                        errorMessage = "LLM 未返回有效内容，请重试";
+                    }
+                }
+                sseWriter.sendSseEvent("error", buildErrorPayload(errorCode, errorMessage, null));
                 return;
             } else {
                 logger.info("LLM 响应正常：sessionId={}, turn={}, contentLength={}, hasToolCalls={}",
@@ -910,6 +923,21 @@ public class WebAgentOrchestrator {
         }
 
         node.put("truncated", totalCount > 10);
+        return node.toString();
+    }
+
+    /**
+     * 构建 SSE error 事件的 JSON 负载（code/detail 可为 null，向后兼容旧前端）。
+     */
+    private static String buildErrorPayload(String code, String message, String detail) {
+        ObjectNode node = objectMapper.createObjectNode();
+        if (code != null) {
+            node.put("code", code);
+        }
+        node.put("message", message != null ? message : "");
+        if (detail != null) {
+            node.put("detail", detail);
+        }
         return node.toString();
     }
 }

@@ -329,7 +329,7 @@ export class HistoryRenderer {
           contentDiv.className = 'message-content';
 
           if (segments.length === 0) {
-            contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🤖 AI 未返回有效响应，请尝试重新发送</div>';
+            contentDiv.innerHTML = '<div class="msg-note">🤖 AI 未返回有效响应，请尝试重新发送</div>';
           } else {
             let html = '';
             let toolTimelineHtml = '';

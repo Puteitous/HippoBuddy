@@ -1,10 +1,12 @@
 import { EventRouter } from './EventRouter.js';
+import { RenderPipeline } from './RenderPipeline.js';
 import { renderMarkdown } from '../markdown-renderer.js';
 import { escapeHtml } from '../utils.js';
 import { getFileIconInfo } from '../utils/file-icons.js';
 import { EventBus } from '../utils/event-bus.js';
 import { RunningToolRegistry } from '../state/running-tool-registry.js';
 import { deepMergeTodoList, parseTodoArgs } from './tool-renderers/shared.js';
+import { classifyError, formatSseError } from '../utils/error-codes.js';
 
 /** 安全 i18n 辅助函数 */
 const _t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
@@ -82,23 +84,21 @@ export class MessageSession {
       },
 
       retry: (parsed, contentDiv) => {
-        contentDiv.innerHTML = `<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🔄 ${escapeHtml(parsed.message)}</div>`;
+        contentDiv.innerHTML = `<div class="msg-note">🔄 ${escapeHtml(parsed.message)}</div>`;
         s._currentText = '';
         s._segments = [];
         // 缓存由 ChatPanel 管控生命周期，此处不清空
       },
 
       sse_error: (parsed) => {
-        if (s._reasoningSegment) {
-          s._reasoningSegment.done = true;
-          s._reasoningSegment = null;
-        }
-        s._currentText = '⚠️ ' + parsed.message;
-        s._renderPipeline.scheduleRender(s._segments, s._currentText);
+        // 按后端下发的 code 渲染 i18n 文案；无 code（旧后端）时 fallback 原文。
+        // 统一渲染为 .msg-error 红块（title + detail），不再走普通文本流。
+        const { message, detail } = formatSseError(parsed);
+        s.pushError({ message, detail });
       },
 
-      raw_error: (parsed, contentDiv) => {
-        contentDiv.innerHTML = `<span style="color: var(--error-color);">❌ ${escapeHtml(parsed.content)}</span>`;
+      raw_error: (parsed) => {
+        s.pushError({ message: parsed.content });
       },
 
       reasoning: (parsed, contentDiv) => {
@@ -353,7 +353,7 @@ export class MessageSession {
       }
 
       if (this._segments.length === 0 && !this._currentText.trim()) {
-        this._contentDiv.innerHTML = '<div style="color: var(--text-muted); font-style: italic; padding: 8px;">' + _t('chatui.noValidResponse') + '</div>';
+        this._contentDiv.innerHTML = '<div class="msg-note">' + _t('chatui.noValidResponse') + '</div>';
       } else {
         this._renderPipeline.setContainer(this._contentDiv);
         await this._renderPipeline.renderFinal(this._segments, '');
@@ -392,11 +392,8 @@ export class MessageSession {
       } else {
         const { message, detail } = this._classifyError(error);
         console.error(`[MessageSession] 流异常终止 session=${this._sessionIdForLog || ''} type=Error msg="${error.message}"`);
-        this._contentDiv.innerHTML = `
-          <div style="color: var(--error-color); padding: 8px;">
-            <div style="font-weight: 600; margin-bottom: 4px;">❌ ${escapeHtml(message)}</div>
-            ${detail ? `<div style="font-size: 12px; opacity: 0.7;">${escapeHtml(detail)}</div>` : ''}
-          </div>`;
+        // 统一 .msg-error 红块（与 SSE error / raw_error 同款）
+        this._contentDiv.innerHTML = RenderPipeline.renderErrorBlock({ content: message, detail });
         this._streamCompleted = true;
         this._updateFileIndicator();
       }
@@ -411,6 +408,12 @@ export class MessageSession {
         .filter(s => s.type === 'text')
         .map(s => s.content);
       if (this._currentText.trim()) textSegments.push(this._currentText);
+      // error 段以 ⚠️ 前缀纳入复制内容，保留"这是错误"的语义
+      for (const seg of this._segments) {
+        if (seg.type === 'error') {
+          textSegments.push('⚠️ ' + seg.content + (seg.detail ? '\n' + seg.detail : ''));
+        }
+      }
       this._contentDiv.dataset.markdown = textSegments.join('');
     }
   }
@@ -802,32 +805,26 @@ export class MessageSession {
     return holder.value;
   }
 
+  /** 委托给 utils/error-codes.js 的统一分类（fetch 层异常兜底） */
   _classifyError(error) {
-    const msg = error.message || '';
-    if (error.name === 'TypeError' && (msg.includes('fetch') || msg.includes('Failed to fetch') || msg.includes('NetworkError'))) {
-      return { message: _t('chatui.errorNetwork'), detail: _t('chatui.errorNetworkDetail') };
+    const { message, detail } = classifyError(error);
+    return { message, detail };
+  }
+
+  /**
+   * 统一错误入口：把错误渲染为 .msg-error 红块（title + detail）。
+   * 同时清空流式残留文本 / 收起 thinking 段，避免与错误块叠加。
+   * @param {{message: string, detail?: string|null}} payload
+   */
+  pushError({ message, detail }) {
+    if (this._reasoningSegment) {
+      this._reasoningSegment.done = true;
+      this._reasoningSegment = null;
     }
-    if (msg.includes('超时') || msg.includes('timeout') || msg.includes('Timeout')) {
-      return { message: _t('chatui.errorTimeout'), detail: _t('chatui.errorTimeoutDetail') };
-    }
-    if (msg.includes('HTTP error') || /status:? \d{3}/i.test(msg)) {
-      const statusMatch = msg.match(/(\d{3})/);
-      const status = statusMatch ? statusMatch[1] : '';
-      if (status === '502' || status === '503' || status === '504') {
-        return { message: _t('chatui.errorServiceUnavailable', { status }), detail: _t('chatui.errorServiceUnavailableDetail') };
-      }
-      if (status === '429') {
-        return { message: _t('chatui.errorTooManyRequests'), detail: _t('chatui.errorTooManyRequestsDetail') };
-      }
-      if (status === '401' || status === '403') {
-        return { message: _t('chatui.errorPermission', { status }), detail: _t('chatui.errorPermissionDetail') };
-      }
-      return { message: _t('chatui.errorServer', { status: status || msg }), detail: _t('chatui.errorServerDetail') };
-    }
-    if (msg.includes(_t('chat.llmNoContent'))) {
-      return { message: _t('chatui.errorAiNoResponse'), detail: _t('chatui.errorAiNoResponseDetail') };
-    }
-    return { message: msg || _t('chatui.unknownError'), detail: null };
+    this._currentText = '';
+    this._segments.push({ type: 'error', content: message, detail: detail || null });
+    this._renderPipeline.setContainer(this._contentDiv);
+    this._renderPipeline.flush(this._segments, this._currentText);
   }
 
   destroy() {

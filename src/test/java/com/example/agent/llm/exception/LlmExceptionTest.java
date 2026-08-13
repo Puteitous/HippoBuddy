@@ -75,6 +75,38 @@ class LlmExceptionTest {
         }
 
         @Test
+        @DisplayName("默认无错误码")
+        void testDefaultErrorCodeNull() {
+            LlmApiException exception = new LlmApiException("API错误", 500);
+            
+            assertNull(exception.getErrorCode());
+            assertNull(exception.getDetail());
+        }
+
+        @Test
+        @DisplayName("classify 工厂方法携带错误码与详情")
+        void testClassifyFactory() {
+            String body = "{\"error\":{\"message\":\"Insufficient Balance\",\"type\":\"insufficient_balance\"}}";
+            LlmApiException exception = LlmApiException.classify("deepseek", 402, body);
+            
+            assertEquals("INSUFFICIENT_BALANCE", exception.getErrorCode());
+            assertTrue(exception.getMessage().contains("余额不足"));
+            assertEquals("Insufficient Balance", exception.getDetail());
+            assertEquals(402, exception.getStatusCode());
+            assertEquals(body, exception.getErrorBody());
+        }
+
+        @Test
+        @DisplayName("classify 工厂携带 errorBody 原始响应体")
+        void testClassifyFactoryBodyPreserved() {
+            String body = "{\"error\":{\"message\":\"boom\",\"type\":\"api_error\"}}";
+            LlmApiException exception = LlmApiException.classify("openai", 500, body);
+            
+            assertEquals(body, exception.getErrorBody());
+            assertEquals("SERVER_ERROR", exception.getErrorCode());
+        }
+
+        @Test
         @DisplayName("负数状态码自动修正为0")
         void testNegativeStatusCode() {
             LlmApiException exception = new LlmApiException("错误", -1);

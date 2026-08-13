@@ -349,7 +349,15 @@ describe('ChatPanel.js', () => {
         },
         handleToolProgress() {},
         handleToolConfirmation() {},
-        getContentDiv() { return null; }
+        getContentDiv() { return null; },
+        pushError({ message, detail }) {
+          if (this._reasoningSegment) {
+            this._reasoningSegment.done = true;
+            this._reasoningSegment = null;
+          }
+          this._currentText = '';
+          this._segments.push({ type: 'error', content: message, detail: detail || null });
+        }
       };
       return session;
     }
@@ -413,7 +421,10 @@ describe('ChatPanel.js', () => {
         document.createElement('div')
       );
 
-      expect(contentDiv.innerHTML).toContain('出错了');
+      // 统一走 session.pushError → error segment（渲染为 .msg-error 红块）
+      const errSeg = chatPanel._activeSession.getSegments().find(s => s.type === 'error');
+      expect(errSeg).toBeDefined();
+      expect(errSeg.content).toBe('出错了');
     });
 
     it('处理 tool_start 事件创建工具卡片', () => {

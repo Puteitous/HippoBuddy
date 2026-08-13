@@ -3,6 +3,7 @@ import { appState } from '../../state/app-state.js';
 import { RunningToolRegistry } from '../../state/running-tool-registry.js';
 import { escapeHtml } from '../../utils.js';
 import { showToast } from '../../utils/toast.js';
+import { formatSseError } from '../../utils/error-codes.js';
 import { EventBus } from '../../utils/event-bus.js';
 import { RenderPipeline } from '../RenderPipeline.js';
 import { EventRouter } from '../EventRouter.js';
@@ -558,6 +559,11 @@ export class ChatPanel {
       console.debug(`[ChatPanel] session.start 正常完成 session=${appState.currentSessionId}`);
     } catch (err) {
       console.error(`[ChatPanel] session.start 抛出异常 session=${appState.currentSessionId}`, err);
+      // 兜底：避免"对话中断但界面毫无反馈"。用户主动停止（AbortError）不算异常，不提示。
+      if (!(err && (err.name === 'AbortError' || err.constructor?.name === 'AbortError'))) {
+        const fallbackMsg = window.i18n ? window.i18n.t('chatui.unknownError') : '未知错误';
+        showToast(err?.message || fallbackMsg, { type: 'error', duration: 5000 });
+      }
     }
 
     // SSE 流结束，启动兜底定时器检查 stuck tool（30s 后运行）
@@ -631,7 +637,7 @@ export class ChatPanel {
       },
 
       retry: (parsed, contentDiv) => {
-        contentDiv.innerHTML = `<div style="color: var(--text-muted); font-style: italic; padding: 8px;">🔄 ${escapeHtml(parsed.message)}</div>`;
+        contentDiv.innerHTML = `<div class="msg-note">🔄 ${escapeHtml(parsed.message)}</div>`;
         const session = s();
         if (!session) return;
         session.clearAll();
@@ -642,13 +648,16 @@ export class ChatPanel {
       sse_error: (parsed) => {
         const session = s();
         if (!session) return;
-        session.clearReasoning();
-        session.setCurrentText('⚠️ ' + parsed.message);
-        this.renderPipeline.scheduleRender(session.getSegments(), session.getCurrentText());
+        // 按后端下发的 code 渲染 i18n 文案；无 code（旧后端）时 fallback 原文。
+        // 统一 .msg-error 红块（title + detail）
+        const { message, detail } = formatSseError(parsed);
+        session.pushError({ message, detail });
       },
 
-      raw_error: (parsed, contentDiv) => {
-        contentDiv.innerHTML = `<span style="color: var(--error-color);">❌ ${escapeHtml(parsed.content)}</span>`;
+      raw_error: (parsed) => {
+        const session = s();
+        if (!session) return;
+        session.pushError({ message: parsed.content });
       },
 
       reasoning: (parsed, contentDiv) => {
@@ -899,42 +908,6 @@ export class ChatPanel {
     return scrollHeight - scrollTop - clientHeight < threshold;
   }
 
-  /**
-   * 将错误分类为用户友好的消息
-   */
-  _classifyError(error) {
-    const msg = error.message || '';
-    
-    if (error.name === 'TypeError' && (msg.includes('fetch') || msg.includes('Failed to fetch') || msg.includes('NetworkError'))) {
-      return { message: '网络连接失败，请检查后端服务是否正常运行', detail: '无法与服务器建立连接，请确认服务已启动且网络通畅' };
-    }
-    
-    if (msg.includes('超时') || msg.includes('timeout') || msg.includes('Timeout')) {
-      return { message: '请求超时，服务响应时间过长', detail: '请稍后重试，或检查服务是否负载过高' };
-    }
-    
-    if (msg.includes('HTTP error') || /status:? \d{3}/i.test(msg)) {
-      const statusMatch = msg.match(/(\d{3})/);
-      const status = statusMatch ? statusMatch[1] : '';
-      if (status === '502' || status === '503' || status === '504') {
-        return { message: `服务暂时不可用 (${status})`, detail: '后端服务暂时无法处理请求，请稍后重试' };
-      }
-      if (status === '429') {
-        return { message: '请求过于频繁 (429)', detail: '请稍后重试' };
-      }
-      if (status === '401' || status === '403') {
-        return { message: `权限不足 (${status})`, detail: '请检查认证信息是否正确' };
-      }
-      return { message: `服务异常 (${status || msg})`, detail: '请稍后重试，如问题持续请联系管理员' };
-    }
-    
-    if (msg.includes(i18n.t('chat.llmNoContent'))) {
-      return { message: 'AI 未返回有效响应', detail: '请尝试重新发送消息' };
-    }
-    
-    return { message: msg || '未知错误', detail: null };
-  }
-  
   /**
    * 设置发送状态
    */

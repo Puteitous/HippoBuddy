@@ -66,6 +66,9 @@ export class RenderPipeline {
     if (seg.type === 'text') {
       return `X|${seg.content.length}|${seg.content.slice(-30)}`;
     }
+    if (seg.type === 'error') {
+      return `E|${seg.content.length}|${seg.content.slice(-30)}|${(seg.detail || '').length}|${(seg.detail || '').slice(-30)}`;
+    }
     if (seg.type === 'tool') {
       const result = seg.result || 'running';
       const hasConfirm = seg.confirmationData ? '1' : '0';
@@ -229,6 +232,9 @@ export class RenderPipeline {
       } else if (seg.type === 'text') {
         flushTimeline();
         plan.push({ type: 'text', segIdx: i, key: `seg-${i}`, fingerprint: fp });
+      } else if (seg.type === 'error') {
+        flushTimeline();
+        plan.push({ type: 'error', segIdx: i, key: `seg-${i}`, fingerprint: fp });
       } else if (seg.type === 'tool') {
         if (seg.name === 'todo_write' || seg.name === 'ask_user') {
           flushTimeline();
@@ -614,6 +620,11 @@ export class RenderPipeline {
       return '';
     }
 
+    if (unit.type === 'error') {
+      const seg = segments[unit.segIdx];
+      return RenderPipeline.renderErrorBlock(seg);
+    }
+
     if (unit.type === 'tool-card') {
       const seg = segments[unit.segIdx];
       return this.chatUI.renderToolCard(seg);
@@ -897,6 +908,24 @@ export class RenderPipeline {
         <div class="web-search-row-header">
           <span class="web-search-row-icon">${searchSvg}</span>
           <span class="web-search-row-label">${window.i18n.t('render.webSearching')}</span>
+        </div>
+      </div>`;
+  }
+
+  /**
+   * 渲染统一错误块（.msg-error：❌ 图标 + 加粗标题 + 小字 detail）。
+   * segment 结构：{ type:'error', content: 主文案, detail: 原始详情（可选） }。
+   * 与 MessageSession catch 兜底共用同一模板，保证 5 种错误形态视觉一致。
+   */
+  static renderErrorBlock(segment) {
+    const title = escapeHtml(segment.content || '');
+    const detail = segment.detail ? escapeHtml(segment.detail) : '';
+    return `
+      <div class="msg-error">
+        <span class="msg-error-icon">❌</span>
+        <div class="msg-error-body">
+          <div class="msg-error-title">${title}</div>
+          ${detail ? `<div class="msg-error-detail">${detail}</div>` : ''}
         </div>
       </div>`;
   }
