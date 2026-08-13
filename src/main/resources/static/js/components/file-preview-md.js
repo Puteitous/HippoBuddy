@@ -15,11 +15,73 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+/**
+ * 将 Markdown 中的图片引用解析为可加载的绝对 URL。
+ *
+ * 规则：
+ *   - http(s)://、data:、blob: 等协议 URL 原样返回（不做本地文件映射）
+ *   - 绝对路径（/foo.png）或相对路径（./img/a.png / img/a.png）
+ *     基于当前 MD 文件所在目录解析为绝对路径，再映射到
+ *     /api/file/raw?path=... 后端接口（与 BinaryPreview 图片预览同源）
+ *   - 路径含 ?hash 片段时保留（marked 原样输出，不必特殊处理）
+ *
+ * @param {string} src - 原始图片 src
+ * @param {string} [baseDir] - 当前 MD 文件所在目录（绝对路径，含尾部分隔符），
+ *                             缺省时不做本地映射（保持原样）
+ * @returns {string} 可加载的图片 URL
+ */
+export function resolveImageSrc(src, baseDir) {
+  if (!src) return src;
+  // 协议 URL（网络图 / data: / blob: 等）直接返回
+  if (/^(https?:|data:|blob:|file:)/i.test(src)) return src;
+  // 纯锚点 / 空引用
+  if (src.startsWith('#')) return src;
+  // 无法确定基准目录时保持原样
+  if (!baseDir) return src;
+
+  // 剥离 query / hash：本地文件路径不含 URL 语法（? 与 #），
+  // 否则 encodeURIComponent 会把 ? 编码进 path 参数导致后端找不到文件
+  const clean = src.split(/[?#]/)[0];
+  if (!clean) return src;
+
+  // 拼接绝对路径（兼容 Windows 反斜杠与 URL 正斜杠）
+  const normSrc = clean.replace(/\\/g, '/');
+  let abs;
+  if (normSrc.startsWith('/')) {
+    abs = normSrc; // 已是绝对路径，去首斜杠后拼到 baseDir
+    abs = baseDir + abs.replace(/^\/+/, '');
+  } else {
+    // 相对路径：基于 baseDir 解析（含 ./ 与 ../ 归一化）
+    abs = baseDir + normSrc;
+    const parts = [];
+    for (const seg of abs.split('/')) {
+      if (seg === '.' || seg === '') continue;
+      if (seg === '..') {
+        parts.pop();
+      } else {
+        parts.push(seg);
+      }
+    }
+    abs = parts.join('/');
+  }
+
+  return '/api/file/raw?path=' + encodeURIComponent(abs);
+}
+
+/** 解码 HTML 实体（&amp; &quot; 等），用于解析 img src */
+function decodeHtmlEntities(str) {
+  const el = document.createElement('div');
+  el.innerHTML = str;
+  return el.textContent || el.innerText || '';
+}
+
 export class FilePreviewMdPreview {
   constructor({ container, renderMarkdown }) {
     this._container = container;
     this._renderMarkdown = renderMarkdown;
     this._previewMode = false;
+    /** @private 当前预览的 MD 文件绝对路径（用于解析图片相对路径） */
+    this._filePath = null;
     /** @private MD 预览渲染容器 */
     this._mdPreviewEl = null;
     /** @private TOC 侧边栏容器 */
@@ -37,15 +99,18 @@ export class FilePreviewMdPreview {
   /**
    * 切换预览/编辑模式
    * @param {string} content - CM6 编辑器当前内容
+   * @param {string} [filePath] - 当前 MD 文件绝对路径，用于解析图片相对路径
    * @returns {'preview' | 'edit'} 切换后的模式
    */
-  async toggle(content) {
+  async toggle(content, filePath) {
     if (this._previewMode) {
       // 切回编辑模式
       this._destroyPreview();
       this._previewMode = false;
       return 'edit';
     }
+
+    this._filePath = filePath || null;
 
     // 切到预览模式
     this._ensurePreviewEl();
@@ -67,6 +132,9 @@ export class FilePreviewMdPreview {
       const contentWrapper = document.createElement('div');
       contentWrapper.className = 'file-md-content';
       contentWrapper.innerHTML = html;
+
+      // 重写本地图片 src → /api/file/raw?path=绝对路径（否则相对路径会 404）
+      this._resolveImages(contentWrapper);
 
       this._mdPreviewEl.appendChild(this._tocEl);
       this._mdPreviewEl.appendChild(contentWrapper);
@@ -94,6 +162,39 @@ export class FilePreviewMdPreview {
 
   // ==================== 内部方法 ====================
 
+  /**
+   * 重写内容区所有本地图片的 src，映射到后端 /api/file/raw 接口。
+   * 网络图（http/https/data/blob）与纯锚点保持原样。
+   * @param {HTMLElement} contentWrapper - 已填充渲染 HTML 的内容容器
+   */
+  _resolveImages(contentWrapper) {
+    const imgs = contentWrapper.querySelectorAll('img');
+    if (imgs.length === 0) return;
+
+    // 基准目录：MD 文件所在目录（绝对路径 + 尾分隔符），用于解析相对路径
+    let baseDir = null;
+    if (this._filePath) {
+      const norm = this._filePath.replace(/\\/g, '/');
+      const slashIdx = norm.lastIndexOf('/');
+      if (slashIdx >= 0) {
+        baseDir = norm.slice(0, slashIdx + 1);
+      } else {
+        baseDir = ''; // 无目录（裸文件名）→ 视为当前工作目录根
+      }
+    }
+
+    imgs.forEach((img) => {
+      const rawSrc = img.getAttribute('src');
+      if (!rawSrc) return;
+      // src 可能含 HTML 实体（如 &amp;），先解码再解析
+      const decoded = decodeHtmlEntities(rawSrc);
+      const resolved = resolveImageSrc(decoded, baseDir);
+      if (resolved !== decoded) {
+        img.setAttribute('src', resolved);
+      }
+    });
+  }
+
   /** 确保 MD 预览容器存在 */
   _ensurePreviewEl() {
     if (!this._mdPreviewEl) {
@@ -108,6 +209,7 @@ export class FilePreviewMdPreview {
   _destroyPreview() {
     this._stopTocScrollSync();
     this._tocEl = null;
+    this._filePath = null;
     if (this._mdPreviewEl) {
       this._mdPreviewEl.remove();
       this._mdPreviewEl = null;

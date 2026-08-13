@@ -148,7 +148,7 @@ export class FilePreview {
     btn.addEventListener('click', async () => {
       if (!this._isMarkdown(this._currentPath) || !this._view) return;
       const prevMode = this._mdPreview.isPreview;
-      const mode = await this._mdPreview.toggle(this._view.state.doc.toString());
+      const mode = await this._mdPreview.toggle(this._view.state.doc.toString(), this._currentPath);
       // 编辑模式时恢复编辑器显示
       if (prevMode) {
         this._view.dom.style.display = '';
