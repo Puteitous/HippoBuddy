@@ -7,7 +7,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: '架构哲学',
-      items: ['architecture/philosophy'],
+      items: ['architecture/philosophy', 'architecture/syntax-check-tool', 'architecture/wasm-dual-runtime'],
     },
     {
       type: 'category',
