@@ -19,6 +19,7 @@ import com.example.agent.llm.model.Tool;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.Usage;
 import com.example.agent.llm.retry.RetryPolicy;
+import com.example.agent.llm.stream.IdleTimeoutInputStream;
 import com.example.agent.llm.stream.SseParser;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.llm.stream.ToolCallDelta;
@@ -52,6 +53,10 @@ public abstract class AbstractLlmClient implements LlmClient {
     protected static final int API_TIMEOUT_SECONDS = 60;
     protected static final int STREAM_TIMEOUT_SECONDS = 120;
     protected static final int CONNECT_TIMEOUT_SECONDS = 30;
+    /** 流式响应 body 的空闲超时：HttpRequest.timeout() 只覆盖到响应头，
+     *  响应头之后逐行读 body 时若连接静默挂起会无限阻塞，由 IdleTimeoutInputStream 兜底。
+     *  值应大于 LLM 正常思考/推送间隔（含长 reasoning），60s 较安全。 */
+    protected static final int STREAM_IDLE_TIMEOUT_SECONDS = 60;
     protected static final int MAX_TOOL_CALL_INDEX = 1000;
     protected static final int MAX_ARGUMENTS_LENGTH = 100000;
     
@@ -384,6 +389,17 @@ public abstract class AbstractLlmClient implements LlmClient {
             throw new LlmTimeoutException(
                 "流式请求超时（" + STREAM_TIMEOUT_SECONDS + "秒）。请检查网络连接或稍后重试。", 
                 STREAM_TIMEOUT_SECONDS, e);
+        } catch (java.net.SocketTimeoutException e) {
+            EventBus.publish(new LlmRequestEvent(
+                    getProviderName(),
+                    getModel(),
+                    0, 0,
+                    System.currentTimeMillis() - startMs,
+                    false
+            ));
+            throw new LlmTimeoutException(
+                "流式响应读取空闲超时（超过 " + STREAM_IDLE_TIMEOUT_SECONDS + " 秒无数据），连接可能已挂起。",
+                STREAM_IDLE_TIMEOUT_SECONDS, e);
         } catch (java.net.ConnectException e) {
             EventBus.publish(new LlmRequestEvent(
                     getProviderName(),
@@ -405,6 +421,18 @@ public abstract class AbstractLlmClient implements LlmClient {
             ));
             throw new LlmException("流式请求失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 包装流式响应 body，增加空闲超时保护。
+     * <p>
+     * {@code HttpRequest.timeout()} 只覆盖"发送请求 → 收到响应头"；响应头之后逐行
+     * 读取 body 时若服务端/网络静默挂起，{@code readLine()} 会无限阻塞（与 SSE 写入
+     * 阻塞同类的镜像问题）。由 {@link IdleTimeoutInputStream} 看门狗兜底：距上次成功
+     * 读取超过 {@link #STREAM_IDLE_TIMEOUT_SECONDS} 秒即判定挂起并中断。
+     */
+    protected InputStream wrapStreamBody(InputStream body) {
+        return new IdleTimeoutInputStream(body, STREAM_IDLE_TIMEOUT_SECONDS * 1000L, getProviderName());
     }
 
     protected String buildUrl(String baseUrl, String path) {
@@ -455,7 +483,7 @@ public abstract class AbstractLlmClient implements LlmClient {
         
         BufferedReader reader = null;
         try {
-            reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8));
+            reader = new BufferedReader(new InputStreamReader(wrapStreamBody(response.body()), StandardCharsets.UTF_8));
             
             String line;
             while ((line = reader.readLine()) != null) {

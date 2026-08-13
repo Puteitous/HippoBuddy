@@ -528,6 +528,9 @@ public class AnthropicLlmClient extends AbstractLlmClient {
         } catch (java.net.http.HttpTimeoutException e) {
             EventBus.publish(new LlmRequestEvent(getProviderName(), getModel(), 0, 0, System.currentTimeMillis() - startMs, false));
             throw new LlmTimeoutException("流式请求超时（" + STREAM_TIMEOUT_SECONDS + "秒）。请检查网络连接或稍后重试。", STREAM_TIMEOUT_SECONDS, e);
+        } catch (java.net.SocketTimeoutException e) {
+            EventBus.publish(new LlmRequestEvent(getProviderName(), getModel(), 0, 0, System.currentTimeMillis() - startMs, false));
+            throw new LlmTimeoutException("流式响应读取空闲超时（超过 " + STREAM_IDLE_TIMEOUT_SECONDS + " 秒无数据），连接可能已挂起。", STREAM_IDLE_TIMEOUT_SECONDS, e);
         } catch (java.net.ConnectException e) {
             EventBus.publish(new LlmRequestEvent(getProviderName(), getModel(), 0, 0, System.currentTimeMillis() - startMs, false));
             throw new LlmConnectionException("无法连接到 API 服务器: " + config.getLlm().getBaseUrl() + "。请检查网络连接。", config.getLlm().getBaseUrl(), e);
@@ -592,7 +595,7 @@ public class AnthropicLlmClient extends AbstractLlmClient {
 
         BufferedReader reader = null;
         try {
-            reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8));
+            reader = new BufferedReader(new InputStreamReader(wrapStreamBody(response.body()), StandardCharsets.UTF_8));
 
             String line;
             String currentEvent = null;
