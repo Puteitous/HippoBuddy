@@ -253,6 +253,8 @@ public class ChatApiHandler implements HttpHandler {
             }
             SseWriter.removeClientDisconnected();
             sseWriter.sendSseEvent("complete", "[DONE]");
+            // 先排空 SSE 事件队列（确保 complete 发出），再关闭底层流
+            sseWriter.close();
             outputStreamWriter.close();
             exchange.close();
         }

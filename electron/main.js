@@ -850,6 +850,92 @@ ipcMain.handle('terminal:open', async (_event, dirPath) => {
 });
 
 // ============================================================================
+// 后端 HTTP 辅助（退出确认用）
+// ============================================================================
+
+/** GET 后端 JSON API（带超时） */
+function backendGetJson(path) {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    const req = http.get({ host: 'localhost', port: PORT, path }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          reject(new Error('后端响应解析失败'));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(2000, () => { req.destroy(); reject(new Error('请求超时')); });
+  });
+}
+
+/** POST 后端 JSON API（带超时） */
+function backendPostJson(path, bodyObj) {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    const payload = JSON.stringify(bodyObj || {});
+    const req = http.request({
+      host: 'localhost',
+      port: PORT,
+      path,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch { resolve({}); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(2000, () => { req.destroy(); reject(new Error('请求超时')); });
+    req.write(payload);
+    req.end();
+  });
+}
+
+/** 查询所有正在执行任务的会话 ID（后端不可达时返回空数组，不阻塞退出） */
+async function getRunningSessionIds() {
+  try {
+    const sessions = await backendGetJson('/api/sessions');
+    if (!Array.isArray(sessions)) return [];
+    return sessions
+      .filter(s => s && s.running === true)
+      .map(s => s.id)
+      .filter(Boolean);
+  } catch (err) {
+    console.warn('[main] 查询运行中会话失败:', err.message);
+    return [];
+  }
+}
+
+/** 中断指定会话的任务（复用停止按钮的 /api/tool/abort 接口） */
+async function abortSessions(sessionIds) {
+  for (const id of sessionIds) {
+    try {
+      await backendPostJson('/api/tool/abort', { sessionId: id });
+      console.log(`[main] 已发送中断请求: sessionId=${id}`);
+    } catch (err) {
+      console.warn(`[main] 中断会话失败: sessionId=${id}, error=${err.message}`);
+    }
+  }
+}
+
+/** 执行真正的退出：标记退出 → 销毁托盘 → quit（触发 will-quit → stopBackend） */
+function doQuit() {
+  app.isQuitting = true;
+  if (tray) { tray.destroy(); tray = null; }
+  app.quit();
+}
+
+// ============================================================================
 // 系统托盘
 // ============================================================================
 
@@ -899,10 +985,29 @@ function createTray() {
     { type: 'separator' },
     {
       label: '退出',
-      click: () => {
-        app.isQuitting = true;
-        if (tray) { tray.destroy(); tray = null; }
-        app.quit();
+      click: async () => {
+        // 查询是否有正在执行的任务：有 → 弹确认框（关闭并中断 / 取消），无 → 直接退出
+        const runningIds = await getRunningSessionIds();
+        if (runningIds.length > 0) {
+          const { response } = await dialog.showMessageBox(mainWindow, {
+            type: 'warning',
+            title: '任务正在执行中',
+            message: `有 ${runningIds.length} 个任务正在执行，退出应用将中断它们。`,
+            detail: '退出后未完成的任务进度将丢失。若想保留任务继续运行，请点击"取消"，窗口可最小化到托盘。',
+            buttons: ['取消', '关闭并中断'],
+            defaultId: 0,
+            cancelId: 0,
+            noLink: true,
+          });
+          if (response !== 1) {
+            // 用户选择取消 → 不退出，任务继续
+            return;
+          }
+          // 用户确认中断 → 先发送中断请求，给 Agent 一点时间落盘当前状态，再退出
+          await abortSessions(runningIds);
+          await new Promise(r => setTimeout(r, 1500));
+        }
+        doQuit();
       },
     },
   ]);

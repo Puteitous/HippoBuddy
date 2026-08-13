@@ -102,11 +102,18 @@ class WebAgentOrchestratorTest {
 
     @AfterEach
     void tearDown() {
+        if (sseWriter != null) {
+            sseWriter.close();
+        }
         SseWriter.removeClientDisconnected();
         ServiceLocator.clear();
     }
 
     private String sseOutput() {
+        // SseWriter 已异步化：先等后台发送线程排空队列，再读取输出，保证断言完整
+        if (sseWriter != null) {
+            sseWriter.awaitFlush();
+        }
         return stringWriter.toString();
     }
 
@@ -544,6 +551,8 @@ class WebAgentOrchestratorTest {
             assertFalse(mockLlmClient.isAborted(), "客户端断开后不应 abort 请求（后台继续执行）");
             verify(mockConversationService, atLeastOnce())
                 .addAssistantMessage(any(), any(Message.class), any());
+
+            disconnectSseWriter.close();
         }
 
         @Test
@@ -588,6 +597,8 @@ class WebAgentOrchestratorTest {
             // 两个工具都应执行并持久化（断开不中断剩余工具）
             verify(mockConversationService, times(2))
                 .addToolResult(any(), anyString(), anyString(), anyString(), eq(true));
+
+            disconnectSseWriter.close();
         }
 
         @Test
@@ -630,6 +641,8 @@ class WebAgentOrchestratorTest {
                 .addAssistantMessage(any(), any(Message.class), any());
             verify(mockConversationService, times(1))
                 .addToolResult(any(), anyString(), eq("read_file"), anyString(), eq(true));
+
+            turn2SseWriter.close();
         }
     }
 

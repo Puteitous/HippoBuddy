@@ -116,6 +116,8 @@ public class ToolConfirmHandler implements HttpHandler {
                     sseWriter, conversationService, toolRegistry, conversation);
             }
 
+            // 先排空 SSE 事件队列，再关闭底层流
+            sseWriter.close();
             outputStreamWriter.close();
             exchange.close();
 

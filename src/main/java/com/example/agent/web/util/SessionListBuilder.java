@@ -3,6 +3,7 @@ package com.example.agent.web.util;
 import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.model.Message;
+import com.example.agent.web.session.WebSessionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,7 @@ public class SessionListBuilder {
             sessionInfo.put("messageCount", entry.getValue().getMessageCount());
             sessionInfo.put("createdAt", extractTimestamp(entry.getKey()));
             sessionInfo.put("active", true);
+            sessionInfo.put("running", WebSessionManager.getInstance().isSessionRunning(entry.getKey()));
 
             String title = resolveTitle(entry.getKey(), entry.getValue());
             if (title != null) {
@@ -78,6 +80,7 @@ public class SessionListBuilder {
             sessionInfo.put("id", sessionId);
             sessionInfo.put("createdAt", extractTimestamp(sessionId));
             sessionInfo.put("active", false);
+            sessionInfo.put("running", false);
 
             Path jsonl = entry.getValue();
             try {

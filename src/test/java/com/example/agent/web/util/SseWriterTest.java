@@ -27,6 +27,7 @@ class SseWriterTest {
 
     @AfterEach
     void tearDown() {
+        sseWriter.close();
         SseWriter.removeClientDisconnected();
     }
 
@@ -38,6 +39,7 @@ class SseWriterTest {
         @DisplayName("应输出正确的 SSE 格式")
         void sendsCorrectSseFormat() {
             sseWriter.sendSseEvent("message", "{\"content\":\"hello\"}");
+            sseWriter.awaitFlush();
 
             String output = stringWriter.toString();
             assertTrue(output.contains("event: message\n"));
@@ -49,6 +51,7 @@ class SseWriterTest {
         void sendsMultipleEvents() {
             sseWriter.sendSseEvent("event1", "data1");
             sseWriter.sendSseEvent("event2", "data2");
+            sseWriter.awaitFlush();
 
             String output = stringWriter.toString();
             assertTrue(output.contains("event: event1\ndata: data1\n\n"));
@@ -56,14 +59,30 @@ class SseWriterTest {
         }
 
         @Test
-        @DisplayName("客户端断开后应跳过发送")
+        @DisplayName("实例断开后应跳过发送（不再写入底层 writer）")
         void skipsSendWhenDisconnected() {
-            SseWriter.resetClientDisconnected();
-            sseWriter.sendSseEvent("first", "data");
+            int[] writeCount = {0};
+            Writer countingWriter = new Writer() {
+                @Override
+                public void write(char[] cbuf, int off, int len) throws IOException {
+                    writeCount[0]++;
+                    throw new IOException("Broken pipe");
+                }
+                @Override
+                public void flush() throws IOException {}
+                @Override
+                public void close() throws IOException {}
+            };
+            SseWriter broken = new SseWriter(countingWriter);
 
-            assertFalse(SseWriter.isClientDisconnected());
-            String outputBefore = stringWriter.toString();
-            assertTrue(outputBefore.contains("event: first"));
+            broken.sendSseEvent("first", "data");
+            broken.awaitFlush();
+            assertTrue(broken.isDisconnected(), "写失败后实例应标记断开");
+
+            broken.sendSseEvent("second", "data");
+            broken.awaitFlush();
+            assertEquals(1, writeCount[0], "断开后不应再调用 writer.write()");
+            broken.close();
         }
 
         @Test
@@ -74,7 +93,7 @@ class SseWriterTest {
     }
 
     @Nested
-    @DisplayName("clientDisconnected ThreadLocal")
+    @DisplayName("clientDisconnected ThreadLocal（兼容保留）")
     class ClientDisconnectedTests {
 
         @Test
@@ -94,13 +113,12 @@ class SseWriterTest {
     }
 
     @Nested
-    @DisplayName("IOException 处理")
+    @DisplayName("写失败处理（实例级断开标志）")
     class IOExceptionHandlingTests {
 
         @Test
-        @DisplayName("write 抛出 IOException 时应设置 clientDisconnected=true")
+        @DisplayName("write 抛出 IOException 时应设置实例断开标志")
         void ioExceptionOnWriteSetsDisconnectedFlag() {
-            SseWriter.removeClientDisconnected();
             Writer brokenWriter = new Writer() {
                 @Override
                 public void write(char[] cbuf, int off, int len) throws IOException {
@@ -111,17 +129,18 @@ class SseWriterTest {
                 @Override
                 public void close() throws IOException {}
             };
-            SseWriter sseWriter = new SseWriter(brokenWriter);
+            SseWriter broken = new SseWriter(brokenWriter);
 
-            sseWriter.sendSseEvent("test", "data");
+            broken.sendSseEvent("test", "data");
+            broken.awaitFlush();
 
-            assertTrue(SseWriter.isClientDisconnected());
+            assertTrue(broken.isDisconnected(), "写失败后实例断开标志应为 true");
+            broken.close();
         }
 
         @Test
         @DisplayName("已断开后 sendSseEvent 应静默跳过，不再调用 writer")
         void sendAfterDisconnectDoesNotThrow() {
-            SseWriter.removeClientDisconnected();
             int[] writeCount = {0};
             Writer countingWriter = new Writer() {
                 @Override
@@ -136,13 +155,46 @@ class SseWriterTest {
                 @Override
                 public void close() throws IOException {}
             };
-            SseWriter sseWriter = new SseWriter(countingWriter);
+            SseWriter broken = new SseWriter(countingWriter);
 
-            sseWriter.sendSseEvent("first", "data");
-            assertTrue(SseWriter.isClientDisconnected());
+            broken.sendSseEvent("first", "data");
+            broken.awaitFlush();
+            assertTrue(broken.isDisconnected());
 
-            sseWriter.sendSseEvent("second", "data");
+            broken.sendSseEvent("second", "data");
+            broken.awaitFlush();
             assertEquals(1, writeCount[0], "断开后不应再调用 writer.write()");
+            broken.close();
+        }
+
+        @Test
+        @DisplayName("异步发送：Agent 主线程入队不被写阻塞拖住")
+        void enqueueIsNonBlockingWhenWriterStalls() {
+            // 模拟 write 永久阻塞（不抛异常）的客户端半开连接
+            Writer stallingWriter = new Writer() {
+                @Override
+                public void write(char[] cbuf, int off, int len) throws IOException {
+                    try {
+                        Thread.sleep(60_000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                @Override
+                public void flush() throws IOException {}
+                @Override
+                public void close() throws IOException {}
+            };
+            SseWriter stalling = new SseWriter(stallingWriter);
+
+            long start = System.currentTimeMillis();
+            for (int i = 0; i < 100; i++) {
+                stalling.sendSseEvent("evt" + i, "data");
+            }
+            long elapsed = System.currentTimeMillis() - start;
+            // 队列容量 2048，100 个事件不会打满；主线程应瞬时返回（异步）
+            assertTrue(elapsed < 2000, "sendSseEvent 不应被阻塞写入拖住, elapsed=" + elapsed + "ms");
+            stalling.close();
         }
     }
 

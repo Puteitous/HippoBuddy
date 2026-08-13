@@ -639,11 +639,15 @@ public class WebAgentOrchestrator {
                     SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                     stats.addToolCall();
                 }
-            } catch (Exception e) {
-                String errorMsg = e.getMessage();
+            } catch (Throwable t) {
+                // 兜底：捕获 Error（StackOverflow 等）也补一条 tool_result 落盘，
+                // 避免已发 tool_start 的调用在会话历史中成为孤儿（下次请求靠 MessageSanitizer 清理）
+                String errorMsg = t.getMessage();
                 if (errorMsg == null || errorMsg.isEmpty()) {
-                    errorMsg = e.getClass().getSimpleName() + " (无详细信息)";
+                    errorMsg = t.getClass().getSimpleName() + " (无详细信息)";
                 }
+                logger.warn("工具执行异常/错误，已补 tool_result 落盘: sessionId={}, tool={}, error={}",
+                    sessionId, toolName, errorMsg);
                 getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
                 sseWriter.sendSseEvent("tool_result",
                     buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
@@ -764,6 +768,10 @@ public class WebAgentOrchestrator {
 
     /**
      * 安全解析 arguments JSON，非法时降级为文本节点，避免整个 tool_result 事件断裂。
+     * <p>
+     * 流式场景下，tool_start 在 arguments delta 拼接完成前就会被调用（如仅 "{\"pa" 残缺片段），
+     * 这类"未闭合"的片段属正常增量过程，打 DEBUG 即可，避免每轮工具都刷两条 WARN 噪音；
+     * 只有以 } / ] 结尾（看似完整）但语法错误的参数才值得 WARN 提示。
      */
     private static JsonNode safeArgs(String json, String toolCallId) {
         try {
@@ -772,7 +780,14 @@ public class WebAgentOrchestrator {
                 if (node != null && !node.isMissingNode()) return node;
             }
         } catch (Exception e) {
-            logger.warn("arguments 非合法 JSON, toolCallId={}, 已转为字符串兜底", toolCallId);
+            String trimmed = json != null ? json.trim() : "";
+            boolean looksComplete = trimmed.endsWith("}") || trimmed.endsWith("]");
+            if (looksComplete) {
+                logger.warn("arguments 非合法 JSON, toolCallId={}, 已转为字符串兜底", toolCallId);
+            } else {
+                // 流式增量中的残缺片段（未闭合），属正常过程，仅 DEBUG
+                logger.debug("arguments 为流式残缺片段, toolCallId={}, 已转为字符串兜底", toolCallId);
+            }
         }
         return objectMapper.getNodeFactory().textNode(json != null ? json : "");
     }
