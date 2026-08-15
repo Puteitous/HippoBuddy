@@ -5,7 +5,8 @@
   "scripts": {
     "build:cm": "node scripts/build-codemirror.mjs",
     "build:ooxml": "node scripts/build-ooxml.mjs",
-    "build:vendor": "node scripts/build-codemirror.mjs && node scripts/build-ooxml.mjs",
+    "build:docx-preview": "node scripts/build-docx-preview.mjs",
+    "build:vendor": "node scripts/build-codemirror.mjs && node scripts/build-ooxml.mjs && node scripts/build-docx-preview.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -44,6 +45,7 @@
   },
   "dependencies": {
     "@fsegurai/codemirror-theme-vscode-light": "^6.2.6",
-    "@silurus/ooxml": "^0.71.0"
+    "@silurus/ooxml": "^0.71.0",
+    "docx-preview": "^0.4.0"
   }
 }

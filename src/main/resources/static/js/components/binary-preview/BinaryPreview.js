@@ -25,6 +25,7 @@ import {
 import { renderSpreadsheet } from './SpreadsheetPreview.js';
 import { renderXlsxSilurus } from './XlsxSilurusPreview.js';
 import { renderDocx } from './DocxPreview.js';
+import { renderDocxDom } from './DocxDomPreview.js';
 import { renderDocxSilurus } from './DocxSilurusPreview.js';
 import { renderPptx } from './PptxPreview.js';
 import { renderPptxSilurus } from './PptxSilurusPreview.js';
@@ -221,6 +222,22 @@ export class BinaryPreview {
   /** mammoth.js DOCX 预览 */
   async showDocx(filePath, forceRefresh) {
     await renderDocx(this._container, filePath, forceRefresh, this._onError);
+  }
+
+  /**
+   * docx-preview DOM 渲染（DOCX 默认引擎），解析失败自动降级 Silurus。
+   * HTTP 失败（文件过大/不存在等）不降级——那是网络/文件问题，换引擎无用。
+   */
+  async showDocxDom(filePath, forceRefresh) {
+    try {
+      const ok = await renderDocxDom(this._container, filePath, forceRefresh, this._onError);
+      if (ok === false) return; // HTTP 失败，已渲染错误 UI
+      return; // 渲染成功（含"渲染期间已切换文件"的静默退出）
+    } catch (err) {
+      // 解析失败 → 降级 Silurus 引擎
+      console.warn('BinaryPreview: docx-preview failed, falling back to Silurus', err);
+      await renderDocxSilurus(this._container, filePath, forceRefresh, this._onError);
+    }
   }
 
   /** Silurus DOCX 预览 */

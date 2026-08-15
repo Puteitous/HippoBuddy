@@ -294,6 +294,18 @@
   height: auto;
 }
 
+/* docx-preview DOM 渲染容器（滚动宿主） */
+.docx-dom-host {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
+  padding: 16px;
+}
+.docx-dom-host .docx-wrapper {
+  margin: 0 auto;
+}
+
 /* ========== PPTX 幻灯片预览 ========== */
 
 /* 浮动胶囊工具栏 */

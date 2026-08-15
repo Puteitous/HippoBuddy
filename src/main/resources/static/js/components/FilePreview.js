@@ -389,11 +389,11 @@ export class FilePreview {
       return;
     }
 
-    // ── DOCX 文件 → 委托 BinaryPreview（Silurus 引擎）──
+    // ── DOCX 文件 → 委托 BinaryPreview（docx-preview 优先，失败降级 Silurus）──
     if (isDocxFile(filePath)) {
       this._destroyEditor();
       this._binaryViewType = 'docx';
-      this._binaryPreview.showDocxSilurus(filePath);
+      this._binaryPreview.showDocxDom(filePath);
       this._updateSearchBtn();
       this._updateMdToggleBtn();
       this._updateRefreshBtn();
