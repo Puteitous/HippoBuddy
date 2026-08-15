@@ -1006,6 +1006,28 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                 logger.debug("工具调用增量: chunks={}, toolCalls={}", toolCallChunkCount, toolCalls.size());
             }
 
+            // ── 诊断：流式回合结束完整状态（定位"工具调用后停止/无最终回复"问题） ──
+            // 注：父类 AbstractLlmClient.handleStreamingResponse 的埋点不覆盖此路径——
+            // Responses 协议实际走本方法（@Override executeStreamRequest → processResponsesStreamLines），
+            // 因此在此补同样的埋点，否则线上日志看不到 finishReason。
+            StringBuilder diag = new StringBuilder(256);
+            diag.append("finishReason=").append(finishReason == null ? "null" : finishReason)
+                .append(", contentChars=").append(fullContent.length())
+                .append(", reasoningChars=").append(fullReasoning.length())
+                .append(", toolCalls=").append(toolCalls.size())
+                .append(", usage=").append(usage != null
+                    ? ("prompt=" + usage.getPromptTokens() + ",completion=" + usage.getCompletionTokens())
+                    : "null");
+            for (int i = 0; i < toolCalls.size(); i++) {
+                ToolCall tc = toolCalls.get(i);
+                String name = tc.getFunction() != null ? tc.getFunction().getName() : "null";
+                String args = tc.getFunction() != null ? tc.getFunction().getArguments() : null;
+                diag.append(" | tc[").append(i).append("] name=").append(name)
+                    .append(" argsChars=").append(args == null ? -1 : args.length())
+                    .append(" jsonValid=").append(args == null ? "n/a" : isValidJson(args));
+            }
+            logger.info("[LlmStream] 回合结束: {}", diag);
+
             return buildResponsesChatResponse(
                 fullContent.toString(), fullReasoning.toString(), toolCalls, finishReason, usage);
 

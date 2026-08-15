@@ -286,10 +286,10 @@ public class WebAgentOrchestrator {
             String finalContent = assistantMessage.getContent();
             boolean hasContent = finalContent != null && !finalContent.isBlank();
             boolean hasToolCalls = assistantMessage.getToolCalls() != null && !assistantMessage.getToolCalls().isEmpty();
+            String finishReason = (response.getChoices() != null && !response.getChoices().isEmpty())
+                ? response.getChoices().get(0).getFinishReason() : "unknown";
 
             if (!hasContent && !hasToolCalls) {
-                String finishReason = (response.getChoices() != null && !response.getChoices().isEmpty())
-                    ? response.getChoices().get(0).getFinishReason() : "unknown";
                 logger.warn("LLM 返回空内容：sessionId={}, turn={}, finishReason={}, contentChunks={}, model={}",
                     sessionId, turn + 1, finishReason, contentBuilder.length(), response.getModel());
 
@@ -317,8 +317,8 @@ public class WebAgentOrchestrator {
                 sseWriter.sendSseEvent("error", buildErrorPayload(errorCode, errorMessage, null));
                 return;
             } else {
-                logger.info("LLM 响应正常：sessionId={}, turn={}, contentLength={}, hasToolCalls={}",
-                    sessionId, turn + 1, hasContent ? finalContent.length() : 0, hasToolCalls);
+                logger.info("LLM 响应正常：sessionId={}, turn={}, contentLength={}, hasToolCalls={}, finishReason={}",
+                    sessionId, turn + 1, hasContent ? finalContent.length() : 0, hasToolCalls, finishReason);
             }
 
             if (response.getUsage() != null) {
@@ -355,11 +355,26 @@ public class WebAgentOrchestrator {
                         sseWriter.sendSseEvent("reasoning_done", "{}");
                     }
                 }
-                sseWriter.sendSseEvent("done", "{}");
+                // 防御：有内容但 finishReason=length —— 模型可能未完整输出结论就被截断
+                // （"工具调用后静默终止"问题族：工具跑完但总结被截断/结论缺失）
+                if ("length".equals(finishReason)) {
+                    logger.warn("[AgentLoop] 正常完成但响应被截断(finishReason=length): sessionId={}, turn={}, contentChars={}, reasoningChars={}",
+                        sessionId, turn + 1, contentBuilder.length(), reasoningBuilder.length());
+                    sseWriter.sendSseEvent("done", "{\"reason\":\"length\"}");
+                } else {
+                    // 诊断：正常完成（模型给出最终回复、不再调用工具）
+                    logger.info("[AgentLoop] 正常完成: sessionId={}, turn={}, contentChars={}, reasoningChars={}, finishReason={}",
+                        sessionId, turn + 1, contentBuilder.length(), reasoningBuilder.length(), finishReason);
+                    sseWriter.sendSseEvent("done", "{}");
+                }
                 return;
             }
 
             boolean allToolsCompleted = executeToolCalls(toolCalls, conversation, sseWriter, sessionId, mode);
+
+            // 诊断：工具执行完成后的状态（allToolsCompleted=false 表示有确认弹窗/用户中断/ask_user 挂起）
+            logger.info("[AgentLoop] 工具执行完毕: sessionId={}, turn={}, toolCount={}, allCompleted={}, hasContent={}, contentChars={}",
+                sessionId, turn + 1, toolCalls.size(), allToolsCompleted, hasContent, contentBuilder.length());
 
             toolRegistry.getBlockerChain().onTurnComplete();
 
@@ -370,13 +385,13 @@ public class WebAgentOrchestrator {
             for (StopHook hook : stopHooks) {
                 StopHook.StopHookResult hookResult = hook.evaluate(hookCtx);
                 if (hookResult.isShouldStop()) {
-                    logger.warn("StopHook 触发强制终止: {} (sessionId={}, turn={})",
-                        hookResult.getReason(), sessionId, turn + 1);
-                    sseWriter.sendSseEvent("done", "{}");
+                    logger.warn("[AgentLoop] StopHook 触发强制终止: sessionId={}, turn={}, reason={}",
+                        sessionId, turn + 1, hookResult.getReason());
+                    sseWriter.sendSseEvent("done", "{\"reason\":\"stop_hook\"}");
                     return;
                 } else if (hookResult.isWarning()) {
-                    logger.warn("StopHook 发送停滞警告: {} (sessionId={}, turn={})",
-                        hookResult.getReason(), sessionId, turn + 1);
+                    logger.warn("[AgentLoop] StopHook 发送停滞警告: sessionId={}, turn={}, reason={}",
+                        sessionId, turn + 1, hookResult.getReason());
                     sseWriter.sendSseEvent("warning", "{\"message\":\"" + SseWriter.escapeJson(hookResult.getReason()) + "\"}");
                 }
             }
@@ -399,7 +414,9 @@ public class WebAgentOrchestrator {
             }
         }
 
-        sseWriter.sendSseEvent("done", "{}");
+        // 诊断：循环耗尽（达到 MAX_TURNS 上限），工具调用可能未完成
+        logger.warn("[AgentLoop] 达到最大轮数被截断: sessionId={}, MAX_TURNS={}", sessionId, MAX_TURNS);
+        sseWriter.sendSseEvent("done", "{\"reason\":\"max_turns\"}");
     }
 
     /**

@@ -617,9 +617,65 @@ public abstract class AbstractLlmClient implements LlmClient {
             if (validCount == 0) {
                 logger.warn("finishReason=tool_calls 但没有有效的工具调用");
             }
+            // 诊断：检查每个工具调用的参数是否为合法 JSON（截断/不完整会导致工具执行失败）
+            for (int i = 0; i < toolCalls.size(); i++) {
+                ToolCall tc = toolCalls.get(i);
+                if (tc.getFunction() == null) continue;
+                String args = tc.getFunction().getArguments();
+                if (args == null || args.isEmpty()) {
+                    logger.warn("[LlmStream] ToolCall[{}] 参数为空: name={}, id={}", i,
+                        tc.getFunction().getName(), tc.getId());
+                } else if (!isValidJson(args)) {
+                    logger.warn("[LlmStream] ToolCall[{}] 参数不是合法 JSON（可能被截断）: name={}, id={}, argsChars={}, 前200字符={}",
+                        i, tc.getFunction().getName(), tc.getId(), args.length(), truncateForLog(args, 200));
+                }
+            }
         }
-        
+
+        // ── 诊断：流式回合结束完整状态（定位"工具调用后停止/无最终回复"问题） ──
+        StringBuilder diag = new StringBuilder(256);
+        diag.append("finishReason=").append(finishReason == null ? "null" : finishReason)
+            .append(", contentChars=").append(fullContent.length())
+            .append(", reasoningChars=").append(fullReasoning.length())
+            .append(", toolCalls=").append(toolCalls.size())
+            .append(", usage=").append(usage != null
+                ? ("prompt=" + usage.getPromptTokens() + ",completion=" + usage.getCompletionTokens())
+                : "null");
+        for (int i = 0; i < toolCalls.size(); i++) {
+            ToolCall tc = toolCalls.get(i);
+            String name = tc.getFunction() != null ? tc.getFunction().getName() : "null";
+            String args = tc.getFunction() != null ? tc.getFunction().getArguments() : null;
+            diag.append(" | tc[").append(i).append("] name=").append(name)
+                .append(" argsChars=").append(args == null ? -1 : args.length())
+                .append(" jsonValid=").append(args == null ? "n/a" : isValidJson(args));
+        }
+        logger.info("[LlmStream] 回合结束: {}", diag);
+
         return buildChatResponse(fullContent.toString(), fullReasoning.toString(), toolCalls, finishReason, usage);
+    }
+
+    /** 判断字符串是否为合法 JSON（对象或数组） */
+    protected boolean isValidJson(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(text);
+            return node != null && (node.isObject() || node.isArray());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 截断超长文本用于日志输出 */
+    protected static String truncateForLog(String text, int maxChars) {
+        if (text == null) {
+            return "null";
+        }
+        if (text.length() <= maxChars) {
+            return text;
+        }
+        return text.substring(0, maxChars) + "...";
     }
 
     protected void mergeToolCallDeltas(List<ToolCall> toolCalls, List<ToolCallDelta> deltas) {
@@ -672,7 +728,11 @@ public abstract class AbstractLlmClient implements LlmClient {
                     String currentArgs = func.getArguments() != null ? func.getArguments() : "";
                     String newArgs = currentArgs + funcDelta.getArguments();
                     if (newArgs.length() > MAX_ARGUMENTS_LENGTH) {
-                        logger.warn("ToolCall arguments过长，已截断: {} -> {} 字符", newArgs.length(), MAX_ARGUMENTS_LENGTH);
+                        // 诊断：记录截断详情（工具名在流式分片中可能尚未完整，index 一定可用）
+                        String knownName = func.getName() != null ? func.getName() : "(未知/分片中)";
+                        logger.warn("[LlmStream] ToolCall arguments超过上限被截断: index={}, name={}, {} -> {} 字符, 截断后JSON合法={}",
+                            index, knownName, newArgs.length(), MAX_ARGUMENTS_LENGTH,
+                            isValidJson(newArgs.substring(0, MAX_ARGUMENTS_LENGTH)));
                         newArgs = newArgs.substring(0, MAX_ARGUMENTS_LENGTH);
                     }
                     func.setArguments(newArgs);
