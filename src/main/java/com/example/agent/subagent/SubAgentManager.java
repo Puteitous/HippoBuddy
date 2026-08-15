@@ -1,6 +1,5 @@
 package com.example.agent.subagent;
 
-import com.example.agent.core.AgentContext;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
@@ -102,7 +101,7 @@ public class SubAgentManager {
     public SubAgentTask forkAgent(String taskDescription, String systemPrompt, int timeoutSeconds, 
                                    List<String> dependsOn, SubAgentPermission permission, 
                                    Runnable completionCallback, boolean useForkOptimization) {
-        return forkAgent(getParentSessionId(), taskDescription, systemPrompt, timeoutSeconds, 
+        return forkAgent(null, taskDescription, systemPrompt, timeoutSeconds, 
             dependsOn, permission, completionCallback, useForkOptimization);
     }
 
@@ -225,7 +224,8 @@ public class SubAgentManager {
         }
         timeoutSeconds = Math.max(30, Math.min(3600, timeoutSeconds));
         
-        String parentSessionId = getParentSessionId();
+        // CLI 已移除，不再有 AgentContext 提供父会话 ID，恒为 null
+        String parentSessionId = null;
         
         BuiltInAgent selectedAgent = BuiltInAgent.fromType(subagentType);
         ProjectAgentLoader.ProjectAgentDefinition customAgent = projectAgentLoader.getAgent(subagentType);
@@ -464,69 +464,6 @@ public class SubAgentManager {
             }
         }
         return "任务执行完成";
-    }
-
-    private void injectResultToParentSession(SubAgentTask task, String result, String error) {
-        String parentSessionId = getParentSessionId();
-        if (parentSessionId == null) {
-            return;
-        }
-
-        try {
-            com.example.agent.core.AgentContext ctx = ServiceLocator.getOrNull(com.example.agent.core.AgentContext.class);
-            if (ctx != null && ctx.getConversation() != null) {
-                if (error != null) {
-                    logger.debug("Sub-Agent 任务失败，不注入通知: taskId={}", task.getTaskId());
-                    return;
-                }
-
-                List<String> writtenPaths = extractWrittenPaths(result);
-                if (writtenPaths.isEmpty()) {
-                    logger.debug("Sub-Agent 无记忆文件写入，不注入通知: taskId={}", task.getTaskId());
-                    return;
-                }
-
-                com.example.agent.llm.model.Message notification = 
-                    com.example.agent.llm.model.Message.memorySaved(writtenPaths);
-                
-                ctx.getConversation().addMessage(notification);
-                logger.debug("Sub-Agent memory_saved 通知已注入父会话: taskId={}, paths={}", 
-                    task.getTaskId(), writtenPaths);
-            }
-        } catch (Exception e) {
-            logger.warn("注入 Sub-Agent 结果到父会话失败: {}", e.getMessage());
-        }
-    }
-
-    private List<String> extractWrittenPaths(String result) {
-        List<String> paths = new ArrayList<>();
-        if (result == null || result.isBlank()) {
-            return paths;
-        }
-
-        String[] lines = result.split("\n");
-        for (String line : lines) {
-            line = line.trim();
-            if (line.startsWith("- ") && (line.contains(".md") || line.contains(".txt") || line.contains(".memory"))) {
-                String path = line.substring(2).trim();
-                if (!path.isEmpty()) {
-                    paths.add(path);
-                }
-            }
-        }
-        return paths;
-    }
-
-    private String getParentSessionId() {
-        try {
-            AgentContext ctx = ServiceLocator.getOrNull(AgentContext.class);
-            if (ctx != null) {
-                return ctx.getSessionId();
-            }
-        } catch (Exception e) {
-            // 忽略，使用默认路径
-        }
-        return null;
     }
 
     private String buildSubAgentSystemPrompt(String task, String customPrompt) {
