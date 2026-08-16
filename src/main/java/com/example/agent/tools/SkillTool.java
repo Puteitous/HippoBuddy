@@ -15,9 +15,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 技能工具 — AI 通过此工具主动读取技能文件获取专业指导。
+ * 技能工具 — AI 通过此工具读取技能文件获取专业指导。
  * <p>
- * 工具描述中动态列出所有可用技能（名称 + 描述），
+ * 技能清单（名称 + 描述）在会话创建时固化为 System Prompt 的「可用技能」段落，
+ * AI 直接可见全部可用技能。工具描述保持静态，仅说明调用方式。
  * AI 识别用户需求匹配某个技能后，调用此工具传入技能名称，
  * 工具返回技能文件完整内容（剥离 Frontmatter）。
  * </p>
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
  * <pre>
  * 示例流程：
  * 1. 用户说"帮我审查这段代码"
- * 2. AI 看到工具描述中列出 "java-code-review.md — 审查 Java 代码中的常见问题"
+ * 2. AI 从 System Prompt 的「可用技能」段落看到 "java-code-review.md — 审查 Java 代码中的常见问题"
  * 3. AI 调用 skill(name: "java-code-review")
  * 4. 工具返回技能正文，AI 按指导执行
  * </pre>
@@ -47,48 +48,13 @@ public class SkillTool implements ToolExecutor {
 
     @Override
     public String getDescription() {
-        List<SkillEntry> skills = skillManager.getSkills();
-        if (skills.isEmpty()) {
-            return "读取并应用技能文件。目前没有可用的技能文件。";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("读取并应用技能文件。当用户的问题涉及以下领域时，先调用此工具获取技能指导：\n\n");
-
-        // 按来源分组
-        List<SkillEntry> projectSkills = skills.stream()
-                .filter(s -> "project".equals(s.getSource()))
-                .collect(Collectors.toList());
-        List<SkillEntry> userSkills = skills.stream()
-                .filter(s -> "user".equals(s.getSource()))
-                .collect(Collectors.toList());
-
-        if (!projectSkills.isEmpty()) {
-            sb.append("【项目技能】\n");
-            for (SkillEntry skill : projectSkills) {
-                appendSkillLine(sb, skill);
-            }
-            sb.append("\n");
-        }
-
-        if (!userSkills.isEmpty()) {
-            sb.append("【用户技能】\n");
-            for (SkillEntry skill : userSkills) {
-                appendSkillLine(sb, skill);
-            }
-            sb.append("\n");
-        }
-
-        sb.append("使用方式：调用 skill 工具并传入对应的技能名称（文件名不含 .md 后缀）。");
-        return sb.toString();
-    }
-
-    private static void appendSkillLine(StringBuilder sb, SkillEntry skill) {
-        sb.append("- ").append(skill.getFileName());
-        if (skill.getDescription() != null && !skill.getDescription().isBlank()) {
-            sb.append(" — ").append(skill.getDescription());
-        }
-        sb.append("\n");
+        // 技能清单（名称 + 描述）已固化为 System Prompt 的「可用技能」段落，
+        // 因此这里不再内联清单，保持工具描述静态不变，避免切换工作区导致
+        // tools 参数变化而破坏 LLM 服务端的前缀缓存。
+        return "读取并应用技能文件。技能文件的完整清单（含名称与简介）已在系统提示词的"
+             + "「可用技能」段落中列出。当用户请求涉及其中某个技能领域时，"
+             + "调用此工具并传入对应的技能名称（文件名不含 .md 后缀，如 java-code-review）"
+             + "获取详细指导内容，然后按照指导处理用户请求。";
     }
 
     @Override

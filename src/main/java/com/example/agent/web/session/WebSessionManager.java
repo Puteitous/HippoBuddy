@@ -5,6 +5,7 @@ import com.example.agent.config.Config;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.rule.RuleManager;
+import com.example.agent.domain.skill.SkillManager;
 import com.example.agent.llm.model.Message;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.application.ConversationService;
@@ -512,6 +513,15 @@ public class WebSessionManager implements SessionManager {
             } else {
                 prompt += "\n\n## 当前工作区\n用户已选择以下文件夹作为当前工作区。Agent 的所有文件操作（readFile/writeFile/editFile 等）应以此目录为根目录：\n"
                         + workspacePath;
+            }
+        }
+
+        // 注入可用技能清单（会话创建时拍快照固化，切换工作区不影响已有会话）
+        SkillManager skillManager = ServiceLocator.getOrNull(SkillManager.class);
+        if (skillManager != null) {
+            String skillSnippet = skillManager.buildSystemPromptSnippet();
+            if (!skillSnippet.isBlank()) {
+                prompt += skillSnippet;
             }
         }
 

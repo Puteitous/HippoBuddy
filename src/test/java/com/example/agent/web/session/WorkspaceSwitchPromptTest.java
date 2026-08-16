@@ -4,6 +4,7 @@ import com.example.agent.application.ConversationService;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.domain.conversation.Conversation;
+import com.example.agent.domain.skill.SkillManager;
 import com.example.agent.llm.model.Message;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.service.TokenEstimator;
@@ -96,6 +97,9 @@ class WorkspaceSwitchPromptTest {
 
         ServiceLocator.clear();
         ServiceLocator.registerSingleton(ConversationService.class, mockConversationService);
+        // 注册真实的 SkillManager，使 getDefaultSystemPrompt 走技能清单注入路径
+        // （技能文件在临时目录中按需创建，默认工作区无技能 → 不注入，不影响其他测试）
+        ServiceLocator.registerSingleton(SkillManager.class, new SkillManager());
 
         // 重置为默认工作区，避免受其他测试遗留的 currentFolder 污染
         WorkspaceContext.clear();
@@ -183,5 +187,59 @@ class WorkspaceSwitchPromptTest {
             "默认工作区 prompt 应指向默认工作区路径");
         assertFalse(prompt.contains("## 当前工作区"),
             "默认工作区 prompt 不应使用「当前工作区」文案");
+    }
+
+    @Test
+    @DisplayName("技能清单在会话创建时固化，切换工作区后已有会话不变，新会话用新清单")
+    void skillSnapshotFollowsWorkspace() throws Exception {
+        // 工作区 A 与 B 各放一个技能文件
+        Path skillsA = workspaceA.resolve(".hippo").resolve("skills");
+        Path skillsB = workspaceB.resolve(".hippo").resolve("skills");
+        Files.createDirectories(skillsA);
+        Files.createDirectories(skillsB);
+        Files.writeString(skillsA.resolve("skill-a.md"),
+            "---\ndescription: from workspace A\n---\n正文");
+        Files.writeString(skillsB.resolve("skill-b.md"),
+            "---\ndescription: from workspace B\n---\n正文");
+
+        // 工作区 A 下创建会话：prompt 应固化 skill-a 清单
+        WorkspaceContext.setCurrentFolder(workspaceA.toString());
+        Conversation conv = manager.getOrCreateConversation(SESSION_A, null);
+        String promptBefore = conv.getSystemPrompt();
+        assertTrue(promptBefore.contains("## 可用技能"),
+            "会话创建时 prompt 应包含技能清单段落");
+        assertTrue(promptBefore.contains("skill-a.md"),
+            "会话创建时 prompt 应固化工作区 A 的技能");
+        assertFalse(promptBefore.contains("skill-b.md"),
+            "会话创建时 prompt 不应包含工作区 B 的技能");
+
+        // 切换到工作区 B，同一会话的 prompt 技能清单应保持不变
+        WorkspaceContext.setCurrentFolder(workspaceB.toString());
+        Conversation sameConv = manager.getOrCreateConversation(SESSION_A, null);
+        assertSame(conv, sameConv, "缓存命中应返回同一会话实例");
+        assertEquals(promptBefore, sameConv.getSystemPrompt(),
+            "切换工作区后已有会话的 prompt（含技能清单）不应改变");
+        assertTrue(sameConv.getSystemPrompt().contains("skill-a.md"),
+            "已有会话 prompt 应仍固化工作区 A 的技能");
+        assertFalse(sameConv.getSystemPrompt().contains("skill-b.md"),
+            "已有会话 prompt 不应出现工作区 B 的技能");
+
+        // 工作区 B 下新建会话：应固化 skill-b 清单
+        Conversation newConv = manager.getOrCreateConversation(SESSION_B, null);
+        assertTrue(newConv.getSystemPrompt().contains("skill-b.md"),
+            "新会话 prompt 应固化工作区 B 的技能");
+        assertFalse(newConv.getSystemPrompt().contains("skill-a.md"),
+            "新会话 prompt 不应包含工作区 A 的技能");
+    }
+
+    @Test
+    @DisplayName("无技能的工作区创建会话时 prompt 不含「可用技能」段落")
+    void noSkillsNoSkillSection() {
+        // workspaceA / workspaceB 均无 .hippo/skills，默认工作区也无技能
+        WorkspaceContext.setCurrentFolder(workspaceA.toString());
+        Conversation conv = manager.getOrCreateConversation(SESSION_DEFAULT, null);
+        String prompt = conv.getSystemPrompt();
+        assertFalse(prompt.contains("## 可用技能"),
+            "无技能文件时 prompt 不应注入「可用技能」段落");
     }
 }

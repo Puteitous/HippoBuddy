@@ -125,13 +125,6 @@
             <version>1.7.5</version>
         </dependency>
 
-        <!-- Javalin for SSE dashboard -->
-        <dependency>
-            <groupId>io.javalin</groupId>
-            <artifactId>javalin</artifactId>
-            <version>6.3.0</version>
-        </dependency>
-
         <!-- java-diff-utils: Myers diff algorithm -->
         <dependency>
             <groupId>io.github.java-diff-utils</groupId>

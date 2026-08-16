@@ -7,6 +7,7 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.rule.RuleLoader;
+import com.example.agent.domain.skill.SkillManager;
 import com.example.agent.llm.exception.LlmApiException;
 import com.example.agent.llm.exception.LlmErrorClassifier;
 import com.example.agent.llm.exception.LlmException;
@@ -115,6 +116,14 @@ public class ChatApiHandler implements HttpHandler {
                     if (workspacePath != null && !workspacePath.isBlank()) {
                         basePrompt += "\n\n## 当前工作区\n用户已选择以下文件夹作为当前工作区。Agent 的所有文件操作应以此目录为根目录：\n"
                             + workspacePath;
+                    }
+                    // 追加可用技能清单（与会话创建固化的默认路径行为一致）
+                    SkillManager skillManager = ServiceLocator.getOrNull(SkillManager.class);
+                    if (skillManager != null) {
+                        String skillSnippet = skillManager.buildSystemPromptSnippet();
+                        if (!skillSnippet.isBlank()) {
+                            basePrompt += skillSnippet;
+                        }
                     }
                     // 注入运行环境信息，让 LLM 明确平台与 shell 类型
                     basePrompt += com.example.agent.desktop.WorkspaceContext.getEnvironmentPromptSnippet();

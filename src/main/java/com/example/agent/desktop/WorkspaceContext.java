@@ -23,7 +23,12 @@ public final class WorkspaceContext {
     }
 
     public static void setCurrentFolder(String path) {
+        String oldFolder = currentFolder;
         currentFolder = path;
+        // 监控：切换工作区是全局状态变更的唯一入口（HTTP API / 桌面桥 / CLI 均汇聚于此）。
+        // 注意：已有会话的 system prompt 在创建时已固化工作区路径快照，切换不会改变它们，
+        // 只有新建会话才会拼入新路径。
+        logger.info("工作区切换: {} -> {}", oldFolder != null ? oldFolder : "(null)", path);
     }
 
     public static void clear() {

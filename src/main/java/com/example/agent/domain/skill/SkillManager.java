@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * 技能管理器 — 加载技能列表并提供查询。
@@ -15,7 +16,9 @@ import java.util.Objects;
  * 数据懒加载，首次调用 {@link #getSkills()} 时从磁盘扫描。
  * </p>
  * <p>
- * 技能不再直接注入 System Prompt，而是通过 {@code SkillTool} 供 AI 主动调用。
+ * 技能清单在会话创建时拍快照固化进 System Prompt（见
+ * {@link #buildSystemPromptSnippet()}），切换工作区不改变已有会话的清单，
+ * 只有新建会话才会拼入新清单。技能正文仍通过 {@code SkillTool} 供 AI 按需读取。
  * </p>
  */
 public class SkillManager {
@@ -84,5 +87,71 @@ public class SkillManager {
         long projectCount = cachedSkills.stream().filter(s -> "project".equals(s.getSource())).count();
         long userCount = cachedSkills.stream().filter(s -> "user".equals(s.getSource())).count();
         logger.info("技能加载完成: 项目级 {} 个, 用户级 {} 个", projectCount, userCount);
+    }
+
+    /**
+     * 生成技能清单段落，供 System Prompt 在会话创建时固化注入。
+     * <p>
+     * 输出格式（与 {@code SkillTool} 原有工具描述保持一致的分组风格）：
+     * <pre>
+     * ## 可用技能
+     * 以下技能文件提供特定领域的专业指导，当用户请求涉及以下领域时，
+     * 调用 skill 工具获取详细内容：
+     *
+     * 【项目技能】
+     * - 文件名 — 描述
+     *
+     * 【用户技能】
+     * - 文件名 — 描述
+     *
+     * 使用方式：调用 skill 工具并传入对应的技能名称（文件名不含 .md 后缀）。
+     * </pre>
+     * 技能清单为空时返回空字符串（调用方应跳过注入）。
+     * </p>
+     *
+     * @return 以 {@code \n\n} 开头的 Markdown 段落，无技能时返回空字符串
+     */
+    public String buildSystemPromptSnippet() {
+        List<SkillEntry> skills = getSkills();
+        if (skills == null || skills.isEmpty()) {
+            return "";
+        }
+
+        List<SkillEntry> projectSkills = skills.stream()
+                .filter(s -> "project".equals(s.getSource()))
+                .collect(Collectors.toList());
+        List<SkillEntry> userSkills = skills.stream()
+                .filter(s -> "user".equals(s.getSource()))
+                .collect(Collectors.toList());
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n\n## 可用技能\n");
+        sb.append("以下技能文件提供特定领域的专业指导，当用户请求涉及以下领域时，")
+           .append("调用 skill 工具获取详细内容：\n");
+
+        if (!projectSkills.isEmpty()) {
+            sb.append("\n【项目技能】\n");
+            for (SkillEntry skill : projectSkills) {
+                sb.append("- ").append(skill.getFileName());
+                if (skill.getDescription() != null && !skill.getDescription().isBlank()) {
+                    sb.append(" — ").append(skill.getDescription());
+                }
+                sb.append("\n");
+            }
+        }
+
+        if (!userSkills.isEmpty()) {
+            sb.append("\n【用户技能】\n");
+            for (SkillEntry skill : userSkills) {
+                sb.append("- ").append(skill.getFileName());
+                if (skill.getDescription() != null && !skill.getDescription().isBlank()) {
+                    sb.append(" — ").append(skill.getDescription());
+                }
+                sb.append("\n");
+            }
+        }
+
+        sb.append("\n使用方式：调用 skill 工具并传入对应的技能名称（文件名不含 .md 后缀）。");
+        return sb.toString();
     }
 }

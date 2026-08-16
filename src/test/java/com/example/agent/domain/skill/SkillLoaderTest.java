@@ -1,5 +1,8 @@
 package com.example.agent.domain.skill;
 
+import com.example.agent.logging.WorkspaceManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,6 +33,20 @@ class SkillLoaderTest {
 
     @TempDir
     Path tempDir;
+
+    private Path originalHippoRoot;
+
+    @BeforeEach
+    void setUp() {
+        // 将 HIPPO_ROOT 隔离到临时目录，避免扫描到真实环境的用户级技能文件
+        originalHippoRoot = WorkspaceManager.getHippoRoot();
+        WorkspaceManager.overrideBasePath(tempDir.resolve("user-hippo"));
+    }
+
+    @AfterEach
+    void tearDown() {
+        WorkspaceManager.overrideBasePath(originalHippoRoot);
+    }
 
     // ==================== findProjectSkillFiles ====================
 

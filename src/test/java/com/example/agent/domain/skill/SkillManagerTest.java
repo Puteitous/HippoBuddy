@@ -249,4 +249,110 @@ class SkillManagerTest {
         WorkspaceContext.setCurrentFolder(ws2.toString());
         assertTrue(manager.getSkills().isEmpty(), "无技能时应返回空列表");
     }
+
+    // ==================== buildSystemPromptSnippet ====================
+
+    @Test
+    @DisplayName("buildSystemPromptSnippet - 无技能时返回空字符串")
+    void testSnippetNoSkills() {
+        SkillManager manager = new SkillManager();
+        assertEquals("", manager.buildSystemPromptSnippet(), "无技能时应返回空字符串");
+    }
+
+    @Test
+    @DisplayName("buildSystemPromptSnippet - 项目级技能生成清单段落")
+    void testSnippetProjectSkills() throws IOException {
+        Path skillsDir = tempDir.resolve(".hippo").resolve("skills");
+        Files.createDirectories(skillsDir);
+        Files.writeString(skillsDir.resolve("code-review.md"),
+                "---\nname: 代码审查\ndescription: 审查代码中的常见问题\n---\n正文");
+
+        SkillManager manager = new SkillManager();
+        String snippet = manager.buildSystemPromptSnippet();
+
+        assertTrue(snippet.startsWith("\n\n## 可用技能\n"), "应以「可用技能」标题开头");
+        assertTrue(snippet.contains("【项目技能】"), "应包含项目技能分组");
+        assertFalse(snippet.contains("【用户技能】"), "无用户技能时不应出现用户分组");
+        assertTrue(snippet.contains("- code-review.md — 审查代码中的常见问题"),
+                "应包含技能文件名和描述");
+        assertTrue(snippet.contains("使用方式：调用 skill 工具并传入对应的技能名称"),
+                "应包含使用方式说明");
+    }
+
+    @Test
+    @DisplayName("buildSystemPromptSnippet - 用户级技能生成清单段落")
+    void testSnippetUserSkills() throws IOException {
+        Path userDir = WorkspaceManager.getUserSkillsDir();
+        Files.createDirectories(userDir);
+        Files.writeString(userDir.resolve("git-workflow.md"),
+                "---\nname: Git 工作流\ndescription: Git 协作规范\n---\n正文");
+
+        SkillManager manager = new SkillManager();
+        String snippet = manager.buildSystemPromptSnippet();
+
+        assertTrue(snippet.contains("【用户技能】"), "应包含用户技能分组");
+        assertFalse(snippet.contains("【项目技能】"), "无项目技能时不应出现项目分组");
+        assertTrue(snippet.contains("- git-workflow.md — Git 协作规范"),
+                "应包含用户技能文件名和描述");
+    }
+
+    @Test
+    @DisplayName("buildSystemPromptSnippet - 项目级与用户级同时存在时都列出")
+    void testSnippetBothScopes() throws IOException {
+        Path skillsDir = tempDir.resolve(".hippo").resolve("skills");
+        Files.createDirectories(skillsDir);
+        Files.writeString(skillsDir.resolve("project-skill.md"),
+                "---\ndescription: 项目级技能\n---\n");
+        Path userDir = WorkspaceManager.getUserSkillsDir();
+        Files.createDirectories(userDir);
+        Files.writeString(userDir.resolve("user-skill.md"),
+                "---\ndescription: 用户级技能\n---\n");
+
+        SkillManager manager = new SkillManager();
+        String snippet = manager.buildSystemPromptSnippet();
+
+        assertTrue(snippet.contains("【项目技能】"), "应包含项目技能分组");
+        assertTrue(snippet.contains("【用户技能】"), "应包含用户技能分组");
+        assertTrue(snippet.contains("- project-skill.md — 项目级技能"), "应列出项目技能");
+        assertTrue(snippet.contains("- user-skill.md — 用户级技能"), "应列出用户技能");
+    }
+
+    @Test
+    @DisplayName("buildSystemPromptSnippet - 描述为空时只输出文件名")
+    void testSnippetBlankDescription() throws IOException {
+        Path skillsDir = tempDir.resolve(".hippo").resolve("skills");
+        Files.createDirectories(skillsDir);
+        Files.writeString(skillsDir.resolve("no-desc.md"), "---\n---\n正文");
+
+        SkillManager manager = new SkillManager();
+        String snippet = manager.buildSystemPromptSnippet();
+
+        assertTrue(snippet.contains("- no-desc.md\n"), "描述为空时不应输出「— 」后缀");
+        assertFalse(snippet.contains("no-desc.md —"), "不应包含空描述分隔符");
+    }
+
+    @Test
+    @DisplayName("buildSystemPromptSnippet - 工作区切换后生成不同清单")
+    void testSnippetWorkspaceChange() throws IOException {
+        Path ws1 = tempDir.resolve("proj-a");
+        Path ws2 = tempDir.resolve("proj-b");
+        Files.createDirectories(ws1.resolve(".hippo").resolve("skills"));
+        Files.createDirectories(ws2.resolve(".hippo").resolve("skills"));
+        Files.writeString(ws1.resolve(".hippo").resolve("skills").resolve("skill-a.md"),
+                "---\ndescription: from A\n---\n");
+        Files.writeString(ws2.resolve(".hippo").resolve("skills").resolve("skill-b.md"),
+                "---\ndescription: from B\n---\n");
+
+        SkillManager manager = new SkillManager();
+
+        WorkspaceContext.setCurrentFolder(ws1.toString());
+        String snippetA = manager.buildSystemPromptSnippet();
+        assertTrue(snippetA.contains("skill-a.md"), "工作区 A 的清单应包含 skill-a");
+        assertFalse(snippetA.contains("skill-b.md"), "工作区 A 的清单不应包含 skill-b");
+
+        WorkspaceContext.setCurrentFolder(ws2.toString());
+        String snippetB = manager.buildSystemPromptSnippet();
+        assertTrue(snippetB.contains("skill-b.md"), "工作区 B 的清单应包含 skill-b");
+        assertFalse(snippetB.contains("skill-a.md"), "工作区 B 的清单不应包含 skill-a");
+    }
 }

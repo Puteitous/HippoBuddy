@@ -161,7 +161,9 @@ public final class SkillLoader {
             if (head.startsWith("---\n") || head.startsWith("---\r\n")) {
                 int endIndex = findFrontmatterEnd(head);
                 if (endIndex > 0) {
-                    String yamlBlock = head.substring(4, endIndex);
+                    // 空 Frontmatter（如 "---\n---\n正文"）时 endIndex <= 4，
+                    // 此时 yamlBlock 为空字符串，跳过字段解析（避免 substring 越界）
+                    String yamlBlock = endIndex > 4 ? head.substring(4, endIndex) : "";
                     String[] lines = yamlBlock.split("\\r?\\n");
                     for (String line : lines) {
                         int colonIdx = line.indexOf(':');

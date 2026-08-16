@@ -1016,7 +1016,10 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                 .append(", reasoningChars=").append(fullReasoning.length())
                 .append(", toolCalls=").append(toolCalls.size())
                 .append(", usage=").append(usage != null
-                    ? ("prompt=" + usage.getPromptTokens() + ",completion=" + usage.getCompletionTokens())
+                    ? ("prompt=" + usage.getPromptTokens() + ",completion=" + usage.getCompletionTokens()
+                        + ",cacheHit=" + usage.getCacheReadInputTokens()
+                        + ",cacheMiss=" + usage.getPromptCacheMissTokens()
+                        + ",cacheHitRate=" + String.format("%.1f", usage.getCacheHitRate()) + "%")
                     : "null");
             for (int i = 0; i < toolCalls.size(); i++) {
                 ToolCall tc = toolCalls.get(i);
@@ -1179,6 +1182,7 @@ public class ResponsesLlmClient extends AbstractLlmClient {
             PromptTokensDetails ptd = new PromptTokensDetails();
             ptd.setCachedTokens(cached);
             usage.setPromptTokensDetails(ptd);
+            logger.debug("💾 Responses 缓存命中: hitTokens={}", cached);
         }
 
         // output_tokens_details.reasoning_tokens（Usage 无对应字段，仅日志）
