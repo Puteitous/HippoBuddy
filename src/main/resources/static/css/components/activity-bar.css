@@ -346,6 +346,30 @@
     opacity: 0.3;
 }
 
+/* ===== 缓存命中率趋势（success 绿色，区别于 Token 消耗趋势的 primary 蓝） ===== */
+.cache-trend .token-trend-chart polyline {
+    stroke: var(--success-color, #4caf50);
+}
+
+.cache-trend .token-trend-chart .trend-area {
+    fill: url(#cacheTrendGradient);
+    opacity: 0.3;
+}
+
+/* 100% 基准线（灰色虚线，一眼看出与满命中的差距） */
+.cache-trend .cache-trend-baseline {
+    stroke: var(--text-muted, #999);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0.5;
+}
+
+.cache-trend .cache-trend-last-dot {
+    fill: var(--success-color, #4caf50);
+    stroke: var(--bg-white, #fff);
+    stroke-width: 1.5;
+}
+
 .token-trend-empty {
     text-align: center;
     color: var(--text-muted);

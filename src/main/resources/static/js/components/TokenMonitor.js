@@ -1,7 +1,5 @@
 // Token 监控面板组件
 import { appState } from '../state/app-state.js';
-import { escapeHtml } from '../utils.js';
-import { showToast } from '../utils/toast.js';
 
 export class TokenMonitor {
   constructor(chatService) {
@@ -19,7 +17,6 @@ export class TokenMonitor {
     this.elements = {
       tokenUsage: document.getElementById('tokenUsage'),
       tokenPercent: document.getElementById('tokenPercent'),
-      tokenDetailsBtn: document.getElementById('tokenDetailsBtn'),
       tvPercent: document.getElementById('tvPercent'),
       tvBar: document.getElementById('tvBar'),
       tvUsage: document.getElementById('tvUsage'),
@@ -41,40 +38,20 @@ export class TokenMonitor {
       statusBarTokenValue: document.getElementById('statusBarTokenValue')
     };
     
-    // 绑定事件
-    if (this.elements.tokenDetailsBtn) {
-      this.elements.tokenDetailsBtn.addEventListener('click', () => {
-        this.showDetails();
-      });
-    }
-    
-    // 绑定关闭弹窗事件
-    const closeBtn = document.getElementById('closeTokenModal');
-    const modal = document.getElementById('tokenDetailsModal');
-    
-    if (closeBtn && modal) {
-      closeBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-      });
-      
-      // 点击遮罩层关闭
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.style.display = 'none';
-        }
-      });
-    }
-    
     // 订阅主题变化
     appState.subscribe('currentTheme', () => {
       this.renderTrendChart();
+      this.renderCacheRateChart();
     });
     
     // 初始化悬浮 tooltip
     this._initHoverTooltip();
 
     // 语言切换时刷新趋势图（动态文本如 "N 次记录" 需要重新渲染）
-    this._onI18nChange = () => this.renderTrendChart();
+    this._onI18nChange = () => {
+      this.renderTrendChart();
+      this.renderCacheRateChart();
+    };
     window.addEventListener('i18n:change', this._onI18nChange);
   }
   
@@ -138,13 +115,17 @@ export class TokenMonitor {
             total: totalTokens,
             prompt: promptTokens,
             completion: completionTokens,
-            percent: stats.usagePercent
+            percent: stats.usagePercent,
+            // 缓存率随记录快照（最近一次 LLM 调用的缓存命中率）；
+            // 估算模式无已知 usage 时为 undefined，渲染时跳过
+            cacheRate: stats.hasKnownUsage ? stats.cacheHitRate : undefined
           });
         }
       }
       
       // 更新趋势图
       this.renderTrendChart();
+      this.renderCacheRateChart();
       
     } catch (error) {
       console.error('更新 Token 统计失败:', error);
@@ -428,6 +409,98 @@ export class TokenMonitor {
   }
 
   /**
+   * 渲染缓存命中率趋势图（SVG 折线，y 轴固定 0-100%）
+   * <p>
+   * 数据来自 tokenHistory 中快照的 cacheRate（每次 LLM 调用后随 token 记录写入）；
+   * 估算模式（无已知 usage）的记录 cacheRate 为 undefined，渲染时过滤。
+   * </p>
+   */
+  renderCacheRateChart() {
+    if (!appState.tokenHistory) return;
+    
+    // 过滤掉无缓存率数据的记录
+    const history = appState.tokenHistory.filter(h => 
+      typeof h.cacheRate === 'number' && !isNaN(h.cacheRate)
+    );
+    
+    const renderEmpty = () => {
+      const msg = window.i18n ? window.i18n.t('tokenPanel.waiting') : '等待更多数据...';
+      const count = (history.length || 0) + (window.i18n ? window.i18n.t('tokenPanel.records') : ' 次记录');
+      // 同步 Activity Bar 面板
+      this._syncAbCacheTrendChart(`<div class="token-trend-empty">${msg}</div>`, count);
+    };
+    
+    if (history.length < 2) {
+      renderEmpty();
+      return;
+    }
+    
+    // 最多显示最近 30 条记录
+    const maxPoints = 30;
+    const displayHistory = history.slice(-maxPoints);
+    
+    // 缓存率是百分比：y 轴固定 0-100%，不做动态缩放，直观反映与满命中的差距
+    const values = displayHistory.map(h => h.cacheRate);
+    
+    const width = 280;
+    const height = 48;
+    const padding = 2;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+    
+    // 计算坐标点（y 固定映射 0-100 → 底部-顶部）
+    const points = values.map((v, i) => {
+      const x = padding + (i / (values.length - 1)) * chartWidth;
+      const y = padding + chartHeight - (Math.min(Math.max(v, 0), 100) / 100) * chartHeight;
+      return `${x},${y}`;
+    });
+    
+    // 计算面积图的点（底部镜像）
+    const areaPoints = points.slice().reverse().map(p => {
+      const [x] = p.split(',');
+      return `${x},${padding + chartHeight}`;
+    });
+    const allPoints = [...points, ...areaPoints, points[0]];
+    
+    // 100% 基准线（灰色虚线，一眼看出与满命中的差距）
+    const baselineY = padding + chartHeight - chartHeight; // = padding（顶部 100%）
+    const baseline = `M ${padding} ${baselineY} L ${padding + chartWidth} ${baselineY}`;
+    
+    const countText = values.length + (window.i18n ? window.i18n.t('tokenPanel.records') : ' 次记录');
+    
+    const svgHtml = `
+      <svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="cacheTrendGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--success-color, #4caf50)" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="var(--success-color, #4caf50)" stop-opacity="0.05"/>
+          </linearGradient>
+        </defs>
+        <path class="cache-trend-baseline" d="${baseline}"/>
+        <polyline class="trend-area" points="${allPoints.join(' ')}"/>
+        <polyline points="${points.join(' ')}"/>
+        <circle class="cache-trend-last-dot" cx="${points[points.length - 1].split(',')[0]}" cy="${points[points.length - 1].split(',')[1]}" r="2.5"/>
+      </svg>
+    `;
+    
+    // 同步 Activity Bar 面板
+    this._syncAbCacheTrendChart(svgHtml, countText);
+  }
+
+  /**
+   * 同步 Activity Bar 面板的缓存命中率趋势图
+   */
+  _syncAbCacheTrendChart(svgHtml, countText) {
+    const panelBody = document.getElementById('activityPanelBody');
+    if (!panelBody || !panelBody.querySelector('.cache-trend')) return;
+    
+    const chart = panelBody.querySelector('#abCacheTrendChart');
+    const count = panelBody.querySelector('#abCacheTrendCount');
+    if (chart) chart.innerHTML = svgHtml;
+    if (count) count.textContent = countText;
+  }
+
+  /**
    * 同步 Activity Bar 面板的趋势图
    */
   _syncAbTrendChart(svgHtml, countText) {
@@ -584,47 +657,6 @@ export class TokenMonitor {
     if (this.updateTimer) {
       clearInterval(this.updateTimer);
       this.updateTimer = null;
-    }
-  }
-  
-  /**
-   * 显示 Token 详情
-   */
-  async showDetails() {
-    const modal = document.getElementById('tokenDetailsModal');
-    if (!modal) {
-      alert(window.i18n ? window.i18n.t('token.detailNotReady') : 'Token 详情弹窗未初始化');
-      return;
-    }
-    
-    try {
-      // 从 chatService 获取最新统计数据
-      const stats = await this.chatService.getTokenStats(appState.currentSessionId);
-      
-      // 当前上下文
-      document.getElementById('detailPrompt').textContent = stats.hasKnownUsage ? stats.promptTokens.toLocaleString() : 'N/A';
-      document.getElementById('detailCompletion').textContent = stats.hasKnownUsage ? stats.completionTokens.toLocaleString() : 'N/A';
-      document.getElementById('detailTotal').textContent = (stats.currentTokens || 0).toLocaleString();
-      
-      // 会话总计
-      document.getElementById('detailSessionInput').textContent = stats.sessionTotalInput ? stats.sessionTotalInput.toLocaleString() : '0';
-      document.getElementById('detailSessionOutput').textContent = stats.sessionTotalOutput ? stats.sessionTotalOutput.toLocaleString() : '0';
-      document.getElementById('detailSessionTotal').textContent = stats.sessionTotalTokens ? stats.sessionTotalTokens.toLocaleString() : '0';
-      document.getElementById('detailLlmCalls').textContent = stats.sessionLlmCalls ? stats.sessionLlmCalls.toLocaleString() : '0';
-      document.getElementById('detailToolCalls').textContent = stats.sessionToolCalls ? stats.sessionToolCalls.toLocaleString() : '0';
-      
-      // 缓存命中
-      document.getElementById('detailCacheHit').textContent = stats.cacheHitTokens ? stats.cacheHitTokens.toLocaleString() : '0';
-      document.getElementById('detailCacheRate').textContent = stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%';
-      
-      // 会话级缓存命中
-      document.getElementById('detailSessionCacheHit').textContent = stats.sessionCacheHitTokens ? stats.sessionCacheHitTokens.toLocaleString() : '0';
-      document.getElementById('detailSessionCacheRate').textContent = stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%';
-      
-      modal.style.display = 'flex';
-    } catch (error) {
-      console.error('获取 Token 详情失败:', error);
-      showToast((window.i18n ? window.i18n.t('token.detailFetchFailed') : '获取 Token 详情失败：') + error.message, { type: 'error', duration: 3000 });
     }
   }
   

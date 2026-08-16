@@ -553,99 +553,6 @@
         </div>
     </div>
 
-    <!-- Token 详情弹窗 -->
-    <div class="modal" id="tokenDetailsModal" style="display:none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 data-i18n="token.title">📊 Token 消耗统计</h3>
-                <button class="modal-close" id="closeTokenModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="token-details-section">
-                    <h4 data-i18n="token.currentContext">
-                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
-                            <path d="M9 2v3h3"/>
-                        </svg>
-                        当前上下文
-                    </h4>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label">Prompt:</span>
-                        <span class="token-detail-value" id="detailPrompt">0</span>
-                    </div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label">Completion:</span>
-                        <span class="token-detail-value" id="detailCompletion">0</span>
-                    </div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label">Total:</span>
-                        <span class="token-detail-value" id="detailTotal">0</span>
-                    </div>
-                </div>
-                
-                <div class="token-details-section">
-                    <h4 data-i18n="token.sessionTotal">
-                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="1 12 5 8 8 10 15 2"/>
-                            <polyline points="11 2 15 2 15 6"/>
-                        </svg>
-                        会话总计
-                    </h4>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.totalInput">总输入:</span>
-                        <span class="token-detail-value" id="detailSessionInput">0</span>
-                    </div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.totalOutput">总输出:</span>
-                        <span class="token-detail-value" id="detailSessionOutput">0</span>
-                    </div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.totalConsumption">总消耗:</span>
-                        <span class="token-detail-value highlight" id="detailSessionTotal">0</span>
-                    </div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.llmCalls">LLM 调用:</span>
-                        <span class="token-detail-value" id="detailLlmCalls">0</span>
-                    </div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.toolCalls">工具调用:</span>
-                        <span class="token-detail-value" id="detailToolCalls">0</span>
-                    </div>
-                </div>
-
-                <div class="token-details-section">
-                    <h4 data-i18n="token.cacheHits">
-                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <ellipse cx="8" cy="4" rx="6" ry="2"/>
-                            <path d="M2 4v4"/>
-                            <ellipse cx="8" cy="8" rx="6" ry="2"/>
-                            <path d="M2 8v4"/>
-                            <ellipse cx="8" cy="12" rx="6" ry="2"/>
-                        </svg>
-                        缓存命中
-                    </h4>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.cacheHit">当前缓存命中:</span>
-                        <span class="token-detail-value success-text" id="detailCacheHit">0</span>
-                    </div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.cacheRate">当前缓存率:</span>
-                        <span class="token-detail-value success-text" id="detailCacheRate">0%</span>
-                    </div>
-                    <div class="token-detail-divider"></div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.totalCacheHit">总缓存命中:</span>
-                        <span class="token-detail-value success-text" id="detailSessionCacheHit">0</span>
-                    </div>
-                    <div class="token-detail-row">
-                        <span class="token-detail-label" data-i18n="token.totalCacheRate">总缓存率:</span>
-                        <span class="token-detail-value success-text" id="detailSessionCacheRate">0%</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- 提示词自定义弹窗 -->
     <div class="prompt-modal" id="promptModal" style="display:none;">
         <div class="prompt-modal-overlay"></div>
@@ -756,6 +663,15 @@
                     <span class="token-trend-value" id="abTrendCount">0 次记录</span>
                 </div>
                 <div class="token-trend-chart" id="abTrendChart">
+                    <div class="token-trend-empty" data-i18n="tokenPanel.waiting">等待数据...</div>
+                </div>
+            </div>
+            <div class="token-trend cache-trend">
+                <div class="token-trend-header">
+                    <span class="token-trend-label" data-i18n="tokenPanel.cacheTrend">缓存命中率趋势</span>
+                    <span class="token-trend-value" id="abCacheTrendCount">0 次记录</span>
+                </div>
+                <div class="token-trend-chart" id="abCacheTrendChart">
                     <div class="token-trend-empty" data-i18n="tokenPanel.waiting">等待数据...</div>
                 </div>
             </div>

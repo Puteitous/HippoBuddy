@@ -129,24 +129,7 @@
     'chatui.executionComplete':    { zh: '执行完成', en: 'Execution complete' },
 
     /* ==================== Token Monitor ==================== */
-    'token.title':                 { zh: 'Token 消耗统计', en: 'Token Usage Stats' },
     'token.currentContext':        { zh: '当前上下文', en: 'Current Context' },
-    'token.sessionTotal':          { zh: '会话总计', en: 'Session Total' },
-    'token.cacheHits':             { zh: '缓存命中', en: 'Cache Hits' },
-    'token.prompt':                { zh: 'Prompt', en: 'Prompt' },
-    'token.completion':            { zh: 'Completion', en: 'Completion' },
-    'token.total':                 { zh: 'Total', en: 'Total' },
-    'token.totalInput':            { zh: '总输入:', en: 'Total Input:' },
-    'token.totalOutput':           { zh: '总输出:', en: 'Total Output:' },
-    'token.totalConsumption':      { zh: '总消耗:', en: 'Total Consumption:' },
-    'token.llmCalls':              { zh: 'LLM 调用:', en: 'LLM Calls:' },
-    'token.toolCalls':             { zh: '工具调用:', en: 'Tool Calls:' },
-    'token.cacheHit':              { zh: '当前缓存命中:', en: 'Current Cache Hit:' },
-    'token.cacheRate':             { zh: '当前缓存率:', en: 'Current Cache Rate:' },
-    'token.totalCacheHit':         { zh: '总缓存命中:', en: 'Total Cache Hit:' },
-    'token.totalCacheRate':        { zh: '总缓存率:', en: 'Total Cache Rate:' },
-    'token.detailNotReady':        { zh: 'Token 详情弹窗未初始化', en: 'Token details not initialized' },
-    'token.detailFetchFailed':     { zh: '获取 Token 详情失败：', en: 'Failed to fetch token details: ' },
 
     /* ==================== Token Panel (Activity Bar) ==================== */
     'tokenPanel.usageRate':        { zh: '上下文使用率', en: 'Context Usage' },
@@ -163,6 +146,7 @@
     'tokenPanel.sessionTotal':     { zh: '会话总消耗', en: 'Session Total' },
     'tokenPanel.tokens':           { zh: 'tokens', en: 'tokens' },
     'tokenPanel.trend':            { zh: 'Token 消耗趋势', en: 'Token Usage Trend' },
+    'tokenPanel.cacheTrend':       { zh: '缓存命中率趋势', en: 'Cache Hit Rate Trend' },
     'tokenPanel.records':          { zh: ' 次记录', en: ' records' },
     'tokenPanel.waiting':          { zh: '等待数据...', en: 'Waiting for data...' },
 

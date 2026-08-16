@@ -70,61 +70,6 @@
     padding: 20px;
 }
 
-.token-details-section {
-    margin-bottom: 20px;
-}
-
-.token-details-section:last-child {
-    margin-bottom: 0;
-}
-
-.token-details-section h4 {
-    margin: 0 0 12px 0;
-    font-size: var(--font-size-base);
-    color: var(--text-primary);
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.token-details-section h4 svg {
-    flex-shrink: 0;
-}
-
-.token-detail-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.token-detail-row:last-child {
-    border-bottom: none;
-}
-
-.token-detail-divider {
-    height: 1px;
-    background: var(--border-color);
-    margin: 4px 0;
-}
-
-.token-detail-label {
-    color: var(--text-muted);
-    font-size: var(--font-size-sm);
-}
-
-.token-detail-value {
-    font-weight: 600;
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-}
-
-.token-detail-value.highlight {
-    color: var(--primary-color);
-    font-size: var(--font-size-base);
-}
-
 /* ========== Prompt 编辑弹窗 ========== */
 .prompt-modal {
     position: fixed;
