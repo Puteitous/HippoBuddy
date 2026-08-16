@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="css/cockpit.css?v=20260623-1">
     <!-- 刷新页面时跳过 hero 闪烁（有上次会话时在渲染前隐藏 .empty-state） -->
     <script>if(new URLSearchParams(location.search).get('skipSplash')&&localStorage.getItem('hippo-last-session-id')){var s=document.createElement('style');s.id='skip-hero-style';s.textContent='.empty-state{display:none}';document.head.appendChild(s)}</script>
-    <link rel="stylesheet" href="css/components/session.css?v=20260527-1">
+    <link rel="stylesheet" href="css/components/session.css?v=20260816-2">
     <link rel="stylesheet" href="css/components/chat-panel.css?v=20260527-2">
     <link rel="stylesheet" href="css/components/tool-cards.css?v=20260527-2">
     <link rel="stylesheet" href="css/components/modals.css?v=20260612-1">
@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="css/components/preview.css?v=20260617-1">
     <link rel="stylesheet" href="css/components/toast.css?v=20260620-1">
     <link rel="stylesheet" href="css/components/dropdown.css?v=20260620-1">
+    <link rel="stylesheet" href="css/components/model-selector-panel.css?v=20260816-3">
     <link rel="stylesheet" href="css/components/context-selector.css?v=20260625-1">
     <link rel="stylesheet" href="css/components/settings.css?v=20260627-1">
     <link rel="stylesheet" href="css/components/skill-market.css?v=20260627-1">
@@ -501,7 +502,7 @@
                                 </div>
                             </span>
                             <span class="status-bar-divider"></span>
-                            <span class="status-bar-item model-selector" id="statusBarModelSelector" title="快速切换模型">
+                            <span class="status-bar-item model-selector" id="statusBarModelSelector" title="快速切换模型与思考强度">
                                 <button id="modelQuickSelect" class="model-dropdown-trigger">加载中...</button>
                             </span>
                         </div>
@@ -894,7 +895,7 @@
     <script type="module" src="js/desktop-bridge.js"></script>
 
     <!-- 应用入口 -->
-    <script type="module" src="js/main.js?v=20260625-1"></script>
+    <script type="module" src="js/main.js?v=20260816-2"></script>
 
 </body>
 </html>

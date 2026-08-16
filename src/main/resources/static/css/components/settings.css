@@ -329,6 +329,18 @@
     transform: rotate(-90deg);
 }
 
+/* 置灰态：Thinking Mode 关闭时 Reasoning Effort 不可调
+   覆盖 common.css 全局 button:disabled 的 #ccc 背景，适配明暗主题 */
+.settings-provider-btn:disabled {
+    background: var(--bg-app) !important;
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.settings-provider-btn:disabled::after {
+    opacity: 0.25;
+}
+
 /* ── 数字输入 ── */
 .settings-input[type="number"] {
     -moz-appearance: textfield;

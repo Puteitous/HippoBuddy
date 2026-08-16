@@ -52,7 +52,7 @@ class ModelSnapshotTest {
         snap.setApiKey("sk-applied-key-12345678");
         snap.setMaxTokens(8192);
         snap.setThinkingEnabled(false);
-        snap.setReasoningEffort("medium");
+        snap.setReasoningEffort("max");
 
         // 应用到目标 config
         LlmConfig target = new LlmConfig();
@@ -64,7 +64,7 @@ class ModelSnapshotTest {
         assertEquals("sk-applied-key-12345678", target.getApiKey());
         assertEquals(8192, target.getMaxTokens());
         assertFalse(target.isThinkingEnabled());
-        assertEquals("medium", target.getReasoningEffort());
+        assertEquals("max", target.getReasoningEffort());
     }
 
     @Test
@@ -147,13 +147,27 @@ class ModelSnapshotTest {
 
     @Test
     void testSnapshotWithDefaults() {
+        // LlmConfig 是纯 POJO，默认值来自 config.yaml / LlmClientFactory（见 LlmConfigTest.testDefaultValues），
+        // ModelSnapshot.from 逐字段拷贝，因此空配置生成的是 null/0/空串
         LlmConfig config = new LlmConfig();
-        // 使用默认值
         ModelSnapshot snap = ModelSnapshot.from(config);
 
-        assertEquals("dashscope", snap.getProvider());
-        assertEquals("qwen3.5-plus", snap.getModel());
-        assertEquals("https://dashscope.aliyuncs.com", snap.getBaseUrl());
+        assertNull(snap.getProvider());
+        assertNull(snap.getModel());
+        assertNull(snap.getBaseUrl());
+        assertEquals(0, snap.getMaxTokens());
+        assertTrue(snap.isThinkingEnabled());
+        assertEquals("", snap.getReasoningEffort());
+        assertNull(snap.getApiKey());
+    }
+
+    @Test
+    void testSnapshotOwnDefaults() {
+        // ModelSnapshot 无参构造的字段默认值（反序列化 modelHistory 时的兜底）
+        ModelSnapshot snap = new ModelSnapshot();
+
+        assertNull(snap.getProvider());
+        assertNull(snap.getModel());
         assertEquals(2048, snap.getMaxTokens());
         assertTrue(snap.isThinkingEnabled());
         assertEquals("high", snap.getReasoningEffort());

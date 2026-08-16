@@ -25,7 +25,7 @@ import { renderMarkdown } from './markdown-renderer.js';
 import { RollbackPanel } from './components/RollbackPanel.js';
 import { initSelectionActions } from './components/selection-actions.js';
 import { ActivityBar } from './components/ActivityBar.js';
-import { CustomDropdown } from './utils/dropdown.js';
+import { ModelSelectorPanel } from './components/ModelSelectorPanel.js';
 import { ConfirmDialog } from './utils/modal.js';
 import { SettingsPanel } from './components/SettingsPanel.js';
 import { SkillMarket } from './components/SkillMarket.js';
@@ -1320,100 +1320,43 @@ function saveModelConfigToCache(data) {
   }
 }
 
-/** 用数据更新下拉框 */
+/** 用配置数据刷新状态栏「模型 + 思考强度」复合选择面板 */
 function applyModelConfigToDropdown(data) {
-  const provider = data.provider || '';
-  const model = data.model || '';
-  const currentCombo = provider + ':' + model;
-  const items = buildModelDropdownItems(data);
+  modelSelectorPanel?.update(data);
+}
 
-  // 共享的选中回调
-  const onSelect = (item) => {
-    if (item.value === ADD_MODEL_VALUE) {
-      window.settingsPanel.open();
-      setTimeout(() => loadQuickModelConfig(), 100);
-      return;
-    }
-    if (!item.value) return;
-    const colonIdx = item.value.indexOf(':');
-    if (colonIdx > 0) {
-      saveQuickModelConfig(
-        item.value.substring(0, colonIdx),
-        item.value.substring(colonIdx + 1)
-      );
-    }
-  };
-
-  // 底部栏实例（Phase 2: 统一使用 #modelQuickSelect）
-  if (!modelDropdown) {
-    if (!modelQuickSelectTrigger) return;
-    modelDropdown = new CustomDropdown({
-      trigger: modelQuickSelectTrigger,
-      items,
-      selectedValue: provider && model ? currentCombo : '',
-      offsetX: -9,
-      onSelect,
+/** 保存思考强度（PUT /api/config/llm，携带 reasoningEffort 走完整保存分支，不覆盖其他字段） */
+async function saveQuickEffort(provider, model, effort) {
+  try {
+    const resp = await fetch('/api/config/llm', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, model, reasoningEffort: effort })
     });
-  } else {
-    modelDropdown.setItems(items);
-    modelDropdown.setSelectedValue(provider && model ? currentCombo : '');
+    if (!resp.ok) throw new Error(await resp.text());
+    showToast(window.i18n.t('chatui.effortSwitched', {
+      effort: effort || window.i18n.t('chatui.effortDefaultLabel')
+    }), 'success');
+    // 后台刷新下拉框及缓存（含历史快照里的新 effort），失败时也会把按钮文本刷回旧值
+    loadQuickModelConfig();
+  } catch (e) {
+    console.warn('切换思考强度失败:', e);
+    showToast(window.i18n.t('chatui.effortSwitchFailed', { message: e.message }), 'error');
+    loadQuickModelConfig();
   }
 }
 
-const ADD_MODEL_VALUE = '__add_model__';
+// ========== 状态栏「模型 + 思考强度」复合选择面板 ==========
 const modelQuickSelectTrigger = document.getElementById('modelQuickSelect');
-let modelDropdown = null;
-
-/** 构建下拉选项列表 */
-function buildModelDropdownItems(data) {
-  const provider = data.provider || '';
-  const model = data.model || '';
-  const currentCombo = provider + ':' + model;
-  const history = data.modelHistory || [];
-  const items = [];
-  const seen = new Set();
-
-  // 历史记录
-  if (history.length > 0) {
-    for (const snap of history) {
-      const key = snap.provider + ':' + snap.model;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      items.push({
-        label: snap.model,
-        value: key,
-      });
-    }
-  }
-
-  // 当前模型未在历史中
-  if (provider && model && !seen.has(currentCombo)) {
-    items.push({
-      label: model,
-      value: currentCombo,
-    });
-  }
-
-  // 分隔线 + 添加入口
-  if (items.length > 0) {
-    items.push({ type: 'divider' });
-  }
-  items.push({
-    label: i18n.t('chat.addModel'),
-    value: ADD_MODEL_VALUE,
-  });
-
-  // 如果没有模型，加占位
-  if (items.length <= 1) { // 只有添加入口
-    items.unshift({
-      label: i18n.t('chat.noModel'),
-      value: '',
-      disabled: true,
-    });
-  }
-
-  return items;
-}
+const modelSelectorPanel = new ModelSelectorPanel({
+  trigger: modelQuickSelectTrigger,
+  onModelSelect: (provider, model) => saveQuickModelConfig(provider, model),
+  onAddModel: () => {
+    window.settingsPanel.open();
+    setTimeout(() => loadQuickModelConfig(), 100);
+  },
+  onEffortSelect: (provider, model, effort) => saveQuickEffort(provider, model, effort),
+});
 
 /** 加载当前配置并同步到快速选择器（缓存优先 + 后台刷新） */
 async function loadQuickModelConfig() {

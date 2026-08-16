@@ -40,11 +40,40 @@ const MAX_TOKENS_ITEMS = [
   { label: '131,072', value: '131072' },
 ];
 
-const REASONING_EFFORT_ITEMS = [
-  { label: 'Default', value: '' },
-  { label: 'high', value: 'high' },
-  { label: 'max', value: 'max' },
-];
+/** 各 Provider 支持的 Reasoning Effort 档位（按官方协议取值；空数组 = 不支持该字段）
+ *  - deepseek 系：官方 low / high / max 三档
+ *  - openai：官方 low / medium / high 三档（无 max）
+ *  - anthropic：无 effort 概念（extended thinking 用 budget_tokens），不显示
+ */
+const REASONING_EFFORT_ITEMS_BY_PROVIDER = {
+  'deepseek': [
+    { label: 'Default', value: '' },
+    { label: 'low', value: 'low' },
+    { label: 'high', value: 'high' },
+    { label: 'max', value: 'max' },
+  ],
+  'deepseek-responses': [
+    { label: 'Default', value: '' },
+    { label: 'low', value: 'low' },
+    { label: 'high', value: 'high' },
+    { label: 'max', value: 'max' },
+  ],
+  'openai': [
+    { label: 'Default', value: '' },
+    { label: 'low', value: 'low' },
+    { label: 'medium', value: 'medium' },
+    { label: 'high', value: 'high' },
+  ],
+};
+
+/** 获取指定 Provider 的 Reasoning Effort 可选档位（空数组 = 不支持） */
+export const getReasoningEffortItems = (provider) => {
+  const p = (provider || '').trim().toLowerCase();
+  return REASONING_EFFORT_ITEMS_BY_PROVIDER[p] || [];
+};
+
+/** 判断 Provider 是否支持 Reasoning Effort 档位 */
+export const supportsReasoningEffort = (provider) => getReasoningEffortItems(provider).length > 0;
 
 /** 支持思考模式的 Provider 列表 */
 const THINKING_SUPPORTED_PROVIDERS = ['deepseek', 'deepseek-responses', 'openai', 'anthropic'];
@@ -129,6 +158,11 @@ export class ModelSettingsPage {
   _isThinkingSupported(provider) {
     if (!provider) return false;
     return THINKING_SUPPORTED_PROVIDERS.includes(provider.trim().toLowerCase());
+  }
+
+  /** 判断指定 Provider 是否支持 Reasoning Effort 档位（有合法档位集才支持） */
+  _supportsReasoningEffort(provider) {
+    return supportsReasoningEffort(provider);
   }
 
   _isVisionSupported(provider, model) {
@@ -311,6 +345,10 @@ export class ModelSettingsPage {
     const thinkingEnabled = model?.thinkingEnabled !== undefined ? model.thinkingEnabled : true;
     const reasoningEffort = model?.reasoningEffort ?? '';
     const isThinkingSupported = this._isThinkingSupported(provider);
+    const isReasoningSupported = this._supportsReasoningEffort(provider);
+    // 初始 effort 值不在当前 Provider 合法档位内时回退 Default（如 openai 下残留的 max）
+    const effortItems = getReasoningEffortItems(provider);
+    const normalizedEffort = effortItems.some(i => i.value === reasoningEffort) ? reasoningEffort : '';
 
     listEl.innerHTML = `
       <div class="settings-editor">
@@ -377,13 +415,13 @@ export class ModelSettingsPage {
               </label>
             </div>
           </div>
-          <div class="settings-field-horizontal" id="modelEditReasoningSection" style="${isThinkingSupported ? '' : 'display:none;'}">
+          <div class="settings-field-horizontal" id="modelEditReasoningSection" style="${(isThinkingSupported && isReasoningSupported) ? '' : 'display:none;'}">
             <div class="settings-field-label">
               <div>Reasoning Effort</div>
               <div class="settings-field-hint">${_t('settingsPage.modelReasoningHint')}</div>
             </div>
             <div class="settings-field-body">
-              <button class="settings-input settings-provider-btn" id="modelEditReasoningEffort">${reasoningEffort || 'Default'}</button>
+              <button class="settings-input settings-provider-btn" id="modelEditReasoningEffort" ${(thinkingEnabled && isReasoningSupported) ? '' : 'disabled'}>${normalizedEffort || 'Default'}</button>
             </div>
           </div>
 
@@ -413,12 +451,23 @@ export class ModelSettingsPage {
         items: PROVIDER_ITEMS,
         placement: 'bottom-left',
         onSelect: (item) => {
-          // Provider 变更时：显示/隐藏思考模式配置区
-          const supported = this._isThinkingSupported(item.value);
+          // Provider 变更时：显示/隐藏思考模式配置区，并按 Provider 更新档位选项
+          const thinkingSupported = this._isThinkingSupported(item.value);
+          const reasoningSupported = this._supportsReasoningEffort(item.value);
           const thinkingSection = document.getElementById('modelEditThinkingSection');
           const reasoningSection = document.getElementById('modelEditReasoningSection');
-          if (thinkingSection) thinkingSection.style.display = supported ? '' : 'none';
-          if (reasoningSection) reasoningSection.style.display = supported ? '' : 'none';
+          if (thinkingSection) thinkingSection.style.display = thinkingSupported ? '' : 'none';
+          if (reasoningSection) reasoningSection.style.display = (thinkingSupported && reasoningSupported) ? '' : 'none';
+
+          // 档位选项随 Provider 切换；当前选中值不在新集内时回退 Default
+          if (this._reasoningEffortDropdown) {
+            const items = getReasoningEffortItems(item.value);
+            this._reasoningEffortDropdown.setItems(items);
+            const current = this._reasoningEffortDropdown.getSelectedItem();
+            if (!items.some(i => i.value === (current ? current.value : null))) {
+              this._reasoningEffortDropdown.setSelectedValue('');
+            }
+          }
         },
       });
       this._providerDropdown.setSelectedValue(provider);
@@ -435,15 +484,25 @@ export class ModelSettingsPage {
       this._maxTokensDropdown.setSelectedValue(String(maxTokens));
     }
 
-    // 初始化 Reasoning Effort 下拉
+    // 初始化 Reasoning Effort 下拉（选项随 Provider 而定）
     const reasoningBtn = document.getElementById('modelEditReasoningEffort');
     if (reasoningBtn) {
       this._reasoningEffortDropdown = new CustomDropdown({
         trigger: reasoningBtn,
-        items: REASONING_EFFORT_ITEMS,
+        items: effortItems,
         placement: 'bottom-left',
       });
-      this._reasoningEffortDropdown.setSelectedValue(reasoningEffort);
+      this._reasoningEffortDropdown.setSelectedValue(normalizedEffort);
+    }
+
+    // Thinking Mode 关闭时置灰 Reasoning Effort（仅开启思考时才可调档位）
+    const thinkingCheckbox = document.getElementById('modelEditThinkingEnabled');
+    if (thinkingCheckbox) {
+      const syncReasoningDisabled = () => {
+        if (reasoningBtn) reasoningBtn.disabled = !thinkingCheckbox.checked;
+      };
+      thinkingCheckbox.addEventListener('change', syncReasoningDisabled);
+      syncReasoningDisabled(); // 初始状态对齐
     }
 
 
@@ -508,9 +567,12 @@ export class ModelSettingsPage {
       if (thinkingCheckbox) {
         body.thinkingEnabled = thinkingCheckbox.checked;
       }
-      const effortDropdown = this._reasoningEffortDropdown;
-      if (effortDropdown) {
-        body.reasoningEffort = effortDropdown.getSelectedItem()?.value || '';
+      // Reasoning Effort 仅对支持档位的 Provider 发送（如 anthropic 无 effort 概念，不发送）
+      if (this._supportsReasoningEffort(provider)) {
+        const effortDropdown = this._reasoningEffortDropdown;
+        if (effortDropdown) {
+          body.reasoningEffort = effortDropdown.getSelectedItem()?.value || '';
+        }
       }
     }
 

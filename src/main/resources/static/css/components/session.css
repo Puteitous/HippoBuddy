@@ -203,23 +203,46 @@
     background: rgba(255, 255, 255, 0.04);
 }
 
-.session-project-header .project-chevron {
-    display: flex;
-    align-items: center;
+/* 图标叠放容器：文件夹-关/开同格，按 collapsed 状态切换 */
+.session-project-header .project-icon-wrap {
+    position: relative;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
-    opacity: 0.5;
-    transition: transform 0.15s ease;
 }
 
-.session-project-header.collapsed .project-chevron {
-    transform: rotate(-90deg);
-}
-
-.session-project-header .project-icon {
+.session-project-header .project-icon-close,
+.session-project-header .project-icon-open {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
-    flex-shrink: 0;
+    justify-content: center;
+    transition: opacity 0.15s ease;
+}
+
+/* 折叠（默认）：显示“文件夹-关” */
+.session-project-header .project-icon-close {
     opacity: 0.7;
+}
+.session-project-header .project-icon-open {
+    opacity: 0;
+}
+
+/* 展开：切换为“文件夹-开” */
+.session-project-header:not(.collapsed) .project-icon-close {
+    opacity: 0;
+}
+.session-project-header:not(.collapsed) .project-icon-open {
+    opacity: 0.7;
+}
+
+/* hover：当前图标微亮，提示可点击（只作用于当前状态可见的图标） */
+.session-project-header.collapsed:hover .project-icon-close {
+    opacity: 1;
+}
+.session-project-header:not(.collapsed):hover .project-icon-open {
+    opacity: 1;
 }
 
 .session-project-header .project-name {
@@ -328,7 +351,7 @@
     flex-direction: column;
     flex: 1;
     overflow: hidden;
-    padding-left: 30px;
+    padding-left: 18px;
 }
 
 .session-item .session-name {

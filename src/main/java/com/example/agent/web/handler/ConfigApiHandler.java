@@ -121,6 +121,20 @@ public class ConfigApiHandler implements HttpHandler {
         sendJson(exchange, 200, body);
     }
 
+    /**
+     * 判断 PUT 请求是否为「快速切换」（仅 provider+model，无其他配置字段）。
+     * <p>
+     * 快速切换会从历史快照恢复完整配置；而携带 reasoningEffort / thinkingEnabled / maxTokens
+     * 等配置字段的请求（如状态栏调节思考强度）必须走完整保存分支，避免新值被快照覆盖。
+     */
+    static boolean isQuickSwitch(JsonNode json) {
+        return json != null
+                && json.has("provider") && json.has("model")
+                && !json.has("baseUrl") && !json.has("apiKey")
+                && !json.has("maxTokens") && !json.has("thinkingEnabled")
+                && !json.has("reasoningEffort");
+    }
+
     private void handlePut(HttpExchange exchange) throws IOException {
         byte[] reqBytes = exchange.getRequestBody().readAllBytes();
         JsonNode json = MAPPER.readTree(reqBytes);
@@ -128,9 +142,10 @@ public class ConfigApiHandler implements HttpHandler {
         Config config = Config.getInstance();
         LlmConfig llm = config.getLlm();
 
-        // 判断是否是快速切换（只带了 provider+model，没有其他配置字段）
-        boolean isQuickSwitch = json.has("provider") && json.has("model")
-                && !json.has("baseUrl") && !json.has("apiKey");
+        // 判断是否是快速切换（只带了 provider+model，没有其他配置字段）。
+        // 注意：带 reasoningEffort / thinkingEnabled / maxTokens 等配置字段时必须走完整保存分支，
+        // 否则会被误判为快速切换、从历史快照恢复并覆盖掉新提交的档位。
+        boolean isQuickSwitch = isQuickSwitch(json);
 
         if (isQuickSwitch) {
             // ========== 快速切换：从历史快照恢复完整配置 ==========

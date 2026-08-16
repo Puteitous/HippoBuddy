@@ -125,7 +125,7 @@
   cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast);
   white-space: nowrap;
-  max-width: 160px;
+  max-width: 280px;
   min-width: 50px;
   outline: none;
 }
@@ -157,4 +157,16 @@
 
 .dd-trigger.model-dropdown-trigger.dd-open::after {
   transform: rotate(-90deg);
+}
+
+/* 禁用态（如 Thinking Mode 关闭时思考强度不可调） */
+.dd-trigger.model-dropdown-trigger:disabled,
+.dd-trigger.model-dropdown-trigger:disabled:hover {
+  color: var(--text-tertiary, var(--text-secondary));
+  background: transparent;
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.dd-trigger.model-dropdown-trigger:disabled::after {
+  opacity: 0.25;
 }

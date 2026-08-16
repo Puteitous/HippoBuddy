@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.BufferedReader;
 import java.io.StringReader;
@@ -218,17 +220,29 @@ class ResponsesLlmClientTest {
             assertFalse(body.has("tools"));
         }
 
-        @Test
-        @DisplayName("reasoning.effort 与 text.format 正确映射")
-        void testReasoningAndFormat() throws Exception {
+        @ParameterizedTest
+        @ValueSource(strings = { "low", "high", "max" })
+        @DisplayName("reasoning.effort 与 text.format 正确映射（low/high/max 三档）")
+        void testReasoningAndFormat(String effort) throws Exception {
             ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(Message.user("hi")))
-                    .reasoningEffort("high")
+                    .reasoningEffort(effort)
                     .responseFormat(Map.of("type", "json_object"));
 
             JsonNode body = objectMapper.readTree(client.buildResponsesRequestBody(request));
 
-            assertEquals("high", body.get("reasoning").get("effort").asText());
+            assertEquals(effort, body.get("reasoning").get("effort").asText());
             assertEquals("json_object", body.get("text").get("format").get("type").asText());
+        }
+
+        @Test
+        @DisplayName("reasoningEffort 为空/空白时不输出 reasoning 字段（使用模型默认）")
+        void testNoReasoningWhenEffortBlank() throws Exception {
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(Message.user("hi")))
+                    .reasoningEffort("  ");
+
+            JsonNode body = objectMapper.readTree(client.buildResponsesRequestBody(request));
+
+            assertFalse(body.has("reasoning"));
         }
 
         @Test

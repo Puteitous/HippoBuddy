@@ -751,7 +751,7 @@
     'settingsPage.modelBaseUrlPh':          { zh: 'https://api.deepseek.com', en: 'https://api.deepseek.com' },
     'settingsPage.modelMaxTokensHint':      { zh: '单次输出上限，含思维链+回答；Default=使用模型默认参数', en: 'max single output, includes CoT+reply; Default=use model default' },
     'settingsPage.modelThinkingHint':       { zh: '思考链推理，提高回答准确性', en: 'Chain-of-thought reasoning for better accuracy' },
-    'settingsPage.modelReasoningHint':      { zh: '思考强度（仅 Thinking Mode 开启时有效）', en: 'Reasoning effort (only effective when Thinking Mode is on)' },
+    'settingsPage.modelReasoningHint':      { zh: '思考档位：low / high（默认）/ max，仅开启思考时生效', en: 'Effort levels: low / high (default) / max; only when Thinking is on' },
     'settingsPage.modelNameRequired':       { zh: 'Model 名称不能为空', en: 'Model name is required' },
     'settingsPage.modelBackToList':         { zh: '← 返回列表', en: '← Back to List' },
     'settingsPage.modelApiKeyPlaceholder':  { zh: '输入 API Key', en: 'Enter API Key' },
@@ -980,6 +980,16 @@
     'chatui.noValidResponse':        { zh: 'AI 未返回有效响应，请尝试重新发送', en: 'AI returned no valid response, please try resending' },
     'chatui.modelSwitched':          { zh: '模型已切换: {provider} · {model}', en: 'Model switched: {provider} · {model}' },
     'chatui.modelSwitchFailed':      { zh: '切换模型失败: {message}', en: 'Model switch failed: {message}' },
+    'chatui.effortSwitched':         { zh: '思考强度已切换: {effort}', en: 'Reasoning effort: {effort}' },
+    'chatui.effortSwitchFailed':     { zh: '切换思考强度失败: {message}', en: 'Effort switch failed: {message}' },
+    'chatui.effortDefaultLabel':     { zh: 'Default', en: 'Default' },
+    'chatui.effortSelectorTitle':    { zh: '思考强度（Reasoning Effort）', en: 'Reasoning Effort' },
+    'chatui.effortDisabledTitle':    { zh: '需开启 Thinking Mode 才能调节思考强度', en: 'Enable Thinking Mode to adjust' },
+
+    /* ==================== Model Selector Panel ==================== */
+    'msp.modelSection':              { zh: '模型', en: 'Model' },
+    'msp.effortSection':             { zh: '思考强度', en: 'Reasoning Effort' },
+    'msp.back':                      { zh: '返回', en: 'Back' },
 
     /* ==================== File Tabs ==================== */
     'fileTabs.closeCurrent':         { zh: '关闭当前', en: 'Close Current' },

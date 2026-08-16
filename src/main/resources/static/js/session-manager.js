@@ -305,13 +305,20 @@ export class SessionManager {
       el.title = row.fullPath;
     }
 
-    const chevron = document.createElement('span');
-    chevron.className = 'project-chevron';
-    chevron.innerHTML = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>';
+    // 折叠/展开使用文件夹-关/开两个图标叠放，按 collapsed 状态切换
+    const iconClose = document.createElement('span');
+    iconClose.className = 'project-icon-close';
+    iconClose.innerHTML = '<svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8C5 6.89543 5.89543 6 7 6H19L24 12H41C42.1046 12 43 12.8954 43 14V40C43 41.1046 42.1046 42 41 42H7C5.89543 42 5 41.1046 5 40V8Z"/><path d="M43 22H5"/><path d="M5 16V28"/><path d="M43 16V28"/></svg>';
 
-    const icon = document.createElement('span');
-    icon.className = 'project-icon';
-    icon.innerHTML = '<svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V41L9 21H39.5V15C39.5 13.8954 38.6046 13 37.5 13H24L19 7H6C4.89543 7 4 7.89543 4 9Z"/><path d="M40 41L44 21H8.8125L4 41H40Z"/></svg>';
+    const iconOpen = document.createElement('span');
+    iconOpen.className = 'project-icon-open';
+    iconOpen.innerHTML = '<svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="m12 28 3-5.8A4 4 0 0 1 18.48 20H40a4 4 0 0 1 3.88 5l-3.08 12a4 4 0 0 1-3.9 3H8a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4h7.8a4 4 0 0 1 3.38 1.8l1.62 2.4a4 4 0 0 0 3.34 1.8H36a4 4 0 0 1 4 4v4"/></svg>';
+
+    // 两个图标叠放在同一格，折叠显示“文件夹-关”，展开显示“文件夹-开”
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'project-icon-wrap';
+    iconWrap.appendChild(iconClose);
+    iconWrap.appendChild(iconOpen);
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'project-name';
@@ -333,8 +340,7 @@ export class SessionManager {
       }
     });
 
-    el.appendChild(chevron);
-    el.appendChild(icon);
+    el.appendChild(iconWrap);
     el.appendChild(nameSpan);
     el.appendChild(openBtn);
 
