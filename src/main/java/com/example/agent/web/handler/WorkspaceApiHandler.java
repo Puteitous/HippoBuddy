@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -96,10 +97,12 @@ public class WorkspaceApiHandler implements HttpHandler {
         int cachedSessions = WebSessionManager.getInstance().getSessions().size();
         logger.info("收到工作区切换请求: path={}, 当前缓存会话数={}（这些会话的 prompt 在创建时按当时工作区状态固化快照，切换后保持不变）",
             folder, cachedSessions);
+        // 切换前逐会话快照 system prompt，切换后对比内容以检测是否被本次切换意外改写
+        Map<String, String> beforePrompts = snapshotSessionPrompts();
         WorkspaceContext.setCurrentFolder(folder);
         WorkspaceContext.save();
-        // 监控：切换后逐会话检查 prompt 快照是否仍固化旧工作区路径（预期：未改变）
-        inspectCachedSessionPromptsAfterSwitch(oldFolder, folder);
+        // 监控：切换后逐会话检查 prompt 是否仍保持切换前的固化内容（预期：未改变）
+        inspectCachedSessionPromptsAfterSwitch(oldFolder, folder, beforePrompts);
         ObjectNode node = MAPPER.createObjectNode();
         node.put("path", WorkspaceContext.getCurrentFolder());
         sendJson(exchange, 200, node);
@@ -112,24 +115,47 @@ public class WorkspaceApiHandler implements HttpHandler {
         int cachedSessions = WebSessionManager.getInstance().getSessions().size();
         logger.info("收到工作区重置请求: oldPath={}, 当前缓存会话数={}（这些会话的 prompt 在创建时按当时工作区状态固化快照，重置后保持不变）",
             oldFolder, cachedSessions);
+        // 重置前逐会话快照 system prompt，重置后对比内容以检测是否被本次重置意外改写
+        Map<String, String> beforePrompts = snapshotSessionPrompts();
         WorkspaceContext.clear();
         WorkspaceContext.save();
-        // 监控：重置后逐会话检查 prompt 快照是否仍固化旧工作区路径（预期：未改变）
-        inspectCachedSessionPromptsAfterSwitch(oldFolder, newFolder);
+        // 监控：重置后逐会话检查 prompt 是否仍保持重置前的固化内容（预期：未改变）
+        inspectCachedSessionPromptsAfterSwitch(oldFolder, newFolder, beforePrompts);
         ObjectNode node = MAPPER.createObjectNode();
         node.put("path", "");
         sendJson(exchange, 200, node);
     }
 
     /**
+     * 快照当前缓存会话的 system prompt。
+     * <p>
+     * 工作区切换/重置是全局状态变更，会话的 prompt 在创建时已固化工作区路径快照，
+     * 切换不应触碰任何已有会话。切换前快照、切换后对比内容，才能可靠区分
+     * 「会话创建时本就固化该路径」（如切回原工作区，prompt 未变，合法）与
+     * 「prompt 被本次切换改写」（内容变化，违规）。
+     */
+    private static Map<String, String> snapshotSessionPrompts() {
+        Map<String, String> snapshots = new HashMap<>();
+        for (Map.Entry<String, Conversation> entry : WebSessionManager.getInstance().getSessions().entrySet()) {
+            snapshots.put(entry.getKey(), entry.getValue().getSystemPrompt());
+        }
+        return snapshots;
+    }
+
+    /**
      * 监控：工作区切换/重置后，检查缓存中每个会话的 system prompt 是否被本次切换意外改写。
      * <p>
      * 会话创建时按当时工作区状态固化 prompt 快照，切换是全局状态变更，不应触碰任何已有会话
-     * （只有新会话才拼入新路径）。唯一可靠的违规信号：prompt 中混入了本次切换的新路径。
+     * （只有新会话才拼入新路径）。违规判定依据是「切换前后 prompt 内容是否发生变化」：
+     * 仅当快照存在且内容被改写时才判定为违规。切回会话创建时的原工作区时，prompt 虽包含
+     * 新路径（即原路径），但内容未变，属于合法固化，不构成违规。
      *
+     * @param oldPath      切换前的工作区路径
+     * @param newPath      切换后的工作区路径
+     * @param beforePrompts 切换前逐会话的 system prompt 快照（sessionId → prompt）
      * @return 被意外改写的会话数（0 = 全部会话未被本次切换改写）
      */
-    int inspectCachedSessionPromptsAfterSwitch(String oldPath, String newPath) {
+    int inspectCachedSessionPromptsAfterSwitch(String oldPath, String newPath, Map<String, String> beforePrompts) {
         int violated = 0;
         try {
             Map<String, Conversation> sessions = WebSessionManager.getInstance().getSessions();
@@ -139,16 +165,17 @@ public class WorkspaceApiHandler implements HttpHandler {
             }
             for (Map.Entry<String, Conversation> entry : sessions.entrySet()) {
                 String sessionId = entry.getKey();
-                String prompt = entry.getValue().getSystemPrompt();
-                boolean hasNew = newPath != null && prompt != null && prompt.contains(newPath);
-                if (hasNew) {
-                    // 真违规：本次切换意外将新路径写入了已有会话的 prompt
+                String promptBefore = beforePrompts != null ? beforePrompts.get(sessionId) : null;
+                String promptAfter = entry.getValue().getSystemPrompt();
+                boolean changed = promptBefore != null && !promptBefore.equals(promptAfter);
+                if (changed) {
+                    // 真违规：本次切换将已有会话的 prompt 内容改写了
                     violated++;
                     logger.warn("⚠️ 工作区切换后会话 prompt 快照被意外改写: sessionId={}, oldPath={}, newPath={}",
                         sessionId, oldPath, newPath);
                 } else {
-                    logger.debug("工作区切换后会话 prompt 快照检查通过: sessionId={}, 仍含旧路径={}（符合契约：切换不改变已有会话 prompt）",
-                        sessionId, oldPath != null && prompt != null && prompt.contains(oldPath));
+                    logger.debug("工作区切换后会话 prompt 快照检查通过: sessionId={}, prompt 未变化（含新路径={}，符合契约：切换不改变已有会话 prompt）",
+                        sessionId, newPath != null && promptAfter != null && promptAfter.contains(newPath));
                 }
             }
             if (violated > 0) {

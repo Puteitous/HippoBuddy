@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -38,6 +39,10 @@ public class WebSessionManager implements SessionManager {
     private static final Map<String, PendingBashConfirmation> pendingBashConfirmations = new ConcurrentHashMap<>();
     private static final Map<String, PendingDeleteConfirmation> pendingDeleteConfirmations = new ConcurrentHashMap<>();
     private static final Map<String, String> sessionModes = new ConcurrentHashMap<>();
+    /** 会话固化的 System Prompt 持久化文件名（与 session.json 同目录，跨重启稳定） */
+    private static final String SYSTEM_PROMPT_FILE = "system-prompt.txt";
+    /** 会话 mode 是否已冻结（首次非空设置后不可再变，保证 tools 快照稳定） */
+    private static final Map<String, Boolean> sessionModeFrozen = new ConcurrentHashMap<>();
     private static final Map<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
     /** 会话 Agent 执行状态：true=正在运行，false=空闲 */
     private static final Map<String, Boolean> sessionRunning = new ConcurrentHashMap<>();
@@ -87,14 +92,31 @@ public class WebSessionManager implements SessionManager {
         pendingBashConfirmations.clear();
         pendingDeleteConfirmations.clear();
         sessionLocks.clear();
+        sessionModes.clear();
+        sessionModeFrozen.clear();
     }
 
     @Override
     public void setMode(String sessionId, String mode) {
-        if (sessionId != null) {
-            sessionModes.put(sessionId, mode);
-            persistModeToDisk(sessionId, mode);
+        if (sessionId == null) return;
+        // 空 mode 不参与冻结语义（视为未设置）
+        if (mode == null || mode.isBlank()) return;
+
+        String current = sessionModes.get(sessionId);
+        // 冻结闸：首次非空设置后 mode 不可再变（与 system prompt 固化同构）。
+        // mode 是 tools 快照的键之一，若运行中可被改写，会击穿 LLM 前缀缓存。
+        // 忽略而非抛异常：ChatApiHandler 每轮都会调 setMode，抛异常会打断正常请求。
+        if (Boolean.TRUE.equals(sessionModeFrozen.get(sessionId))) {
+            if (!mode.equals(current)) {
+                logger.warn("会话 mode 已冻结，忽略变更请求: sessionId={}, 已冻结值={}, 请求值={}（如需更换模式请新建会话）",
+                    sessionId, current, mode);
+            }
+            return;
         }
+
+        sessionModes.put(sessionId, mode);
+        sessionModeFrozen.put(sessionId, Boolean.TRUE);
+        persistModeToDisk(sessionId, mode);
     }
 
     @Override
@@ -275,10 +297,23 @@ public class WebSessionManager implements SessionManager {
             if (systemPromptOverride != null && !systemPromptOverride.isBlank()) {
                 systemPrompt = systemPromptOverride;
             } else {
-                systemPrompt = getDefaultSystemPrompt();
+                // 重启后恢复历史会话：优先还原创建时固化的 prompt（system-prompt.txt，
+                // 含当时的工作区/规则/技能快照），其次 transcript 首条 system（防御性兜底），
+                // 最后才按当前工作区重算（仅全新/极老会话）。否则 prompt 内容变化会击穿
+                // 前缀缓存，且 LLM 会以为仍在旧工作区。
+                String persistedPrompt = loadSystemPrompt(id);
+                if (persistedPrompt != null) {
+                    systemPrompt = persistedPrompt;
+                } else {
+                    String historicalPrompt = conversationService.findSystemPromptFromHistory(id);
+                    systemPrompt = historicalPrompt != null ? historicalPrompt : getDefaultSystemPrompt();
+                }
             }
             int maxTokens = Config.getInstance().getContext().getMaxTokens();
             Conversation conversation = conversationService.create(systemPrompt, maxTokens, id);
+
+            // 固化 prompt 落盘（仅会话创建时写一次），供重启后恢复还原
+            persistSystemPrompt(id, systemPrompt);
 
             ConversationService.ResumeResult resumeResult = conversationService.resumeConversation(conversation, id);
 
@@ -380,6 +415,65 @@ public class WebSessionManager implements SessionManager {
     }
 
     /**
+     * 将会话固化的 System Prompt 持久化到独立文件（与 session.json 同目录）。
+     * <p>
+     * 仅会话创建时调用一次。固化值必须跨重启保持：重启后恢复该会话时，
+     * 从本文件还原创建时的 prompt（含当时的工作区/规则/技能快照），而不是用
+     * 当前工作区重算——否则 prompt 内容变化会击穿 LLM 前缀缓存（曾观测到
+     * cacheHitRate 96% → 6.7%），且 LLM 会以为仍在旧工作区。
+     * </p>
+     * <p>
+     * 独立于 session.json 的原因：session.json 被 {@link #updateLastActivityAt}/
+     * {@link #persistModeToDisk} 每次发消息整体重写，prompt 放进去会带来写放大与
+     * 双写者竞态；独立文件仅创建时写一次，之后永不触碰，天然无竞态。也独立于
+     * conversation.jsonl：那是消息流水，会被回滚/压缩/截断波及，固化值混入会被
+     * 当普通 system 消息丢弃。
+     * </p>
+     *
+     * @param sessionId    会话 ID
+     * @param systemPrompt 创建时固化的 prompt；null/空则跳过
+     */
+    private void persistSystemPrompt(String sessionId, String systemPrompt) {
+        if (sessionId == null || systemPrompt == null || systemPrompt.isBlank()) {
+            return;
+        }
+        try {
+            Path file = WorkspaceManager.getSessionDir(sessionId).resolve(SYSTEM_PROMPT_FILE);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, systemPrompt, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            logger.warn("写入 system-prompt.txt 失败：sessionId={}（恢复时回退到 transcript/默认 prompt）", sessionId, e);
+        }
+    }
+
+    /**
+     * 读取会话固化的 System Prompt（system-prompt.txt）。
+     * <p>
+     * 重启后恢复历史会话时优先使用本文件，保证 prompt 与创建时逐字节一致。
+     * 调用方 fallback 链：文件 → transcript 首条 system → 默认重算。
+     * </p>
+     *
+     * @param sessionId 会话 ID
+     * @return 固化 prompt；文件不存在、为空或读取失败时返回 null
+     */
+    private String loadSystemPrompt(String sessionId) {
+        if (sessionId == null) {
+            return null;
+        }
+        try {
+            Path file = WorkspaceManager.getSessionDir(sessionId).resolve(SYSTEM_PROMPT_FILE);
+            if (!Files.exists(file)) {
+                return null;
+            }
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            return content.isBlank() ? null : content;
+        } catch (IOException e) {
+            logger.warn("读取 system-prompt.txt 失败：sessionId={}, 回退到 transcript/默认 prompt", sessionId, e);
+            return null;
+        }
+    }
+
+    /**
      * 将会话的工作区路径持久化到 session.json。
      * 仅在会话首次创建时写入（session.json 不存在或没有 workspacePath 时），
      * 防止重启后因当前工作区变更而覆盖历史会话的归属。
@@ -466,6 +560,7 @@ public class WebSessionManager implements SessionManager {
                     if (m != null && !m.asText().isBlank()) {
                         String mode = m.asText();
                         sessionModes.put(sessionId, mode); // 回填内存
+                        sessionModeFrozen.put(sessionId, Boolean.TRUE); // 磁盘恢复的 mode 视为已固化
                         return mode;
                     }
                 }
@@ -524,6 +619,10 @@ public class WebSessionManager implements SessionManager {
                 prompt += skillSnippet;
             }
         }
+
+        // 注入当前日期（会话创建时拍快照固化）。工具的"当前日期"不再内联在描述中，
+        // 否则跨天会导致 tools 参数变化 → LLM 前缀缓存整体 miss。
+        prompt += "\n\n## 当前日期\n" + LocalDate.now().toString();
 
         // 注入运行环境信息，让 LLM 明确平台与 shell 类型
         prompt += WorkspaceContext.getEnvironmentPromptSnippet();

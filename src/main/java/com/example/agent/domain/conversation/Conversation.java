@@ -17,6 +17,8 @@ public class Conversation {
     private final String sessionId;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private String systemPrompt;
+    /** System Prompt 冻结标志：首次 set 后不可再变（会话创建时固化） */
+    private boolean systemPromptFrozen;
     private volatile Usage lastKnownUsage;
 
     public Conversation(int maxTokens, TokenEstimator tokenEstimator) {
@@ -188,8 +190,25 @@ public class Conversation {
         return systemPrompt;
     }
 
+    /**
+     * 设置 System Prompt（仅会话创建时允许调用一次）。
+     * <p>
+     * 冻结语义：会话创建后 system prompt 不可变。LLM 服务端前缀缓存要求
+     * 每次请求的 system 字段逐字节一致，运行中任何改写（切工作区/重启/
+     * 规则变更/前端改 prompt）都会击穿缓存（曾观测到 cacheHitRate 96% → 6.7%）。
+     * 如需更换 prompt，必须新建会话。
+     * </p>
+     *
+     * @throws IllegalStateException 会话创建后再次调用（冻结违规）
+     */
     public void setSystemPrompt(String systemPrompt) {
+        if (systemPromptFrozen) {
+            throw new IllegalStateException(
+                "System Prompt 已冻结：会话创建后不可变更（固化以保证 LLM 前缀缓存稳定命中）。"
+                    + "如需更换提示词请新建会话。");
+        }
         this.systemPrompt = systemPrompt;
+        this.systemPromptFrozen = true;
     }
 
     public boolean shouldMarkForMemory(Message message) {

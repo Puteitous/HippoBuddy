@@ -339,14 +339,40 @@ public class ConversationService {
     }
 
     public void setSystemPrompt(Conversation conversation, String newSystemPrompt) {
-        setSystemPrompt(conversation, newSystemPrompt, false);
+        throw new UnsupportedOperationException(
+            "System Prompt 已冻结：会话创建后不可变更。如需更换提示词请新建会话。"
+                + "（此方法已废弃，请勿在会话存活期改写 prompt，否则会击穿 LLM 前缀缓存）");
     }
 
-    public void setSystemPrompt(Conversation conversation, String newSystemPrompt, boolean preserveHistory) {
-        conversation.setSystemPrompt(newSystemPrompt != null ? newSystemPrompt : "");
-        
-        if (!preserveHistory) {
-            reset(conversation);
+    /**
+     * 从会话历史（transcript JSONL）中恢复最初固化的 System Prompt。
+     * <p>
+     * 重启后恢复历史会话时，必须沿用会话创建时固化的 prompt（含当时的工作区/
+     * 规则/技能快照），而不是用当前工作区重算——否则恢复后 prompt 内容变化，
+     * 前缀缓存 miss 且 LLM 以为仍在旧工作区。transcript 第一条 system 消息
+     * 即会话创建时固化的 prompt。
+     * </p>
+     *
+     * @param sessionId 会话 ID
+     * @return 历史 system prompt；无历史或无 system 消息时返回 null
+     */
+    public String findSystemPromptFromHistory(String sessionId) {
+        if (sessionId == null) {
+            return null;
+        }
+        try {
+            com.example.agent.session.TranscriptLoader.LoadResult loadResult =
+                com.example.agent.session.TranscriptLoader.load(sessionId);
+            for (Message msg : loadResult.getMessages()) {
+                if (msg != null && "system".equals(msg.getRole())
+                        && msg.getContent() != null && !msg.getContent().isBlank()) {
+                    return msg.getContent();
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            logger.warn("从历史恢复 System Prompt 失败: sessionId={}, 回退到默认 prompt", sessionId, e);
+            return null;
         }
     }
 

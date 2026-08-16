@@ -125,6 +125,8 @@ public class ChatApiHandler implements HttpHandler {
                             basePrompt += skillSnippet;
                         }
                     }
+                    // 追加当前日期（会话创建时固化，与默认路径一致）
+                    basePrompt += "\n\n## 当前日期\n" + java.time.LocalDate.now().toString();
                     // 注入运行环境信息，让 LLM 明确平台与 shell 类型
                     basePrompt += com.example.agent.desktop.WorkspaceContext.getEnvironmentPromptSnippet();
                     systemPromptOverride = basePrompt;

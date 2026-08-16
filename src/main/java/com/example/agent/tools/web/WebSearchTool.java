@@ -16,8 +16,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.YearMonth;
 import java.util.concurrent.TimeUnit;
 
@@ -69,10 +67,12 @@ public class WebSearchTool implements ToolExecutor {
 
     @Override
     public String getDescription() {
-        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy年M月d日"));
-        return "搜索互联网获取实时信息。当前日期：" + today + "，知识有截止日期，" +
-               "通过此工具可获取最新数据。适用于查询最新文档、API 用法、技术问题、新闻等。" +
-               "注意：搜索关键词中应包含当前年份(" + YearMonth.now().getYear() + "年)以确保结果是最新的。" +
+        // 描述必须保持静态：tools 参数在会话创建时固化快照，动态内容（如当前日期）
+        // 若内联在此处会导致跨天/跨年时前缀缓存整体 miss。
+        // 当前日期由 WebSessionManager.getDefaultSystemPrompt() 在会话创建时拍入 system prompt。
+        return "搜索互联网获取实时信息。知识有截止日期，通过此工具可获取最新数据。" +
+               "适用于查询最新文档、API 用法、技术问题、新闻等。" +
+               "注意：搜索关键词中应包含当前年份以确保结果是最新的。" +
                "返回结果包含标题、摘要、链接。";
     }
 

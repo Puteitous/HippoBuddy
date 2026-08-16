@@ -76,7 +76,31 @@ public class WebAgentOrchestrator {
      * 覆盖语义：后续写入会覆盖前一次残留（execute() 入口也会主动清理防止幽灵队列）。
      */
     private final Map<String, List<ToolCall>> remainingToolCalls = new ConcurrentHashMap<>();
+
+    /**
+     * 会话级 Tools 快照（与 system prompt 固化同构）。
+     * <p>
+     * LLM 服务端前缀缓存要求每次请求的 tools 参数逐字节一致。若每轮重建
+     * （toolRegistry.toTools(mode) 每次调用 getDescription()），任何动态描述
+     * （日期/工作区路径/技能清单）或工具注册时序（MCP 异步注册）都会导致
+     * 前缀缓存整体 miss（曾观测到 cacheHitRate 96% → 6.7%）。
+     * </p>
+     * <p>
+     * 快照在会话首次 execute 时拍下，之后同 mode 复用，不再调用 getDescription()。
+     * 失效条件仅两个：新建会话 / mode 变化。切换工作区、跨天、规则/技能变更、
+     * MCP 后续注册均不影响已有会话的快照（与"技能变更后新会话生效"同语义）。
+     * </p>
+     */
+    private final Map<String, FrozenToolsEntry> toolsSnapshots = new ConcurrentHashMap<>();
+
     private final ToolRegistry toolRegistry;
+
+    /**
+     * 会话级 Tools 快照条目。
+     * @param mode 拍快照时的 AgentMode（快照键的一部分，mode 变化即失效重建）
+     * @param tools 冻结的 Tool 列表（immutable 语义，调用方不得修改）
+     */
+    private record FrozenToolsEntry(AgentMode mode, List<Tool> tools) {}
 
     public static WebAgentOrchestrator getInstance() {
         return INSTANCE;
@@ -104,6 +128,37 @@ public class WebAgentOrchestrator {
             newClient.getProviderName(), newClient.getModel());
     }
 
+    /**
+     * 获取会话级 Tools 快照（无则创建）。
+     * <p>
+     * 快照语义与 system prompt 固化一致：会话创建后 tools 参数不再变化，
+     * 只有新建会话或 mode 变化才重建。这保证 LLM 服务端前缀缓存稳定命中。
+     * </p>
+     * <p>
+     * 注意：快照不持久化，重启后首次 execute 重建。由于工具描述被契约测试
+     * （ToolDescriptionStabilityTest）强制为进程内静态，重建结果与历史逐字节一致。
+     * 唯一边界：若 MCP 工具在快照时尚未注册，该会话将不含 MCP 工具（直到 mode 变化
+     * 或新会话），与"技能变更后新会话生效"同语义。
+     * </p>
+     *
+     * @param sessionId 会话 ID
+     * @param mode      当前解析出的 AgentMode（快照键的一部分）
+     * @return 冻结的 Tool 列表（调用方不得修改）
+     */
+    List<Tool> getOrCreateToolsSnapshot(String sessionId, AgentMode mode) {
+        FrozenToolsEntry existing = toolsSnapshots.get(sessionId);
+        if (existing != null && existing.mode() == mode) {
+            return existing.tools();
+        }
+        // 新建快照：mode 变化或该会话首次 execute
+        List<Tool> tools = toolRegistry.toTools(mode);
+        FrozenToolsEntry entry = new FrozenToolsEntry(mode, List.copyOf(tools));
+        toolsSnapshots.put(sessionId, entry);
+        logger.info("会话 Tools 快照已固化: sessionId={}, mode={}, toolCount={}（后续同 mode 请求复用，不再重建）",
+            sessionId, mode.getDisplayName(), tools.size());
+        return entry.tools();
+    }
+
     private ConversationService getConversationService() {
         // 每次调用都从 ServiceLocator 动态获取，而非在构造函数中缓存字段。
         // 原因：DashboardServer 启动时，WebInitializer.ensureMemoryInitialized()
@@ -121,7 +176,9 @@ public class WebAgentOrchestrator {
         // 从 session 读取模式，默认 CODING
         AgentMode mode = resolveMode(sessionManager.getMode(sessionId));
 
-        List<Tool> tools = toolRegistry.toTools(mode);
+        // 会话级 Tools 快照：首次 execute 时拍下，同 mode 复用（不再调用 getDescription()），
+        // 切换工作区/跨天/MCP 后续注册均不影响已有会话；mode 变化或新建会话才重建。
+        List<Tool> tools = getOrCreateToolsSnapshot(sessionId, mode);
 
         for (int turn = 0; turn < MAX_TURNS; turn++) {
             if (cancelManager.isCancelled(sessionId)) {
