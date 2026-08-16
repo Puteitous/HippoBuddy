@@ -208,6 +208,38 @@
     padding: 8px;
 }
 
+/* ========== 统一警示块（非错误但需提醒，如达到 MAX_TURNS 上限） ========== */
+.msg-warn {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--warning-bg);
+    border-left: 3px solid var(--warning-color);
+    margin: 4px 0;
+}
+
+.msg-warn-icon {
+    flex-shrink: 0;
+    line-height: 1.5;
+}
+
+.msg-warn-title {
+    font-weight: 600;
+    color: var(--warning-color);
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.msg-warn-detail {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    opacity: 0.85;
+    word-break: break-word;
+}
+
 .message.user .message-content {
     white-space: pre-wrap;
 }

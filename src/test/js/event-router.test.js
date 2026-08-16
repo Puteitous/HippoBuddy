@@ -20,7 +20,8 @@ describe('EventRouter.js', () => {
       tool_start: vi.fn(),
       tool_result: vi.fn(),
       tool_progress: vi.fn(),
-      tool_confirmation: vi.fn()
+      tool_confirmation: vi.fn(),
+      done: vi.fn()
     };
     router = new EventRouter(handlers);
   });
@@ -116,5 +117,18 @@ describe('EventRouter.js', () => {
   it('tool_result 只有 _eventType 时也能兜底分发', () => {
     router.handle({ _eventType: 'tool_result' }, {}, {});
     expect(handlers.tool_result).toHaveBeenCalledTimes(1);
+  });
+
+  // ── done 事件（会话结束，如达到 MAX_TURNS 上限） ──
+
+  it('分发 done 事件（reason=max_turns）', () => {
+    const payload = { _eventType: 'done', reason: 'max_turns' };
+    router.handle(payload, {}, {});
+    expect(handlers.done).toHaveBeenCalledWith(payload);
+  });
+
+  it('done 事件缺少 reason 时不分发', () => {
+    router.handle({ _eventType: 'done' }, {}, {});
+    expect(handlers.done).not.toHaveBeenCalled();
   });
 });

@@ -18,6 +18,15 @@ import { getFileIconInfo } from '../utils/file-icons.js';
 import { showToast } from '../utils/toast.js';
 import { apiGet } from '../utils.js';
 
+/** 文件夹图标：关闭 = 旧版 16x16 经典图标；打开 = 48x48 描边风格翻开图标（展示尺寸均 14px） */
+const FOLDER_ICON_CLOSED =
+  '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
+const FOLDER_ICON_OPEN =
+  '<svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M4 9V41L9 21H39.5V15C39.5 13.8954 38.6046 13 37.5 13H24L19 7H6C4.89543 7 4 7.89543 4 9Z"/>' +
+  '<path d="M40 41L44 21H8.8125L4 41H40Z"/></svg>';
+
 export class FileTree {
   /**
    * @param {Object} options
@@ -855,8 +864,8 @@ export class FileTree {
     const iconEl = document.createElement('span');
     iconEl.className = 'file-tree-icon folder';
     iconEl.innerHTML = isExpanded
-      ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity="0.1"/></svg>'
-      : '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
+      ? FOLDER_ICON_OPEN
+      : FOLDER_ICON_CLOSED;
     nodeEl.appendChild(iconEl);
 
     // 显示 "entryName > child1 > child2 > child3"
@@ -874,7 +883,7 @@ export class FileTree {
       if (expanded) {
         this._expandedDirs.delete(leafDir);
         toggleEl.classList.remove('expanded');
-        iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
+        iconEl.innerHTML = FOLDER_ICON_CLOSED;
         childrenEl.style.display = 'none';
         childrenEl.innerHTML = '';
         this._loadingDirs.delete(leafDir);
@@ -885,7 +894,7 @@ export class FileTree {
         this._loadingDirs.add(leafDir);
         this._expandedDirs.add(leafDir);
         toggleEl.classList.add('expanded');
-        iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity="0.1"/></svg>';
+        iconEl.innerHTML = FOLDER_ICON_OPEN;
         childrenEl.style.display = '';
         try {
           await this._renderTree(leafDir, childrenEl);
@@ -967,8 +976,8 @@ export class FileTree {
     const iconEl = document.createElement('span');
     iconEl.className = 'file-tree-icon folder';
     iconEl.innerHTML = isExpanded
-      ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity="0.1"/></svg>'
-      : '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
+      ? FOLDER_ICON_OPEN
+      : FOLDER_ICON_CLOSED;
     nodeEl.appendChild(iconEl);
 
     const nameEl = document.createElement('span');
@@ -985,7 +994,7 @@ export class FileTree {
       if (expanded) {
         this._expandedDirs.delete(fullPath);
         toggleEl.classList.remove('expanded');
-        iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
+        iconEl.innerHTML = FOLDER_ICON_CLOSED;
         childrenEl.style.display = 'none';
         childrenEl.innerHTML = '';
         // 清理加载中标记，便于下次展开重新加载
@@ -998,7 +1007,7 @@ export class FileTree {
         this._loadingDirs.add(fullPath);
         this._expandedDirs.add(fullPath);
         toggleEl.classList.add('expanded');
-        iconEl.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="currentColor" fill-opacity="0.1"/></svg>';
+        iconEl.innerHTML = FOLDER_ICON_OPEN;
         childrenEl.style.display = '';
         try {
           await this._renderTree(fullPath, childrenEl);

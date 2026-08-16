@@ -328,6 +328,7 @@
     flex-direction: column;
     flex: 1;
     overflow: hidden;
+    padding-left: 30px;
 }
 
 .session-item .session-name {

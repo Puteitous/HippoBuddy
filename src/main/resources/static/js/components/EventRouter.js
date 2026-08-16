@@ -89,6 +89,13 @@ export class EventRouter {
       return;
     }
 
+    // 会话结束事件（后端 done SSE，如达到 MAX_TURNS 上限时 reason=max_turns）。
+    // 前端此前静默丢弃，导致用户看不到"达到 50 轮上限、任务可能未完成"的提示。
+    if (parsed._eventType === 'done' && parsed.reason) {
+      this.handlers.done(parsed);
+      return;
+    }
+
     if (parsed._eventType === 'waiting_user') {
       this.handlers.waiting_user(parsed, contentDiv);
       return;

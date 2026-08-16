@@ -370,4 +370,39 @@ describe('MessageSession.js', () => {
       expect(result[1].id).toBe('t2');
     });
   });
+
+  describe('done 事件（MAX_TURNS 上限）', () => {
+    it('max_turns 时收尾流式文本并追加 warn 警示段', () => {
+      session._contentDiv = contentDiv;
+      session.setCurrentText('已有部分输出');
+
+      session._eventRouter.handle(
+        { _eventType: 'done', reason: 'max_turns' },
+        contentDiv,
+        btnContainer
+      );
+
+      const segments = session.getSegments();
+      // 流式文本先收尾成 text 段，再追加 warn 警示段（保留已生成内容）
+      expect(segments[0].type).toBe('text');
+      expect(segments[0].content).toBe('已有部分输出');
+      const warnSeg = segments.find(s => s.type === 'warn');
+      expect(warnSeg).toBeDefined();
+      expect(warnSeg.content).toBeTruthy();
+      expect(warnSeg.detail).toBeTruthy();
+      expect(session.getCurrentText()).toBe('');
+      expect(mockRenderPipeline.flush).toHaveBeenCalled();
+    });
+
+    it('reason 非 max_turns 时不追加警示段', () => {
+      session._contentDiv = contentDiv;
+      session._eventRouter.handle(
+        { _eventType: 'done', reason: 'normal' },
+        contentDiv,
+        btnContainer
+      );
+      expect(session.getSegments().some(s => s.type === 'warn')).toBe(false);
+      expect(session.getSegments().length).toBe(0);
+    });
+  });
 });

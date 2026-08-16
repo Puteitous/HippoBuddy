@@ -101,6 +101,21 @@ export class MessageSession {
         s.pushError({ message: parsed.content });
       },
 
+      done: (parsed) => {
+        // 会话结束事件：仅处理达到 MAX_TURNS 上限（50 轮）的截断提示。
+        // 保留已生成内容，仅追加警示块，不清空流式文本。
+        if (parsed.reason !== 'max_turns') return;
+        s._pushTextSegment();
+        s._segments.push({
+          type: 'warn',
+          content: _t('chatui.maxTurnsReached'),
+          detail: _t('chatui.maxTurnsReachedDetail')
+        });
+        s._renderPipeline.setContainer(s._contentDiv);
+        s._renderPipeline.flush(s._segments, s._currentText);
+        s._smartScroll?.();
+      },
+
       reasoning: (parsed, contentDiv) => {
         if (!s._hasReceivedData) {
           s._hasReceivedData = true;

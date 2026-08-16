@@ -283,6 +283,12 @@ describe('ChatPanel.js', () => {
             this._currentText = '';
           }
         },
+        _pushTextSegment() {
+          if (this._currentText.trim()) {
+            this._segments.push({ type: 'text', content: this._currentText });
+            this._currentText = '';
+          }
+        },
         pushSegment(seg) { this._segments.push(seg); },
         clearAll() {
           this._currentText = '';
@@ -456,6 +462,41 @@ describe('ChatPanel.js', () => {
       );
 
       expect(session.getSegments()[0].result).toBe('success');
+    });
+
+    it('处理 done(max_turns) 事件追加警示块', () => {
+      const contentDiv = document.createElement('div');
+      const session = chatPanel._activeSession;
+      session.setCurrentText('已有部分输出');
+
+      chatPanel.handleChunk(
+        { _eventType: 'done', reason: 'max_turns' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      const segments = session.getSegments();
+      // 流式文本先收尾成 text 段，再追加 warn 警示段
+      expect(segments[0].type).toBe('text');
+      expect(segments[0].content).toBe('已有部分输出');
+      const warnSeg = segments.find(s => s.type === 'warn');
+      expect(warnSeg).toBeDefined();
+      expect(warnSeg.content).toBeTruthy();
+      expect(warnSeg.detail).toBeTruthy();
+      expect(session.getCurrentText()).toBe('');
+    });
+
+    it('done 事件 reason 非 max_turns 时不追加警示块', () => {
+      const contentDiv = document.createElement('div');
+      const session = chatPanel._activeSession;
+
+      chatPanel.handleChunk(
+        { _eventType: 'done', reason: 'normal' },
+        contentDiv,
+        document.createElement('div')
+      );
+
+      expect(session.getSegments().some(s => s.type === 'warn')).toBe(false);
     });
 
     it('isCompleted 为 true 时忽略后续事件', () => {
@@ -755,6 +796,12 @@ describe('ChatPanel.js', () => {
         getCurrentText() { return this._currentText; },
         setCurrentText(text) { this._currentText = text; },
         pushTextSegment() {
+          if (this._currentText.trim()) {
+            this._segments.push({ type: 'text', content: this._currentText });
+            this._currentText = '';
+          }
+        },
+        _pushTextSegment() {
           if (this._currentText.trim()) {
             this._segments.push({ type: 'text', content: this._currentText });
             this._currentText = '';

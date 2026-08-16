@@ -843,6 +843,8 @@
     /* ==================== Chat UI (additional) ==================== */
     'chatui.forkSuccess':                 { zh: '已分叉为新会话', en: 'Forked into new session' },
     'chatui.stopped':                     { zh: '已停止生成', en: 'Generation stopped' },
+    'chatui.maxTurnsReached':             { zh: '已达工具调用轮数上限（50 轮）', en: 'Reached tool call turn limit (50)' },
+    'chatui.maxTurnsReachedDetail':       { zh: '任务可能未完成。建议将目标拆分为更小的步骤重新发起，或继续提问让 AI 接着执行', en: 'The task may be incomplete. Consider breaking it into smaller steps or continue asking to keep going' },
     'chatui.errorNetwork':                { zh: '网络连接失败，请检查后端服务是否正常运行', en: 'Network connection failed, check if backend is running' },
     'chatui.errorNetworkDetail':          { zh: '无法与服务器建立连接，请确认服务已启动且网络通畅', en: 'Cannot connect to server, please ensure service is running' },
     'chatui.errorTimeout':                { zh: '请求超时，服务响应时间过长', en: 'Request timeout, server response too slow' },

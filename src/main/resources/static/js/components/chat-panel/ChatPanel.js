@@ -660,6 +660,23 @@ export class ChatPanel {
         session.pushError({ message: parsed.content });
       },
 
+      done: (parsed, contentDiv) => {
+        // 会话结束事件：仅处理达到 MAX_TURNS 上限（50 轮）的截断提示。
+        // 与 MessageSession 主流 handler 逻辑一致：保留已生成内容，仅追加警示块。
+        if (parsed.reason !== 'max_turns') return;
+        const session = s();
+        if (!session) return;
+        const _t = (key) => (window.i18n ? window.i18n.t(key) : key);
+        session._pushTextSegment();
+        session._segments.push({
+          type: 'warn',
+          content: _t('chatui.maxTurnsReached'),
+          detail: _t('chatui.maxTurnsReachedDetail')
+        });
+        this.renderPipeline.setContainer(contentDiv);
+        this.renderPipeline.flush(session.getSegments(), session.getCurrentText());
+      },
+
       reasoning: (parsed, contentDiv) => {
         const session = s();
         if (!session) return;

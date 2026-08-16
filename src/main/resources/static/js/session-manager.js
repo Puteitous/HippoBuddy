@@ -311,7 +311,7 @@ export class SessionManager {
 
     const icon = document.createElement('span');
     icon.className = 'project-icon';
-    icon.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h5l2 2h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/></svg>';
+    icon.innerHTML = '<svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V41L9 21H39.5V15C39.5 13.8954 38.6046 13 37.5 13H24L19 7H6C4.89543 7 4 7.89543 4 9Z"/><path d="M40 41L44 21H8.8125L4 41H40Z"/></svg>';
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'project-name';

@@ -625,6 +625,11 @@ export class RenderPipeline {
       return RenderPipeline.renderErrorBlock(seg);
     }
 
+    if (unit.type === 'warn') {
+      const seg = segments[unit.segIdx];
+      return RenderPipeline.renderWarnBlock(seg);
+    }
+
     if (unit.type === 'tool-card') {
       const seg = segments[unit.segIdx];
       return this.chatUI.renderToolCard(seg);
@@ -926,6 +931,24 @@ export class RenderPipeline {
         <div class="msg-error-body">
           <div class="msg-error-title">${title}</div>
           ${detail ? `<div class="msg-error-detail">${detail}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  /**
+   * 渲染统一警示块（.msg-warn：⚠️ 图标 + 加粗标题 + 小字 detail）。
+   * segment 结构：{ type:'warn', content: 主文案, detail: 详情（可选） }。
+   * 用于非错误但需要提醒的场景，如达到 MAX_TURNS 工具调用轮数上限。
+   */
+  static renderWarnBlock(segment) {
+    const title = escapeHtml(segment.content || '');
+    const detail = segment.detail ? escapeHtml(segment.detail) : '';
+    return `
+      <div class="msg-warn">
+        <span class="msg-warn-icon">⚠️</span>
+        <div class="msg-warn-body">
+          <div class="msg-warn-title">${title}</div>
+          ${detail ? `<div class="msg-warn-detail">${detail}</div>` : ''}
         </div>
       </div>`;
   }
