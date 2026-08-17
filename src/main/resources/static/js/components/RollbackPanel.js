@@ -108,8 +108,10 @@ export class RollbackPanel {
 
       if (rewindResult.success) {
         panel.remove();
-        // 通知预览区域刷新（如果当前打开的文件是回撤涉及的文件）
-        EventBus.emit('file:rollback-completed');
+        // 通知预览区域刷新（携带被回滚的文件路径列表，由监听方精确匹配，
+        // 避免回滚任意文件导致当前预览被无故重建）
+        const rollbackPaths = (previewFiles || []).map(f => f && f.filePath).filter(Boolean);
+        EventBus.emit('file:rollback-completed', rollbackPaths);
 
         if (mode === 'files') {
           // 仅回滚文件：不截断会话，只刷新文件变更状态

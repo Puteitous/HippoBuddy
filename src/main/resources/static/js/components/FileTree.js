@@ -151,13 +151,18 @@ export class FileTree {
     if (this._refreshDebounceTimer) {
       clearTimeout(this._refreshDebounceTimer);
     }
-    this._refreshDebounceTimer = setTimeout(() => {
+    this._refreshDebounceTimer = setTimeout(async () => {
       this._refreshDebounceTimer = null;
-      this._doRefresh();
+      // 并行发起 git status 请求与树构建：树替换完成时徽标数据大概率已就绪，
+      // 立即打上徽标，避免"徽标先消失、等请求返回再出现"的闪烁
+      const statusPromise = this._fetchGitStatus();
+      await this._doRefresh(true);
+      await statusPromise;
+      this._applyGitStatusClasses();
     }, 100);
   }
 
-  async _doRefresh() {
+  async _doRefresh(skipGitStatus = false) {
     this._readDirCache = null;
     const preservedDirs = new Set(this._expandedDirs);
     const preservedActive = this._activeFilePath;
@@ -193,7 +198,9 @@ export class FileTree {
       console.error('FileTree.refresh error:', err);
       this._onError(err);
     }
-    await this._fetchAndApplyGitStatus();
+    // refresh() 并行优化时跳过内部 git status 请求（由调用方统一打徽标）；
+    // 其余调用点（collapseAll / reveal / restoreExpandedDirs 等）不传参，保持原串行行为
+    if (!skipGitStatus) await this._fetchAndApplyGitStatus();
   }
 
   /** 清空文件树 */
@@ -754,15 +761,21 @@ export class FileTree {
 
   // ==================== Git 状态 ====================
 
-  async _fetchAndApplyGitStatus() {
+  /** 仅请求 git status 并更新 _gitStatus 数据（不打徽标），供并行刷新使用 */
+  async _fetchGitStatus() {
     if (!this._rootPath) return;
     try {
       const data = await apiGet(`/api/git/status?path=${encodeURIComponent(this._rootPath)}`);
       this._gitStatus = data;
-      this._applyGitStatusClasses();
     } catch (e) {
       this._gitStatus = { available: false };
     }
+  }
+
+  /** 请求 git status 并按最新数据应用徽标（loadRoot / 常规 _doRefresh 使用，保持原行为） */
+  async _fetchAndApplyGitStatus() {
+    await this._fetchGitStatus();
+    this._applyGitStatusClasses();
   }
 
   _applyGitStatusClasses() {

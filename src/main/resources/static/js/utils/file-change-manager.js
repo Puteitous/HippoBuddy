@@ -432,8 +432,8 @@ export class FileChangeManager {
         showToast(window.i18n.t('fileChanges.rollbackSuccess') + filePath.split(/[/\\]/).pop(), { type: 'success', duration: 3000 });
         this.updateFileChanges();
         EventBus.emit('file:changes-updated');
-        // 通知预览区域刷新（如果当前打开的文件正是被回滚的文件）
-        EventBus.emit('file:rollback-completed');
+        // 通知预览区域刷新（携带被回滚的文件路径，由监听方精确匹配，避免无关文件被重建）
+        EventBus.emit('file:rollback-completed', filePath);
       } else {
         showToast(window.i18n.t('fileChanges.rollbackFailed') + (result.error || window.i18n.t('chatui.unknownError')), { type: 'error', duration: 3000 });
         btnEl.classList.remove('rolling');

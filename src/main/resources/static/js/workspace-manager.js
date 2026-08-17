@@ -1067,11 +1067,20 @@ tools:
     }
   });
 
-  // 回撤操作完成后，刷新当前预览的文件内容（如果预览区域打开的文件正好被回撤了）
-  EventBus.on('file:rollback-completed', () => {
-    if (filePreview.currentPath) {
+  // 回撤操作完成后，刷新当前预览的文件内容（仅当被回滚的文件正好是当前预览文件时，
+  // 避免回滚任意文件导致预览区被无故重建、滚动位置跳动）
+  EventBus.on('file:rollback-completed', (paths) => {
+    const current = filePreview.currentPath;
+    if (!current || current.startsWith('url:') || current.startsWith('diff:')) return;
+    // 统一为数组：兼容字符串路径 / 路径数组 / 无参（旧语义=全量回滚，保守刷新当前预览）
+    const list = Array.isArray(paths) ? paths : (typeof paths === 'string' ? [paths] : []);
+    if (list.length === 0) {
       filePreview.reload();
+      return;
     }
+    const cur = current.replace(/\\/g, '/').toLowerCase();
+    const hit = list.some(p => p && p.replace(/\\/g, '/').toLowerCase() === cur);
+    if (hit) filePreview.reload();
   });
 
   // 外部程序（非 AI 工具）修改了工作区文件 → 刷新文件树；

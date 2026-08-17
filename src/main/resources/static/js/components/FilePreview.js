@@ -78,6 +78,8 @@ export class FilePreview {
     this._diffView = null;
     /** @private diff 标签页重载防抖定时器（合并连续 file:changes-updated 事件） */
     this._reloadDiffDebounceTimer = null;
+    /** @private 普通文件 reload 防抖定时器（合并 AI 连续写文件触发的多次重建） */
+    this._reloadTimer = null;
 
     /** @private 二进制文件预览委托实例 */
     this._binaryPreview = new BinaryPreview({
@@ -119,12 +121,7 @@ export class FilePreview {
 
     // ── 页面关闭/刷新前保存当前滚动位置 ──
     this._boundBeforeUnload = () => {
-      if (this._view && this._currentPath) {
-        const top = this._view.scrollDOM.scrollTop;
-        this._scrollPositions.set(this._currentPath, top);
-        this._persistScrollPositions();
-      } else {
-      }
+      this._captureScrollPosition();
     };
     window.addEventListener('beforeunload', this._boundBeforeUnload);
   }
@@ -316,12 +313,8 @@ export class FilePreview {
       this._onDirtyChange(this._currentPath, false);
     }
 
-    // 切换文件前保存当前文件的滚动位置
-    if (this._view && this._currentPath) {
-      const oldTop = this._view.scrollDOM.scrollTop;
-      this._scrollPositions.set(this._currentPath, oldTop);
-      this._persistScrollPositions();
-    }
+    // 切换文件前保存当前文件的滚动位置（按行号+行内偏移）
+    this._captureScrollPosition();
 
     this._currentPath = filePath;
     this._container.dataset.currentPath = filePath;
@@ -479,8 +472,16 @@ export class FilePreview {
     this._fetchOriginalContent(filePath);
   }
 
-  async reload() {
-    if (this._currentPath) {
+  /**
+   * 重新加载当前预览文件。
+   * 防抖 150ms 合并连续触发（AI 一次回复可能连续写同一文件多次 → 多次 file:preview-reload），
+   * 避免编辑器反复重建导致闪烁 / 滚动位置跳动。与 reloadDiffView 的防抖口径一致。
+   */
+  reload() {
+    if (this._reloadTimer) clearTimeout(this._reloadTimer);
+    this._reloadTimer = setTimeout(async () => {
+      this._reloadTimer = null;
+      if (!this._currentPath) return;
       const path = this._currentPath;
       this._dirty = false;
       await this.show(path);
@@ -488,7 +489,7 @@ export class FilePreview {
       // 这样用户在等待 API 返回最新原始内容期间也能看到 diff 标记。
       // 之后 _fetchOriginalContent 的异步回调会校正为最新的原始内容基准。
       this._refreshDiffDecorations();
-    }
+    }, 150);
   }
 
   async save() {
@@ -833,6 +834,32 @@ export class FilePreview {
 
   // ==================== 滚动位置持久化 ====================
 
+  /**
+   * @private 捕获当前滚动位置，存为 { line, offset }：
+   *   line   = 视口顶部所在文档行号（内容变化后仍可定位）
+   *   offset = 该行内已滚过的像素偏移（行高未变时精确还原）
+   * 相比直接存 scrollTop 像素，AI 修改文件内容导致行高变化后仍能大致回到原位置。
+   */
+  _captureScrollPosition() {
+    if (!this._view || !this._currentPath) return;
+    const scrollDOM = this._view.scrollDOM;
+    const top = scrollDOM.scrollTop;
+    let pos = { line: 1, offset: 0 };
+    try {
+      if (top > 0) {
+        const block = this._view.lineBlockAtHeight(top, 0);
+        if (block && block.from != null) {
+          const lineNo = this._view.state.doc.lineAt(block.from).number;
+          pos = { line: lineNo, offset: Math.max(0, top - block.top) };
+        }
+      }
+    } catch (e) {
+      pos = { line: 1, offset: 0 };
+    }
+    this._scrollPositions.set(this._currentPath, pos);
+    this._persistScrollPositions();
+  }
+
   /** @private 将滚动位置持久化到 localStorage */
   _persistScrollPositions() {
     try {
@@ -843,7 +870,7 @@ export class FilePreview {
     }
   }
 
-  /** @private 从 localStorage 加载滚动位置到内存 */
+  /** @private 从 localStorage 加载滚动位置到内存（兼容旧版纯数字像素 / 新版 {line, offset}） */
   _loadScrollPositions() {
     try {
       const raw = localStorage.getItem(this._SCROLL_KEY);
@@ -852,6 +879,8 @@ export class FilePreview {
       for (const [key, val] of Object.entries(obj)) {
         if (typeof val === 'number' && val > 0) {
           this._scrollPositions.set(key, val);
+        } else if (val && typeof val === 'object' && typeof val.line === 'number' && val.line > 0) {
+          this._scrollPositions.set(key, { line: val.line, offset: val.offset || 0 });
         }
       }
     } catch (e) {
@@ -992,14 +1021,29 @@ export class FilePreview {
     if (filePath) {
       this._loadScrollPositions();
       if (this._scrollPositions.has(filePath)) {
-        const savedTop = this._scrollPositions.get(filePath);
-        // 等待 CM6 完成布局后再设置，最多重试 8 帧（≈130ms）
+        const saved = this._scrollPositions.get(filePath);
+        // 兼容两种存储格式：新版 {line, offset}（按行号定位，内容变化后仍可还原）；
+        // 旧版纯数字（scrollTop 像素，直接使用）
+        const isObj = saved && typeof saved === 'object' && typeof saved.line === 'number';
+        // 等待 CM6 完成布局后再设置，最多重试 30 帧（≈500ms），大文件渲染慢也不至于丢失
         const tryRestoreScroll = (attempt = 0) => {
           if (!this._view) return;
-          if (attempt > 8) return;
+          if (attempt > 30) return;
           // 确保 scrollDOM 已经有可滚动的内容，否则 CM6 后续布局会覆盖 scrollTop
           if (this._view.scrollDOM.scrollHeight > this._view.scrollDOM.clientHeight) {
-            this._view.scrollDOM.scrollTop = savedTop;
+            let target = 0;
+            if (isObj) {
+              try {
+                const lineNo = Math.min(saved.line, this._view.state.doc.lines);
+                const docLine = this._view.state.doc.line(lineNo);
+                target = this._view.lineBlockAt(docLine.from).top + (saved.offset || 0);
+              } catch (e) {
+                target = 0;
+              }
+            } else {
+              target = saved;
+            }
+            this._view.scrollDOM.scrollTop = target;
           } else {
             requestAnimationFrame(() => tryRestoreScroll(attempt + 1));
           }
@@ -1014,11 +1058,7 @@ export class FilePreview {
       if (this._scrollThrottleTimer) return;
       this._scrollThrottleTimer = setTimeout(() => {
         this._scrollThrottleTimer = null;
-        if (this._view && this._currentPath) {
-          const top = this._view.scrollDOM.scrollTop;
-          this._scrollPositions.set(this._currentPath, top);
-          this._persistScrollPositions();
-        }
+        this._captureScrollPosition();
       }, 1500);
     };
     this._view.scrollDOM.addEventListener('scroll', this._boundScrollHandler, { passive: true });
@@ -1032,6 +1072,12 @@ export class FilePreview {
     this._mdPreview.destroy();
     this._stopThemeObserver();
     this._container._cmPreviewView = null;
+
+    // 清理 reload 防抖定时器（切换文件/销毁时，防止残留回调触发已销毁视图的 show）
+    if (this._reloadTimer) {
+      clearTimeout(this._reloadTimer);
+      this._reloadTimer = null;
+    }
 
     // 清理滚动节流定时器和事件监听
     if (this._scrollThrottleTimer) {

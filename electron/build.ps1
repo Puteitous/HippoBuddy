@@ -49,9 +49,19 @@ try {
 
 Write-Host "[2/4] Copying JAR to resources..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path "$ScriptDir\resources" | Out-Null
+
 # 动态查找最新构建的 JAR（排除 maven-shade 的 original-* 副本）
-$JarFile = Get-ChildItem "$ProjectRoot\target\*.jar" -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -notlike 'original-*' } | Select-Object -First 1
+# Windows 下 Maven 刚写完大文件时目录枚举可能瞬时为空（杀软/文件系统竞态），
+# 因此带等待的重试，避免误报 "No JAR found"。
+$JarFile = $null
+for ($retry = 1; $retry -le 5 -and -not $JarFile; $retry++) {
+    if ($retry -gt 1) {
+        Write-Host "      JAR not visible yet, retrying ($retry/5)..." -ForegroundColor DarkYellow
+        Start-Sleep -Seconds 1
+    }
+    $JarFile = Get-ChildItem "$ProjectRoot\target\*.jar" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike 'original-*' } | Select-Object -First 1
+}
 if (-not $JarFile) { throw "No JAR found in target/ - run 'mvn package' first" }
 Copy-Item $JarFile.FullName "$ScriptDir\resources\hippo-agent.jar" -Force
 Write-Host "      Using JAR: $($JarFile.Name)" -ForegroundColor Gray
