@@ -49,7 +49,12 @@ try {
 
 Write-Host "[2/4] Copying JAR to resources..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path "$ScriptDir\resources" | Out-Null
-Copy-Item "$ProjectRoot\target\HippoBuddy-1.0.2.jar" "$ScriptDir\resources\hippo-agent.jar" -Force
+# 动态查找最新构建的 JAR（排除 maven-shade 的 original-* 副本）
+$JarFile = Get-ChildItem "$ProjectRoot\target\*.jar" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -notlike 'original-*' } | Select-Object -First 1
+if (-not $JarFile) { throw "No JAR found in target/ - run 'mvn package' first" }
+Copy-Item $JarFile.FullName "$ScriptDir\resources\hippo-agent.jar" -Force
+Write-Host "      Using JAR: $($JarFile.Name)" -ForegroundColor Gray
 
 # ---- 3. jlink: trim minimal JRE ----
 if (-not $SkipJre) {

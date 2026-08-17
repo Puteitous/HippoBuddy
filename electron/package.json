@@ -79,7 +79,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "${productName} ${version}.${ext}"
+      "artifactName": "${productName}-${version}.${ext}"
     }
   }
 }
