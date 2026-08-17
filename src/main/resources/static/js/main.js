@@ -19,7 +19,7 @@ import { MetricsPanel } from './components/MetricsPanel.js';
 import { diffModalManager } from './utils/diff-modal.js';
 import { FileChangeManager } from './utils/file-change-manager.js';
 import { EventBus } from './utils/event-bus.js';
-import { showToast } from './utils/toast.js';
+import { showToast, showBottomToast } from './utils/toast.js';
 import { generateSessionId, apiGet, apiPost } from './utils.js';
 import { renderMarkdown } from './markdown-renderer.js';
 import { RollbackPanel } from './components/RollbackPanel.js';
@@ -258,6 +258,9 @@ function init() {
     });
   })();
   
+  // 10.5 初始化桌面端自动更新（检测到新版本时弹出更新卡片）
+  initAutoUpdater();
+
   // 11. 启动自动更新
   tokenMonitor.startAutoUpdate(30000);
   metricsPanel.startAutoUpdate(10000);
@@ -1403,6 +1406,207 @@ async function saveQuickModelConfig(provider, model) {
 
 // 暴露到全局，供 SettingsPanel 等模块组件在关闭时刷新下拉框
 window.loadQuickModelConfig = loadQuickModelConfig;
+
+// ========== 桌面端自动更新 ==========
+
+/**
+ * 初始化桌面端自动更新 UI（仅 Electron 桌面端生效）。
+ *
+ * 生命周期：发现新版本 → 弹更新卡片 → 用户点"立即更新" → 下载进度条
+ *          → 下载完成 → "重启安装" → 重启应用完成更新。
+ *
+ * 事件来源：主进程 electron/main.js 通过 IPC 推送；
+ * 静默规则：启动自动检查的失败/无新版事件已在主进程抑制，这里只会收到
+ *          "发现新版本" 与手动检查（托盘"检查更新"）的反馈事件。
+ */
+function initAutoUpdater() {
+  const HippoDesktop = window.HippoDesktop;
+  if (!HippoDesktop || !HippoDesktop.isAvailable) return;
+
+  let card = null;
+  let dismissed = false;   // 用户点"稍后"/× 关闭"发现新版本"卡片后，本次会话不再弹出
+  let downloading = false; // 是否处于下载中（用于区分错误提示文案）
+  let background = false;  // 下载中用户关闭卡片 → 下载转后台，完成后仅靠系统通知提醒
+  let state = null;        // 'available' | 'downloading' | 'downloaded'，用于 × 按钮行为分流
+
+  /** 创建（或复用）更新卡片 DOM */
+  function ensureCard() {
+    if (card && document.body.contains(card)) return card;
+    card = document.createElement('div');
+    card.id = 'hippoUpdateCard';
+    card.className = 'update-card';
+    card.innerHTML = `
+      <button type="button" class="update-card-close" aria-label="关闭" title="关闭">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <div class="update-card-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-9-9"/>
+          <path d="M21 3v6h-6"/>
+        </svg>
+      </div>
+      <div class="update-card-body">
+        <div class="update-card-title"></div>
+        <div class="update-card-desc"></div>
+        <div class="update-card-progress" style="display:none">
+          <div class="update-card-progress-track"><div class="update-card-progress-fill"></div></div>
+          <span class="update-card-progress-text">0%</span>
+        </div>
+        <div class="update-card-actions"></div>
+      </div>
+    `;
+    // 右上角 ×：根据当前状态决定行为
+    //   available   → 同【稍后】：本次会话不再弹出
+    //   downloading → 关闭卡片，下载转后台继续（系统通知在完成时提醒）
+    //   downloaded  → 暂不安装，关闭卡片（主进程已持久化待安装标志，下次启动再提示）
+    const closeBtn = card.querySelector('.update-card-close');
+    closeBtn.addEventListener('click', () => {
+      if (state === 'downloading') {
+        // 不取消下载：卡片关闭但下载继续，完成后由系统通知提醒用户
+        background = true;
+        removeCard();
+        return;
+      }
+      if (state === 'available') dismissed = true;
+      removeCard();
+    });
+    document.body.appendChild(card);
+    requestAnimationFrame(() => card.classList.add('show'));
+    return card;
+  }
+
+  /** 移除卡片（带淡出动画） */
+  function removeCard() {
+    if (!card) return;
+    const el = card;
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 250);
+    card = null;
+  }
+
+  /** 设置卡片操作按钮（actions 为空则清空按钮区） */
+  function setActions(actions) {
+    const host = card.querySelector('.update-card-actions');
+    host.innerHTML = '';
+    actions.forEach(({ label, primary, onClick }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = primary ? 'update-btn update-btn-primary' : 'update-btn update-btn-ghost';
+      btn.textContent = label;
+      btn.addEventListener('click', onClick);
+      host.appendChild(btn);
+    });
+  }
+
+  /** 开始下载更新 */
+  function startDownload() {
+    state = 'downloading';
+    downloading = true;
+    setActions([]);
+    HippoDesktop.downloadUpdate().catch(() => {
+      // 错误提示统一走 onUpdateError 事件；这里仅兜底复位
+      downloading = false;
+      removeCard();
+    });
+  }
+
+  // ---------- 注册事件 ----------
+
+  // 发现新版本 → 弹出更新卡片
+  HippoDesktop.onUpdateAvailable((info) => {
+    if (dismissed) return;
+    state = 'available';
+    const c = ensureCard();
+    c.querySelector('.update-card-title').textContent =
+      i18n.t('updater.newVersion', { version: info?.version });
+    c.querySelector('.update-card-desc').textContent = _formatReleaseNotes(info?.releaseNotes);
+    c.querySelector('.update-card-progress').style.display = 'none';
+    setActions([
+      { label: i18n.t('updater.later'), onClick: () => { dismissed = true; removeCard(); } },
+      { label: i18n.t('updater.download'), primary: true, onClick: startDownload },
+    ]);
+  });
+
+  // 下载进度 → 进度条
+  HippoDesktop.onUpdateDownloadProgress((p) => {
+    state = 'downloading';
+    downloading = true;
+    const c = ensureCard();
+    c.querySelector('.update-card-title').textContent = i18n.t('updater.downloading');
+    c.querySelector('.update-card-desc').textContent = '';
+    const progress = c.querySelector('.update-card-progress');
+    progress.style.display = '';
+    const percent = Math.min(100, Math.max(0, Math.round(p?.percent || 0)));
+    c.querySelector('.update-card-progress-fill').style.width = percent + '%';
+    c.querySelector('.update-card-progress-text').textContent = percent + '%';
+    setActions([]);
+  });
+
+  // 下载完成 → 提示重启安装
+  HippoDesktop.onUpdateDownloaded((info) => {
+    state = 'downloaded';
+    downloading = false;
+    // 用户此前关闭了下载中卡片（后台下载）：不再自动弹卡片，
+    // 由主进程的系统通知提醒；用户点击通知后主进程会再次推送本事件 → 此时正常弹卡片。
+    if (background) {
+      background = false;
+      return;
+    }
+    const c = ensureCard();
+    c.querySelector('.update-card-title').textContent = i18n.t('updater.downloadReady');
+    c.querySelector('.update-card-desc').textContent = info?.version ? `v${info.version}` : '';
+    c.querySelector('.update-card-progress').style.display = 'none';
+    setActions([
+      {
+        label: i18n.t('updater.restart'),
+        primary: true,
+        onClick: () => HippoDesktop.quitAndInstall(),
+      },
+    ]);
+  });
+
+  // 手动检查：正在检查
+  HippoDesktop.onUpdateChecking(() => {
+    showBottomToast(i18n.t('updater.checking'));
+  });
+
+  // 手动检查：已是最新版本
+  HippoDesktop.onUpdateNotAvailable(() => {
+    showBottomToast(i18n.t('updater.upToDate'));
+  });
+
+  // 检查/下载出错 → toast 提示（自动检查失败已在主进程静默，不会走到这里）
+  HippoDesktop.onUpdateError((msg) => {
+    const key = downloading ? 'updater.downloadFailed' : 'updater.checkFailed';
+    downloading = false;
+    state = null;
+    background = false;
+    showToast(i18n.t(key, { message: msg || 'unknown' }), {
+      type: 'error',
+      duration: 5000,
+    });
+    removeCard();
+  });
+}
+
+/** 将 electron-updater 的 releaseNotes 转成纯文本（可能是字符串或对象数组） */
+function _formatReleaseNotes(notes) {
+  if (!notes) return '';
+  if (typeof notes === 'string') return notes.slice(0, 160);
+  if (Array.isArray(notes)) {
+    const first = notes[0];
+    if (typeof first === 'string') return first.slice(0, 160);
+    if (first && typeof first === 'object') {
+      // 形如 { language, nodes: [{ text }] }
+      const text = first.nodes?.map((n) => n.text || '').join('') || '';
+      return text.slice(0, 160);
+    }
+  }
+  return '';
+}
 
 // ========== 启动应用 ==========
 init();

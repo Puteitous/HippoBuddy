@@ -62,9 +62,17 @@ export class SessionManager {
   updateActiveSession(sessionId) {
     this.currentSessionId = sessionId;
     const items = this.listContainer.querySelectorAll('.session-item');
+    let activeProjectKey = null;
     for (const item of items) {
       const sid = item.dataset.sessionId;
-      item.classList.toggle('active', sid === sessionId);
+      const isActive = sid === sessionId;
+      item.classList.toggle('active', isActive);
+      if (isActive) activeProjectKey = item.dataset.projectKey || null;
+    }
+    // 同步项目标题高亮：仅当前活跃会话所属项目显示 has-active
+    const headers = this.listContainer.querySelectorAll('.session-project-header');
+    for (const h of headers) {
+      h.classList.toggle('has-active', h.dataset.projectKey === activeProjectKey);
     }
   }
 
@@ -184,7 +192,7 @@ export class SessionManager {
       for (const s of sorted) {
         const name = s.title || this.sessionNames[s.id] || (_t('session.namePrefix') + ' ' + s.id.replace('web-', '').slice(-6));
         if (s.title) this.sessionNames[s.id] = s.title;
-        rows.push({ type: 'session', session: s, name });
+        rows.push({ type: 'session', session: s, name, projectKey: project.projectPath || '__other__' });
       }
     }
 
@@ -230,14 +238,15 @@ export class SessionManager {
         if (otherProjIdx !== -1) {
           rows.splice(otherProjIdx + 1, 0, {
             type: 'session', session: virtualSession,
-            name: this.sessionNames[this.currentSessionId], _isVirtual: true
+            name: this.sessionNames[this.currentSessionId], _isVirtual: true,
+            projectKey: '__other__'
           });
           // Update "其他" count
           rows[otherProjIdx].count = (rows[otherProjIdx].count || 0) + 1;
         } else {
           rows.unshift(
             { type: 'project-header', projectKey: '__other__', projectPath: '', name: _t('session.other'), count: 1, fullPath: '', collapsed: false },
-            { type: 'session', session: virtualSession, name: this.sessionNames[this.currentSessionId], _isVirtual: true }
+            { type: 'session', session: virtualSession, name: this.sessionNames[this.currentSessionId], _isVirtual: true, projectKey: '__other__' }
           );
         }
       } else {
@@ -301,6 +310,7 @@ export class SessionManager {
   _createProjectHeaderElement(row) {
     const el = document.createElement('div');
     el.className = 'session-project-header' + (row.collapsed ? ' collapsed' : '');
+    el.dataset.projectKey = row.projectKey;
     if (row.fullPath) {
       el.title = row.fullPath;
     }
@@ -372,6 +382,18 @@ export class SessionManager {
     const item = document.createElement('div');
     item.className = 'session-item' + (isActive ? ' active' : '');
     item.dataset.sessionId = s.id;
+    if (row.projectKey) item.dataset.projectKey = row.projectKey;
+
+    // 若该会话是当前活跃会话，将其所属项目标题标记为 has-active（高亮）
+    if (isActive && row.projectKey) {
+      const headers = this.listContainer.querySelectorAll('.session-project-header');
+      for (const h of headers) {
+        if (h.dataset.projectKey === row.projectKey) {
+          h.classList.add('has-active');
+          break;
+        }
+      }
+    }
 
     const infoDiv = document.createElement('div');
     infoDiv.className = 'session-info';

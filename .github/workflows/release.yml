@@ -8,9 +8,6 @@ on:
 permissions:
   contents: write
 
-env:
-  JAR_NAME: HippoBuddy-1.0.2.jar
-
 jobs:
   # ============================================================
   # 第一阶段：构建后端 JAR + 前端资源（跨平台共享）
@@ -19,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
+      jar_name: ${{ steps.locate_jar.outputs.jar_name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,11 +42,19 @@ jobs:
       - name: Build backend JAR
         run: mvn package -DskipTests --batch-mode
 
+      - name: Locate JAR file
+        id: locate_jar
+        shell: bash
+        run: |
+          JAR=$(ls target/*.jar | grep -v '/original-' | head -n 1)
+          if [ -z "$JAR" ]; then echo "No JAR found in target/" && exit 1; fi
+          echo "jar_name=$(basename "$JAR")" >> "$GITHUB_OUTPUT"
+
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: hippo-agent-jar
-          path: target/${{ env.JAR_NAME }}
+          path: target/${{ steps.locate_jar.outputs.jar_name }}
           retention-days: 3
 
       - name: Upload frontend artifacts
@@ -121,7 +127,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path electron/resources | Out-Null
-          Copy-Item target/${{ env.JAR_NAME }} electron/resources/hippo-agent.jar -Force
+          Copy-Item target/${{ needs.build-jar.outputs.jar_name }} electron/resources/hippo-agent.jar -Force
 
       - name: Generate trimmed JRE with jlink
         shell: pwsh
@@ -136,7 +142,10 @@ jobs:
       - name: Upload Windows installer to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: electron/release/HippoBuddy*.exe
+          files: |
+            electron/release/HippoBuddy*.exe
+            electron/release/latest.yml
+            electron/release/*.blockmap
           draft: true
           generate_release_notes: true
         env:
@@ -199,7 +208,7 @@ jobs:
       - name: Setup JAR in resources
         run: |
           mkdir -p electron/resources
-          cp target/${{ env.JAR_NAME }} electron/resources/hippo-agent.jar
+          cp target/${{ needs.build-jar.outputs.jar_name }} electron/resources/hippo-agent.jar
 
       - name: Generate trimmed JRE with jlink
         run: |
@@ -217,7 +226,10 @@ jobs:
       - name: Upload macOS DMG to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: electron/release/HippoBuddy*.dmg
+          files: |
+            electron/release/HippoBuddy*.dmg
+            electron/release/latest-mac.yml
+            electron/release/*.blockmap
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -279,7 +291,7 @@ jobs:
       - name: Setup JAR in resources
         run: |
           mkdir -p electron/resources
-          cp target/${{ env.JAR_NAME }} electron/resources/hippo-agent.jar
+          cp target/${{ needs.build-jar.outputs.jar_name }} electron/resources/hippo-agent.jar
 
       - name: Generate trimmed JRE with jlink
         run: |
@@ -295,7 +307,10 @@ jobs:
       - name: Upload Linux AppImage to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: electron/release/HippoBuddy*.AppImage
+          files: |
+            electron/release/HippoBuddy*.AppImage
+            electron/release/latest-linux.yml
+            electron/release/*.blockmap
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

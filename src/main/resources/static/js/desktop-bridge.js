@@ -258,6 +258,9 @@ const HippoDesktop = (() => {
     downloadUpdate() {
       return window.electronAPI?.downloadUpdate();
     },
+    cancelUpdate() {
+      return window.electronAPI?.cancelUpdate();
+    },
     quitAndInstall() {
       return window.electronAPI?.quitAndInstall();
     },

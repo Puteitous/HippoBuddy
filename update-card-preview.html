@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>HippoBuddy 更新卡片样式预览 v2</title>
+<style>
+  :root {
+    --bg-canvas: #edeff2;
+    --bg-overlay: #ffffff;
+    --border: #e5e7eb;
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --text-muted: #6b7280;
+    --accent: #787c82;
+    --bg-active: #e5e7eb;
+    --bg-hover: #edeff2;
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.1);
+    --radius-lg: 12px;
+    --radius-sm: 4px;
+    --transition-normal: 0.3s;
+    --transition-fast: 0.2s;
+    --font-sans: 'Segoe UI', 'Microsoft YaHei', -apple-system, sans-serif;
+    --font-size-lg: 14px;
+    --font-size-sm: 12px;
+    --font-size-xs: 11px;
+  }
+
+  [data-theme="dark"] {
+    --bg-canvas: #262626;
+    --bg-overlay: #2a2a2a;
+    --border: #3a3a3a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --text-muted: #6e6e6e;
+    --accent: #9ca3af;
+    --bg-active: #363636;
+    --bg-hover: #313131;
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.45);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg-canvas);
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    box-sizing: border-box;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .toolbar button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-overlay);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font-sans);
+  }
+  .toolbar button.active {
+    background: var(--accent);
+    color: var(--bg-overlay);
+    border-color: transparent;
+  }
+
+  .stage {
+    position: relative;
+    width: 520px;
+    height: 430px;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  /* 模拟应用界面背景 */
+  .stage-bg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    opacity: 0.5;
+  }
+  .stage-bg .bar {
+    height: 40px;
+    background: var(--bg-canvas);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .stage-bg .bar .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border);
+  }
+  .stage-bg .body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+  }
+  .stage-bg .body .left {
+    border-right: 1px solid var(--border);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .stage-bg .body .left .line {
+    height: 10px; border-radius: 4px; background: var(--border);
+  }
+  .stage-bg .body .right { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .stage-bg .body .right .chat { height: 46px; border-radius: 8px; background: var(--bg-canvas); }
+  .stage-bg .body .right .chat:nth-child(2) { align-self: flex-end; width: 60%; }
+
+  /* ===== 更新卡片（与项目 cockpit.css 完全一致，v2） ===== */
+  .update-card {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    z-index: 9999;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 320px;
+    max-width: 420px;
+    padding: 14px 16px;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    font-family: var(--font-sans);
+    transition: opacity var(--transition-normal), transform var(--transition-normal);
+  }
+
+  .update-card-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    padding: 0;
+  }
+  .update-card-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .update-card-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg-overlay);
+  }
+
+  .update-card-body {
+    flex: 1;
+    min-width: 0;
+    /* 右上角 × 留出空间 */
+    padding-right: 24px;
+  }
+
+  .update-card-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+
+  .update-card-desc {
+    margin-top: 2px;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .update-card-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .update-card-progress-track {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-active);
+    overflow: hidden;
+  }
+
+  .update-card-progress-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background: var(--accent);
+    transition: width 0.2s ease;
+  }
+
+  .update-card-progress-text {
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    min-width: 36px;
+    text-align: right;
+  }
+
+  .update-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .update-btn {
+    padding: 5px 14px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  .update-btn-primary {
+    background: var(--accent);
+    color: var(--bg-overlay);
+  }
+  .update-btn-primary:hover { filter: brightness(1.1); }
+
+  .update-btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border);
+  }
+  .update-btn-ghost:hover { background: var(--bg-hover); }
+
+  /* ===== 说明面板 ===== */
+  .caption {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: left;
+    line-height: 1.9;
+    max-width: 520px;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+  }
+  .caption h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .caption table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .caption th, .caption td {
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .caption th { color: var(--text-secondary); font-weight: 600; width: 90px; }
+  .caption td { color: var(--text-muted); }
+  .caption code {
+    background: var(--bg-hover);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body data-theme="light">
+
+  <div class="toolbar">
+    <span style="font-size:14px;font-weight:600;">🎨 更新卡片预览 v2</span>
+    <span style="width:1px;height:20px;background:var(--border)"></span>
+    <button id="btn-available" class="active">① 发现新版本</button>
+    <button id="btn-downloading">② 下载中</button>
+    <button id="btn-downloaded">③ 下载完成</button>
+    <span style="width:1px;height:20px;background:var(--border)"></span>
+    <button id="btn-theme">🌓 切换暗色</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <!-- 模拟应用界面 -->
+    <div class="stage-bg">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span style="margin-left:8px;">HippoBuddy — 工作区</span>
+      </div>
+      <div class="body">
+        <div class="left">
+          <div class="line" style="width:80%"></div>
+          <div class="line" style="width:60%"></div>
+          <div class="line" style="width:70%"></div>
+        </div>
+        <div class="right">
+          <div class="chat"></div>
+          <div class="chat"></div>
+          <div class="chat" style="height:26px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 更新卡片 -->
+    <div class="update-card" id="card">
+      <button type="button" class="update-card-close" id="card-close" aria-label="关闭" title="关闭">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <div class="update-card-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-9-9"/>
+          <path d="M21 3v6h-6"/>
+        </svg>
+      </div>
+      <div class="update-card-body">
+        <div class="update-card-title" id="card-title">发现新版本 v1.0.3</div>
+        <div class="update-card-desc" id="card-desc">• 新增自动更新提示 • 修复若干已知问题</div>
+        <div class="update-card-progress" id="card-progress" style="display:none">
+          <div class="update-card-progress-track"><div class="update-card-progress-fill" id="progress-fill"></div></div>
+          <span class="update-card-progress-text" id="progress-text">0%</span>
+        </div>
+        <div class="update-card-actions" id="card-actions"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">
+    <h3>× 关闭按钮行为（v2 新增）</h3>
+    <table>
+      <tr><th>① 发现新版本</th><td>同【稍后】：本次会话不再弹出</td></tr>
+      <tr><th>② 下载中</th><td>卡片消失，<b>下载转后台继续</b>，完成时系统通知提醒</td></tr>
+      <tr><th>③ 下载完成</th><td>暂不安装，下次启动再提示【重启安装】（无需重新下载）</td></tr>
+    </table>
+    <h3 style="margin-top:12px">演示提示</h3>
+    <table>
+      <tr><th>② 下载中</th><td>点右上角 × 试试 → 卡片关闭（模拟转后台）</td></tr>
+      <tr><th>按钮布局</th><td>v2 已改为按钮在文字<b>下方</b>，右上角留出 × 空间</td></tr>
+    </table>
+  </div>
+
+<script>
+  const card = document.getElementById('card');
+  const title = document.getElementById('card-title');
+  const desc = document.getElementById('card-desc');
+  const progress = document.getElementById('card-progress');
+  const fill = document.getElementById('progress-fill');
+  const ptext = document.getElementById('progress-text');
+  const actions = document.getElementById('card-actions');
+  const closeBtn = document.getElementById('card-close');
+
+  let themeDark = false;
+  let downloadTimer = null;
+
+  function resetCard() {
+    if (downloadTimer) { clearInterval(downloadTimer); downloadTimer = null; }
+    progress.style.display = 'none';
+    card.classList.add('show');
+  }
+
+  function setActions(list) {
+    actions.innerHTML = '';
+    list.forEach(({ label, primary, onClick }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = primary ? 'update-btn update-btn-primary' : 'update-btn update-btn-ghost';
+      btn.textContent = label;
+      btn.addEventListener('click', onClick);
+      actions.appendChild(btn);
+    });
+  }
+
+  function hideCard() {
+    card.classList.remove('show');
+  }
+
+  function showAvailable() {
+    resetCard();
+    title.textContent = '发现新版本 v1.0.3';
+    desc.textContent = '• 新增自动更新提示 • 修复若干已知问题';
+    setActions([
+      { label: '稍后', onClick: () => hideCard() },
+      { label: '立即更新', primary: true, onClick: () => showDownloading() },
+    ]);
+    setActive('btn-available');
+  }
+
+  function showDownloading() {
+    resetCard();
+    title.textContent = '正在下载更新…';
+    desc.textContent = '';
+    progress.style.display = 'flex';
+    let p = 0;
+    downloadTimer = setInterval(() => {
+      p = Math.min(100, p + 4);
+      fill.style.width = p + '%';
+      ptext.textContent = p + '%';
+      if (p >= 100) clearInterval(downloadTimer);
+    }, 120);
+    setActions([]);
+    setActive('btn-downloading');
+  }
+
+  function showDownloaded() {
+    resetCard();
+    title.textContent = '更新已就绪，重启后生效';
+    desc.textContent = 'v1.0.3';
+    setActions([
+      { label: '重启安装', primary: true, onClick: () => {} },
+    ]);
+    setActive('btn-downloaded');
+  }
+
+  function setActive(id) {
+    ['btn-available','btn-downloading','btn-downloaded'].forEach(b => {
+      document.getElementById(b).classList.toggle('active', b === id);
+    });
+  }
+
+  // × 按钮：下载中 → 模拟转后台（隐藏卡片）；其他 → 关闭
+  closeBtn.addEventListener('click', () => {
+    const active = document.querySelector('.toolbar button.active')?.id;
+    if (active === 'btn-downloading') {
+      hideCard();
+      // 提示已转后台
+      setTimeout(() => {
+        title.textContent = '（演示：卡片已关闭，下载在后台继续）';
+      }, 0);
+    } else {
+      hideCard();
+    }
+  });
+
+  document.getElementById('btn-available').onclick = showAvailable;
+  document.getElementById('btn-downloading').onclick = showDownloading;
+  document.getElementById('btn-downloaded').onclick = showDownloaded;
+  document.getElementById('btn-theme').onclick = () => {
+    themeDark = !themeDark;
+    document.body.dataset.theme = themeDark ? 'dark' : 'light';
+    document.getElementById('btn-theme').textContent = themeDark ? '☀️ 切换亮色' : '🌓 切换暗色';
+  };
+
+  // 初始展示：发现新版本
+  showAvailable();
+</script>
+</body>
+</html>

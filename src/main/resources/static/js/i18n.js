@@ -1048,6 +1048,18 @@
         'Let‘s go! Let‘s go! 🚀',
       ],
     },
+
+    /* ==================== 自动更新 ==================== */
+    'updater.newVersion':            { zh: '发现新版本 v{version}', en: 'New version v{version} available' },
+    'updater.checking':              { zh: '正在检查更新…', en: 'Checking for updates…' },
+    'updater.upToDate':              { zh: '已是最新版本', en: 'You are up to date' },
+    'updater.downloading':           { zh: '正在下载更新…', en: 'Downloading update…' },
+    'updater.downloadReady':         { zh: '更新已就绪，重启后生效', en: 'Update ready, restart to apply' },
+    'updater.download':              { zh: '立即更新', en: 'Update Now' },
+    'updater.later':                 { zh: '稍后', en: 'Later' },
+    'updater.restart':               { zh: '重启安装', en: 'Restart & Install' },
+    'updater.checkFailed':           { zh: '检查更新失败：{message}', en: 'Update check failed: {message}' },
+    'updater.downloadFailed':        { zh: '下载更新失败：{message}', en: 'Download failed: {message}' },
   };
 
   // ============================================================

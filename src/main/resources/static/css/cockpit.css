@@ -789,3 +789,162 @@ body.window-maximized {
 /* ==========================================
    最大化和窗口控制
    ========================================== */
+
+/* ==========================================
+   自动更新卡片（桌面端）
+   ========================================== */
+
+.update-card {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 9999;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 320px;
+    max-width: 420px;
+    padding: 14px 16px;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity var(--transition-normal), transform var(--transition-normal);
+    font-family: var(--font-sans);
+}
+
+.update-card.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.update-card-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    padding: 0;
+}
+
+.update-card-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.update-card-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg-overlay);
+}
+
+.update-card-body {
+    flex: 1;
+    min-width: 0;
+    /* 右上角 × 留出空间 */
+    padding-right: 24px;
+}
+
+.update-card-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.update-card-desc {
+    margin-top: 2px;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    line-height: 1.5;
+    /* 单行省略 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.update-card-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.update-card-progress-track {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-active);
+    overflow: hidden;
+}
+
+.update-card-progress-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background: var(--accent);
+    transition: width 0.2s ease;
+}
+
+.update-card-progress-text {
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    min-width: 36px;
+    text-align: right;
+}
+
+.update-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.update-btn {
+    padding: 5px 14px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+    white-space: nowrap;
+}
+
+.update-btn-primary {
+    background: var(--accent);
+    color: var(--bg-overlay);
+    border: 1px solid transparent;
+}
+
+.update-btn-primary:hover {
+    filter: brightness(1.1);
+}
+
+.update-btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.update-btn-ghost:hover {
+    background: var(--bg-hover);
+}

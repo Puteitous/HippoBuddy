@@ -1049,6 +1049,59 @@ ipcMain.handle('notification:show', async (_event, { title, body, icon }) => {
 // 自动更新
 // ============================================================================
 
+/** 启动时的静默自动检查标志：为 true 时 error 事件不转发给前端（不打扰用户） */
+let _silentAutoCheck = false;
+
+// ---------- "待安装更新"持久化 ----------
+// 用户点 × 关闭"下载完成"卡片后，把版本信息写到 userData，
+// 下次启动时若仍未安装（版本号低于待安装版本）则再次提示"重启安装"。
+
+const PENDING_UPDATE_FILE = 'update-pending.json';
+
+function getPendingUpdatePath() {
+  return path.join(app.getPath('userData'), PENDING_UPDATE_FILE);
+}
+
+/** 读取待安装更新信息，无则返回 null */
+function readPendingUpdate() {
+  try {
+    const data = JSON.parse(fs.readFileSync(getPendingUpdatePath(), 'utf-8'));
+    if (data && data.version) return data;
+  } catch { /* 文件不存在或损坏 */ }
+  return null;
+}
+
+/** 记录待安装更新（下载完成后调用） */
+function writePendingUpdate(version, releaseNotes) {
+  try {
+    fs.mkdirSync(path.dirname(getPendingUpdatePath()), { recursive: true });
+    fs.writeFileSync(getPendingUpdatePath(), JSON.stringify({
+      version,
+      releaseNotes: releaseNotes || null,
+      savedAt: new Date().toISOString(),
+    }, null, 2), 'utf-8');
+  } catch { /* 静默忽略 */ }
+}
+
+/** 清除待安装更新记录（安装/退出清理时调用） */
+function clearPendingUpdate() {
+  try { fs.unlinkSync(getPendingUpdatePath()); } catch { /* 不存在则忽略 */ }
+}
+
+/** 简单版本号比较：a > b 返回 1，a < b 返回 -1，相等返回 0 */
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
 /** 配置 autoUpdater（生产模式才启用） */
 function setupAutoUpdater() {
   if (!app.isPackaged) {
@@ -1064,11 +1117,13 @@ function setupAutoUpdater() {
   // ----- 事件监听 -----
 
   autoUpdater.on('checking-for-update', () => {
+    if (_silentAutoCheck) return; // 启动静默检查不通知前端
     console.log('[updater] Checking for updates…');
     mainWindow?.webContents.send('update:checking');
   });
 
   autoUpdater.on('update-available', (info) => {
+    _silentAutoCheck = false;
     console.log('[updater] New version available:', info.version);
     mainWindow?.webContents.send('update:available', {
       version: info.version,
@@ -1078,6 +1133,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-not-available', (info) => {
+    _silentAutoCheck = false;
     console.log('[updater] Already up to date:', info.version);
     mainWindow?.webContents.send('update:not-available', {
       version: info.version,
@@ -1085,6 +1141,12 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (err) => {
+    // 启动静默检查失败（如网络不可用）不打扰用户，仅记日志
+    if (_silentAutoCheck) {
+      _silentAutoCheck = false;
+      console.warn('[updater] Auto check failed (silent):', err.message);
+      return;
+    }
     console.error('[updater] Update check error:', err.message);
     mainWindow?.webContents.send('update:error', err.message);
   });
@@ -1100,6 +1162,8 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[updater] New version downloaded:', info.version);
+    // 持久化"待安装"标志：用户点 × 暂不安装时，下次启动仍会提示重启安装
+    writePendingUpdate(info.version, info.releaseNotes);
     mainWindow?.webContents.send('update:downloaded', {
       version: info.version,
       releaseNotes: info.releaseNotes,
@@ -1121,6 +1185,40 @@ function setupAutoUpdater() {
       notif.show();
     }
   });
+
+  // ----- 启动后自动检查 -----
+  // 关键：必须等 cockpit 页面加载完成后再检查（而不是固定的 5 秒）。
+  // 后端 Java 启动需要 10~30 秒，期间窗口停留在 splash 页面；
+  // 若此时触发检查，update:* 事件会发给 splash 而丢失（splash 无监听器）。
+  // 监听 did-finish-load 并确认 URL 是 cockpit 后，再延迟 1 秒执行，
+  // 确保前端 initAutoUpdater() 已注册所有监听器。
+  let _autoCheckDone = false;
+  const _onCockpitLoaded = () => {
+    const url = mainWindow?.webContents.getURL() || '';
+    if (!url.includes('/cockpit') || _autoCheckDone) return;
+    _autoCheckDone = true;
+
+    // ① 上次有已下载但未安装的更新？先提示重启安装（更新文件仍在本机缓存）
+    const pending = readPendingUpdate();
+    if (pending && compareVersions(pending.version, app.getVersion()) > 0) {
+      console.log(`[updater] Pending update found (v${pending.version}), prompting install`);
+      mainWindow?.webContents.send('update:downloaded', {
+        version: pending.version,
+        releaseNotes: pending.releaseNotes,
+      });
+    }
+
+    // ② 静默自动检查（失败/无新版不打扰用户）
+    setTimeout(() => {
+      console.log('[updater] Auto check for updates on startup');
+      _silentAutoCheck = true; // 本次检查失败时不转发 error 给前端
+      autoUpdater.checkForUpdates().catch((err) => {
+        _silentAutoCheck = false;
+        console.warn('[updater] Auto check failed (silent):', err.message);
+      });
+    }, 1000); // 等前端监听器注册完成（did-finish-load 时 ES module 已执行，再加 1s 保险）
+  };
+  mainWindow?.webContents.on('did-finish-load', _onCockpitLoaded);
 }
 
 // ---------- IPC: 更新控制 ----------
@@ -1143,7 +1241,21 @@ ipcMain.handle('update:download', async () => {
   }
 });
 
+ipcMain.handle('update:cancel', async () => {
+  try {
+    if (typeof autoUpdater.cancelUpdate === 'function') {
+      autoUpdater.cancelUpdate();
+      console.log('[updater] Download cancelled by user');
+      return { success: true };
+    }
+    return { success: false, error: '当前平台不支持取消下载' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('update:quitAndInstall', async () => {
+  clearPendingUpdate(); // 安装后不再需要待安装标志
   setImmediate(() => autoUpdater.quitAndInstall());
   return { success: true };
 });

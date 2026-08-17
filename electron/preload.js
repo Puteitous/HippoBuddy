@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ===== 自动更新 =====
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  cancelUpdate: () => ipcRenderer.invoke('update:cancel'),
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
   onUpdateChecking: (cb) => { _updateCallbacks.onChecking = cb; },
   onUpdateAvailable: (cb) => { _updateCallbacks.onAvailable = cb; },

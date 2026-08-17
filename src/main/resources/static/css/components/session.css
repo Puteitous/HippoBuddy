@@ -218,7 +218,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.15s ease, color 0.15s ease;
 }
 
 /* 折叠（默认）：显示“文件夹-关” */
@@ -277,6 +277,18 @@
     opacity: 1;
     background: var(--bg-code);
     color: var(--text-primary);
+}
+
+/* 含活跃会话的项目：展开图标与项目名高亮为强调色（折叠态不生效） */
+.session-project-header.has-active:not(.collapsed) .project-icon-open {
+    color: var(--active-project);
+    opacity: 1;
+}
+
+.session-project-header.has-active .project-name {
+    color: var(--active-project);
+    font-weight: 600;
+    transition: color var(--transition-fast);
 }
 
 /* Infinite scroll sentinel — invisible trigger for IntersectionObserver */

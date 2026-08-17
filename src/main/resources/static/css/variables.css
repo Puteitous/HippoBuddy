@@ -49,6 +49,9 @@
   --warning-color: #c28830;
   --warning-bg:    #fff3e0;
 
+  /* 会话列表中"含活跃会话的项目标题"高亮色 */
+  --active-project: #2563eb;
+
   /* 词级 diff 标记（行内精确变更）：比行底色更深的强调色 */
   --diff-word-del-bg: #ffcdd2;
   --diff-word-ins-bg: #c8e6c9;
@@ -134,6 +137,9 @@
   --warning-color: #ff9800;
   --warning-bg:    #3a2a10;
 
+  /* 会话列表中"含活跃会话的项目标题"高亮色 */
+  --active-project: #60a5fa;
+
   /* 词级 diff 标记（行内精确变更）：比行底色更亮的强调色 */
   --diff-word-del-bg: #7a2a2a;
   --diff-word-ins-bg: #2e5d34;
@@ -185,6 +191,9 @@
 
   --warning-color: #ff9800;
   --warning-bg:    #3a2a10;
+
+  /* 会话列表中"含活跃会话的项目标题"高亮色 */
+  --active-project: #60a5fa;
 
   /* 词级 diff 标记（行内精确变更）：比行底色更亮的强调色 */
   --diff-word-del-bg: #7a2a2a;
