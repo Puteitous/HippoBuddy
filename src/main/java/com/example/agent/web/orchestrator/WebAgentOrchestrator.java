@@ -59,6 +59,33 @@ public class WebAgentOrchestrator {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final int MAX_TURNS = 50;
 
+    /**
+     * LLM 前缀缓存命中率告警阈值（百分比）。单次响应命中率低于该值时 WARN 提醒。
+     * <p>
+     * 前缀缓存（system + tools 逐字节一致）是长会话成本的关键，正常应稳定 90%+，
+     * 异常跌落（曾观测 96% → 6.7%）通常是 prompt/tools 动态源复活、切工作区、
+     * 重启恢复或 mode 变更导致（详见 .hippo/doc/fix 三不变式文档）。低于阈值只提醒，
+     * 不干预请求——新会话首轮（无历史前缀可命中）经 cacheRead==0 过滤，不会误报。
+     * </p>
+     */
+    static final double CACHE_HIT_RATE_WARN_THRESHOLD = 40.0;
+
+    /**
+     * 相对突降告警阈值（百分点）。上次为正常命中率（≥ {@link #CACHE_HIT_RATE_WARN_THRESHOLD}）时，
+     * 本次较上次下跌超过该值即告警——即使本次仍高于绝对阈值（如 96% → 50%），
+     * 大幅下跌同样说明前缀缓存被击穿，不应等到跌破绝对线才暴露。
+     */
+    static final double CACHE_HIT_RATE_DROP_THRESHOLD_PP = 40.0;
+
+    /** 同会话缓存告警冷却时间（毫秒），防止低命中率期间每轮刷屏 */
+    private static final long CACHE_HIT_RATE_WARN_COOLDOWN_MS = 5 * 60_000L;
+
+    /** 各会话最近一次缓存告警时间戳（冷却去抖） */
+    private final Map<String, Long> lastCacheWarnAt = new ConcurrentHashMap<>();
+
+    /** 各会话最近一次响应命中率（相对突降判定依据，每次响应后更新） */
+    private final Map<String, Double> lastCacheHitRates = new ConcurrentHashMap<>();
+
     private static final List<StopHook> stopHooks = List.of();
 
     private static final TruncationService truncationService = new TruncationService(TokenEstimatorFactory.getDefault());
@@ -379,14 +406,16 @@ public class WebAgentOrchestrator {
             }
 
             if (response.getUsage() != null) {
+                Usage usage = response.getUsage();
                 SessionTokenStats stats = sessionManager.getOrCreateSessionTokenStats(sessionId);
                 stats.addLlmCall(
-                    response.getUsage().getPromptTokens(),
-                    response.getUsage().getCompletionTokens(),
-                    response.getUsage().getTotalTokens(),
-                    response.getUsage().getCacheReadInputTokens(),
-                    response.getUsage().getPromptCacheMissTokens()
+                    usage.getPromptTokens(),
+                    usage.getCompletionTokens(),
+                    usage.getTotalTokens(),
+                    usage.getCacheReadInputTokens(),
+                    usage.getPromptCacheMissTokens()
                 );
+                warnIfCacheHitRateLow(sessionId, usage, turn + 1);
             }
 
             // 流式路径：web_search 状态经 StreamChunk 传递；非流式路径：parseResponsesBody 已置标记。
@@ -483,6 +512,81 @@ public class WebAgentOrchestrator {
      * 前端据此识别为流式实时推送，直接渲染而不污染趋势图历史记录。
      * </p>
      */
+    /**
+     * 判断单次 LLM 响应的缓存命中率是否触发告警（纯函数，便于单测）。
+     * <p>
+     * 过滤规则：usage 为空或 cacheRead==0（新会话首轮、无历史前缀可命中）不告警，
+     * 避免首轮请求误报。
+     * </p>
+     * <p>
+     * 双路判定（任一触发即告警）：
+     * <ul>
+     *   <li><b>绝对低值</b>：命中率严格低于 {@code thresholdPercent}</li>
+     *   <li><b>相对突降</b>：上次为正常命中率（≥ 阈值）时，本次较上次下跌 ≥ {@code dropThresholdPp} 个百分点</li>
+     * </ul>
+     * 突降判定要求"上次正常"，避免已在低位持续告警时重复报警；首次响应（无上次记录，
+     * {@code lastRatePercent <= 0}）只走绝对判定。
+     * </p>
+     *
+     * @param usage            单次响应的 Usage（可空）
+     * @param thresholdPercent 绝对低值告警阈值（百分比，0-100）
+     * @param lastRatePercent  该会话上一次响应的命中率（0 表示无历史记录）
+     * @param dropThresholdPp  相对突降告警阈值（百分点）
+     * @return true 表示命中率异常，应 WARN
+     */
+    static boolean shouldWarnOnCacheHitRate(Usage usage, double thresholdPercent,
+                                            double lastRatePercent, double dropThresholdPp) {
+        if (usage == null) return false;
+        if (usage.getCacheReadInputTokens() <= 0) return false;
+        double rate = usage.getCacheHitRate();
+        if (rate < thresholdPercent) {
+            return true;
+        }
+        // 相对突降：仅当上次命中率正常（≥ 阈值）时才判定，避免低位持续告警时重复报警。
+        // 用 epsilon 容忍浮点误差：命中率由 (hit/prompt*100) 计算，除法会产生 0.000000000000005
+        // 级误差，导致恰好在阈值线上的值（如 96% → 56%，恰跌 40pp）被误判为未达线。
+        return lastRatePercent >= thresholdPercent
+            && (lastRatePercent - rate) >= dropThresholdPp - 1e-9;
+    }
+
+    /**
+     * 缓存命中率异常时 WARN 提醒（带同会话冷却去抖，避免低值期间每轮刷屏）。
+     * 每次响应都会更新该会话的历史命中率（相对突降判定依据）；冷却期内不重复
+     * 告警，冷却期后若仍异常会再次提醒。
+     */
+    private void warnIfCacheHitRateLow(String sessionId, Usage usage, int turn) {
+        if (usage == null || usage.getCacheReadInputTokens() <= 0) {
+            return;
+        }
+        double rate = usage.getCacheHitRate();
+        Double last = lastCacheHitRates.get(sessionId);
+        double lastRate = last != null ? last : 0.0;
+        // 先更新历史命中率，保证每次响应都记录（无论是否告警）
+        lastCacheHitRates.put(sessionId, rate);
+
+        if (!shouldWarnOnCacheHitRate(usage, CACHE_HIT_RATE_WARN_THRESHOLD,
+                lastRate, CACHE_HIT_RATE_DROP_THRESHOLD_PP)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long lastWarn = lastCacheWarnAt.get(sessionId);
+        if (lastWarn != null && now - lastWarn < CACHE_HIT_RATE_WARN_COOLDOWN_MS) {
+            return;
+        }
+        lastCacheWarnAt.put(sessionId, now);
+
+        String reason = rate < CACHE_HIT_RATE_WARN_THRESHOLD
+            ? String.format("低于绝对阈值 %.0f%%", CACHE_HIT_RATE_WARN_THRESHOLD)
+            : String.format("较上次 %.1f%% 突降 %.1fpp", lastRate, lastRate - rate);
+        logger.warn("⚠️ LLM 前缀缓存命中率异常: sessionId={}, turn={}, cacheHitRate={}%, "
+                + "cacheHit={}, cacheMiss={}, prompt={}（判定: {}；正常长会话应稳定 90%+。"
+                + "异常跌落通常是 prompt/tools 动态变化、切换工作区、重启恢复或 mode 变更，"
+                + "请排查，详见 .hippo/doc/fix 三不变式文档）",
+            sessionId, turn, String.format("%.1f", rate),
+            usage.getCacheReadInputTokens(), usage.getPromptCacheMissTokens(), usage.getPromptTokens(),
+            reason);
+    }
+
     private void pushTokenUpdate(SseWriter sseWriter, Usage usage) {
         try {
             if (usage == null) return;

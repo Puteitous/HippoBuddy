@@ -451,17 +451,20 @@ public class ConversationService {
     }
 
     public void addAssistantMessage(Conversation conversation, Message message, Usage usage) {
-        addMessage(conversation, message);
-        
-        // 保存 LLM 返回的 usage 数据，用于 Token 统计
+        // 先更新 lastKnownUsage 再落库：transcript 写入 assistant 消息时读取
+        // conversation.getLastKnownUsage()（见 addMessage），若后更新会把上一次的
+        // usage 写进本次消息，导致 jsonl 中每条 assistant 的 usage 滞后一条
+        // （前端 Token 趋势图 / 会话恢复统计偏差）。
         if (usage != null) {
             conversation.updateLastKnownUsage(usage);
-            logger.debug("已保存 usage: prompt={}, completion={}, total={}, cacheHit={}", 
+            logger.debug("已保存 usage: prompt={}, completion={}, total={}, cacheHit={}",
                 usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens(),
                 usage.getCacheReadInputTokens());
         } else {
             logger.warn("LLM 返回的 usage 为 null");
         }
+
+        addMessage(conversation, message);
     }
 
     public void addToolResult(Conversation conversation, String toolCallId, String toolName, String content) {

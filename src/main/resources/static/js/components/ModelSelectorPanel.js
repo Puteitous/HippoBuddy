@@ -119,9 +119,7 @@ export class ModelSelectorPanel {
 
   _renderTrigger() {
     if (!this._data) return;
-    const provider = this._data.provider || '';
     const model = this._data.model || '';
-    const supported = supportsReasoningEffort(provider);
 
     this._trigger.textContent = '';
     const modelSpan = document.createElement('span');
@@ -129,7 +127,11 @@ export class ModelSelectorPanel {
     modelSpan.textContent = model || t('chat.noModel');
     this._trigger.appendChild(modelSpan);
 
-    if (supported) {
+    // 仅当档位被主动设置（非 Default）时才显示「· 档位」：
+    // Default（空值 = 不传参，交由模型服务商决定）对用户无决策价值，不占触发器空间；
+    // 面板第一级 menu 的「思考强度」摘要仍会显示 Default，信息通路不受影响。
+    const effort = this._normalizedEffort();
+    if (effort) {
       const sep = document.createElement('span');
       sep.className = 'msp-trigger-sep';
       sep.textContent = '·';
@@ -137,7 +139,7 @@ export class ModelSelectorPanel {
 
       const effortSpan = document.createElement('span');
       effortSpan.className = 'msp-trigger-effort';
-      effortSpan.textContent = this._normalizedEffort() || t('chatui.effortDefaultLabel');
+      effortSpan.textContent = effort;
       this._trigger.appendChild(effortSpan);
     }
   }

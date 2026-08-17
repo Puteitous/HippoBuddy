@@ -5,8 +5,12 @@ import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
+import com.example.agent.llm.model.Usage;
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.service.TokenEstimatorFactory;
+import com.example.agent.session.TranscriptEntry;
+import com.example.agent.session.TranscriptLoader;
+import com.example.agent.session.TranscriptType;
 import com.example.agent.testutil.MockLlmClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -324,5 +330,61 @@ class ConversationServiceTest {
         Path newPath = service.flushTranscript(sessionId);
         assertThat(newPath).isNotNull();
         assertThat(newPath).isEqualTo(path);
+    }
+
+    @Test
+    @DisplayName("✅ addAssistantMessage(usage) 落库 usage 为本次值（不滞后一条）")
+    void addAssistantMessagePersistsOwnUsage() {
+        Conversation conv = service.create("System");
+        String sessionId = conv.getSessionId();
+        service.addUserMessage(conv, "Q1");
+        service.addAssistantMessage(conv, Message.assistant("A1"), buildUsage(111, 22, 133, 100));
+        service.addUserMessage(conv, "Q2");
+        service.addAssistantMessage(conv, Message.assistant("A2"), buildUsage(222, 33, 255, 200));
+
+        // 内存 lastKnownUsage 应为最后一条（既有语义保持）
+        assertThat(conv.getLastKnownUsage()).isNotNull();
+        assertThat(conv.getLastKnownUsage().getPromptTokens()).isEqualTo(222);
+
+        Path jsonl = service.flushTranscript(sessionId);
+        TranscriptLoader.LoadResult result = TranscriptLoader.load(jsonl);
+        List<TranscriptEntry> assistantEntries = result.getAllEntries().stream()
+            .filter(e -> e.getTypeEnum() == TranscriptType.ASSISTANT)
+            .collect(Collectors.toList());
+
+        // 修复前：第一条落库为 null/旧值、第二条落库为第一条的 usage（滞后一条）；
+        // 修复后：各自落库本次 usage。
+        assertThat(assistantEntries).hasSize(2);
+        assertThat(assistantEntries.get(0).getUsage()).isNotNull();
+        assertThat(assistantEntries.get(0).getUsage().getPromptTokens()).isEqualTo(111);
+        assertThat(assistantEntries.get(0).getUsage().getCompletionTokens()).isEqualTo(22);
+        assertThat(assistantEntries.get(1).getUsage()).isNotNull();
+        assertThat(assistantEntries.get(1).getUsage().getPromptTokens()).isEqualTo(222);
+        assertThat(assistantEntries.get(1).getUsage().getCompletionTokens()).isEqualTo(33);
+    }
+
+    @Test
+    @DisplayName("✅ addAssistantMessage(usage=null) 不覆盖已有 lastKnownUsage")
+    void addAssistantMessageWithNullUsageKeepsLastKnown() {
+        Conversation conv = service.create("System");
+        service.addUserMessage(conv, "Q1");
+        service.addAssistantMessage(conv, Message.assistant("A1"), buildUsage(111, 22, 133, 100));
+        assertThat(conv.getLastKnownUsage().getPromptTokens()).isEqualTo(111);
+
+        // 后续调用 usage=null（如编辑/占位消息），不应清空或覆盖上次已知 usage
+        service.addAssistantMessage(conv, Message.assistant("A2"), null);
+
+        assertThat(conv.getLastKnownUsage()).isNotNull();
+        assertThat(conv.getLastKnownUsage().getPromptTokens()).isEqualTo(111);
+    }
+
+    /** 构造一个带缓存指标的 Usage 实例。 */
+    private Usage buildUsage(int prompt, int completion, int total, int cacheHit) {
+        Usage usage = new Usage();
+        usage.setPromptTokens(prompt);
+        usage.setCompletionTokens(completion);
+        usage.setTotalTokens(total);
+        usage.setPromptCacheHitTokens(cacheHit);
+        return usage;
     }
 }

@@ -72,11 +72,13 @@ describe('ModelSelectorPanel — 双信息触发器', () => {
     expect(trigger.textContent).toContain('high');
   });
 
-  it('档位为 Default 时也显示（B 形态双信息）', () => {
+  it('档位为 Default（未设置）时不显示档位部分，触发器只含模型名', () => {
     const { trigger } = makePanel(makeData({ modelHistory: [
       { provider: 'deepseek', model: 'deepseek-chat', reasoningEffort: '', thinkingEnabled: true },
     ] }));
-    expect(trigger.textContent).toContain('Default');
+    expect(trigger.textContent).toContain('deepseek-chat');
+    expect(trigger.textContent).not.toContain('·');
+    expect(trigger.textContent).not.toContain('Default');
   });
 
   it('不支持的 Provider（anthropic）不显示档位部分', () => {
@@ -89,13 +91,14 @@ describe('ModelSelectorPanel — 双信息触发器', () => {
     expect(trigger.textContent).not.toContain('·');
   });
 
-  it('非法 effort 残留自动回退 Default 显示（openai 下的 max）', () => {
+  it('非法 effort 残留自动回退，回退后不显示档位部分（openai 下的 max）', () => {
     const { trigger } = makePanel(makeData({
       provider: 'openai',
       model: 'gpt-4o',
       modelHistory: [{ provider: 'openai', model: 'gpt-4o', reasoningEffort: 'max', thinkingEnabled: true }],
     }));
-    expect(trigger.textContent).toContain('Default');
+    expect(trigger.textContent).toContain('gpt-4o');
+    expect(trigger.textContent).not.toContain('·');
     expect(trigger.textContent).not.toContain('max');
   });
 });
