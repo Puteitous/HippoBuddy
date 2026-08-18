@@ -70,6 +70,8 @@ export class FilePreview {
     this._scrollThrottleTimer = null;
     /** @private 绑定的 scroll 回调引用，用于清理 */
     this._boundScrollHandler = null;
+    /** @private 绑定的滚动条轨道点击回调引用，用于清理 */
+    this._boundScrollbarClickHandler = null;
     /** @private 绑定的 beforeunload 回调引用，用于清理 */
     this._boundBeforeUnload = null;
     /** @private 二进制预览类型：'image' | 'pdf' | 'spreadsheet' | 'docx' | 'browser' | 'diff' | null */
@@ -835,6 +837,54 @@ export class FilePreview {
   // ==================== 滚动位置持久化 ====================
 
   /**
+   * @private 处理原生滚动条轨道点击：直接跳到点击位置。
+   * 浏览器默认行为是"逐页滚动"（相当于 PageUp/PageDown），
+   * 这里用坐标判断点击是否落在轨道上（而非滑块/内容区），
+   * 再按"滑块中心对齐到点击位置"的比例映射换算目标 scrollTop，并 preventDefault 掉原生行为。
+   * @param {MouseEvent} e
+   */
+  _handleScrollbarClick(e) {
+    if (e.button !== 0) return; // 只处理左键
+    const scrollDOM = this._view && this._view.scrollDOM;
+    if (!scrollDOM) return;
+
+    const maxV = scrollDOM.scrollHeight - scrollDOM.clientHeight;
+    const maxH = scrollDOM.scrollWidth - scrollDOM.clientWidth;
+    // 内容不满一屏（无可滚动量）时不存在滚动条，直接放行
+    if (maxV <= 0 && maxH <= 0) return;
+
+    const rect = scrollDOM.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // 滚动条区域 = 内容区（client 区）之外、元素边框之内
+    const inVTrack = x >= scrollDOM.clientWidth && x < rect.width && y < scrollDOM.clientHeight;
+    const inHTrack = y >= scrollDOM.clientHeight && y < rect.height && x < scrollDOM.clientWidth;
+    if (!inVTrack && !inHTrack) return; // 点击内容区 / 滚动条 corner，不干预
+
+    // 点中滑块：交给浏览器原生拖动，不拦截
+    // 滑块几何近似：thumbH ≈ client² / scroll，thumbTop 按可滚动范围等比映射
+    if (inVTrack && maxV > 0) {
+      const trackH = scrollDOM.clientHeight;
+      const thumbH = Math.max(20, trackH * trackH / scrollDOM.scrollHeight);
+      const thumbTop = (scrollDOM.scrollTop / maxV) * (trackH - thumbH);
+      if (y >= thumbTop && y <= thumbTop + thumbH) return;
+      // 点击轨道：滑块中心对齐到点击位置 → scrollTop 按同比例映射
+      const ratio = (y - thumbH / 2) / (trackH - thumbH);
+      scrollDOM.scrollTop = Math.max(0, Math.min(maxV, ratio * maxV));
+      e.preventDefault();
+    } else if (inHTrack && maxH > 0) {
+      const trackW = scrollDOM.clientWidth;
+      const thumbW = Math.max(20, trackW * trackW / scrollDOM.scrollWidth);
+      const thumbLeft = (scrollDOM.scrollLeft / maxH) * (trackW - thumbW);
+      if (x >= thumbLeft && x <= thumbLeft + thumbW) return;
+      const ratio = (x - thumbW / 2) / (trackW - thumbW);
+      scrollDOM.scrollLeft = Math.max(0, Math.min(maxH, ratio * maxH));
+      e.preventDefault();
+    }
+  }
+
+  /**
    * @private 捕获当前滚动位置，存为 { line, offset }：
    *   line   = 视口顶部所在文档行号（内容变化后仍可定位）
    *   offset = 该行内已滚过的像素偏移（行高未变时精确还原）
@@ -1063,6 +1113,10 @@ export class FilePreview {
     };
     this._view.scrollDOM.addEventListener('scroll', this._boundScrollHandler, { passive: true });
 
+    // 原生滚动条轨道点击 → 直接跳到点击位置（替代浏览器默认的"逐页滚动"）
+    this._boundScrollbarClickHandler = (e) => this._handleScrollbarClick(e);
+    this._view.scrollDOM.addEventListener('mousedown', this._boundScrollbarClickHandler);
+
     this._startThemeObserver();
     // 滚动条整文色带：监听 scrollDOM 尺寸变化（resize/面板开合）重算比例
     this._startDiffOverviewObserver();
@@ -1097,6 +1151,10 @@ export class FilePreview {
     if (this._view && this._boundScrollHandler) {
       this._view.scrollDOM.removeEventListener('scroll', this._boundScrollHandler);
       this._boundScrollHandler = null;
+    }
+    if (this._view && this._boundScrollbarClickHandler) {
+      this._view.scrollDOM.removeEventListener('mousedown', this._boundScrollbarClickHandler);
+      this._boundScrollbarClickHandler = null;
     }
 
     if (this._view) {

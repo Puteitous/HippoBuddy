@@ -83,10 +83,11 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
+/* 这些 toggle 按钮的 active 只改变图标颜色，不加底/投影
+   （#sessionToggleBtnEsc 可见⇔面板收起⇔恒无 active，无需覆盖规则） */
 #sessionToggleBtn.active,
 #activityBarToggleBtn.active,
-#activityBarToggleBtnEsc.active,
-#sessionToggleBtnEsc.active {
+#activityBarToggleBtnEsc.active {
     background: transparent !important;
     box-shadow: none !important;
 }
