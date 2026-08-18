@@ -50,8 +50,17 @@ export class ModePresets {
       const modeBtn = e.target.closest('.mode-btn');
       if (modeBtn) {
         const mode = modeBtn.dataset.mode;
-        if (!mode || mode === appState.getMode()) return;
+        if (!mode) return;
+        if (mode === appState.getMode()) {
+          // 点击当前已激活的模式：无需切换，但仍需确保会话记录与 UI 一致，
+          // 防止 _sessionModes 中残留旧记录导致发送时模式错乱。
+          appState.saveSessionMode(appState.currentSessionId, mode);
+          return;
+        }
         appState.setMode(mode);
+        // 同步保存到当前会话的模式记录，确保发送消息时读取到的是用户刚选择的模式。
+        // 否则 getSessionMode() 会优先命中 _sessionModes 里残留的旧记录，导致实际对话模式与 UI 不符。
+        appState.saveSessionMode(appState.currentSessionId, mode);
         this.syncUI(mode, true);
         return;
       }

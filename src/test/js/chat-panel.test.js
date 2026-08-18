@@ -887,4 +887,70 @@ describe('ChatPanel.js', () => {
       expect(seg.result).toBeNull();
     });
   });
+
+  describe('hero 模式切换与会话模式记录同步', () => {
+    /** 在文档中注入 hero 空态的模式胶囊 DOM（模拟 chatUI.clear() 渲染结果） */
+    function mountHeroModeCapsule() {
+      const hero = document.createElement('div');
+      hero.innerHTML = `
+        <span class="mode-capsule hero-mode-capsule" id="heroModeCapsule">
+          <button class="mode-btn" data-mode="chat">Chat</button>
+          <button class="mode-btn active" data-mode="coding">Code</button>
+          <button class="mode-btn" data-mode="office">Office</button>
+        </span>
+        <div class="empty-presets" id="heroPresets"></div>
+      `;
+      document.body.appendChild(hero);
+      return hero;
+    }
+
+    it('点击模式按钮会同步保存到当前会话模式记录 — 回归：修复前 _sessionModes 残留旧记录导致实际对话模式与 UI 不符', async () => {
+      const hero = mountHeroModeCapsule();
+      const { appState } = await import('../../main/resources/static/js/state/app-state.js');
+      appState.currentSessionId = 'session-mode-sync';
+      appState.setMode('coding');
+      // 模拟 bug 场景：createNewSession 时用旧全局模式（chat）给新会话做了记录
+      appState.saveSessionMode('session-mode-sync', 'chat');
+
+      // 用户点击 coding 按钮（与全局模式相同，但会话记录仍是 chat）
+      hero.querySelector('.mode-btn[data-mode="coding"]')
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      // 修复后：即使点击的是当前已激活模式，会话记录也会被同步为 coding
+      expect(appState.getSessionMode('session-mode-sync')).toBe('coding');
+
+      // 再点击 chat 按钮 → 全局模式更新 + 会话记录同步
+      hero.querySelector('.mode-btn[data-mode="chat"]')
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(appState.getMode()).toBe('chat');
+      expect(appState.getSessionMode('session-mode-sync')).toBe('chat');
+
+      // 清理：恢复默认模式，避免影响其他用例
+      appState.setMode('coding');
+      hero.remove();
+    });
+
+    it('点击模式按钮切换时预设标签同步渲染（syncUI → renderPresets）', async () => {
+      const hero = mountHeroModeCapsule();
+      const { appState } = await import('../../main/resources/static/js/state/app-state.js');
+      appState.currentSessionId = 'session-mode-presets';
+      appState.setMode('coding');
+
+      hero.querySelector('.mode-btn[data-mode="office"]')
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      // office 模式应有对应的预设提示词标签
+      const presetContainer = document.getElementById('heroPresets');
+      expect(presetContainer.children.length).toBeGreaterThan(0);
+      // office 模式按钮应高亮
+      expect(hero.querySelector('.mode-btn[data-mode="office"]').classList.contains('active')).toBe(true);
+      expect(hero.querySelector('.mode-btn[data-mode="coding"]').classList.contains('active')).toBe(false);
+      // 会话记录同步为 office
+      expect(appState.getSessionMode('session-mode-presets')).toBe('office');
+
+      // 清理
+      appState.setMode('coding');
+      hero.remove();
+    });
+  });
 });

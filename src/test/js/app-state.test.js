@@ -135,4 +135,45 @@ describe('app-state.js', () => {
       expect(appState.getSystemPrompt()).toBe('你是一个助手');
     });
   });
+
+  describe('会话级模式记忆（saveSessionMode / getSessionMode）', () => {
+    it('saveSessionMode 后 getSessionMode 返回该会话的记录', async () => {
+      vi.resetModules();
+      const { appState } = await import('../../main/resources/static/js/state/app-state.js');
+      appState.setMode('coding');
+      appState.saveSessionMode('session-a', 'chat');
+
+      expect(appState.getSessionMode('session-a')).toBe('chat');
+    });
+
+    it('无记录的会话回退到全局模式', async () => {
+      vi.resetModules();
+      const { appState } = await import('../../main/resources/static/js/state/app-state.js');
+      appState.setMode('coding');
+      appState.saveSessionMode('session-a', 'chat');
+
+      // session-b 无记录 → 返回全局模式（而非其他会话的记录）
+      expect(appState.getSessionMode('session-b')).toBe('coding');
+    });
+
+    it('不同会话的模式互不影响', async () => {
+      vi.resetModules();
+      const { appState } = await import('../../main/resources/static/js/state/app-state.js');
+      appState.saveSessionMode('session-a', 'chat');
+      appState.saveSessionMode('session-b', 'office');
+
+      expect(appState.getSessionMode('session-a')).toBe('chat');
+      expect(appState.getSessionMode('session-b')).toBe('office');
+    });
+
+    it('saveSessionMode 可覆盖同会话的旧记录（点击 hero 胶囊切模式时依赖此语义）', async () => {
+      vi.resetModules();
+      const { appState } = await import('../../main/resources/static/js/state/app-state.js');
+      appState.saveSessionMode('session-a', 'chat');
+      // 用户在 hero 点击 coding → 覆盖会话记录
+      appState.saveSessionMode('session-a', 'coding');
+
+      expect(appState.getSessionMode('session-a')).toBe('coding');
+    });
+  });
 });

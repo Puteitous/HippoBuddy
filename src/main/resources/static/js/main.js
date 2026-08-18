@@ -246,7 +246,8 @@ function init() {
       }
     });
     _switchToHeroMode();
-    chatPanel._renderPresets('coding');
+    // 同步 hero 空态的模式 UI（高亮 + 标语 + 预设提示词），与全局模式保持一致
+    chatPanel._syncModeUI(appState.getMode());
 
     // ✨ 刷新后触发空状态入场动画
     requestAnimationFrame(() => {
@@ -769,8 +770,8 @@ async function createNewSession() {
   chatUI.clear();
   _switchToHeroMode();
 
-  // 渲染默认模式（coding）的预设提示词
-  chatPanel._renderPresets('coding');
+  // 同步 hero 空态的模式 UI（高亮 + 标语 + 预设提示词），与全局模式保持一致
+  chatPanel._syncModeUI(appState.getMode());
 
   // 恢复 hero 输入内容 — 直接持久化到草稿 Map 并恢复，避免 rAF 竞态
   if (savedDraft) {
@@ -868,7 +869,8 @@ async function switchSession(sessionId) {
           <div class="empty-presets" id="heroPresets"></div>
         </div>`;
       _switchToHeroMode();
-      chatPanel._renderPresets('coding');
+      // 同步 hero 空态的模式 UI（高亮 + 标语 + 预设提示词），与全局模式保持一致
+      chatPanel._syncModeUI(appState.getMode());
       // ✨ 恢复该会话的输入草稿
       if (elements.messageInput) {
         const draft = appState.getSessionInputDraft(sessionId);
@@ -963,7 +965,8 @@ async function switchSession(sessionId) {
         <div class="empty-presets" id="heroPresets"></div>
       </div>`;
     _switchToHeroMode();
-    chatPanel._renderPresets('coding');
+    // 同步 hero 空态的模式 UI（高亮 + 标语 + 预设提示词），与全局模式保持一致
+    chatPanel._syncModeUI(appState.getMode());
   }
   
   requestAnimationFrame(() => {
