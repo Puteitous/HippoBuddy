@@ -1,9 +1,12 @@
 package com.example.agent.web.handler;
 
+import com.sun.net.httpserver.Authenticator;
+import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpPrincipal;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,6 +18,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,6 +55,46 @@ class StaticFileHandlerTest {
             assertEquals(200, exchange.getResponseCode());
             String body = exchange.getResponseBodyAsString();
             assertTrue(body.contains("Cockpit"));
+        }
+
+        @Test
+        @DisplayName("/app 映射到 /index.html(新前端入口)")
+        void appPathMapsToIndexHtml() throws IOException {
+            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/app");
+
+            handler.handle(exchange);
+
+            assertEquals(200, exchange.getResponseCode());
+            String body = exchange.getResponseBodyAsString();
+            assertTrue(body.contains("HippoBuddy React"));
+            assertTrue(body.contains("root"));
+        }
+
+        @Test
+        @DisplayName("/app/index.html 直接请求也可访问(context 前缀剥离)")
+        void appIndexHtmlDirectAccess() throws IOException {
+            // 模拟 HttpServer 将请求路由到 /app context(完整路径仍含 /app 前缀)
+            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/app/index.html", "/app");
+
+            handler.handle(exchange);
+
+            assertEquals(200, exchange.getResponseCode());
+            String body = exchange.getResponseBodyAsString();
+            assertTrue(body.contains("HippoBuddy React"));
+        }
+
+        @Test
+        @DisplayName("/app/assets/ 子路径剥离 context 前缀后按资源目录解析")
+        void appAssetsSubPathStripsContextPrefix() throws IOException {
+            // 相对 base 产物:index.html 引用 ./assets/xxx.js → 浏览器请求 /app/assets/xxx.js
+            // 需剥离 /app 前缀后 resolve 到 /web/assets/xxx.js
+            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/app/style.css", "/app");
+
+            handler.handle(exchange);
+
+            assertEquals(200, exchange.getResponseCode());
+            String body = exchange.getResponseBodyAsString();
+            assertTrue(body.contains("body { color: red; }"));
         }
     }
 
@@ -230,6 +275,7 @@ class StaticFileHandlerTest {
 
         private final String requestMethod;
         private final String requestPath;
+        private final String contextPath;
         private final Headers responseHeaders = new Headers();
         private final Headers requestHeaders = new Headers();
         private final ByteArrayOutputStream responseBody = new ByteArrayOutputStream();
@@ -238,8 +284,13 @@ class StaticFileHandlerTest {
         private boolean closed = false;
 
         FakeHttpExchange(String requestMethod, String requestPath) {
+            this(requestMethod, requestPath, "");
+        }
+
+        FakeHttpExchange(String requestMethod, String requestPath, String contextPath) {
             this.requestMethod = requestMethod;
             this.requestPath = requestPath;
+            this.contextPath = contextPath;
             requestHeaders.add("Host", "localhost");
         }
 
@@ -327,6 +378,54 @@ class StaticFileHandlerTest {
 
         @Override
         public HttpContext getHttpContext() {
+            return contextPath.isEmpty() ? null : new FakeHttpContext(contextPath);
+        }
+    }
+
+    /** 最小 HttpContext 实现,仅提供路径(用于模拟 HttpServer 按 context 路由) */
+    static class FakeHttpContext extends HttpContext {
+        private final String path;
+
+        FakeHttpContext(String path) {
+            this.path = path;
+        }
+
+        @Override
+        public String getPath() {
+            return path;
+        }
+
+        @Override
+        public com.sun.net.httpserver.HttpHandler getHandler() {
+            return null;
+        }
+
+        @Override
+        public void setHandler(com.sun.net.httpserver.HttpHandler handler) {
+        }
+
+        @Override
+        public List<Filter> getFilters() {
+            return List.of();
+        }
+
+        @Override
+        public Authenticator getAuthenticator() {
+            return null;
+        }
+
+        @Override
+        public Authenticator setAuthenticator(Authenticator authenticator) {
+            return null;
+        }
+
+        @Override
+        public Map<String, Object> getAttributes() {
+            return java.util.Collections.emptyMap();
+        }
+
+        @Override
+        public HttpServer getServer() {
             return null;
         }
     }

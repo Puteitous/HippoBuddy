@@ -1,0 +1,505 @@
+/* 工具卡片渲染器统一样式 */
+
+/* ── 卡片容器 ─────────────────────────────────────────── */
+.tool-card {
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--hb-bg, #ffffff);
+  margin: 8px 0;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ── 卡片头部(图标 + 标题 + 状态 + 箭头) ──────────────── */
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(127, 127, 127, 0.04);
+  cursor: default;
+  user-select: none;
+}
+
+.tool-header[role='button'] {
+  cursor: pointer;
+}
+
+.tool-header[role='button']:hover {
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.tool-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.tool-title {
+  font-weight: 600;
+  color: #111827;
+  flex-shrink: 0;
+}
+
+.tool-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tool-status-badge.running {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.tool-status-badge.success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.tool-status-badge.failed {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+}
+
+.tool-arrow {
+  display: inline-flex;
+  align-items: center;
+  color: #9ca3af;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tool-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+/* ── 卡片正文 ─────────────────────────────────────────── */
+.tool-body {
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--hb-border, #f3f4f6);
+}
+
+.tool-summary {
+  margin-bottom: 6px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* ── 文件路径(可点击) ─────────────────────────────────── */
+.tool-file-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #2563eb;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.tool-file-path.clickable {
+  cursor: pointer;
+}
+
+.tool-file-path.clickable:hover {
+  text-decoration: underline;
+}
+
+/* ── 状态图标动画 ─────────────────────────────────────── */
+.tool-spinner {
+  animation: tool-spinner-rotate 1s linear infinite;
+}
+
+@keyframes tool-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Bash 工具专属 ─────────────────────────────────────── */
+.bash-command {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  background: #111827;
+  color: #d1d5db;
+  padding: 8px 10px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-bottom: 6px;
+}
+
+.bash-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.bash-output {
+  margin-top: 6px;
+  background: #111827;
+  border-radius: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.bash-output pre {
+  margin: 0;
+  padding: 8px 10px;
+  color: #d1d5db;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bash-error,
+.tool-error {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(220, 38, 38, 0.08);
+  border-left: 3px solid #dc2626;
+  border-radius: 3px;
+  color: #dc2626;
+  font-size: 12px;
+}
+
+.bash-progress {
+  margin-top: 6px;
+  background: #111827;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.bash-progress pre {
+  margin: 0;
+  padding: 8px 10px;
+  color: #9ca3af;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Diff 视图 ────────────────────────────────────────── */
+.tool-diff {
+  margin-top: 6px;
+  background: #111827;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.diff-line {
+  display: flex;
+  align-items: flex-start;
+  padding: 0;
+}
+
+.diff-gutter {
+  flex-shrink: 0;
+  width: 22px;
+  padding: 0 6px;
+  text-align: center;
+  color: #6b7280;
+  user-select: none;
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.diff-line-content {
+  flex: 1;
+  padding: 0 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff-added .diff-line-content {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+}
+
+.diff-removed .diff-line-content {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+}
+
+.diff-context .diff-line-content {
+  color: #9ca3af;
+}
+
+.diff-stats-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+}
+
+.diff-add {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.diff-del {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* ── Todo 列表 ────────────────────────────────────────── */
+.todo-progress-bar {
+  margin: 6px 0 8px;
+}
+
+.todo-progress-track {
+  height: 6px;
+  background: rgba(127, 127, 127, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.todo-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  transition: width 0.3s ease;
+}
+
+.todo-tree {
+  font-size: 13px;
+}
+
+.todo-tree-item {
+  margin: 2px 0;
+}
+
+.todo-node-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  cursor: default;
+}
+
+.todo-node-row.done .todo-content {
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+
+.todo-node-row.in-progress .todo-icon {
+  color: #3b82f6;
+}
+
+.todo-node-row.pending .todo-icon {
+  color: #9ca3af;
+}
+
+.todo-node-row.done .todo-icon {
+  color: #10b981;
+}
+
+.todo-node-toggle {
+  display: inline-flex;
+  width: 12px;
+  cursor: pointer;
+}
+
+.todo-content {
+  flex: 1;
+  word-break: break-word;
+}
+
+/* ── 确认按钮区 ───────────────────────────────────────── */
+.confirmation-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.confirmation-btn {
+  padding: 6px 16px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.confirmation-btn.allow {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.confirmation-btn.allow:hover {
+  background: #059669;
+}
+
+.confirmation-btn.deny {
+  background: transparent;
+  border-color: #9ca3af;
+  color: #6b7280;
+}
+
+.confirmation-btn.deny:hover {
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.confirmation-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmation-reason {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 3px solid #d97706;
+  border-radius: 3px;
+  color: #92400e;
+  font-size: 12px;
+}
+
+/* ── ask_user 输入 ────────────────────────────────────── */
+.ask-user-question {
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ask-user-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ask-user-option-btn {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ask-user-option-btn:hover {
+  background: rgba(59, 130, 246, 0.06);
+  border-color: #3b82f6;
+}
+
+.ask-user-input {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.ask-user-input textarea {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 60px;
+  max-height: 200px;
+  background: inherit;
+  color: inherit;
+}
+
+.ask-user-input textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+/* ── 默认卡片参数显示 ─────────────────────────────────── */
+.tool-args,
+.tool-result {
+  margin-top: 6px;
+}
+
+.tool-args pre,
+.tool-result pre {
+  margin: 0;
+  padding: 8px 10px;
+  background: #111827;
+  color: #d1d5db;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.tool-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0;
+}
+
+.tool-detail-label {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tool-detail-value {
+  font-size: 12px;
+  color: #111827;
+  word-break: break-word;
+}
+
+/* ── 深色模式 ─────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .tool-header {
+    background: rgba(127, 127, 127, 0.08);
+  }
+
+  .tool-title {
+    color: #f3f4f6;
+  }
+
+  .tool-file-path {
+    color: #60a5fa;
+  }
+
+  .tool-summary,
+  .bash-meta {
+    color: #9ca3af;
+  }
+
+  .tool-body {
+    border-top-color: rgba(127, 127, 127, 0.15);
+  }
+
+  .confirmation-btn.deny {
+    border-color: #4b5563;
+    color: #9ca3af;
+  }
+
+  .ask-user-option-btn {
+    border-color: #4b5563;
+  }
+
+  .tool-detail-value {
+    color: #f3f4f6;
+  }
+}

@@ -1,0 +1,67 @@
+/* TokenMonitor 紧凑用量显示 */
+
+.token-monitor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.06);
+  cursor: help;
+  user-select: none;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.token-monitor-loading,
+.token-monitor-error {
+  color: #9ca3af;
+  cursor: default;
+}
+
+.token-monitor-error {
+  color: #dc2626;
+}
+
+.token-monitor-percent {
+  font-weight: 500;
+}
+
+.token-monitor-bar-track {
+  display: inline-block;
+  width: 80px;
+  height: 4px;
+  background: rgba(127, 127, 127, 0.18);
+  border-radius: 2px;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.token-monitor-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.token-monitor-counts {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+/* ── 深色模式 ───────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .token-monitor {
+    background: rgba(127, 127, 127, 0.12);
+  }
+
+  .token-monitor-bar-track {
+    background: rgba(127, 127, 127, 0.28);
+  }
+
+  .token-monitor-counts {
+    color: #9ca3af;
+  }
+}

@@ -1,0 +1,421 @@
+/* RollbackButton 回滚按钮 + 内联确认面板样式
+   命名空间 .rollback- *,内嵌于助手消息气泡内 */
+
+/* ── 回滚按钮(气泡头部,小图标按钮) ──────────────────── */
+.rollback-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.rollback-btn:hover:not(:disabled) {
+  background: rgba(127, 127, 127, 0.1);
+  border-color: rgba(127, 127, 127, 0.4);
+  color: #1f2937;
+}
+
+.rollback-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 内联面板容器 ─────────────────────────────────────── */
+.rollback-inline {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid rgba(127, 127, 127, 0.22);
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.05);
+  animation: rollback-slide-in 0.2s ease-out;
+}
+
+@keyframes rollback-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── 面板头部 ─────────────────────────────────────────── */
+.rollback-inline-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.rollback-inline-header .rollback-inline-icon {
+  flex-shrink: 0;
+  color: #387bff;
+  display: flex;
+  align-items: center;
+}
+
+.rollback-inline-header .rollback-inline-count {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: auto;
+}
+
+/* ── 文件变更列表 ─────────────────────────────────────── */
+.rollback-inline-files {
+  padding: 4px 12px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rollback-inline-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.rollback-inline-file:hover {
+  background: rgba(127, 127, 127, 0.1);
+}
+
+.rollback-inline-file .file-status-letter {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  width: 16px;
+  text-align: center;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.rollback-inline-file .file-status-letter.action-delete { color: #c62828; }
+.rollback-inline-file .file-status-letter.action-add { color: #2e7d32; }
+.rollback-inline-file .file-status-letter.action-restore { color: #d49433; }
+
+.rollback-inline-file.action-delete .file-name {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.rollback-inline-file .file-name {
+  flex: 1;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rollback-inline-file .file-action-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.rollback-inline-file .diff-stats {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rollback-inline-file .diff-stats .diff-add { color: #2e7d32; }
+.rollback-inline-file .diff-stats .diff-del { color: #c62828; }
+
+.rollback-inline-divider {
+  height: 1px;
+  background: rgba(127, 127, 127, 0.18);
+  margin: 0 12px;
+}
+
+/* ── 底部按钮区 ───────────────────────────────────────── */
+.rollback-inline-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 10px 10px;
+  gap: 8px;
+}
+
+.rollback-inline-btn {
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  background: transparent;
+  color: #4b5563;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  line-height: 1.5;
+}
+
+.rollback-inline-btn-cancel:hover {
+  background: rgba(127, 127, 127, 0.12);
+  color: #1f2937;
+}
+
+.rollback-inline-btn-confirm {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.rollback-inline-btn-confirm:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.rollback-inline-btn-files {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.rollback-inline-btn-files:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+/* ── Split button:主按钮 + 下拉箭头 ───────────────────── */
+.rollback-inline-split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.rollback-inline-split .rollback-inline-btn-confirm {
+  border-radius: 5px 0 0 5px;
+  border-right: none;
+  background: #3c3c3c;
+  color: #ffffff;
+  border-color: #3c3c3c;
+  padding: 3px 8px;
+}
+
+.rollback-inline-split .rollback-inline-btn-confirm:hover {
+  background: #2a2a2a;
+  border-color: #2a2a2a;
+}
+
+.rollback-inline-split-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  border: 1px solid #3c3c3c;
+  border-left: none;
+  border-radius: 0 5px 5px 0;
+  background: #3c3c3c;
+  color: #ffffff;
+  font-size: 10px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.rollback-inline-split-toggle:hover {
+  background: #2a2a2a;
+  border-color: #2a2a2a;
+}
+
+/* ── 下拉菜单(hover 展开,对齐旧版) ───────────────────── */
+.rollback-inline-split-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  z-index: 10;
+  background: #ffffff;
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 5px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  min-width: 150px;
+}
+
+/* 桥接空隙,防止鼠标移动时 hover 丢失 */
+.rollback-inline-split-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+.rollback-inline-split-dropdown .rollback-inline-btn-files,
+.rollback-inline-split-dropdown .rollback-inline-btn-confirm {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 12px;
+  border-radius: 3px;
+  color: #1f2937;
+}
+
+.rollback-inline-split-dropdown .rollback-inline-btn-files:hover,
+.rollback-inline-split-dropdown .rollback-inline-btn-confirm:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.dropdown-check {
+  display: inline-block;
+  width: 16px;
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.dropdown-check-placeholder {
+  display: inline-block;
+  width: 16px;
+}
+
+.rollback-inline-split:hover .rollback-inline-split-dropdown,
+.rollback-inline-split-dropdown:hover {
+  display: block;
+}
+
+/* ── 加载态 ───────────────────────────────────────────── */
+.rollback-inline-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.rollback-inline-loading .rollback-loading-spinner {
+  flex-shrink: 0;
+  animation: rollback-spin 0.8s linear infinite;
+}
+
+@keyframes rollback-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 深色模式适配 ─────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .rollback-btn {
+    color: #9ca3af;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .rollback-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e5e7eb;
+  }
+
+  .rollback-inline {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .rollback-inline-header {
+    color: #e5e7eb;
+  }
+
+  .rollback-inline-header .rollback-inline-count {
+    color: #9ca3af;
+  }
+
+  .rollback-inline-file:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .rollback-inline-file .file-name {
+    color: #e5e7eb;
+  }
+
+  .rollback-inline-btn {
+    color: #b0b7c3;
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .rollback-inline-btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e5e7eb;
+  }
+
+  .rollback-inline-btn-confirm,
+  .rollback-inline-btn-files {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e5e7eb;
+  }
+
+  .rollback-inline-btn-confirm:hover,
+  .rollback-inline-btn-files:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .rollback-inline-split .rollback-inline-btn-confirm {
+    background: #e8e8ee;
+    color: #181a1b;
+    border-color: #d0d0d4;
+  }
+
+  .rollback-inline-split .rollback-inline-btn-confirm:hover {
+    background: #dcdce2;
+    border-color: #c0c0c4;
+  }
+
+  .rollback-inline-split-toggle {
+    background: #e8e8ee;
+    color: #666;
+    border-color: #d0d0d4;
+  }
+
+  .rollback-inline-split-toggle:hover {
+    background: #dcdce2;
+    color: #333;
+  }
+
+  .rollback-inline-split-dropdown {
+    background: #2d2d30;
+    border-color: #444;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .rollback-inline-split-dropdown .rollback-inline-btn-files,
+  .rollback-inline-split-dropdown .rollback-inline-btn-confirm {
+    color: #e5e7eb;
+  }
+
+  .rollback-inline-split-dropdown .rollback-inline-btn-files:hover,
+  .rollback-inline-split-dropdown .rollback-inline-btn-confirm:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .rollback-inline-loading {
+    color: #9ca3af;
+  }
+}

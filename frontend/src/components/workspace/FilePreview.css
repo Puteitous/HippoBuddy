@@ -1,0 +1,209 @@
+/* FilePreview - 文件预览 */
+
+.file-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--hb-bg, #ffffff);
+  color: var(--hb-text, #1f2937);
+  overflow: hidden;
+}
+
+.file-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg-soft, #f9fafb);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.file-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+}
+
+.file-preview-name {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--hb-text, #1f2937);
+}
+
+.file-preview-path {
+  color: var(--hb-text-soft, #6b7280);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-preview-lines {
+  color: var(--hb-accent, #2563eb);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.file-preview-actions button {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-preview-actions button:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+.file-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-preview-image {
+  display: block;
+  margin: 16px auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: var(--hb-bg-grid, transparent);
+  box-shadow: 0 0 0 1px var(--hb-border, rgba(0, 0, 0, 0.08));
+}
+
+.file-preview-pdf {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  border: none;
+  background: #525659;
+}
+
+.file-preview-editor-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* CM6 编辑器容器(FilePreviewEditor 挂载点) */
+.file-preview-editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--hb-bg, #ffffff);
+  font-size: 12.5px;
+}
+
+/* 覆盖 CM6 内部样式:与 .file-preview-text 的观感对齐 */
+.file-preview-editor .cm-editor {
+  height: 100%;
+}
+
+.file-preview-editor .cm-scroller {
+  overflow: auto;
+}
+
+.file-preview-editor .cm-content {
+  padding: 12px 0;
+}
+
+.file-preview-editor .cm-line {
+  padding: 0 16px;
+}
+
+.file-preview-loading,
+.file-preview-error,
+.file-preview-unsupported {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  padding: 32px 16px;
+  color: var(--hb-text-soft, #6b7280);
+  font-size: 13px;
+  text-align: center;
+}
+
+.file-preview-error button,
+.file-preview-unsupported .file-preview-download {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.file-preview-error button:hover,
+.file-preview-unsupported .file-preview-download:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+/* ── 暗色模式 ── */
+@media (prefers-color-scheme: dark) {
+  .file-preview {
+    background: var(--hb-bg-dark, #1a1a1a);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-preview-header {
+    border-bottom-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-soft-dark, #242424);
+  }
+  .file-preview-name {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-preview-path {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .file-preview-lines {
+    color: var(--hb-accent-dark, #60a5fa);
+  }
+  .file-preview-actions button {
+    border-color: var(--hb-border-dark, #374151);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-preview-actions button:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+  }
+  .file-preview-image {
+    box-shadow: 0 0 0 1px var(--hb-border-dark, rgba(255, 255, 255, 0.08));
+  }
+  .file-preview-editor {
+    color: var(--hb-text-dark, #e5e7eb);
+    background: var(--hb-bg-dark, #1a1a1a);
+  }
+  .file-preview-loading,
+  .file-preview-error,
+  .file-preview-unsupported {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .file-preview-error button,
+  .file-preview-unsupported .file-preview-download {
+    border-color: var(--hb-border-dark, #374151);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-preview-error button:hover,
+  .file-preview-unsupported .file-preview-download:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+  }
+}

@@ -1,0 +1,146 @@
+/* Sidebar 左侧会话列表 */
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg-alt, #f7f7f8);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+}
+
+.sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+}
+
+.sidebar-count {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.sidebar-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+
+.sidebar-empty {
+  margin: 16px 8px;
+  font-size: 13px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.sidebar-error {
+  margin: 16px 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.sidebar-error pre {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.session-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.session-item:hover {
+  background: rgba(127, 127, 127, 0.08);
+}
+
+.session-item-active {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.session-item-active:hover {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.session-item-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-running-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+  animation: session-running-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes session-running-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.session-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-item-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.session-item-mode {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sidebar {
+    border-right-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-alt-dark, #111827);
+  }
+
+  .sidebar-header {
+    border-bottom-color: var(--hb-border-dark, #374151);
+  }
+
+  .session-item-active {
+    background: rgba(96, 165, 250, 0.18);
+  }
+}

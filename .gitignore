@@ -9,6 +9,9 @@ target/
 *.jar
 *.class
 
+# 新前端构建产物(源码在 frontend/, 产物由 npm run build 生成, 不入库)
+src/main/resources/static-v2/
+
 # IDE 配置
 .idea/
 *.iml

@@ -1,0 +1,217 @@
+/* MessageBubble 单条消息气泡样式 */
+
+.msg-bubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-wrap: break-word;
+  word-break: break-word;
+  position: relative;
+}
+
+/* ── 用户消息(右对齐,蓝色) ────────────────────────────── */
+.msg-bubble-user {
+  align-self: flex-end;
+  background: #3b82f6;
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.msg-user-text {
+  white-space: pre-wrap;
+}
+
+.msg-user-multimodal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.msg-user-image {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ── 助手消息(左对齐,浅灰) ───────────────────────────── */
+.msg-bubble-assistant {
+  align-self: flex-start;
+  background: rgba(127, 127, 127, 0.08);
+  color: inherit;
+  border-bottom-left-radius: 4px;
+}
+
+/* 助手消息头部工具栏(回滚按钮,右对齐) */
+.msg-assistant-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+/* ── 工具消息:已改用 ToolCardDispatcher 渲染,详见 tool-renderers.css ── */
+
+/* ── 思考过程折叠 ─────────────────────────────────────── */
+.msg-reasoning {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: rgba(124, 58, 237, 0.08);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #7c3aed;
+}
+
+.msg-reasoning summary {
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+.msg-reasoning-body {
+  margin: 6px 0 0;
+  padding: 8px;
+  background: rgba(127, 127, 127, 0.06);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  color: #6b7280;
+  white-space: pre-wrap;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* ── Markdown 内容 ───────────────────────────────────── */
+.msg-markdown {
+  overflow-x: auto;
+}
+
+.msg-markdown p {
+  margin: 0 0 8px;
+}
+
+.msg-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.msg-markdown h1,
+.msg-markdown h2,
+.msg-markdown h3,
+.msg-markdown h4 {
+  margin: 12px 0 6px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.msg-markdown h1 { font-size: 18px; }
+.msg-markdown h2 { font-size: 16px; }
+.msg-markdown h3 { font-size: 15px; }
+.msg-markdown h4 { font-size: 14px; }
+
+.msg-markdown ul,
+.msg-markdown ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.msg-markdown li {
+  margin: 2px 0;
+}
+
+.msg-markdown code {
+  padding: 1px 5px;
+  background: rgba(127, 127, 127, 0.18);
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+.msg-markdown pre {
+  margin: 8px 0;
+  padding: 10px;
+  background: #111827;
+  color: #d1d5db;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.msg-markdown pre code {
+  padding: 0;
+  background: transparent;
+  font-size: 12px;
+  color: inherit;
+}
+
+.msg-markdown a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.msg-markdown a:hover {
+  color: #1d4ed8;
+}
+
+.msg-markdown blockquote {
+  margin: 8px 0;
+  padding: 4px 12px;
+  border-left: 3px solid rgba(127, 127, 127, 0.4);
+  background: rgba(127, 127, 127, 0.04);
+  color: #6b7280;
+}
+
+.msg-markdown table {
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
+.msg-markdown th,
+.msg-markdown td {
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.msg-markdown th {
+  background: rgba(127, 127, 127, 0.1);
+  font-weight: 600;
+}
+
+/* ── 流式光标(闪烁) ─────────────────────────────────── */
+.msg-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  margin-left: 2px;
+  background: currentColor;
+  vertical-align: text-bottom;
+  animation: msg-cursor-blink 1s steps(2, end) infinite;
+}
+
+@keyframes msg-cursor-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+
+/* ── 深色模式适配 ─────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .msg-bubble-assistant {
+    background: rgba(127, 127, 127, 0.12);
+  }
+
+  .msg-reasoning {
+    background: rgba(124, 58, 237, 0.15);
+  }
+
+  .msg-markdown a {
+    color: #60a5fa;
+  }
+
+  .msg-markdown a:hover {
+    color: #93c5fd;
+  }
+
+  .msg-markdown blockquote {
+    color: #9ca3af;
+  }
+}

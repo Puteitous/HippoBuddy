@@ -1,0 +1,2 @@
+/* 阶段三 3.1:App.tsx 不再需要全局样式,布局由 AppShell.css 接管。
+   保留空文件避免 main.tsx 引用断链(main.tsx 未引用 App.css,可安全清空)。 */

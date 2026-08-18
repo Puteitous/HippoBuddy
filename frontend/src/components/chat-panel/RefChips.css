@@ -1,0 +1,86 @@
+/* RefChips 引用芯片列表样式 */
+
+.ref-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+  align-items: center;
+}
+
+.ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: rgba(127, 127, 127, 0.06);
+  color: inherit;
+  max-width: 280px;
+  cursor: help;
+  line-height: 1.6;
+}
+
+.ref-chip-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.ref-chip-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.ref-chip-lines {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+
+.ref-chip-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ref-chip-close:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+}
+
+/* ── 深色模式 ───────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .ref-chip {
+    border-color: #4b5563;
+    background: rgba(127, 127, 127, 0.14);
+  }
+
+  .ref-chip-lines {
+    color: #9ca3af;
+  }
+
+  .ref-chip-close {
+    color: #9ca3af;
+  }
+
+  .ref-chip-close:hover {
+    background: rgba(248, 113, 113, 0.18);
+    color: #f87171;
+  }
+}

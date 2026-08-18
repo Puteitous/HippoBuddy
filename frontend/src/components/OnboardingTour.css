@@ -1,0 +1,280 @@
+/* ============================================================
+   Onboarding Tour — 新手指引聚光灯导览
+   从旧版 onboarding.css 移植,变量改用 --hb-* 体系 +
+   prefers-color-scheme(与新版其他组件一致)
+   ============================================================ */
+
+/* ── 遮罩层 ── */
+.ob-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none; /* 让点击穿透到 spotlight 和 tooltip */
+}
+
+/* ── 聚光灯(透明窗口 + 外圈阴影遮罩) ── */
+.ob-spotlight {
+  position: fixed;
+  z-index: 10001;
+  pointer-events: none;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, width, height, left, top;
+}
+
+/* ── 聚光灯内部高亮边框 ── */
+.ob-spotlight::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 15px;
+  border: 2px solid var(--hb-accent, #2563eb);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ── 气泡卡片 ── */
+.ob-tooltip {
+  position: fixed;
+  z-index: 10002;
+  background: var(--hb-bg, #fff);
+  border-radius: 14px;
+  padding: 18px 22px;
+  width: 405px;
+  max-width: 85vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.13);
+  pointer-events: all;
+  animation: ob-fade-up 0.3s ease-out;
+}
+
+.ob-tooltip-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--hb-text, #111);
+  line-height: 1.4;
+}
+
+.ob-tooltip-desc {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--hb-text-soft, #666);
+  margin-bottom: 16px;
+}
+
+.ob-tooltip-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ob-step-counter {
+  font-size: 12px;
+  color: var(--hb-text-soft, #999);
+  font-weight: 500;
+}
+
+.ob-btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+.ob-btn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+
+.ob-btn-skip {
+  background: transparent;
+  color: var(--hb-text-soft, #999);
+}
+
+.ob-btn-skip:hover {
+  color: var(--hb-text, #111);
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+.ob-btn-next {
+  background: var(--hb-accent, #2563eb);
+  color: #fff;
+}
+
+.ob-btn-next:hover {
+  opacity: 0.9;
+}
+
+.ob-btn-prev {
+  background: var(--hb-bg-soft, #f0f0f0);
+  color: var(--hb-text, #111);
+}
+
+.ob-btn-prev:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.08));
+}
+
+/* ── 气泡小箭头 ── */
+.ob-arrow {
+  position: fixed;
+  z-index: 10001;
+  width: 12px;
+  height: 12px;
+  background: var(--hb-bg, #fff);
+  transform: rotate(45deg);
+  pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── 欢迎面板 ── */
+.ob-welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ob-fade-in 0.4s ease-out;
+}
+
+.ob-welcome-panel {
+  background: var(--hb-bg, #fff);
+  border-radius: 20px;
+  padding: 40px 44px 36px;
+  width: 520px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: ob-scale-up 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ob-welcome-title {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 6px;
+  color: var(--hb-text, #111);
+}
+
+.ob-welcome-sub {
+  font-size: 14px;
+  text-align: center;
+  color: var(--hb-text-soft, #666);
+  margin-bottom: 28px;
+}
+
+.ob-welcome-start-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  background: var(--hb-accent, #2563eb);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ob-welcome-start-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+/* ── 动画 ── */
+@keyframes ob-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ob-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ob-scale-up {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── 暗色模式 ── */
+@media (prefers-color-scheme: dark) {
+  .ob-welcome-panel {
+    background: var(--hb-bg-dark, #1e1e1e);
+  }
+  .ob-welcome-title {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .ob-welcome-sub {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .ob-tooltip {
+    background: var(--hb-bg-dark, #1e1e1e);
+  }
+  .ob-tooltip-title {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .ob-tooltip-desc {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .ob-arrow {
+    background: var(--hb-bg-dark, #1e1e1e);
+  }
+  .ob-spotlight {
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  }
+  .ob-btn-skip {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .ob-btn-skip:hover {
+    color: var(--hb-text-dark, #e5e7eb);
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.08));
+  }
+  .ob-btn-prev {
+    background: var(--hb-bg-soft-dark, #2a2a2a);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .ob-btn-prev:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.1));
+  }
+  .ob-step-counter {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+}
+
+/* ── 响应式 ── */
+@media (max-width: 640px) {
+  .ob-tooltip {
+    width: 75vw;
+    padding: 14px 16px;
+  }
+  .ob-tooltip-title {
+    font-size: 15px;
+  }
+  .ob-welcome-panel {
+    padding: 28px 24px 24px;
+  }
+}

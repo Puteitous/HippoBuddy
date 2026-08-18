@@ -1,0 +1,149 @@
+/* ============================================================
+   BinaryPreview / OoxmlViewer 样式
+   变量体系与 FilePreview.css 一致(--hb-* + prefers-color-scheme)
+   ============================================================ */
+
+.ooxml-viewer {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--hb-bg, #ffffff);
+}
+
+/* ── 引擎自管理 DOM 的挂载容器 ── */
+.ooxml-viewer-host {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ooxml-viewer-host > * {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── 加载 / 错误占位 ── */
+.ooxml-viewer-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 16px;
+  color: var(--hb-text-soft, #6b7280);
+  font-size: 13px;
+  text-align: center;
+  z-index: 1;
+}
+
+.ooxml-viewer-error-title {
+  font-weight: 600;
+  margin: 0;
+  color: var(--hb-text, #1f2937);
+}
+
+.ooxml-viewer-error-detail {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.85;
+  max-width: 420px;
+  word-break: break-all;
+}
+
+.ooxml-viewer-download {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ooxml-viewer-download:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+/* ── 缩放工具栏(浮动,右上) ── */
+.ooxml-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px;
+  border-radius: 8px;
+  background: var(--hb-bg-soft, #f9fafb);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.ooxml-toolbar-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ooxml-toolbar-btn:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+}
+
+.ooxml-toolbar-level {
+  min-width: 44px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--hb-text-soft, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 暗色模式 ── */
+@media (prefers-color-scheme: dark) {
+  .ooxml-viewer {
+    background: var(--hb-bg-dark, #1a1a1a);
+  }
+  .ooxml-viewer-state {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .ooxml-viewer-error-title {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .ooxml-viewer-download {
+    border-color: var(--hb-border-dark, #374151);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .ooxml-viewer-download:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+  }
+  .ooxml-toolbar {
+    background: var(--hb-bg-soft-dark, #242424);
+    border-color: var(--hb-border-dark, #374151);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  .ooxml-toolbar-btn {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .ooxml-toolbar-btn:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.08));
+  }
+  .ooxml-toolbar-level {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+}

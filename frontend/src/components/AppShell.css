@@ -1,0 +1,31 @@
+/* AppShell 主布局 */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.app-shell-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+.app-shell-main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  border-left: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg, #ffffff);
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-shell-main {
+    border-left-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-dark, #1a1a1a);
+  }
+}

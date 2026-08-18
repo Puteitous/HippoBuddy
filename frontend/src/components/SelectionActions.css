@@ -1,0 +1,36 @@
+/* SelectionActions - 文本选中快捷操作浮动按钮(阶段 3.7-2) */
+
+.selection-action-btn {
+  position: fixed;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-radius: 6px;
+  background: var(--hb-bg, #ffffff);
+  color: inherit;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  z-index: 2000;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.selection-action-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.selection-action-btn svg {
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+@media (prefers-color-scheme: dark) {
+  .selection-action-btn {
+    background: var(--hb-bg-dark, #1f2937);
+    border-color: var(--hb-border-dark, #374151);
+  }
+}

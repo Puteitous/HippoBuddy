@@ -107,6 +107,7 @@ public class DashboardServer {
             server.createContext("/api/workspace", new WorkspaceApiHandler());
             server.createContext("/chat", new StaticFileHandler("/static"));
             server.createContext("/cockpit", new StaticFileHandler("/static"));
+            server.createContext("/app", new StaticFileHandler("/static-v2"));
             server.createContext("/", new StaticFileHandler("/static"));
 
             executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("dashboard-http-", 1).factory());
@@ -120,6 +121,7 @@ public class DashboardServer {
 
             logger.info("DashboardServer 已启动，端口：{}", port);
             logger.info("Hippo Cockpit: http://localhost:{}/cockpit", port);
+            logger.info("Hippo Cockpit (React): http://localhost:{}/app", port);
             logger.info("Web Chat: http://localhost:{}/chat", port);
             logger.info("Memory Dashboard: http://localhost:{}/", port);
             // 纯英文就绪标记，避免终端中文乱码导致 Electron 检测失败

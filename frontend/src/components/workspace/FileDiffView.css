@@ -1,0 +1,161 @@
+/* FileDiffView - 文件变更对比视图 */
+
+.file-diff-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--hb-bg, #ffffff);
+  color: var(--hb-text, #1f2937);
+  overflow: hidden;
+}
+
+.file-diff-view-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg-soft, #f9fafb);
+  flex-shrink: 0;
+}
+
+.file-diff-view-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+}
+
+.file-diff-view-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.file-diff-view-path {
+  color: var(--hb-text-soft, #6b7280);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.file-diff-view-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  font-family: var(--hb-mono, 'JetBrains Mono', 'Consolas', monospace);
+}
+
+.diff-stat-add {
+  color: var(--hb-diff-add-text, #15803d);
+  font-weight: 600;
+}
+
+.diff-stat-del {
+  color: var(--hb-diff-del-text, #b91c1c);
+  font-weight: 600;
+}
+
+.file-diff-view-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.file-diff-view-actions button {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-diff-view-actions button:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+.file-diff-view-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-diff-view-loading,
+.file-diff-view-error,
+.file-diff-view-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  padding: 32px 16px;
+  color: var(--hb-text-soft, #6b7280);
+  font-size: 13px;
+  text-align: center;
+}
+
+.file-diff-view-error button {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-diff-view-error button:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+/* ── 暗色模式 ── */
+@media (prefers-color-scheme: dark) {
+  .file-diff-view {
+    background: var(--hb-bg-dark, #1a1a1a);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-diff-view-header {
+    border-bottom-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-soft-dark, #242424);
+  }
+  .file-diff-view-name {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-diff-view-path {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .diff-stat-add {
+    color: var(--hb-diff-add-text-dark, #4ade80);
+  }
+  .diff-stat-del {
+    color: var(--hb-diff-del-text-dark, #f87171);
+  }
+  .file-diff-view-actions button {
+    border-color: var(--hb-border-dark, #374151);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-diff-view-actions button:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+  }
+  .file-diff-view-loading,
+  .file-diff-view-error,
+  .file-diff-view-empty {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .file-diff-view-error button {
+    border-color: var(--hb-border-dark, #374151);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-diff-view-error button:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+  }
+}

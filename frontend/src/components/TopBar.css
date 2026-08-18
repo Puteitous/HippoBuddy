@@ -1,0 +1,90 @@
+/* TopBar 顶部状态栏 */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg, #fafafa);
+  flex-shrink: 0;
+}
+
+.top-bar-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.top-bar-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.top-bar-tag {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.top-bar-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.top-bar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--hb-border, #e5e7eb);
+  flex-shrink: 0;
+}
+
+.top-bar-session-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 2px 8px;
+  background: rgba(127, 127, 127, 0.12);
+  border-radius: 4px;
+}
+
+.top-bar-no-session {
+  font-size: 13px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.top-bar-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.top-bar-tab {
+  padding: 4px 12px;
+  font-size: 13px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+}
+
+.top-bar-tab:hover {
+  background: rgba(127, 127, 127, 0.1);
+}
+
+.top-bar-tab-active {
+  background: rgba(127, 127, 127, 0.15);
+  border-color: rgba(127, 127, 127, 0.25);
+  font-weight: 500;
+}
+
+@media (prefers-color-scheme: dark) {
+  .top-bar {
+    border-bottom-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-dark, #1a1a1a);
+  }
+}

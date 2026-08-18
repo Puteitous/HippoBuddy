@@ -1,0 +1,287 @@
+/* MetricsPanel 实时监控面板样式
+   命名空间 .metrics-,挂在 ActivityBar 浮动面板内(320px) */
+
+.metrics-panel {
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+/* ── 分组 ───────────────────────────────────────────── */
+.metrics-group {
+  margin-bottom: 10px;
+}
+
+.metrics-group-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+
+.metrics-group + .metrics-group {
+  padding-top: 10px;
+  border-top: 1px solid rgba(127, 127, 127, 0.18);
+}
+
+/* ── 指标卡片 ────────────────────────────────────────── */
+.metrics-item {
+  background: rgba(127, 127, 127, 0.06);
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.metrics-label {
+  font-size: 10px;
+  color: #9ca3af;
+  line-height: 1.2;
+}
+
+.metrics-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── LLM 指标 + 环形图混合布局 ───────────────────────── */
+.metrics-item-chart {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 8px 12px;
+}
+
+.metrics-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.metrics-item-details > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metrics-item-details .metrics-value {
+  font-size: 12px;
+}
+
+/* ── 环形图 ──────────────────────────────────────────── */
+.metrics-ring {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.metrics-ring-bg {
+  fill: none;
+  stroke: rgba(127, 127, 127, 0.15);
+  stroke-width: 3.2;
+}
+
+.metrics-ring-fg {
+  fill: none;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dasharray 0.4s ease, stroke 0.4s ease;
+}
+
+.metrics-ring-text {
+  font-size: 10px;
+  font-weight: 600;
+  fill: #1f2937;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 延迟趋势折线图 ──────────────────────────────────── */
+.metrics-trend {
+  margin-top: 6px;
+  height: 48px;
+  background: rgba(127, 127, 127, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.metrics-trend-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.metrics-trend-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.metrics-trend-area {
+  fill: rgba(59, 130, 246, 0.18);
+  stroke: none;
+}
+
+.metrics-trend-line {
+  fill: none;
+  stroke: #3b82f6;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.metrics-trend-dot {
+  fill: #3b82f6;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+}
+
+.metrics-trend-count {
+  font-size: 9px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 工具调用水平条形图 ──────────────────────────────── */
+.metrics-bar-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.metrics-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metrics-bar-label {
+  font-size: 11px;
+  color: #6b7280;
+  width: 56px;
+  flex-shrink: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metrics-bar-track {
+  flex: 1;
+  height: 14px;
+  background: rgba(127, 127, 127, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.metrics-bar-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+  transition: width 0.4s ease;
+  min-width: 14px;
+}
+
+.metrics-bar-count {
+  font-size: 9px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+}
+
+/* 不同工具的条形图颜色(对齐旧版 nth-child 配色) */
+.metrics-bar-row:nth-child(1) .metrics-bar-fill { background: #5b7cfa; }
+.metrics-bar-row:nth-child(2) .metrics-bar-fill { background: #4caf50; }
+.metrics-bar-row:nth-child(3) .metrics-bar-fill { background: #ff9800; }
+.metrics-bar-row:nth-child(4) .metrics-bar-fill { background: #2196f3; }
+.metrics-bar-row:nth-child(5) .metrics-bar-fill { background: #f44336; }
+.metrics-bar-row:nth-child(n+6) .metrics-bar-fill { background: #9e9e9e; }
+
+/* ── 空态 / 错误 / 更新时间 ──────────────────────────── */
+.metrics-empty {
+  padding: 16px 0;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.metrics-error {
+  padding: 8px;
+  background: rgba(220, 38, 38, 0.08);
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.metrics-update-time {
+  font-size: 10px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* ── 深色模式适配 ─────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .metrics-group-title {
+    color: #9ca3af;
+  }
+
+  .metrics-item {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .metrics-value,
+  .metrics-ring-text {
+    color: #e5e7eb;
+  }
+
+  .metrics-label,
+  .metrics-trend-count,
+  .metrics-update-time,
+  .metrics-trend-empty,
+  .metrics-empty {
+    color: #9ca3af;
+  }
+
+  .metrics-bar-label {
+    color: #b0b7c3;
+  }
+
+  .metrics-ring-bg {
+    stroke: rgba(255, 255, 255, 0.15);
+  }
+
+  .metrics-trend-dot {
+    stroke: #1a1a1a;
+  }
+}

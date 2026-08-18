@@ -1,0 +1,107 @@
+/* WorkspacePanel - 工作区面板容器 */
+
+.workspace-panel {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: var(--hb-bg, #ffffff);
+  color: var(--hb-text, #1f2937);
+}
+
+.workspace-panel-sidebar {
+  width: 260px;
+  min-width: 200px;
+  max-width: 380px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg-soft, #fafafa);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-panel-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--hb-text-soft, #9ca3af);
+  font-size: 13px;
+  text-align: center;
+}
+
+.workspace-panel-empty-hint {
+  font-size: 11px;
+  color: var(--hb-text-soft, #c4c4c4);
+  max-width: 280px;
+}
+
+.workspace-panel-root-loading,
+.workspace-panel-root-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  padding: 24px 16px;
+  color: var(--hb-text-soft, #6b7280);
+  font-size: 12px;
+  text-align: center;
+}
+
+.workspace-panel-root-error pre {
+  margin: 0;
+  padding: 8px;
+  font-size: 11px;
+  max-width: 100%;
+  overflow: auto;
+  background: var(--hb-error-bg, rgba(239, 68, 68, 0.06));
+  color: var(--hb-error-text, #b91c1c);
+  border-radius: 4px;
+}
+
+/* ── 暗色模式 ── */
+@media (prefers-color-scheme: dark) {
+  .workspace-panel {
+    background: var(--hb-bg-dark, #1a1a1a);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .workspace-panel-sidebar {
+    border-right-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-soft-dark, #141414);
+  }
+  .workspace-panel-empty {
+    color: var(--hb-text-soft-dark, #6b7280);
+  }
+  .workspace-panel-empty-hint {
+    color: var(--hb-text-soft-dark, #4b5563);
+  }
+  .workspace-panel-root-loading,
+  .workspace-panel-root-error {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .workspace-panel-root-error pre {
+    background: var(--hb-error-bg-dark, rgba(239, 68, 68, 0.12));
+    color: var(--hb-error-text-dark, #f87171);
+  }
+}

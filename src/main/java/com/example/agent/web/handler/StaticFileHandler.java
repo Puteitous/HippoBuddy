@@ -20,8 +20,9 @@ public class StaticFileHandler implements HttpHandler {
 
     /** 开发模式下优先从源文件系统加载，实时反映修改 */
     private static Path findDevStaticDir(String basePath) {
-        if (!"/static".equals(basePath)) return null;
-        Path candidate = Paths.get("src", "main", "resources", "static").toAbsolutePath().normalize();
+        if (!"/static".equals(basePath) && !"/static-v2".equals(basePath)) return null;
+        String rel = basePath.substring(1); // "static" / "static-v2"
+        Path candidate = Paths.get("src", "main", "resources", rel).toAbsolutePath().normalize();
         if (Files.isDirectory(candidate)) {
             return candidate;
         }
@@ -34,6 +35,23 @@ public class StaticFileHandler implements HttpHandler {
 
         if ("/".equals(path) || "/cockpit".equals(path)) {
             path = "/cockpit.html";
+        } else if ("/app".equals(path)) {
+            // 新前端(React + TS)入口,由 /app context → static-v2 目录服务
+            path = "/index.html";
+        }
+
+        // 剥离 context 前缀:HttpServer 将请求路由到 /app context 后,
+        // getRequestURI().getPath() 仍是完整路径(如 /app/assets/index.js),
+        // 需去掉 /app 再按 static-v2 目录 resolve, 否则会 404。
+        // 按路径段匹配(equals(context) 或 startsWith(context + "/")),
+        // 避免误伤 /cockpit.html 这类同前缀但不同段的路径。
+        String contextPath = exchange.getHttpContext() != null
+            ? exchange.getHttpContext().getPath()
+            : "";
+        if (contextPath.length() > 1
+            && (path.equals(contextPath) || path.startsWith(contextPath + "/"))) {
+            path = path.substring(contextPath.length());
+            if (path.isEmpty()) path = "/";
         }
 
         byte[] content = null;

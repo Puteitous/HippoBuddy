@@ -1,0 +1,238 @@
+/* ChatPanel 聊天面板样式 */
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--hb-bg, #ffffff);
+}
+
+.chat-panel-empty {
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ── 消息区(滚动) ───────────────────────────────────── */
+.chat-panel-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px 0;
+  min-height: 0;
+  scroll-behavior: auto;
+}
+
+.chat-panel-streaming {
+  margin-top: 16px;
+}
+
+/* ── 工具调用卡片列表(实时流中显示) ───────────────────── */
+.chat-panel-toolcalls {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── ask_user 卡片区 ─────────────────────────────────── */
+.chat-panel-ask-user {
+  margin-top: 12px;
+}
+
+/* 错误提示 */
+.chat-panel-error {
+  margin: 16px 0;
+  padding: 10px 14px;
+  background: rgba(220, 38, 38, 0.08);
+  border-left: 3px solid #dc2626;
+  border-radius: 4px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+/* 警告提示 */
+.chat-panel-warnings {
+  position: relative;
+  margin: 8px 0;
+  padding: 8px 14px 8px 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 3px solid #d97706;
+  border-radius: 4px;
+  color: #d97706;
+  font-size: 13px;
+}
+
+.chat-panel-warnings-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #d97706;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.chat-panel-warnings-close:hover {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.chat-panel-warnings ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.chat-panel-warnings li {
+  margin: 2px 0;
+}
+
+/* 滚动锚点 */
+.chat-panel-anchor {
+  height: 1px;
+  margin-top: 8px;
+}
+
+/* ── 输入区 ─────────────────────────────────────────── */
+.chat-panel-input-area {
+  flex-shrink: 0;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg, #ffffff);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 附件行(引用芯片 + 图片预览) */
+.chat-panel-input-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+/* 主输入行:textarea + 图片上传 + 发送按钮 */
+.chat-panel-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+/* 底部:模式预设 + Token 监控 */
+.chat-panel-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-panel-textarea {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 40px;
+  max-height: 200px;
+  background: inherit;
+  color: inherit;
+}
+
+.chat-panel-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.chat-panel-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chat-panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-panel-send-btn,
+.chat-panel-abort-btn {
+  padding: 8px 20px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chat-panel-send-btn {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.chat-panel-send-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.chat-panel-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-panel-abort-btn {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.chat-panel-abort-btn:hover {
+  background: #dc2626;
+}
+
+/* ── 深色模式 ───────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .chat-panel {
+    background: var(--hb-bg-dark, #1a1a1a);
+  }
+
+  .chat-panel-input-area {
+    border-top-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-dark, #1a1a1a);
+  }
+
+  .chat-panel-textarea {
+    border-color: #4b5563;
+  }
+
+  .chat-panel-textarea:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+  }
+
+  .chat-panel-send-btn {
+    background: #2563eb;
+  }
+
+  .chat-panel-send-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
+
+  .chat-panel-abort-btn {
+    background: #dc2626;
+  }
+
+  .chat-panel-abort-btn:hover {
+    background: #b91c1c;
+  }
+}

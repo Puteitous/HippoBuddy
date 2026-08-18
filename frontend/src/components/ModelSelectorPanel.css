@@ -1,0 +1,217 @@
+/* ModelSelectorPanel - 顶部状态栏模型快速选择(阶段 3.7-2) */
+
+.msp-root {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* ── 触发器(双信息:模型名 · 档位) ─────────────────── */
+.msp-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 13px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  max-width: 260px;
+}
+
+.msp-trigger:hover {
+  background: rgba(127, 127, 127, 0.1);
+}
+
+.msp-trigger.msp-open {
+  background: rgba(127, 127, 127, 0.15);
+  border-color: rgba(127, 127, 127, 0.25);
+}
+
+.msp-trigger-model {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msp-trigger-sep {
+  color: #9ca3af;
+}
+
+.msp-trigger-effort {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(127, 127, 127, 0.12);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.msp-trigger-chevron {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+/* ── 面板(向下弹出,right 对齐,防右侧溢出) ─────────── */
+.msp-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: min(480px, calc(100vh - 64px));
+  overflow-y: auto;
+  background: var(--hb-bg, #ffffff);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  padding: 4px;
+}
+
+/* ── 第一级 menu ─────────────────────────────────── */
+.msp-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+
+.msp-menu-item:hover:not(.msp-disabled) {
+  background: rgba(127, 127, 127, 0.1);
+}
+
+.msp-menu-item.msp-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.msp-menu-label {
+  flex: 0 0 auto;
+}
+
+.msp-menu-value {
+  flex: 1;
+  text-align: right;
+  color: #9ca3af;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msp-menu-arrow {
+  color: #9ca3af;
+}
+
+/* ── 第二级 header(返回键 + 标题) ─────────────────── */
+.msp-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+}
+
+.msp-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-size: 14px;
+}
+
+.msp-back:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+
+/* ── 第二级 body ─────────────────────────────────── */
+.msp-body {
+  padding: 4px 0;
+}
+
+.msp-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+
+.msp-item:hover:not(.msp-disabled) {
+  background: rgba(127, 127, 127, 0.1);
+}
+
+.msp-item.msp-selected {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.msp-item.msp-selected .msp-item-label {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.msp-item.msp-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.msp-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msp-item-check {
+  color: #2563eb;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.msp-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--hb-border, #e5e7eb);
+}
+
+@media (prefers-color-scheme: dark) {
+  .msp-panel {
+    background: var(--hb-bg-dark, #1f2937);
+    border-color: var(--hb-border-dark, #374151);
+  }
+
+  .msp-item.msp-selected {
+    background: rgba(96, 165, 250, 0.15);
+  }
+
+  .msp-item.msp-selected .msp-item-label,
+  .msp-item-check {
+    color: #93c5fd;
+  }
+}
