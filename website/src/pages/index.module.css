@@ -652,6 +652,137 @@
   color: var(--ifm-color-primary);
 }
 
+/* ── Community section · 加入交流群 ── */
+.communitySection {
+  padding: 3rem 0 5rem;
+  background: #f5f5f7; /* 浅灰 · 与截图区纸白交替 */
+}
+
+[data-theme='dark'] .communitySection {
+  background: #0a0a0a;
+}
+
+/* 全宽容器 · 对齐 Hero (5vw 留白) */
+.communitySection :global(.container) {
+  max-width: none;
+  padding: 0 5vw;
+}
+
+/* 区块头部 · 与视频/截图区同语言 (chrome 刊头 + kicker + 大标题) */
+.communityHead {
+  margin-bottom: 3rem;
+}
+
+.communityChrome {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+  margin-bottom: 2.6rem;
+}
+
+[data-theme='dark'] .communityChrome {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.communityKicker {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.85rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 0.7rem;
+}
+
+[data-theme='dark'] .communityKicker {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.communityTitle {
+  font-weight: 200;
+  font-size: clamp(2rem, 4.2vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin-bottom: 0;
+  color: #1a1a1a;
+}
+
+[data-theme='dark'] .communityTitle {
+  color: #ffffff;
+}
+
+/* 群信息卡片 · 居中限宽 */
+.communityCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+  max-width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 2.2rem 2.6rem;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12); /* 发丝边框 */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='dark'] .communityCard {
+  background: #141414;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.communityGroupName {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.4rem;
+}
+
+[data-theme='dark'] .communityGroupName {
+  color: #ffffff;
+}
+
+.communityGroupDesc {
+  font-size: 0.92rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] .communityGroupDesc {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* 群号 · mono 大字 */
+.communityGroupNo {
+  font-family: var(--ifm-font-family-monospace), 'JetBrains Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+
+[data-theme='dark'] .communityGroupNo {
+  color: #ffffff;
+}
+
+.communityHint {
+  margin: 1.2rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme='dark'] .communityHint {
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* ── Lightbox 截图放大 · 近黑遮罩 (与 Hero --ink 同色系) ── */
 .lightbox {
   position: fixed;

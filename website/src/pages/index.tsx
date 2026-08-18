@@ -662,6 +662,42 @@ export default function Home(): ReactNode {
             </div>
           </div>
         </section>
+
+        {/* ── 交流群 · 问题反馈 / 功能建议 / 使用求助 ── */}
+        <section className={styles.communitySection}>
+          <div className="container">
+            <ScrollReveal>
+              <div className={styles.communityHead}>
+                <div className={styles.communityChrome}>
+                  <span><Translate>Community · 加入交流</Translate></span>
+                  <span>HB · COMMUNITY</span>
+                </div>
+                <div className={styles.communityKicker}><Translate>Join the group · 摸鱼交流，共同成长</Translate></div>
+                <Heading as="h2" className={styles.communityTitle}>
+                  <Translate>HB摸鱼交流群</Translate>
+                </Heading>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal>
+              <div className={styles.communityCard}>
+                <div>
+                  <div className={styles.communityGroupName}>
+                    <Translate>HB摸鱼交流群</Translate>
+                  </div>
+                  <div className={styles.communityGroupDesc}>
+                    <Translate>问题反馈、功能建议、使用求助、摸鱼交流都欢迎</Translate>
+                  </div>
+                </div>
+                <div className={styles.communityGroupNo}>QQ 1102524202</div>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal>
+              <p className={styles.communityHint}>
+                <Translate>在 QQ 中搜索群号「1102524202」即可加入</Translate>
+              </p>
+            </ScrollReveal>
+          </div>
+        </section>
       </main>
 
       {lightboxItem && (

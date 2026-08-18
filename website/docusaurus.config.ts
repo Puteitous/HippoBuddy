@@ -119,6 +119,10 @@ const config: Config = {
               label: '发布页',
               href: 'https://github.com/Puteitous/HippoBuddy/releases',
             },
+            {
+              label: '交流群（QQ 1102524202）',
+              href: 'https://www.hippobuddy.cn/',
+            },
           ],
         },
         {

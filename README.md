@@ -36,6 +36,7 @@
 | Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 
 > 📖 在线文档：[https://www.hippobuddy.cn/](https://www.hippobuddy.cn/)
+> 💬 交流群：HB摸鱼交流群（QQ：1102524202），问题反馈、功能建议、使用求助、摸鱼交流都欢迎
 
 ---
 
