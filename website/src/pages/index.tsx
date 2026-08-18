@@ -88,6 +88,67 @@ function Lightbox({item, onClose}: {item: LightboxItem; onClose: () => void}) {
   );
 }
 
+/* ============== Community Modal · 交流群悬浮卡片 ==============
+   点击导航栏「交流群」触发, 显示群号和复制按钮.            */
+function CommunityModal({open, onClose}: {open: boolean; onClose: () => void}) {
+  const [copied, setCopied] = useState(false);
+  const groupNo = '1102524202';
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, onClose]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(groupNo);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // fallback
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className={styles.communityModal} onClick={onClose} role="dialog" aria-modal="true">
+      <div className={styles.communityModalInner} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.communityModalHead}>
+          <Translate>摸鱼交流群</Translate>
+        </div>
+        <div className={styles.communityModalDesc}>
+          <Translate>问题反馈 · 功能建议 · 使用求助 · 摸鱼交流</Translate>
+        </div>
+        <div className={styles.communityModalNo}>QQ {groupNo}</div>
+        <button
+          type="button"
+          className={styles.communityModalCopy}
+          onClick={handleCopy}
+          aria-label={translate({message: '复制群号'})}>
+          {copied ? <Translate>已复制</Translate> : <Translate>复制群号</Translate>}
+        </button>
+        <button
+          type="button"
+          className={styles.communityModalClose}
+          onClick={onClose}
+          aria-label={translate({message: '关闭'})}>
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ============== ASCII 字符点阵呼吸场 · 瑞士风 Hero 专用 ==============
    从 ppt-demo/index.html 移植并 React 化:
    - sin/cos 噪声场驱动字符显隐, mix-blend-mode:screen 在深底上自然发亮
@@ -530,6 +591,7 @@ function HomepageHeader() {
 export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   const [lightboxItem, setLightboxItem] = useState<LightboxItem | null>(null);
+  const [communityModalOpen, setCommunityModalOpen] = useState(false);
 
   /* 首页时给导航栏加 home 类, 使其与黑色 Hero 无缝融合; 离开首页自动移除 */
   useEffect(() => {
@@ -537,6 +599,19 @@ export default function Home(): ReactNode {
     if (!nav) return;
     nav.classList.add('navbar--home');
     return () => nav.classList.remove('navbar--home');
+  }, []);
+
+  /* 监听 hash 变化, 触发交流群弹窗 */
+  useEffect(() => {
+    const checkHash = () => {
+      if (window.location.hash === '#community') {
+        setCommunityModalOpen(true);
+        history.replaceState(null, '', window.location.pathname);
+      }
+    };
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
   }, []);
 
   return (
@@ -662,47 +737,12 @@ export default function Home(): ReactNode {
             </div>
           </div>
         </section>
-
-        {/* ── 交流群 · 问题反馈 / 功能建议 / 使用求助 ── */}
-        <section className={styles.communitySection}>
-          <div className="container">
-            <ScrollReveal>
-              <div className={styles.communityHead}>
-                <div className={styles.communityChrome}>
-                  <span><Translate>Community · 加入交流</Translate></span>
-                  <span>HB · COMMUNITY</span>
-                </div>
-                <div className={styles.communityKicker}><Translate>Join the group · 摸鱼交流，共同成长</Translate></div>
-                <Heading as="h2" className={styles.communityTitle}>
-                  <Translate>HB摸鱼交流群</Translate>
-                </Heading>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal>
-              <div className={styles.communityCard}>
-                <div>
-                  <div className={styles.communityGroupName}>
-                    <Translate>HB摸鱼交流群</Translate>
-                  </div>
-                  <div className={styles.communityGroupDesc}>
-                    <Translate>问题反馈、功能建议、使用求助、摸鱼交流都欢迎</Translate>
-                  </div>
-                </div>
-                <div className={styles.communityGroupNo}>QQ 1102524202</div>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal>
-              <p className={styles.communityHint}>
-                <Translate>在 QQ 中搜索群号「1102524202」即可加入</Translate>
-              </p>
-            </ScrollReveal>
-          </div>
-        </section>
       </main>
 
       {lightboxItem && (
         <Lightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
       )}
+      <CommunityModal open={communityModalOpen} onClose={() => setCommunityModalOpen(false)} />
     </Layout>
   );
 }

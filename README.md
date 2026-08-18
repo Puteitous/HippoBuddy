@@ -36,7 +36,8 @@
 | Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 
 > 📖 在线文档：[https://www.hippobuddy.cn/](https://www.hippobuddy.cn/)
-> 💬 交流群：HB摸鱼交流群（QQ：1102524202），问题反馈、功能建议、使用求助、摸鱼交流都欢迎
+>
+> 💬  交流群（QQ：1102524202）— 问题反馈、功能建议、使用求助、摸鱼心得，欢迎大家交流
 
 ---
 
@@ -193,3 +194,9 @@ src/main/java/com/example/agent/
 ## 许可证
 
 [Apache License 2.0](./LICENSE)
+
+---
+
+<p align="center">
+  💬 交流群（QQ：1102524202）— 问题反馈、功能建议、使用求助、摸鱼心得，欢迎大家交流
+</p>

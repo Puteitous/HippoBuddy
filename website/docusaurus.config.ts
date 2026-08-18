@@ -78,6 +78,11 @@ const config: Config = {
           label: '文档',
         },
         {
+          label: '交流群',
+          position: 'right',
+          to: '#community',
+        },
+        {
           href: 'https://github.com/Puteitous/HippoBuddy',
           label: 'GitHub',
           position: 'right',
@@ -119,10 +124,6 @@ const config: Config = {
               label: '发布页',
               href: 'https://github.com/Puteitous/HippoBuddy/releases',
             },
-            {
-              label: '交流群（QQ 1102524202）',
-              href: 'https://www.hippobuddy.cn/',
-            },
           ],
         },
         {
@@ -131,6 +132,10 @@ const config: Config = {
             {
               label: '技术文档',
               to: '/docs/intro',
+            },
+            {
+              label: '交流群',
+              to: '#community',
             },
           ],
         },
