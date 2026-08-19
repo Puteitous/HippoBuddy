@@ -10,17 +10,18 @@
  *
  * 与旧版 ChatPanel.js 的差异:
  *  - 不再依赖全局 DOM 委托,改用 React 受控 props 与 state
- *  - ImageUpload 简化:缩略图点击在新标签打开,不引入 image-lightbox
+ *  - ImageUpload 简化:缩略图点击开灯箱预览(Lightbox,对齐旧版 image-lightbox)
  *  - RefChips 简化:不依赖 file-icons.js,3.4 用 emoji 占位(3.5 FileTree 接入后再统一)
  *  - 模式切换仅保留在空会话 Hero(ChatEmptyHero),输入卡片内无模式预设(对齐旧版)
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
 import { api } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
-import type { Message, PendingImage, RefChip } from '@/types';
+import type { PendingImage, RefChip, ToolCallRecord } from '@/types';
 import { combineChipsToMessage } from '@/utils/ref-chips';
 import { on } from '@/utils/eventBus';
 import type { SelectionAddToInputPayload } from '@/utils/eventBus';
@@ -39,6 +40,7 @@ import { fromToolCallRecord, groupTimelineItems } from '../tool-renderers/tool-t
 import { TokenMonitor } from './TokenMonitor';
 import { RefChips } from './RefChips';
 import { ImageUpload } from './ImageUpload';
+import { Lightbox } from './Lightbox';
 import { FileChangesMonitor } from './FileChangesMonitor';
 import { ChatNav } from '../ChatNav';
 import { ChatPanelHeader } from './ChatPanelHeader';
@@ -55,8 +57,8 @@ export function ChatPanel() {
   const setSessions = useAppStore((s) => s.setSessions);
   const messages = useChatStore((s) => s.messages);
   const isReasoning = useChatStore((s) => s.isReasoning);
-  const streamingContent = useChatStore((s) => s.streamingContent);
-  const streamingReasoning = useChatStore((s) => s.streamingReasoning);
+  // 流式渲染序列(对齐旧版 segment 时序:思考/文本/工具按事件顺序交错)
+  const stream = useChatStore((s) => s.stream);
   const streamingMessageId = useChatStore((s) => s.streamingMessageId);
   const error = useChatStore((s) => s.error);
   const warnings = useChatStore((s) => s.warnings);
@@ -66,13 +68,61 @@ export function ChatPanel() {
   // ask_user 触发的用户输入卡片(等待回答时显示)
   const waitingForUser = useChatStore((s) => s.waitingForUser);
 
-  // 实时工具调用分组(对齐旧版 timeline 逻辑):
-  //  - standalone:todo_write 等独立卡片(ask_user 由下方 ask-user 区渲染,避免重复)
-  //  - groups:连续普通工具合并为时间线
-  const { standalone: standaloneToolCalls, groups: timelineGroups } = useMemo(
-    () => groupTimelineItems(toolCalls),
-    [toolCalls],
-  );
+  // 流式渲染行:按 stream 顺序交错渲染 assistant 气泡与工具卡片(对齐旧版 segment 时序)。
+  // 文本/思考段落渲染为 assistant 气泡,连续普通工具合并为 timeline,todo_write 独立卡片;
+  // ask_user 由下方 ask-user 区块渲染,这里跳过避免重复。
+  const streamRows = useMemo(() => {
+    const rows: ReactNode[] = [];
+    const toolMap = new Map(toolCalls.map((tc) => [tc.id, tc]));
+    // 最后一段 assistant(当前打开的流式段)才显示"思考中",其余历史上周显示"已思考"
+    let lastAssistantIdx = -1;
+    for (let i = stream.length - 1; i >= 0; i--) {
+      if (stream[i].kind === 'assistant') {
+        lastAssistantIdx = i;
+        break;
+      }
+    }
+    let tlBuf: ToolCallRecord[] = [];
+    const flushTools = () => {
+      if (tlBuf.length === 0) return;
+      const { standalone, groups } = groupTimelineItems(tlBuf);
+      for (const tc of standalone) {
+        if (tc.name === 'ask_user') continue;
+        rows.push(<ToolCardDispatcher key={tc.id} record={tc} />);
+      }
+      for (const g of groups) {
+        rows.push(<ToolTimeline key={`tl-${g[0].id}`} items={g.map(fromToolCallRecord)} />);
+      }
+      tlBuf = [];
+    };
+    stream.forEach((item, idx) => {
+      if (item.kind === 'assistant') {
+        flushTools();
+        // 仅最后一段(当前打开的流式段)显示光标与"思考中"标签;
+        // 中间被工具分隔的段落无光标、无 footer,避免多个光标闪烁
+        const isOpen = idx === lastAssistantIdx;
+        rows.push(
+          <MessageBubble
+            key={`s-${item.turn}-${idx}`}
+            message={{
+              id: streamingMessageId ?? `s-${item.turn}`,
+              role: 'assistant',
+              content: item.text || '',
+              reasoning_content: item.reasoning || undefined,
+            }}
+            isStreaming={isOpen}
+            isReasoning={isReasoning && isOpen}
+            showFooter={false}
+          />,
+        );
+      } else {
+        const rec = toolMap.get(item.callId);
+        if (rec) tlBuf.push(rec);
+      }
+    });
+    flushTools();
+    return rows;
+  }, [stream, toolCalls, isReasoning, streamingMessageId]);
 
   const { send, abort, isSending: isStreamSending } = useChatStream();
   const [input, setInput] = useState('');
@@ -84,6 +134,8 @@ export function ChatPanel() {
   const [refChips, setRefChips] = useState<RefChip[]>([]);
   /** 待发送图片(转为 dataUrl 后随 ChatRequest.images 提交) */
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  /** 灯箱预览的当前索引(null 为关闭) */
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   // 复用 chatStore.pushWarning 展示图片上传警告(语义可接受)
   const pushWarning = useChatStore((s) => s.pushWarning);
 
@@ -153,7 +205,7 @@ export function ChatPanel() {
     if (stickToBottomRef.current) {
       scrollToBottom('auto');
     }
-  }, [messages.length, streamingContent, streamingReasoning, isReasoning, scrollToBottom]);
+  }, [messages.length, stream, isReasoning, scrollToBottom]);
 
   // 切换会话时,重置 stickToBottom,并滚到底
   useEffect(() => {
@@ -374,19 +426,16 @@ export function ChatPanel() {
     });
   }, []);
 
-  // ── 流式气泡:构造临时 Message 对象 ─────────────────────────
-  const showStreamingBubble =
-    isStreamSending &&
-    !!(streamingContent || streamingReasoning || isReasoning);
-
-  const streamingMessage: Message | null = showStreamingBubble
-    ? {
-        id: streamingMessageId ?? '__streaming__',
-        role: 'assistant',
-        content: streamingContent || '',
-        reasoning_content: streamingReasoning || undefined,
-      }
-    : null;
+  // ── 欢迎屏 Hero 显示条件(对齐旧版 createNewSession) ──────
+  // 无选中会话 → 显示;或当前为"新建后尚未发送消息"的虚拟 web- 会话 → 回到 hero 空态。
+  // 首次发送(乐观追加消息)→ messages 非空即切回消息区,与旧版 .has-messages 行为一致。
+  const isEmptyVirtual =
+    !!currentSessionId &&
+    currentSessionId.startsWith('web-') &&
+    messages.length === 0 &&
+    !isStreamSending &&
+    toolCalls.length === 0;
+  const showHero = !currentSessionId || isEmptyVirtual;
 
   const hasAttachments = refChips.length > 0 || pendingImages.length > 0;
 
@@ -419,8 +468,10 @@ export function ChatPanel() {
           故放在 .chat-panel 顶层、条件分支之外,不随会话/消息有无而卸载。 */}
       <ChatNav container={messagesContainerEl} />
 
-      {/* 空会话:欢迎屏 Hero(对齐旧版 .empty-state) */}
-      {!currentSessionId ? (
+      {/* 空会话:欢迎屏 Hero(对齐旧版 .empty-state)
+          显示条件对齐旧版 createNewSession:除了无选中会话外,
+          新建(尚未发送消息的虚拟 web- 会话)也回到 hero 空态;首次发送后即切换为消息区。 */}
+      {showHero ? (
         <ChatEmptyHero onPresetSelect={handlePresetSelect} />
       ) : (
         <>
@@ -436,29 +487,11 @@ export function ChatPanel() {
           >
             <HistoryRenderer onRetry={handleRetry} onFork={handleFork} />
 
-        {/* 流式气泡(实时) */}
-        {streamingMessage && (
-          <div className="chat-panel-streaming">
-            <MessageBubble message={streamingMessage} isStreaming isReasoning={isReasoning} />
-          </div>
+        {/* 流式渲染(实时):按 stream 顺序交错渲染思考/文本气泡与工具卡片,
+            对齐旧版 segment 时序,工具不再固定堆在尾部 */}
+        {isStreamSending && streamRows.length > 0 && (
+          <div className="chat-panel-streaming">{streamRows}</div>
         )}
-
-        {/* 实时工具调用(仅发送中显示;回合结束后由 messages 中的 tool role 接管)
-            对齐旧版 timeline:todo_write 独立卡片,连续普通工具合并为时间线;
-            ask_user 由下方 ask-user 区渲染,避免重复 */}
-        {isStreamSending && toolCalls.length > 0 && (
-          <div className="chat-panel-toolcalls">
-            {standaloneToolCalls
-              .filter((tc) => tc.name !== 'ask_user')
-              .map((tc) => (
-                <ToolCardDispatcher key={tc.id} record={tc} />
-              ))}
-            {timelineGroups.map((group, i) => (
-              <ToolTimeline key={`tl-${i}`} items={group.map(fromToolCallRecord)} />
-            ))}
-          </div>
-        )}
-
         {/* ask_user 触发的用户输入卡片(等待回答时显示) */}
         {waitingForUser && (
           <div className="chat-panel-ask-user">
@@ -501,7 +534,10 @@ export function ChatPanel() {
         <div ref={messagesEndRef} className="chat-panel-anchor" />
       </div>
 
-      {/* 输入区 */}
+        </>
+      )}
+
+      {/* 输入区(始终显示,对齐旧版 .input-container 常驻,hero 与消息态均可见) */}
       <div className="chat-panel-input-area">
         {/* 回底提示按钮(对齐旧版 .new-msg-hint:用户上滚离开底部时显示) */}
         {showScrollHint && (
@@ -530,9 +566,7 @@ export function ChatPanel() {
                         src={img.dataUrl}
                         alt={img.name}
                         className="image-upload-thumb"
-                        onClick={() =>
-                          window.open(img.dataUrl, '_blank', `noopener,noreferrer,title=${encodeURIComponent(img.name)}`)
-                        }
+                        onClick={() => setLightboxIndex(pendingImages.findIndex((p) => p.id === img.id))}
                       />
                       <button
                         type="button"
@@ -639,8 +673,14 @@ export function ChatPanel() {
             </div>
           </div>
         </div>
-        </div>
-        </>
+      </div>
+      {lightboxIndex != null && pendingImages[lightboxIndex] && (
+        <Lightbox
+          images={pendingImages.map((p) => ({ src: p.dataUrl, name: p.name }))}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
     </div>
   );

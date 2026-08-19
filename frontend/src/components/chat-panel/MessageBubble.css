@@ -15,14 +15,24 @@
   position: relative;
 }
 
-/* ── 用户消息(右对齐,浅色底,占满宽度) ─────────────────── */
-.msg-bubble-user {
+/* ── 用户消息容器(对齐旧版 .message-user-wrap:
+     flex column 右下对齐,气泡 + footer 上下两行,
+     footer 为气泡外的独立一行) ─────────────────── */
+.msg-user-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 85%;
   align-self: flex-end;
+  animation: msg-slide-in-right 0.35s ease both;
+}
+
+/* 用户消息气泡(浅色底,占满 wrap 宽度) */
+.msg-bubble-user {
   background: var(--bg-canvas);
   color: var(--text-primary);
   border-bottom-right-radius: var(--radius-sm);
   max-width: 100%;
-  animation: msg-slide-in-right 0.35s ease both;
 }
 
 .msg-user-text {
@@ -344,21 +354,21 @@
 /* ── 用户消息:footer 背景条 + 时间/操作按钮 hover 显示 ──
    对齐旧版 .message-user-wrap .message-footer /
    .message-row.user-row:hover .message-user-wrap .message-time */
-.msg-bubble-user .message-footer {
+.msg-user-wrap .message-footer {
   background: var(--bg-code);
   border-radius: var(--radius-sm);
   padding: 0 8px;
   transform: translateX(-15px);
 }
 
-.msg-bubble-user .message-actions,
-.msg-bubble-user .message-time {
+.msg-user-wrap .message-actions,
+.msg-user-wrap .message-time {
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
 
-.msg-bubble-user:hover .message-actions,
-.msg-bubble-user:hover .message-time {
+.msg-user-wrap:hover .message-actions,
+.msg-user-wrap:hover .message-time {
   opacity: 1;
 }
 

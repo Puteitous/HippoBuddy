@@ -16,8 +16,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--hb-border, #e5e7eb);
-  background: var(--hb-bg-soft, #f3f4f6);
+  background: var(--hb-bg, #fafafa);
   flex-shrink: 0;
 }
 
@@ -156,15 +155,218 @@
   background: var(--hb-hover, rgba(0, 0, 0, 0.05));
 }
 
-/* ── 暗色模式 ── */
-@media (prefers-color-scheme: dark) {
+/* ========== 头部操作(折叠全部 / 刷新) ========== */
+
+.file-tree-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* ========== Git 状态徽标(对齐旧版 workspace.css) ========== */
+
+.file-tree-node .file-tree-status-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  user-select: none;
+  pointer-events: none;
+}
+
+.file-tree-status-badge.status-m {
+  color: #d49433;
+}
+.file-tree-status-badge.status-a {
+  color: #2ea043;
+}
+.file-tree-status-badge.status-d {
+  color: #f85149;
+}
+
+.file-tree-node.status-m .file-tree-name {
+  color: #d49433;
+}
+.file-tree-node.status-a .file-tree-name {
+  color: #2ea043;
+}
+.file-tree-node.status-d .file-tree-name {
+  color: #f85149;
+}
+
+/* ========== 右键菜单 ========== */
+
+.file-tree-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--hb-menu-bg, #ffffff);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.file-tree-context-item {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: var(--hb-text, #1f2937);
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.file-tree-context-item:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+}
+
+.file-tree-context-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--hb-border, #e5e7eb);
+}
+
+/* ========== 模态弹窗(输入 / 确认) ========== */
+
+.file-tree-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.file-tree-modal {
+  width: 360px;
+  max-width: calc(100vw - 48px);
+  background: var(--hb-menu-bg, #ffffff);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.file-tree-modal-header {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hb-text, #1f2937);
+  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+}
+
+.file-tree-modal-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-tree-modal-input-label {
+  font-size: 12px;
+  color: var(--hb-text-soft, #6b7280);
+}
+
+.file-tree-modal-input {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--hb-text, #1f2937);
+  background: var(--hb-bg-soft, #fafafa);
+  border: 1px solid var(--hb-border, #d1d5db);
+  border-radius: 6px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.file-tree-modal-input:focus {
+  border-color: var(--hb-active, #3b82f6);
+}
+
+.file-tree-modal-input.error {
+  border-color: #ef4444;
+}
+
+.file-tree-modal-input-hint {
+  font-size: 11px;
+  color: var(--hb-text-soft, #9ca3af);
+  word-break: break-all;
+}
+
+.file-tree-modal-message {
+  margin: 0;
+  font-size: 13px;
+  color: var(--hb-text, #1f2937);
+  line-height: 1.5;
+}
+
+.file-tree-modal-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--hb-text-soft, #6b7280);
+}
+
+.file-tree-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--hb-border, #e5e7eb);
+}
+
+.file-tree-modal-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.file-tree-modal-btn:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+}
+
+.file-tree-modal-btn-primary {
+  background: var(--hb-active, #3b82f6);
+  border-color: var(--hb-active, #3b82f6);
+  color: #ffffff;
+}
+
+.file-tree-modal-btn-primary:hover {
+  background: #2563eb;
+}
+
+.file-tree-modal-btn-danger {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.file-tree-modal-btn-danger:hover {
+  background: #dc2626;
+}
+
+/* ── 暗色模式(对齐 index.css [data-theme] 主题体系) ── */
+[data-theme="dark"],
+[data-theme="midnight"] {
   .file-tree {
     background: var(--hb-bg-dark, #1a1a1a);
     color: var(--hb-text-dark, #e5e7eb);
   }
   .file-tree-header {
-    border-bottom-color: var(--hb-border-dark, #374151);
-    background: var(--hb-bg-soft-dark, #242424);
+    background: var(--hb-bg-dark, #1a1a1a);
   }
   .file-tree-root-name {
     color: var(--hb-text-dark, #e5e7eb);
@@ -211,5 +413,67 @@
   }
   .file-tree-error button:hover {
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+  }
+  .file-tree-status-badge.status-m {
+    color: #d29922;
+  }
+  .file-tree-status-badge.status-a {
+    color: #3fb950;
+  }
+  .file-tree-status-badge.status-d {
+    color: #f85149;
+  }
+  .file-tree-node.status-m .file-tree-name {
+    color: #d29922;
+  }
+  .file-tree-node.status-a .file-tree-name {
+    color: #3fb950;
+  }
+  .file-tree-node.status-d .file-tree-name {
+    color: #f85149;
+  }
+  .file-tree-context-menu {
+    background: var(--hb-menu-bg-dark, #1f1f1f);
+    border-color: var(--hb-border-dark, #374151);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+  .file-tree-context-item {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-tree-context-item:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.08));
+  }
+  .file-tree-context-separator {
+    background: var(--hb-border-dark, #374151);
+  }
+  .file-tree-modal {
+    background: var(--hb-menu-bg-dark, #1f1f1f);
+    border-color: var(--hb-border-dark, #374151);
+  }
+  .file-tree-modal-header {
+    color: var(--hb-text-dark, #e5e7eb);
+    border-bottom-color: var(--hb-border-dark, #374151);
+  }
+  .file-tree-modal-input-label,
+  .file-tree-modal-note {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .file-tree-modal-input {
+    color: var(--hb-text-dark, #e5e7eb);
+    background: var(--hb-bg-soft-dark, #141414);
+    border-color: var(--hb-border-dark, #374151);
+  }
+  .file-tree-modal-input-hint {
+    color: var(--hb-text-soft-dark, #6b7280);
+  }
+  .file-tree-modal-message {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-tree-modal-btn {
+    border-color: var(--hb-border-dark, #4b5563);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-tree-modal-btn:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.08));
   }
 }

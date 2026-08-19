@@ -73,7 +73,6 @@ const MAX_VISIBLE = 10;
 
 function FileChangesMonitorComponent() {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
-  const setView = useAppStore((s) => s.setView);
   const workspacePath = useAppStore((s) => s.workspacePath);
 
   const [changes, setChanges] = useState<ChangeRecord[]>([]);
@@ -152,15 +151,14 @@ function FileChangesMonitorComponent() {
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [pinned]);
 
-  // 点击文件 → 打开 diff(桌面端/新版统一走 workspace:openDiff + 切视图)
+  // 点击文件 → 打开 diff(桌面端/新版统一走 workspace:openDiff,PreviewPanel 全局订阅)
   const openFileDiff = useCallback(
     (filePath: string) => {
       setPinned(false);
       setHovered(false);
       emit('workspace:openDiff', { filePath });
-      setView('workspace');
     },
-    [setView],
+    [],
   );
 
   /** 相对工作区根的展示路径(对齐旧版 updateFileChanges 的 root 裁剪) */

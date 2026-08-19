@@ -155,3 +155,110 @@
     box-shadow: inset 4px 0 0 var(--hb-accent-dark, #60a5fa);
   }
 }
+
+/* ── 词级高亮(行内精确变更,批次 A) ── */
+.diff-word-del {
+  background: rgba(239, 68, 68, 0.22);
+  border-radius: 2px;
+  text-decoration: line-through;
+  color: var(--hb-diff-del-text, #b91c1c);
+}
+
+.diff-word-ins {
+  background: rgba(34, 197, 94, 0.22);
+  border-radius: 2px;
+  text-decoration: none;
+  color: var(--hb-diff-add-text, #15803d);
+}
+
+/* ── hunk 折叠分隔行(批次 A) ── */
+.diff-row.diff-hunk.clickable {
+  cursor: pointer;
+}
+
+.diff-row.diff-hunk td {
+  text-align: center;
+  padding: 3px 12px !important;
+  background: var(--hb-gutter-bg, #f9fafb);
+  color: var(--hb-text-soft, #9ca3af);
+}
+
+.diff-row.diff-hunk.clickable:hover td {
+  background: var(--hb-border, #e5e7eb);
+}
+
+.diff-hunk-info {
+  font-size: 10.5px;
+  letter-spacing: 0.5px;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  user-select: none;
+}
+
+/* ── 折叠工具条(展开全部 / 收起全部,批次 A) ── */
+.diff-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 12px;
+  pointer-events: none;
+  background: linear-gradient(var(--hb-bg, #ffffff), transparent);
+}
+
+.diff-toolbar-btn {
+  pointer-events: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--hb-accent, #2563eb);
+  background: var(--hb-bg, #ffffff);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 999px;
+  padding: 3px 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.diff-toolbar-btn:hover {
+  background: var(--hb-accent, #2563eb);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ── 暗色模式(批次 A 新增样式) ── */
+@media (prefers-color-scheme: dark) {
+  .diff-word-del {
+    color: var(--hb-diff-del-text-dark, #f87171);
+  }
+
+  .diff-word-ins {
+    color: var(--hb-diff-add-text-dark, #4ade80);
+  }
+
+  .diff-row.diff-hunk td {
+    background: var(--hb-gutter-bg-dark, #242424);
+    color: var(--hb-text-soft-dark, #6b7280);
+  }
+
+  .diff-row.diff-hunk.clickable:hover td {
+    background: var(--hb-border-dark, #374151);
+  }
+
+  .diff-toolbar {
+    background: linear-gradient(var(--hb-bg-dark, #1a1a1a), transparent);
+  }
+
+  .diff-toolbar-btn {
+    color: var(--hb-accent-dark, #60a5fa);
+    background: var(--hb-bg-dark, #1a1a1a);
+    border-color: var(--hb-border-dark, #374151);
+  }
+
+  .diff-toolbar-btn:hover {
+    background: var(--hb-accent-dark, #60a5fa);
+  }
+}

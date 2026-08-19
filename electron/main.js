@@ -4,7 +4,10 @@
  * 加载 Java 后端 DashboardServer 提供的 Web UI，替代 JCEF 成为桌面壳。
  *
  * 启动方式：
- *   cd electron && npm start
+ *   npm run dev           旧桌面端(dev,/cockpit)
+ *   npm run dev:react      React 重构版(dev,/app)
+ *   npm start             旧桌面端(/cockpit)
+ *   npm run start:react    React 重构版(/app)
  *
  * 环境变量：
  *   HIPPO_PORT  — Java 后端端口（默认 9090）
@@ -43,6 +46,16 @@ if (!gotTheLock) {
 
 const PORT = parseInt(process.env.HIPPO_PORT || '9090', 10);
 const DEV = process.argv.includes('--dev');
+
+// UI 入口选择：默认加载旧 cockpit；带 --react-ui（或 HIPPO_UI=react）时加载 React 重构后的 /app。
+// 用途：start:react / dev:react 命令打开新 UI，start / dev 走旧桌面端，二者互不影响。
+const USE_REACT_UI =
+  process.argv.includes('--react-ui') || (process.env.HIPPO_UI || '').toLowerCase() === 'react';
+const UI_PATH = USE_REACT_UI ? '/app' : '/cockpit';
+
+function mainWindowHomeUrl() {
+  return `http://localhost:${PORT}${UI_PATH}`;
+}
 
 let mainWindow = null;
 let backendProcess = null;
@@ -120,7 +133,7 @@ function startBackend() {
   return new Promise((resolve, reject) => {
     // 优先查找已运行的进程（用户手动启动的情况）
     const http = require('http');
-    const req = http.get(`http://localhost:${PORT}/cockpit`, (res) => {
+    const req = http.get(`http://localhost:${PORT}/`, (res) => {
       if (res.statusCode === 200) {
         console.log('[backend] Backend already running');
         resolve();
@@ -309,7 +322,7 @@ function waitForHttpReady(resolve, reject) {
 
   function poll() {
     attempts++;
-    const req = http.get(`http://localhost:${PORT}/cockpit`, (res) => {
+    const req = http.get(`http://localhost:${PORT}/`, (res) => {
       res.resume();
       if (res.statusCode === 200) {
         console.log('[backend] HTTP endpoint ready');
@@ -414,8 +427,8 @@ function createWindow() {
   }
 
   if (DEV) {
-    // 开发模式：直接加载后端 URL
-    const url = `http://localhost:${PORT}/cockpit`;
+    // 开发模式：直接加载后端 URL（HIPPO_UI=react 时加载 /app）
+    const url = mainWindowHomeUrl();
     console.log(`[main] Loading: ${url}`);
     mainWindow.loadURL(url);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -529,7 +542,7 @@ function setupSplashCommunication() {
             ).catch(() => {});
             // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载 cockpit
             setTimeout(() => {
-              mainWindow.loadURL(`http://localhost:${PORT}/cockpit?skipSplash=true`);
+              mainWindow.loadURL(`${mainWindowHomeUrl()}?skipSplash=true`);
               mainWindow.setTitle('HippoBuddy');
             }, 1100);
           }, 500);
@@ -1288,7 +1301,7 @@ app.whenReady().then(() => {
             ).catch(() => {});
             // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载 cockpit
             setTimeout(() => {
-              mainWindow.loadURL(`http://localhost:${PORT}/cockpit?skipSplash=true`);
+              mainWindow.loadURL(`${mainWindowHomeUrl()}?skipSplash=true`);
               mainWindow.setTitle('HippoBuddy');
             }, 1100);
           }, 500);

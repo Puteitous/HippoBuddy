@@ -1,0 +1,58 @@
+/* PreviewPanel - 文件预览面板(对齐旧版 preview-panel,与聊天并排) */
+
+.preview-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  width: var(--preview-panel-width, 460px);
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.preview-panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 预览面板拖拽分隔条(对齐旧版 .panel-resizer) */
+.preview-resizer {
+  width: 4px;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  margin: 0 2px;
+  background: transparent;
+  transition: background 0.15s;
+  border-radius: 2px;
+}
+
+.preview-resizer:hover,
+.preview-resizer.resizing {
+  background: var(--accent);
+}
+
+/* 拖拽期间移除宽度过渡,避免卡顿 */
+.preview-panel.resizing {
+  transition: none;
+}

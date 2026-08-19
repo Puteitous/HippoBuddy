@@ -86,7 +86,12 @@ export const desktopBridge = {
   async readFile(filePath: string): Promise<string | null> {
     try {
       if (window.electronAPI?.readFile) {
-        return await window.electronAPI.readFile(filePath);
+        const result = await window.electronAPI.readFile(filePath);
+        // Electron 封装返回 { path, content } 对象,归一化为纯文本(与 JCEF 一致)
+        if (result && typeof result === 'object' && 'content' in result) {
+          return typeof result.content === 'string' ? result.content : null;
+        }
+        return typeof result === 'string' ? result : null;
       }
       if (window.HippoDesktop?.readFile) {
         return await window.HippoDesktop.readFile(filePath);
@@ -95,6 +100,27 @@ export const desktopBridge = {
     } catch (e) {
       console.warn('[desktopBridge] readFile 失败:', e);
       return null;
+    }
+  },
+
+  /**
+   * 写文本文件内容(对齐旧版 writeFile,供编辑器保存使用)
+   * @param filePath 文件绝对路径
+   * @param content 写入的文本内容
+   * @returns 是否写入成功;无注入 / 失败时返回 false
+   */
+  async writeFile(filePath: string, content: string): Promise<boolean> {
+    try {
+      if (window.electronAPI?.writeFile) {
+        return (await window.electronAPI.writeFile(filePath, content)) === true;
+      }
+      if (window.HippoDesktop?.writeFile) {
+        return (await window.HippoDesktop.writeFile(filePath, content)) === true;
+      }
+      return false;
+    } catch (e) {
+      console.warn('[desktopBridge] writeFile 失败:', e);
+      return false;
     }
   },
 
@@ -124,6 +150,64 @@ export const desktopBridge = {
       await window.HippoDesktop?.showItemInFolder?.(path);
     } catch (e) {
       console.warn('[desktopBridge] showItemInFolder 失败:', e);
+    }
+  },
+
+  /** 创建空文件(对齐旧版 createFile) */
+  async createFile(path: string): Promise<boolean> {
+    try {
+      if (window.electronAPI?.createFile) return (await window.electronAPI.createFile(path)) === true;
+      if (window.HippoDesktop?.createFile) return (await window.HippoDesktop.createFile(path)) === true;
+      return false;
+    } catch (e) {
+      console.warn('[desktopBridge] createFile 失败:', e);
+      return false;
+    }
+  },
+
+  /** 创建文件夹(对齐旧版 createDir) */
+  async createDir(path: string): Promise<boolean> {
+    try {
+      if (window.electronAPI?.createDir) return (await window.electronAPI.createDir(path)) === true;
+      if (window.HippoDesktop?.createDir) return (await window.HippoDesktop.createDir(path)) === true;
+      return false;
+    } catch (e) {
+      console.warn('[desktopBridge] createDir 失败:', e);
+      return false;
+    }
+  },
+
+  /** 移动 / 重命名文件或文件夹(对齐旧版 rename) */
+  async rename(oldPath: string, newPath: string): Promise<boolean> {
+    try {
+      if (window.electronAPI?.rename) return (await window.electronAPI.rename(oldPath, newPath)) === true;
+      if (window.HippoDesktop?.rename) return (await window.HippoDesktop.rename(oldPath, newPath)) === true;
+      return false;
+    } catch (e) {
+      console.warn('[desktopBridge] rename 失败:', e);
+      return false;
+    }
+  },
+
+  /** 删除文件或文件夹(对齐旧版 deleteFile) */
+  async deleteFile(path: string): Promise<boolean> {
+    try {
+      if (window.electronAPI?.deleteFile) return (await window.electronAPI.deleteFile(path)) === true;
+      if (window.HippoDesktop?.deleteFile) return (await window.HippoDesktop.deleteFile(path)) === true;
+      return false;
+    } catch (e) {
+      console.warn('[desktopBridge] deleteFile 失败:', e);
+      return false;
+    }
+  },
+
+  /** 在终端中打开指定目录(对齐旧版 openTerminal) */
+  async openTerminal(path: string): Promise<void> {
+    try {
+      await window.electronAPI?.openTerminal?.(path);
+      await window.HippoDesktop?.openTerminal?.(path);
+    } catch (e) {
+      console.warn('[desktopBridge] openTerminal 失败:', e);
     }
   },
 

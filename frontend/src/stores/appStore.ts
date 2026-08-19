@@ -5,12 +5,14 @@
  * 阶段 3.1:加入 view(chat/settings)用于 AppShell 主区域切换。
  * 阶段 3.5:新增 view='workspace'(FileTree + FileTabs + FilePreview/FileDiffView)。
  * 阶段 3.7-1:新增 activityBarHidden / skillMarketOpen,替代旧版全局变量调用。
+ * 2026-08-19:布局对齐旧版后移除 view='workspace';文件树移入全局 Sidebar(胶囊切换),
+ * 预览面板(PreviewPanel)与聊天并排,相关状态迁至 previewStore。
  */
 import { create } from 'zustand';
 import type { Session, SessionMode } from '@/types';
 
 /** 主视图类型 */
-export type AppView = 'chat' | 'settings' | 'workspace';
+export type AppView = 'chat' | 'settings';
 
 /** ActivityBar 可见性持久化 key */
 const ACTIVITY_BAR_HIDDEN_KEY = 'hippo-activity-bar-hidden';

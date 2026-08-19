@@ -1,7 +1,7 @@
 /* ============================================================
    TopBar 顶部状态栏(对齐旧版 cockpit.css 的 .header)
    ------------------------------------------------------------
-   三段式布局 + 右侧工具区(对齐旧版 .header-actions):
+   品牌 + 右侧工具区(对齐旧版 .header-actions):
    工作区指示器 / 压缩 / 文件夹下拉 / 设置 / 主题 / DevTools /
    刷新 / 窗口控制;桌面端支持 -webkit-app-region 拖拽与双击最大化。
    ============================================================ */
@@ -89,38 +89,12 @@ body.window-maximized {
   background: rgba(255, 255, 255, 0.07);
 }
 
-.top-bar-nav {
-  margin-left: auto;
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.top-bar-tab {
-  padding: 4px 12px;
-  font-size: 13px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  color: inherit;
-}
-
-.top-bar-tab:hover {
-  background: rgba(127, 127, 127, 0.1);
-}
-
-.top-bar-tab-active {
-  background: rgba(127, 127, 127, 0.15);
-  border-color: rgba(127, 127, 127, 0.25);
-  font-weight: 500;
-}
-
 /* ============================================================
    工具区(对齐旧版 .header-actions)
    ============================================================ */
 
 .top-bar-actions {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 2px;

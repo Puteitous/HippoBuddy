@@ -36,7 +36,16 @@ public class StaticFileHandler implements HttpHandler {
         if ("/".equals(path) || "/cockpit".equals(path)) {
             path = "/cockpit.html";
         } else if ("/app".equals(path)) {
-            // 新前端(React + TS)入口,由 /app context → static-v2 目录服务
+            // 新前端(React + TS)入口。必须先重定向到 /app/(带尾部斜杠),
+            // 否则 HTML 内的相对资源 ./assets/* 会被浏览器解析到根路径 /assets/*,
+            // 因缺少 /app 前缀而 404(详见 vite base: './' 的产物引用方式)。
+            // 保留原 query(如 Electron 加载 /app?skipSplash=true)。
+            String rawQuery = exchange.getRequestURI().getRawQuery();
+            redirect(exchange, rawQuery != null && !rawQuery.isEmpty()
+                ? "/app/?" + rawQuery
+                : "/app/");
+            return;
+        } else if ("/app/".equals(path)) {
             path = "/index.html";
         }
 
@@ -132,5 +141,12 @@ public class StaticFileHandler implements HttpHandler {
             return "font/ttf";
         }
         return "application/octet-stream";
+    }
+
+    /** 302 重定向到指定位置(用于 /app → /app/,保证相对资源路径带 context 前缀) */
+    private void redirect(HttpExchange exchange, String location) throws IOException {
+        exchange.getResponseHeaders().set("Location", location);
+        exchange.sendResponseHeaders(302, -1);
+        exchange.close();
     }
 }

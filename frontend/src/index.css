@@ -106,12 +106,30 @@
      新版组件兼容别名(--hb-*)
      指向同一套变量,任意主题下自动跟随
      ========================================== */
-  --hb-bg:          var(--bg-app);
-  --hb-bg-dark:     var(--bg-app);
-  --hb-border:      var(--border);
-  --hb-border-dark: var(--border);
-  --hb-text:        var(--text-primary);
-  --hb-text-dark:   var(--text-primary);
+  --hb-bg:             var(--bg-app);
+  --hb-bg-dark:        var(--bg-app);
+  --hb-bg-soft:        var(--bg-hover);
+  --hb-bg-soft-dark:   var(--bg-hover);
+  --hb-bg-alt:         var(--bg-sidebar);
+  --hb-bg-alt-dark:    var(--bg-sidebar);
+  --hb-border:         var(--border);
+  --hb-border-dark:    var(--border);
+  --hb-text:           var(--text-primary);
+  --hb-text-dark:      var(--text-primary);
+  --hb-text-soft:      var(--text-secondary);
+  --hb-text-soft-dark: var(--text-secondary);
+  --hb-hover:          var(--bg-hover);
+  --hb-hover-dark:     var(--bg-hover);
+  --hb-icon:           var(--text-muted);
+  --hb-icon-dark:      var(--text-muted);
+  --hb-folder:         #f59e0b;
+  --hb-folder-dark:    #fbbf24;
+  --hb-active:         rgba(59, 130, 246, 0.12);
+  --hb-active-dark:    rgba(96, 165, 250, 0.18);
+  --hb-active-text:    #1d4ed8;
+  --hb-active-text-dark: #93c5fd;
+  --hb-menu-bg:        var(--bg-app);
+  --hb-menu-bg-dark:   var(--bg-app);
 
   /* 基础排版 */
   color-scheme: light dark;
@@ -175,12 +193,30 @@
   --shadow-lg: 0 4px 12px rgba(0,0,0,0.45);
 
   /* 新版组件兼容别名 */
-  --hb-bg:          var(--bg-app);
-  --hb-bg-dark:     var(--bg-app);
-  --hb-border:      var(--border);
-  --hb-border-dark: var(--border);
-  --hb-text:        var(--text-primary);
-  --hb-text-dark:   var(--text-primary);
+  --hb-bg:             var(--bg-app);
+  --hb-bg-dark:        var(--bg-app);
+  --hb-bg-soft:        var(--bg-hover);
+  --hb-bg-soft-dark:   var(--bg-hover);
+  --hb-bg-alt:         var(--bg-sidebar);
+  --hb-bg-alt-dark:    var(--bg-sidebar);
+  --hb-border:         var(--border);
+  --hb-border-dark:    var(--border);
+  --hb-text:           var(--text-primary);
+  --hb-text-dark:      var(--text-primary);
+  --hb-text-soft:      var(--text-secondary);
+  --hb-text-soft-dark: var(--text-secondary);
+  --hb-hover:          var(--bg-hover);
+  --hb-hover-dark:     var(--bg-hover);
+  --hb-icon:           var(--text-muted);
+  --hb-icon-dark:      var(--text-muted);
+  --hb-folder:         #f59e0b;
+  --hb-folder-dark:    #fbbf24;
+  --hb-active:         rgba(59, 130, 246, 0.12);
+  --hb-active-dark:    rgba(96, 165, 250, 0.18);
+  --hb-active-text:    #1d4ed8;
+  --hb-active-text-dark: #93c5fd;
+  --hb-menu-bg:        var(--bg-app);
+  --hb-menu-bg-dark:   var(--bg-app);
 }
 
 /* ========== Midnight 暗色主题（原默认深色，偏蓝冷调） ========== */
@@ -238,12 +274,30 @@
   --shadow-lg: 0 4px 12px rgba(0,0,0,0.35);
 
   /* 新版组件兼容别名 */
-  --hb-bg:          var(--bg-app);
-  --hb-bg-dark:     var(--bg-app);
-  --hb-border:      var(--border);
-  --hb-border-dark: var(--border);
-  --hb-text:        var(--text-primary);
-  --hb-text-dark:   var(--text-primary);
+  --hb-bg:             var(--bg-app);
+  --hb-bg-dark:        var(--bg-app);
+  --hb-bg-soft:        var(--bg-hover);
+  --hb-bg-soft-dark:   var(--bg-hover);
+  --hb-bg-alt:         var(--bg-sidebar);
+  --hb-bg-alt-dark:    var(--bg-sidebar);
+  --hb-border:         var(--border);
+  --hb-border-dark:    var(--border);
+  --hb-text:           var(--text-primary);
+  --hb-text-dark:      var(--text-primary);
+  --hb-text-soft:      var(--text-secondary);
+  --hb-text-soft-dark: var(--text-secondary);
+  --hb-hover:          var(--bg-hover);
+  --hb-hover-dark:     var(--bg-hover);
+  --hb-icon:           var(--text-muted);
+  --hb-icon-dark:      var(--text-muted);
+  --hb-folder:         #f59e0b;
+  --hb-folder-dark:    #fbbf24;
+  --hb-active:         rgba(59, 130, 246, 0.12);
+  --hb-active-dark:    rgba(96, 165, 250, 0.18);
+  --hb-active-text:    #1d4ed8;
+  --hb-active-text-dark: #93c5fd;
+  --hb-menu-bg:        var(--bg-app);
+  --hb-menu-bg-dark:   var(--bg-app);
 }
 
 /* 未显式指定 data-theme 时,跟随系统深浅色(默认浅色) */

@@ -13,11 +13,12 @@
  */
 import { memo, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { ContentPart, Message, ToolCall, ToolCallRecord } from '@/types';
+import type { ContentPart, Message, ToolCallRecord } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import { RollbackButton } from '../rollback/RollbackButton';
+import type { MessageFileProduct } from './message-utils';
 import './MessageBubble.css';
 
 interface MessageBubbleProps {
@@ -79,10 +80,13 @@ function MessageBubbleComponent({
 
   if (message.role === 'user') {
     return (
-      <div className="msg-bubble msg-bubble-user" data-message-id={dataMessageId}>
-        <UserContent content={message.content} />
-        {isStreaming && <span className="msg-cursor" aria-hidden />}
-        {/* 消息底部操作条(对齐旧版 .message-footer:时间 + 复制按钮同一行) */}
+      <div className="msg-user-wrap" data-message-id={dataMessageId}>
+        <div className="msg-bubble msg-bubble-user">
+          <UserContent content={message.content} />
+          {isStreaming && <span className="msg-cursor" aria-hidden />}
+        </div>
+        {/* 消息底部操作条(对齐旧版 .message-user-wrap .message-footer:
+            独立于气泡外的下一行,时间 + 复制按钮同一行) */}
         <MessageFooter
           time={formatMsgTime(message.timestamp)}
           onCopy={() => copyText(extractText(message.content))}
@@ -152,10 +156,7 @@ function MessageBubbleComponent({
           // marked + DOMPurify 已净化,可安全注入
           dangerouslySetInnerHTML={{ __html: html }}
         />
-      ) : (
-        isStreaming && <span className="msg-cursor" aria-hidden />
-      )}
-      {isStreaming && html && <span className="msg-cursor" aria-hidden />}
+      ) : null}
       {/* 消息底部操作条(对齐旧版 assistant 的 .message-footer:
           重试 + 复制 + 回滚 + 分叉 + 文件产物;流式未完成时不显示;
           回合分组后仅最后一条 assistant 显示,中间的不显示) */}
@@ -316,14 +317,6 @@ function formatMsgTime(timestamp?: number): string {
   });
 }
 
-/** 消息产物文件(对齐旧版 extractFilesFromSegments 返回结构) */
-export interface MessageFileProduct {
-  /** 文件绝对路径 */
-  path: string;
-  /** 变更类型:A=新增 D=删除 M=修改 */
-  action: 'A' | 'D' | 'M';
-}
-
 interface MessageFooterProps {
   /** 可选时间文本(旧版仅 user 消息显示) */
   time?: string;
@@ -430,52 +423,6 @@ function statusClass(action: MessageFileProduct['action']): string {
 /** 绝对路径精简为相对路径显示(对齐 shared.tsx toRelativePath 语义) */
 function toRelativePath(path: string): string {
   return path.split(/[/\\]/).pop() ?? path;
-}
-
-/**
- * 从 assistant 消息的 tool_calls 提取本轮文件产物(对齐旧版
- * HistoryRenderer.extractFilesFromSegments):
- *  - write_file / edit_file / write_office_file → 取 path 类参数(action A/M)
- *  - delete_file → 取 paths 列表(action D)
- *  - 同一文件多次出现只保留一次
- */
-export function extractFilesFromToolCalls(toolCalls?: ToolCall[]): MessageFileProduct[] {
-  if (!toolCalls || toolCalls.length === 0) return [];
-
-  const files: MessageFileProduct[] = [];
-  for (const tc of toolCalls) {
-    let args: unknown;
-    try {
-      args = tc.arguments ? JSON.parse(tc.arguments) : {};
-    } catch {
-      continue;
-    }
-    if (!args || typeof args !== 'object') continue;
-    const a = args as Record<string, unknown>;
-
-    let paths: string[] = [];
-    let action: MessageFileProduct['action'] = 'M';
-    if (tc.name === 'delete_file') {
-      paths = Array.isArray(a.paths) ? (a.paths as string[]).filter((p): p is string => typeof p === 'string') : [];
-      action = 'D';
-    } else if (['write_file', 'edit_file', 'write_office_file'].includes(tc.name)) {
-      const p =
-        typeof a.path === 'string' ? a.path :
-        typeof a.filePath === 'string' ? a.filePath :
-        typeof a.file_path === 'string' ? a.file_path : '';
-      if (p) paths = [p];
-      if (tc.name === 'write_file' || tc.name === 'write_office_file') action = 'A';
-    }
-
-    for (const p of paths) {
-      files.push({ path: p, action });
-    }
-  }
-
-  // 去重:同一文件保留最后一次(以最新 action 为准)
-  const seen = new Map<string, MessageFileProduct>();
-  for (const f of files) seen.set(f.path, f);
-  return Array.from(seen.values());
 }
 
 export const MessageBubble = memo(MessageBubbleComponent);

@@ -17,7 +17,8 @@ interface Window {
     platform?: string;
     isElectron?: boolean;
     readDir?: (path: string) => Promise<DirEntryResult | null>;
-    readFile?: (path: string) => Promise<string | null>;
+    /** Electron 封装返回 { path, content } 对象(desktopBridge 内部归一化为纯文本) */
+    readFile?: (path: string) => Promise<{ path?: string; content?: string; error?: boolean; code?: string; message?: string } | string | null>;
     writeFile?: (path: string, content: string) => Promise<boolean>;
     createFile?: (path: string) => Promise<boolean>;
     createDir?: (path: string) => Promise<boolean>;

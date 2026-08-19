@@ -341,6 +341,24 @@ export interface FileTab {
   toolCallId?: string;
 }
 
+/** 词级 diff 中的单个 token(对齐后端 DiffComputer.computeWordDiff) */
+export interface WordDiffToken {
+  /** equal 相同 / delete 旧文本中的删除词 / insert 新文本中的新增词 */
+  type: 'equal' | 'delete' | 'insert';
+  value: string;
+}
+
+/**
+ * 词级 diff 按行组织(对齐后端 DiffComputer.computeWordDiffLines):
+ * - old[i]:旧文件第 i+1 行的词标记序列(type ∈ {equal, delete})
+ * - new[i]:新文件第 i+1 行的词标记序列(type ∈ {equal, insert})
+ * 前端持有每行精确行号(removed 用旧行号、added 用新行号),按 1-based 行号索引。
+ */
+export interface WordDiffMap {
+  old: WordDiffToken[][];
+  new: WordDiffToken[][];
+}
+
 /** /api/files/diff?all=true 返回的单次变更记录 */
 export interface FileChangeDiffItem {
   /** 工具名(write_file/edit_file/delete_file/bash 等) */
@@ -355,16 +373,14 @@ export interface FileChangeDiffItem {
   binary: boolean;
   /** 逐行 diff 列表 */
   changes?: DiffLine[];
+  /** 行内词级 diff(按 1-based 行号索引;二进制时无) */
+  wordDiff?: WordDiffMap;
 }
 
 /** 单行 diff(对齐后端 DiffComputer.computeDiffAsMap) */
 export interface DiffLine {
-  /** 行类型:equal 相同 / delete 旧 / insert 新 */
-  type: 'equal' | 'delete' | 'insert';
-  /** 旧行号(equal/delete 时存在) */
-  oldLine?: number;
-  /** 新行号(equal/insert 时存在) */
-  newLine?: number;
+  /** 行类型:same 相同 / removed 旧 / added 新 */
+  type: 'same' | 'removed' | 'added';
   /** 行内容 */
   content: string;
 }
@@ -380,6 +396,8 @@ export interface FileDiffResponse {
   netStats: [number, number];
   /** 整文件净 diff(最早 original vs 最新 newContent 逐行 diff) */
   netDiff: DiffLine[];
+  /** 整文件净词级 diff(整体视图行内精确变更;与 netDiff 同口径) */
+  netWordDiff: WordDiffMap;
 }
 
 // ============================================================================

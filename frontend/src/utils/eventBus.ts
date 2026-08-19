@@ -5,7 +5,7 @@
  *   - SkillMarket 安装/卸载技能后,通知 SkillsSettingsPage 重新加载列表
  *     (旧版通过 window.settingsPanel.reloadSkills() 全局调用,新版改为事件订阅)
  *   - 后续 3.7-2 / 3.8 可扩展:
- *     - workspace:openDiff(filePath, toolCallId) - ChatPanel 工具卡片 → WorkspacePanel 打开 diff
+ *     - workspace:openDiff(filePath, toolCallId) - ChatPanel 工具卡片 → PreviewPanel 打开 diff
  *     - context:skillAdded(skill) - SkillMarket → ChatPanel RefChips
  *     - ui:activityBarToggled
  *
@@ -28,7 +28,7 @@ export type EventBusEvent =
   /** SelectionActions 将选中文本发送到聊天输入框(生成 RefChip) */
   | 'selection:add-to-input'
   // ── 3.8:回滚完成联动 ───────────────────────────────
-  /** 回滚成功后发出,携带被回滚文件路径列表(对齐旧版 file:rollback-completed),WorkspacePanel 订阅后刷新预览 */
+  /** 回滚成功后发出,携带被回滚文件路径列表(对齐旧版 file:rollback-completed),PreviewPanel 订阅后刷新预览 */
   | 'rollback:completed';
 
 /** selection:add-to-input 的 payload(对齐旧版 selection-actions.js 事件结构) */

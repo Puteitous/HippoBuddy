@@ -28,7 +28,8 @@ import { SidebarResizer } from './SidebarResizer';
 import { TopBar } from './TopBar';
 import { ChatPanel } from './chat-panel/ChatPanel';
 import { SettingsPanel } from './settings/SettingsPanel';
-import { WorkspacePanel } from './workspace/WorkspacePanel';
+import { PreviewPanel } from './workspace/PreviewPanel';
+import { PreviewResizer } from './workspace/PreviewResizer';
 import { ConfirmHandler } from './tool-renderers/ConfirmHandler';
 import { ActivityBar } from './ActivityBar';
 import { SkillMarket } from './SkillMarket';
@@ -92,12 +93,15 @@ export function AppShell() {
         <Sidebar />
         <SidebarResizer />
         <main className="app-shell-main">
-          {view === 'chat' ? (
-            <ChatPanel />
-          ) : view === 'workspace' ? (
-            <WorkspacePanel />
-          ) : (
+          {view === 'settings' ? (
             <SettingsPanel />
+          ) : (
+            /* 聊天常驻,文件预览面板与聊天并排(对齐旧版 chat-panel + preview-panel) */
+            <div className="chat-layout">
+              <ChatPanel />
+              <PreviewResizer />
+              <PreviewPanel />
+            </div>
           )}
         </main>
       </div>

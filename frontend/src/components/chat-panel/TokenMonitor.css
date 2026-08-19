@@ -53,15 +53,28 @@
 
 /* ── 状态栏变体(对齐旧版 statusBarToken:图标 + 百分比) ── */
 .token-monitor-statusbar {
+  /* 对齐旧版 .status-bar-item:不用等宽字体,跟随状态栏其他项字体 */
+  font-family: inherit;
   background: transparent;
   padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
   cursor: help;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.token-monitor-statusbar:hover {
+  /* 对齐旧版 .status-bar-item:hover:悬浮背景 */
+  color: var(--text-secondary);
+  background: var(--bg-code);
 }
 
 .token-monitor-statusbar .token-monitor-percent {
+  /* 对齐旧版 .status-bar-value:固定次级文字色,不随使用率变色 */
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
+  color: var(--text-secondary);
 }
 
 /* ── 状态栏 Token 悬浮面板(对齐旧版 .status-bar-tooltip) ──────────── */

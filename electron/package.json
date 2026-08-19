@@ -8,7 +8,9 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
+    "start:react": "electron . --react-ui",
     "dev": "electron . --dev",
+    "dev:react": "electron . --dev --react-ui",
     "build:jar": "cd .. && mvn package -DskipTests",
     "pack": "electron-builder --win --x64",
     "pack:all": "electron-builder"

@@ -23,6 +23,18 @@
   background: var(--hb-bg, #ffffff);
 }
 
+/* 聊天常驻 + 预览面板并排(对齐旧版 chat-panel + preview-panel) */
+.chat-layout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.chat-layout > .chat-panel {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (prefers-color-scheme: dark) {
   .app-shell-main {
     border-left-color: var(--hb-border-dark, #374151);

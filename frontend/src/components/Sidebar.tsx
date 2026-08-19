@@ -26,8 +26,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { sessionApi, workspaceApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { useAppStore } from '@/stores/appStore';
+import { usePreviewStore } from '@/stores/previewStore';
 import { showToast } from '@/utils/toastStore';
+import { on } from '@/utils/eventBus';
+import type { RollbackCompletedPayload } from '@/utils/eventBus';
 import type { Session } from '@/types';
+import { FileTree } from './workspace/FileTree';
 import './Sidebar.css';
 
 /** 无限滚动单批渲染条数(对齐旧版 _renderBatchSize) */
@@ -40,7 +44,19 @@ const COLLAPSED_PROJECTS_KEY = 'hippo-collapsed-projects';
 /** 无工作区路径的会话归入的"其他"分组 key */
 const OTHER_PROJECT_KEY = '__other__';
 
+/** 侧栏视图切换持久化 key(会话列表 / 文件树,对齐旧版 view-capsule) */
+const SIDEBAR_VIEW_KEY = 'hippo-sidebar-view';
+
 type GroupMode = 'project' | 'time';
+type SidebarView = 'sessions' | 'files';
+
+function readSidebarView(): SidebarView {
+  try {
+    return localStorage.getItem(SIDEBAR_VIEW_KEY) === 'files' ? 'files' : 'sessions';
+  } catch {
+    return 'sessions';
+  }
+}
 
 /** 渲染行:项目分组头 / 时间分类头 / 会话项 */
 type Row =
@@ -128,6 +144,51 @@ export function Sidebar() {
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
+  const workspacePath = useAppStore((s) => s.workspacePath);
+  const setWorkspacePath = useAppStore((s) => s.setWorkspacePath);
+  // 预览面板状态(文件树点击 → 打开主区预览)
+  const previewOpenFile = usePreviewStore((s) => s.openFile);
+  const previewActivePath = usePreviewStore((s) => s.activePath);
+
+  // 侧栏视图(会话列表 / 文件树)持久化切换
+  const [sidebarView, setSidebarViewState] = useState<SidebarView>(readSidebarView);
+  // 文件树刷新令牌(回滚完成后自增,对齐旧版"回滚 → 工作区联动刷新")
+  const [fileTreeToken, setFileTreeToken] = useState(0);
+
+  // 启动时若 store 无 workspacePath 则拉取一次(原 WorkspacePanel 职责)
+  useEffect(() => {
+    let cancelled = false;
+    if (workspacePath) return;
+    (async () => {
+      try {
+        const state = await workspaceApi.getCurrent();
+        if (!cancelled && state.path) setWorkspacePath(state.path);
+      } catch {
+        /* 静默,等待 TopBar / Settings 主动设置 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 回滚完成 → 刷新文件树
+  useEffect(() => {
+    const unsubscribe = on<RollbackCompletedPayload>('rollback:completed', () => {
+      setFileTreeToken((t) => t + 1);
+    });
+    return unsubscribe;
+  }, []);
+
+  const switchSidebarView = (v: SidebarView) => {
+    setSidebarViewState(v);
+    try {
+      localStorage.setItem(SIDEBAR_VIEW_KEY, v);
+    } catch {
+      /* 忽略 */
+    }
+  };
 
   // 分组模式 / 折叠项目(初始化读取 localStorage,与旧版 key 一致)
   const [groupMode, setGroupMode] = useState<GroupMode>(readGroupMode);
@@ -344,8 +405,57 @@ export function Sidebar() {
         </button>
 
         <div className="toolbar-spacer" />
+
+        {/* 侧栏视图切换胶囊(对齐旧版 .view-capsule:会话列表 ↔ 文件浏览) */}
+        <div className="sidebar-view-capsule">
+          <button
+            type="button"
+            className={`capsule-btn${sidebarView === 'sessions' ? ' active' : ''}`}
+            title="会话列表"
+            aria-label="会话列表"
+            onClick={() => switchSidebarView('sessions')}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="2" y1="4" x2="14" y2="4" />
+              <line x1="2" y1="8" x2="14" y2="8" />
+              <line x1="2" y1="12" x2="10" y2="12" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={`capsule-btn${sidebarView === 'files' ? ' active' : ''}`}
+            title="文件浏览"
+            aria-label="文件浏览"
+            onClick={() => switchSidebarView('files')}
+          >
+            <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="10" cy="24" r="4" fill="none" stroke="currentColor" strokeWidth="4" />
+              <circle cx="38" cy="10" r="4" fill="none" stroke="currentColor" strokeWidth="4" />
+              <circle cx="38" cy="24" r="4" fill="none" stroke="currentColor" strokeWidth="4" />
+              <circle cx="38" cy="38" r="4" fill="none" stroke="currentColor" strokeWidth="4" />
+              <path d="M34 38L22 38V10H34" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 24L34 24" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
+      {sidebarView === 'files' ? (
+        /* 文件树视图(对齐旧版 .file-tree-view,替代会话列表) */
+        <div className="sidebar-file-tree">
+          {!workspacePath ? (
+            <div className="sidebar-file-tree-empty">未设置工作区</div>
+          ) : (
+            <FileTree
+              rootPath={workspacePath}
+              onFileSelect={previewOpenFile}
+              activePath={previewActivePath}
+              refreshToken={fileTreeToken}
+            />
+          )}
+        </div>
+      ) : (
+        <>
       {/* header:图标 + 标题 + 分组切换 + 计数 */}
       <div className="sidebar-header">
         <div className="sidebar-header-left">
@@ -416,6 +526,8 @@ export function Sidebar() {
           </div>
         )}
       </div>
+        </>
+      )}
     </aside>
   );
 }

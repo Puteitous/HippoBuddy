@@ -1,25 +1,39 @@
 /**
- * FilePreviewEditor - CodeMirror 6 只读编辑器(阶段 3.8)
+ * FilePreviewEditor - CodeMirror 6 编辑器(阶段 3.8)
  *
- * 职责:把文件文本内容渲染为语法高亮的只读 CM6 编辑器。
+ * 职责:把文件文本内容渲染为语法高亮的 CM6 编辑器,支持编辑与 Mod-s 保存。
  *
  * 设计决策:
  *  - 语言包按扩展名动态 import(vite 自动分包),不全部打进主 bundle
- *  - 主题跟随 prefers-color-scheme(oneDark 深色 / vsCodeLight 浅色),用 Compartment 切换
- *  - 只读:EditorState.readOnly + EditorView.editable 双保险
+ *  - 主题跟随 data-theme(oneDark 深色 / vsCodeLight 浅色),用 Compartment 切换
+ *  - 可编辑:history() + defaultKeymap 提供撤销/缩进等编辑能力;Mod-s 触发 onSave
+ *  - 脏追踪:updateListener 监听 docChanged → onDocChange 通知(父组件维护 dirty 状态)
  *  - 暴露 view:onViewReady 回调 + 挂到容器 DOM 的 _cmPreviewView(供 SelectionActions 计算行号)
  *  - search() 扩展内置:高亮所有匹配 + SearchQuery 状态(SearchPanel 消费)
  *
  * 与旧版 FilePreview.js(CM6 编辑器)对齐:
- *  - 旧版可编辑 + Mod-s 保存;本组件只读,保存/编辑能力留 3.8-2 后续决策
+ *  - 旧版可编辑 + Mod-s 保存 + onDirtyChange;本组件同步对齐
  */
 import { useEffect, useRef } from 'react';
 import { EditorState, Compartment } from '@codemirror/state';
-import { EditorView, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { EditorView, lineNumbers, highlightActiveLine, keymap } from '@codemirror/view';
+import { history, defaultKeymap } from '@codemirror/commands';
 import { highlightSelectionMatches, search } from '@codemirror/search';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { vsCodeLight } from '@fsegurai/codemirror-theme-vscode-light';
 import type { LanguageSupport } from '@codemirror/language';
+
+/**
+ * 依据 <html data-theme> 与系统偏好解析编辑器是否深色(对齐 themeStore):
+ *  - data-theme=light → 浅色;dark / midnight → 深色
+ *  - 无 data-theme 或 system → 跟随系统 prefers-color-scheme
+ */
+function resolveIsDark(): boolean {
+  const theme = document.documentElement.getAttribute('data-theme');
+  if (theme === 'light') return false;
+  if (theme === 'dark' || theme === 'midnight') return true;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
 
 interface FilePreviewEditorProps {
   /** 文件绝对路径(用于扩展名推断语言) */
@@ -32,6 +46,10 @@ interface FilePreviewEditorProps {
   endLine?: number;
   /** 编辑器实例就绪回调(供 SearchPanel / 父组件使用) */
   onViewReady?: (view: EditorView) => void;
+  /** 文档发生编辑时回调(父组件据此置 dirty) */
+  onDocChange?: () => void;
+  /** 保存回调(Mod-s 触发;由父组件负责写入文件) */
+  onSave?: (content: string) => void;
 }
 
 /** 扩展名 → 语言标识(对齐旧版支持的 13 种语言) */
@@ -107,10 +125,16 @@ export function FilePreviewEditor({
   startLine,
   endLine,
   onViewReady,
+  onDocChange,
+  onSave,
 }: FilePreviewEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const onViewReadyRef = useRef(onViewReady);
   onViewReadyRef.current = onViewReady;
+  const onDocChangeRef = useRef(onDocChange);
+  onDocChangeRef.current = onDocChange;
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -121,19 +145,25 @@ export function FilePreviewEditor({
     const themeCompartment = new Compartment();
     const langCompartment = new Compartment();
 
-    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const theme = isDark ? oneDark : vsCodeLight;
+    const theme = resolveIsDark() ? oneDark : vsCodeLight;
 
     const state = EditorState.create({
       doc: content,
       extensions: [
+        history(),
+        keymap.of([
+          // Mod-s 保存(对齐旧版),保存成功后由父组件清 dirty
+          { key: 'Mod-s', run: () => { onSaveRef.current?.(view!.state.doc.toString()); return true; } },
+          ...defaultKeymap,
+        ]),
         lineNumbers(),
         highlightActiveLine(),
         highlightSelectionMatches(),
         search(),
-        // 只读双保险:禁止输入 + 标记只读
-        EditorState.readOnly.of(true),
-        EditorView.editable.of(false),
+        // 编辑时通知父组件置 dirty(供保存按钮/标签标记)
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) onDocChangeRef.current?.();
+        }),
         themeCompartment.of(theme),
         langCompartment.of([]),
         EditorView.theme({
@@ -166,12 +196,21 @@ export function FilePreviewEditor({
       });
     }
 
-    // 主题跟随系统深色模式(与全项目 prefers-color-scheme 一致)
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const onThemeChange = (e: MediaQueryListEvent) => {
-      view?.dispatch({ effects: themeCompartment.reconfigure(e.matches ? oneDark : vsCodeLight) });
+    // 主题对齐 <html data-theme>:手动主题(light/dark/midnight)优先,无或 system 回退系统偏好。
+    // 同时监听 data-theme 变化(MutationObserver)与系统偏好变化,切换时 reconfigure。
+    const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyResolvedTheme = () => {
+      view?.dispatch({ effects: themeCompartment.reconfigure(resolveIsDark() ? oneDark : vsCodeLight) });
     };
-    mq.addEventListener('change', onThemeChange);
+    const onMediaChange = () => {
+      if (!document.documentElement.getAttribute('data-theme')) applyResolvedTheme();
+    };
+    darkMedia.addEventListener('change', onMediaChange);
+    const themeObserver = new MutationObserver(applyResolvedTheme);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
 
     // 暴露 view:回调 + DOM 引用(对齐旧版 previewContent._cmPreviewView,供 SelectionActions 读行号)
     (host as HTMLElement & { _cmPreviewView?: EditorView })._cmPreviewView = view;
@@ -179,7 +218,8 @@ export function FilePreviewEditor({
 
     return () => {
       cancelled = true;
-      mq.removeEventListener('change', onThemeChange);
+      darkMedia.removeEventListener('change', onMediaChange);
+      themeObserver.disconnect();
       view?.destroy();
       view = null;
       (host as HTMLElement & { _cmPreviewView?: EditorView })._cmPreviewView = undefined;

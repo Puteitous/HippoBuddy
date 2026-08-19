@@ -3,7 +3,7 @@
  *
  * 职责(新版分层):
  *  - 应用级:品牌名(会话 id 与模型快速选择已移至聊天状态栏,见 ChatPanel)
- *  - 导航:Chat / Workspace / Settings 视图切换
+ *  - 导航:Chat / Settings 视图切换
  *  - 工具区(对齐旧版 .header-actions):
  *    - 工作区指示器(桌面端,显示当前工作区路径 + 重置)
  *    - 压缩上下文(有会话时显示,对齐旧版 compactBtn)
@@ -53,7 +53,6 @@ function errMsg(e: unknown): string {
 
 export function TopBar() {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
-  const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
@@ -255,30 +254,6 @@ export function TopBar() {
           </button>
         )}
       </div>
-
-      <nav className="top-bar-nav">
-        <button
-          type="button"
-          className={`top-bar-tab ${view === 'chat' ? 'top-bar-tab-active' : ''}`}
-          onClick={() => setView('chat')}
-        >
-          Chat
-        </button>
-        <button
-          type="button"
-          className={`top-bar-tab ${view === 'workspace' ? 'top-bar-tab-active' : ''}`}
-          onClick={() => setView('workspace')}
-        >
-          Workspace
-        </button>
-        <button
-          type="button"
-          className={`top-bar-tab ${view === 'settings' ? 'top-bar-tab-active' : ''}`}
-          onClick={() => setView('settings')}
-        >
-          Settings
-        </button>
-      </nav>
 
       {/* 工具区(对齐旧版 .header-actions) */}
       <div className="top-bar-actions">

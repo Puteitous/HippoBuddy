@@ -9,7 +9,7 @@
  *     - mode='files':仅回滚文件,保留会话,toast 提示
  *     - mode='all':重新加载会话消息;若会话被清空则删除会话;
  *       非空时把 lastUserMessage 通过 emit('rollback:restoreInput') 回填输入框
- *  4. 成功(两种模式)后 emit('rollback:completed', { paths, mode }),WorkspacePanel
+ *  4. 成功(两种模式)后 emit('rollback:completed', { paths, mode }),PreviewPanel
  *     订阅后刷新被回滚文件的预览(3.8,对齐旧版 file:rollback-completed)
  *
  * 阶段 3.7-2 简化:

@@ -14,10 +14,11 @@
  *
  * 与旧版 RefChips.js 的差异:
  *  - 不再通过 DOM 直接 addRefChip,改用受控数据流
- *  - 不再依赖 file-icons.js,3.4 用 emoji 占位(📁/📄/📐),3.5 FileTree 可复用统一文件图标
+ *  - 图标用共享 FileIcon(与 FileTree 统一),替代 3.4 的 emoji 占位
  */
 import { memo } from 'react';
 import type { RefChip } from '@/types';
+import { FileIcon } from '../FileIcon';
 import './RefChips.css';
 
 interface RefChipsProps {
@@ -33,7 +34,11 @@ function RefChipsComponent({ chips, onRemove }: RefChipsProps) {
       {chips.map((chip) => (
         <span key={chip.id} className="ref-chip" role="listitem" title={buildTitle(chip)}>
           <span className="ref-chip-icon" aria-hidden>
-            {getChipIcon(chip)}
+            {getChipIconKind(chip) === 'text' ? (
+              <FileIcon kind="text" size={13} />
+            ) : (
+              <FileIcon kind="file" size={13} />
+            )}
           </span>
           <span className="ref-chip-text">{chip.text}</span>
           {chip.startLine != null && chip.endLine != null && (
@@ -55,12 +60,11 @@ function RefChipsComponent({ chips, onRemove }: RefChipsProps) {
   );
 }
 
-/** 根据 chip 类型返回 emoji 占位图标 */
-function getChipIcon(chip: RefChip): string {
-  if (chip.kind === 'rule') return '📐';
-  if (chip.kind === 'text') return '📝';
-  // file:简化用文件 emoji,3.5 FileTree 接入后再统一文件图标
-  return '📄';
+/** 根据 chip 类型返回图标类型(共享 FileIcon,统一文件图标来源) */
+function getChipIconKind(chip: RefChip): 'text' | 'file' {
+  if (chip.kind === 'text') return 'text';
+  // file / rule 均用统一文件图标(规则展示规则文件路径,与 file 同形)
+  return 'file';
 }
 
 /** 构建 hover title:展示完整路径 / 完整文本 / 规则 id */

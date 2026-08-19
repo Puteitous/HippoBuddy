@@ -13,11 +13,8 @@
 import type { ReactNode } from 'react';
 import type { ContentPart, Message } from '@/types';
 import { useChatStore } from '@/stores/chatStore';
-import {
-  MessageBubble,
-  extractFilesFromToolCalls,
-  type MessageFileProduct,
-} from './MessageBubble';
+import { MessageBubble } from './MessageBubble';
+import { extractFilesFromToolCalls, type MessageFileProduct } from './message-utils';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
 import { fromToolMessage, TIMELINE_STANDALONE_TOOLS } from '../tool-renderers/tool-timeline-utils';
 import './HistoryRenderer.css';

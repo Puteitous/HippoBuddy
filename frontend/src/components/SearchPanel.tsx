@@ -9,9 +9,9 @@
  *    findPrevious 驱动真实高亮与滚动定位
  *  - 匹配数与当前索引从 view.state.field(searchState) 读取(与高亮同源,无漂移)
  *
- * 只读说明(3.8-2 决策 #3):
- *  - FilePreview 当前为只读预览,替换/全部替换按钮禁用(真实回写依赖编辑能力)
- *  - 替换行 UI 保留,待编辑保存能力接入后激活
+ * 替换说明(对齐旧版,编辑能力接入后激活):
+ *  - 替换 / 全部替换通过 CM6 replaceNext / replaceAll 真实回写编辑器
+ *  - 替换会产生 docChanged → updateListener → 父组件置 dirty,可再经 Mod-s 保存
  *
  * 快捷键:Enter / Shift+Enter 导航,Esc 关闭(由父组件统一绑定)。
  */
@@ -22,6 +22,8 @@ import {
   setSearchQuery,
   findNext,
   findPrevious,
+  replaceNext,
+  replaceAll,
 } from '@codemirror/search';
 import './SearchPanel.css';
 
@@ -117,6 +119,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
         caseSensitive: opts.caseSensitive,
         regexp: opts.regexp,
         wholeWord: opts.wholeWord,
+        replace: replaceText,
       });
     } catch {
       // 非法正则:清空统计,高亮保持
@@ -125,7 +128,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
     }
     view.dispatch({ effects: setSearchQuery.of(query) });
     readStats();
-  }, [view, findText, opts, readStats]);
+  }, [view, findText, replaceText, opts, readStats]);
 
   /** 导航到上一个/下一个匹配(CM6 自动滚动到匹配位置) */
   const navTo = useCallback(
@@ -138,16 +141,22 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
     [view, stats.total, readStats],
   );
 
-  /** 替换当前 / 全部替换:只读预览下禁用(见文件头注释) */
+  /** 替换当前 / 全部替换(CM6 replaceNextCommand / replaceAllCommand,替换文本在 SearchQuery.replace 中) */
   const doReplace = useCallback(() => {
-    // 占位:编辑能力接入后激活(3.8-2 决策 #3)
-    navTo('next');
-  }, [navTo]);
+    if (!findText || stats.total === 0) return;
+    view.focus();
+    const hit = replaceNext(view);
+    // 命中后重读计数与高亮(文档已变,query 保持)
+    readStats();
+    if (!hit) navTo('next');
+  }, [view, findText, stats.total, readStats, navTo]);
 
   const doReplaceAll = useCallback(() => {
-    // 占位
-    setStats({ total: 0, current: 0 });
-  }, []);
+    if (!findText || stats.total === 0) return;
+    view.focus();
+    replaceAll(view);
+    readStats();
+  }, [view, findText, stats.total, readStats]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -282,7 +291,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
             className="search-action"
             onClick={doReplace}
             disabled={stats.total === 0}
-            title="只读预览暂不支持替换"
+            title="替换当前匹配"
           >
             替换
           </button>
@@ -291,7 +300,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
             className="search-action"
             onClick={doReplaceAll}
             disabled={stats.total === 0}
-            title="只读预览暂不支持替换"
+            title="替换全部匹配"
           >
             全部替换
           </button>

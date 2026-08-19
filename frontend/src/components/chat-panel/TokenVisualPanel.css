@@ -1,0 +1,177 @@
+/* Token 统计完整面板(对齐旧版 activity-bar.css token-visual + token-trend) */
+
+.token-visual {
+  --sbt-emoji-stroke: #000; /* 表情轮廓色:亮色主题黑 */
+  font-size: var(--font-size-sm);
+}
+
+[data-theme='dark'] .token-visual,
+[data-theme='midnight'] .token-visual {
+  --sbt-emoji-stroke: #fff; /* 表情轮廓色:暗色主题白 */
+}
+
+.token-visual-item {
+  margin-bottom: 4px;
+}
+
+.token-visual-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+
+.token-visual-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.token-visual-track {
+  height: 8px;
+  background: var(--bg-code);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.token-visual-fill {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 4px;
+  transition: width 0.5s ease, background 0.5s ease, box-shadow 0.3s ease;
+}
+
+.token-visual-sub {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.token-visual-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 10px 0;
+}
+
+.token-visual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.token-visual-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tvs-label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.tvs-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+}
+
+.tvs-value.success-text {
+  color: var(--success-color);
+}
+
+.token-visual-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+.tv-total-value {
+  font-weight: 700;
+  color: var(--primary-color);
+  font-size: var(--font-size-lg);
+}
+
+/* ========== Token 趋势图 ========== */
+.token-trend {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.token-trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.token-trend-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.token-trend-value {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.token-trend-chart {
+  width: 100%;
+  height: 48px;
+  overflow: visible;
+}
+
+.token-trend-chart svg {
+  width: 100%;
+  height: 100%;
+}
+
+.token-trend-chart polyline {
+  fill: none;
+  stroke: var(--primary-color);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.token-trend-chart .trend-area {
+  fill: url(#trendGradient);
+  opacity: 0.3;
+}
+
+/* 缓存命中率趋势(success 绿,区别于 Token 消耗趋势的 primary 蓝) */
+.cache-trend .token-trend-chart polyline {
+  stroke: var(--success-color, #4caf50);
+}
+
+.cache-trend .token-trend-chart .trend-area {
+  fill: url(#cacheTrendGradient);
+  opacity: 0.3;
+}
+
+/* 100% 基准线(灰色虚线,一眼看出与满命中的差距) */
+.cache-trend .cache-trend-baseline {
+  stroke: var(--text-muted, #999);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.5;
+}
+
+.cache-trend .cache-trend-last-dot {
+  fill: var(--success-color, #4caf50);
+  stroke: var(--bg-white, #fff);
+  stroke-width: 1.5;
+}
+
+.token-trend-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  padding: 16px 0;
+}

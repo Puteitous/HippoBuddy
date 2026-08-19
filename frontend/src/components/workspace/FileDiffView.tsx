@@ -103,7 +103,7 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
         )}
         {!loading && !error && data && (
           data.netDiff && data.netDiff.length > 0 ? (
-            <FilePreviewDiff lines={data.netDiff} />
+            <FilePreviewDiff lines={data.netDiff} wordDiff={data.netWordDiff} />
           ) : (
             <div className="file-diff-view-empty">
               {data.allChanges.length === 0
