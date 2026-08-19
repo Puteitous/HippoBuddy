@@ -1,7 +1,7 @@
 /**
  * GeneralSettingsPage - 通用设置
  *
- *  - 主题切换(localStorage 'hippo-theme' + document.documentElement.dataset.theme)
+ *  - 主题切换(状态与持久化收敛到 stores/themeStore,与 TopBar 主题按钮共用)
  *  - 语言切换(3.6 不实现 i18n,disabled 占位)
  *  - 工作区路径(GET/PUT /api/workspace/default,使用 workspaceApi)
  *  - 数据目录(GET/POST /api/settings/data-dir,变更后需重启)
@@ -9,9 +9,8 @@
 import { useEffect, useState } from 'react';
 import { workspaceApi, dataDirApi } from '@/api/client';
 import { ApiError } from '@/api/error';
+import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { showToast } from './toastStore';
-
-type Theme = 'light' | 'dark' | 'midnight' | 'system';
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: 'light', label: '浅色' },
@@ -21,7 +20,8 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 ];
 
 export function GeneralSettingsPage() {
-  const [theme, setTheme] = useState<Theme>('system');
+  const theme = useThemeStore((s) => s.theme);
+  const applyTheme = useThemeStore((s) => s.applyTheme);
   const [lang, setLang] = useState<'zh' | 'en'>('zh');
   const [workspacePath, setWorkspacePath] = useState('');
   const [dataDir, setDataDir] = useState('');
@@ -35,11 +35,6 @@ export function GeneralSettingsPage() {
       setLoading(true);
       setLoadError(null);
       try {
-        const storedTheme = (localStorage.getItem('hippo-theme') as Theme) || 'system';
-        setTheme(storedTheme);
-        const currentDataTheme = document.documentElement.getAttribute('data-theme') as Theme | null;
-        if (currentDataTheme) setTheme(currentDataTheme);
-
         const [ws, dd] = await Promise.allSettled([
           workspaceApi.getDefault(),
           dataDirApi.get(),
@@ -63,17 +58,6 @@ export function GeneralSettingsPage() {
       cancelled = true;
     };
   }, []);
-
-  const applyTheme = (t: Theme) => {
-    setTheme(t);
-    if (t === 'system') {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('hippo-theme', 'system');
-    } else {
-      document.documentElement.setAttribute('data-theme', t);
-      localStorage.setItem('hippo-theme', t);
-    }
-  };
 
   const handleWorkspacePathChange = async (path: string) => {
     const trimmed = path.trim();

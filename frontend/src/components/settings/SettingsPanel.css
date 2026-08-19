@@ -7,6 +7,9 @@
 .settings-panel {
   display: flex;
   flex: 1;
+  /* 父容器 .app-shell-main 是非 flex 的普通块元素,flex: 1 不生效;
+     加 height: 100% 与 .chat-panel / .workspace-panel 保持一致,确保铺满 */
+  height: 100%;
   min-height: 0;
   min-width: 0;
   position: relative;

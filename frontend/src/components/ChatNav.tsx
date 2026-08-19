@@ -14,7 +14,8 @@
  *  - 不再使用 MutationObserver,而是订阅 chatStore.messages 变化(React 自动响应)
  *  - active 高亮通过 getBoundingClientRect 比较消息容器位置,与旧版算法一致
  *
- * 集成位置:挂在 ChatPanel 内部消息区右侧的窄条(由 ChatPanel.css 控制)。
+ * 对齐旧版 DOM 语义:chatNavStrip 常驻 .chat-panel 顶层(不随会话/消息有无卸载),
+ * 无 user 消息时由 CSS data-empty 隐藏;消息容器实例由 ChatPanel 以 state 传入。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
@@ -49,13 +50,15 @@ function truncatePreview(text: string): string {
 
 interface ChatNavProps {
   /**
-   * 消息容器 ref(用于滚动同步与 active 项判定)。
-   * 通常为 ChatPanel 中 messagesContainerRef。
+   * 消息容器 DOM 实例(用于滚动同步与 active 项判定)。
+   * 由 ChatPanel 通过 ref 回调同步为 state:
+   *  - 空会话时为 null
+   *  - 切换会话后自动更新,触发本组件重新绑定滚动监听(ref 对象本身变化不会触发 effect)
    */
-  containerRef: React.RefObject<HTMLDivElement | null>;
+  container: HTMLDivElement | null;
 }
 
-export function ChatNav({ containerRef }: ChatNavProps) {
+export function ChatNav({ container }: ChatNavProps) {
   const messages = useChatStore((s) => s.messages);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -71,16 +74,14 @@ export function ChatNav({ containerRef }: ChatNavProps) {
 
   /** 滚动到指定用户消息 */
   const scrollToMessage = useCallback((messageId: string) => {
-    const container = containerRef.current;
     if (!container) return;
     const row = container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
     if (!row) return;
     row.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [containerRef]);
+  }, [container]);
 
   /** 根据容器视口与消息项位置计算当前 active(顶部对齐判定) */
   const syncActive = useCallback(() => {
-    const container = containerRef.current;
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
     let topmostId: string | null = null;
@@ -101,7 +102,7 @@ export function ChatNav({ containerRef }: ChatNavProps) {
     if (topmostId && topmostId !== activeMessageId) {
       setActiveMessageId(topmostId);
     }
-  }, [containerRef, items, activeMessageId]);
+  }, [container, items, activeMessageId]);
 
   /** 滚动事件回调(raf 节流) */
   const handleScroll = useCallback(() => {
@@ -112,9 +113,8 @@ export function ChatNav({ containerRef }: ChatNavProps) {
     });
   }, [syncActive]);
 
-  // 绑定 / 解绑滚动监听
+  // 绑定 / 解绑滚动监听(container 变化时重新绑定:空会话→有会话切换后生效)
   useEffect(() => {
-    const container = containerRef.current;
     if (!container) return;
     container.addEventListener('scroll', handleScroll, { passive: true });
     syncActive();
@@ -125,7 +125,7 @@ export function ChatNav({ containerRef }: ChatNavProps) {
         rafIdRef.current = null;
       }
     };
-  }, [containerRef, handleScroll, syncActive]);
+  }, [container, handleScroll, syncActive]);
 
   // 切换会话或消息列表变化后,重算 active
   useEffect(() => {
@@ -154,12 +154,20 @@ export function ChatNav({ containerRef }: ChatNavProps) {
     }
   }, [activeMessageId]);
 
-  if (items.length === 0) return null;
-
+  // 对齐旧版:chatNavStrip 始终存在于 DOM(旧版为 cockpit.html 静态元素,
+  // 无消息时通过 CSS .chat-panel:not(.has-messages) .chat-nav-strip { display:none } 隐藏)。
+  // 这里不 return null,始终渲染 <aside id="chatNavStrip">,items 为空时加 data-empty 由 CSS 隐藏。
   return (
-    <aside className="chat-nav-strip" aria-label="会话内用户消息导航">
-      <div className="chat-nav-panel">
-        <div className="chat-nav-items">
+    // 对标旧版 cockpit.html: <div class="chat-nav-strip" id="chatNavStrip"> 结构,
+    // 保留 id 以便外部脚本(注入/桥接)继续通过 getElementById 定位
+    <aside
+      className="chat-nav-strip"
+      id="chatNavStrip"
+      data-empty={items.length === 0 ? 'true' : undefined}
+      aria-label="会话内用户消息导航"
+    >
+      <div className="chat-nav-panel" id="chatNavPanel">
+        <div className="chat-nav-items" id="chatNavItems">
           {items.map((item) => {
             const isActive = item.messageId === activeMessageId;
             return (
@@ -170,7 +178,11 @@ export function ChatNav({ containerRef }: ChatNavProps) {
                 }}
                 className={`chat-nav-item${isActive ? ' active' : ''}`}
                 title={item.preview}
-                onClick={() => scrollToMessage(item.messageId)}
+                onClick={(e) => {
+                  // 对齐旧版 ChatNav.js: 阻止事件冒泡,避免触发外层容器点击
+                  e.stopPropagation();
+                  scrollToMessage(item.messageId);
+                }}
               >
                 {item.preview || '(空消息)'}
               </div>

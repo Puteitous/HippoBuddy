@@ -1,0 +1,303 @@
+/* ============================================================
+   ToolTimeline - 工具调用时间线样式
+   ------------------------------------------------------------
+   从旧版 static/css/components/tool-cards.css 的
+   「工具调用时间线(紧凑模式)」段落迁移,适配新版主题变量。
+   变量(--border-color / --text-primary 等)经 index.css 兼容别名
+   映射到同一套主题体系,任意主题下取色一致。
+   ============================================================ */
+
+/* ── 时间线容器(左侧竖线) ─────────────────────────────── */
+.tool-timeline {
+  position: relative;
+  margin: 6px 0 6px 16px;
+  padding: 0 0 0 8px;
+  border-left: 2px solid var(--border-color);
+}
+
+.tool-timeline-item {
+  position: relative;
+  margin-bottom: 1px;
+}
+
+.tool-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+  font-size: var(--font-size-sm);
+  user-select: none;
+  line-height: 1.4;
+}
+
+.tool-timeline-row:hover {
+  background: var(--bg-canvas);
+}
+
+.tool-timeline-row:active {
+  background: var(--bg-code);
+}
+
+/* 无详情时(如 read_file),行不可点击,隐藏 hover 效果 */
+.tool-timeline-item.no-detail .tool-timeline-row {
+  cursor: default;
+}
+
+.tool-timeline-item.no-detail .tool-timeline-row:hover {
+  background: transparent;
+}
+
+.tool-timeline-dot {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.tool-timeline-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  min-width: 52px;
+  font-family: var(--font-mono);
+}
+
+.tool-timeline-summary {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  min-width: 0;
+  user-select: text;
+}
+
+/* 文件摘要可点击跳转 */
+.tool-timeline-summary[data-clickable] {
+  cursor: pointer;
+}
+
+.tool-timeline-summary[data-clickable]:hover {
+  color: var(--text-primary);
+}
+
+.tool-timeline-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* ── 复制命令按钮(bash,悬浮行时显示) ─────────────────── */
+.tool-timeline-copy-btn {
+  flex-shrink: 0;
+  display: none;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.tool-timeline-row:hover .tool-timeline-copy-btn {
+  display: inline-flex;
+}
+
+.tool-timeline-copy-btn:hover {
+  color: var(--text-primary);
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.tool-timeline-copy-ok {
+  color: var(--success-text);
+  font-weight: 700;
+}
+
+/* ── 展开详情 ─────────────────────────────────────────── */
+.tool-timeline-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+  opacity: 0;
+  padding: 0 0 0 24px;
+}
+
+.tool-timeline-item.expanded .tool-timeline-detail {
+  opacity: 1;
+  padding: 2px 0 4px 24px;
+}
+
+/* ── 详情:状态文本 ────────────────────────────────────── */
+.timeline-detail-status {
+  padding: 6px 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.timeline-detail-status.cancelled {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.timeline-detail-status.interrupted {
+  color: var(--warning-color);
+}
+
+/* ── 详情:流式进度(执行中) ────────────────────────────── */
+.timeline-detail-progress {
+  margin: 4px 0;
+  position: relative;
+}
+
+.timeline-detail-progress pre {
+  background: var(--bg-code);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent);
+}
+
+.timeline-detail-progress pre code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.timeline-detail-progress::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(transparent, var(--bg-code));
+  pointer-events: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+/* ── 详情:错误 ────────────────────────────────────────── */
+.timeline-detail-error {
+  padding: 8px 12px;
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  margin: 4px 0;
+}
+
+/* ── 详情:输出 ────────────────────────────────────────── */
+.timeline-detail-output {
+  margin: 4px 0;
+}
+
+.timeline-detail-output pre {
+  background: var(--bg-code);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  border: 1px solid var(--border-color);
+}
+
+.timeline-detail-output pre code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ── 详情:diff(edit_file / write_file) ────────────────── */
+.timeline-detail-diff {
+  margin: 4px 0;
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+/* ── 状态颜色 ─────────────────────────────────────────── */
+.tool-timeline-status.success svg {
+  stroke: var(--success-text);
+}
+
+.tool-timeline-status.error svg,
+.tool-timeline-status.failed svg {
+  stroke: var(--error-text);
+}
+
+.tool-timeline-status.cancelled svg {
+  stroke: var(--text-muted);
+}
+
+.tool-timeline-status.interrupted svg {
+  stroke: var(--warning-color);
+}
+
+.tool-timeline-status.running svg,
+.tool-timeline-status.running .tool-spinner {
+  stroke: var(--warning-color, #e6a817);
+}
+
+.tool-timeline-status.pending_confirmation svg {
+  stroke: var(--warning-color, #e6a817);
+}
+
+/* ── diff 统计(+N / -M,edit/write 成功时) ─────────────── */
+.timeline-diff-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-diff-stats .diff-add {
+  color: var(--success-text);
+}
+
+.timeline-diff-stats .diff-del {
+  color: var(--error-text);
+}
+
+/* ── 深色主题微调 ─────────────────────────────────────── */
+[data-theme='dark'] .tool-timeline {
+  border-left-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme='dark'] .tool-timeline-row:hover {
+  background: var(--bg-canvas);
+}

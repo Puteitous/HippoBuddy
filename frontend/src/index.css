@@ -1,23 +1,360 @@
+/* ============================================================
+   HippoBuddy 全局样式与主题变量
+   ------------------------------------------------------------
+   变量体系从旧版 static/css/variables.css 完整迁移,
+   统一 浅色 / dark / midnight 三套主题。
+   新版组件使用的 --hb-* 兼容别名映射到同一套变量,
+   保证新旧组件在任意主题下取色一致。
+   ============================================================ */
+
 :root {
+  /* ==========================================
+     白色基调色彩体系
+     参考 Claude/ChatGPT 配色哲学
+     中性暖灰作为强调色
+     ========================================== */
+
+  /* --- 新变量体系 --- */
+  --bg-canvas:     #edeff2;
+  --bg-app:        #ffffff;
+  --bg-sidebar:    #ffffff;
+  --bg-chat:       #ffffff;
+  --bg-code:       #ffffff;
+  --bg-hover:      #edeff2;
+  --bg-active:     #e5e7eb;
+  --bg-secondary:  #f8f9fa;
+  --bg-overlay:    #ffffff;
+
+  --border:        #e5e7eb;
+  --text-primary:  #111827;
+  --text-secondary:#4b5563;
+  --text-muted:    #6b7280;
+
+  --accent:        #787c82;
+  --selection-bg:  rgb(173, 214, 255);
+
+  /* --- 向后兼容别名（旧变量映射到新值） --- */
+  --bg-white:      var(--bg-app);
+  --bg-light:      var(--bg-sidebar);
+  --bg-lighter:    var(--bg-sidebar);
+  --border-color:  var(--border);
+  --border-code:   var(--border);
+  --text-light:    #d1d5db;
+
+  --primary-color: var(--accent);
+  --primary-hover: #5c6066;
+  --primary-dark:  #1a1a2e;
+  --primary-dark-hover: #16213e;
+
+  --success-color: #4CAF50;
+  --success-bg:    #e8f5e9;
+  --success-text:  #2e7d32;
+
+  --error-color:   #c62828;
+  --error-bg:      #ffebee;
+  --error-text:    #c62828;
+  --error-hover:   #b71c1c;
+
+  --warning-color: #c28830;
+  --warning-bg:    #fff3e0;
+
+  /* 会话列表中"含活跃会话的项目标题"高亮色 */
+  --active-project: #2563eb;
+
+  /* 词级 diff 标记（行内精确变更）：比行底色更深的强调色 */
+  --diff-word-del-bg: #ffcdd2;
+  --diff-word-ins-bg: #c8e6c9;
+
+  /* --- 阴影 --- */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.1);
+
+  /* --- 圆角 --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* --- 间距 --- */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+
+  /* --- 字体 --- */
+  --font-mono:
+    'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas',
+    monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 14px;
+  --font-size-xl: 15px;
+  --font-size-2xl: 16px;
+  --font-size-3xl: 18px;
+
+  /* --- 过渡 --- */
+  --transition-fast: 0.2s;
+  --transition-normal: 0.3s;
+
+  /* ==========================================
+     新版组件兼容别名(--hb-*)
+     指向同一套变量,任意主题下自动跟随
+     ========================================== */
+  --hb-bg:          var(--bg-app);
+  --hb-bg-dark:     var(--bg-app);
+  --hb-border:      var(--border);
+  --hb-border-dark: var(--border);
+  --hb-text:        var(--text-primary);
+  --hb-text-dark:   var(--text-primary);
+
+  /* 基础排版 */
   color-scheme: light dark;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ========== 默认深色主题（原 Obsidian） ========== */
+[data-theme="dark"] {
+  --bg-canvas:     #262626;
+  --bg-app:        #171717;
+  --bg-sidebar:    #171717;
+  --bg-chat:       #171717;
+  --bg-code:       #171717;
+  --bg-hover:      #313131;
+  --bg-active:     #363636;
+  --bg-secondary:  #1a1a1a;
+  --bg-overlay:    #2a2a2a;
+
+  --border:        #3a3a3a;
+  --text-primary:  #e0e0e0;
+  --text-secondary:#a0a0a0;
+  --text-muted:    #6e6e6e;
+
+  --accent:        #9ca3af;
+  --selection-bg:  rgb(32, 55, 99);
+
+  /* --- 向后兼容别名 --- */
+  --bg-white:      var(--bg-app);
+  --bg-light:      var(--bg-sidebar);
+  --bg-lighter:    var(--bg-sidebar);
+  --border-color:  var(--border);
+  --border-code:   var(--border);
+  --text-light:    #6e6e6e;
+
+  --primary-color: var(--accent);
+  --primary-hover: #b0b4ba;
+
+  --success-color: #66bb6a;
+  --success-bg:    #1b3a1e;
+  --success-text:  #81c784;
+
+  --error-color:   #ef5350;
+  --error-bg:      #3a1a1a;
+  --error-text:    #ef5350;
+  --error-hover:   #d32f2f;
+
+  --warning-color: #ff9800;
+  --warning-bg:    #3a2a10;
+
+  /* 会话列表中"含活跃会话的项目标题"高亮色 */
+  --active-project: #60a5fa;
+
+  /* 词级 diff 标记（行内精确变更）：比行底色更亮的强调色 */
+  --diff-word-del-bg: #7a2a2a;
+  --diff-word-ins-bg: #2e5d34;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.45);
+
+  /* 新版组件兼容别名 */
+  --hb-bg:          var(--bg-app);
+  --hb-bg-dark:     var(--bg-app);
+  --hb-border:      var(--border);
+  --hb-border-dark: var(--border);
+  --hb-text:        var(--text-primary);
+  --hb-text-dark:   var(--text-primary);
+}
+
+/* ========== Midnight 暗色主题（原默认深色，偏蓝冷调） ========== */
+[data-theme="midnight"] {
+  --bg-canvas:     #232a35;
+  --bg-app:        #181d27;
+  --bg-sidebar:    #181d27;
+  --bg-chat:       #181d27;
+  --bg-code:       #181d27;
+  --bg-hover:      #232a35;
+  --bg-active:     #2d3445;
+  --bg-secondary:  #181d27;
+  --bg-overlay:    #181d27;
+
+  --border:        #37373f;
+  --text-primary:  #d4d4dc;
+  --text-secondary:#a0a0aa;
+  --text-muted:    #737380;
+
+  --accent:        #9ca0a6;
+  --selection-bg:  rgb(32, 55, 99);
+
+  /* --- 向后兼容别名 --- */
+  --bg-white:      var(--bg-app);
+  --bg-light:      var(--bg-sidebar);
+  --bg-lighter:    var(--bg-sidebar);
+  --border-color:  var(--border);
+  --border-code:   var(--border);
+  --text-light:    #737380;
+
+  --primary-color: var(--accent);
+  --primary-hover: #b0b4ba;
+
+  --success-color: #66bb6a;
+  --success-bg:    #1b3a1e;
+  --success-text:  #81c784;
+
+  --error-color:   #ef5350;
+  --error-bg:      #3a1a1a;
+  --error-text:    #ef5350;
+  --error-hover:   #d32f2f;
+
+  --warning-color: #ff9800;
+  --warning-bg:    #3a2a10;
+
+  /* 会话列表中"含活跃会话的项目标题"高亮色 */
+  --active-project: #60a5fa;
+
+  /* 词级 diff 标记（行内精确变更）：比行底色更亮的强调色 */
+  --diff-word-del-bg: #7a2a2a;
+  --diff-word-ins-bg: #2e5d34;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.35);
+
+  /* 新版组件兼容别名 */
+  --hb-bg:          var(--bg-app);
+  --hb-bg-dark:     var(--bg-app);
+  --hb-border:      var(--border);
+  --hb-border-dark: var(--border);
+  --hb-text:        var(--text-primary);
+  --hb-text-dark:   var(--text-primary);
+}
+
+/* 未显式指定 data-theme 时,跟随系统深浅色(默认浅色) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg-canvas:     #262626;
+    --bg-app:        #171717;
+    --bg-sidebar:    #171717;
+    --bg-chat:       #171717;
+    --bg-code:       #171717;
+    --bg-hover:      #313131;
+    --bg-active:     #363636;
+    --bg-secondary:  #1a1a1a;
+    --bg-overlay:    #2a2a2a;
+
+    --border:        #3a3a3a;
+    --text-primary:  #e0e0e0;
+    --text-secondary:#a0a0a0;
+    --text-muted:    #6e6e6e;
+
+    --accent:        #9ca3af;
+    --selection-bg:  rgb(32, 55, 99);
+
+    --bg-white:      var(--bg-app);
+    --bg-light:      var(--bg-sidebar);
+    --bg-lighter:    var(--bg-sidebar);
+    --border-color:  var(--border);
+    --border-code:   var(--border);
+    --text-light:    #6e6e6e;
+
+    --primary-color: var(--accent);
+    --primary-hover: #b0b4ba;
+
+    --success-color: #66bb6a;
+    --success-bg:    #1b3a1e;
+    --success-text:  #81c784;
+
+    --error-color:   #ef5350;
+    --error-bg:      #3a1a1a;
+    --error-text:    #ef5350;
+    --error-hover:   #d32f2f;
+
+    --warning-color: #ff9800;
+    --warning-bg:    #3a2a10;
+
+    --active-project: #60a5fa;
+
+    --diff-word-del-bg: #7a2a2a;
+    --diff-word-ins-bg: #2e5d34;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-md: 0 2px 6px rgba(0,0,0,0.4);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.45);
+
+    --hb-bg:          var(--bg-app);
+    --hb-bg-dark:     var(--bg-app);
+    --hb-border:      var(--border);
+    --hb-border-dark: var(--border);
+    --hb-text:        var(--text-primary);
+    --hb-text-dark:   var(--text-primary);
+  }
+}
+
+/* ============================================================
+   基础元素
+   ============================================================ */
 
 * {
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  background: #f7f7f8;
-  color: #1f2937;
+html,
+body,
+#root {
+  height: 100%;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #1a1a1a;
-    color: #e5e7eb;
-  }
+body {
+  margin: 0;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   全局滚动条美化(窄轨道,圆角滑块,移除上下箭头按钮)
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

@@ -131,3 +131,87 @@ export function countDiffStats(oldText: string, newText: string): { insertions: 
   }
   return { insertions, deletions };
 }
+
+// ============================================================================
+// Timeline 摘要提取(对齐旧版 renderToolTimelineRow 的 summary 逻辑)
+// ============================================================================
+
+/**
+ * 按工具名从 args 提取 timeline 行摘要文本。
+ *
+ * 对齐旧版 tool-renderers/index.js 的 summary 分支:
+ *  - bash:命令文本
+ *  - read_file / edit_file / write_file / undo_file / read_office_file /
+ *    write_office_file:文件路径
+ *  - grep / glob:pattern
+ *  - SearchCodebase:information_request
+ *  - web_search:"查询词"
+ *  - web_fetch:url
+ *  - lint_diagnostics / delete_file:paths 列表
+ *  - list_directory:path
+ *  - skill:skill: <name>
+ *  - 其他:工具名兜底
+ *
+ * @param name 工具名
+ * @param args 工具参数(JSON 字符串或对象)
+ * @returns 摘要文本(可为空串)
+ */
+export function timelineSummary(name: string, args: unknown): string {
+  const a = parseToolArgs<Record<string, unknown>>(args);
+  switch (name) {
+    case 'bash':
+      return typeof a.command === 'string' ? a.command : '';
+    case 'read_file':
+    case 'edit_file':
+    case 'write_file':
+    case 'undo_file':
+    case 'read_office_file':
+    case 'write_office_file':
+      return typeof a.path === 'string' ? a.path : '';
+    case 'grep':
+    case 'glob':
+      return typeof a.pattern === 'string' ? a.pattern : '';
+    case 'SearchCodebase':
+      return typeof a.information_request === 'string' ? a.information_request : '';
+    case 'web_search': {
+      const q = typeof a.query === 'string' ? a.query : '';
+      return q ? `"${q}"` : '';
+    }
+    case 'web_fetch':
+      return typeof a.url === 'string' ? a.url : '';
+    case 'lint_diagnostics':
+    case 'delete_file':
+      return Array.isArray(a.paths) ? (a.paths as unknown[]).join(', ') : '';
+    case 'list_directory':
+      return typeof a.path === 'string' ? a.path : '(项目根目录)';
+    case 'skill':
+      return typeof a.name === 'string' ? `skill: ${a.name}` : '';
+    default:
+      return name;
+  }
+}
+
+/**
+ * 从 args 提取 timeline 行可点击跳转的文件路径。
+ * 无路径时返回空串。
+ */
+export function timelineFilePath(name: string, args: unknown): string {
+  const a = parseToolArgs<Record<string, unknown>>(args);
+  switch (name) {
+    case 'read_file':
+    case 'edit_file':
+    case 'write_file':
+    case 'undo_file':
+    case 'read_office_file':
+    case 'write_office_file':
+    case 'list_directory':
+      return typeof a.path === 'string' ? a.path : '';
+    case 'delete_file':
+    case 'lint_diagnostics':
+      return Array.isArray(a.paths) && (a.paths as unknown[]).length > 0
+        ? String((a.paths as unknown[])[0])
+        : '';
+    default:
+      return '';
+  }
+}

@@ -1,0 +1,181 @@
+/* FileChangesMonitor - 输入卡状态栏「文件变更」悬浮面板
+   对齐旧版 .status-bar-files-popover / .popover-file-item / .fcs-* */
+
+/* 状态栏项需允许 popover 溢出(.chat-panel-status-item 默认 overflow: visible) */
+.chat-panel-files-monitor {
+  overflow: visible !important;
+}
+
+/* ── 悬浮面板(向上弹出,对齐旧版 .status-bar-files-popover) ── */
+.chat-panel-files-popover {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 260px;
+  max-width: 340px;
+  max-height: 340px;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  overflow: hidden;
+  animation: fcm-popover-in 0.12s ease;
+}
+
+@keyframes fcm-popover-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ── 会话级汇总条(对齐旧版 #filesPopoverSummary) ── */
+.fcs-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 8px 4px;
+  padding: 5px 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.fcs-stats {
+  display: inline-flex;
+  gap: 6px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.fcs-add {
+  color: var(--success-color);
+}
+
+.fcs-del {
+  color: var(--error-color);
+}
+
+/* ── 文件列表 ── */
+.chat-panel-files-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.chat-panel-files-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  margin: 0 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.chat-panel-files-item:hover {
+  background: var(--bg-code);
+}
+
+.chat-panel-files-item.is-deleted {
+  opacity: 0.7;
+}
+
+.chat-panel-files-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.chat-panel-files-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.chat-panel-files-basename {
+  font-weight: 500;
+}
+
+.chat-panel-files-path {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chat-panel-files-count {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.chat-panel-files-status {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  line-height: 1;
+}
+
+.chat-panel-files-status.status-added {
+  color: var(--success-color);
+}
+
+.chat-panel-files-status.status-modified {
+  color: #d49433;
+}
+
+.chat-panel-files-status.status-deleted {
+  color: var(--error-color);
+}
+
+/* 超出部分提示 */
+.chat-panel-files-overflow {
+  padding: 5px 10px;
+  margin: 0 4px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.chat-panel-files-overflow:hover {
+  background: var(--bg-code);
+  color: var(--text-secondary);
+}
+
+/* 空态 */
+.chat-panel-files-empty {
+  padding: 16px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ── 深色主题 ── */
+[data-theme="dark"] .chat-panel-files-popover,
+[data-theme="midnight"] .chat-panel-files-popover {
+  background: var(--bg-app);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}

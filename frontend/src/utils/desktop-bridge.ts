@@ -13,6 +13,13 @@
 
 /** 在浏览器环境或后端未注入时安全降级 */
 export const desktopBridge = {
+  // ────────────────────────── 环境判断 ──────────────────────────
+
+  /** 是否运行在桌面端(Electron / JCEF 注入过桥接 API) */
+  get isDesktop(): boolean {
+    return !!(window.electronAPI?.isElectron || window.HippoDesktop);
+  },
+
   // ────────────────────────── 导航 / 链接 ──────────────────────────
 
   /** 跳转到文件(在 Electron 桌面端打开编辑器定位) */
@@ -117,6 +124,130 @@ export const desktopBridge = {
       await window.HippoDesktop?.showItemInFolder?.(path);
     } catch (e) {
       console.warn('[desktopBridge] showItemInFolder 失败:', e);
+    }
+  },
+
+  // ────────────────────────── 窗口控制(对齐旧版 desktop-bridge.js) ──────────────────────────
+
+  /** 最小化窗口(仅桌面端有效) */
+  minimizeWindow(): void {
+    try {
+      void window.electronAPI?.minimizeWindow?.();
+    } catch (e) {
+      console.warn('[desktopBridge] minimizeWindow 失败:', e);
+    }
+  },
+
+  /** 最大化窗口 */
+  maximizeWindow(): void {
+    try {
+      window.electronAPI?.maximizeWindow?.();
+    } catch (e) {
+      console.warn('[desktopBridge] maximizeWindow 失败:', e);
+    }
+  },
+
+  /** 还原窗口 */
+  restoreWindow(): void {
+    try {
+      window.electronAPI?.restoreWindow?.();
+    } catch (e) {
+      console.warn('[desktopBridge] restoreWindow 失败:', e);
+    }
+  },
+
+  /** 最大化 / 还原切换 */
+  async toggleMaximize(): Promise<void> {
+    try {
+      await window.electronAPI?.toggleMaximize?.();
+    } catch (e) {
+      console.warn('[desktopBridge] toggleMaximize 失败:', e);
+    }
+  },
+
+  /** 关闭窗口 */
+  closeWindow(): void {
+    try {
+      void window.electronAPI?.closeWindow?.();
+    } catch (e) {
+      console.warn('[desktopBridge] closeWindow 失败:', e);
+    }
+  },
+
+  /** 查询当前是否最大化 */
+  async isMaximized(): Promise<boolean> {
+    try {
+      const v = await window.electronAPI?.isMaximized?.();
+      return v === true;
+    } catch (e) {
+      console.warn('[desktopBridge] isMaximized 失败:', e);
+      return false;
+    }
+  },
+
+  /**
+   * 订阅最大化状态变化(替代轮询)。
+   * @returns 取消订阅函数
+   */
+  onMaximizedChanged(callback: (maximized: boolean) => void): () => void {
+    try {
+      window.electronAPI?.onMaximizedChanged?.(callback);
+    } catch (e) {
+      console.warn('[desktopBridge] onMaximizedChanged 失败:', e);
+    }
+    return () => {
+      try {
+        window.electronAPI?.removeMaximizedChangedListener?.();
+      } catch {
+        /* 忽略 */
+      }
+    };
+  },
+
+  // ────────────────────────── 对话框 ──────────────────────────
+
+  /** 打开系统文件夹选择对话框(仅桌面端有效) */
+  async openFileDialog(): Promise<string | null> {
+    try {
+      const result = await window.electronAPI?.openFileDialog?.();
+      return result?.path ?? null;
+    } catch (e) {
+      console.warn('[desktopBridge] openFileDialog 失败:', e);
+      return null;
+    }
+  },
+
+  // ────────────────────────── DevTools ──────────────────────────
+
+  /** 打开 DevTools(仅桌面端有效) */
+  openDevTools(): void {
+    try {
+      window.electronAPI?.openDevTools?.();
+    } catch (e) {
+      console.warn('[desktopBridge] openDevTools 失败:', e);
+    }
+  },
+
+  // ────────────────────────── 主题同步 ──────────────────────────
+
+  /** 读取桌面端主题(Electron 侧 splash 与主窗口保持一致) */
+  async getTheme(): Promise<'dark' | 'light' | 'midnight' | null> {
+    try {
+      const t = await window.electronAPI?.getTheme?.();
+      if (t === 'dark' || t === 'light' || t === 'midnight') return t;
+      return null;
+    } catch (e) {
+      console.warn('[desktopBridge] getTheme 失败:', e);
+      return null;
+    }
+  },
+
+  /** 同步主题到桌面端 */
+  async setTheme(theme: string): Promise<void> {
+    try {
+      await window.electronAPI?.setTheme?.(theme);
+    } catch (e) {
+      console.warn('[desktopBridge] setTheme 失败:', e);
     }
   },
 };

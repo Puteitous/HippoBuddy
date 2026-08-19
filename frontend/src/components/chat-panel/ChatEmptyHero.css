@@ -1,0 +1,256 @@
+/* ============================================================
+   ChatEmptyHero - 空会话欢迎屏样式
+   视觉对齐旧版 common.css .empty-state + chat-panel.css hero 区,
+   颜色/圆角/阴影统一走 index.css 全局变量。
+   ============================================================ */
+
+.chat-empty-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 20px;
+  gap: 8px;
+  user-select: none;
+  position: relative;
+}
+
+/* ── 河马 logo ────────────────────────────────────────── */
+.empty-logo {
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 8px;
+  opacity: 0.9;
+  filter: grayscale(0.15);
+  cursor: pointer;
+  transition: transform 0.3s ease, filter 0.3s ease;
+  position: relative;
+}
+
+.hippo-char {
+  display: inline-block;
+  animation: hippo-float 3s ease-in-out infinite;
+}
+
+.empty-logo:hover {
+  transform: scale(1.12) rotate(-4deg);
+  filter: grayscale(0);
+}
+
+.empty-logo:hover .hippo-char {
+  animation-play-state: paused;
+}
+
+.empty-logo.bouncing {
+  animation: hippo-bounce 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+@keyframes hippo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes hippo-bounce {
+  0% { transform: scale(1) rotate(0deg); margin-top: 0; }
+  25% { transform: scale(1.2) rotate(-8deg); margin-top: -6px; }
+  50% { transform: scale(0.95) rotate(4deg); margin-top: 0; }
+  75% { transform: scale(1.08) rotate(-2deg); margin-top: -4px; }
+  100% { transform: scale(1) rotate(0deg); margin-top: 0; }
+}
+
+/* 点击河马冒泡 */
+.hippo-bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.8), rgba(147,197,253,0.5) 50%, rgba(147,197,253,0.2));
+  pointer-events: none;
+  animation: bubble-rise 1.5s ease-out forwards;
+}
+
+@keyframes bubble-rise {
+  0% {
+    opacity: 0.9;
+    transform: translate(0, 0) scale(1);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--bubble-drift, 8px), -80px) scale(1.3);
+  }
+}
+
+[data-theme="dark"] .hippo-bubble,
+[data-theme="midnight"] .hippo-bubble {
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.6), rgba(96,165,250,0.4) 50%, rgba(96,165,250,0.15));
+}
+
+/* ── 标题 + 标语 ─────────────────────────────────────── */
+.empty-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.empty-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.empty-title .title-first,
+.empty-title .title-last {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.title-last {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 300px;
+}
+
+/* 标语切换动画:旧文字淡出 → 新文字飞入(React key 重挂载触发) */
+.title-switching {
+  animation: title-impact 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes title-impact {
+  0% {
+    opacity: 0;
+    transform: translateX(60px);
+    max-width: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    max-width: 300px;
+  }
+}
+
+/* ── 模式胶囊 ────────────────────────────────────────── */
+.mode-capsule {
+  display: inline-flex;
+  background: var(--bg-code);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 1px;
+}
+
+.mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.mode-btn:hover {
+  color: var(--text-secondary);
+}
+
+.mode-btn.active {
+  background: var(--bg-white);
+  color: var(--text-primary);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+[data-theme="dark"] .mode-btn.active,
+[data-theme="midnight"] .mode-btn.active {
+  background: var(--bg-hover);
+}
+
+.mode-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Hero 区域模式选择器 ─────────────────────────────── */
+.empty-mode-selector {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.hero-mode-capsule {
+  background: rgba(128, 128, 128, 0.08);
+  backdrop-filter: blur(8px);
+  padding: 3px;
+}
+
+[data-theme="dark"] .hero-mode-capsule,
+[data-theme="midnight"] .hero-mode-capsule {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hero-mode-capsule .mode-btn {
+  padding: 5px 14px;
+  font-size: 13px;
+  gap: 5px;
+}
+
+.hero-mode-capsule .mode-btn.active {
+  background: var(--bg-white);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+}
+
+[data-theme="dark"] .hero-mode-capsule .mode-btn.active,
+[data-theme="midnight"] .hero-mode-capsule .mode-btn.active {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+/* ── 预设提示词标签 ──────────────────────────────────── */
+.empty-presets {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 20px;
+  margin-bottom: 4px;
+  min-height: 0;
+  user-select: none;
+}
+
+.mode-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.4;
+  font-family: inherit;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.mode-preset-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}

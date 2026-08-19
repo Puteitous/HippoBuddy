@@ -82,6 +82,8 @@ export interface WebSearchAction {
 export interface Message {
   id: string;
   role: MessageRole;
+  /** 消息时间戳(ms,后端 JSONL 写入;缺失时前端用当前时间兜底) */
+  timestamp?: number;
   /**
    * 消息内容:
    * - 纯文本时为 string

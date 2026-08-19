@@ -71,6 +71,12 @@
   padding: 4px;
 }
 
+/* ── 向上弹出(输入卡底部状态栏使用,对齐旧版 status-bar-item 面板) ── */
+.msp-root.msp-placement-top .msp-panel {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
 /* ── 第一级 menu ─────────────────────────────────── */
 .msp-menu-item {
   display: flex;

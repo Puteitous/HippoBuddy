@@ -1,65 +1,99 @@
-/* TopBar 顶部状态栏 */
+/* ============================================================
+   TopBar 顶部状态栏(对齐旧版 cockpit.css 的 .header)
+   ------------------------------------------------------------
+   三段式布局 + 右侧工具区(对齐旧版 .header-actions):
+   工作区指示器 / 压缩 / 文件夹下拉 / 设置 / 主题 / DevTools /
+   刷新 / 窗口控制;桌面端支持 -webkit-app-region 拖拽与双击最大化。
+   ============================================================ */
 
 .top-bar {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--hb-border, #e5e7eb);
-  background: var(--hb-bg, #fafafa);
+  padding: 0 12px 0 14px;
+  height: 48px;
   flex-shrink: 0;
+  background: var(--bg-canvas);
+  border-bottom: 1px solid var(--border);
+}
+
+/* 桌面端:整条顶栏可拖拽移动窗口(按钮/交互元素 no-drag) */
+body.desktop-window .top-bar {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+body.desktop-window .top-bar button,
+body.desktop-window .top-bar input,
+body.desktop-window .top-bar select,
+body.desktop-window .top-bar textarea,
+body.desktop-window .top-bar .window-controls,
+body.desktop-window .top-bar .top-bar-brand-icon {
+  -webkit-app-region: no-drag;
+}
+/* 最大化状态下禁用 8 方向光标变化(Electron 原生行为会覆盖,对齐旧版) */
+body.window-maximized {
+  -webkit-app-region: no-drag;
 }
 
 .top-bar-brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.top-bar-brand-icon {
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .top-bar-name {
   font-size: 16px;
   font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .top-bar-tag {
   font-size: 12px;
-  color: #6b7280;
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
-.top-bar-center {
-  flex: 1;
+/* 侧栏折叠逃生按钮(对齐旧版 header 中 toolbar-escape 的胶囊外观) */
+.top-bar-sidebar-show {
+  height: 26px;
+  width: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.top-bar-sep {
-  width: 1px;
-  height: 16px;
-  background: var(--hb-border, #e5e7eb);
+  border: none;
+  border-radius: 14px;
+  background: var(--bg-app);
+  color: var(--text-muted);
+  cursor: pointer;
   flex-shrink: 0;
+  transition: all var(--transition-fast);
 }
 
-.top-bar-session-id {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  padding: 2px 8px;
-  background: rgba(127, 127, 127, 0.12);
-  border-radius: 4px;
+.top-bar-sidebar-show:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-secondary);
 }
 
-.top-bar-no-session {
-  font-size: 13px;
-  color: #9ca3af;
-  font-style: italic;
+[data-theme="dark"] .top-bar-sidebar-show:hover,
+[data-theme="midnight"] .top-bar-sidebar-show:hover {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .top-bar-nav {
+  margin-left: auto;
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .top-bar-tab {
@@ -82,9 +116,272 @@
   font-weight: 500;
 }
 
+/* ============================================================
+   工具区(对齐旧版 .header-actions)
+   ============================================================ */
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* 通用图标按钮(对齐旧版 .header-icon-btn) */
+.top-bar-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-md);
+  transition: all var(--transition-fast);
+}
+
+.top-bar-icon-btn:hover {
+  background: var(--bg-code);
+  color: var(--text-secondary);
+}
+
+.top-bar-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.top-bar-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 压缩上下文进行中的旋转图标 */
+.top-bar-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 工作区指示器(对齐旧版 .workspace-indicator) ── */
+.workspace-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 8px;
+  margin-left: 2px;
+  height: 28px;
+  background: var(--bg-code);
+  border-radius: 999px;
+  max-width: 240px;
+  overflow: hidden;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.workspace-indicator .workspace-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.workspace-indicator .workspace-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.workspace-indicator .workspace-clear {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-indicator .workspace-clear:hover {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+/* ── 文件夹操作组(对齐旧版 .header-folder-group) ── */
+.header-folder-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 2px;
+}
+
+.header-folder-group .top-bar-icon-btn {
+  padding: 5px;
+}
+
+/* 最近文件夹下拉(对齐旧版 .header-folder-dropdown) */
+.header-folder-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: auto;
+  transform: none;
+  min-width: 220px;
+  max-width: 300px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 1100;
+  padding: 4px 0;
+  margin-top: 4px;
+}
+
+.header-folder-dropdown-header {
+  padding: 6px 12px;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.header-folder-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  transition: background 0.1s;
+  overflow: hidden;
+}
+
+.header-folder-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.header-folder-dropdown-item .folder-item-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+}
+
+.header-folder-dropdown-item .folder-item-remove {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  padding: 0;
+  line-height: 1;
+  opacity: 0;
+  transition: all 0.1s;
+}
+
+.header-folder-dropdown-item:hover .folder-item-remove {
+  opacity: 1;
+}
+
+.header-folder-dropdown-item .folder-item-remove:hover {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.header-folder-dropdown-empty {
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* ── 窗口控制按钮组(对齐旧版 .window-controls) ── */
+.window-controls {
+  display: flex;
+  align-items: center;
+  margin-left: 6px;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.window-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+  padding: 0;
+}
+
+.window-btn:hover {
+  background: rgba(127, 127, 127, 0.15);
+  color: var(--text-primary);
+}
+
+/* 最大化/还原图标切换(对齐旧版 .window-btn-maximize) */
+.window-btn-maximize .win-icon-restore {
+  display: none;
+}
+
+.window-btn-maximize.is-maximized .win-icon-maximize {
+  display: none;
+}
+
+.window-btn-maximize.is-maximized .win-icon-restore {
+  display: block;
+}
+
+/* 关闭按钮 hover 变红色(对齐旧版) */
+.window-btn-close:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .window-btn-close:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
+/* 桌面端无边框窗口圆角(对齐旧版 body.desktop-window) */
+body.desktop-window {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 @media (prefers-color-scheme: dark) {
   .top-bar {
-    border-bottom-color: var(--hb-border-dark, #374151);
-    background: var(--hb-bg-dark, #1a1a1a);
+    border-bottom-color: var(--border);
   }
 }

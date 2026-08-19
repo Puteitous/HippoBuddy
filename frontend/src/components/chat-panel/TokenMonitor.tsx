@@ -13,7 +13,8 @@
  *  - 紧凑展示:百分比 + 进度条 + hover tooltip
  *  - 主题色用 CSS 变量,不读 document.documentElement
  */
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { sessionApi } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -148,7 +149,62 @@ function getTokenColor(percent: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-function TokenMonitorComponent() {
+/**
+ * 根据使用率返回三档表情图标(对齐旧版 _getTokenEmoji)。
+ * 轮廓色由 CSS 变量 --sbt-emoji-stroke 控制(亮色 #000 / 暗色 #fff),
+ * 避免读取 document.documentElement,跟随主题自动切换。
+ */
+function TokenEmojiIcon({ percent }: { percent: number }) {
+  const svgProps = {
+    width: 16,
+    height: 16,
+    viewBox: '0 0 48 48',
+    fill: 'none',
+    stroke: 'var(--sbt-emoji-stroke)',
+    strokeWidth: 4,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  };
+  // 😊 开心 — 余量充足(≤ 50%)
+  if (percent <= 50) {
+    return (
+      <svg {...svgProps}>
+        <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" />
+        <path d="M31 18V19" />
+        <path d="M17 18V19" />
+        <path d="M31 31C31 31 29 35 24 35C19 35 17 31 17 31" />
+      </svg>
+    );
+  }
+  // 😐 平静 — 注意占用(50% ~ 75%)
+  if (percent <= 75) {
+    return (
+      <svg {...svgProps}>
+        <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" />
+        <path d="M31 18V19" />
+        <path d="M17 18V19" />
+        <rect x="20" y="24" width="8" height="12" rx="4" />
+      </svg>
+    );
+  }
+  // 😰 焦虑 — 占用较高(≥ 75%)
+  return (
+    <svg {...svgProps}>
+      <path d="M24 44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4C12.9543 4 4 12.9543 4 24C4 35.0457 12.9543 44 24 44Z" />
+      <path d="M24 29C29 29 31 33 31 33H17C17 33 19 29 24 29Z" />
+      <path d="M32 17L29 20L32 23" />
+      <path d="M16 17L19 20L16 23" />
+    </svg>
+  );
+}
+
+interface TokenMonitorProps {
+  /** 状态栏变体:渲染为 柱状图图标 + 百分比(对齐旧版 statusBarToken),隐藏进度条与 counts */
+  statusBar?: boolean;
+}
+
+function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const lastTokenUpdate = useChatStore((s) => s.lastTokenUpdate);
 
@@ -190,6 +246,43 @@ function TokenMonitorComponent() {
     : '估算值(首轮回退模式)';
   const overThreshold = stats.usagePercent > 80;
 
+  // ── 状态栏悬浮面板(对齐旧版 status-bar-tooltip 自定义浮层) ──────────
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState<{ left: number; bottom: number } | null>(null);
+  const statusBarRef = useRef<HTMLSpanElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  const showTooltip = useCallback(() => {
+    const el = statusBarRef.current;
+    if (!el || !baseStats || stats.maxTokens === 0) return;
+    const rect = el.getBoundingClientRect();
+    // 对齐旧版定位:left 相对按钮左移 25px,bottom 在按钮上方 8px
+    setTooltipPos({
+      left: rect.left - 25,
+      bottom: window.innerHeight - rect.top + 8,
+    });
+    setTooltipOpen(true);
+  }, [baseStats, stats.maxTokens]);
+
+  const hideTooltip = useCallback(() => {
+    setTooltipOpen(false);
+  }, []);
+
+  // 渲染后校正:超出右侧边界时右对齐(对齐旧版 offsetWidth 检测逻辑)
+  useLayoutEffect(() => {
+    if (!tooltipOpen || !tooltipPos || !tooltipRef.current || !statusBarRef.current) return;
+    const tipWidth = tooltipRef.current.offsetWidth;
+    const anchorRect = statusBarRef.current.getBoundingClientRect();
+    const rightEdge = window.innerWidth - 16;
+    let left = anchorRect.left - 25;
+    if (anchorRect.left - 30 + tipWidth > rightEdge) {
+      left = rightEdge - tipWidth;
+    }
+    setTooltipPos((prev) =>
+      prev && prev.left === left ? prev : { left, bottom: window.innerHeight - anchorRect.top + 8 },
+    );
+  }, [tooltipOpen, tooltipPos, stats]);
+
   if (!currentSessionId) {
     return null;
   }
@@ -211,6 +304,38 @@ function TokenMonitorComponent() {
   }
 
   if (!baseStats || stats.maxTokens === 0) {
+    // statusBar 变体:无基准数据时仍显示 0%(对齐旧版 statusBarTokenValue 初始值)
+    if (statusBar) {
+      return (
+        <span
+          ref={statusBarRef}
+          className="token-monitor token-monitor-statusbar"
+          title="Token 使用率"
+          role="status"
+          aria-live="polite"
+          onMouseEnter={showTooltip}
+          onMouseLeave={hideTooltip}
+          onClick={hideTooltip}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <rect x="2" y="10" width="3" height="4" rx="0.5" />
+            <rect x="6.5" y="6" width="3" height="8" rx="0.5" />
+            <rect x="11" y="2" width="3" height="12" rx="0.5" />
+          </svg>
+          <span className="token-monitor-percent">0%</span>
+        </span>
+      );
+    }
     return null;
   }
 
@@ -234,6 +359,91 @@ function TokenMonitorComponent() {
   ]
     .filter(Boolean)
     .join('\n');
+
+  // statusBar 变体:图标 + 百分比(对齐旧版 statusBarToken),隐藏进度条与 counts;
+  // hover 显示自定义悬浮面板(对齐旧版 .status-bar-tooltip,portal 挂到 body 避免被裁剪)
+  if (statusBar) {
+    return (
+      <>
+        <span
+          ref={statusBarRef}
+          className="token-monitor token-monitor-statusbar"
+          role="status"
+          aria-live="polite"
+          onMouseEnter={showTooltip}
+          onMouseLeave={hideTooltip}
+          onClick={hideTooltip}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <rect x="2" y="10" width="3" height="4" rx="0.5" />
+            <rect x="6.5" y="6" width="3" height="8" rx="0.5" />
+            <rect x="11" y="2" width="3" height="12" rx="0.5" />
+          </svg>
+          <span className="token-monitor-percent" style={{ color }}>
+            {accuracyMark} {stats.usagePercent.toFixed(1)}%
+          </span>
+        </span>
+        {tooltipOpen &&
+          tooltipPos &&
+          createPortal(
+            <div
+              ref={tooltipRef}
+              className="status-bar-tooltip"
+              style={{ left: tooltipPos.left, bottom: tooltipPos.bottom }}
+              role="tooltip"
+            >
+              <div className="sbt-header">
+                <span>Token 使用率</span>
+                <span className="sbt-percent" style={{ color }}>
+                  <TokenEmojiIcon percent={stats.usagePercent} />
+                  {stats.usagePercent.toFixed(1)}%
+                </span>
+              </div>
+              <div className="sbt-bar-track">
+                <div
+                  className="sbt-bar-fill"
+                  style={{ width: `${barWidth}%`, background: color }}
+                />
+              </div>
+              <div className="sbt-row">
+                <span>当前</span>
+                <span>
+                  {stats.currentTokens.toLocaleString()} / {stats.maxTokens.toLocaleString()}
+                </span>
+              </div>
+              {(stats.cacheHitTokens > 0 || stats.sessionCacheHitTokens > 0) && (
+                <>
+                  <div className="sbt-divider" />
+                  <div className="sbt-row">
+                    <span>缓存命中</span>
+                    <span>
+                      {stats.cacheHitTokens.toLocaleString()} (
+                      {stats.cacheHitRate.toFixed(1)}%)
+                    </span>
+                  </div>
+                </>
+              )}
+              <div className="sbt-divider" />
+              <div className="sbt-row sbt-total">
+                <span>会话总计</span>
+                <span>{stats.sessionTotalTokens.toLocaleString()} tokens</span>
+              </div>
+            </div>,
+            document.body,
+          )}
+      </>
+    );
+  }
 
   return (
     <span

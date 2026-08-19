@@ -21,8 +21,10 @@ import { useEffect } from 'react';
 import { api } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { useAppStore } from '@/stores/appStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { useSessionMessages } from '@/hooks/useSessionMessages';
 import { Sidebar } from './Sidebar';
+import { SidebarResizer } from './SidebarResizer';
 import { TopBar } from './TopBar';
 import { ChatPanel } from './chat-panel/ChatPanel';
 import { SettingsPanel } from './settings/SettingsPanel';
@@ -47,6 +49,11 @@ export function AppShell() {
 
   // 切换会话时:reset chatStore + 加载历史消息(由 Hook 统一处理)
   useSessionMessages();
+
+  // 启动时初始化主题(localStorage + 桌面端 Electron 校正)
+  useEffect(() => {
+    void useThemeStore.getState().initTheme();
+  }, []);
 
   // 启动时加载会话列表
   useEffect(() => {
@@ -83,6 +90,7 @@ export function AppShell() {
       <div className="app-shell-body">
         <ActivityBar />
         <Sidebar />
+        <SidebarResizer />
         <main className="app-shell-main">
           {view === 'chat' ? (
             <ChatPanel />

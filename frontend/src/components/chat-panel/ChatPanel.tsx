@@ -1,22 +1,25 @@
 /**
  * ChatPanel - 聊天面板
  *
- * 阶段 3.4 升级:
- *  - 输入区上方:RefChips(引用芯片)+ ImageUpload(图片预览)
- *  - 输入区下方:ModePresets(模式预设)+ TokenMonitor(实时 Token)
+ * 阶段 3.4 升级 + 输入卡片对齐旧版布局:
+ *  - 输入区上方:RefChips(引用芯片)+ ImageUpload 图片预览(对齐旧版 .input-refs + .input-img-preview)
+ *  - 主输入行:textarea 独占一行(对齐旧版 .input-row)
+ *  - 底部状态栏(对齐旧版 .input-status-bar):# / 📷 | Token | 文件变更 | 模型快速切换 | 发送/停止
  *  - @path 触发:textarea 内键入 @path/to/file 或 @path:1-10 后按空格自动提取为 chip
  *  - 提交:combineChipsToMessage 合并 chips + typed 文本,images 一并通过 send 传给后端
  *
  * 与旧版 ChatPanel.js 的差异:
  *  - 不再依赖全局 DOM 委托,改用 React 受控 props 与 state
- *  - ModePresets 简化:去掉标语动画(title-first/title-last),只保留模式按钮 + 预设标签
  *  - ImageUpload 简化:缩略图点击在新标签打开,不引入 image-lightbox
  *  - RefChips 简化:不依赖 file-icons.js,3.4 用 emoji 占位(3.5 FileTree 接入后再统一)
+ *  - 模式切换仅保留在空会话 Hero(ChatEmptyHero),输入卡片内无模式预设(对齐旧版)
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
+import { api } from '@/api/client';
+import { showToast } from '@/utils/toastStore';
 import type { Message, PendingImage, RefChip } from '@/types';
 import { combineChipsToMessage } from '@/utils/ref-chips';
 import { on } from '@/utils/eventBus';
@@ -31,18 +34,25 @@ import { MessageBubble } from './MessageBubble';
 import { HistoryRenderer } from './HistoryRenderer';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import { AskUserCard } from '../tool-renderers/AskUserCard';
-import { ModePresets } from './ModePresets';
+import { ToolTimeline } from '../tool-renderers/ToolTimeline';
+import { fromToolCallRecord, groupTimelineItems } from '../tool-renderers/tool-timeline-utils';
 import { TokenMonitor } from './TokenMonitor';
 import { RefChips } from './RefChips';
 import { ImageUpload } from './ImageUpload';
+import { FileChangesMonitor } from './FileChangesMonitor';
 import { ChatNav } from '../ChatNav';
+import { ChatPanelHeader } from './ChatPanelHeader';
 import { ContextSelector } from '../ContextSelector';
+import { ChatEmptyHero } from './ChatEmptyHero';
+import { ModelSelectorPanel } from '../ModelSelectorPanel';
 import type { RuleItem as ContextRuleItem, SkillItem as ContextSkillItem } from '../ContextSelector';
 import '../tool-renderers/tool-renderers.css';
 import './ChatPanel.css';
 
 export function ChatPanel() {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
+  const setCurrentSession = useAppStore((s) => s.setCurrentSession);
+  const setSessions = useAppStore((s) => s.setSessions);
   const messages = useChatStore((s) => s.messages);
   const isReasoning = useChatStore((s) => s.isReasoning);
   const streamingContent = useChatStore((s) => s.streamingContent);
@@ -56,8 +66,20 @@ export function ChatPanel() {
   // ask_user 触发的用户输入卡片(等待回答时显示)
   const waitingForUser = useChatStore((s) => s.waitingForUser);
 
+  // 实时工具调用分组(对齐旧版 timeline 逻辑):
+  //  - standalone:todo_write 等独立卡片(ask_user 由下方 ask-user 区渲染,避免重复)
+  //  - groups:连续普通工具合并为时间线
+  const { standalone: standaloneToolCalls, groups: timelineGroups } = useMemo(
+    () => groupTimelineItems(toolCalls),
+    [toolCalls],
+  );
+
   const { send, abort, isSending: isStreamSending } = useChatStream();
   const [input, setInput] = useState('');
+  /** 聊天面板是否已收起(对齐旧版 chat-panel.collapsed) */
+  const [collapsed, setCollapsed] = useState(false);
+  /** 是否显示"滚动到底部"提示按钮(用户上滚离开底部时显示) */
+  const [showScrollHint, setShowScrollHint] = useState(false);
   /** 引用芯片列表(由 @path 触发或外部 context-selector 添加) */
   const [refChips, setRefChips] = useState<RefChip[]>([]);
   /** 待发送图片(转为 dataUrl 后随 ChatRequest.images 提交) */
@@ -115,6 +137,9 @@ export function ChatPanel() {
   // ── 自动滚动 ──────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  // 消息容器 DOM 实例(ChatNav 顶层常驻后,以 state 传递才能在其 effect 中触发
+  // 重新绑定滚动监听;ref 对象本身变化不会触发子组件 effect)
+  const [messagesContainerEl, setMessagesContainerEl] = useState<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // 用户是否手动上滚(暂停自动滚动)
   const stickToBottomRef = useRef(true);
@@ -133,17 +158,26 @@ export function ChatPanel() {
   // 切换会话时,重置 stickToBottom,并滚到底
   useEffect(() => {
     stickToBottomRef.current = true;
+    setShowScrollHint(false);
     // 等下一帧渲染完历史消息再滚
     requestAnimationFrame(() => scrollToBottom('auto'));
   }, [currentSessionId, scrollToBottom]);
 
-  // 监听滚动事件,判断是否贴底
+  // 监听滚动事件,判断是否贴底;离开底部 ≥100px 时显示回底提示(对齐旧版)
   const handleScroll = useCallback(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     stickToBottomRef.current = distanceFromBottom < 80;
+    setShowScrollHint(distanceFromBottom >= 100);
   }, []);
+
+  /** 点击回底提示:平滑滚到底部并恢复自动跟随(对齐旧版 newMsgHint click) */
+  const handleScrollToBottom = useCallback(() => {
+    stickToBottomRef.current = true;
+    setShowScrollHint(false);
+    scrollToBottom('smooth');
+  }, [scrollToBottom]);
 
   // ── Chips / Images 管理 ─────────────────────────────────
   const addChip = useCallback((chip: RefChip) => {
@@ -185,6 +219,39 @@ export function ChatPanel() {
       selectedRules,
     });
   }, [input, isStreamSending, send, clearWarnings, refChips, pendingImages, selectedRuleIds]);
+
+  // ── 重试(assistant footer 按钮,对齐旧版 retryBtn) ───────
+  // 重发指定用户消息文本,不经过输入框
+  const handleRetry = useCallback(
+    (content: string) => {
+      if (!content.trim() || isStreamSending) return;
+      stickToBottomRef.current = true;
+      clearWarnings();
+      void send(content);
+    },
+    [send, isStreamSending, clearWarnings],
+  );
+
+  // ── 分叉(assistant footer 按钮,对齐旧版 forkBtn) ────────
+  // POST /api/sessions/:id/fork → 切换到新会话 + 刷新会话列表 + toast
+  const handleFork = useCallback(
+    async (messageId: string) => {
+      if (!currentSessionId) return;
+      try {
+        const res = await api.sessions.fork(currentSessionId, { messageId });
+        if (res.newSessionId) {
+          setCurrentSession(res.newSessionId);
+          // 刷新会话列表(新分叉会话出现在列表)
+          api.getSessions().then(setSessions).catch(() => {});
+          showToast('已分叉为新会话', { type: 'success', duration: 4000 });
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        showToast(`分叉失败:${msg}`, { type: 'error', duration: 3000 });
+      }
+    },
+    [currentSessionId, setCurrentSession, setSessions],
+  );
 
   // ── 回滚事件订阅(阶段 3.7-2) ───────────────────────────
   // rollback:prepare → 中断当前生成;rollback:restoreInput → 回填输入框
@@ -323,37 +390,71 @@ export function ChatPanel() {
 
   const hasAttachments = refChips.length > 0 || pendingImages.length > 0;
 
-  // ── 空会话提示 ────────────────────────────────────────────
-  if (!currentSessionId) {
+  // ── 收起状态:仅显示右侧浮动展开按钮(对齐旧版 .chat-show-btn) ──
+  if (collapsed) {
     return (
-      <div className="chat-panel chat-panel-empty">
-        <p>请在左侧选择一个会话,或新建会话(待 3.7 实现)。</p>
+      <div className="chat-panel chat-panel-collapsed">
+        <button
+          type="button"
+          className="chat-show-btn"
+          onClick={() => setCollapsed(false)}
+          title="展开聊天"
+          aria-label="展开聊天"
+        >
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4 4 12 8 4 12" />
+          </svg>
+        </button>
       </div>
     );
   }
 
   return (
     <div className="chat-panel">
-      {/* 消息区(滚动容器) */}
-      <div
-        ref={messagesContainerRef}
-        className="chat-panel-messages"
-        onScroll={handleScroll}
-      >
-        <HistoryRenderer />
+      {/* 面板头部(对齐旧版 .chat-panel-header) */}
+      <ChatPanelHeader onCollapse={() => setCollapsed(true)} />
+
+      {/* 会话内用户消息导航(右侧浮动窄条)。
+          对齐旧版:chatNavStrip 为静态 DOM 元素,始终存在(空态由 CSS data-empty 隐藏),
+          故放在 .chat-panel 顶层、条件分支之外,不随会话/消息有无而卸载。 */}
+      <ChatNav container={messagesContainerEl} />
+
+      {/* 空会话:欢迎屏 Hero(对齐旧版 .empty-state) */}
+      {!currentSessionId ? (
+        <ChatEmptyHero onPresetSelect={handlePresetSelect} />
+      ) : (
+        <>
+          {/* 消息区(滚动容器) */}
+          <div
+            ref={(el) => {
+              messagesContainerRef.current = el;
+              // 同步给 ChatNav(state),触发其重新绑定滚动监听
+              setMessagesContainerEl(el);
+            }}
+            className="chat-panel-messages"
+            onScroll={handleScroll}
+          >
+            <HistoryRenderer onRetry={handleRetry} onFork={handleFork} />
 
         {/* 流式气泡(实时) */}
         {streamingMessage && (
           <div className="chat-panel-streaming">
-            <MessageBubble message={streamingMessage} isStreaming />
+            <MessageBubble message={streamingMessage} isStreaming isReasoning={isReasoning} />
           </div>
         )}
 
-        {/* 实时工具调用卡片(仅发送中显示;回合结束后由 messages 中的 tool role 接管) */}
+        {/* 实时工具调用(仅发送中显示;回合结束后由 messages 中的 tool role 接管)
+            对齐旧版 timeline:todo_write 独立卡片,连续普通工具合并为时间线;
+            ask_user 由下方 ask-user 区渲染,避免重复 */}
         {isStreamSending && toolCalls.length > 0 && (
           <div className="chat-panel-toolcalls">
-            {toolCalls.map((tc) => (
-              <ToolCardDispatcher key={tc.id} record={tc} />
+            {standaloneToolCalls
+              .filter((tc) => tc.name !== 'ask_user')
+              .map((tc) => (
+                <ToolCardDispatcher key={tc.id} record={tc} />
+              ))}
+            {timelineGroups.map((group, i) => (
+              <ToolTimeline key={`tl-${i}`} items={group.map(fromToolCallRecord)} />
             ))}
           </div>
         )}
@@ -398,78 +499,149 @@ export function ChatPanel() {
 
         {/* 滚动锚点 */}
         <div ref={messagesEndRef} className="chat-panel-anchor" />
-
-        {/* 会话内用户消息导航(右侧浮动窄条) */}
-        <ChatNav containerRef={messagesContainerRef} />
       </div>
 
       {/* 输入区 */}
       <div className="chat-panel-input-area">
-        {/* 引用芯片 + 图片预览(有附件时显示) */}
-        {hasAttachments && (
-          <div className="chat-panel-input-attachments">
-            <RefChips chips={refChips} onRemove={removeChip} />
-          </div>
+        {/* 回底提示按钮(对齐旧版 .new-msg-hint:用户上滚离开底部时显示) */}
+        {showScrollHint && (
+          <button
+            type="button"
+            className="new-msg-hint"
+            onClick={handleScrollToBottom}
+            title="滚动到底部"
+            aria-label="滚动到底部"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
         )}
+        <div className="chat-panel-input-card">
+          {/* 引用芯片 + 图片预览(有附件时显示,对齐旧版 .input-refs + .input-img-preview) */}
+          {hasAttachments && (
+            <div className="chat-panel-input-attachments">
+              <RefChips chips={refChips} onRemove={removeChip} />
+              {pendingImages.length > 0 && (
+                <div className="image-upload-previews">
+                  {pendingImages.slice(0, 5).map((img) => (
+                    <div key={img.id} className="image-upload-thumb-wrapper">
+                      <img
+                        src={img.dataUrl}
+                        alt={img.name}
+                        className="image-upload-thumb"
+                        onClick={() =>
+                          window.open(img.dataUrl, '_blank', `noopener,noreferrer,title=${encodeURIComponent(img.name)}`)
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="image-upload-remove"
+                        onClick={() => removeImage(img.id)}
+                        aria-label={`移除 ${img.name}`}
+                        title={`移除 ${img.name}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {pendingImages.length > 5 && (
+                    <span className="image-upload-overflow" title={`还有 ${pendingImages.length - 5} 张图片`}>
+                      +{pendingImages.length - 5}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* 主输入行:ContextSelector(#) + textarea + 图片上传按钮 + 发送按钮 */}
-        <div className="chat-panel-input-row">
-          <ContextSelector
-            selectedRuleIds={selectedRuleIds}
-            selectedSkillPaths={selectedSkillPaths}
-            onRuleToggle={handleRuleToggle}
-            onSkillToggle={handleSkillToggle}
-          />
-          <textarea
-            ref={textareaRef}
-            className="chat-panel-textarea"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={
-              isStreamSending
-                ? '正在等待回复…'
-                : '输入消息,Enter 发送,Shift+Enter 换行;输入 @path/To/file 触发引用芯片'
-            }
-            rows={2}
-            disabled={isStreamSending}
-          />
-          {/* ImageUpload 始终挂载,内部按 visionSupported 控制按钮可见性 */}
-          <ImageUpload
-            images={pendingImages}
-            onAdd={addImage}
-            onRemove={removeImage}
-            disabled={isStreamSending}
-          />
-          <div className="chat-panel-actions">
-            {isStreamSending ? (
-              <button
-                type="button"
-                className="chat-panel-abort-btn"
-                onClick={abort}
-              >
-                中断
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="chat-panel-send-btn"
-                onClick={handleSend}
-                disabled={!input.trim() && refChips.length === 0 && pendingImages.length === 0}
-              >
-                发送
-              </button>
-            )}
+          {/* 主输入行:textarea 独占一行(对齐旧版 .input-row) */}
+          <div className="chat-panel-input-row">
+            <textarea
+              ref={textareaRef}
+              className="chat-panel-textarea"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder={
+                isStreamSending
+                  ? '正在等待回复…'
+                  : '输入消息,Enter 发送,Shift+Enter 换行;输入 @path/To/file 触发引用芯片'
+              }
+              rows={2}
+              disabled={isStreamSending}
+            />
+          </div>
+
+          {/* 状态栏(对齐旧版 .input-status-bar):# / 📷 | Token | 文件变更 | 模型 | 发送/停止 */}
+          <div className="chat-panel-input-status-bar">
+            <div className="chat-panel-status-left">
+              <ContextSelector
+                selectedRuleIds={selectedRuleIds}
+                selectedSkillPaths={selectedSkillPaths}
+                onRuleToggle={handleRuleToggle}
+                onSkillToggle={handleSkillToggle}
+              />
+              {/* ImageUpload 始终挂载,内部按 visionSupported 控制按钮可见性;预览已上移到附件行 */}
+              <ImageUpload
+                images={pendingImages}
+                onAdd={addImage}
+                onRemove={removeImage}
+                disabled={isStreamSending}
+                showPreview={false}
+              />
+              <span className="chat-panel-status-divider" aria-hidden />
+              <TokenMonitor statusBar />
+              <span className="chat-panel-status-divider" aria-hidden />
+              <FileChangesMonitor />
+              <span className="chat-panel-status-divider" aria-hidden />
+              <ModelSelectorPanel placement="top" />
+            </div>
+            <div className="chat-panel-status-actions">
+              {isStreamSending ? (
+                <button
+                  type="button"
+                  className="chat-panel-abort-btn"
+                  onClick={abort}
+                  title="停止生成"
+                  aria-label="停止生成"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden>
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="chat-panel-send-btn"
+                  onClick={handleSend}
+                  disabled={!input.trim() && refChips.length === 0 && pendingImages.length === 0}
+                  title="发送消息"
+                  aria-label="发送消息"
+                >
+                  <svg
+                    viewBox="0 0 16 16"
+                    width="15"
+                    height="15"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <line x1="8" y1="15" x2="8" y2="1" />
+                    <polyline points="2 7 8 1 14 7" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* 底部:模式预设 + Token 监控 */}
-        <div className="chat-panel-input-footer">
-          <ModePresets onPresetSelect={handlePresetSelect} disabled={isStreamSending} />
-          <TokenMonitor />
         </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

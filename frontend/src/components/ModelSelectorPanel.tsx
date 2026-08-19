@@ -36,7 +36,15 @@ type PanelLevel = 'menu' | 'models' | 'effort';
 /** 「添加模型」入口的特殊 value */
 const ADD_MODEL_VALUE = '__add_model__';
 
-export function ModelSelectorPanel() {
+interface ModelSelectorPanelProps {
+  /**
+   * 面板弹出方向:bottom = 向下弹出(默认,TopBar 使用);
+   * top = 向上弹出(输入卡底部状态栏使用,避免溢出屏幕)
+   */
+  placement?: 'bottom' | 'top';
+}
+
+export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelProps = {}) {
   const setView = useAppStore((s) => s.setView);
   const setSettingsInitialPage = useAppStore((s) => s.setSettingsInitialPage);
 
@@ -197,7 +205,7 @@ export function ModelSelectorPanel() {
   const combo = currentCombo();
 
   return (
-    <div className="msp-root" ref={rootRef}>
+    <div className={`msp-root${placement === 'top' ? ' msp-placement-top' : ''}`} ref={rootRef}>
       {/* 触发器:模型名 · 档位 */}
       <button
         type="button"

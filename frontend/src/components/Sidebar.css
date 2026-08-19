@@ -1,62 +1,169 @@
-/* Sidebar 左侧会话列表 */
+/* ============================================================
+   Sidebar 左侧会话列表
+   ------------------------------------------------------------
+   对齐旧版 static/css/components/session.css 的 .session-panel:
+   - 宽度由 --session-panel-width 控制(默认 300px,可拖拽 180-500px)
+   - 背景透明,透出 app 背景(--bg-app)
+   - 顶部圆角胶囊工具栏(session-toolbar)
+   - 36px header(图标 + 标题 + 计数)
+   - 列表底部 mask 渐变淡出
+   - 可折叠到 0 宽(带过渡动画)
+   ============================================================ */
 
 .sidebar {
-  width: 260px;
+  width: var(--session-panel-width, 300px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--hb-border, #e5e7eb);
-  background: var(--hb-bg-alt, #f7f7f8);
+  background: transparent;
+  min-width: 52px;
+  overflow: hidden;
+  transition: width var(--transition-normal), opacity var(--transition-normal), min-width var(--transition-normal);
+  contain: layout style paint;
+  will-change: width;
 }
 
-.sidebar-header {
+/* 拖拽时取消过渡，避免拖拽卡顿 */
+.sidebar.resizing {
+  transition: none !important;
+}
+
+/* 折叠:缩到 0 宽 */
+.sidebar.hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  opacity: 0;
+}
+
+/* ========== 顶部圆角胶囊工具栏(对齐旧版 .session-toolbar) ========== */
+.sidebar-toolbar {
+  height: 36px;
+  margin: 0 8px;
+  padding: 0 4px;
   display: flex;
   align-items: center;
+  gap: 1px;
+  background: var(--bg-app);
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.toolbar-btn {
+  width: 28px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.toolbar-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.toolbar-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .toolbar-btn:hover,
+[data-theme="midnight"] .toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.toolbar-btn:active svg {
+  transform: scale(0.85);
+  transition: transform 0.1s ease;
+}
+
+.toolbar-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ========== header(对齐旧版 .session-header) ========== */
+.sidebar-header {
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sidebar-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.sidebar-header-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
 }
 
 .sidebar-title {
-  font-size: 13px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #6b7280;
+  color: var(--text-primary);
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .sidebar-count {
-  font-size: 12px;
-  color: #9ca3af;
-  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-code);
+  padding: 1px 7px;
+  border-radius: 10px;
+  line-height: 1.6;
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
+/* ========== 会话列表(对齐旧版 .session-list) ========== */
 .sidebar-body {
   flex: 1;
-  overflow: auto;
-  padding: 8px;
+  overflow-y: auto;
+  padding: 0 6px 8px;
+  contain: layout style paint;
+  -webkit-mask-image: linear-gradient(to bottom, var(--bg-canvas) 0, var(--bg-canvas) calc(100% - 12px), transparent 100%);
+  mask-image: linear-gradient(to bottom, var(--bg-canvas) 0, var(--bg-canvas) calc(100% - 12px), transparent 100%);
 }
 
 .sidebar-empty {
   margin: 16px 8px;
-  font-size: 13px;
-  color: #9ca3af;
+  font-size: var(--font-size-md);
+  color: var(--text-muted);
   font-style: italic;
 }
 
 .sidebar-error {
   margin: 16px 8px;
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: rgba(220, 38, 38, 0.08);
   color: #dc2626;
-  font-size: 13px;
+  font-size: var(--font-size-md);
 }
 
 .sidebar-error pre {
   margin: 4px 0 0;
-  font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -67,32 +174,54 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
+/* ========== 会话项(对齐旧版 .session-item) ========== */
 .session-item {
   padding: 8px 10px;
+  margin: 0 0 1px;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+  font-weight: 400;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all var(--transition-fast);
+  position: relative;
 }
 
 .session-item:hover {
-  background: rgba(127, 127, 127, 0.08);
+  background: rgba(0, 0, 0, 0.05);
 }
 
-.session-item-active {
-  background: rgba(59, 130, 246, 0.12);
+[data-theme="dark"] .session-item:hover,
+[data-theme="midnight"] .session-item:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
+/* 当前会话:灰底高亮(对齐旧版 .session-item.active) */
+.session-item-active,
 .session-item-active:hover {
-  background: rgba(59, 130, 246, 0.18);
+  background: rgb(220, 224, 228);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .session-item-active,
+[data-theme="midnight"] .session-item-active,
+[data-theme="dark"] .session-item-active:hover,
+[data-theme="midnight"] .session-item-active:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .session-item-title {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .session-running-dot {
@@ -110,19 +239,27 @@
 }
 
 .session-item-name {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--font-size-lg);
+  font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.4;
 }
 
+/* mode/时间 meta:默认隐藏,悬浮显示(与 .session-actions 同交互) */
 .session-item-meta {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.session-item:hover .session-item-meta {
   display: flex;
-  justify-content: space-between;
-  margin-top: 2px;
-  font-size: 11px;
-  color: #9ca3af;
 }
 
 .session-item-mode {
@@ -130,17 +267,286 @@
   letter-spacing: 0.5px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .sidebar {
-    border-right-color: var(--hb-border-dark, #374151);
-    background: var(--hb-bg-alt-dark, #111827);
-  }
+/* ========== hover 操作按钮(对齐旧版 .session-actions) ========== */
+.session-actions {
+  display: none;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-left: 4px;
+}
 
-  .sidebar-header {
-    border-bottom-color: var(--hb-border-dark, #374151);
-  }
+.session-item:hover .session-actions {
+  display: flex;
+}
 
-  .session-item-active {
-    background: rgba(96, 165, 250, 0.18);
-  }
+.session-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+  padding: 0 4px;
+  line-height: 1;
+  transition: color var(--transition-fast);
+}
+
+.session-item:hover .session-actions button:hover {
+  color: var(--text-primary);
+}
+
+/* ========== 内联重命名输入框(对齐旧版 .session-rename-input) ========== */
+.session-rename-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: var(--font-size-md);
+  outline: none;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast);
+  font-family: inherit;
+}
+
+.session-rename-input:focus {
+  border-color: #d1d5db;
+}
+
+[data-theme="dark"] .session-rename-input:focus,
+[data-theme="midnight"] .session-rename-input:focus {
+  border-color: #4b5563;
+}
+
+/* ========== 删除二次确认条(替代旧版 ConfirmDialog,内联展示) ========== */
+.session-confirm-delete {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 6px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.session-confirm-text {
+  font-size: var(--font-size-xs);
+  color: #dc2626;
+  white-space: nowrap;
+}
+
+.session-confirm-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  line-height: 1.6;
+  transition: all var(--transition-fast);
+}
+
+.session-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.session-confirm-btn.confirm-yes {
+  background: #dc2626;
+  color: #fff;
+}
+
+.session-confirm-btn.confirm-yes:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.session-confirm-btn.confirm-no {
+  background: var(--bg-code);
+  color: var(--text-muted);
+}
+
+.session-confirm-btn.confirm-no:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+/* ========== 分组方式切换按钮(对齐旧版 .group-mode-toggle) ========== */
+.group-mode-toggle {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--bg-code);
+  transition: all var(--transition-fast);
+  user-select: none;
+  line-height: 1.6;
+  margin-left: 4px;
+  border: none;
+  flex-shrink: 0;
+}
+
+.group-mode-toggle:hover {
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .group-mode-toggle:hover,
+[data-theme="midnight"] .group-mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ========== 时间分类头(对齐旧版 .session-category) ========== */
+.session-category {
+  padding: 6px 8px 5px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+  user-select: none;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-canvas);
+}
+
+/* ========== 项目分组头(对齐旧版 .session-project-header) ========== */
+.session-project-header {
+  padding: 7px 8px 6px 10px;
+  margin: 6px 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.session-project-header:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="dark"] .session-project-header:hover,
+[data-theme="midnight"] .session-project-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* 图标叠放容器:文件夹-关/开同格,按 collapsed 状态切换 */
+.session-project-header .project-icon-wrap {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.session-project-header .project-icon-close,
+.session-project-header .project-icon-open {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+/* 折叠(默认):显示"文件夹-关" */
+.session-project-header .project-icon-close {
+  opacity: 0.7;
+}
+
+.session-project-header .project-icon-open {
+  opacity: 0;
+}
+
+/* 展开:切换为"文件夹-开" */
+.session-project-header:not(.collapsed) .project-icon-close {
+  opacity: 0;
+}
+
+.session-project-header:not(.collapsed) .project-icon-open {
+  opacity: 0.7;
+}
+
+/* hover:当前状态可见图标微亮,提示可点击 */
+.session-project-header.collapsed:hover .project-icon-close {
+  opacity: 1;
+}
+
+.session-project-header:not(.collapsed):hover .project-icon-open {
+  opacity: 1;
+}
+
+.session-project-header .project-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+  font-size: var(--font-size-md);
+  font-weight: 500;
+}
+
+.session-project-header .project-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.session-project-header:hover .project-open-btn {
+  opacity: 0.6;
+}
+
+.session-project-header .project-open-btn:hover {
+  opacity: 1;
+  background: var(--bg-code);
+  color: var(--text-primary);
+}
+
+/* 含活跃会话的项目:展开图标与项目名高亮为强调色(折叠态不生效) */
+.session-project-header.has-active:not(.collapsed) .project-icon-open {
+  color: var(--active-project);
+  opacity: 1;
+}
+
+.session-project-header.has-active .project-name {
+  color: var(--active-project);
+  font-weight: 600;
+  transition: color var(--transition-fast);
+}
+
+/* ========== 无限滚动 sentinel(对齐旧版 .session-list-sentinel) ========== */
+.session-list-sentinel {
+  height: 1px;
+}
+
+/* ========== 拖拽分隔条(对齐旧版 .session-resizer) ========== */
+.sidebar-resizer {
+  width: 4px;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  margin: 0 2px;
+  background: transparent;
+  transition: background 0.15s;
+  border-radius: 2px;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer.resizing {
+  background: var(--accent);
 }

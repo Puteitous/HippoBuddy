@@ -1,0 +1,398 @@
+/**
+ * ToolTimeline - 工具调用时间线(紧凑模式)
+ *
+ * 对齐旧版(RenderPipeline / HistoryRenderer)的 timeline 展示逻辑:
+ *  - 连续的工具调用合并为一条时间线(.tool-timeline,左侧竖线)
+ *  - 每个工具一行摘要(.tool-timeline-item > .tool-timeline-row):
+ *    图标点 + 工具名 + 摘要(可点击跳转文件)+ 复制按钮(bash)+ 状态图标
+ *  - 点击行展开/折叠详情(.tool-timeline-detail)
+ *  - 状态语义:running / success / failed / cancelled / interrupted /
+ *    pending_confirmation(待确认态默认展开,确认 UI 走独立 ConfirmHandler 弹窗)
+ *
+ * 与旧版的差异(刻意简化):
+ *  - 历史消息的 tool 消息不含 args,摘要退化为工具名 + 内容首行
+ *  - 「查看变更」按钮依赖旧版 window.showFileDiff,新版无对应桥接,
+ *    以文件路径点击跳转替代(见 timelineFilePath)
+ */
+import { memo, useMemo, useState } from 'react';
+import { desktopBridge } from '@/utils/desktop-bridge';
+import type { TimelineToolItem } from './tool-timeline-utils';
+import {
+  computeUnifiedDiff,
+  countDiffStats,
+  parseToolArgs,
+  timelineFilePath,
+  timelineSummary,
+} from './shared-utils';
+// 依赖 tool-renderers.css 中的 .tool-spinner / .diff-* 等样式
+// (Vite 对重复 import 会去重,与 ChatPanel 引入不冲突)
+import './tool-renderers.css';
+import './tool-timeline.css';
+
+// ============================================================================
+// 图标
+// ============================================================================
+
+/** 工具行图标(按工具名给不同 SVG,对齐旧版 toolSvg/工具专属图标) */
+function TimelineDot({ name }: { name: string }) {
+  if (name === 'bash') {
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="4 4 8 8 4 12" />
+        <line x1="11" y1="12" x2="12" y2="12" />
+      </svg>
+    );
+  }
+  if (name === 'edit_file' || name === 'write_file') {
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 2a2 2 0 0 1 3 3L5 14H2v-3l9-9z" />
+      </svg>
+    );
+  }
+  if (
+    name === 'grep' ||
+    name === 'glob' ||
+    name === 'SearchCodebase' ||
+    name === 'web_search'
+  ) {
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="7" cy="7" r="5" />
+        <line x1="11" y1="11" x2="14" y2="14" />
+      </svg>
+    );
+  }
+  if (name === 'web_fetch') {
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 10l4-4" />
+        <path d="M8 4l1-1a3 3 0 0 1 4 4l-1 1" />
+        <path d="M8 12l-1 1a3 3 0 0 1-4-4l1-1" />
+      </svg>
+    );
+  }
+  if (
+    name === 'read_file' ||
+    name === 'read_office_file' ||
+    name === 'write_office_file' ||
+    name === 'undo_file' ||
+    name === 'list_directory'
+  ) {
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
+        <path d="M9 2v3h3" />
+      </svg>
+    );
+  }
+  // 兜底:齿轮(对齐旧版 toolSvg)
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2a4 4 0 0 0-3.5 5.7L2 12.2 3.8 14l4.5-4.5A4 4 0 1 0 10 2z" />
+      <line x1="10" y1="6" x2="12" y2="4" />
+    </svg>
+  );
+}
+
+// ============================================================================
+// 状态图标
+// ============================================================================
+
+/** 行尾状态图标(对齐旧版 statusSvg 分支) */
+function StatusGlyph({ item }: { item: TimelineToolItem }) {
+  const { name, status } = item;
+
+  // 待确认:感叹号圆圈
+  if (status === 'pending_confirmation') {
+    return (
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z" />
+        <line x1="8" y1="5" x2="8" y2="9" />
+        <line x1="8" y1="11" x2="8.01" y2="11" />
+      </svg>
+    );
+  }
+  if (status === 'cancelled') {
+    return (
+      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="8" cy="8" r="6" />
+        <line x1="5" y1="5" x2="11" y2="11" />
+      </svg>
+    );
+  }
+  if (status === 'interrupted') {
+    return (
+      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z" />
+        <line x1="8" y1="5" x2="8" y2="9" />
+        <line x1="8" y1="11" x2="8.01" y2="11" />
+      </svg>
+    );
+  }
+  if (status === 'running') {
+    return (
+      <svg className="tool-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" strokeDasharray="31.4 31.4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  // 成功:edit_file / write_file 显示 +N/-M 统计,其余显示 ✓
+  if (status === 'success' && (name === 'edit_file' || name === 'write_file')) {
+    const stats = diffStatsFor(item);
+    if (stats.insertions > 0 || stats.deletions > 0) {
+      return (
+        <span className="timeline-diff-stats">
+          {stats.insertions > 0 && <span className="diff-add">+{stats.insertions}</span>}
+          {stats.deletions > 0 && <span className="diff-del">-{stats.deletions}</span>}
+        </span>
+      );
+    }
+  }
+  if (status === 'success') {
+    return (
+      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="4 8 7 11 12 5" />
+      </svg>
+    );
+  }
+  // failed
+  return (
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="4" x2="12" y2="12" />
+      <line x1="12" y1="4" x2="4" y2="12" />
+    </svg>
+  );
+}
+
+/** 计算 edit/write 的 diff 统计(仅在有 args 时可用) */
+function diffStatsFor(item: TimelineToolItem): { insertions: number; deletions: number } {
+  const args = parseToolArgs<{ old_text?: string; new_text?: string; content?: string }>(item.args);
+  if (item.name === 'write_file') {
+    const content = args.content ?? '';
+    const lineCount = content.split('\n').length;
+    return { insertions: lineCount, deletions: 0 };
+  }
+  const oldText = args.old_text ?? '';
+  const newText = args.new_text ?? '';
+  return countDiffStats(oldText, newText);
+}
+
+// ============================================================================
+// 详情渲染
+// ============================================================================
+
+/** 行详情内容(按工具名分支,复用现有卡片/输出样式) */
+function TimelineDetail({ item }: { item: TimelineToolItem }) {
+  const { name, status, progress, result, error, content } = item;
+
+  // 待确认:提示文本(确认 UI 走独立 ConfirmHandler 弹窗)
+  if (status === 'pending_confirmation') {
+    return <div className="timeline-detail-status pending">等待确认…</div>;
+  }
+  if (status === 'cancelled') {
+    return <div className="timeline-detail-status cancelled">已取消(未确认)</div>;
+  }
+  if (status === 'interrupted') {
+    return <div className="timeline-detail-status interrupted">已中断</div>;
+  }
+
+  // 执行中:优先展示流式进度
+  if (status === 'running') {
+    if (progress && progress.length > 0) {
+      return (
+        <div className="timeline-detail-progress">
+          <pre>
+            <code>{progress.slice(-50).join('\n')}</code>
+          </pre>
+        </div>
+      );
+    }
+    return <div className="timeline-detail-status">执行中…</div>;
+  }
+
+  // 失败:展示错误
+  if (status === 'failed') {
+    return error ? <div className="timeline-detail-error">{error}</div> : null;
+  }
+
+  // 成功:按工具名展示详情
+  if (name === 'bash') {
+    return result ? (
+      <div className="timeline-detail-output">
+        <pre>
+          <code>{result}</code>
+        </pre>
+      </div>
+    ) : null;
+  }
+  if (name === 'edit_file' || name === 'write_file') {
+    // 有 args 时渲染 diff;无 args(历史消息)退化为结果文本
+    const args = parseToolArgs<{ old_text?: string; new_text?: string }>(item.args);
+    if (args.old_text != null || args.new_text != null) {
+      const diffLines = computeUnifiedDiff(args.old_text ?? '', args.new_text ?? '');
+      if (diffLines.length > 0) {
+        return (
+          <div className="timeline-detail-diff">
+            {diffLines.map((line, i) => (
+              <div key={i} className={`diff-line ${line.type === 'added' ? 'diff-added' : line.type === 'removed' ? 'diff-removed' : 'diff-context'}`}>
+                <span className="diff-gutter">{line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}</span>
+                <span className="diff-line-content">{line.content}</span>
+              </div>
+            ))}
+          </div>
+        );
+      }
+    }
+    return result ? (
+      <div className="timeline-detail-output">
+        <pre>
+          <code>{result}</code>
+        </pre>
+      </div>
+    ) : null;
+  }
+  // 其他工具:直接展示结果/内容
+  const body = result || content;
+  if (!body) return null;
+  return (
+    <div className="timeline-detail-output">
+      <pre>
+        <code>{body}</code>
+      </pre>
+    </div>
+  );
+}
+
+// ============================================================================
+// 组件
+// ============================================================================
+
+interface ToolTimelineProps {
+  /** 一组连续的工具调用(不含 todo_write/ask_user,由调用方分组) */
+  items: TimelineToolItem[];
+}
+
+function ToolTimelineComponent({ items }: ToolTimelineProps) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="tool-timeline">
+      {items.map((item) => (
+        <TimelineRow key={item.id} item={item} />
+      ))}
+    </div>
+  );
+}
+
+/** 单行(摘要 + 可展开详情) */
+function TimelineRow({ item }: { item: TimelineToolItem }) {
+  const [expanded, setExpanded] = useState(item.status === 'pending_confirmation');
+
+  const summary = useMemo(() => {
+    const fromArgs = timelineSummary(item.name, item.args);
+    if (fromArgs) return fromArgs;
+    // 无 args(历史消息)时退化为内容首行
+    const body = item.content?.trim() ?? '';
+    return body.split('\n')[0].slice(0, 120) || item.name;
+  }, [item.name, item.args, item.content]);
+  const filePath = useMemo(() => timelineFilePath(item.name, item.args), [item.name, item.args]);
+
+  const hasDetail = useMemo(() => {
+    const { status, progress, result, error, content } = item;
+    if (status !== 'success') return !!(progress?.length || result || error || content);
+    // 成功态:bash/其他看 result;edit/write 有 args 必有 diff
+    return !!(result || content);
+  }, [item]);
+
+  const handleRowClick = () => {
+    if (!hasDetail) return;
+    setExpanded((v) => !v);
+  };
+
+  return (
+    <div
+      className={`tool-timeline-item${hasDetail ? '' : ' no-detail'}${expanded ? ' expanded' : ''}`}
+      data-tool-name={item.name}
+      data-tool-status={item.status}
+    >
+      <div
+        className="tool-timeline-row"
+        onClick={handleRowClick}
+        role={hasDetail ? 'button' : undefined}
+        tabIndex={hasDetail ? 0 : undefined}
+        onKeyDown={
+          hasDetail
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setExpanded((v) => !v);
+                }
+              }
+            : undefined
+        }
+      >
+        <span className="tool-timeline-dot">
+          <TimelineDot name={item.name} />
+        </span>
+        <span className="tool-timeline-name">{item.name}</span>
+        <span
+          className="tool-timeline-summary"
+          data-clickable={filePath ? '' : undefined}
+          onClick={filePath ? (e) => { e.stopPropagation(); desktopBridge.navigateToFile(filePath); } : undefined}
+          title={filePath || summary}
+        >
+          {summary}
+        </span>
+        {item.name === 'bash' && summary && <CopyCommandButton command={summary} />}
+        <span className={`tool-timeline-status ${item.status}`}>
+          <StatusGlyph item={item} />
+        </span>
+      </div>
+
+      {hasDetail && (
+        <div className="tool-timeline-detail">
+          <TimelineDetail item={item} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** bash 命令复制按钮(悬浮行时显示) */
+function CopyCommandButton({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    void navigator.clipboard
+      .writeText(command)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
+  };
+
+  return (
+    <span
+      className="tool-timeline-copy-btn"
+      onClick={handleCopy}
+      title={copied ? '已复制' : '复制命令'}
+      role="button"
+      tabIndex={0}
+    >
+      {copied ? (
+        <span className="tool-timeline-copy-ok">✓</span>
+      ) : (
+        <svg viewBox="0 0 48 48" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M13 12.4316V7.8125C13 6.2592 14.2592 5 15.8125 5H40.1875C41.7408 5 43 6.2592 43 7.8125V32.1875C43 33.7408 41.7408 35 40.1875 35H35.5163" />
+          <path d="M32.1875 13H7.8125C6.2592 13 5 14.2592 5 15.8125V40.1875C5 41.7408 6.2592 43 7.8125 43H32.1875C33.7408 43 35 41.7408 35 40.1875V15.8125C35 14.2592 33.7408 13 32.1875 13Z" />
+        </svg>
+      )}
+    </span>
+  );
+}
+
+export const ToolTimeline = memo(ToolTimelineComponent);

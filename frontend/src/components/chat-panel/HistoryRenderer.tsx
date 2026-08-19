@@ -10,24 +10,35 @@
  * 历史消息的加载逻辑由 useSessionMessages Hook 负责(在 AppShell 调用),
  * 本组件只读 chatStore.messages / isLoadingMessages / error。
  */
-import { useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
+import type { ContentPart, Message } from '@/types';
 import { useChatStore } from '@/stores/chatStore';
-import { useAppStore } from '@/stores/appStore';
-import { MessageBubble } from './MessageBubble';
+import {
+  MessageBubble,
+  extractFilesFromToolCalls,
+  type MessageFileProduct,
+} from './MessageBubble';
+import { ToolTimeline } from '../tool-renderers/ToolTimeline';
+import { fromToolMessage, TIMELINE_STANDALONE_TOOLS } from '../tool-renderers/tool-timeline-utils';
 import './HistoryRenderer.css';
 
-export function HistoryRenderer() {
+interface HistoryRendererProps {
+  /** 重试:重发指定用户消息内容(对齐旧版 retryBtn) */
+  onRetry?: (content: string) => void;
+  /** 分叉:从指定用户消息 id 分叉新会话(对齐旧版 forkBtn) */
+  onFork?: (messageId: string) => void;
+}
+
+/** 回合缓冲条目(保持消息原始顺序) */
+type RoundEntry =
+  | { kind: 'assistant'; msg: Message }
+  | { kind: 'timeline'; items: Message[] }
+  | { kind: 'tool-card'; msg: Message };
+
+export function HistoryRenderer({ onRetry, onFork }: HistoryRendererProps) {
   const messages = useChatStore((s) => s.messages);
   const isLoading = useChatStore((s) => s.isLoadingMessages);
   const error = useChatStore((s) => s.error);
-  const currentSessionId = useAppStore((s) => s.currentSessionId);
-  /** 最近一条 user 消息 id(供 assistant 消息计算回滚目标) */
-  const lastUserIdRef = useRef<string | null>(null);
-
-  // 切换会话时重置(避免残留上一会话的 user 消息 id)
-  useEffect(() => {
-    lastUserIdRef.current = null;
-  }, [currentSessionId]);
 
   if (isLoading) {
     return (
@@ -53,26 +64,143 @@ export function HistoryRenderer() {
 
   return (
     <div className="history-list">
-      {messages.map((m) => {
-        // 为每条 assistant 消息计算回滚目标:向前最近的 user 消息 id
-        // (回滚 = 截断到该 user 消息及之后,含该消息本身)
-        if (m.role === 'user') {
-          lastUserIdRef.current = m.id;
-          return <MessageBubble key={m.id} message={m} dataMessageId={m.id} />;
-        }
-        const targetId =
-          m.role === 'assistant' && lastUserIdRef.current
-            ? lastUserIdRef.current
-            : undefined;
-        return (
-          <MessageBubble
-            key={m.id}
-            message={m}
-            dataMessageId={m.id}
-            rollbackTargetId={targetId}
-          />
-        );
-      })}
+      {renderMessageRows()}
     </div>
   );
+
+  /**
+   * 渲染消息列表,按"回合"分组(对齐旧版 HistoryRenderer 的 while 合并语义):
+   *
+   * 回合 = 一条 user 消息之后的连续 assistant/tool 消息。旧版把一个回合合并为
+   * 单个 .message.assistant,整个回合只有一个 footer,且 footer 聚合整轮信息:
+   *  - 复制:所有 text segment 的 markdown 拼接(roundText)
+   *  - 重试 / 回滚 / 分叉:该轮 user 消息的内容 / id
+   *  - 文件产物:回合内所有工具的文件列表(roundFiles)
+   *
+   * 新版保持每条 assistant 消息独立渲染气泡,但 footer 只出现在回合的最后一条
+   * assistant 消息上(其余 assistant 消息不显示 footer),避免一个回合出现多个操作条。
+   * 若回合内没有 assistant 消息(纯工具回合,异常情况),则不渲染 footer。
+   */
+  function renderMessageRows(): ReactNode[] {
+    const rows: ReactNode[] = [];
+    let toolGroup: Message[] = [];
+
+    // ── 当前回合缓冲 ──
+    const round: RoundEntry[] = [];
+    let roundText = '';
+    let roundFiles: MessageFileProduct[] = [];
+    let roundUserId: string | null = null;
+    let roundUserContent: string | null = null;
+
+    const flushToolGroup = () => {
+      if (toolGroup.length === 0) return;
+      round.push({ kind: 'timeline', items: toolGroup });
+      toolGroup = [];
+    };
+
+    const flushRound = () => {
+      if (round.length === 0) return;
+
+      // 回合最后一条 assistant 消息(承载聚合 footer)
+      let lastAssistantIdx = -1;
+      for (let i = round.length - 1; i >= 0; i--) {
+        if (round[i].kind === 'assistant') {
+          lastAssistantIdx = i;
+          break;
+        }
+      }
+
+      round.forEach((entry, idx) => {
+        if (entry.kind === 'assistant') {
+          const isLast = idx === lastAssistantIdx;
+          // 局部 const 便于 TS 在闭包内收窄(roundUserId 等为 let 变量)
+          const retryContent = isLast && roundUserContent ? roundUserContent : null;
+          const forkTarget = isLast && roundUserId ? roundUserId : null;
+          rows.push(
+            <MessageBubble
+              key={entry.msg.id}
+              message={entry.msg}
+              dataMessageId={entry.msg.id}
+              // 仅回合最后一条 assistant 显示 footer,中间的不显示
+              // (避免出现只有复制按钮的空 footer,对齐旧版单卡片单 footer)
+              showFooter={isLast}
+              rollbackTargetId={forkTarget ?? undefined}
+              onRetry={retryContent && onRetry ? () => onRetry(retryContent) : undefined}
+              onFork={forkTarget && onFork ? () => onFork(forkTarget) : undefined}
+              files={isLast && roundFiles.length > 0 ? dedupeFiles(roundFiles) : undefined}
+              copyContent={isLast && roundText ? roundText : undefined}
+            />,
+          );
+        } else if (entry.kind === 'timeline') {
+          rows.push(
+            <ToolTimeline
+              key={`tl-${entry.items[0].id}`}
+              items={entry.items.map(fromToolMessage)}
+            />,
+          );
+        } else {
+          // 独立工具卡片(todo_write / ask_user)
+          rows.push(
+            <MessageBubble
+              key={entry.msg.id}
+              message={entry.msg}
+              dataMessageId={entry.msg.id}
+            />,
+          );
+        }
+      });
+
+      // 清空回合缓冲
+      round.length = 0;
+      roundText = '';
+      roundFiles = [];
+      roundUserId = null;
+      roundUserContent = null;
+    };
+
+    for (const m of messages) {
+      if (m.role === 'user') {
+        // 上一条 user 之后的回合结束;记录本轮 user 作为下个回合的 retry/fork/rollback 目标
+        flushRound();
+        roundUserId = m.id;
+        roundUserContent = extractText(m.content);
+        rows.push(<MessageBubble key={m.id} message={m} dataMessageId={m.id} />);
+        continue;
+      }
+      if (m.role === 'assistant') {
+        flushToolGroup();
+        round.push({ kind: 'assistant', msg: m });
+        roundText = roundText ? `${roundText}\n${extractText(m.content)}` : extractText(m.content);
+        roundFiles = roundFiles.concat(extractFilesFromToolCalls(m.tool_calls));
+        continue;
+      }
+      // tool:连续普通工具累积为 timeline,独立工具(todo_write/ask_user)单独卡片
+      if (m.toolName && !TIMELINE_STANDALONE_TOOLS.has(m.toolName)) {
+        toolGroup.push(m);
+      } else {
+        flushToolGroup();
+        round.push({ kind: 'tool-card', msg: m });
+      }
+    }
+    flushToolGroup();
+    flushRound();
+
+    return rows;
+  }
+}
+
+/** 从消息 content 提取纯文本(user 消息重试重发用) */
+function extractText(content: string | ContentPart[]): string {
+  if (typeof content === 'string') return content;
+  return content
+    .filter((p) => p.type === 'text' && p.text)
+    .map((p) => p.text ?? '')
+    .join('\n');
+}
+
+/** 回合内多文件列表去重(同一文件保留最后一次,对齐旧版 seen Map) */
+function dedupeFiles(files: MessageFileProduct[]): MessageFileProduct[] {
+  const seen = new Map<string, MessageFileProduct>();
+  for (const f of files) seen.set(f.path, f);
+  return Array.from(seen.values());
 }

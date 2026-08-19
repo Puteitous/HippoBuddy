@@ -27,6 +27,33 @@ interface Window {
     isDirectory?: (path: string) => Promise<boolean>;
     openExternal?: (url: string) => Promise<void>;
     openTerminal?: (path: string) => Promise<void>;
+
+    // ── 窗口控制(对齐旧版 desktop-bridge.js 的 window:* IPC) ──
+    minimizeWindow?: () => Promise<void>;
+    maximizeWindow?: () => void;
+    restoreWindow?: () => void;
+    toggleMaximize?: () => Promise<boolean | void>;
+    closeWindow?: () => Promise<void>;
+    isMaximized?: () => Promise<boolean>;
+    getWindowState?: () => Promise<{ maximized?: boolean } | null>;
+    /** 最大化状态变化事件(替代轮询),重复订阅会覆盖上一个回调 */
+    onMaximizedChanged?: (callback: (maximized: boolean) => void) => void;
+    removeMaximizedChangedListener?: () => void;
+
+    // ── 对话框 ──
+    openFileDialog?: () => Promise<{ path?: string } | null>;
+    saveFileDialog?: (
+      content: string,
+      suggestedName?: string,
+      mimeType?: string,
+    ) => Promise<{ path?: string } | null>;
+
+    // ── DevTools ──
+    openDevTools?: () => void;
+
+    // ── 主题同步(Electron 侧 splash 保持一致) ──
+    getTheme?: () => Promise<'dark' | 'light' | 'midnight'>;
+    setTheme?: (theme: string) => Promise<void>;
   };
 
   // ── JCEF / Java 桌面端(旧 cockpit 注入) ──

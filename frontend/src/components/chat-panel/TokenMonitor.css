@@ -51,6 +51,119 @@
   font-size: 11px;
 }
 
+/* ── 状态栏变体(对齐旧版 statusBarToken:图标 + 百分比) ── */
+.token-monitor-statusbar {
+  background: transparent;
+  padding: 2px 4px;
+  cursor: help;
+}
+
+.token-monitor-statusbar .token-monitor-percent {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* ── 状态栏 Token 悬浮面板(对齐旧版 .status-bar-tooltip) ──────────── */
+.status-bar-tooltip {
+  --sbt-emoji-stroke: #000; /* 表情轮廓色:亮色主题黑 */
+  position: fixed;
+  z-index: 10000;
+  min-width: 260px;
+  max-width: 320px;
+  padding: 12px 14px;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  pointer-events: none; /* 对齐旧版:纯展示,不拦截事件 */
+  animation: sbt-fade-in 0.15s ease;
+}
+
+[data-theme='dark'] .status-bar-tooltip,
+[data-theme='midnight'] .status-bar-tooltip {
+  --sbt-emoji-stroke: #fff; /* 表情轮廓色:暗色主题白 */
+  background: var(--bg-app);
+  border-color: var(--border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes sbt-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sbt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+
+.sbt-percent {
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sbt-percent svg {
+  flex-shrink: 0;
+}
+
+.sbt-bar-track {
+  height: 4px;
+  background: var(--bg-code);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.sbt-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.sbt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  color: var(--text-secondary);
+}
+
+.sbt-row span:first-child {
+  color: var(--text-muted);
+}
+
+.sbt-total {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sbt-total span:first-child {
+  color: var(--text-muted);
+}
+
+.sbt-divider {
+  height: 1px;
+  background: var(--border);
+  opacity: 0.4;
+  margin: 5px -14px;
+}
+
 /* ── 深色模式 ───────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
   .token-monitor {

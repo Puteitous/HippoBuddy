@@ -33,6 +33,8 @@ interface ImageUploadProps {
   onRemove: (id: string) => void;
   /** 是否禁用(Sending 时禁用按钮) */
   disabled?: boolean;
+  /** 是否渲染缩略图预览(对齐旧版布局时预览移出状态栏,由宿主在附件行渲染) */
+  showPreview?: boolean;
 }
 
 function ImageUploadComponent({
@@ -40,6 +42,7 @@ function ImageUploadComponent({
   onAdd,
   onRemove,
   disabled = false,
+  showPreview = true,
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // 视觉能力是否支持(仅初始化 + storage 事件触发时刷新)
@@ -105,7 +108,7 @@ function ImageUploadComponent({
   // 视觉能力不支持时,整个组件不渲染(避免误用)
   if (!visionSupported) return null;
 
-  const showPreview = images.length > 0;
+  const hasImages = images.length > 0;
   const maxShow = 5;
   const showImages = images.slice(0, maxShow);
   const overflow = images.length - maxShow;
@@ -141,8 +144,8 @@ function ImageUploadComponent({
       {/* 内联警告(无第三方依赖,3s 自动消失) */}
       {warning && <span className="image-upload-warning">{warning}</span>}
 
-      {/* 缩略图列表 */}
-      {showPreview && (
+      {/* 缩略图列表(showPreview=false 时由宿主在附件行渲染,对齐旧版 .input-img-preview) */}
+      {showPreview && hasImages && (
         <div className="image-upload-previews">
           {showImages.map((img) => (
             <div key={img.id} className="image-upload-thumb-wrapper">

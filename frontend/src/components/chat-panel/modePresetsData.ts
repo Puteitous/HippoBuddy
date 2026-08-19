@@ -1,24 +1,13 @@
 /**
- * ModePresets - 模式预设
+ * 模式预设数据（ChatEmptyHero 空会话 Hero 使用）
  *
- * 阶段 3.4:补齐 ChatPanel 的模式切换能力。
- *
- * 职责:
- *  - 渲染 chat/office/coding 三个模式按钮,点击切换 appStore.mode
- *  - 渲染当前模式下的 4 个预设标签,点击把 prompt 填入 ChatPanel 输入框
- *
- * 与旧版 ModePresets.js 的差异:
- *  - 不再走全局 document 委托,改用 React 事件
- *  - 不再做标语动画(title-first/title-last),3.4 简化为静态标签
- *  - i18n 暂不引入,中文硬编码(与 3.2/3.3 一致)
+ * 数据与旧版 ModePresets.js 的 MODE_PRESETS / SLOGAN_MAP 对齐。
+ * 独立成纯数据文件,避免在组件文件中导出非组件内容触发 react-refresh 告警。
  */
-import { memo } from 'react';
 import type { ModePreset, SessionMode } from '@/types';
-import { useAppStore } from '@/stores/appStore';
-import './ModePresets.css';
 
-/** 各模式的预设提示词(与旧版 MODE_PRESETS 对齐;不导出避免 react-refresh 告警) */
-const MODE_PRESETS: Record<SessionMode, ModePreset[]> = {
+/** 各模式的预设提示词 */
+export const MODE_PRESETS: Record<SessionMode, ModePreset[]> = {
   chat: [
     {
       label: '头脑风暴',
@@ -87,63 +76,12 @@ const MODE_PRESETS: Record<SessionMode, ModePreset[]> = {
   ],
 };
 
-interface ModePresetsProps {
-  /** 预设被点击:把 prompt 填入 ChatPanel 输入框 */
-  onPresetSelect: (prompt: string) => void;
-  /** 是否禁用(Sending 时禁用切换与点击) */
-  disabled?: boolean;
-}
+/** 模式对应的标语(用于空状态 Hero 标题) */
+export const SLOGAN_MAP: Record<SessionMode, string> = {
+  chat: "Let's Chat!",
+  office: "Let's Work!",
+  coding: "Let's Code!",
+};
 
-function ModePresetsComponent({ onPresetSelect, disabled = false }: ModePresetsProps) {
-  const mode = useAppStore((s) => s.mode);
-  const setMode = useAppStore((s) => s.setMode);
-  const presets = MODE_PRESETS[mode] ?? MODE_PRESETS.coding;
-
-  return (
-    <div className={`mode-presets ${disabled ? 'mode-presets-disabled' : ''}`}>
-      <div className="mode-presets-modes" role="group" aria-label="模式切换">
-        {(['chat', 'office', 'coding'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            className={`mode-presets-mode-btn ${mode === m ? 'mode-presets-mode-active' : ''}`}
-            onClick={() => setMode(m)}
-            disabled={disabled}
-            aria-pressed={mode === m}
-          >
-            {m === 'chat' ? '聊天' : m === 'office' ? '办公' : '编程'}
-          </button>
-        ))}
-      </div>
-      <div className="mode-presets-list" role="list">
-        {presets.map((p) => (
-          <button
-            key={p.label}
-            type="button"
-            className="mode-presets-item"
-            onClick={() => onPresetSelect(p.prompt)}
-            disabled={disabled}
-            title={p.prompt}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d={p.icon} />
-            </svg>
-            <span className="mode-presets-label">{p.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export const ModePresets = memo(ModePresetsComponent);
+/** 模式按钮展示顺序与中文名 */
+export const MODE_ORDER: SessionMode[] = ['chat', 'office', 'coding'];

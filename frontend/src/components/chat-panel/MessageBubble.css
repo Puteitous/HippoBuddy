@@ -1,22 +1,28 @@
-/* MessageBubble 单条消息气泡样式 */
+/* ============================================================
+   MessageBubble - 单条消息气泡样式
+   视觉对齐旧版 chat-panel.css .message-row / .message,
+   颜色/圆角/阴影统一走 index.css 全局变量。
+   ============================================================ */
 
 .msg-bubble {
-  max-width: 80%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 14px;
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-lg);
   line-height: 1.6;
   word-wrap: break-word;
   word-break: break-word;
   position: relative;
 }
 
-/* ── 用户消息(右对齐,蓝色) ────────────────────────────── */
+/* ── 用户消息(右对齐,浅色底,占满宽度) ─────────────────── */
 .msg-bubble-user {
   align-self: flex-end;
-  background: #3b82f6;
-  color: #ffffff;
-  border-bottom-right-radius: 4px;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  border-bottom-right-radius: var(--radius-sm);
+  max-width: 100%;
+  animation: msg-slide-in-right 0.35s ease both;
 }
 
 .msg-user-text {
@@ -32,16 +38,21 @@
 .msg-user-image {
   max-width: 100%;
   max-height: 320px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
 }
 
-/* ── 助手消息(左对齐,浅灰) ───────────────────────────── */
+/* ── 助手消息(左对齐,透明底,占满宽度) ─────────────────── */
 .msg-bubble-assistant {
   align-self: flex-start;
-  background: rgba(127, 127, 127, 0.08);
-  color: inherit;
-  border-bottom-left-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 4px 0;
+  padding-left: 14px;
+  border-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-sm);
+  width: 100%;
+  animation: msg-slide-in-left 0.35s ease both;
 }
 
 /* 助手消息头部工具栏(回滚按钮,右对齐) */
@@ -53,38 +64,96 @@
 
 /* ── 工具消息:已改用 ToolCardDispatcher 渲染,详见 tool-renderers.css ── */
 
-/* ── 思考过程折叠 ─────────────────────────────────────── */
+/* ── 思考过程(简洁行,对齐旧版 .thinking-row) ─────────── */
 .msg-reasoning {
-  margin-bottom: 8px;
-  padding: 6px 10px;
-  background: rgba(124, 58, 237, 0.08);
-  border-radius: 6px;
-  font-size: 12px;
-  color: #7c3aed;
+  margin: 4px 0;
 }
 
-.msg-reasoning summary {
+.msg-reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
   cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+  font-size: var(--font-size-sm);
   user-select: none;
-  font-weight: 500;
+  line-height: 1.4;
 }
 
-.msg-reasoning-body {
-  margin: 6px 0 0;
-  padding: 8px;
-  background: rgba(127, 127, 127, 0.06);
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 11px;
-  color: #6b7280;
+.msg-reasoning-header:hover {
+  background: var(--bg-canvas);
+}
+
+.msg-reasoning-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.msg-reasoning-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+}
+
+/* 内容:收起时 0 高度,展开时 grid 0fr→1fr 过渡动画 */
+.msg-reasoning-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin: 0 0 0 16px;
+  transition: grid-template-rows 0.3s ease, opacity 0.25s ease, margin-top 0.25s ease;
+}
+
+.msg-reasoning-content-inner {
+  overflow: hidden;
+  min-height: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
   white-space: pre-wrap;
-  max-height: 320px;
+  word-break: break-word;
+  font-size: var(--font-size-sm);
+  max-height: 300px;
   overflow-y: auto;
+  border-left: 2px solid var(--border-color);
+  padding-left: 14px;
+}
+
+/* 完成态展开 */
+.msg-reasoning.completed.expanded .msg-reasoning-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 4px;
+}
+
+/* 流式思考:始终展开,斜体灰字,左侧竖线 */
+.msg-reasoning.streaming .msg-reasoning-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 4px;
+}
+
+.msg-reasoning.streaming .msg-reasoning-content-inner {
+  color: var(--text-muted);
+  font-style: italic;
+  border-left: 2px solid var(--border-color);
+  padding-left: 14px;
+}
+
+[data-theme="dark"] .msg-reasoning.streaming .msg-reasoning-content-inner {
+  border-left-color: rgba(255, 255, 255, 0.12);
 }
 
 /* ── Markdown 内容 ───────────────────────────────────── */
 .msg-markdown {
   overflow-x: auto;
+  font-size: var(--font-size-lg);
 }
 
 .msg-markdown p {
@@ -121,9 +190,9 @@
 
 .msg-markdown code {
   padding: 1px 5px;
-  background: rgba(127, 127, 127, 0.18);
+  background: var(--bg-hover);
   border-radius: 3px;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
@@ -132,32 +201,32 @@
   padding: 10px;
   background: #111827;
   color: #d1d5db;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow-x: auto;
 }
 
 .msg-markdown pre code {
   padding: 0;
   background: transparent;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: inherit;
 }
 
 .msg-markdown a {
-  color: #2563eb;
-  text-decoration: underline;
+  color: var(--active-project);
+  text-decoration: none;
 }
 
 .msg-markdown a:hover {
-  color: #1d4ed8;
+  text-decoration: underline;
 }
 
 .msg-markdown blockquote {
   margin: 8px 0;
   padding: 4px 12px;
-  border-left: 3px solid rgba(127, 127, 127, 0.4);
-  background: rgba(127, 127, 127, 0.04);
-  color: #6b7280;
+  border-left: 3px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
 }
 
 .msg-markdown table {
@@ -167,13 +236,13 @@
 
 .msg-markdown th,
 .msg-markdown td {
-  border: 1px solid rgba(127, 127, 127, 0.3);
+  border: 1px solid var(--border);
   padding: 4px 8px;
-  font-size: 13px;
+  font-size: var(--font-size-md);
 }
 
 .msg-markdown th {
-  background: rgba(127, 127, 127, 0.1);
+  background: var(--bg-hover);
   font-weight: 600;
 }
 
@@ -193,25 +262,235 @@
   50.01%, 100% { opacity: 0; }
 }
 
-/* ── 深色模式适配 ─────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-  .msg-bubble-assistant {
-    background: rgba(127, 127, 127, 0.12);
+/* ── 消息入场动画(对齐旧版 msg-slide-in-*) ────────────── */
+@keyframes msg-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
   }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 
-  .msg-reasoning {
-    background: rgba(124, 58, 237, 0.15);
+@keyframes msg-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
   }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 
-  .msg-markdown a {
-    color: #60a5fa;
-  }
+/* ════════════════════════════════════════════════════════
+   消息底部操作条(对齐旧版 .message-footer)
+   旧版样式见 css/components/chat-panel.css 267-319 行
+   ════════════════════════════════════════════════════════ */
 
-  .msg-markdown a:hover {
-    color: #93c5fd;
-  }
+.message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  gap: 8px;
+}
 
-  .msg-markdown blockquote {
-    color: #9ca3af;
-  }
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.message-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.message-action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.message-action-btn:hover {
+  background: var(--bg-app);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.message-action-btn.copied {
+  background: var(--bg-app);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.message-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── 用户消息:footer 背景条 + 时间/操作按钮 hover 显示 ──
+   对齐旧版 .message-user-wrap .message-footer /
+   .message-row.user-row:hover .message-user-wrap .message-time */
+.msg-bubble-user .message-footer {
+  background: var(--bg-code);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  transform: translateX(-15px);
+}
+
+.msg-bubble-user .message-actions,
+.msg-bubble-user .message-time {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.msg-bubble-user:hover .message-actions,
+.msg-bubble-user:hover .message-time {
+  opacity: 1;
+}
+
+/* ── 助手消息:操作按钮常显(对齐旧版 assistant footer 按钮常显) ── */
+
+/* 回滚按钮在 footer 内:对齐 message-action-btn 小图标风格
+   (覆盖 RollbackButton.css 的 26x26 边框按钮样式) */
+.msg-bubble-assistant .message-actions .rollback-btn {
+  width: auto;
+  height: auto;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+  transition: all var(--transition-fast);
+}
+
+.msg-bubble-assistant .message-actions .rollback-btn:hover:not(:disabled) {
+  background: var(--bg-app);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.msg-bubble-assistant .message-actions .rollback-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 回滚内联面板(点击回滚按钮后展开):浮在消息气泡下方,不挤压 footer 行 */
+.msg-bubble-assistant .rollback-inline {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+}
+
+/* ════════════════════════════════════════════════════════
+   文件产物指示器(对齐旧版 .message-file-indicator + popover)
+   旧版样式见 css/components/chat-panel.css 321-412 行
+   ════════════════════════════════════════════════════════ */
+
+.message-file-indicator {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: default;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s, color 0.12s;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.message-file-indicator:hover {
+  background: var(--bg-code, rgba(0, 0, 0, 0.04));
+  color: var(--text-secondary);
+}
+
+.message-file-indicator svg {
+  vertical-align: -2px;
+}
+
+.message-file-popover {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px 0;
+  z-index: 100;
+}
+
+.message-file-indicator:hover .message-file-popover {
+  display: block;
+}
+
+.message-file-popover .popover-file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  margin: 0 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.message-file-popover .popover-file-item:hover {
+  background: var(--bg-code, rgba(0, 0, 0, 0.04));
+}
+
+.message-file-popover .file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.message-file-popover .file-status {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.message-file-popover .file-status.status-added {
+  color: var(--success-color, #2e7d32);
+}
+
+.message-file-popover .file-status.status-modified {
+  color: #d49433;
+}
+
+.message-file-popover .file-status.status-deleted {
+  color: var(--error-color);
 }

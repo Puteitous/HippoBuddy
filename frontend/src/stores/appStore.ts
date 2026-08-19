@@ -31,6 +31,25 @@ function persistActivityBarHidden(hidden: boolean): void {
   }
 }
 
+/** Sidebar(左侧会话面板)折叠状态持久化 key */
+const SIDEBAR_COLLAPSED_KEY = 'hippo-sidebar-collapsed';
+
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function persistSidebarCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? 'true' : 'false');
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
 interface AppState {
   /** 所有会话列表(来自 GET /api/sessions) */
   sessions: Session[];
@@ -49,6 +68,8 @@ interface AppState {
 
   /** ActivityBar 是否隐藏(从 localStorage 恢复) */
   activityBarHidden: boolean;
+  /** Sidebar 是否折叠(从 localStorage 恢复) */
+  sidebarCollapsed: boolean;
   /** SkillMarket 面板是否打开 */
   skillMarketOpen: boolean;
   /** 进入 Settings 视图时初始定位的设置页(由 ModelSelectorPanel 等外部触发,消费后重置为 'general') */
@@ -76,6 +97,8 @@ interface AppState {
 
   /** 切换 ActivityBar 可见性(同时持久化到 localStorage) */
   toggleActivityBar: () => void;
+  /** 设置 Sidebar 折叠状态(同时持久化到 localStorage) */
+  setSidebarCollapsed: (collapsed: boolean) => void;
   /** 设置 SkillMarket 打开/关闭 */
   setSkillMarketOpen: (open: boolean) => void;
   /** 设置 Settings 视图初始页(消费后应重置为 'general') */
@@ -92,6 +115,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   sessionsError: null,
 
   activityBarHidden: readActivityBarHidden(),
+  sidebarCollapsed: readSidebarCollapsed(),
   skillMarketOpen: false,
   settingsInitialPage: 'general',
 
@@ -119,6 +143,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const next = !get().activityBarHidden;
     persistActivityBarHidden(next);
     set({ activityBarHidden: next });
+  },
+
+  setSidebarCollapsed: (collapsed) => {
+    persistSidebarCollapsed(collapsed);
+    set({ sidebarCollapsed: collapsed });
   },
 
   setSkillMarketOpen: (open) => set({ skillMarketOpen: open }),
