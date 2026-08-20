@@ -67,8 +67,8 @@
 /* ========== 浮动面板 ========== */
 .activity-floating-panel {
   position: absolute;
-  top: 56px;
-  left: 56px;
+  top: 0;
+  left: 44px;
   z-index: 50;
   width: 320px;
   max-height: calc(100vh - 80px);

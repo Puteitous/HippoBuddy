@@ -105,6 +105,9 @@ export interface Message {
   toolCallId?: string;
   /** role === 'tool' 时:工具执行是否成功 */
   success?: boolean;
+  /** role === 'tool' 时:前端流式固化的工具参数(如 todo_write 的完整累计树)。
+   *  后端历史加载走 tool_calls,故仅前端固化路径使用。 */
+  args?: unknown;
 }
 
 // ============================================================================
@@ -222,7 +225,7 @@ export interface ToolAbortRequest {
 // ============================================================================
 
 /** 工具调用状态 */
-export type ToolCallStatus = 'running' | 'success' | 'failed';
+export type ToolCallStatus = 'running' | 'success' | 'failed' | 'denied';
 
 /**
  * 工具调用运行时记录

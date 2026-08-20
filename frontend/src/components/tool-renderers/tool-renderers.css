@@ -55,18 +55,18 @@
 }
 
 .tool-status-badge.running {
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
+  background: var(--warning-bg, rgba(59, 130, 246, 0.12));
+  color: var(--warning-color);
 }
 
 .tool-status-badge.success {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
+  background: var(--success-bg, rgba(16, 185, 129, 0.12));
+  color: var(--success-text);
 }
 
 .tool-status-badge.failed {
-  background: rgba(220, 38, 38, 0.12);
-  color: #dc2626;
+  background: var(--error-bg, rgba(220, 38, 38, 0.12));
+  color: var(--error-text);
 }
 
 .tool-arrow {
@@ -121,17 +121,24 @@
   to { transform: rotate(360deg); }
 }
 
-/* ── Bash 工具专属 ─────────────────────────────────────── */
+/* ── Bash 工具专属(对齐旧版:白卡片+阴影,命令带主题色左边框) ──── */
+.bash-card {
+  background: var(--bg-white);
+  box-shadow: var(--shadow-sm);
+}
+
 .bash-command {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
-  background: #111827;
-  color: #d1d5db;
-  padding: 8px 10px;
-  border-radius: 4px;
+  background: var(--bg-code);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--primary-color);
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-all;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .bash-meta {
@@ -320,39 +327,35 @@
 }
 
 /* ── 确认按钮区 ───────────────────────────────────────── */
-.confirmation-buttons {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  justify-content: flex-end;
-}
-
 .confirmation-btn {
-  padding: 6px 16px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
   font-weight: 500;
   cursor: pointer;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+  line-height: 1.4;
 }
 
 .confirmation-btn.allow {
-  background: #10b981;
-  color: #ffffff;
+  background: rgb(17, 24, 39);
+  color: #fff;
+  border-color: rgb(17, 24, 39);
 }
 
 .confirmation-btn.allow:hover {
-  background: #059669;
+  opacity: 0.9;
 }
 
 .confirmation-btn.deny {
   background: transparent;
-  border-color: #9ca3af;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .confirmation-btn.deny:hover {
-  background: rgba(127, 127, 127, 0.08);
+  background: var(--bg-code);
+  color: var(--text-primary);
 }
 
 .confirmation-btn:disabled {
@@ -360,70 +363,96 @@
   cursor: not-allowed;
 }
 
-.confirmation-reason {
-  margin-top: 6px;
-  padding: 6px 10px;
-  background: rgba(245, 158, 11, 0.08);
-  border-left: 3px solid #d97706;
-  border-radius: 3px;
-  color: #92400e;
-  font-size: 12px;
+/* delete_file 确认按钮:酒红色(对齐旧版 .delete-confirm) */
+.confirmation-btn.delete-confirm {
+  background: #f0d6d0;
+  color: #9a4a42;
+  border-color: #e8c4be;
+}
+.confirmation-btn.delete-confirm:hover {
+  background: #e8c4be;
+  border-color: #dcb4ac;
+}
+[data-theme='dark'] .confirmation-btn.delete-confirm {
+  background: rgb(69, 43, 53);
+  color: rgb(210, 130, 130);
+  border-color: rgb(69, 43, 53);
+}
+[data-theme='dark'] .confirmation-btn.delete-confirm:hover {
+  background: rgb(90, 55, 65);
+  border-color: rgb(90, 55, 65);
 }
 
-/* ── ask_user 输入 ────────────────────────────────────── */
+/* ── 工具确认状态徽标(对齐旧版 pending_confirmation) ── */
+.tool-status-badge.pending_confirmation {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+/* ── ask_user 输入(对齐旧版 tool-cards.css 胶囊按钮 + 等待高亮) ── */
+.ask-user-card {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+/* 等待用户输入时高亮主色边框(对齐旧版 .waiting-user-card) */
+.ask-user-card.waiting-user-card {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.2);
+}
+
 .ask-user-question {
-  margin-bottom: 8px;
+  margin: 6px 0;
+  padding: 6px 2px;
+  line-height: 1.5;
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+/* 提交回答后的只读历史态(对齐旧版 ask segment 保留) */
+.ask-user-answer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-light);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.ask-user-answer-label {
+  flex: none;
+  color: var(--text-muted, #6b7280);
+}
+
 .ask-user-options {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 8px;
+  margin: 6px 0 8px;
 }
 
 .ask-user-option-btn {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
+  padding: 5px 14px;
+  border-radius: 16px;
   font-size: 13px;
-  text-align: left;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border-color);
+  background: var(--bg-light);
+  color: var(--text-primary);
+  line-height: 1.4;
 }
 
 .ask-user-option-btn:hover {
-  background: rgba(59, 130, 246, 0.06);
-  border-color: #3b82f6;
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: #fff;
 }
 
-.ask-user-input {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-.ask-user-input textarea {
-  flex: 1;
-  padding: 8px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 13px;
-  resize: vertical;
-  min-height: 60px;
-  max-height: 200px;
-  background: inherit;
-  color: inherit;
-}
-
-.ask-user-input textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+.ask-user-option-btn:active {
+  transform: scale(0.96);
 }
 
 /* ── 默认卡片参数显示 ─────────────────────────────────── */
@@ -488,11 +517,6 @@
 
   .tool-body {
     border-top-color: rgba(127, 127, 127, 0.15);
-  }
-
-  .confirmation-btn.deny {
-    border-color: #4b5563;
-    color: #9ca3af;
   }
 
   .ask-user-option-btn {

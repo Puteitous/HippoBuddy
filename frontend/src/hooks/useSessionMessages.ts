@@ -23,6 +23,7 @@ export function useSessionMessages(): void {
   const setMessages = useChatStore((s) => s.setMessages);
   const setError = useChatStore((s) => s.setError);
   const setIsLoadingMessages = useChatStore((s) => s.setIsLoadingMessages);
+  const getCachedMessages = useChatStore((s) => s.getCachedMessages);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +38,15 @@ export function useSessionMessages(): void {
       return;
     }
 
-    setIsLoadingMessages(true);
+    // 命中缓存:立即展示历史,免除请求等待;仍走后台刷新对齐后端最新数据。
+    const cached = getCachedMessages(currentSessionId);
+    if (cached && cached.length > 0) {
+      setMessages(cached);
+      setIsLoadingMessages(false);
+    } else {
+      setIsLoadingMessages(true);
+    }
+
     (async () => {
       try {
         const data = await api.sessions.getMessages(currentSessionId);
@@ -55,5 +64,5 @@ export function useSessionMessages(): void {
     return () => {
       cancelled = true;
     };
-  }, [currentSessionId, reset, setMessages, setError, setIsLoadingMessages]);
+  }, [currentSessionId, reset, setMessages, setError, setIsLoadingMessages, getCachedMessages]);
 }

@@ -23,6 +23,7 @@ import { sessionApi, workspaceApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { showToast } from '@/utils/toastStore';
+import { useI18n, translate } from '@/i18n';
 import './TopBar.css';
 
 /** 最近文件夹 localStorage key(与旧版 workspace-manager.js 同 key,新旧版共享) */
@@ -52,6 +53,7 @@ function errMsg(e: unknown): string {
 }
 
 export function TopBar() {
+  const { t } = useI18n();
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const setView = useAppStore((s) => s.setView);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
@@ -75,6 +77,34 @@ export function TopBar() {
   const [recentOpen, setRecentOpen] = useState(false);
   const [recentFolders, setRecentFolders] = useState<string[]>(readRecentFolders);
   const folderGroupRef = useRef<HTMLDivElement | null>(null);
+  const recentDropdownRef = useRef<HTMLDivElement | null>(null);
+  /** 收起延迟定时器(对齐旧版 desktop-bridge.js 的 hoverTimer:mouseleave 延迟 100ms 再收起,避免误触发) */
+  const recentHoverTimer = useRef<number | null>(null);
+
+  // 延迟收起(旧版 hoverTimer):mouseleave 后 100ms 内若未重新移入再收起
+  const cancelRecentClose = () => {
+    if (recentHoverTimer.current !== null) {
+      window.clearTimeout(recentHoverTimer.current);
+      recentHoverTimer.current = null;
+    }
+  };
+  const scheduleRecentClose = () => {
+    cancelRecentClose();
+    recentHoverTimer.current = window.setTimeout(() => {
+      setRecentOpen(false);
+      recentHoverTimer.current = null;
+    }, 100);
+  };
+
+  // 鼠标离开 group/dropdown 时:旧版 desktop-bridge.js 检查 relatedTarget,
+  // 若目标是自身内部(含 dropdown)则不收起;否则延迟收起
+  const handleRecentLeave = (e: React.MouseEvent) => {
+    const related = e.relatedTarget as Node | null;
+    const group = folderGroupRef.current;
+    const dropdown = recentDropdownRef.current;
+    if (related && ((group && group.contains(related)) || (dropdown && dropdown.contains(related)))) return;
+    scheduleRecentClose();
+  };
 
   // 桌面端初始化:body class + 最大化状态订阅 + 初始同步(对齐旧版 desktop-bridge.js)
   useEffect(() => {
@@ -152,9 +182,9 @@ export function TopBar() {
     try {
       const state = await workspaceApi.setCurrent(path);
       applyWorkspace(state.path || path);
-      showToast('工作区已切换: ' + (state.path || path), { type: 'success', duration: 2500 });
+      showToast(translate('workspace.switched') + (state.path || path), { type: 'success', duration: 2500 });
     } catch (e) {
-      showToast('打开文件夹失败: ' + errMsg(e), { type: 'error', duration: 3000 });
+      showToast(translate('topbar.openFolderFailed', { err: errMsg(e) }), { type: 'error', duration: 3000 });
     }
   };
 
@@ -163,9 +193,9 @@ export function TopBar() {
     try {
       const state = await workspaceApi.setCurrent(path);
       applyWorkspace(state.path || path);
-      showToast('工作区已切换: ' + (state.path || path), { type: 'success', duration: 2000 });
+      showToast(translate('workspace.switched') + (state.path || path), { type: 'success', duration: 2000 });
     } catch (e) {
-      showToast('切换工作区失败: ' + errMsg(e), { type: 'error', duration: 3000 });
+      showToast(translate('topbar.switchWorkspaceFailed', { err: errMsg(e) }), { type: 'error', duration: 3000 });
     }
   };
 
@@ -181,9 +211,9 @@ export function TopBar() {
     try {
       await workspaceApi.resetCurrent();
       setWorkspacePath('');
-      showToast('已重置到默认工作区', { type: 'success', duration: 2000 });
+      showToast(translate('html.header.resetWorkspace'), { type: 'success', duration: 2000 });
     } catch (e) {
-      showToast('重置工作区失败: ' + errMsg(e), { type: 'error', duration: 3000 });
+      showToast(translate('topbar.resetFailed', { err: errMsg(e) }), { type: 'error', duration: 3000 });
     }
   };
 
@@ -191,23 +221,29 @@ export function TopBar() {
   const handleCompact = async () => {
     if (!currentSessionId || compacting || isSending) return;
     // 与旧版 prompt 交互一致:留空则自动智能压缩
-    const instruction = window.prompt(
-      '输入压缩指令（可选）：\n\n例如："保留所有代码示例"、"只保留重要信息"\n\n留空则自动智能压缩',
-    );
+    const instruction = window.prompt(translate('chat.compactHint'));
     if (instruction === null) return; // 用户取消
 
     setCompacting(true);
     try {
       const result = await sessionApi.compact(currentSessionId, instruction || undefined);
       showToast(
-        `压缩完成！方法：${result.method}\n原始${result.originalCount}条 → 压缩后${result.compactedCount}条\n减少${result.reducedCount}条，节省Token ${result.savedTokens.toLocaleString()}(${result.savedPercent}%)\n\n摘要：${result.summary}`,
+        translate('chatui.compactSuccess', {
+          method: result.method,
+          originalCount: String(result.originalCount),
+          compactedCount: String(result.compactedCount),
+          reducedCount: String(result.reducedCount),
+          savedTokens: result.savedTokens.toLocaleString(),
+          savedPercent: String(result.savedPercent),
+          summary: result.summary,
+        }),
         { type: 'success', duration: 8000 },
       );
       // compact 后端会重写会话消息,重新拉取刷新列表
       const msgs = await sessionApi.getMessages(currentSessionId);
       setMessages(msgs);
     } catch (e) {
-      showToast('压缩失败: ' + errMsg(e), { type: 'error', duration: 4000 });
+      showToast(translate('topbar.compressFailed', { err: errMsg(e) }), { type: 'error', duration: 4000 });
     } finally {
       setCompacting(false);
     }
@@ -217,7 +253,7 @@ export function TopBar() {
   const handleSettings = () => setView('settings');
   const handleDevTools = () => {
     desktopBridge.openDevTools();
-    showToast('正在打开 DevTools...', { type: 'info', duration: 1500 });
+    showToast(translate('topbar.openingDevTools'), { type: 'info', duration: 1500 });
   };
   const handleRefresh = () => {
     window.location.reload();
@@ -240,8 +276,8 @@ export function TopBar() {
           <button
             type="button"
             className="top-bar-sidebar-show"
-            title="展开会话面板"
-            aria-label="展开会话面板"
+            title={t('topbar.expandSessionPanel')}
+            aria-label={t('topbar.expandSessionPanel')}
             onClick={() => setSidebarCollapsed(false)}
           >
             <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
@@ -264,7 +300,7 @@ export function TopBar() {
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
             </svg>
             <span className="workspace-path">{workspacePath}</span>
-            <button className="workspace-clear" title="重置到默认工作区" aria-label="重置到默认工作区" onClick={handleClearWorkspace}>
+            <button className="workspace-clear" title={t('html.header.resetWorkspace')} aria-label={t('html.header.resetWorkspace')} onClick={handleClearWorkspace}>
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <g transform="translate(0, 0.8)">
                   <path d="M2 7l6-5 6 5" />
@@ -280,8 +316,8 @@ export function TopBar() {
           <button
             type="button"
             className="top-bar-icon-btn"
-            title="压缩上下文"
-            aria-label="压缩上下文"
+            title={t('html.header.compressContext')}
+            aria-label={t('html.header.compressContext')}
             disabled={compacting || isSending}
             onClick={handleCompact}
           >
@@ -302,25 +338,35 @@ export function TopBar() {
           <div
             ref={folderGroupRef}
             className="header-folder-group"
-            onMouseEnter={() => setRecentOpen(true)}
-            onMouseLeave={() => setRecentOpen(false)}
+            onMouseEnter={() => {
+              cancelRecentClose();
+              setRecentOpen(true);
+            }}
+            onMouseLeave={handleRecentLeave}
           >
             <button
               type="button"
               className="top-bar-icon-btn"
-              title="打开工作区文件夹"
-              aria-label="打开工作区文件夹"
+              title={t('html.header.openFolder')}
+              aria-label={t('html.header.openFolder')}
               onClick={handleOpenFolder}
             >
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
               </svg>
             </button>
+            {/* 真实元素空隙桥:覆盖按钮与下拉间 4px 间距,避免鼠标下移误触发 mouseleave */}
+            <div className="header-folder-group-bridge" />
             {recentOpen && (
-              <div className="header-folder-dropdown show">
-                <div className="header-folder-dropdown-header">最近打开的文件夹</div>
+              <div
+                ref={recentDropdownRef}
+                className="header-folder-dropdown show"
+                onMouseEnter={() => cancelRecentClose()}
+                onMouseLeave={handleRecentLeave}
+              >
+                <div className="header-folder-dropdown-header">{t('html.header.recentFolders')}</div>
                 {recentFolders.length === 0 ? (
-                  <div className="header-folder-dropdown-empty">暂无最近文件夹</div>
+                  <div className="header-folder-dropdown-empty">{t('topbar.noRecentFolders')}</div>
                 ) : (
                   recentFolders.map((f) => (
                     <div
@@ -336,8 +382,8 @@ export function TopBar() {
                       <button
                         type="button"
                         className="folder-item-remove"
-                        title="移除"
-                        aria-label="移除"
+                        title={t('topbar.remove')}
+                        aria-label={t('topbar.remove')}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRemoveRecentFolder(f);
@@ -357,8 +403,8 @@ export function TopBar() {
         <button
           type="button"
           className="top-bar-icon-btn"
-          title="模型配置"
-          aria-label="模型配置"
+          title={t('html.header.settings')}
+          aria-label={t('html.header.settings')}
           onClick={handleSettings}
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -371,8 +417,8 @@ export function TopBar() {
         <button
           type="button"
           className="top-bar-icon-btn"
-          title="切换主题"
-          aria-label="切换主题"
+          title={t('html.header.themeToggle')}
+          aria-label={t('html.header.themeToggle')}
           onClick={toggleTheme}
         >
           {isDarkTheme ? (
@@ -392,8 +438,8 @@ export function TopBar() {
           <button
             type="button"
             className="top-bar-icon-btn desktop-only"
-            title="打开 DevTools"
-            aria-label="打开 DevTools"
+            title={t('html.header.devtools')}
+            aria-label={t('html.header.devtools')}
             onClick={handleDevTools}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -407,8 +453,8 @@ export function TopBar() {
           <button
             type="button"
             className="top-bar-icon-btn desktop-only"
-            title="刷新页面 (Ctrl+F5)"
-            aria-label="刷新页面"
+            title={t('html.header.refresh')}
+            aria-label={t('html.header.refresh')}
             onClick={handleRefresh}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -425,8 +471,8 @@ export function TopBar() {
             <button
               type="button"
               className="window-btn window-btn-minimize"
-              title="最小化"
-              aria-label="最小化"
+              title={t('html.header.minimize')}
+              aria-label={t('html.header.minimize')}
               onClick={handleMinimize}
             >
               <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -436,8 +482,8 @@ export function TopBar() {
             <button
               type="button"
               className={`window-btn window-btn-maximize${maximized ? ' is-maximized' : ''}`}
-              title={maximized ? '还原' : '最大化'}
-              aria-label={maximized ? '还原' : '最大化'}
+              title={t(maximized ? 'window.restore' : 'html.header.maximize')}
+              aria-label={t(maximized ? 'window.restore' : 'html.header.maximize')}
               onClick={handleMaximizeToggle}
             >
               <svg className="win-icon-maximize" viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -451,8 +497,8 @@ export function TopBar() {
             <button
               type="button"
               className="window-btn window-btn-close"
-              title="关闭"
-              aria-label="关闭"
+              title={t('html.header.close')}
+              aria-label={t('html.header.close')}
               onClick={handleClose}
             >
               <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">

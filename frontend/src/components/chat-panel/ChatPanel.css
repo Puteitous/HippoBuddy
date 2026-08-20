@@ -46,18 +46,6 @@
   margin-right: auto;
 }
 
-.chat-panel-streaming {
-  margin-top: 0;
-}
-
-/* ── 工具调用卡片列表(实时流中显示) ───────────────────── */
-.chat-panel-toolcalls {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 /* ── ask_user 卡片区 ─────────────────────────────────── */
 .chat-panel-ask-user {
   margin-top: 12px;
@@ -455,10 +443,23 @@
   position: relative;
 }
 
-.chat-history-dropdown {
+/* 覆盖按钮与下拉之间 4px 间距:必须用真实元素而非 ::before 伪元素。
+   伪元素不是真正的 DOM 命中目标,鼠标悬停其上时 relatedTarget 解析为 null,
+   会误触发 mouseleave 收起下拉;真实 div 能提供切实的命中目标。 */
+.chat-history-bridge {
   position: absolute;
   top: 100%;
-  right: -8px;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+.chat-history-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  right: auto;
+  transform: translateX(calc(-50% - 60px));
   min-width: 250px;
   max-width: 250px;
   max-height: 360px;

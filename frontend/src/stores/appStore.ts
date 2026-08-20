@@ -33,6 +33,27 @@ function persistActivityBarHidden(hidden: boolean): void {
   }
 }
 
+/** 当前会话 id 持久化 key(刷新后恢复上次会话) */
+const CURRENT_SESSION_KEY = 'hippo-current-session';
+
+function readCurrentSession(): string | null {
+  try {
+    const v = localStorage.getItem(CURRENT_SESSION_KEY);
+    return v && v !== 'null' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistCurrentSession(id: string | null): void {
+  try {
+    if (id) localStorage.setItem(CURRENT_SESSION_KEY, id);
+    else localStorage.removeItem(CURRENT_SESSION_KEY);
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
 /** Sidebar(左侧会话面板)折叠状态持久化 key */
 const SIDEBAR_COLLAPSED_KEY = 'hippo-sidebar-collapsed';
 
@@ -109,7 +130,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   sessions: [],
-  currentSessionId: null,
+  currentSessionId: readCurrentSession(),
   mode: 'chat',
   workspacePath: '',
   view: 'chat',
@@ -122,7 +143,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   settingsInitialPage: 'general',
 
   setSessions: (sessions) => set({ sessions }),
-  setCurrentSession: (sessionId) => set({ currentSessionId: sessionId }),
+  setCurrentSession: (sessionId) => {
+    persistCurrentSession(sessionId);
+    set({ currentSessionId: sessionId });
+  },
   setMode: (mode) => set({ mode }),
   setWorkspacePath: (path) => set({ workspacePath: path }),
   setView: (view) => set({ view }),

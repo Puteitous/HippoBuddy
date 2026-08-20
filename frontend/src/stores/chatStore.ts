@@ -9,6 +9,10 @@
  */
 import { create } from 'zustand';
 import type { Message, ToolCallRecord, WebSearchAction } from '@/types';
+import { useAppStore } from '@/stores/appStore';
+import { chatApi } from '@/api/client';
+import { ApiError } from '@/api/error';
+import type { ChatRequest } from '@/types';
 import type {
   ChatSseEventName,
   ChatSseEventMap,
@@ -17,6 +21,31 @@ import type {
   TokenUpdatePayload,
 } from '@/types/sse';
 import type { SseEvent } from '@/api/sse';
+import {
+  deepMergeTodoList,
+  parseTodoArgs,
+  type FlatTodo,
+} from '@/components/tool-renderers/shared-utils';
+
+/**
+ * 当前发送中的 AbortController。
+ * 置于模块层而非组件,保证 useChatStream 与 AskUserCard 共用同一请求通道,
+ * 各组件卸载不会误 abort 掉仍应继续的流(ask 卡片提交即卸载的历史缺陷)。
+ */
+let activeStreamController: AbortController | null = null;
+
+/**
+ * ask_user 交互数据源。
+ * 数据完全来自后端 waiting_user 事件 payload,而非 tool_start —— 后端对 ask_user
+ * 特意不发送 tool_start(见 WebAgentOrchestrator 两处排除),故前端渲染必须依赖本事件。
+ */
+export interface AskUserData {
+  question: string;
+  options: string[] | null;
+  allow_custom_input: boolean;
+  /** 用户提交的回答;非空表示已回应,卡片转为只读历史(对齐旧版 ask segment 保留) */
+  answered?: string | null;
+}
 
 /**
  * 一次 Token 用量快照记录(用于趋势图,对齐旧版 appState.tokenHistory)。
@@ -33,6 +62,43 @@ export interface TokenRecord {
 
 /** tokenHistory 最大保留条数(趋势图只显示最近 30 条) */
 const TOKEN_HISTORY_MAX = 200;
+
+// ── 历史消息缓存(localStorage 持久化)─────────────────────────────
+// 用于"刷新后恢复上次会话并免请求显示历史"。内存 messageCache 为权威,
+// 订阅 messages 变更时写回 localStorage。限制会话数与每会话条数,防超限。
+const MSG_CACHE_KEY = 'hippo-message-cache';
+const MAX_CACHE_SESSIONS = 10;
+const MAX_CACHE_MESSAGES_PER_SESSION = 300;
+
+function loadMessageCache(): Record<string, Message[]> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MSG_CACHE_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, Message[]>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistMessageCache(cache: Record<string, Message[]>): void {
+  try {
+    const ids = Object.keys(cache);
+    const trimmed: Record<string, Message[]> = {};
+    for (const id of ids.slice(-MAX_CACHE_SESSIONS)) {
+      trimmed[id] = cache[id].slice(-MAX_CACHE_MESSAGES_PER_SESSION);
+    }
+    const raw = JSON.stringify(trimmed);
+    if (raw.length >= 4_000_000) {
+      // 仍超限则进一步缩水为最近 4 个会话、每会话最近 120 条
+      const slim: Record<string, Message[]> = {};
+      for (const id of ids.slice(-4)) slim[id] = cache[id].slice(-120);
+      localStorage.setItem(MSG_CACHE_KEY, JSON.stringify(slim));
+    } else {
+      localStorage.setItem(MSG_CACHE_KEY, raw);
+    }
+  } catch {
+    /* 存储不可用/超限时静默忽略,缓存降级为仅内存 */
+  }
+}
 
 /**
  * 单轮流式渲染单元(对齐旧版 segment 时序模型)。
@@ -70,6 +136,8 @@ interface ChatState {
   // ── 消息与发送状态 ──────────────────────────────────────────
   /** 当前会话的历史消息列表(从 GET /api/sessions/:id/messages 加载 + 本地新增) */
   messages: Message[];
+  /** 按 sessionId 缓存的历史消息(localStorage 持久化,刷新后复用) */
+  messageCache: Record<string, Message[]>;
   /** 是否正在发送消息(Agent 执行中) */
   isSending: boolean;
 
@@ -86,8 +154,16 @@ interface ChatState {
   // ── 工具调用 / 确认 / 联网搜索 ──────────────────────────────
   /** 当前会话的工具调用运行时记录(tool_start/tool_progress/tool_result 聚合) */
   toolCalls: ToolCallRecord[];
+  /**
+   * 会话级 todo 累计树(按 id 深合并多次 todo_write 增量)。
+   * 对齐旧版 _todoTreeCacheHolder:跨回合持久保留,使后续 merge 增量能基于历史完整树,
+   * 而非仅当前回合片段。reset(切换会话)时随 initialState 重置。
+   */
+  todoList: FlatTodo[];
   /** 联网搜索动作列表(web_search_done 事件累积) */
   webSearchActions: WebSearchAction[];
+  /** 联网搜索是否进行中(web_search_start 置 true,web_search_done 置 false,驱动实时流瞬态行) */
+  webSearching: boolean;
 
   // ── Token / 状态 / 错误 ────────────────────────────────────
   /** 最近一次 Token 用量更新(token_update 事件) */
@@ -98,6 +174,8 @@ interface ChatState {
   doneReason: string | null;
   /** 是否等待用户输入(ask_user 工具,waiting_user 事件) */
   waitingForUser: boolean;
+  /** ask_user 的渲染数据(waiting_user 事件 payload);提交回答后 answered 记录答案,保留为历史 */
+  askUserData: AskUserData | null;
   /** 警告消息列表(warning 事件累积,展示后可清除) */
   warnings: string[];
   /** 错误信息(error 事件或网络错误,无错误时为 null) */
@@ -114,6 +192,10 @@ interface ChatState {
   updateMessage: (id: string, patch: Partial<Message>) => void;
   /** 删除指定 id 的消息 */
   removeMessage: (id: string) => void;
+  /** 读取指定会话的缓存消息(未缓存返回 undefined) */
+  getCachedMessages: (sessionId: string) => Message[] | undefined;
+  /** 写入指定会话的缓存消息(内存 + localStorage) */
+  putMessageCache: (sessionId: string, messages: Message[]) => void;
 
   // ── Actions:发送状态 ──────────────────────────────────────
   /** 设置发送状态(开始/结束 Agent 循环) */
@@ -139,10 +221,41 @@ interface ChatState {
    * 无内容时为空操作;对已存在的同 id 消息跳过(避免重复提交)。
    */
   commitStreamingMessage: () => void;
+  /**
+   * 固化一次 ask_user 答复为消息流中的只读 tool 记录(对齐旧版 pushSegment 保留历史):
+   *  - 追加一条 role:'tool' / toolName:'ask_user' 消息,args 携带 question/options/answered,
+   *    供 HistoryRenderer 在回合内以 record 渲染只读 AskUserCard。
+   *  - 清空 askUserData / waitingForUser,消除"只写不清空导致的跨回合末尾残留"。
+   * 提交回答(AskUserCard 点击选项)后立即调用,随后再发送用户消息。
+   */
+  commitAskUser: (answer: string) => void;
+  /**
+   * 统一发送入口(主输入框 / 重试 / AskUserCard 答复共用):
+   *  - 乐观追加用户消息、重置流式缓冲、清空工具记录、置 isSending;
+   *  - 建立 AbortController 并持有在模块层,供 abortUserMessage 统一中断;
+   *  - 通过 handleSseEvent 分发 SSE 事件。
+   * 由 useChatStream 与 AskUserCard 共同调用,避免各组件持独立请求通道
+   * 在卸载时误终止仍应继续的流(ask 卡片提交即卸载的历史缺陷)。
+   */
+  sendUserMessage: (
+    message: string,
+    options?: {
+      mode?: ChatRequest['mode'];
+      images?: string[];
+      selectedRules?: string[];
+    },
+  ) => Promise<boolean>;
+  /** 中断当前发送(abort 流 + 通知后端 + 提交半成品),供 useChatStream.abort 调用 */
+  abortUserMessage: () => void;
 
   // ── Actions:工具调用 ──────────────────────────────────────
   /** 添加工具调用记录(tool_start) */
   addToolCall: (record: ToolCallRecord) => void;
+  /**
+   * 会话级 todo 累计(todo_write 的 tool_start 驱动):
+   * replace 清空重建,merge 在会话累计上按 id 深合并(对齐旧版 _mergeTodos)。
+   */
+  mergeTodoList: (mode: string, todos: FlatTodo[]) => void;
   /** 追加工具进度(tool_progress) */
   appendToolProgress: (id: string, line: string) => void;
   /** 完成工具调用(tool_result) */
@@ -160,6 +273,8 @@ interface ChatState {
   // ── Actions:确认 / 联网搜索 ───────────────────────────────
   /** 追加联网搜索动作(web_search_done) */
   addWebSearchAction: (action: WebSearchAction) => void;
+  /** 设置联网搜索进行中状态(web_search_start=true / web_search_done=false) */
+  setWebSearching: (searching: boolean) => void;
 
   // ── Actions:Token / 状态 / 错误 ───────────────────────────
   /** 更新 Token 用量(token_update) */
@@ -170,6 +285,8 @@ interface ChatState {
   setError: (error: string | null) => void;
   /** 设置等待用户输入状态(用户提交回答后置 false,关闭 AskUserCard) */
   setWaitingForUser: (waiting: boolean) => void;
+  /** 设置 ask_user 渲染数据(waiting_user 事件驱动) */
+  setAskUserData: (data: AskUserData | null) => void;
   /** 推入警告消息 */
   pushWarning: (message: string) => void;
   /** 清空警告 */
@@ -193,6 +310,7 @@ interface ChatState {
 
 const initialState = {
   messages: [],
+  messageCache: loadMessageCache(),
   isSending: false,
 
   streamingMessageId: null,
@@ -201,12 +319,15 @@ const initialState = {
   isReasoning: false,
 
   toolCalls: [],
+  todoList: [],
   webSearchActions: [],
+  webSearching: false,
 
   lastTokenUpdate: null,
   tokenHistory: [],
   doneReason: null,
   waitingForUser: false,
+  askUserData: null,
   warnings: [],
   error: null,
   isLoadingMessages: false,
@@ -224,6 +345,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })),
   removeMessage: (id) =>
     set((state) => ({ messages: state.messages.filter((m) => m.id !== id) })),
+  getCachedMessages: (sessionId) => get().messageCache[sessionId],
+  putMessageCache: (sessionId, messages) => {
+    set((state) => ({ messageCache: { ...state.messageCache, [sessionId]: messages } }));
+    persistMessageCache(get().messageCache);
+  },
 
   // ── 发送状态 ──────────────────────────────────────────────
   setIsSending: (isSending) => set({ isSending }),
@@ -254,7 +380,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ),
     })),
   pushStreamTool: (callId) =>
-    set((state) => ({ stream: [...state.stream, { kind: 'tool', turn: state.currentTurn, callId }] })),
+    set((state) => {
+      // 同一工具 id 的 tool_start 可能重复到达(流式首段 + executeToolCalls 第二次带完整 args):
+      // stream 中已存在的 callId 不重复追加,否则 tool 段重复会令 timeline 把同一工具渲染成两行
+      if (state.stream.some((it) => it.kind === 'tool' && it.callId === callId)) return state;
+      return { stream: [...state.stream, { kind: 'tool', turn: state.currentTurn, callId }] };
+    }),
   resetStreaming: () =>
     set({
       streamingMessageId: null,
@@ -296,22 +427,67 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const tc = state.toolCalls.find((t) => t.id === item.callId);
       if (!tc || addedToolIds.has(tc.id)) return;
       addedToolIds.add(tc.id);
+      // todo_write 固化时携带会话累计树,使未刷新(前端直接固化)的渲染与 streaming
+      // 一致不空白;后端历史加载走 assistant.tool_calls,不使用该字段。
+      const withArgs =
+        tc.name === 'todo_write'
+          ? { args: { mode: 'merge', todos: state.todoList } }
+          : {};
       additions.push({
         id: tc.id,
         role: 'tool',
         toolCallId: tc.id,
         toolName: tc.name,
         content: tc.result ?? tc.error ?? '',
-        success: tc.status !== 'failed',
+        // 仅显式成功(success)才记为成功;denied/failed/running 均为失败/未完成
+        success: tc.status === 'success',
+        ...withArgs,
       });
     });
     if (additions.length === 0 && state.stream.length === 0) return;
-    set((s) => ({ messages: [...s.messages, ...additions], stream: [], toolCalls: [] }));
+
+    // 联网搜索动作固化:挂到回合最后一条 assistant 消息(供 HistoryRenderer 复用 WebSearchRow
+    // 渲染完成态聚合摘要),并清空实时累积,使下一回合的搜索独立显示。
+    // 时序:thinking(回合切换)/ done(流结束)都会调用本方法,此时 actions 属于刚结束的回合。
+    const webActions = state.webSearchActions;
+    if (additions.length > 0 && webActions.length > 0) {
+      const last = additions[additions.length - 1];
+      if (last.role === 'assistant') {
+        last.web_searched = true;
+        last.web_search_actions = webActions;
+      }
+    }
+    set((s) => ({
+      messages: [...s.messages, ...additions],
+      stream: [],
+      // 保留待确认(未决策)的工具记录:确认区需在流结束后仍可见(对齐旧版回合级
+      // 行内确认),由 ChatPanel.pendingConfirmRecords 独立渲染;决策后 confirmationData
+      // 被清除(completeToolCall),下次固化为普通已执行记录。
+      toolCalls: s.toolCalls.filter((tc) => !!tc.confirmationData),
+      webSearchActions: [],
+      webSearching: false,
+    }));
   },
 
   // ── 工具调用 ──────────────────────────────────────────────
   addToolCall: (record) =>
-    set((state) => ({ toolCalls: [...state.toolCalls, record] })),
+    set((state) => {
+      const idx = state.toolCalls.findIndex((tc) => tc.id === record.id);
+      // 同一工具 id 已存在(流式场景后端对同一调用发两次 tool_start,第二次带完整 args):
+      // 更新该记录而非新增,避免 toolCalls 出现重复条目(对齐旧版 MessageSession 的合并语义)
+      if (idx === -1) return { toolCalls: [...state.toolCalls, record] };
+      const next = [...state.toolCalls];
+      next[idx] = { ...next[idx], ...record };
+      return { toolCalls: next };
+    }),
+  mergeTodoList: (mode, todos) =>
+    set((state) => ({
+      // replace 清空重建;merge 在会话累计上深合并(跨回合持久)。
+      todoList:
+        mode === 'replace'
+          ? deepMergeTodoList([], todos)
+          : deepMergeTodoList(state.todoList, todos),
+    })),
   appendToolProgress: (id, line) =>
     set((state) => ({
       toolCalls: state.toolCalls.map((tc) =>
@@ -324,7 +500,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         tc.id === id
           ? {
               ...tc,
-              status: success ? 'success' : 'failed',
+              // 用户拒绝(确认 deny 后 tool_result.error 含"用户拒绝")→ denied 而非 failed,
+              // 供渲染层展示"已拒绝执行/删除"而不是红色失败态(对齐旧版)
+              status: success
+                ? 'success'
+                : /用户拒绝|denied|rejected/i.test(error ?? '')
+                  ? 'denied'
+                  : 'failed',
               result,
               error,
               endedAt: Date.now(),
@@ -338,9 +520,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const name = (payload as DeleteFileToolConfirmationPayload).toolType === 'delete_file'
         ? 'delete_file'
         : 'bash';
-      // 找到该名称下"运行中且未挂确认数据"的工具记录,挂载确认数据(对齐旧版按名称匹配未完成段)
+      // 找到该名称下"未挂确认数据"的工具记录挂载确认数据(对齐旧版
+      // MessageSession 的 `!seg.result && !seg.confirmationData` 匹配,不依赖 running 状态字段)
       const idx = state.toolCalls.findIndex(
-        (tc) => tc.name === name && tc.status === 'running' && !tc.confirmationData,
+        (tc) => tc.name === name && !tc.confirmationData,
       );
       if (idx === -1) return state;
       const next = [...state.toolCalls];
@@ -360,6 +543,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // ── 确认 / 联网搜索 ───────────────────────────────────────
   addWebSearchAction: (action) =>
     set((state) => ({ webSearchActions: [...state.webSearchActions, action] })),
+  setWebSearching: (searching) => set({ webSearching: searching }),
 
   // ── Token / 状态 / 错误 ───────────────────────────
   setLastTokenUpdate: (payload) => set({ lastTokenUpdate: payload }),
@@ -372,6 +556,100 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }),
   setError: (error) => set({ error }),
   setWaitingForUser: (waiting) => set({ waitingForUser: waiting }),
+  setAskUserData: (data) => set({ askUserData: data }),
+  commitAskUser: (answer) => {
+    const { askUserData } = get();
+    if (!askUserData) return;
+    const q = askUserData.question ?? '';
+    const opts = Array.isArray(askUserData.options)
+      ? (askUserData.options as unknown[]).filter((x) => typeof x === 'string')
+      : [];
+    const msg: Message = {
+      id: `ask-${Date.now()}`,
+      role: 'tool',
+      toolCallId: '',
+      toolName: 'ask_user',
+      content: answer,
+      success: true,
+      // args 携带完整渲染数据(question/options/answered),供只读 AskUserCard 重建
+      args: { question: q, options: opts, answered: answer },
+    };
+    set((s) => ({
+      messages: [...s.messages, msg],
+      askUserData: null,
+      waitingForUser: false,
+    }));
+  },
+  sendUserMessage: async (message, options) => {
+    if (get().isSending) return false;
+    const { currentSessionId, mode } = useAppStore.getState();
+    if (!currentSessionId) {
+      get().setError('未选中会话,无法发送消息。');
+      return false;
+    }
+    if (!message.trim()) {
+      get().setError('消息内容不能为空。');
+      return false;
+    }
+
+    // 乐观更新:本地立即追加用户消息,再进入流式状态(对齐主输入框发送流程)
+    // 若当前正处于等待 ask(ask_user 未回复),此次发送即视为对该 ask 的文字回答,
+    // 先固化一条 ask 记录(含 answered),使底部实时 ask 卡转为消息流内只读卡并自动收起
+    // (对齐点选项的 commitAskUser;点选项路径此时 askUserData 已为空,不会重复固化)。
+    if (get().askUserData) get().commitAskUser(message);
+    get().addMessage({ id: `local-${Date.now()}`, role: 'user', content: message });
+    get().resetStreaming();
+    get().clearToolCalls();
+    // 清空等待中的 ask:用户在输入框直接以文字回复(而非点 as卡选项)时,
+    // commitAskUser 不会被调用,若不在此清除,askUserData/waitingForUser 残留,
+    // HistoryRenderer 的实时 ask 卡会一直钉在底部(刷新后才消失)。
+    // 对主动发出的任意消息清除等待态均无副作用(无 ask 时本就有 null/false)。
+    set({ isSending: true, error: null, askUserData: null, waitingForUser: false });
+
+    const controller = new AbortController();
+    activeStreamController = controller;
+    const request: ChatRequest = {
+      sessionId: currentSessionId,
+      message,
+      mode: options?.mode ?? mode,
+      images: options?.images,
+      selectedRules: options?.selectedRules,
+    };
+
+    try {
+      // 事件统一交回 handleSseEvent 分发
+      await chatApi.stream(request, (event) => get().handleSseEvent(event), controller.signal);
+      return true;
+    } catch (e) {
+      // 用户主动中断:AbortError → 提交已累积的半成品内容(若有)
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        get().commitStreamingMessage();
+        set({ isSending: false });
+        return false;
+      }
+      const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
+      set({ error: msg, isSending: false });
+      return false;
+    } finally {
+      if (activeStreamController === controller) activeStreamController = null;
+    }
+  },
+  abortUserMessage: () => {
+    // 1. 客户端终止 fetch
+    activeStreamController?.abort();
+    // 2. 通知后端停止 Agent 循环(防止后端继续消耗 token)
+    const { currentSessionId } = useAppStore.getState();
+    if (currentSessionId) {
+      void chatApi
+        .abortTool({ sessionId: currentSessionId })
+        .catch((e) => {
+          console.warn('[chatStore] 后端 abortTool 调用失败:', e);
+        });
+    }
+    // 3. 提交已累积的半成品内容 + 结束发送状态
+    get().commitStreamingMessage();
+    set({ isSending: false });
+  },
   pushWarning: (message) =>
     set((state) => ({ warnings: [...state.warnings, message] })),
   clearWarnings: () => set({ warnings: [] }),
@@ -427,6 +705,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // ── 工具调用 ────────────────────────────────────────
       case 'tool_start': {
         const payload = data as ChatSseEventMap['tool_start'];
+        if (payload.name === 'todo_write') {
+          // todo_write 立即合并到会话级累计(残缺 args 解析失败 → merge + [] ,无副作用)。
+          const { mode, todos } = parseTodoArgs(payload.args);
+          store.mergeTodoList(mode, todos);
+        }
         store.addToolCall({
           id: payload.id,
           name: payload.name,
@@ -463,12 +746,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       // ── 联网搜索 ────────────────────────────────────────
       case 'web_search_start': {
-        // 仅作开始标记,具体动作在 web_search_done 中携带
-        // 阶段 3.3/3.4 接入 WebToolCard 时再细化 UI 反馈
+        // 置进行中标记,驱动 ChatPanel 实时流瞬态行「正在联网搜索…」
+        set({ webSearching: true });
         break;
       }
       case 'web_search_done': {
         const payload = data as ChatSseEventMap['web_search_done'];
+        // 搜索完成,清除进行中标记并累积动作明细(渲染层据此聚合摘要)
+        set({ webSearching: false });
         store.addWebSearchAction({
           type: payload.type,
           queries: payload.queries,
@@ -488,6 +773,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       // ── 等待用户(ask_user) ──────────────────────────────
       case 'waiting_user': {
+        const payload = data as unknown as AskUserData;
+        // 关键:ask_user 轮结束时后端发 complete(仅置 isSending=false、不固化流式前文),
+        // 而非 done(会 commitStreamingMessage)。若不在此显式固化,isSending 置 false 后
+        // 流式 tail 被切断、messages 又无前文,导致 ask 前的 assistant 文本/timeline 消失。
+        // 对齐旧版:ask 是 assistant 消息内容的一部分,前文本应在消息流中持续存在。
+        store.commitStreamingMessage();
+        // 从事件 payload 取渲染数据(question/options/allow_custom_input),不依赖 tool_start
+        store.setAskUserData({
+          question: payload.question ?? '',
+          options: Array.isArray(payload.options) ? payload.options : null,
+          allow_custom_input: payload.allow_custom_input !== false,
+        });
         set({ waitingForUser: true });
         break;
       }
@@ -534,6 +831,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   // ── 全局重置 ──────────────────────────────────────────────
-  // 对齐旧版 appState:tokenHistory 为全局累积,切会话时不重置(趋势图保留历史)
-  reset: () => set((s) => ({ ...initialState, tokenHistory: s.tokenHistory })),
+  // 对齐旧版 appState:tokenHistory 为全局累积,切会话时不重置(趋势图保留历史);
+  // messageCache 同样保留,避免重置覆盖为初始快照而丢失已写入的缓存。
+  reset: () =>
+    set((s) => ({
+      ...initialState,
+      tokenHistory: s.tokenHistory,
+      messageCache: s.messageCache,
+    })),
 }));
+
+// ── 消息缓存自动持久化 ─────────────────────────────────────────────
+// 订阅消息变更,非空 messages 写回当前会话缓存(localStorage)。过滤重复
+// 触发(reset 产生的空数组不写),避免把待恢复的历史缓存误清空。
+let prevMessages: Message[] | null = null;
+useChatStore.subscribe((state) => {
+  if (state.messages === prevMessages) return;
+  prevMessages = state.messages;
+  if (state.messages.length === 0) return;
+  const id = useAppStore.getState().currentSessionId;
+  if (!id) return;
+  useChatStore.getState().putMessageCache(id, state.messages);
+});

@@ -65,8 +65,9 @@ export function AppShell() {
         const data = await api.getSessions();
         if (cancelled) return;
         setSessions(data);
-        // 默认选中第一个会话(若存在)
-        if (data.length > 0 && !currentSessionId) {
+        // 恢复上次会话;若持久化的 id 已失效(会话被删除),回退到第一个会话
+        const currentExists = currentSessionId && data.some((s) => s.id === currentSessionId);
+        if (data.length > 0 && !currentExists) {
           setCurrentSession(data[0].id);
         }
       } catch (e) {

@@ -13,7 +13,7 @@
  */
 import { memo, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { ContentPart, Message, ToolCallRecord } from '@/types';
+import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
@@ -100,7 +100,8 @@ function MessageBubbleComponent({
     const record: ToolCallRecord = {
       id: message.toolCallId ?? message.id,
       name: message.toolName ?? 'tool',
-      args: undefined,
+      // 前端固化路径携带 args(如 todo_write 完整累计树);后端历史加载无此字段时为 undefined
+      args: message.args,
       status: message.success === false ? 'failed' : 'success',
       progress: [],
       result: typeof message.content === 'string' ? message.content : extractText(message.content),
@@ -150,6 +151,9 @@ function MessageBubbleComponent({
           </div>
         </div>
       )}
+      {message.web_searched && message.web_search_actions && (
+        <WebSearchRow actions={message.web_search_actions} />
+      )}
       {html ? (
         <div
           className="msg-markdown"
@@ -170,6 +174,165 @@ function MessageBubbleComponent({
         />
       )}
     </div>
+  );
+}
+
+/** 联网搜索摘要行(对齐旧版 RenderPipeline.renderWebSearchRow 完成态) */
+function WebSearchRow({ actions }: { actions: WebSearchAction[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const summary = useMemo(() => buildWebSearchSummary(actions), [actions]);
+  const detailGroups = useMemo(() => buildWebSearchDetailGroups(actions), [actions]);
+  const toggleable = detailGroups.length > 0;
+
+  return (
+    <div className={`web-search-row completed${expanded ? ' expanded' : ''}`}>
+      <div
+        className={`web-search-row-header${toggleable ? ' toggleable' : ''}`}
+        role={toggleable ? 'button' : undefined}
+        tabIndex={toggleable ? 0 : undefined}
+        aria-expanded={expanded}
+        title={toggleable ? '展开搜索详情' : undefined}
+        onClick={toggleable ? () => setExpanded((v) => !v) : undefined}
+        onKeyDown={
+          toggleable
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setExpanded((v) => !v);
+                }
+              }
+            : undefined
+        }
+      >
+        <span className="web-search-row-icon">{SEARCH_SVG}</span>
+        <span className="web-search-row-label">{summary}</span>
+        {toggleable && <span className="web-search-row-chevron">{CHEVRON_SVG}</span>}
+      </div>
+      {toggleable && <div className="web-search-row-detail">{detailGroups}</div>}
+    </div>
+  );
+}
+
+/** 联网搜索瞬态行(实时流进行中显示,对齐旧版 renderWebSearchRow 流式态) */
+export function WebSearchStreamingRow() {
+  return (
+    <div className="web-search-row streaming">
+      <div className="web-search-row-header">
+        <span className="web-search-row-icon">{SEARCH_SVG}</span>
+        <span className="web-search-row-label">正在联网搜索…</span>
+      </div>
+    </div>
+  );
+}
+
+const SEARCH_SVG = (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+);
+
+const CHEVRON_SVG = (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
+
+/** 聚合摘要(对齐旧版 _buildWebSearchSummary):统计搜索词 / 打开的网页 / 页内查找 */
+function buildWebSearchSummary(actions: WebSearchAction[]): string {
+  if (!actions.length) return '已联网搜索';
+  let queryCount = 0;
+  let openCount = 0;
+  let findCount = 0;
+  for (const a of actions) {
+    if (!a || !a.type) continue;
+    if (a.type === 'search') {
+      queryCount += Array.isArray(a.queries) ? a.queries.length : 0;
+    } else if (a.type === 'open_page') {
+      if (a.status !== 'failed') openCount++;
+    } else if (a.type === 'find_in_page') {
+      if (a.status !== 'failed') findCount++;
+    }
+  }
+  const parts: string[] = [];
+  if (queryCount > 0) parts.push(`${queryCount} 个关键词`);
+  if (openCount > 0) parts.push(`打开 ${openCount} 个网页`);
+  if (findCount > 0) parts.push(`页内查找 ${findCount} 次`);
+  return parts.length > 0 ? `已联网搜索 · ${parts.join(' · ')}` : '已联网搜索';
+}
+
+/** 展开详情分组(对齐旧版 _buildWebSearchDetails):搜索词 / 打开的网页 / 页内查找 */
+function buildWebSearchDetailGroups(actions: WebSearchAction[]): ReactNode[] {
+  const queries: string[] = [];
+  const pages: { url: string; failed: boolean }[] = [];
+  const finds: { url: string; pattern: string; failed: boolean }[] = [];
+  for (const a of actions) {
+    if (!a || !a.type) continue;
+    if (a.type === 'search') {
+      if (Array.isArray(a.queries)) {
+        queries.push(...a.queries.filter((q) => q && q.length > 0));
+      }
+    } else if (a.type === 'open_page') {
+      pages.push({ url: stripWsCallId(a.url), failed: a.status === 'failed' });
+    } else if (a.type === 'find_in_page') {
+      finds.push({ url: stripWsCallId(a.url), pattern: a.pattern || '', failed: a.status === 'failed' });
+    }
+  }
+
+  const groups: ReactNode[] = [];
+  if (queries.length) {
+    groups.push(
+      <div key="q" className="web-search-detail-group">
+        <div className="web-search-detail-title">搜索关键词</div>
+        {queries.map((q, i) => (
+          <div key={i} className="web-search-detail-item">{q}</div>
+        ))}
+      </div>,
+    );
+  }
+  if (pages.length) {
+    groups.push(
+      <div key="p" className="web-search-detail-group">
+        <div className="web-search-detail-title">打开的网页</div>
+        {pages.map((p, i) => (
+          <div key={i} className={`web-search-detail-item${p.failed ? ' failed' : ''}`}>
+            {buildWebUrlLink(p.url)}
+          </div>
+        ))}
+      </div>,
+    );
+  }
+  if (finds.length) {
+    groups.push(
+      <div key="f" className="web-search-detail-group">
+        <div className="web-search-detail-title">页内查找</div>
+        {finds.map((f, i) => (
+          <div key={i} className={`web-search-detail-item${f.failed ? ' failed' : ''}`}>
+            {buildWebUrlLink(f.url)}
+            {f.pattern ? ` · ${f.pattern}` : ''}
+          </div>
+        ))}
+      </div>,
+    );
+  }
+  return groups;
+}
+
+/** 剥掉服务端附加的 #ws_call_id=xxx 尾巴(对齐旧版 _stripWsCallId) */
+function stripWsCallId(url?: string): string {
+  if (!url) return '';
+  return url.replace(/#ws_call_id=[^#]*$/, '');
+}
+
+/** 仅 http/https 生成可点击链接,其余协议回退纯文本(对齐旧版 _buildWebUrlLink) */
+function buildWebUrlLink(url: string): ReactNode {
+  if (!url) return null;
+  const display = url.length > 60 ? `${url.slice(0, 60)}…` : url;
+  if (!/^https?:\/\//i.test(url)) return display;
+  return (
+    <a className="web-search-detail-link" href={url} target="_blank" rel="noopener noreferrer">
+      {display}
+    </a>
   );
 }
 

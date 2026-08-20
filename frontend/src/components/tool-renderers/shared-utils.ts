@@ -133,6 +133,67 @@ export function countDiffStats(oldText: string, newText: string): { insertions: 
 }
 
 // ============================================================================
+// todo_write 会话级累计(对齐旧版 shared.js 的 parseTodoArgs / deepMergeTodoList)
+// ============================================================================
+
+/** 扁平任务节点(含 parentId,按 id 合并后再由 TodoWriteCard 构建为树) */
+export interface FlatTodo {
+  id: string;
+  content?: string;
+  status?: string;
+  parentId?: string | null;
+  sessionId?: string | null;
+}
+
+/**
+ * 解析 todo_write 的 args(JSON 字符串或对象)。
+ * 对齐旧版 parseTodoArgs:失败时返回 { mode:'merge', todos:[] }。
+ */
+export function parseTodoArgs(args: unknown): { mode: string; todos: FlatTodo[] } {
+  try {
+    const parsed = typeof args === 'string' ? JSON.parse(args) : (args ?? {});
+    return {
+      mode: parsed?.mode ?? 'merge',
+      todos: Array.isArray(parsed?.todos) ? (parsed.todos as FlatTodo[]) : [],
+    };
+  } catch {
+    return { mode: 'merge', todos: [] };
+  }
+}
+
+/**
+ * 按 id 深合并两个扁平 todo 列表(对齐旧版 deepMergeTodoList):
+ *  - newList 中已存在的 id → 仅更新被提及的字段(content/status/sessionId/parentId)
+ *  - newList 中的新 id → 追加(默认 status: 'pending')
+ *  - oldList 未被提及时保持不变(保留完整累计状态)
+ */
+export function deepMergeTodoList(
+  oldList: FlatTodo[],
+  newList: FlatTodo[],
+): FlatTodo[] {
+  const map = new Map<string, FlatTodo>();
+  (oldList || []).forEach((t) => map.set(t.id, { ...t }));
+  (newList || []).forEach((nt) => {
+    const existing = map.get(nt.id);
+    if (existing) {
+      if (nt.content !== undefined) existing.content = nt.content;
+      if (nt.status !== undefined) existing.status = nt.status;
+      if (nt.sessionId !== undefined) existing.sessionId = nt.sessionId;
+      if (nt.parentId !== undefined) existing.parentId = nt.parentId;
+    } else {
+      map.set(nt.id, {
+        id: nt.id,
+        content: nt.content ?? '',
+        status: nt.status || 'pending',
+        parentId: nt.parentId ?? null,
+        sessionId: nt.sessionId ?? null,
+      });
+    }
+  });
+  return Array.from(map.values());
+}
+
+// ============================================================================
 // Timeline 摘要提取(对齐旧版 renderToolTimelineRow 的 summary 逻辑)
 // ============================================================================
 

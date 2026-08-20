@@ -136,7 +136,7 @@ export function TodoWriteCard({ record }: ToolCardProps) {
       }
       title="任务清单"
       statusBadge={summary}
-      defaultExpanded={true}
+      defaultExpanded={total > 0}
     >
       {total > 1 && (
         <div className="todo-progress-bar">

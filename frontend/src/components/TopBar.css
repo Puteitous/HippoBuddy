@@ -201,19 +201,33 @@ body.window-maximized {
   align-items: center;
   gap: 1px;
   margin-left: 2px;
+  /* 桌面端整条 .top-bar 是 drag 区域;下拉面板与空隙桥必须 no-drag,
+     否则鼠标移入会落进可拖拽区,导致 hover/mouseleave 异常、下拉闪烁消失 */
+  -webkit-app-region: no-drag;
 }
 
 .header-folder-group .top-bar-icon-btn {
   padding: 5px;
 }
 
-/* 最近文件夹下拉(对齐旧版 .header-folder-dropdown) */
-.header-folder-dropdown {
+/* 覆盖按钮与下拉之间 4px 间距:必须用真实元素而非 ::before 伪元素。
+   伪元素不是真正的 DOM 命中目标,鼠标悬停其上时 relatedTarget 解析为 null,
+   会误触发 mouseleave 收起下拉;真实 div 能提供切实的命中目标。 */
+.header-folder-group-bridge {
   position: absolute;
   top: 100%;
+  left: 0;
   right: 0;
-  left: auto;
-  transform: none;
+  height: 4px;
+}
+
+/* 最近文件夹下拉(对齐旧版 .header-folder-dropdown,水平居中对齐图标按钮) */
+.header-folder-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   min-width: 220px;
   max-width: 300px;
   max-height: 320px;
@@ -224,7 +238,6 @@ body.window-maximized {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   z-index: 1100;
   padding: 4px 0;
-  margin-top: 4px;
 }
 
 .header-folder-dropdown-header {

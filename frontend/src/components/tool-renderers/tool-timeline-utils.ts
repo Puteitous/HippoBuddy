@@ -18,6 +18,7 @@ export type TimelineStatus =
   | 'failed'
   | 'cancelled'
   | 'interrupted'
+  | 'denied'
   | 'pending_confirmation';
 
 /** Timeline 行数据(统一实时流与历史消息两种来源) */
@@ -81,7 +82,9 @@ export function fromToolMessage(msg: Message): TimelineToolItem {
   const content = extractContentText(msg.content);
   let status: TimelineStatus = msg.success === false ? 'failed' : 'success';
   const lower = content.toLowerCase();
-  if (lower.includes('cancelled') || lower.includes('user_cancelled')) {
+  if (lower.includes('用户拒绝')) {
+    status = 'denied';
+  } else if (lower.includes('cancelled') || lower.includes('user_cancelled')) {
     status = 'cancelled';
   } else if (lower.includes('interrupted')) {
     status = 'interrupted';

@@ -504,3 +504,149 @@
 .message-file-popover .file-status.status-deleted {
   color: var(--error-color);
 }
+
+/* ════════════════════════════════════════════════════════
+   联网搜索摘要行(对齐旧版 RenderPipeline.renderWebSearchRow)
+   旧版样式见 css/common.css 178-326 行
+   ════════════════════════════════════════════════════════ */
+
+.web-search-row {
+  margin: 4px 0;
+}
+
+.web-search-row .web-search-row-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.web-search-row .web-search-row-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.web-search-row .web-search-row-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.web-search-row.completed .web-search-row-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* 流式态(实时搜索进行中):图标脉冲 + 次要色文案 */
+.web-search-row.streaming .web-search-row-icon {
+  color: var(--primary-color, var(--text-muted));
+  animation: web-search-pulse 1.4s ease-in-out infinite;
+}
+
+.web-search-row.streaming .web-search-row-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@keyframes web-search-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* 完成态摘要行可点击展开详情 */
+.web-search-row.completed .web-search-row-header.toggleable {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+
+.web-search-row.completed .web-search-row-header.toggleable:hover {
+  background: var(--bg-canvas);
+}
+
+/* 展开箭头(chevron):可展开时显示,展开后旋转 90° */
+.web-search-row.completed .web-search-row-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  opacity: 0.7;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.web-search-row.completed.expanded .web-search-row-chevron {
+  transform: rotate(90deg);
+  opacity: 1;
+}
+
+/* 展开详情(默认收起) */
+.web-search-row.completed .web-search-row-detail {
+  display: none;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0 12px 0 14px;
+  margin: 0 0 0 16px;
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.25s ease;
+}
+
+.web-search-row.completed.expanded .web-search-row-detail {
+  display: block;
+  opacity: 1;
+  overflow: hidden;
+  padding: 8px 12px 8px 14px;
+  margin: 4px 0 0 16px;
+  border-left: 2px solid var(--border-color);
+}
+
+.web-search-row-detail .web-search-detail-group {
+  margin-bottom: 6px;
+}
+
+.web-search-row-detail .web-search-detail-group:last-child {
+  margin-bottom: 0;
+}
+
+.web-search-row-detail .web-search-detail-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.web-search-row-detail .web-search-detail-item {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  word-break: break-all;
+  padding-left: 4px;
+}
+
+.web-search-row-detail .web-search-detail-link {
+  color: var(--primary-color, var(--text-primary));
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.web-search-row-detail .web-search-detail-link:hover {
+  text-decoration: underline;
+}
+
+.web-search-row-detail .web-search-detail-item.failed .web-search-detail-link {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.web-search-row-detail .web-search-detail-item.failed {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}

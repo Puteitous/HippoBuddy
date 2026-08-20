@@ -4,7 +4,7 @@
  * 类型对齐后端 com.example.agent.web.handler.* 实际接口。
  * 所有方法返回 Promise<T>,失败抛出 ApiError。
  */
-import { deleteJson, getJson, postEmpty, postJson, putJson } from './http';
+import { deleteJson, getJson, postJson, putJson } from './http';
 import { streamSse } from './sse';
 import type { SseEvent } from './sse';
 import type {
@@ -142,9 +142,19 @@ export const chatApi = {
     signal?: AbortSignal,
   ) => streamSse<K>(`${API_BASE}/chat`, request, onEvent, signal),
 
-  /** POST /api/tool/confirm - 工具确认(bash/delete_file) */
-  confirmTool: (request: ToolConfirmRequest) =>
-    postEmpty(`${API_BASE}/tool/confirm`, request),
+  /**
+   * POST /api/tool/confirm - 工具确认(bash/delete_file)
+   *
+   * 后端 /api/tool/confirm 是 SSE 响应流:allow 时在流内推送 tool_progress /
+   * tool_result(以及后续 continueAfterConfirmation 的 Agent 事件),deny 时推送
+   * tool_result。必须像 /api/chat 一样流式消费事件,否则确认后的工具状态/进度/结果
+   * 以及后续回复都无法更新(旧版 ConfirmHandler 手动读流即为此原因)。
+   */
+  confirmTool: <K extends ChatSseEventName = ChatSseEventName>(
+    request: ToolConfirmRequest,
+    onEvent: (event: SseEvent<K>) => void,
+    signal?: AbortSignal,
+  ) => streamSse<K>(`${API_BASE}/tool/confirm`, request, onEvent, signal),
 
   /** POST /api/tool/abort - 中止当前会话的 Agent 循环 */
   abortTool: (request: ToolAbortRequest) =>

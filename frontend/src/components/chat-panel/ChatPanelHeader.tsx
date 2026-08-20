@@ -121,6 +121,10 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
             </svg>
           </button>
 
+          {/* 真实元素空隙桥:覆盖按钮与下拉间 4px 间距,避免鼠标下移误触发 mouseleave
+              (不能用 ::before 伪元素,其 relatedTarget 解析为 null 会误判离开) */}
+          <div className="chat-history-bridge" />
+
           {open && (
             <div className="chat-history-dropdown">
               {grouped.length === 0 ? (

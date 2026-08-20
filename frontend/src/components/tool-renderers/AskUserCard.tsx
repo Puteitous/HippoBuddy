@@ -1,60 +1,83 @@
 /**
- * AskUserCard - ask_user 工具卡片
+ * AskUserCard - ask_user 工具卡片(内联消息流,对齐旧版 ask segment)
  *
- * 渲染:
+ * 渲染(对齐旧版 ask-user.js):
  *  - 问题文本
  *  - 选项按钮列表(若 options 提供)
- *  - 自由输入框(若 allow_custom_input !== false)
+ *  - 无状态徽章、无折叠箭头、无自定义输入框(与旧版一致)
  *
- * 提交流程:
- *  - 选项按钮:把选项作为消息内容调用 chatApi.stream
- *  - 自由输入:把输入文本作为消息内容调用 chatApi.stream
- *  - 提交后置 chatStore.waitingForUser = false(避免重复触发)
+ * 数据源:
+ *  - record(历史 / 固化后的 tool 消息):从 record.args 解析 question/options/answered,
+ *    用于只读历史态,刷新后也能从消息流重建。
+ *  - 无 record(实时等待):从 chatStore.askUserData 读取(waiting_user 事件驱动),
+ *    后端对 ask_user 不发 tool_start,故实时渲染必须依赖该事件。
  *
- * 注:旧版 ask_user 提交后会清除 AskUserCard。
- *     新版 3.3 因为 chatStore.waitingForUser 控制是否显示,
- *     提交后置 false 即可让卡片消失。
+ * 生命周期(对齐旧版):
+ *  - 实时等待时:展示 question + 可点选项(结尾卡片,交互态)。
+ *  - 提交回答后:由 chatStore.commitAskUser 固化为一条 tool 消息(record 渲染只读态),
+ *    并清空全局 askUserData,卡片随副本保留在消息流,不再跨回合残留。
  */
 import { useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
-import { useChatStream } from '@/hooks/useChatStream';
-import { StatusBadge, ToolCardFrame } from './shared';
-import { parseToolArgs, ToolCardProps } from './shared-utils';
+import { ToolCardFrame, StatusBadge } from './shared';
+import { parseToolArgs } from './shared-utils';
+import type { ToolCallRecord } from '@/types';
 
-interface AskUserArgs {
-  question?: string;
-  options?: string[] | null;
-  allow_custom_input?: boolean;
+interface AskUserCardProps {
+  record?: ToolCallRecord;
 }
 
-export function AskUserCard({ record }: ToolCardProps) {
-  const args = parseToolArgs<AskUserArgs>(record.args);
-  const question = args.question ?? '';
-  const options = Array.isArray(args.options) ? args.options : [];
-  const allowCustom = args.allow_custom_input !== false;
-
-  const currentSessionId = useAppStore((s) => s.currentSessionId);
+export function AskUserCard({ record }: AskUserCardProps = {}) {
+  const askUserData = useChatStore((s) => s.askUserData);
   const waitingForUser = useChatStore((s) => s.waitingForUser);
-  const setWaitingForUser = useChatStore((s) => s.setWaitingForUser);
+  const commitAskUser = useChatStore((s) => s.commitAskUser);
   const setError = useChatStore((s) => s.setError);
+  // 复用 store 内的统一发送通道(与主输入框同一请求、同一 AbortController)。
+  // 不用 useChatStream:其不再随组件卸载自动 abort,但这里直接走 store 更明确,
+  // 且提交后卡片即卸载,不影响仍应继续的回答流。
+  const sendUserMessage = useChatStore((s) => s.sendUserMessage);
+  const currentSessionId = useAppStore((s) => s.currentSessionId);
 
-  // 通过 useChatStream 复用主对话发送闭环(乐观更新 / SSE 分发 / 中断)
-  const { send: sendStream } = useChatStream();
-
-  const [input, setInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // 提交回答:作为新一轮对话消息发送
+  // 数据统一:record 优先(历史/固化只读),否则回退实时全局态(交互)。
+  const fromRecord = !!record;
+  let question = '';
+  let options: string[] = [];
+  let answered: string | null = null;
+  if (record && record.args) {
+    const a = parseToolArgs<{
+      question?: unknown;
+      options?: unknown;
+      answered?: unknown;
+    }>(record.args);
+    question = typeof a.question === 'string' ? a.question : '';
+    options = Array.isArray(a.options) ? (a.options as string[]).filter((x) => typeof x === 'string') : [];
+    answered = typeof a.answered === 'string' ? a.answered : null;
+  } else if (askUserData) {
+    question = askUserData.question ?? '';
+    options = Array.isArray(askUserData.options) ? askUserData.options : [];
+    answered = askUserData.answered ?? null;
+  }
+
+  // 均无数据(未收到 waiting_user,且无历史记录)时不渲染
+  if (!askUserData && !record) return null;
+
+  // 仅"实时等待且未答复"才可交互;record 存在(历史/固化)或已答复一律只读,
+  // 避免跨会话误提交,并保证刷新重建的卡片不会激活错误交互。
+  const interactive = !fromRecord && answered == null && waitingForUser;
+
+  // 提交回答:固化为只读历史 + 作为新一轮对话消息发送
   const submit = async (answer: string) => {
-    if (!answer.trim() || submitting) return;
+    if (!answer?.trim() || submitting) return;
     if (!currentSessionId) return;
     setSubmitting(true);
-    setError(null);
-    // 提交后立即关闭输入态,防止重复提交(卡片卸载)
-    setWaitingForUser(false);
     try {
-      await sendStream(answer);
+      // 先固化 ask_user 记录(含 answered)并清空实时全局态,使卡片转为只读历史
+      commitAskUser(answer);
+      setError(null);
+      await sendUserMessage(answer);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -62,26 +85,9 @@ export function AskUserCard({ record }: ToolCardProps) {
     }
   };
 
-  const handleOptionClick = (opt: string) => {
-    void submit(opt);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      void submit(input);
-      setInput('');
-    }
-  };
-
-  // 若用户已提交,且不再 waitingForUser,则隐藏卡片
-  if (!waitingForUser) {
-    return null;
-  }
-
   return (
     <ToolCardFrame
-      className="ask-user-card"
+      className={`ask-user-card${interactive ? ' waiting-user-card' : ''}`}
       icon={
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="8" cy="8" r="6" />
@@ -90,50 +96,40 @@ export function AskUserCard({ record }: ToolCardProps) {
         </svg>
       }
       title="需要确认"
-      statusBadge={<StatusBadge status={record.status} />}
-      defaultExpanded={true}
-      collapsible={false}
+      // 已回复的只读卡在头部显示「已回复」徽章,收起时也能看出该 ask 已被答复
+      statusBadge={
+        !interactive && answered != null ? (
+          <StatusBadge status="success">已回复</StatusBadge>
+        ) : undefined
+      }
+      // 实时等待态默认展开、不可折(保证选项可见可作答);
+      // 只读态(已回复/历史)默认收起为紧凑卡、可点击展开查看问题与回答(对齐旧版已解决卡)
+      defaultExpanded={interactive}
+      collapsible={!interactive}
     >
       <div className="ask-user-question">{question}</div>
 
-      {options.length > 0 && (
-        <div className="ask-user-options">
-          {options.map((opt, i) => (
-            <button
-              key={i}
-              type="button"
-              className="ask-user-option-btn"
-              onClick={() => handleOptionClick(opt)}
-              disabled={submitting}
-            >
-              {opt}
-            </button>
-          ))}
+      {answered != null ? (
+        <div className="ask-user-answer">
+          <span className="ask-user-answer-label">已回复</span>
+          <span>{answered}</span>
         </div>
-      )}
-
-      {allowCustom && (
-        <div className="ask-user-input">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入回答…(Enter 提交,Shift+Enter 换行)"
-            rows={2}
-            disabled={submitting}
-          />
-          <button
-            type="button"
-            className="confirmation-btn allow"
-            onClick={() => {
-              void submit(input);
-              setInput('');
-            }}
-            disabled={submitting || !input.trim()}
-          >
-            {submitting ? '提交中…' : '提交'}
-          </button>
-        </div>
+      ) : (
+        options.length > 0 && (
+          <div className="ask-user-options">
+            {options.map((opt, i) => (
+              <button
+                key={i}
+                type="button"
+                className="ask-user-option-btn"
+                onClick={interactive ? () => void submit(opt) : undefined}
+                disabled={!interactive || submitting}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )
       )}
     </ToolCardFrame>
   );

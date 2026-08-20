@@ -14,8 +14,7 @@
    .message-content),不受 .chat-container gap:16px 影响,
    与上下内容仅 6px 间距(自身 margin: 6px 0)。
    新版 timeline 是 .history-list 的直接子元素,受 gap:16px
-   影响,间距变为 16+6=22px;用负 margin 抵消 gap 还原 6px。
-   (仅作用于历史列表,不影响实时流 .chat-panel-toolcalls) */
+   影响,间距变为 16+6=22px;用负 margin 抵消 gap 还原 6px。 */
 .history-list .tool-timeline {
   margin-top: -10px;
   margin-bottom: -10px;
@@ -60,4 +59,14 @@
   color: var(--text-muted);
   font-size: var(--font-size-md);
   font-style: italic;
+}
+
+/* ── 待确认工具独立确认区(对齐旧版回合级行内确认) ──────────
+   渲染在 .history-list 之后、chat-panel-messages 内,不依赖流式
+   tail(isStreamSending),流结束后仍驻留,直到用户决策才消失。 */
+.history-confirm-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
 }

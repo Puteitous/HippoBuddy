@@ -10,12 +10,13 @@
  *    pending_confirmation(待确认态默认展开,确认 UI 行内渲染)
  *
  * 与旧版的差异(刻意简化):
- *  - 历史消息的 tool 消息不含 args,摘要退化为工具名 + 内容首行
- *  - 「查看变更」按钮依赖旧版 window.showFileDiff,新版无对应桥接,
- *    以文件路径点击跳转替代(见 timelineFilePath)
+ *  - 实时流 / 后端加载的历史消息均带完整 args(assistant.tool_calls 还原,见 HistoryRenderer),
+ *    摘要、文件跳转、diff 与旧版一致;仅前端内存固化消息(实时结束未刷新)退化为工具名 + 内容首行
+ *  - 「查看变更」按钮走 previewStore.openDiff 打开 diff 标签页(替代旧版 window.showFileDiff)
  */
 import { memo, useMemo, useState } from 'react';
 import { desktopBridge } from '@/utils/desktop-bridge';
+import { usePreviewStore } from '@/stores/previewStore';
 import type { TimelineToolItem } from './tool-timeline-utils';
 import { ToolTimelineConfirmation } from './ToolTimelineConfirmation';
 import {
@@ -131,6 +132,15 @@ function StatusGlyph({ item }: { item: TimelineToolItem }) {
       </svg>
     );
   }
+  if (status === 'denied') {
+    // 用户拒绝执行/删除:禁止符号(区别于 cancelled 的 ✕ 与 failed 的 ✖)
+    return (
+      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="8" cy="8" r="5.5" />
+        <line x1="5" y1="8" x2="11" y2="8" />
+      </svg>
+    );
+  }
   if (status === 'running') {
     return (
       <svg className="tool-spinner" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
@@ -200,6 +210,14 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
   }
   if (status === 'interrupted') {
     return <div className="timeline-detail-status interrupted">已中断</div>;
+  }
+  if (status === 'denied') {
+    // 用户拒绝执行/删除:中性提示而非红色错误(对齐旧版 delete 被拒显示"已拒绝删除")
+    return (
+      <div className="timeline-detail-status denied">
+        {item.name === 'delete_file' ? '已拒绝删除' : '已拒绝执行'}
+      </div>
+    );
   }
 
   // 执行中:优先展示流式进度
@@ -352,6 +370,12 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
           {summary}
         </span>
         {item.name === 'bash' && summary && <CopyCommandButton command={summary} />}
+        {item.name === 'edit_file' && item.status === 'success' && filePath && (
+          <ViewDiffButton filePath={filePath} toolCallId={item.id} />
+        )}
+        {item.name === 'write_file' && item.status === 'success' && filePath && (
+          <ViewDiffButton filePath={filePath} toolCallId={item.id} />
+        )}
         <span className={`tool-timeline-status ${item.status}`}>
           <StatusGlyph item={item} />
         </span>
@@ -397,6 +421,37 @@ function CopyCommandButton({ command }: { command: string }) {
           <path d="M32.1875 13H7.8125C6.2592 13 5 14.2592 5 15.8125V40.1875C5 41.7408 6.2592 43 7.8125 43H32.1875C33.7408 43 35 41.7408 35 40.1875V15.8125C35 14.2592 33.7408 13 32.1875 13Z" />
         </svg>
       )}
+    </span>
+  );
+}
+
+/**
+ * 查看变更按钮(edit_file / write_file 成功态显示,悬浮行时可见)。
+ * 对齐旧版「查看变更」:点击打开该文件 diff 标签页并聚焦本次工具调用的变更。
+ */
+function ViewDiffButton({ filePath, toolCallId }: { filePath: string; toolCallId: string }) {
+  const openDiff = () => {
+    usePreviewStore.getState().openDiff(filePath, toolCallId);
+  };
+
+  return (
+    <span
+      className="tool-timeline-view-btn"
+      onClick={(e) => {
+        e.stopPropagation();
+        openDiff();
+      }}
+      title="查看变更"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openDiff();
+        }
+      }}
+    >
+      查看变更
     </span>
   );
 }

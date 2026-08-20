@@ -21,7 +21,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
 import { api } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
-import type { PendingImage, RefChip, ToolCallRecord } from '@/types';
+import type { Message, PendingImage, RefChip, ToolCallRecord } from '@/types';
 import { combineChipsToMessage } from '@/utils/ref-chips';
 import { on } from '@/utils/eventBus';
 import type { SelectionAddToInputPayload } from '@/utils/eventBus';
@@ -31,10 +31,9 @@ import {
   generateImageId,
   isVisionSupported,
 } from '@/utils/image-vision';
-import { MessageBubble } from './MessageBubble';
+import { MessageBubble, WebSearchStreamingRow } from './MessageBubble';
 import { HistoryRenderer } from './HistoryRenderer';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
-import { AskUserCard } from '../tool-renderers/AskUserCard';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
 import { fromToolCallRecord, groupTimelineItems } from '../tool-renderers/tool-timeline-utils';
 import { TokenMonitor } from './TokenMonitor';
@@ -64,12 +63,15 @@ export function ChatPanel() {
   const clearWarnings = useChatStore((s) => s.clearWarnings);
   // 工具调用(实时流中显示,回合结束后由 messages 中的 tool role 消息接管)
   const toolCalls = useChatStore((s) => s.toolCalls);
-  // ask_user 触发的用户输入卡片(等待回答时显示)
-  const waitingForUser = useChatStore((s) => s.waitingForUser);
+  // 联网搜索动作累积 + 进行中标记(实时流搜索瞬态行 / 完成态聚合)
+  const webSearchActions = useChatStore((s) => s.webSearchActions);
+  const webSearching = useChatStore((s) => s.webSearching);
+  // 会话级 todo 累计树(tool_start 驱动,渲染时注入卡片)
+  const todoList = useChatStore((s) => s.todoList);
 
   // 流式渲染行:按 stream 顺序交错渲染 assistant 气泡与工具卡片(对齐旧版 segment 时序)。
   // 文本/思考段落渲染为 assistant 气泡,连续普通工具合并为 timeline,todo_write 独立卡片;
-  // ask_user 由下方 ask-user 区块渲染,这里跳过避免重复。
+  // ask_user 由 HistoryRenderer 内联渲染(数据源 waiting_user 事件,不在流式行重复出现)。
   const streamRows = useMemo(() => {
     const rows: ReactNode[] = [];
     const toolMap = new Map(toolCalls.map((tc) => [tc.id, tc]));
@@ -84,31 +86,59 @@ export function ChatPanel() {
     let tlBuf: ToolCallRecord[] = [];
     const flushTools = () => {
       if (tlBuf.length === 0) return;
-      const { standalone, groups } = groupTimelineItems(tlBuf);
+      // 待确认的 bash/delete_file 抽离到 HistoryRenderer 下方的独立确认区
+      // (pendingConfirmRecords)持久渲染,对齐旧版"确认区是回合数据、流结束不消失"
+      // 的语义;不再放入依赖 isStreamSending 的流式 timeline,避免 isSending=false
+      // 时确认卡片随 tail 卸载。决策后 confirmationData 清除,独立区消失,
+      // 该记录由后续 tool_result 固化到 timeline 回到执行中态。
+      const restBuf = tlBuf.filter((tc) => !tc.confirmationData);
+      tlBuf = [];
+      if (restBuf.length === 0) return;
+      const { standalone, groups } = groupTimelineItems(restBuf);
       for (const tc of standalone) {
         if (tc.name === 'ask_user') continue;
-        rows.push(<ToolCardDispatcher key={tc.id} record={tc} />);
+        if (tc.name === 'todo_write') {
+          // todo_write 渲染会话级累计树(tool_start 已驱动 mergeTodoList 更新)。
+          rows.push(
+            <ToolCardDispatcher
+              key={tc.id}
+              record={{ ...tc, args: { mode: 'merge', todos: todoList } }}
+            />,
+          );
+        } else {
+          rows.push(<ToolCardDispatcher key={tc.id} record={tc} />);
+        }
       }
       for (const g of groups) {
         rows.push(<ToolTimeline key={`tl-${g[0].id}`} items={g.map(fromToolCallRecord)} />);
       }
-      tlBuf = [];
     };
     stream.forEach((item, idx) => {
       if (item.kind === 'assistant') {
         flushTools();
+        // 空白 assistant 段(thinking 事件创建的初始段,尚无 reasoning/text):
+        // 与 commitStreamingMessage 固化时跳过空段(logic 对称)同样不渲染,
+        // 避免"流式中显示空气泡 → done 固化后消失"导致该节点卸载重挂。
+        if (!item.text && !item.reasoning) return;
         // 仅最后一段(当前打开的流式段)显示光标与"思考中"标签;
         // 中间被工具分隔的段落无光标、无 footer,避免多个光标闪烁
         const isOpen = idx === lastAssistantIdx;
+        // 联网搜索动作注入当前流式段:使实时流与固化后 HistoryRenderer 渲染同一
+        // WebSearchRow,且 key 一致时 DOM 复用,避免进入动画重放。
+        const msg: Message = {
+          id: `s-${item.turn}-${idx}`,
+          role: 'assistant',
+          content: item.text || '',
+          reasoning_content: item.reasoning || undefined,
+        };
+        if (isOpen && webSearchActions.length > 0) {
+          msg.web_searched = true;
+          msg.web_search_actions = webSearchActions;
+        }
         rows.push(
           <MessageBubble
             key={`s-${item.turn}-${idx}`}
-            message={{
-              id: `s-${item.turn}-${idx}`,
-              role: 'assistant',
-              content: item.text || '',
-              reasoning_content: item.reasoning || undefined,
-            }}
+            message={msg}
             isStreaming={isOpen}
             isReasoning={isReasoning && isOpen}
             showFooter={false}
@@ -120,11 +150,26 @@ export function ChatPanel() {
       }
     });
     flushTools();
+
+    // 实时流搜索进行中:末尾渲染瞬态行「正在联网搜索…」(对齐旧版流式态标记)
+    if (webSearching) {
+      rows.push(<WebSearchStreamingRow key="web-search-streaming" />);
+    }
     return rows;
-  }, [stream, toolCalls, isReasoning]);
+  }, [stream, toolCalls, isReasoning, webSearchActions, webSearching, todoList]);
+
+  // 待确认工具记录:独立于流式 tail 持久渲染(对齐旧版回合级行内确认)。
+  // 从 toolCalls 过滤带 confirmationData 的记录,不依赖 isStreamSending;
+  // done 固化时 chatStore 也会保留待确认记录(见 commitStreamingMessage),
+  // 直到用户决策后 confirmationData 被清除,此处自动消失。
+  const pendingConfirmRecords = useMemo(
+    () => toolCalls.filter((tc) => !!tc.confirmationData),
+    [toolCalls],
+  );
 
   const { send, abort, isSending: isStreamSending } = useChatStream();
   const [input, setInput] = useState('');
+
   /** 聊天面板是否已收起(对齐旧版 chat-panel.collapsed) */
   const [collapsed, setCollapsed] = useState(false);
   /** 是否显示"滚动到底部"提示按钮(用户上滚离开底部时显示) */
@@ -200,11 +245,20 @@ export function ChatPanel() {
   }, []);
 
   // 消息列表/流式内容变化时滚到底部(若未被用户上滚打断)
+  // pendingConfirmRecords.length:确认阶段 SSE 已结束(stream 不再变化),
+  // 独立确认区出现在消息列表末尾,需主动触发一次滚动使其进入可视区(对齐旧版
+  // 确认后 _smartScroll 跟随行为);用 length 而非数组引用,避免工具进度更新误触发。
+  // 待确认区存在时直接对滚动容器设 scrollTop(不依赖 scrollIntoView,后者受布局
+  // 影响可能滚不到位),确保确认卡片进入可视区。
   useEffect(() => {
-    if (stickToBottomRef.current) {
-      scrollToBottom('auto');
+    if (!stickToBottomRef.current) return;
+    if (pendingConfirmRecords.length > 0) {
+      const el = messagesContainerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+      return;
     }
-  }, [messages.length, stream, isReasoning, scrollToBottom]);
+    scrollToBottom('auto');
+  }, [pendingConfirmRecords.length, messages.length, stream, isReasoning, scrollToBottom]);
 
   // 切换会话时,重置 stickToBottom,并滚到底
   useEffect(() => {
@@ -491,18 +545,19 @@ export function ChatPanel() {
               onFork={handleFork}
               tail={isStreamSending && streamRows.length > 0 ? streamRows : undefined}
             />
-        {/* ask_user 触发的用户输入卡片(等待回答时显示) */}
-        {waitingForUser && (
-          <div className="chat-panel-ask-user">
-            {/* 从 toolCalls 找到 ask_user 调用 */}
-            {toolCalls
-              .filter((tc) => tc.name === 'ask_user' && tc.status === 'running')
-              .map((tc) => (
-                <AskUserCard key={tc.id} record={tc} />
-              ))}
-          </div>
-        )}
-
+            {/* 待确认工具独立确认区:对齐旧版行内确认持久化。
+                不依赖 isStreamSending,流式结束后确认区仍保留在回合内,
+                直到用户决策(confirmTool)清除 confirmationData 才消失。 */}
+            {pendingConfirmRecords.length > 0 && (
+              <div className="history-confirm-zone">
+                {pendingConfirmRecords.map((tc) => (
+                  <ToolTimeline
+                    key={`confirm-${tc.id}`}
+                    items={[fromToolCallRecord(tc)]}
+                  />
+                ))}
+              </div>
+            )}
         {/* 错误提示 */}
         {error && (
           <div className="chat-panel-error">

@@ -480,7 +480,8 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--bg-canvas);
+  /* 吸顶头部需不透底:取列表底色(--bg-app),与 .session-item 同底 */
+  background: var(--bg-app);
 }
 
 /* ========== 项目分组头(对齐旧版 .session-project-header) ========== */

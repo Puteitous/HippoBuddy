@@ -154,7 +154,12 @@ public class TodoWriteTool implements ToolExecutor {
                 roots.add(item);
             } else {
                 Map<String, Object> parent = nodeMap.get(parentId);
-                if (parent != null) {
+                // 挂接前做环检测:若 parentId 沿父链上溯能回到本节点(自引用/互引/上溯成环),
+                // 说明存在环,会导致渲染/统计递归无限 → 整树丢失。此时将该节点退回为根节点,
+                // 而非挂入环,保留内容并保证树始终无环。
+                if (wouldCreateCycle(parentId, (String) item.get("id"), nodeMap)) {
+                    roots.add(item);
+                } else if (parent != null) {
                     ((List<Map<String, Object>>) parent.get("children")).add(item);
                 } else {
                     // 父节点不存在，作为根节点
@@ -164,6 +169,29 @@ public class TodoWriteTool implements ToolExecutor {
         }
 
         return roots;
+    }
+
+    /**
+     * 沿 parentId 父链上溯,检测把 id 挂到 parentId 下是否会产生环。
+     * 自引用(A.parentId=A)、互引用(A↔B)、以及更深的上溯环都会被识别为环。
+     */
+    private boolean wouldCreateCycle(String parentId, String id, Map<String, Map<String, Object>> nodeMap) {
+        String cur = parentId;
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        seen.add(id);
+        while (cur != null && !cur.isEmpty()) {
+            if (seen.contains(cur)) {
+                return true;
+            }
+            seen.add(cur);
+            Map<String, Object> parent = nodeMap.get(cur);
+            if (parent == null) {
+                return false;
+            }
+            Object pid = parent.get("parentId");
+            cur = pid == null ? null : pid.toString();
+        }
+        return false;
     }
 
     /**
