@@ -146,6 +146,8 @@ interface ChatState {
   streamingMessageId: string | null;
   /** 当前 Agent 循环轮次(thinking 事件推送) */
   currentTurn: number;
+  /** 已分配的最大回合序号,跨用户消息请求单调递增,保证 assistant 固化 id 全局唯一 */
+  maxTurn: number;
   /** 流式渲染序列(content / reasoning / tool 按事件顺序交错) */
   stream: StreamItem[];
   /** 是否处于思考阶段(reasoning 已开始但未收到 reasoning_done)。仅流式气泡需要传。 */
@@ -315,6 +317,7 @@ const initialState = {
 
   streamingMessageId: null,
   currentTurn: 0,
+  maxTurn: 0,
   stream: [],
   isReasoning: false,
 
@@ -405,6 +408,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
     const additions: Message[] = [];
+    // 已存在于 messages 的 id(防同一次固化幂等重复:commitStreamingMessage 可能被
+    // 多次触发,thinking 事件还会按 turn 重置 stream,导致同 id 段 s-{turn}-{idx} 被重复固化。
+    // 仅 assistant 需要按 id 去重;刷新后走后端历史(id 恒常)本就不在此路径,故刷新正常)
+    const existingIds = new Set<string>(state.messages.map((m) => m.id));
+    const addedAssistantIds = new Set<string>();
     // 按 stream 原始顺序逐段固化 assistant 与 tool,id 与流式渲染 key 保持一致:
     //  - assistant → `s-{turn}-{streamIdx}`
     //  - tool      → `{callId}`(与流式 timeline/卡片 key 一致)
@@ -416,8 +424,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const text = item.text || '';
         const reasoning = item.reasoning || '';
         if (!text && !reasoning) return;
+        const id = `s-${item.turn}-${idx}`;
+        // 幂等:同 id 已存在(本次新增或历史 messages)则跳过,避免空气重复
+        if (existingIds.has(id) || addedAssistantIds.has(id)) return;
+        addedAssistantIds.add(id);
         additions.push({
-          id: `s-${item.turn}-${idx}`,
+          id,
           role: 'assistant',
           content: text,
           reasoning_content: reasoning || undefined,
@@ -600,6 +612,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().addMessage({ id: `local-${Date.now()}`, role: 'user', content: message });
     get().resetStreaming();
     get().clearToolCalls();
+    // 预分配唯一回合序号:保证某些没有任何 thinking 事件(仅 content)的请求,
+    // appendStreamingContent 创建 assistant 段时 currentTurn 也已全局唯一,避免跨请求撞 id s-0-0。
+    // 若有 thinking 事件,会基于已递增的 maxTurn 再 +1,依然唯一。
+    set((s) => ({ maxTurn: s.maxTurn + 1, currentTurn: s.maxTurn + 1 }));
     // 清空等待中的 ask:用户在输入框直接以文字回复(而非点 as卡选项)时,
     // commitAskUser 不会被调用,若不在此清除,askUserData/waitingForUser 残留,
     // HistoryRenderer 的实时 ask 卡会一直钉在底部(刷新后才消失)。
@@ -677,11 +693,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // 多回合安全:在开启新一轮前,把上一回合内容(含工具)提交并清空缓冲。
         // 单回合场景由 done 事件负责提交,这里无内容时 commit 为空操作。
         store.commitStreamingMessage();
-        set({
-          currentTurn: payload.turn,
-          // 新一轮开始,重置流式序列为初始 assistant 段(思考内容后续由 reasoning 追加)
-          stream: [{ kind: 'assistant', turn: payload.turn, text: '', reasoning: '' }],
-          isReasoning: true,
+        set((state) => {
+          // 后端 payload.turn 在每条用户消息的请求内可能重复(多轮对话跨请求从同值起),
+          // 直接拿它作 assistant 固化 id(s-{turn}-{idx})会跨轮撞 id,导致第二轮 assistant
+          // 在固化去重时被误跳过而消失。这里改由前端单调递增分配:取 max(maxTurn, raw) + 1,
+          // 保证跨请求唯一。tail 与固化共用同一 turn,id 一致且不会重复。
+          const raw = typeof payload.turn === 'number' ? payload.turn : 0;
+          const next = Math.max(state.maxTurn, raw) + 1;
+          return {
+            currentTurn: next,
+            maxTurn: next,
+            // 新一轮开始,重置流式序列为初始 assistant 段(思考内容后续由 reasoning 追加)
+            stream: [{ kind: 'assistant', turn: next, text: '', reasoning: '' }],
+            isReasoning: true,
+          };
         });
         break;
       }

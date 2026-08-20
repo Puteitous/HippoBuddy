@@ -41,6 +41,9 @@ interface FilePreviewProps {
 type PreviewKind = 'text' | 'markdown' | 'image' | 'pdf' | 'binary' | 'unknown';
 
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+const OFFICE_EXT = ['docx', 'pptx', 'xlsx', 'xls'];
+const HTML_EXT = ['html', 'htm'];
+const WRAP_STORAGE_KEY = 'hb.filePreview.wrap';
 
 export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) {
   const kind = useMemo<PreviewKind>(() => detectKind(filePath), [filePath]);
@@ -64,6 +67,28 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
   const [saveError, setSaveError] = useState(false);
   // 头部"重新加载"按钮:文本直接重拉,其余类型通过 key 递增重挂载
   const [reloadTick, setReloadTick] = useState(0);
+  // 自动换行(对齐旧版 previewWrapBtn;按文件持久化,md 默认换行其余默认不换行)
+  const [wrapEnabled, setWrapEnabled] = useState<boolean>(() => getWrapPref(filePath));
+
+  // 按旧版 toolbar 分派按钮显隐的类型标记
+  const isHtml = HTML_EXT.includes(getExt(filePath));
+  const isOffice = OFFICE_EXT.includes(getExt(filePath));
+
+  // MD 预览/编辑切换(对齐旧版 previewMdToggleBtn):默认打开为渲染预览,点击切换编辑模式
+  const [mdMode, setMdMode] = useState<'preview' | 'edit'>('preview');
+  // md 编辑态最新内容(含未保存草稿;null 表示未编辑过,回退用 textContent)
+  const [mdContent, setMdContent] = useState<string | null>(null);
+  // 当前是否处于"可编辑"态:纯文本,或 md 编辑模式(对齐旧版 _updateSearchBtn/_updateWrapBtn)
+  const isEditable = kind === 'text' || (kind === 'markdown' && mdMode === 'edit');
+  // 切换 md 预览/编辑:从编辑切回预览时用编辑器当前内容渲染(对齐旧版 toggle 传 content)
+  const toggleMdMode = useCallback(() => {
+    if (mdMode === 'edit' && editorView) {
+      setMdContent(editorView.state.doc.toString());
+    }
+    setMdMode((prev) => (prev === 'preview' ? 'edit' : 'preview'));
+    // 切换时关闭搜索浮层(对齐旧版 _registerMdToggleBtn 中 close)
+    setSearchOpen(null);
+  }, [mdMode, editorView]);
 
   const loadText = useCallback(async (path: string) => {
     setLoading(true);
@@ -90,9 +115,14 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
     }
   }, [rawUrl]);
 
-  // 头部"重新加载"按钮:文本直接重拉,其余类型通过 key 递增重挂载
+  // 头部"重新加载"按钮:文本直接重拉,其余类型通过 key 递增重挂载。
+  // md 特殊:丢弃未保存草稿并重新拉取磁盘内容(对齐"重新加载"语义)
   const reload = useCallback(() => {
-    if (kind === 'text') {
+    if (kind === 'text' || kind === 'markdown') {
+      if (kind === 'markdown') {
+        setMdContent(null);
+        setDirty(false);
+      }
       void loadText(filePath);
     } else {
       setReloadTick((t) => t + 1);
@@ -100,27 +130,54 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
   }, [kind, filePath, loadText]);
 
   // 保存当前文本编辑器内容(对齐旧版 HippoDesktop.writeFile):
-  // 优先桌面桥直写,成功清 dirty / 失败提示。
+  // 优先桌面桥直写,成功清 dirty / 失败提示。md 编辑模式同样可保存。
   const handleSave = useCallback(async () => {
-    if (!editorView || kind !== 'text') return;
+    if (!editorView || !isEditable) return;
     const content = editorView.state.doc.toString();
     setSaveError(false);
     const ok = await desktopBridge.writeFile(filePath, content);
     if (ok) {
       setDirty(false);
+      // 保存成功后同步 md 草稿,保证切回预览显示的是磁盘最新内容
+      setMdContent(content);
     } else {
       setSaveError(true);
     }
-  }, [editorView, filePath, kind]);
+  }, [editorView, filePath, isEditable]);
+
+  // 切换自动换行并持久化到本地(对齐旧版 _setWrapPreference)
+  const toggleWrap = useCallback(() => {
+    setWrapEnabled((prev) => {
+      const next = !prev;
+      setWrapPref(filePath, next);
+      return next;
+    });
+  }, [filePath]);
+
+  // 切换文件时按该文件持久化偏好重置换行态
+  useEffect(() => {
+    setWrapEnabled(getWrapPref(filePath));
+    // 对齐旧版:切换文件后重置 md 为预览模式、清空草稿与脏状态(旧版 show() 清 dirty)
+    setMdMode('preview');
+    setMdContent(null);
+    setDirty(false);
+    setSearchOpen(null);
+  }, [filePath]);
+
+  // 在外部程序中打开(对齐旧版 previewOpenInOfficeBtn:_openExternal file://)
+  const openExternal = useCallback(() => {
+    const fileUrl = 'file:///' + encodeURI(filePath.replace(/\\/g, '/'));
+    desktopBridge.openExternal(fileUrl);
+  }, [filePath]);
 
   useEffect(() => {
     if (kind !== 'text' && kind !== 'markdown') return;
     void loadText(filePath);
   }, [filePath, kind, loadText]);
 
-  // 阶段 3.8:Ctrl+F / Ctrl+H 打开搜索浮层,Esc 关闭(仅文本预览生效)
+  // 阶段 3.8:Ctrl+F / Ctrl+H 打开搜索浮层,Esc 关闭(文本/md 编辑模式生效)
   useEffect(() => {
-    if (kind !== 'text') return;
+    if (!isEditable) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();
@@ -141,7 +198,7 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('keydown', onEsc);
     };
-  }, [kind]);
+  }, [isEditable]);
 
   return (
     <div className="file-preview">
@@ -161,9 +218,48 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
           )}
           {dirty && <span className="file-preview-dirty" title="有未保存的改动">●</span>}
         </div>
-        {/* 动作按钮组(对齐旧版 .file-preview-toolbar-actions .preview-btn) */}
+        {/* 动作按钮组(对齐旧版 .file-preview-toolbar-actions,按文件类型分派显隐) */}
         <div className="file-preview-actions">
-          {kind === 'text' && (
+          {/* MD 预览/编辑切换:仅 markdown(对齐旧版 previewMdToggleBtn;预览态高亮+眼睛,编辑态铅笔) */}
+          {kind === 'markdown' && (
+            <button
+              type="button"
+              className={`preview-btn${mdMode === 'preview' ? ' active' : ''}`}
+              onClick={toggleMdMode}
+              title={mdMode === 'preview' ? '编辑模式' : '预览模式'}
+              aria-label={mdMode === 'preview' ? '编辑模式' : '预览模式'}
+            >
+              {mdMode === 'preview' ? (
+                <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinejoin="round" aria-hidden>
+                  <path d="M24 36C35.0457 36 44 24 44 24C44 24 35.0457 12 24 12C12.9543 12 4 24 4 24C4 24 12.9543 36 24 36Z" />
+                  <path d="M24 29C26.7614 29 29 26.7614 29 24C29 21.2386 26.7614 19 24 19C21.2386 19 19 21.2386 19 24C19 26.7614 21.2386 29 24 29Z" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M9.85786 18C6.23858 21 4 24 4 24C4 24 12.9543 36 24 36C25.3699 36 26.7076 35.8154 28 35.4921M20.0318 12.5C21.3144 12.1816 22.6414 12 24 12C35.0457 12 44 24 44 24C44 24 41.7614 27 38.1421 30" />
+                  <path d="M20.3142 20.6211C19.4981 21.5109 19 22.6972 19 23.9998C19 26.7612 21.2386 28.9998 24 28.9998C25.3627 28.9998 26.5981 28.4546 27.5 27.5705" />
+                  <path d="M42 42L6 6" />
+                </svg>
+              )}
+            </button>
+          )}
+          {/* 搜索:仅文本/md 编辑模式(对齐旧版 _updateSearchBtn:无文件/二进制/md 预览态隐藏) */}
+          {isEditable && (
+            <button
+              type="button"
+              className="preview-btn"
+              onClick={() => setSearchOpen('find')}
+              title="搜索 (Ctrl+F)"
+              aria-label="搜索"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="7" cy="7" r="3" />
+                <line x1="9.5" y1="9.5" x2="13" y2="13" />
+              </svg>
+            </button>
+          )}
+          {/* 保存:仅文本/md 编辑模式(对齐旧版 Mod-s;脏状态启用) */}
+          {isEditable && (
             <button
               type="button"
               className="preview-btn"
@@ -178,17 +274,19 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
               </svg>
             </button>
           )}
-          {kind === 'text' && (
+          {/* 自动换行:仅文本/md 编辑模式(对齐旧版 previewWrapBtn,Compartment 动态切换) */}
+          {isEditable && (
             <button
               type="button"
-              className="preview-btn"
-              onClick={() => setSearchOpen('find')}
-              title="搜索 (Ctrl+F)"
-              aria-label="搜索"
+              className={`preview-btn${wrapEnabled ? ' active' : ''}`}
+              onClick={toggleWrap}
+              title="自动换行"
+              aria-label="自动换行"
             >
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="7" cy="7" r="3" />
-                <line x1="9.5" y1="9.5" x2="13" y2="13" />
+                <line x1="2" y1="4" x2="14" y2="4" />
+                <path d="M2 8h10a2 2 0 1 1 0 4H8.5" />
+                <polyline points="11 10.5 12.5 12 11 13.5" />
               </svg>
             </button>
           )}
@@ -197,19 +295,54 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
               保存失败(仅桌面端可写)
             </span>
           )}
-          <button
-            type="button"
-            className="preview-btn"
-            onClick={reload}
-            title="重新加载"
-            aria-label="重新加载"
-          >
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2" />
-              <polyline points="14 2 14 5 11 5" />
-              <polyline points="2 14 2 11 5 11" />
-            </svg>
-          </button>
+          {/* HTML 预览页面:在外部浏览器打开(对齐旧版 previewHtmlToggleBtn,仅 html) */}
+          {isHtml && (
+            <button
+              type="button"
+              className="preview-btn"
+              onClick={openExternal}
+              title="预览页面"
+              aria-label="预览页面"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3" />
+                <path d="M10 2h4v4" />
+                <path d="M14 2L8 8" />
+              </svg>
+            </button>
+          )}
+          {/* 在外部程序中打开:office 文件(对齐旧版 previewOpenInOfficeBtn) */}
+          {isOffice && (
+            <button
+              type="button"
+              className="preview-btn"
+              onClick={openExternal}
+              title="在外部程序中打开"
+              aria-label="在外部程序中打开"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M10 2h4v4" />
+                <path d="M14 2L8 8" />
+                <path d="M11 10v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3" />
+              </svg>
+            </button>
+          )}
+          {/* 重新加载:二进制/渲染预览(对齐旧版 _updateRefreshBtn:二进制视图显示;文本不显示) */}
+          {kind !== 'text' && (
+            <button
+              type="button"
+              className="preview-btn"
+              onClick={reload}
+              title="重新加载"
+              aria-label="重新加载"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2" />
+                <polyline points="14 2 14 5 11 5" />
+                <polyline points="2 14 2 11 5 11" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             className="preview-btn"
@@ -223,10 +356,10 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
               <path d="M11 10v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3" />
             </svg>
           </button>
-          {/* 收起预览(对齐旧版 previewCollapseBtn,末尾固定) */}
+          {/* 收起预览(对齐旧版 previewCollapseBtn,独立 panel-toggle-btn 样式,末尾固定) */}
           <button
             type="button"
-            className="preview-btn"
+            className="panel-toggle-btn"
             onClick={collapsePreview}
             title="收起预览"
             aria-label="收起预览"
@@ -266,8 +399,31 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
                 <button type="button" onClick={() => void loadText(filePath)}>重试</button>
               </div>
             )}
-            {textContent != null && (
-              <MarkdownPreview key={reloadTick} filePath={filePath} content={textContent} />
+            {/* 渲染预览(默认;content 优先用编辑草稿,保证未保存修改切回预览仍可见) */}
+            {textContent != null && mdMode === 'preview' && (
+              <MarkdownPreview key={reloadTick} filePath={filePath} content={mdContent ?? textContent} />
+            )}
+            {textContent != null && mdMode === 'edit' && (
+              <div className="file-preview-editor-wrap">
+                <FilePreviewEditor
+                  filePath={filePath}
+                  content={mdContent ?? textContent}
+                  startLine={startLine}
+                  endLine={endLine}
+                  wrapEnabled={wrapEnabled}
+                  onViewReady={setEditorView}
+                  onDocChange={() => setDirty(true)}
+                  onSave={() => void handleSave()}
+                />
+                {/* 搜索浮层(绝对定位,挂在编辑器上方;仅编辑器就绪后可用) */}
+                {searchOpen && editorView && (
+                  <SearchPanel
+                    view={editorView}
+                    initialMode={searchOpen}
+                    onClose={() => setSearchOpen(null)}
+                  />
+                )}
+              </div>
             )}
           </>
         )}
@@ -287,6 +443,7 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
                   content={textContent}
                   startLine={startLine}
                   endLine={endLine}
+                  wrapEnabled={wrapEnabled}
                   onViewReady={setEditorView}
                   onDocChange={() => setDirty(true)}
                   onSave={() => void handleSave()}
@@ -336,4 +493,32 @@ function basename(path: string): string {
   const norm = path.replace(/\\/g, '/').replace(/\/$/, '');
   const idx = norm.lastIndexOf('/');
   return idx >= 0 ? norm.slice(idx + 1) : norm;
+}
+
+// ============================================================================
+// 自动换行偏好读写(对齐旧版 _getWrapEnabled/_setWrapPreference:按文件持久化,md 默认换行)
+// ============================================================================
+
+function getWrapPref(filePath: string): boolean {
+  try {
+    const raw = localStorage.getItem(WRAP_STORAGE_KEY);
+    if (raw) {
+      const map: Record<string, boolean> = JSON.parse(raw);
+      if (typeof map[filePath] === 'boolean') return map[filePath];
+    }
+  } catch {
+    /* ignore */
+  }
+  return getExt(filePath) === 'md' || getExt(filePath) === 'markdown';
+}
+
+function setWrapPref(filePath: string, enabled: boolean): void {
+  try {
+    const raw = localStorage.getItem(WRAP_STORAGE_KEY);
+    const map: Record<string, boolean> = raw ? JSON.parse(raw) : {};
+    map[filePath] = enabled;
+    localStorage.setItem(WRAP_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
 }

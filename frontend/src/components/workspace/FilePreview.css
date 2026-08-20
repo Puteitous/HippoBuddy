@@ -104,6 +104,33 @@
   color: var(--text-primary);
 }
 
+/* 激活态(自动换行等开关按钮,对齐旧版 .preview-btn.active) */
+.file-preview-actions .preview-btn.active {
+  background: var(--bg-code);
+  color: var(--accent, #4a9eff);
+}
+
+/* 收起预览按钮(对齐旧版 .panel-toggle-btn 独立样式,末尾固定) */
+.file-preview-actions .panel-toggle-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast, 0.15s);
+}
+
+.file-preview-actions .panel-toggle-btn:hover {
+  background: var(--bg-code);
+  color: var(--text-secondary);
+}
+
 .file-preview-body {
   flex: 1;
   min-height: 0;

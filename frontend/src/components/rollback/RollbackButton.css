@@ -7,7 +7,7 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid rgba(127, 127, 127, 0.25);
+  border: none;
   border-radius: 6px;
   background: transparent;
   color: #6b7280;
@@ -22,7 +22,6 @@
 
 .rollback-btn:hover:not(:disabled) {
   background: rgba(127, 127, 127, 0.1);
-  border-color: rgba(127, 127, 127, 0.4);
   color: #1f2937;
 }
 
@@ -327,7 +326,6 @@
 @media (prefers-color-scheme: dark) {
   .rollback-btn {
     color: #9ca3af;
-    border-color: rgba(255, 255, 255, 0.2);
   }
 
   .rollback-btn:hover:not(:disabled) {

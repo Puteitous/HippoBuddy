@@ -13,7 +13,8 @@
 import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCall, ToolCallRecord } from '@/types';
 import { useChatStore } from '@/stores/chatStore';
-import { MessageBubble } from './MessageBubble';
+import { MessageBubble, MessageFooter } from './MessageBubble';
+import { RollbackButton } from '../rollback/RollbackButton';
 import { extractFilesFromToolCalls, type MessageFileProduct } from './message-utils';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
@@ -56,6 +57,10 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
   // 是否正在流式发送。流式期间不显示回合末条 assistant 的 footer(对齐旧版:
   // 旧版按钮容器初始 display:none,整个 SSE 结束后才显示)
   const isSending = useChatStore((s) => s.isSending);
+  // 是否有工具正在等待确认(带 confirmationData)。确认阶段后端会发 complete 把
+  // isSending 提前置 false(见 WebAgentOrchestrator 确认后 return false → finally 发
+  // complete),但对话并未结束;若不额外兜底,旧回合 footer 会在确认期间浮现。
+  const waitingConfirm = useChatStore((s) => s.toolCalls.some((tc) => !!tc.confirmationData));
   // ask_user 内联卡片数据(waiting_user 事件驱动,提交后固化为消息流只读记录)
   const askUserData = useChatStore((s) => s.askUserData);
   const waitingForUser = useChatStore((s) => s.waitingForUser);
@@ -152,35 +157,24 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
       // 已被 assistant.tool_calls 消费的 tool 消息 id(避免重复渲染)
       const consumed = new Set<string>();
 
-      // 回合最后一条 assistant 消息(承载聚合 footer)
-      let lastAssistantIdx = -1;
-      for (let i = round.length - 1; i >= 0; i--) {
-        if (round[i].kind === 'assistant') {
-          lastAssistantIdx = i;
-          break;
-        }
-      }
+      // 回合内是否有工具正在等待用户确认(带 confirmationData)。
+      // 对齐旧版 HistoryRenderer:seg 为 tool 且 confirmationData && !result 时,
+      // 给 assistant 加 pending-confirm class 隐藏 footer(对话未完成不显示操作按钮)。
+      const hasPendingConfirm = round.some((e) =>
+        e.kind === 'tool-card'
+          ? !!e.msg.confirmationData
+          : e.kind === 'timeline'
+            ? e.items.some((m) => !!m.confirmationData)
+            : false,
+      );
 
-      round.forEach((entry, idx) => {
+      round.forEach((entry) => {
         if (entry.kind === 'assistant') {
-          const isLast = idx === lastAssistantIdx;
-          // 局部 const 便于 TS 在闭包内收窄(roundUserId 等为 let 变量)
-          const retryContent = isLast && roundUserContent ? roundUserContent : null;
-          const forkTarget = isLast && roundUserId ? roundUserId : null;
           rows.push(
             <MessageBubble
               key={entry.msg.id}
               message={entry.msg}
               dataMessageId={entry.msg.id}
-              // 仅回合最后一条 assistant 显示 footer,中间的不显示
-              // (避免出现只有复制按钮的空 footer,对齐旧版单卡片单 footer);
-              // 流式发送期间一律不显示(对齐旧版整个 SSE 结束后才显示按钮)
-              showFooter={isLast && !isSending}
-              rollbackTargetId={forkTarget ?? undefined}
-              onRetry={retryContent && onRetry ? () => onRetry(retryContent) : undefined}
-              onFork={forkTarget && onFork ? () => onFork(forkTarget) : undefined}
-              files={isLast && roundFiles.length > 0 ? dedupeFiles(roundFiles) : undefined}
-              copyContent={isLast && roundText ? roundText : undefined}
             />,
           );
 
@@ -260,6 +254,34 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
           }
         }
       });
+
+      // ── 回合级 footer:渲染在回合所有条目(assistant + 工具卡 + ask 卡)之后,作整回合的收尾操作条。
+      //    条件:回合产出了 assistant 文本(纯工具回合抑制,避免复制的空 footer)+ 对话未结束阶段
+      //    隐藏(流式发送中 / 工具待确认 / 等待 ask 回答),对齐旧版"回合结束后才显示操作条"。 ──
+      const retryContent = roundUserContent;
+      const forkTarget = roundUserId;
+      if (
+        roundText &&
+        !isSending &&
+        !waitingConfirm &&
+        !waitingForUser &&
+        !hasPendingConfirm
+      ) {
+        const anchor =
+          round[0].kind === 'timeline' ? round[0].items[0].id : round[0].msg.id;
+        rows.push(
+          <MessageFooter
+            key={`round-footer-${anchor}`}
+            onCopy={() => {
+              if (roundText) navigator.clipboard?.writeText(roundText).catch(() => {});
+            }}
+            onRetry={retryContent && onRetry ? () => onRetry(retryContent) : undefined}
+            onFork={forkTarget && onFork ? () => onFork(forkTarget) : undefined}
+            rollback={forkTarget ? <RollbackButton targetId={forkTarget} /> : undefined}
+            files={roundFiles.length > 0 ? dedupeFiles(roundFiles) : undefined}
+          />,
+        );
+      }
 
       // 清空回合缓冲
       round.length = 0;

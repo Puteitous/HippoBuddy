@@ -17,7 +17,6 @@ import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/ty
 import { renderMarkdown } from '@/utils/markdown';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
-import { RollbackButton } from '../rollback/RollbackButton';
 import type { MessageFileProduct } from './message-utils';
 import './MessageBubble.css';
 
@@ -29,29 +28,6 @@ interface MessageBubbleProps {
   isReasoning?: boolean;
   /** 可选:挂载到根元素的 data-message-id,供 ChatNav 定位用 */
   dataMessageId?: string;
-  /**
-   * 可选:回滚目标用户消息 id(该 assistant 消息之前最近的 user 消息)。
-   * 传入后 assistant 消息 footer 显示"回滚"按钮(阶段 3.7-2)。
-   */
-  rollbackTargetId?: string;
-  /** 可选:重试回调(assistant,重发该轮之前的用户消息;对齐旧版 retryBtn) */
-  onRetry?: () => void;
-  /** 可选:分叉回调(assistant,从该轮之前的用户消息分叉新会话;对齐旧版 forkBtn) */
-  onFork?: () => void;
-  /** 可选:本轮文件产物(assistant footer 文件指示器;对齐旧版 fileIndicator) */
-  files?: MessageFileProduct[];
-  /**
-   * 可选:覆盖复制内容。旧版复制的是整个回合的 markdown 拼接
-   * (contentDiv.dataset.markdown = 所有 text segment join),仅回合最后一条
-   * assistant 消息传入;默认复制本条消息内容。
-   */
-  copyContent?: string;
-  /**
-   * 可选:是否显示底部操作条(footer)。默认 true。
-   * 回合分组后,仅回合最后一条 assistant 显示 footer;
-   * 中间的 assistant 传 false 避免出现只有复制按钮的空 footer。
-   */
-  showFooter?: boolean;
 }
 
 /** 大脑 SVG 图标(对齐旧版 RenderPipeline.renderThinkingBubble) */
@@ -63,12 +39,6 @@ function MessageBubbleComponent({
   isStreaming = false,
   isReasoning = false,
   dataMessageId,
-  rollbackTargetId,
-  onRetry,
-  onFork,
-  files,
-  copyContent,
-  showFooter = true,
 }: MessageBubbleProps) {
   const [showReasoning, setShowReasoning] = useState(false);
 
@@ -115,6 +85,17 @@ function MessageBubbleComponent({
   }
 
   // assistant
+  // 完全无可见内容(无 reasoning / web 行 / markdown)时不渲染气泡,避免出现空气泡。
+  // 覆盖"仅调用工具、未输出文本"的轮次(刷新后与工具卡分离渲染)以及任何流的空段。
+  // 工具卡仍由独立的 tool 消息正常展示;流式 thinking 初始空段已由调用方(ChatPanel
+  // streamRows 的 !text && !reasoning 过滤)先行跳过,非空段有内容不受影响。
+  if (
+    !message.reasoning_content &&
+    !(message.web_searched && message.web_search_actions) &&
+    !html
+  ) {
+    return null;
+  }
   return (
     <div className="msg-bubble msg-bubble-assistant" data-message-id={dataMessageId}>
       {message.reasoning_content && (
@@ -161,18 +142,6 @@ function MessageBubbleComponent({
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : null}
-      {/* 消息底部操作条(对齐旧版 assistant 的 .message-footer:
-          重试 + 复制 + 回滚 + 分叉 + 文件产物;流式未完成时不显示;
-          回合分组后仅最后一条 assistant 显示,中间的不显示) */}
-      {!isStreaming && showFooter && (
-        <MessageFooter
-          onCopy={() => copyText(copyContent ?? extractText(message.content))}
-          onRetry={onRetry}
-          onFork={onFork}
-          files={files}
-          rollback={rollbackTargetId ? <RollbackButton targetId={rollbackTargetId} /> : undefined}
-        />
-      )}
     </div>
   );
 }
@@ -496,7 +465,7 @@ interface MessageFooterProps {
 }
 
 /** 消息底部操作条:时间 + 操作按钮(复制/重试/回滚/分叉/文件产物),对齐旧版交互 */
-function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }: MessageFooterProps) {
+export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }: MessageFooterProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {

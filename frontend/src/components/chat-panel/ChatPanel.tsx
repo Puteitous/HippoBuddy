@@ -141,7 +141,6 @@ export function ChatPanel() {
             message={msg}
             isStreaming={isOpen}
             isReasoning={isReasoning && isOpen}
-            showFooter={false}
           />,
         );
       } else {

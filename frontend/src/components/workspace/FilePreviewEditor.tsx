@@ -50,6 +50,8 @@ interface FilePreviewEditorProps {
   onDocChange?: () => void;
   /** 保存回调(Mod-s 触发;由父组件负责写入文件) */
   onSave?: (content: string) => void;
+  /** 自动换行(对齐旧版 previewWrapBtn,通过 Compartment 动态切换,不重建编辑器) */
+  wrapEnabled?: boolean;
 }
 
 /** 扩展名 → 语言标识(对齐旧版支持的 13 种语言) */
@@ -127,8 +129,12 @@ export function FilePreviewEditor({
   onViewReady,
   onDocChange,
   onSave,
+  wrapEnabled = false,
 }: FilePreviewEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  // 主 effect 创建编辑器时写入 wrap Compartment,供切换 effect 动态 reconfigure
+  const wrapCompartmentRef = useRef<Compartment | null>(null);
+  const wrapViewRef = useRef<EditorView | null>(null);
   const onViewReadyRef = useRef(onViewReady);
   onViewReadyRef.current = onViewReady;
   const onDocChangeRef = useRef(onDocChange);
@@ -144,6 +150,8 @@ export function FilePreviewEditor({
     let cancelled = false;
     const themeCompartment = new Compartment();
     const langCompartment = new Compartment();
+    // 自动换行 Compartment(对齐旧版 wrap,可动态 reconfigure 不重建编辑器)
+    const wrapCompartment = new Compartment();
 
     const theme = resolveIsDark() ? oneDark : vsCodeLight;
 
@@ -160,6 +168,7 @@ export function FilePreviewEditor({
         highlightActiveLine(),
         highlightSelectionMatches(),
         search(),
+        wrapCompartment.of(wrapEnabled ? EditorView.lineWrapping : []),
         // 编辑时通知父组件置 dirty(供保存按钮/标签标记)
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onDocChangeRef.current?.();
@@ -215,6 +224,9 @@ export function FilePreviewEditor({
     // 暴露 view:回调 + DOM 引用(对齐旧版 previewContent._cmPreviewView,供 SelectionActions 读行号)
     (host as HTMLElement & { _cmPreviewView?: EditorView })._cmPreviewView = view;
     onViewReadyRef.current?.(view);
+    // 存供 wrap 切换 effect 使用
+    wrapCompartmentRef.current = wrapCompartment;
+    wrapViewRef.current = view;
 
     return () => {
       cancelled = true;
@@ -222,10 +234,20 @@ export function FilePreviewEditor({
       themeObserver.disconnect();
       view?.destroy();
       view = null;
+      wrapCompartmentRef.current = null;
+      wrapViewRef.current = null;
       (host as HTMLElement & { _cmPreviewView?: EditorView })._cmPreviewView = undefined;
     };
     // content/filePath 变化时重建编辑器(FilePreview 用 key 控制,这里双保险)
   }, [filePath, content, startLine, endLine]);
+
+  // 自动换行动态切换(对齐旧版:通过 Compartment reconfigure,不重建编辑器、不丢光标/滚动)
+  useEffect(() => {
+    const view = wrapViewRef.current;
+    const comp = wrapCompartmentRef.current;
+    if (!view || !comp) return;
+    view.dispatch({ effects: comp.reconfigure(wrapEnabled ? EditorView.lineWrapping : []) });
+  }, [wrapEnabled]);
 
   return <div ref={hostRef} className="file-preview-editor" data-file-path={filePath} />;
 }

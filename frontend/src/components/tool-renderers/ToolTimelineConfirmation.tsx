@@ -94,6 +94,13 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
     setError(null);
     // 立即清除确认数据,行内确认区消失;工具状态由确认流 tool_result 收口
     resolveToolConfirmation(confirmationData.confirmId);
+    // 确认/拒绝后进入新的 Agent 流(continueAfterConfirmation)。该流不发 sendUserMessage,
+    // 需手动恢复 isSending=true,使确认后的流式期间回合 footer 保持隐藏(否则 isSending 已
+    // 被 complete 置 false,旧回合 footer 会在确认后的流式途中误显示)。
+    // 流内 done 事件会置 isSending=false;finally 兜底覆盖"流无 done 即被截断"的情况
+    // (再次触发确认弹窗 / 异常),避免 isSending 卡 true 阻塞后续发送。
+    const chatStore = useChatStore.getState();
+    chatStore.setIsSending(true);
     try {
       await chatApi.confirmTool(
         {
@@ -112,6 +119,7 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
       setError(msg);
       console.warn('[ToolTimelineConfirmation] confirmTool 调用失败:', msg);
     } finally {
+      chatStore.setIsSending(false);
       setSubmitting(false);
     }
   };

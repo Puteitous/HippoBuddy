@@ -390,18 +390,47 @@
 }
 
 /* ── ask_user 输入(对齐旧版 tool-cards.css 胶囊按钮 + 等待高亮) ── */
+/* 容器对齐旧版 .ask-user-card:灰底 + 紧凑间距 + 圆角隐藏溢出 */
 .ask-user-card {
+  margin: 6px 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-code);
+  overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-/* 等待用户输入时高亮主色边框(对齐旧版 .waiting-user-card) */
+/* 等待用户输入时高亮主色边框(对齐旧版 .waiting-user-card 的 2px 边框) */
 .ask-user-card.waiting-user-card {
-  border-color: var(--primary-color);
+  border: 2px solid var(--primary-color);
   box-shadow: 0 2px 12px rgba(99, 102, 241, 0.2);
+}
+
+/* 头部对齐旧版:紧凑 padding/gap + 无常驻底色,仅 hover 高亮 */
+.ask-user-card .tool-header {
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: var(--font-size-sm);
+  background: transparent;
+}
+.ask-user-card .tool-header[role='button']:hover {
+  background: var(--bg-light);
+}
+
+/* 标题占满剩余宽度,使状态徽章靠右(对齐旧版 .tool-title flex:1) */
+.ask-user-card .tool-title {
+  flex: 1;
+}
+
+/* 正文对齐旧版 .tool-call-details:无分隔线 + 紧凑内边距 */
+.ask-user-card .tool-body {
+  border-top: none;
+  padding: 0 10px 8px;
 }
 
 .ask-user-question {
   margin: 6px 0;
   padding: 6px 2px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--text-primary);
   white-space: pre-wrap;
@@ -429,7 +458,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 6px 0 8px;
+  margin: 6px 0 2px;
 }
 
 .ask-user-option-btn {
@@ -497,33 +526,64 @@
 }
 
 /* ── 深色模式 ─────────────────────────────────────────── */
+/* 手动主题(dark / midnight)用 data-theme 覆盖,避免与系统偏好脱节
+   (系统浅色但手动切深色时 @media 不生效,会留下深色文字看不清)。 */
+[data-theme="dark"] .tool-header,
+[data-theme="midnight"] .tool-header {
+  background: rgba(127, 127, 127, 0.08);
+}
+
+[data-theme="dark"] .tool-title,
+[data-theme="midnight"] .tool-title {
+  color: #f3f4f6;
+}
+
+[data-theme="dark"] .tool-file-path,
+[data-theme="midnight"] .tool-file-path {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .tool-summary,
+[data-theme="dark"] .bash-meta,
+[data-theme="midnight"] .tool-summary,
+[data-theme="midnight"] .bash-meta {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .tool-body,
+[data-theme="midnight"] .tool-body {
+  border-top-color: rgba(127, 127, 127, 0.15);
+}
+
+[data-theme="dark"] .tool-detail-value,
+[data-theme="midnight"] .tool-detail-value {
+  color: #f3f4f6;
+}
+
+/* system 主题(无 data-theme)跟随系统深浅色 */
 @media (prefers-color-scheme: dark) {
-  .tool-header {
+  :root:not([data-theme]) .tool-header {
     background: rgba(127, 127, 127, 0.08);
   }
 
-  .tool-title {
+  :root:not([data-theme]) .tool-title {
     color: #f3f4f6;
   }
 
-  .tool-file-path {
+  :root:not([data-theme]) .tool-file-path {
     color: #60a5fa;
   }
 
-  .tool-summary,
-  .bash-meta {
+  :root:not([data-theme]) .tool-summary,
+  :root:not([data-theme]) .bash-meta {
     color: #9ca3af;
   }
 
-  .tool-body {
+  :root:not([data-theme]) .tool-body {
     border-top-color: rgba(127, 127, 127, 0.15);
   }
 
-  .ask-user-option-btn {
-    border-color: #4b5563;
-  }
-
-  .tool-detail-value {
+  :root:not([data-theme]) .tool-detail-value {
     color: #f3f4f6;
   }
 }
