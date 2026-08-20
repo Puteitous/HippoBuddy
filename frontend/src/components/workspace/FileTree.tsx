@@ -18,6 +18,7 @@ import { desktopBridge } from '@/utils/desktop-bridge';
 import { getJson } from '@/api/http';
 import { showToast } from '@/utils/toastStore';
 import { FileIcon } from '../FileIcon';
+import { FileTypeIcon } from '../FileTypeIcon';
 import './FileTree.css';
 
 interface FileTreeProps {
@@ -463,7 +464,7 @@ function FileTreeNode({
           {isDir ? (
             <FileIcon kind="folder" open={expanded} size={14} />
           ) : (
-            <FileIcon kind="file" size={14} />
+            <FileTypeIcon fileName={entry.name} size={14} />
           )}
         </span>
         <span className="file-tree-name" title={entry.name}>

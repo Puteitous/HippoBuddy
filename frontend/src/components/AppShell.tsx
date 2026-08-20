@@ -30,7 +30,6 @@ import { ChatPanel } from './chat-panel/ChatPanel';
 import { SettingsPanel } from './settings/SettingsPanel';
 import { PreviewPanel } from './workspace/PreviewPanel';
 import { PreviewResizer } from './workspace/PreviewResizer';
-import { ConfirmHandler } from './tool-renderers/ConfirmHandler';
 import { ActivityBar } from './ActivityBar';
 import { SkillMarket } from './SkillMarket';
 import { SelectionActions } from './SelectionActions';
@@ -105,8 +104,6 @@ export function AppShell() {
           )}
         </main>
       </div>
-      {/* 工具确认弹窗(全局浮层,仅在 pendingConfirmations 非空时渲染) */}
-      <ConfirmHandler />
       {/* 技能市场浮层(由 appStore.skillMarketOpen 控制) */}
       {skillMarketOpen && (
         <SkillMarket

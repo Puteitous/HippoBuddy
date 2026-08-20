@@ -59,7 +59,6 @@ export function ChatPanel() {
   const isReasoning = useChatStore((s) => s.isReasoning);
   // 流式渲染序列(对齐旧版 segment 时序:思考/文本/工具按事件顺序交错)
   const stream = useChatStore((s) => s.stream);
-  const streamingMessageId = useChatStore((s) => s.streamingMessageId);
   const error = useChatStore((s) => s.error);
   const warnings = useChatStore((s) => s.warnings);
   const clearWarnings = useChatStore((s) => s.clearWarnings);
@@ -105,7 +104,7 @@ export function ChatPanel() {
           <MessageBubble
             key={`s-${item.turn}-${idx}`}
             message={{
-              id: streamingMessageId ?? `s-${item.turn}`,
+              id: `s-${item.turn}-${idx}`,
               role: 'assistant',
               content: item.text || '',
               reasoning_content: item.reasoning || undefined,
@@ -122,7 +121,7 @@ export function ChatPanel() {
     });
     flushTools();
     return rows;
-  }, [stream, toolCalls, isReasoning, streamingMessageId]);
+  }, [stream, toolCalls, isReasoning]);
 
   const { send, abort, isSending: isStreamSending } = useChatStream();
   const [input, setInput] = useState('');
@@ -485,13 +484,13 @@ export function ChatPanel() {
             className="chat-panel-messages"
             onScroll={handleScroll}
           >
-            <HistoryRenderer onRetry={handleRetry} onFork={handleFork} />
-
-        {/* 流式渲染(实时):按 stream 顺序交错渲染思考/文本气泡与工具卡片,
-            对齐旧版 segment 时序,工具不再固定堆在尾部 */}
-        {isStreamSending && streamRows.length > 0 && (
-          <div className="chat-panel-streaming">{streamRows}</div>
-        )}
+            {/* 实时流式 rows 作为 tail 并入同一 history-list 容器:与固化后消息
+                同 key 复用 DOM,避免卸载重挂导致进入动画重放 */}
+            <HistoryRenderer
+              onRetry={handleRetry}
+              onFork={handleFork}
+              tail={isStreamSending && streamRows.length > 0 ? streamRows : undefined}
+            />
         {/* ask_user 触发的用户输入卡片(等待回答时显示) */}
         {waitingForUser && (
           <div className="chat-panel-ask-user">

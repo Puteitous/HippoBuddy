@@ -4,6 +4,7 @@
  * 类型来源:对齐后端 com.example.agent.web.handler.* 实际返回的 JSON 结构。
  * 所有字段均与后端字段名保持一致(驼峰),便于直接 JSON.parse 后赋值使用。
  */
+import type { ToolConfirmationPayload } from './sse';
 
 // ============================================================================
 // 会话相关 (对应后端 SessionListBuilder.buildSessionList)
@@ -242,6 +243,12 @@ export interface ToolCallRecord {
   result?: string;
   /** 失败原因(tool_result.success === false) */
   error?: string;
+  /**
+   * 工具确认数据(tool_confirmation 挂载)。
+   * 存在时该工具处于"待确认"(pending_confirmation)状态,
+   * 由 timeline 行内渲染允许/拒绝,对齐旧版内嵌确认卡片。
+   */
+  confirmationData?: ToolConfirmationPayload;
   /** 开始时间戳 */
   startedAt: number;
   /** 结束时间戳 */

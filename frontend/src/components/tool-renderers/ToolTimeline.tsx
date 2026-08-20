@@ -7,7 +7,7 @@
  *    图标点 + 工具名 + 摘要(可点击跳转文件)+ 复制按钮(bash)+ 状态图标
  *  - 点击行展开/折叠详情(.tool-timeline-detail)
  *  - 状态语义:running / success / failed / cancelled / interrupted /
- *    pending_confirmation(待确认态默认展开,确认 UI 走独立 ConfirmHandler 弹窗)
+ *    pending_confirmation(待确认态默认展开,确认 UI 行内渲染)
  *
  * 与旧版的差异(刻意简化):
  *  - 历史消息的 tool 消息不含 args,摘要退化为工具名 + 内容首行
@@ -17,6 +17,7 @@
 import { memo, useMemo, useState } from 'react';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import type { TimelineToolItem } from './tool-timeline-utils';
+import { ToolTimelineConfirmation } from './ToolTimelineConfirmation';
 import {
   computeUnifiedDiff,
   countDiffStats,
@@ -185,9 +186,12 @@ function diffStatsFor(item: TimelineToolItem): { insertions: number; deletions: 
 
 /** 行详情内容(按工具名分支,复用现有卡片/输出样式) */
 function TimelineDetail({ item }: { item: TimelineToolItem }) {
-  const { name, status, progress, result, error, content } = item;
+  const { name, status, progress, result, error, content, confirmationData } = item;
 
-  // 待确认:提示文本(确认 UI 走独立 ConfirmHandler 弹窗)
+  // 待确认:行内渲染允许/拒绝(自带确认摘要,对齐旧版内嵌确认卡片)
+  if (status === 'pending_confirmation' && confirmationData) {
+    return <ToolTimelineConfirmation confirmationData={confirmationData} />;
+  }
   if (status === 'pending_confirmation') {
     return <div className="timeline-detail-status pending">等待确认…</div>;
   }
@@ -300,7 +304,9 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
   const filePath = useMemo(() => timelineFilePath(item.name, item.args), [item.name, item.args]);
 
   const hasDetail = useMemo(() => {
-    const { status, progress, result, error, content } = item;
+    const { status, progress, result, error, content, confirmationData } = item;
+    // 待确认:行内确认区必须展示
+    if (status === 'pending_confirmation' && confirmationData) return true;
     if (status !== 'success') return !!(progress?.length || result || error || content);
     // 成功态:bash/其他看 result;edit/write 有 args 必有 diff
     return !!(result || content);

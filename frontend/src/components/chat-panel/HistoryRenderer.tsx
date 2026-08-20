@@ -24,6 +24,12 @@ interface HistoryRendererProps {
   onRetry?: (content: string) => void;
   /** 分叉:从指定用户消息 id 分叉新会话(对齐旧版 forkBtn) */
   onFork?: (messageId: string) => void;
+  /**
+   * 实时流式 rows(尚未固化到 messages 的内容)。
+   * 与历史 rows 渲染在同一 `.history-list` 容器、同一 key 体系,
+   * 使 `done` 固化后 React 能复用原有 DOM 节点,避免卸载重挂的进入动画重放。
+   */
+  tail?: React.ReactNode;
 }
 
 /** 回合缓冲条目(保持消息原始顺序) */
@@ -32,10 +38,13 @@ type RoundEntry =
   | { kind: 'timeline'; items: Message[] }
   | { kind: 'tool-card'; msg: Message };
 
-export function HistoryRenderer({ onRetry, onFork }: HistoryRendererProps) {
+export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps) {
   const messages = useChatStore((s) => s.messages);
   const isLoading = useChatStore((s) => s.isLoadingMessages);
   const error = useChatStore((s) => s.error);
+  // 是否正在流式发送。流式期间不显示回合末条 assistant 的 footer(对齐旧版:
+  // 旧版按钮容器初始 display:none,整个 SSE 结束后才显示)
+  const isSending = useChatStore((s) => s.isSending);
 
   if (isLoading) {
     return (
@@ -59,9 +68,15 @@ export function HistoryRenderer({ onRetry, onFork }: HistoryRendererProps) {
     );
   }
 
+  const listRows = renderMessageRows();
   return (
     <div className="history-list">
-      {renderMessageRows()}
+      {/* 关键:必须把流式 tail 并进同一个 rows 数组(单一子数组)渲染。
+          若写成 {renderMessageRows()}{tail} 两个并列子表达式,React 会对
+          tail 与 renderMessageRows 各自独立做 diff——done 固化时
+          s-{turn}-{idx} 从 tail 数组移入 rows 数组,React 视为"移除旧节点+
+          追加新节点"而重新挂载,进入动画重放的根因即在此。 */}
+      {tail ? [...listRows, ...tail] : listRows}
     </div>
   );
 
@@ -119,8 +134,9 @@ export function HistoryRenderer({ onRetry, onFork }: HistoryRendererProps) {
               message={entry.msg}
               dataMessageId={entry.msg.id}
               // 仅回合最后一条 assistant 显示 footer,中间的不显示
-              // (避免出现只有复制按钮的空 footer,对齐旧版单卡片单 footer)
-              showFooter={isLast}
+              // (避免出现只有复制按钮的空 footer,对齐旧版单卡片单 footer);
+              // 流式发送期间一律不显示(对齐旧版整个 SSE 结束后才显示按钮)
+              showFooter={isLast && !isSending}
               rollbackTargetId={forkTarget ?? undefined}
               onRetry={retryContent && onRetry ? () => onRetry(retryContent) : undefined}
               onFork={forkTarget && onFork ? () => onFork(forkTarget) : undefined}

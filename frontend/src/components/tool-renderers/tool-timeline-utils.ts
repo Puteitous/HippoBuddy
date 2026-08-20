@@ -5,6 +5,7 @@
  * 与非组件而告警(与 shared.tsx → shared-utils.ts 的拆分模式一致)。
  */
 import type { Message, ToolCallRecord } from '@/types';
+import type { ToolConfirmationPayload } from '@/types/sse';
 
 // ============================================================================
 // 类型
@@ -34,6 +35,8 @@ export interface TimelineToolItem {
   error?: string;
   /** 历史消息 fallback 内容(无 args 时作为摘要/详情) */
   content?: string;
+  /** 工具确认数据(存在时行内渲染允许/拒绝,对齐旧版内嵌确认卡片) */
+  confirmationData?: ToolConfirmationPayload;
 }
 
 /** 需要独立成卡、不进 timeline 的工具名(对齐旧版 todo_write/ask_user) */
@@ -49,10 +52,12 @@ export function fromToolCallRecord(rec: ToolCallRecord): TimelineToolItem {
     id: rec.id,
     name: rec.name,
     args: rec.args,
-    status: rec.status, // running / success / failed
+    // 存在确认数据时标记为待确认(供 timeline 行内渲染确认区),否则透传运行状态
+    status: rec.confirmationData ? 'pending_confirmation' : rec.status,
     progress: rec.progress,
     result: rec.result,
     error: rec.error,
+    confirmationData: rec.confirmationData,
   };
 }
 

@@ -1,0 +1,8 @@
+/** FileTypeIcon - 文件类型彩色图标,与共享 FileIcon 风格对齐 */
+.file-type-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  object-fit: contain;
+  /* 彩色图标无需继承父级文字色(与线框 FileIcon 区分) */
+  color: inherit;
+}

@@ -19,6 +19,7 @@
 import { memo } from 'react';
 import type { RefChip } from '@/types';
 import { FileIcon } from '../FileIcon';
+import { FileTypeIcon } from '../FileTypeIcon';
 import './RefChips.css';
 
 interface RefChipsProps {
@@ -34,8 +35,10 @@ function RefChipsComponent({ chips, onRemove }: RefChipsProps) {
       {chips.map((chip) => (
         <span key={chip.id} className="ref-chip" role="listitem" title={buildTitle(chip)}>
           <span className="ref-chip-icon" aria-hidden>
-            {getChipIconKind(chip) === 'text' ? (
+            {chip.kind === 'text' ? (
               <FileIcon kind="text" size={13} />
+            ) : getChipFileName(chip) ? (
+              <FileTypeIcon fileName={getChipFileName(chip)!} size={13} />
             ) : (
               <FileIcon kind="file" size={13} />
             )}
@@ -60,11 +63,15 @@ function RefChipsComponent({ chips, onRemove }: RefChipsProps) {
   );
 }
 
-/** 根据 chip 类型返回图标类型(共享 FileIcon,统一文件图标来源) */
-function getChipIconKind(chip: RefChip): 'text' | 'file' {
-  if (chip.kind === 'text') return 'text';
-  // file / rule 均用统一文件图标(规则展示规则文件路径,与 file 同形)
-  return 'file';
+/** 从 chip 提取文件名(用于扩展名图标解析);text/无路径时返回 null → 回落通用图标 */
+function getChipFileName(chip: RefChip): string | null {
+  if (chip.kind === 'text') return null;
+  // file / rule 均按路径末段解析扩展名(规则展示规则文件路径,与 file 同形)
+  const path = chip.filePath || chip.text;
+  if (!path) return null;
+  const norm = path.replace(/\\/g, '/').replace(/\/$/, '');
+  const idx = norm.lastIndexOf('/');
+  return idx >= 0 ? norm.slice(idx + 1) : norm;
 }
 
 /** 构建 hover title:展示完整路径 / 完整文本 / 规则 id */

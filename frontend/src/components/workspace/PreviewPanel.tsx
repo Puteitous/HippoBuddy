@@ -26,6 +26,7 @@ export function PreviewPanel() {
   const setActivePath = usePreviewStore((s) => s.setActivePath);
   const forceReload = usePreviewStore((s) => s.forceReload);
   const replaceTabs = usePreviewStore((s) => s.replaceTabs);
+  const collapsed = usePreviewStore((s) => s.collapsed);
 
   // 订阅回调里读取最新 activePath(避免闭包捕获过期值)
   const activePathRef = useRef<string | null>(null);
@@ -78,8 +79,9 @@ export function PreviewPanel() {
     return unsubscribe;
   }, [forceReload, replaceTabs]);
 
-  // 无打开文件时不渲染(聊天占满主区,对齐旧版 preview-panel hidden)
-  if (!activeTab || !activePath || tabs.length === 0) return null;
+  // 无打开文件时不渲染(聊天占满主区,对齐旧版 preview-panel hidden);
+  // 用户主动收起时同样隐藏(对齐旧版 hidePreview,标签保留,打开/切换文件时恢复)
+  if (collapsed || !activeTab || !activePath || tabs.length === 0) return null;
 
   return (
     <div className="preview-panel">

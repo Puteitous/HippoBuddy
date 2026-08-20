@@ -26,6 +26,7 @@ import { FilePreviewEditor } from './FilePreviewEditor';
 import { ImagePreview } from './ImagePreview';
 import { MarkdownPreview } from './MarkdownPreview';
 import { SearchPanel } from '@/components/SearchPanel';
+import { usePreviewStore } from '@/stores/previewStore';
 import './FilePreview.css';
 
 interface FilePreviewProps {
@@ -43,6 +44,8 @@ const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
 
 export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) {
   const kind = useMemo<PreviewKind>(() => detectKind(filePath), [filePath]);
+  // 收起预览面板(对齐旧版 previewCollapseBtn;标签保留,打开/切换文件时恢复)
+  const collapsePreview = usePreviewStore((s) => s.collapsePreview);
   const [textContent, setTextContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,6 +221,18 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
               <path d="M10 2h4v4" />
               <path d="M14 2L8 8" />
               <path d="M11 10v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3" />
+            </svg>
+          </button>
+          {/* 收起预览(对齐旧版 previewCollapseBtn,末尾固定) */}
+          <button
+            type="button"
+            className="preview-btn"
+            onClick={collapsePreview}
+            title="收起预览"
+            aria-label="收起预览"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="12 4 4 8 12 12" />
             </svg>
           </button>
         </div>

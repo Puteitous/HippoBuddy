@@ -12,6 +12,7 @@ import type { Message, ToolCallRecord, WebSearchAction } from '@/types';
 import type {
   ChatSseEventName,
   ChatSseEventMap,
+  DeleteFileToolConfirmationPayload,
   ToolConfirmationPayload,
   TokenUpdatePayload,
 } from '@/types/sse';
@@ -85,8 +86,6 @@ interface ChatState {
   // ── 工具调用 / 确认 / 联网搜索 ──────────────────────────────
   /** 当前会话的工具调用运行时记录(tool_start/tool_progress/tool_result 聚合) */
   toolCalls: ToolCallRecord[];
-  /** 待用户确认的工具调用队列(tool_confirmation 事件入队,确认后出队) */
-  pendingConfirmations: ToolConfirmationPayload[];
   /** 联网搜索动作列表(web_search_done 事件累积) */
   webSearchActions: WebSearchAction[];
 
@@ -148,14 +147,17 @@ interface ChatState {
   appendToolProgress: (id: string, line: string) => void;
   /** 完成工具调用(tool_result) */
   completeToolCall: (id: string, success: boolean, result?: string, error?: string) => void;
+  /**
+   * 挂载工具确认数据到匹配的运行中工具记录。
+   * 按工具名匹配(bash / delete_file),对齐旧版按名称绑定未完成段。
+   */
+  attachToolConfirmation: (payload: ToolConfirmationPayload) => void;
+  /** 清除指定 confirmId 对应的工具确认数据(用户已决策后调用) */
+  resolveToolConfirmation: (confirmId: string) => void;
   /** 清空工具调用列表(切换会话时) */
   clearToolCalls: () => void;
 
   // ── Actions:确认 / 联网搜索 ───────────────────────────────
-  /** 入队确认请求(tool_confirmation) */
-  enqueueConfirmation: (payload: ToolConfirmationPayload) => void;
-  /** 出队确认请求(用户决策后) */
-  dequeueConfirmation: (confirmId: string) => void;
   /** 追加联网搜索动作(web_search_done) */
   addWebSearchAction: (action: WebSearchAction) => void;
 
@@ -199,7 +201,6 @@ const initialState = {
   isReasoning: false,
 
   toolCalls: [],
-  pendingConfirmations: [],
   webSearchActions: [],
 
   lastTokenUpdate: null,
@@ -230,7 +231,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // ── 流式缓冲 ──────────────────────────────────────────────
   appendStreamingReasoning: (chunk) =>
     set((state) => ({
-      stream: appendToLastAssistant(state.stream, (a) => (a.reasoning += chunk)),
+      stream: appendToLastAssistant(
+        state.stream,
+        (a) => (a.reasoning += chunk),
+        // 末段是 tool 时另起 assistant 段，与 appendStreamingContent 保持对称，
+        // 防御"tool 之后又输出 reasoning"的后置思考模型（正常供应商不触发）。
+        state.stream.length > 0 && state.stream[state.stream.length - 1].kind !== 'tool'
+          ? null
+          : { kind: 'assistant', turn: state.currentTurn, text: '', reasoning: chunk },
+      ),
       isReasoning: true,
     })),
   appendStreamingContent: (chunk) =>
@@ -264,27 +273,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
     ) {
       return;
     }
-    const assistantIts = state.stream.filter((i) => i.kind === 'assistant');
-    const text = assistantIts.map((i) => i.text).filter(Boolean).join('\n\n');
-    const reasoning = assistantIts.map((i) => i.reasoning).filter(Boolean).join('\n\n');
-
     const additions: Message[] = [];
-    // 消息 id:服务端分配优先,已占用则回退本地生成
-    const sid =
-      state.streamingMessageId && !state.messages.some((m) => m.id === state.streamingMessageId)
-        ? state.streamingMessageId
-        : `round-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    if (text) {
-      additions.push({
-        id: sid,
-        role: 'assistant',
-        content: text,
-        reasoning_content: reasoning || undefined,
-      });
-    }
-    // 把工具调用一并固化为 tool 消息,避免回合结束后工具卡片消失
-    for (const tc of state.toolCalls) {
-      if (state.messages.some((m) => m.id === tc.id)) continue;
+    // 按 stream 原始顺序逐段固化 assistant 与 tool,id 与流式渲染 key 保持一致:
+    //  - assistant → `s-{turn}-{streamIdx}`
+    //  - tool      → `{callId}`(与流式 timeline/卡片 key 一致)
+    // 使 done 后 HistoryRenderer 能以相同 key + 相同容器复用同一 DOM 节点,
+    // 彻底避免"流式卸载 → 历史重挂"导致的进入动画重放。
+    const addedToolIds = new Set<string>();
+    state.stream.forEach((item, idx) => {
+      if (item.kind === 'assistant') {
+        const text = item.text || '';
+        const reasoning = item.reasoning || '';
+        if (!text && !reasoning) return;
+        additions.push({
+          id: `s-${item.turn}-${idx}`,
+          role: 'assistant',
+          content: text,
+          reasoning_content: reasoning || undefined,
+        });
+        return;
+      }
+      const tc = state.toolCalls.find((t) => t.id === item.callId);
+      if (!tc || addedToolIds.has(tc.id)) return;
+      addedToolIds.add(tc.id);
       additions.push({
         id: tc.id,
         role: 'tool',
@@ -293,7 +304,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         content: tc.result ?? tc.error ?? '',
         success: tc.status !== 'failed',
       });
-    }
+    });
     if (additions.length === 0 && state.stream.length === 0) return;
     set((s) => ({ messages: [...s.messages, ...additions], stream: [], toolCalls: [] }));
   },
@@ -321,17 +332,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : tc,
       ),
     })),
+  attachToolConfirmation: (payload) =>
+    set((state) => {
+      // 判断目标工具名:delete_file 带 toolType,其余(bash)视为 bash
+      const name = (payload as DeleteFileToolConfirmationPayload).toolType === 'delete_file'
+        ? 'delete_file'
+        : 'bash';
+      // 找到该名称下"运行中且未挂确认数据"的工具记录,挂载确认数据(对齐旧版按名称匹配未完成段)
+      const idx = state.toolCalls.findIndex(
+        (tc) => tc.name === name && tc.status === 'running' && !tc.confirmationData,
+      );
+      if (idx === -1) return state;
+      const next = [...state.toolCalls];
+      next[idx] = { ...next[idx], confirmationData: payload };
+      return { toolCalls: next };
+    }),
+  resolveToolConfirmation: (confirmId) =>
+    set((state) => ({
+      toolCalls: state.toolCalls.map((tc) =>
+        tc.confirmationData && tc.confirmationData.confirmId === confirmId
+          ? { ...tc, confirmationData: undefined }
+          : tc,
+      ),
+    })),
   clearToolCalls: () => set({ toolCalls: [] }),
 
   // ── 确认 / 联网搜索 ───────────────────────────────────────
-  enqueueConfirmation: (payload) =>
-    set((state) => ({ pendingConfirmations: [...state.pendingConfirmations, payload] })),
-  dequeueConfirmation: (confirmId) =>
-    set((state) => ({
-      pendingConfirmations: state.pendingConfirmations.filter(
-        (c) => c.confirmId !== confirmId,
-      ),
-    })),
   addWebSearchAction: (action) =>
     set((state) => ({ webSearchActions: [...state.webSearchActions, action] })),
 
@@ -430,7 +456,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       case 'tool_confirmation': {
         const payload = data as ChatSseEventMap['tool_confirmation'];
-        store.enqueueConfirmation(payload);
+        // 内嵌确认:挂载到对应运行中工具记录(timeline 行内渲染允许/拒绝),对齐旧版
+        store.attachToolConfirmation(payload);
         break;
       }
 

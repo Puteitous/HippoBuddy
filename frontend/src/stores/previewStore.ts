@@ -10,6 +10,25 @@
 import { create } from 'zustand';
 import type { FileTab } from '@/types';
 
+/** 预览面板收起状态持久化 key(与旧版 workspace-manager.js 同 key,新旧版共享) */
+const PREVIEW_COLLAPSED_KEY = 'hippo-preview-collapsed';
+
+function readPreviewCollapsed(): boolean {
+  try {
+    return localStorage.getItem(PREVIEW_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function persistPreviewCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(PREVIEW_COLLAPSED_KEY, collapsed ? 'true' : 'false');
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
 interface PreviewState {
   /** 打开的文件标签列表 */
   tabs: FileTab[];
@@ -17,6 +36,8 @@ interface PreviewState {
   activePath: string | null;
   /** 回滚联动:命中当前预览文件时自增,强制 FilePreview 重建(重新加载回滚后内容) */
   previewReloadKey: number;
+  /** 预览面板是否收起(用户主动收起,持久化;打开/切换文件时清除,对齐旧版 previewCollapseBtn) */
+  collapsed: boolean;
 
   /** 打开文件为 preview 模式(已有同路径 tab 则仅激活) */
   openFile: (filePath: string) => void;
@@ -30,6 +51,8 @@ interface PreviewState {
   replaceTabs: (updater: (tabs: FileTab[]) => FileTab[]) => void;
   /** 强制重建当前预览(回滚后刷新内容) */
   forceReload: () => void;
+  /** 收起预览面板(持久化到 localStorage,对齐旧版 previewCollapseBtn → hidePreview) */
+  collapsePreview: () => void;
 }
 
 /** 取路径末段(类似 basename) */
@@ -44,18 +67,23 @@ export const usePreviewStore = create<PreviewState>((set) => ({
   tabs: [],
   activePath: null,
   previewReloadKey: 0,
+  collapsed: readPreviewCollapsed(),
 
-  openFile: (filePath) =>
+  openFile: (filePath) => {
+    // 打开文件清除收起状态(对齐旧版 handleFileSelect removeItem)
+    persistPreviewCollapsed(false);
     set((state) => {
       // 已存在同路径标签(preview 或 diff)则仅激活
       if (state.tabs.some((t) => t.path === filePath)) {
-        return { activePath: filePath };
+        return { activePath: filePath, collapsed: false };
       }
       const tab: FileTab = { path: filePath, name: basename(filePath), mode: 'preview' };
-      return { tabs: [...state.tabs, tab], activePath: filePath };
-    }),
+      return { tabs: [...state.tabs, tab], activePath: filePath, collapsed: false };
+    });
+  },
 
-  openDiff: (filePath, toolCallId) =>
+  openDiff: (filePath, toolCallId) => {
+    persistPreviewCollapsed(false);
     set((state) => {
       const existing = state.tabs.find((t) => t.path === filePath && t.mode === 'diff');
       if (existing) {
@@ -64,13 +92,19 @@ export const usePreviewStore = create<PreviewState>((set) => ({
             t.path === filePath && t.mode === 'diff' ? { ...t, toolCallId } : t,
           ),
           activePath: filePath,
+          collapsed: false,
         };
       }
       const tab: FileTab = { path: filePath, name: basename(filePath), mode: 'diff', toolCallId };
-      return { tabs: [...state.tabs, tab], activePath: filePath };
-    }),
+      return { tabs: [...state.tabs, tab], activePath: filePath, collapsed: false };
+    });
+  },
 
-  setActivePath: (path) => set({ activePath: path }),
+  setActivePath: (path) => {
+    // 切换标签清除收起状态(对齐旧版 handleTabSelect removeItem)
+    persistPreviewCollapsed(false);
+    set({ activePath: path, collapsed: false });
+  },
 
   closeTab: (filePath) =>
     set((state) => {
@@ -89,4 +123,9 @@ export const usePreviewStore = create<PreviewState>((set) => ({
 
   replaceTabs: (updater) =>
     set((state) => ({ tabs: updater(state.tabs) })),
+
+  collapsePreview: () => {
+    persistPreviewCollapsed(true);
+    set({ collapsed: true });
+  },
 }));

@@ -210,6 +210,70 @@
   margin: 4px 0;
 }
 
+/* ── 行内确认区(bash/delete_file 待确认,对齐旧版内嵌确认卡片) ─── */
+.timeline-detail-confirmation {
+  padding: 8px 12px;
+}
+
+.timeline-detail-confirmation .confirmation-command {
+  background: #111827;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.timeline-detail-confirmation .confirmation-command pre {
+  margin: 0;
+  color: #d1d5db;
+  font-family: var(--font-mono, 'JetBrains Mono', 'Consolas', monospace);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.timeline-detail-confirmation .confirmation-delete-summary {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.timeline-detail-confirmation .confirmation-delete-list {
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  font-family: var(--font-mono, 'JetBrains Mono', 'Consolas', monospace);
+  font-size: 12px;
+}
+
+.timeline-detail-confirmation .confirmation-delete-item {
+  padding: 3px 0;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.timeline-detail-confirmation .confirmation-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.timeline-detail-confirmation .confirmation-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+[data-theme='dark'] .timeline-detail-confirmation .confirmation-command {
+  background: #1f2937;
+}
+
+[data-theme='dark'] .timeline-detail-confirmation .confirmation-command pre {
+  color: #d1d5db;
+}
+
 /* ── 详情:输出 ────────────────────────────────────────── */
 .timeline-detail-output {
   margin: 4px 0;
