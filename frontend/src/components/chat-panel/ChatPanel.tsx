@@ -1,18 +1,12 @@
 /**
  * ChatPanel - 聊天面板
  *
- * 阶段 3.4 升级 + 输入卡片对齐旧版布局:
- *  - 输入区上方:RefChips(引用芯片)+ ImageUpload 图片预览(对齐旧版 .input-refs + .input-img-preview)
- *  - 主输入行:textarea 独占一行(对齐旧版 .input-row)
- *  - 底部状态栏(对齐旧版 .input-status-bar):# / 📷 | Token | 文件变更 | 模型快速切换 | 发送/停止
- *  - @path 触发:textarea 内键入 @path/to/file 或 @path:1-10 后按空格自动提取为 chip
- *  - 提交:combineChipsToMessage 合并 chips + typed 文本,images 一并通过 send 传给后端
- *
- * 与旧版 ChatPanel.js 的差异:
- *  - 不再依赖全局 DOM 委托,改用 React 受控 props 与 state
- *  - ImageUpload 简化:缩略图点击开灯箱预览(Lightbox,对齐旧版 image-lightbox)
- *  - RefChips 简化:不依赖 file-icons.js,3.4 用 emoji 占位(3.5 FileTree 接入后再统一)
- *  - 模式切换仅保留在空会话 Hero(ChatEmptyHero),输入卡片内无模式预设(对齐旧版)
+ * 输入区使用 InlineInput(contenteditable)实现行内芯片:
+ *  - 文件引用芯片与文本同级混合,前后均可输入文字
+ *  - 图片预览保持在输入框上方独立区域
+ *  - 底部状态栏:# / 📷 | Token | 文件变更 | 模型快速切换 | 发送/停止
+ *  - @path 触发:键入 @path/to/file 或 @path:1-10 后按空格自动提取为行内芯片
+ *  - 提交:inlineInputRef.getContent() 获取 chips + text,combineChipsToMessage 合并后发送
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -29,15 +23,17 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   fileToDataUrl,
   generateImageId,
-  isVisionSupported,
 } from '@/utils/image-vision';
+
 import { MessageBubble, WebSearchStreamingRow } from './MessageBubble';
 import { HistoryRenderer } from './HistoryRenderer';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
-import { fromToolCallRecord, groupTimelineItems } from '../tool-renderers/tool-timeline-utils';
+import {
+  fromToolCallRecord,
+  TIMELINE_STANDALONE_TOOLS,
+} from '../tool-renderers/tool-timeline-utils';
 import { TokenMonitor } from './TokenMonitor';
-import { RefChips } from './RefChips';
 import { ImageUpload } from './ImageUpload';
 import { Lightbox } from './Lightbox';
 import { FileChangesMonitor } from './FileChangesMonitor';
@@ -47,6 +43,8 @@ import { ContextSelector } from '../ContextSelector';
 import { ChatEmptyHero } from './ChatEmptyHero';
 import { ModelSelectorPanel } from '../ModelSelectorPanel';
 import type { RuleItem as ContextRuleItem, SkillItem as ContextSkillItem } from '../ContextSelector';
+import InlineInput from './InlineInput';
+import type { InlineInputHandle } from './InlineInput';
 import '../tool-renderers/tool-renderers.css';
 import './ChatPanel.css';
 
@@ -54,6 +52,10 @@ export function ChatPanel() {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const setSessions = useAppStore((s) => s.setSessions);
+  const saveSessionInputDraft = useAppStore((s) => s.saveSessionInputDraft);
+  const clearSessionInputDraft = useAppStore((s) => s.clearSessionInputDraft);
+  const saveHeroPendingDraft = useAppStore((s) => s.saveHeroPendingDraft);
+  const clearHeroPendingDraft = useAppStore((s) => s.clearHeroPendingDraft);
   const messages = useChatStore((s) => s.messages);
   const isReasoning = useChatStore((s) => s.isReasoning);
   // 流式渲染序列(对齐旧版 segment 时序:思考/文本/工具按事件顺序交错)
@@ -83,6 +85,10 @@ export function ChatPanel() {
         break;
       }
     }
+    // 当前"打开"的流式段 = 最后一段 assistant,且它确实在流的末尾(后面没有 tool 段)。
+    // 若只有 assistant 后紧跟着 tool,说明这段文本已定稿,不应再带闪烁光标/思考中;
+    // 否则最后一段已定稿的 assistant 在工具运行期间会一直被误标为 streaming。
+    const tailIsAssistant = stream[stream.length - 1]?.kind === 'assistant';
     let tlBuf: ToolCallRecord[] = [];
     const flushTools = () => {
       if (tlBuf.length === 0) return;
@@ -94,24 +100,37 @@ export function ChatPanel() {
       const restBuf = tlBuf.filter((tc) => !tc.confirmationData);
       tlBuf = [];
       if (restBuf.length === 0) return;
-      const { standalone, groups } = groupTimelineItems(restBuf);
-      for (const tc of standalone) {
-        if (tc.name === 'ask_user') continue;
-        if (tc.name === 'todo_write') {
-          // todo_write 渲染会话级累计树(tool_start 已驱动 mergeTodoList 更新)。
-          rows.push(
-            <ToolCardDispatcher
-              key={tc.id}
-              record={{ ...tc, args: { mode: 'merge', todos: todoList } }}
-            />,
-          );
+      // 按原始顺序交错渲染独立卡片与 timeline,与固化后 HistoryRenderer 的插入顺序
+      // 保持一致(对齐其 flushToolGroup/tool-card 逻辑)。若改用 groupTimelineItems 把
+      // standalone 统一前移,则 [普通工具, todo_write, 普通工具] 这类交错序列在流式与
+      // 固化会顺序翻转 + DOM 重排重挂,导致进入动画重放(key 也不同)。
+      const group: ToolCallRecord[] = [];
+      const flushGroup = () => {
+        if (group.length === 0) return;
+        const g = group.splice(0);
+        rows.push(<ToolTimeline key={`tl-${g[0].id}`} items={g.map(fromToolCallRecord)} />);
+      };
+      for (const tc of restBuf) {
+        if (TIMELINE_STANDALONE_TOOLS.has(tc.name)) {
+          // 遇到独立工具先收尾当前 timeline 组,再渲染独立卡片,保留交错顺序
+          flushGroup();
+          if (tc.name === 'ask_user') continue;
+          if (tc.name === 'todo_write') {
+            // todo_write 渲染会话级累计树(tool_start 已驱动 mergeTodoList 更新)。
+            rows.push(
+              <ToolCardDispatcher
+                key={tc.id}
+                record={{ ...tc, args: { mode: 'merge', todos: todoList } }}
+              />,
+            );
+          } else {
+            rows.push(<ToolCardDispatcher key={tc.id} record={tc} />);
+          }
         } else {
-          rows.push(<ToolCardDispatcher key={tc.id} record={tc} />);
+          group.push(tc);
         }
       }
-      for (const g of groups) {
-        rows.push(<ToolTimeline key={`tl-${g[0].id}`} items={g.map(fromToolCallRecord)} />);
-      }
+      flushGroup();
     };
     stream.forEach((item, idx) => {
       if (item.kind === 'assistant') {
@@ -122,7 +141,7 @@ export function ChatPanel() {
         if (!item.text && !item.reasoning) return;
         // 仅最后一段(当前打开的流式段)显示光标与"思考中"标签;
         // 中间被工具分隔的段落无光标、无 footer,避免多个光标闪烁
-        const isOpen = idx === lastAssistantIdx;
+        const isOpen = idx === lastAssistantIdx && tailIsAssistant;
         // 联网搜索动作注入当前流式段:使实时流与固化后 HistoryRenderer 渲染同一
         // WebSearchRow,且 key 一致时 DOM 复用,避免进入动画重放。
         const msg: Message = {
@@ -167,14 +186,15 @@ export function ChatPanel() {
   );
 
   const { send, abort, isSending: isStreamSending } = useChatStream();
-  const [input, setInput] = useState('');
 
   /** 聊天面板是否已收起(对齐旧版 chat-panel.collapsed) */
   const [collapsed, setCollapsed] = useState(false);
   /** 是否显示"滚动到底部"提示按钮(用户上滚离开底部时显示) */
   const [showScrollHint, setShowScrollHint] = useState(false);
-  /** 引用芯片列表(由 @path 触发或外部 context-selector 添加) */
-  const [refChips, setRefChips] = useState<RefChip[]>([]);
+  /** 行内输入框引用，用于外部操作 */
+  const inlineInputRef = useRef<InlineInputHandle | null>(null);
+  /** 行内输入框是否有内容(用于控制发送按钮禁用态) */
+  const [hasInputContent, setHasInputContent] = useState(false);
   /** 待发送图片(转为 dataUrl 后随 ChatRequest.images 提交) */
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   /** 灯箱预览的当前索引(null 为关闭) */
@@ -199,7 +219,7 @@ export function ChatPanel() {
     [],
   );
 
-  /** 技能选中切换:同时维护 refChips(@filePath 形式) */
+  /** 技能选中切换:行内插入/移除芯片 */
   const handleSkillToggle = useCallback(
     (skill: ContextSkillItem, selected: boolean) => {
       setSelectedSkillPaths((prev) =>
@@ -207,24 +227,18 @@ export function ChatPanel() {
           ? [...prev, skill.filePath]
           : prev.filter((p) => p !== skill.filePath),
       );
-      setRefChips((prev) => {
-        if (selected) {
-          // 添加技能引用芯片(@filePath)
-          if (prev.some((c) => c.kind === 'file' && c.filePath === skill.filePath)) {
-            return prev;
-          }
-          const fileName = skill.fileName || skill.filePath.split(/[/\\]/).pop() || '';
-          const chip: RefChip = {
-            id: `skill-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            kind: 'file',
-            text: skill.name || fileName.replace(/\.md$/, ''),
-            filePath: skill.filePath,
-          };
-          return [...prev, chip];
-        }
-        // 移除对应 chip
-        return prev.filter((c) => !(c.kind === 'file' && c.filePath === skill.filePath));
-      });
+      if (selected) {
+        const fileName = skill.fileName || skill.filePath.split(/[/\\]/).pop() || '';
+        const chip: RefChip = {
+          id: `skill-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          kind: 'file',
+          text: skill.name || fileName.replace(/\.md$/, ''),
+          filePath: skill.filePath,
+        };
+        inlineInputRef.current?.insertChipAtCursor(chip);
+      } else {
+        inlineInputRef.current?.removeChipByFilePath(skill.filePath);
+      }
     },
     [],
   );
@@ -235,7 +249,6 @@ export function ChatPanel() {
   // 消息容器 DOM 实例(ChatNav 顶层常驻后,以 state 传递才能在其 effect 中触发
   // 重新绑定滚动监听;ref 对象本身变化不会触发子组件 effect)
   const [messagesContainerEl, setMessagesContainerEl] = useState<HTMLDivElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // 用户是否手动上滚(暂停自动滚动)
   const stickToBottomRef = useRef(true);
 
@@ -267,6 +280,30 @@ export function ChatPanel() {
     requestAnimationFrame(() => scrollToBottom('auto'));
   }, [currentSessionId, scrollToBottom]);
 
+  // 切换会话:恢复该会话的输入草稿,清空图片,并聚焦输入框
+  useEffect(() => {
+    const drafts = useAppStore.getState().sessionInputDrafts;
+    const heroDraft = useAppStore.getState().heroPendingDraft;
+    const draft = currentSessionId ? (drafts[currentSessionId] || '') : heroDraft;
+    setPendingImages([]);
+    requestAnimationFrame(() => {
+      const input = inlineInputRef.current;
+      if (!input) return;
+      if (draft) {
+        try {
+          const state = JSON.parse(draft) as { text?: string; chips?: RefChip[] };
+          input.restore({ text: state.text || '', chips: state.chips || [] });
+        } catch {
+          // 旧格式(纯文本)或解析失败 → 作为纯文本回填
+          input.restore({ text: draft, chips: [] });
+        }
+      } else {
+        input.clear();
+      }
+      input.focus();
+    });
+  }, [currentSessionId]);
+
   // 监听滚动事件,判断是否贴底;离开底部 ≥100px 时显示回底提示(对齐旧版)
   const handleScroll = useCallback(() => {
     const el = messagesContainerRef.current;
@@ -283,15 +320,7 @@ export function ChatPanel() {
     scrollToBottom('smooth');
   }, [scrollToBottom]);
 
-  // ── Chips / Images 管理 ─────────────────────────────────
-  const addChip = useCallback((chip: RefChip) => {
-    setRefChips((prev) => [...prev, chip]);
-  }, []);
-
-  const removeChip = useCallback((id: string) => {
-    setRefChips((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
+  // ── Images 管理 ─────────────────────────────────────────
   const addImage = useCallback((image: PendingImage) => {
     setPendingImages((prev) => [...prev, image]);
   }, []);
@@ -301,19 +330,69 @@ export function ChatPanel() {
   }, []);
 
   // ── 发送/中断 ────────────────────────────────────────────
+  // 内容空/非空翻转 → 仅更新发送按钮态
+  const handleInlineContentChange = useCallback((hasContent: boolean) => {
+    setHasInputContent(hasContent);
+  }, []);
+
+  // 内容实时变化(输入、增删芯片) → 按会话保存草稿
+  const handleDraftChange = useCallback(
+    (content: { text: string; chips: RefChip[] }) => {
+      const heroVirtual = currentSessionId?.startsWith('web-') && messages.length === 0;
+      const empty = !content.text && content.chips.length === 0;
+      if (empty) {
+        if (currentSessionId) clearSessionInputDraft(currentSessionId);
+        else clearHeroPendingDraft();
+        if (heroVirtual) clearHeroPendingDraft();
+        return;
+      }
+      const draft = JSON.stringify(content);
+      if (currentSessionId) saveSessionInputDraft(currentSessionId, draft);
+      else saveHeroPendingDraft(draft);
+      // hero 空态(web-* 虚拟会话且尚无消息)输入时,同步 hero 待定草稿
+      if (heroVirtual) saveHeroPendingDraft(draft);
+    },
+    [currentSessionId, messages.length, saveSessionInputDraft, clearSessionInputDraft, saveHeroPendingDraft, clearHeroPendingDraft],
+  );
+
+  // 粘贴图片处理
+  const handlePasteImage = useCallback(
+    (blob: Blob, name: string) => {
+      if (isStreamSending) return;
+      if (blob.size > MAX_IMAGE_SIZE_BYTES) {
+        pushWarning(`图片 ${name} 超过 20MB 限制`);
+        return;
+      }
+      void fileToDataUrl(blob)
+        .then((dataUrl) => {
+          addImage({ id: generateImageId(), dataUrl, name, size: blob.size });
+        })
+        .catch((err) => {
+          pushWarning(`读取图片失败${err instanceof Error ? `: ${err.message}` : ''}`);
+        });
+    },
+    [isStreamSending, addImage, pushWarning],
+  );
+
   const handleSend = useCallback(() => {
-    const typed = input.trim();
-    if (!typed || isStreamSending) return;
+    const content = inlineInputRef.current?.getContent() ?? { text: '', chips: [] };
+    const { text, chips } = content;
+    const typed = text.trim();
+    // 无输入且无芯片且无图片 → 不发送
+    if (!typed && chips.length === 0 && pendingImages.length === 0 && !selectedRuleIds.length) return;
+    if (isStreamSending) return;
     // 合并 chips 到 message(file/rule chip → @path,text chip → 代码块)
-    const message = combineChipsToMessage(refChips, typed);
+    const message = combineChipsToMessage(chips, typed);
     // 取出图片 dataUrl 列表
     const images = pendingImages.map((p) => p.dataUrl);
     // 当前选中的规则 id(由 ContextSelector 维护)
     const selectedRules = selectedRuleIds.length > 0 ? [...selectedRuleIds] : undefined;
     // 重置输入
-    setInput('');
-    setRefChips([]);
+    inlineInputRef.current?.clear();
     setPendingImages([]);
+    // 清除该会话的输入草稿 + hero 待定草稿
+    if (currentSessionId) clearSessionInputDraft(currentSessionId);
+    clearHeroPendingDraft();
     // 注意:不重置 selectedRuleIds / selectedSkillPaths,
     // 让用户可连续追问同一组上下文(对齐旧版行为)
     stickToBottomRef.current = true;
@@ -322,7 +401,20 @@ export function ChatPanel() {
       images: images.length > 0 ? images : undefined,
       selectedRules,
     });
-  }, [input, isStreamSending, send, clearWarnings, refChips, pendingImages, selectedRuleIds]);
+
+    // 对齐旧版虚拟会话机制:新建会话(当前 id 尚不在列表中)发送消息后,后台刷新会话列表,
+    // 让新会话实时进入侧边栏列表与历史下拉,不必等刷新页面。
+    // 稍作延迟以等待请求到达后端、用户消息已落盘到 JSONL。
+    const knownSessions = useAppStore.getState().sessions;
+    if (currentSessionId && !knownSessions.some((s) => s.id === currentSessionId)) {
+      window.setTimeout(() => {
+        api.getSessions().then(setSessions).catch(() => {});
+      }, 300);
+    }
+
+    // 发送后聚焦输入框,便于继续输入
+    requestAnimationFrame(() => inlineInputRef.current?.focus());
+  }, [isStreamSending, send, clearWarnings, pendingImages, selectedRuleIds, currentSessionId, clearSessionInputDraft, clearHeroPendingDraft]);
 
   // ── 重试(assistant footer 按钮,对齐旧版 retryBtn) ───────
   // 重发指定用户消息文本,不经过输入框
@@ -364,13 +456,11 @@ export function ChatPanel() {
       if (isStreamSending) abort();
     });
     const offRestore = on('rollback:restoreInput', (text: string) => {
-      setInput(text);
       requestAnimationFrame(() => {
-        const ta = textareaRef.current;
-        if (!ta) return;
-        ta.focus();
-        ta.selectionStart = text.length;
-        ta.selectionEnd = text.length;
+        const input = inlineInputRef.current;
+        if (!input) return;
+        input.setContent(text);
+        input.focus();
       });
     });
     return () => {
@@ -380,13 +470,14 @@ export function ChatPanel() {
   }, [isStreamSending, abort]);
 
   // ── 文本选中快捷操作订阅(阶段 3.7-2) ───────────────────
-  // SelectionActions 将选中文本发来 → 生成 RefChip(file 带选中片段 / text 纯文本)
+  // SelectionActions 将选中文本发来 → 生成 RefChip 并插入行内
   useEffect(() => {
     const offSelection = on('selection:add-to-input', (payload: SelectionAddToInputPayload) => {
       const id = `sel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      let chip: RefChip;
       if (payload.refType === 'file' && payload.filePath) {
         const fileName = payload.filePath.split(/[/\\]/).pop() || payload.text;
-        addChip({
+        chip = {
           id,
           kind: 'file',
           text: fileName,
@@ -394,87 +485,26 @@ export function ChatPanel() {
           selectedText: payload.selectedText,
           startLine: payload.startLine,
           endLine: payload.endLine,
-        });
+        };
       } else {
-        addChip({ id, kind: 'text', text: payload.text });
+        chip = { id, kind: 'text', text: payload.text };
       }
+      inlineInputRef.current?.insertChipAtCursor(chip);
       // 聚焦输入框,便于用户直接回车发送
-      requestAnimationFrame(() => textareaRef.current?.focus());
+      requestAnimationFrame(() => inlineInputRef.current?.focus());
     });
     return () => {
       offSelection();
     };
-  }, [addChip]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Enter 发送,Shift+Enter 换行
-      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-        e.preventDefault();
-        handleSend();
-      }
-      // 空格触发 @path 提取为 chip(避免污染消息文本)
-      if (e.key === ' ' && !e.nativeEvent.isComposing) {
-        const target = e.currentTarget;
-        const caret = target.selectionStart ?? 0;
-        const extracted = tryExtractAtPathChip(input, caret);
-        if (extracted) {
-          e.preventDefault();
-          addChip(extracted.chip);
-          // 把 @path 从 textarea 中移除,保留前后文本
-          const next = `${extracted.before}${extracted.after}`;
-          setInput(next);
-          // 还原光标位置(在 before 末尾,after 之前)
-          requestAnimationFrame(() => {
-            const pos = extracted.before.length;
-            target.selectionStart = pos;
-            target.selectionEnd = pos;
-          });
-        }
-      }
-    },
-    [handleSend, input, addChip],
-  );
-
-  // ── 粘贴图片(检测 vision 能力后从 clipboard 提取 image/* 项) ────
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-      if (isStreamSending || !isVisionSupported()) return;
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of Array.from(items)) {
-        if (!item.type.startsWith('image/')) continue;
-        e.preventDefault();
-        const blob = item.getAsFile();
-        if (!blob) break;
-        if (blob.size > MAX_IMAGE_SIZE_BYTES) {
-          pushWarning(`图片 ${blob.name || ''} 超过 20MB 限制`);
-          break;
-        }
-        const name = blob.name || `pasted-${Date.now()}.png`;
-        void fileToDataUrl(blob)
-          .then((dataUrl) => {
-            addImage({ id: generateImageId(), dataUrl, name, size: blob.size });
-          })
-          .catch((err) => {
-            pushWarning(`读取图片失败${err instanceof Error ? `: ${err.message}` : ''}`);
-          });
-        break;
-      }
-    },
-    [isStreamSending, addImage, pushWarning],
-  );
+  }, []);
 
   // ── 预设点击:把 prompt 填入输入框并聚焦 ─────────────────
   const handlePresetSelect = useCallback((prompt: string) => {
-    setInput(prompt);
-    // 等下一帧渲染后聚焦 + 光标移到末尾
     requestAnimationFrame(() => {
-      const ta = textareaRef.current;
-      if (!ta) return;
-      ta.focus();
-      ta.selectionStart = prompt.length;
-      ta.selectionEnd = prompt.length;
+      const input = inlineInputRef.current;
+      if (!input) return;
+      input.setContent(prompt);
+      input.focus();
     });
   }, []);
 
@@ -489,7 +519,7 @@ export function ChatPanel() {
     toolCalls.length === 0;
   const showHero = !currentSessionId || isEmptyVirtual;
 
-  const hasAttachments = refChips.length > 0 || pendingImages.length > 0;
+  const hasAttachments = pendingImages.length > 0;
 
   // ── 收起状态:仅显示右侧浮动展开按钮(对齐旧版 .chat-show-btn) ──
   if (collapsed) {
@@ -607,10 +637,9 @@ export function ChatPanel() {
           </button>
         )}
         <div className="chat-panel-input-card">
-          {/* 引用芯片 + 图片预览(有附件时显示,对齐旧版 .input-refs + .input-img-preview) */}
+          {/* 图片预览(有附件时显示,保持在上方) */}
           {hasAttachments && (
             <div className="chat-panel-input-attachments">
-              <RefChips chips={refChips} onRemove={removeChip} />
               {pendingImages.length > 0 && (
                 <div className="image-upload-previews">
                   {pendingImages.slice(0, 5).map((img) => (
@@ -642,22 +671,15 @@ export function ChatPanel() {
             </div>
           )}
 
-          {/* 主输入行:textarea 独占一行(对齐旧版 .input-row) */}
+          {/* 主输入行:行内芯片输入框(芯片与文本同级混合) */}
           <div className="chat-panel-input-row">
-            <textarea
-              ref={textareaRef}
-              className="chat-panel-textarea"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              placeholder={
-                isStreamSending
-                  ? '正在等待回复…'
-                  : '输入消息,Enter 发送,Shift+Enter 换行;输入 @path/To/file 触发引用芯片'
-              }
-              rows={2}
-              disabled={isStreamSending}
+            <InlineInput
+              ref={inlineInputRef}
+              placeholder="输入消息,Enter 发送,Shift+Enter 换行;输入 @path/To/file 触发引用芯片"
+              onSend={handleSend}
+              onPasteImage={handlePasteImage}
+              onContentChange={handleInlineContentChange}
+              onDraftChange={handleDraftChange}
             />
           </div>
 
@@ -703,7 +725,7 @@ export function ChatPanel() {
                   type="button"
                   className="chat-panel-send-btn"
                   onClick={handleSend}
-                  disabled={!input.trim() && refChips.length === 0 && pendingImages.length === 0}
+                  disabled={!hasInputContent && pendingImages.length === 0}
                   title="发送消息"
                   aria-label="发送消息"
                 >
@@ -739,62 +761,4 @@ export function ChatPanel() {
   );
 }
 
-// ============================================================================
-// 纯函数:从 textarea 当前光标位置的 word 提取 @path chip
-// ============================================================================
 
-interface ExtractResult {
-  /** 光标之前的文本(已移除 @path word 与尾随空白) */
-  before: string;
-  /** 提取出的 chip */
-  chip: RefChip;
-  /** 光标之后的文本(原样保留) */
-  after: string;
-}
-
-/**
- * 尝试从 input 在 caretEnd 位置之前的一个 word 提取 @path 引用芯片。
- *
- * 触发条件(由 keydown 空格事件调用):
- *  - 当前 word 以 @ 开头
- *  - 移除 @ 后形如 `path[:start-end]`
- *  - path 包含路径分隔符 / \ 或包含 . (避免误识别 @用户名 等纯标识)
- *
- * @returns 提取成功返回 ExtractResult;不匹配返回 null
- */
-function tryExtractAtPathChip(input: string, caretEnd: number): ExtractResult | null {
-  if (caretEnd <= 0) return null;
-  // 向前找到 word 边界(空白字符)
-  let start = caretEnd;
-  while (start > 0 && !/\s/.test(input[start - 1])) start--;
-  const word = input.slice(start, caretEnd);
-  if (!word.startsWith('@')) return null;
-
-  const rest = word.slice(1);
-  const match = rest.match(/^([^\s:]+)(?::(\d+)-(\d+))?$/);
-  if (!match) return null;
-
-  const filePath = match[1];
-  // 必须包含 / \ 或 . ,否则视为普通 @mention(如 @用户名),不提取为 chip
-  if (!filePath.includes('/') && !filePath.includes('\\') && !filePath.includes('.')) {
-    return null;
-  }
-
-  const fileName = filePath.split(/[/\\]/).pop() ?? filePath;
-  const startLine = match[2] ? Number(match[2]) : undefined;
-  const endLine = match[3] ? Number(match[3]) : undefined;
-
-  const chip: RefChip = {
-    id: `ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    kind: 'file',
-    text: fileName,
-    filePath,
-    startLine,
-    endLine,
-  };
-
-  // 移除 word + 前面的尾随空白
-  const before = input.slice(0, start).replace(/\s+$/, '');
-  const after = input.slice(caretEnd);
-  return { before, chip, after };
-}

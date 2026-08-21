@@ -27,6 +27,7 @@ import { ApiError } from '@/api/error';
 import { useAppStore } from '@/stores/appStore';
 import { showToast } from '@/utils/toastStore';
 import { getReasoningItems, supportsReasoningEffort } from '@/utils/reasoning-effort';
+import { emit } from '@/utils/eventBus';
 import type { LlmConfig, ModelSnapshot } from '@/types';
 import './ModelSelectorPanel.css';
 
@@ -110,6 +111,10 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
         showToast(successMsg, { type: 'success', duration: 2000 });
         close();
         await load();
+        // 广播模型变更,通知依赖当前模型能力的组件(如图片上传按钮)即时刷新
+        if (body.provider || body.model) {
+          emit('llm:changed', { provider: body.provider ?? '', model: body.model ?? '' });
+        }
       } catch (e) {
         const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
         showToast(`切换失败:${msg}`, { type: 'error', duration: 3000 });

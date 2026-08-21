@@ -92,47 +92,12 @@ export function fromToolMessage(msg: Message): TimelineToolItem {
   return {
     id: msg.id,
     name: msg.toolName ?? 'tool',
+    // 前端固化路径携带 args(commitStreamingMessage 已补),透传后
+    // timelineFilePath 可解析出 path,使「查看变更」在未刷新固化时仍可见,
+    // 与刷新后走后端 tool_calls 的渲染保持一致。
+    args: msg.args,
     status,
     result: content || undefined,
     content,
   };
-}
-
-// ============================================================================
-// 分组
-// ============================================================================
-
-/**
- * 把工具列表分组:
- *  - standalone:todo_write / ask_user 等需要独立渲染的(返回原序)
- *  - groups:连续的非独立工具合并为 timeline 组(对齐旧版 flushTimeline)
- *
- * 泛型约束仅要求元素带 name 字段,便于直接对 ToolCallRecord[] /
- * TimelineToolItem[] 调用。
- */
-export function groupTimelineItems<T extends { name: string }>(
-  items: T[],
-): { standalone: T[]; groups: T[][] } {
-  const standalone: T[] = [];
-  const groups: T[][] = [];
-  let current: T[] = [];
-
-  const flush = () => {
-    if (current.length > 0) {
-      groups.push(current);
-      current = [];
-    }
-  };
-
-  for (const item of items) {
-    if (TIMELINE_STANDALONE_TOOLS.has(item.name)) {
-      flush();
-      standalone.push(item);
-    } else {
-      current.push(item);
-    }
-  }
-  flush();
-
-  return { standalone, groups };
 }

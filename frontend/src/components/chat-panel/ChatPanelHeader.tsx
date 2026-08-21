@@ -50,6 +50,7 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const workspacePath = useAppStore((s) => s.workspacePath);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
+  const createNewSession = useAppStore((s) => s.createNewSession);
 
   /** 历史下拉是否展开(hover 展开 / 点击外部关闭,对齐旧版) */
   const [open, setOpen] = useState(false);
@@ -79,10 +80,9 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
 
   // ── 动作 ──────────────────────────────────────────────
   const handleNewSession = () => {
-    // 对齐旧版 createNewSession:前端生成 web-<timestamp> 会话 id,
+    // 对齐旧版 createNewSession:生成 web-* 会话 id 并把 hero 待定草稿带入新会话;
     // 首次发送消息时才真正持久化;useSessionMessages 会自动 reset chatStore。
-    const id = `web-${Date.now()}`;
-    setCurrentSession(id);
+    createNewSession();
     setOpen(false);
   };
 

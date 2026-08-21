@@ -81,6 +81,13 @@
   color: var(--hb-active-text, #1d4ed8);
 }
 
+/* 树内拖放:作为移动目标时高亮(仅目录) */
+.file-tree-node.drag-over {
+  background: var(--hb-active, rgba(59, 130, 246, 0.18));
+  outline: 1px solid var(--hb-active, #3b82f6);
+  outline-offset: -1px;
+}
+
 .file-tree-node.is-file.active {
   font-weight: 500;
 }

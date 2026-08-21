@@ -81,8 +81,13 @@ export function ImagePreview({ src, fileName }: ImagePreviewProps) {
     [scale, translate, applyTransform],
   );
 
-  const onWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // 滚轮缩放入口：React 的 onWheel 默认被注册为 passive 监听器，
+  // 在其内部调用 preventDefault() 会抛 "Unable to preventDefault inside passive event listener".
+  // 因此改用「原生 wheel 监听」并显式指定 { passive: false }，才能合法阻止页面滚动。
+  const wheelHandlerRef = useRef<(e: WheelEvent) => void>(() => {});
+
+  useEffect(() => {
+    wheelHandlerRef.current = (e: WheelEvent) => {
       e.preventDefault();
       const direction = e.deltaY > 0 ? -1 : 1;
       const newScale = Math.min(
@@ -92,9 +97,16 @@ export function ImagePreview({ src, fileName }: ImagePreviewProps) {
       if (newScale !== scale) {
         zoomAt(newScale, e.clientX, e.clientY);
       }
-    },
-    [scale, zoomAt],
-  );
+    };
+  }, [scale, zoomAt]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const onNativeWheel = (e: WheelEvent) => wheelHandlerRef.current(e);
+    viewport.addEventListener('wheel', onNativeWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', onNativeWheel);
+  }, []);
 
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -184,7 +196,6 @@ export function ImagePreview({ src, fileName }: ImagePreviewProps) {
       <div
         ref={viewportRef}
         className="img-zoom-viewport"
-        onWheel={onWheel}
       >
         {loadFailed ? (
           <div className="file-preview-placeholder">

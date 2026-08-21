@@ -13,6 +13,7 @@
  * 尚未对齐(留后续):拖拽移动、紧凑目录链合并(a › b › c)。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { getJson } from '@/api/http';
@@ -76,6 +77,10 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; path: string; isDir: boolean } | null>(null);
   const [inputDialog, setInputDialog] = useState<InputDialogState | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
+  /** 树内拖放移动:当前高亮的目标目录(仅目录节点为拖放目标) */
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
+  /** 待确认的移动(拖放落点后弹窗确认,防误触) */
+  const [pendingMove, setPendingMove] = useState<PendingMoveState | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   /** 记录上次 rootPath,判断是否发生了路径切换(避免刷新时闪烁) */
@@ -133,6 +138,24 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
     // 清空展开后不需要重载数据,但滚动区内容不变;直接清展开即可
     setTreeVersion((v) => v + 1);
   }, [rootPath]);
+
+  /** 确认树内移动(拖放落点 → ConfirmDialog 确认后 rename + 刷新) */
+  const handleConfirmMove = useCallback(
+    async (confirmed: boolean) => {
+      if (!pendingMove) return;
+      const { sourcePath, destPath, fileName } = pendingMove;
+      setPendingMove(null);
+      if (!confirmed) return;
+      const ok = await desktopBridge.rename(sourcePath, destPath);
+      if (ok) {
+        showToast(`已移动: ${fileName}`, { type: 'success' });
+        setTreeVersion((v) => v + 1);
+      } else {
+        showToast('移动失败(目标目录可能已存在同名项或无权限)', { type: 'error' });
+      }
+    },
+    [pendingMove],
+  );
 
   // ── 展开/折叠目录 ──────────────────────────────────────────
   const toggleDir = useCallback(
@@ -251,7 +274,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
     if (!ctxMenu) return;
     const onDown = (e: MouseEvent | KeyboardEvent) => {
       if (e instanceof KeyboardEvent && e.key !== 'Escape') return;
-      const el = containerRef.current?.querySelector('.file-tree-context-menu');
+      const el = document.querySelector('.file-tree-context-menu');
       if (e instanceof MouseEvent && el && el.contains(e.target as Node)) return;
       setCtxMenu(null);
     };
@@ -262,6 +285,17 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
       document.removeEventListener('keydown', onDown);
     };
   }, [ctxMenu]);
+
+  // 拖放结束(无论落在何处)清除目录高亮,避免残留 drag-over 类
+  useEffect(() => {
+    const onEnd = () => setDragOverPath(null);
+    document.addEventListener('dragend', onEnd);
+    document.addEventListener('drop', onEnd);
+    return () => {
+      document.removeEventListener('dragend', onEnd);
+      document.removeEventListener('drop', onEnd);
+    };
+  }, []);
 
   // ── 渲染分支 ──────────────────────────────────────────────
   let body: ReactNode;
@@ -293,6 +327,9 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
             onFileSelect={onFileSelect}
             gitFiles={gitStatus?.available ? gitStatus.files : undefined}
             treeVersion={treeVersion}
+            dragOverPath={dragOverPath}
+            onDragOverChange={setDragOverPath}
+            onMoveTo={setPendingMove}
             onContextMenu={(e, path, isDir) => {
               e.preventDefault();
               const menuW = 210;
@@ -344,30 +381,40 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
       </div>
       {body}
 
-      {/* 右键菜单 */}
-      {ctxMenu && (
-        <ContextMenu
-          x={ctxMenu.x}
-          y={ctxMenu.y}
-          onAction={handleContextAction}
-        />
-      )}
+      {/* 右键菜单:挂到 body,避免被 .sidebar 的 contain:layout 变成定位包含块后偏离视口 */}
+      {ctxMenu &&
+        createPortal(
+          <ContextMenu x={ctxMenu.x} y={ctxMenu.y} onAction={handleContextAction} />,
+          document.body,
+        )}
 
-      {/* 输入弹窗(新建 / 重命名) */}
-      {inputDialog && (
-        <InputDialog
-          {...inputDialog}
-          onClose={() => setInputDialog(null)}
-        />
-      )}
+      {/* 输入弹窗(新建 / 重命名):挂到 body,避免被 .sidebar 的 contain:layout 限定为侧边栏内遮罩 */}
+      {inputDialog &&
+        createPortal(
+          <InputDialog {...inputDialog} onClose={() => setInputDialog(null)} />,
+          document.body,
+        )}
 
-      {/* 确认弹窗(删除) */}
-      {confirmDialog && (
-        <ConfirmDialog
-          {...confirmDialog}
-          onClose={() => setConfirmDialog(null)}
-        />
-      )}
+      {/* 确认弹窗(删除):同样挂到 body */}
+      {confirmDialog &&
+        createPortal(
+          <ConfirmDialog {...confirmDialog} onClose={() => setConfirmDialog(null)} />,
+          document.body,
+        )}
+
+      {/* 移动确认弹窗(拖放落点后确认,防误触) */}
+      {pendingMove &&
+        createPortal(
+          <ConfirmDialog
+            title="移动"
+            message={`确认将 <strong>${escapeHtml(pendingMove.fileName)}</strong> 移动到 <strong>${escapeHtml(basename(parentOf(pendingMove.destPath)))}</strong> 吗?`}
+            note="移动后立即刷新文件树,此操作可撤销。"
+            confirmLabel="移动"
+            onSubmit={handleConfirmMove}
+            onClose={() => setPendingMove(null)}
+          />,
+          document.body,
+        )}
     </div>
   );
 }
@@ -386,6 +433,12 @@ interface FileTreeNodeProps {
   onFileSelect: (filePath: string) => void;
   gitFiles?: Record<string, string>;
   treeVersion: number;
+  /** 当前高亮的目标目录路径(树内拖放) */
+  dragOverPath: string | null;
+  /** 更新高亮目标目录 */
+  onDragOverChange: (path: string | null) => void;
+  /** 拖放落点:请求移动(source → dest) */
+  onMoveTo: (move: PendingMoveState) => void;
   onContextMenu: (
     e: ReactMouseEvent,
     path: string,
@@ -403,6 +456,9 @@ function FileTreeNode({
   onFileSelect,
   gitFiles,
   treeVersion,
+  dragOverPath,
+  onDragOverChange,
+  onMoveTo,
   onContextMenu,
 }: FileTreeNodeProps) {
   const fullPath = joinPath(rootPath, entry.name);
@@ -439,6 +495,60 @@ function FileTreeNode({
     else onFileSelect(fullPath);
   }, [isDir, fullPath, onToggle, onFileSelect]);
 
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      // 文件与文件夹均可拖入输入框生成引用芯片(对齐旧版 FileTree.js)
+      e.dataTransfer.setData('text/plain', fullPath);
+      e.dataTransfer.setData('text/x-hippo-type', isDir ? 'directory' : 'file');
+      e.dataTransfer.effectAllowed = 'copyMove';
+    },
+    [isDir, fullPath],
+  );
+
+  // 目录作为拖放目标:允许落点,设置高亮(仅目录)
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!isDir) return;
+      // 只有携带路径的拖拽才视为移动意图,避免干扰其他拖放
+      if (e.dataTransfer.types && !Array.from(e.dataTransfer.types).includes('text/plain')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      onDragOverChange(fullPath);
+    },
+    [isDir, fullPath, onDragOverChange],
+  );
+
+  // 移出目标目录(未进入其子节点)时清除高亮
+  const handleDragLeave = useCallback(
+    (e: React.DragEvent) => {
+      const to = e.relatedTarget as Node | null;
+      if (to && e.currentTarget.contains(to)) return;
+      onDragOverChange(null);
+    },
+    [onDragOverChange],
+  );
+
+  // 落点:读取被拖路径,禁止拖到自身或其子目录,再请求移动确认
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onDragOverChange(null);
+      if (!isDir) return;
+      const sourcePath = e.dataTransfer.getData('text/plain');
+      if (!sourcePath) return;
+      // 禁止拖到自身 或 自己的子目录(对齐旧版 FileTree.js)
+      if (sourcePath === fullPath || sourcePath.startsWith(fullPath + '/')) return;
+      const fileName = sourcePath.split('/').pop() || sourcePath;
+      onMoveTo({ sourcePath, destPath: joinPath(fullPath, fileName), fileName });
+    },
+    [isDir, fullPath, onDragOverChange, onMoveTo],
+  );
+
+  // 当前是否为高亮目标目录
+  const isDragOver = isDir && dragOverPath === fullPath;
+
   return (
     <li role="treeitem" aria-expanded={isDir ? expanded : undefined} className="file-tree-node-wrap">
       <div
@@ -447,9 +557,15 @@ function FileTreeNode({
           isDir ? 'is-dir' : 'is-file',
           isActive ? 'active' : '',
           expanded ? 'expanded' : '',
+          isDragOver ? 'drag-over' : '',
           status ? `status-${status.toLowerCase()}` : '',
         ].join(' ').trim()}
         style={indentStyle}
+        draggable
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         onClick={handleClick}
         onContextMenu={(e) => onContextMenu(e, fullPath, isDir)}
       >
@@ -489,6 +605,9 @@ function FileTreeNode({
                 onFileSelect={onFileSelect}
                 gitFiles={gitFiles}
                 treeVersion={treeVersion}
+                dragOverPath={dragOverPath}
+                onDragOverChange={onDragOverChange}
+                onMoveTo={onMoveTo}
                 onContextMenu={onContextMenu}
               />
             ))
@@ -579,8 +698,15 @@ function InputDialog({
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    // 重命名:默认只选中主文件名,保留扩展名不动(如 index.js 只选中 index)
+    const initial = value ?? '';
+    const dot = initial.lastIndexOf('.');
+    const baseLen = dot > 0 ? dot : initial.length;
+    el.setSelectionRange(0, baseLen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const confirm = () => {
@@ -642,6 +768,8 @@ interface ConfirmDialogState {
   title: string;
   message: string;
   note?: string;
+  /** 确认按钮文案(默认「删除」) */
+  confirmLabel?: string;
   onSubmit: (confirmed: boolean) => void | Promise<void>;
 }
 
@@ -649,6 +777,7 @@ function ConfirmDialog({
   title,
   message,
   note,
+  confirmLabel = '删除',
   onSubmit,
   onClose,
 }: ConfirmDialogState & { onClose: () => void }) {
@@ -691,7 +820,7 @@ function ConfirmDialog({
             取消
           </button>
           <button type="button" className="file-tree-modal-btn file-tree-modal-btn-danger" onClick={confirm}>
-            删除
+            {confirmLabel}
           </button>
         </div>
       </div>
@@ -702,6 +831,23 @@ function ConfirmDialog({
 // ============================================================================
 // 工具函数(放本文件内部,仅 FileTree 用到)
 // ============================================================================
+
+/** 树内拖放移动待确认数据 */
+interface PendingMoveState {
+  sourcePath: string;
+  destPath: string;
+  fileName: string;
+}
+
+/** HTML 转义,用于 messages/多行提示防止注入(dangerouslySetInnerHTML) */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 /** 目录条目排序:目录优先,再按名称 */
 function sortEntries(entries: DirEntry[]): DirEntry[] {

@@ -11,7 +11,7 @@
  *  - tool role 消息改用 ToolCardDispatcher(替代 3.2 的简略 ToolMessage)
  *  - 工具卡片支持命令、流式进度、diff、确认等完整能力
  */
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
@@ -138,7 +138,7 @@ function MessageBubbleComponent({
       {html ? (
         <div
           className="msg-markdown"
-          // marked + DOMPurify 已净化,可安全注入
+          // marked + DOMPurify 已净化,可安全注入;复制/公式按钮由 markdown.ts 全局事件委托接管
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : null}
@@ -305,30 +305,81 @@ function buildWebUrlLink(url: string): ReactNode {
   );
 }
 
-/** 用户消息内容(纯文本或多模态) */
+/** 用户消息内容(纯文本或多模态)，支持长内容折叠 */
+const COLLAPSE_THRESHOLD = 200; // px，超过此高度自动折叠
+
 function UserContent({ content }: { content: string | ContentPart[] }) {
-  if (typeof content === 'string') {
-    return <div className="msg-user-text">{content}</div>;
-  }
+  const [expanded, setExpanded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [collapsible, setCollapsible] = useState(false);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setCollapsible(contentRef.current.scrollHeight > COLLAPSE_THRESHOLD);
+    }
+  }, [content]);
+
+  const inner = (
+    <div className="msg-user-text">{typeof content === 'string' ? content : extractText(content)}</div>
+  );
+
   return (
-    <div className="msg-user-multimodal">
-      {content.map((part, i) => {
-        if (part.type === 'text' && part.text) {
-          return <div key={i} className="msg-user-text">{part.text}</div>;
-        }
-        if (part.type === 'image_url' && part.image_url?.url) {
-          return (
-            <img
-              key={i}
-              src={part.image_url.url}
-              alt="用户上传图片"
-              className="msg-user-image"
-            />
-          );
-        }
-        return null;
-      })}
-    </div>
+    <>
+      {/* 内容容器：折叠态 max-height + 渐隐遮罩，按钮保持在容器外确保始终可见可点 */}
+      <div ref={contentRef} className={`msg-user-collapsible${collapsible ? ' collapsible' : ''}${expanded ? ' expanded' : ''}`}>
+        {typeof content === 'string' ? (
+          inner
+        ) : (
+          <div className="msg-user-multimodal">
+            {content.map((part, i) => {
+              if (part.type === 'text' && part.text) {
+                return <div key={i} className="msg-user-text">{part.text}</div>;
+              }
+              if (part.type === 'image_url' && part.image_url?.url) {
+                return (
+                  <img
+                    key={i}
+                    src={part.image_url.url}
+                    alt="用户上传图片"
+                    className="msg-user-image"
+                  />
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
+      </div>
+      {collapsible && (
+        <button
+          type="button"
+          className={`msg-user-expand-btn${expanded ? ' open' : ''}`}
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded ? '收起' : '展开全文'}
+          title={expanded ? '收起' : '展开全文'}
+        >
+          {expanded ? (
+            /* 展开态:朝上的收拢箭头 */
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M3.5 10L8 5.5 12.5 10"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            /* 收起态:居中三个点 */
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <circle cx="3.5" cy="8" r="1.6" />
+              <circle cx="8" cy="8" r="1.6" />
+              <circle cx="12.5" cy="8" r="1.6" />
+            </svg>
+          )}
+        </button>
+      )}
+    </>
   );
 }
 

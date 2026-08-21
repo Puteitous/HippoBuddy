@@ -29,7 +29,13 @@ export type EventBusEvent =
   | 'selection:add-to-input'
   // ── 3.8:回滚完成联动 ───────────────────────────────
   /** 回滚成功后发出,携带被回滚文件路径列表(对齐旧版 file:rollback-completed),PreviewPanel 订阅后刷新预览 */
-  | 'rollback:completed';
+  | 'rollback:completed'
+  // ── LLM 模型切换 ───────────────────────────────────
+  /**
+   * 模型切换成功后发出,携带新生效的 provider/model。
+   * ModelSelectorPanel 切换成功后广播,ImageUpload 等依赖当前模型能力的组件订阅后即时刷新。
+   */
+  | 'llm:changed';
 
 /** selection:add-to-input 的 payload(对齐旧版 selection-actions.js 事件结构) */
 export interface SelectionAddToInputPayload {
@@ -53,6 +59,12 @@ export interface RollbackCompletedPayload {
   paths: string[];
   /** 回滚模式:files = 仅回滚文件;all = 文件 + 会话截断 */
   mode: 'files' | 'all';
+}
+
+/** llm:changed 的 payload:模型切换后新生效的配置 */
+export interface LlmChangedPayload {
+  provider: string;
+  model: string;
 }
 
 type Handler<T = unknown> = (payload: T) => void;

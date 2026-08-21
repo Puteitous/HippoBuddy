@@ -157,17 +157,6 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
       // 已被 assistant.tool_calls 消费的 tool 消息 id(避免重复渲染)
       const consumed = new Set<string>();
 
-      // 回合内是否有工具正在等待用户确认(带 confirmationData)。
-      // 对齐旧版 HistoryRenderer:seg 为 tool 且 confirmationData && !result 时,
-      // 给 assistant 加 pending-confirm class 隐藏 footer(对话未完成不显示操作按钮)。
-      const hasPendingConfirm = round.some((e) =>
-        e.kind === 'tool-card'
-          ? !!e.msg.confirmationData
-          : e.kind === 'timeline'
-            ? e.items.some((m) => !!m.confirmationData)
-            : false,
-      );
-
       round.forEach((entry) => {
         if (entry.kind === 'assistant') {
           rows.push(
@@ -264,8 +253,7 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
         roundText &&
         !isSending &&
         !waitingConfirm &&
-        !waitingForUser &&
-        !hasPendingConfirm
+        !waitingForUser
       ) {
         const anchor =
           round[0].kind === 'timeline' ? round[0].items[0].id : round[0].msg.id;
@@ -293,7 +281,12 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
 
     for (const m of messages) {
       if (m.role === 'user') {
-        // 上一条 user 之后的回合结束;记录本轮 user 作为下个回合的 retry/fork/rollback 目标
+        // 上一条 user 之后的回合结束。
+        // 必须先 flush toolGroup 再 flushRound:若上一回合以工具收尾且无后续 assistant
+        // 文本(如工具执行中被中断、纯工具回合),尾部的工具仍积压在 toolGroup 里,
+        // 不在此先汇入 round 的话,它们会在整轮循环结束后(flushToolGroup)才渲染,
+        // 被排到本条 user 气泡之后,导致上一回合的 tool-timeline 串到新一轮 assistant 前面。
+        flushToolGroup();
         flushRound();
         roundUserId = m.id;
         roundUserContent = extractText(m.content);

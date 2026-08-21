@@ -57,19 +57,25 @@ const HIPPO_ICON_PATHS = (
   </>
 );
 
-/** 模式按钮图标(与旧版 hero-mode 胶囊一致) */
-const MODE_ICONS: Record<SessionMode, { icon: string; label: string }> = {
+/** 模式按钮图标(与旧版 cockpit.html hero-mode 胶囊一致,含各自 viewBox/stroke-width) */
+const MODE_ICONS: Record<SessionMode, { icon: string; label: string; viewBox: string; strokeWidth: number }> = {
   chat: {
     icon: 'M44 7H4V37H11V42L21 37H44V7Z M31 16V17 M17 16V17 M31 25C31 25 29 29 24 29C19 29 17 25 17 25',
     label: 'Chat',
+    viewBox: '0 0 48 48',
+    strokeWidth: 4,
   },
   coding: {
     icon: 'M6 3.5 2 8l4 4.5M10 3.5l4 4.5-4 4.5',
     label: 'Code',
+    viewBox: '0 0 16 16',
+    strokeWidth: 1.5,
   },
   office: {
     icon: 'M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z M9 1v4h4 M5 8h6 M5 10h4',
     label: 'Office',
+    viewBox: '0 0 16 16',
+    strokeWidth: 1.5,
   },
 };
 
@@ -148,12 +154,12 @@ function ChatEmptyHeroComponent({ onPresetSelect }: ChatEmptyHeroProps) {
             >
               <svg
                 className="mode-icon"
-                viewBox="0 0 24 24"
+                viewBox={MODE_ICONS[m].viewBox}
                 width="14"
                 height="14"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.5"
+                strokeWidth={MODE_ICONS[m].strokeWidth}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 aria-hidden

@@ -1,0 +1,140 @@
+/**
+ * InlineInput - 行内芯片输入框样式
+ *
+ * 设计要点:
+ *  - .inline-input-wrapper 相对定位，作为占位符的包含块
+ *  - .inline-input-editor 可编辑 div，与 textarea 视觉一致
+ *  - .inline-chip 行内芯片标签，不可编辑，圆角背景
+ *  - 芯片关闭按钮 hover 时显示
+ */
+
+.inline-input-wrapper {
+  position: relative;
+  flex: 1;
+  /* 对齐旧版 .input-row textarea min-height:56px,避免空态时状态栏下方留白偏大 */
+  min-height: 56px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.inline-input-placeholder {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  color: var(--text-muted, #888);
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 1.5;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 16px);
+}
+
+.inline-input-editor {
+  width: 100%;
+  min-height: 56px;
+  max-height: 200px;
+  overflow-y: auto;
+  /* 对齐旧版 .input-row textarea:滚动带平滑动画 */
+  scroll-behavior: smooth;
+  padding: 6px 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary, #e0e0e0);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: text;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.inline-input-editor:empty::before {
+  /* 占位符由 .inline-input-placeholder 控制，这里不需要 */
+  content: '';
+}
+
+/* ── 行内芯片 ──────────────────────────────────────────── */
+
+.inline-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 4px 1px 6px;
+  margin: 0 1px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  background: var(--chip-bg, rgba(88, 101, 242, 0.2));
+  color: var(--chip-text, #8ea4ff);
+  border: 1px solid var(--chip-border, rgba(88, 101, 242, 0.3));
+  cursor: default;
+  user-select: none;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.inline-chip-icon {
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.inline-chip-text {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-chip-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--chip-text, #8ea4ff);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 2px;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.inline-chip-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── 聚焦态 ────────────────────────────────────────────── */
+
+.inline-input-editor:focus {
+  outline: none;
+}
+
+/* ── 禁用态 ────────────────────────────────────────────── */
+
+.inline-input-editor[contenteditable="false"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── 暗色芯片主题(亮色模式降级) ────────────────────────── */
+
+:root[data-theme="light"] .inline-chip {
+  background: rgba(88, 101, 242, 0.1);
+  color: #5861f2;
+  border-color: rgba(88, 101, 242, 0.25);
+}
+
+:root[data-theme="light"] .inline-chip-close {
+  color: #5861f2;
+}

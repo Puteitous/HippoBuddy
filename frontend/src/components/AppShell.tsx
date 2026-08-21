@@ -20,7 +20,7 @@
 import { useEffect } from 'react';
 import { api } from '@/api/client';
 import { ApiError } from '@/api/error';
-import { useAppStore } from '@/stores/appStore';
+import { useAppStore, readSessionsCache } from '@/stores/appStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useSessionMessages } from '@/hooks/useSessionMessages';
 import { Sidebar } from './Sidebar';
@@ -55,17 +55,28 @@ export function AppShell() {
     void useThemeStore.getState().initTheme();
   }, []);
 
-  // 启动时加载会话列表
+  // 启动时加载会话列表:先展示 localStorage 缓存(若有),再后台请求刷新对齐最新数据
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setIsLoadingSessions(true);
       setSessionsError(null);
+      const cached = readSessionsCache();
+      if (cached.length > 0) {
+        // 命中缓存:立即渲染列表,免除刷新后的空白等待
+        setSessions(cached);
+        // 恢复上次会话;若持久化的 id 已失效(会话被删除),回退到缓存中的第一个会话
+        const cachedExists = currentSessionId && cached.some((s) => s.id === currentSessionId);
+        if (cached.length > 0 && !cachedExists) {
+          setCurrentSession(cached[0].id);
+        }
+      } else {
+        setIsLoadingSessions(true);
+      }
       try {
         const data = await api.getSessions();
         if (cancelled) return;
         setSessions(data);
-        // 恢复上次会话;若持久化的 id 已失效(会话被删除),回退到第一个会话
+        // 以后台返回的最新列表为准,再次校正当前会话
         const currentExists = currentSessionId && data.some((s) => s.id === currentSessionId);
         if (data.length > 0 && !currentExists) {
           setCurrentSession(data[0].id);

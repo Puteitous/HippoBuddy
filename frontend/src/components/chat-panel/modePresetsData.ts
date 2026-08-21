@@ -83,5 +83,5 @@ export const SLOGAN_MAP: Record<SessionMode, string> = {
   coding: "Let's Code!",
 };
 
-/** 模式按钮展示顺序与中文名 */
-export const MODE_ORDER: SessionMode[] = ['chat', 'office', 'coding'];
+/** 模式按钮展示顺序与中文名(与旧版 cockpit.html 一致:chat → coding → office) */
+export const MODE_ORDER: SessionMode[] = ['chat', 'coding', 'office'];

@@ -18,6 +18,8 @@ vision_providers:
 
 # 支持视觉的精确模型名（大小写不敏感）
 vision_models_exact:
+  # ---- DeepSeek（含 vision 的视觉实验版） ----
+  - deepseek-v4-flash-vision-exp
   # ---- OpenAI ----
   # - gpt-5.2
   # - gpt-5.2-instant

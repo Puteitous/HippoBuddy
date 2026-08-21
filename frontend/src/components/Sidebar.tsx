@@ -142,6 +142,7 @@ export function Sidebar() {
   const isLoading = useAppStore((s) => s.isLoadingSessions);
   const error = useAppStore((s) => s.sessionsError);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
+  const createNewSession = useAppStore((s) => s.createNewSession);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
   const workspacePath = useAppStore((s) => s.workspacePath);
@@ -198,11 +199,10 @@ export function Sidebar() {
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  /** 对齐旧版 createNewSession:前端生成 web-<timestamp> 会话 id,
+  /** 对齐旧版 createNewSession:生成 web-* 会话 id 并把 hero 待定草稿带入新会话;
    *  首次发送消息时才真正持久化;useSessionMessages 会自动 reset chatStore。 */
   const handleNewSession = () => {
-    const id = `web-${Date.now()}`;
-    setCurrentSession(id);
+    createNewSession();
   };
 
   /** 切换 Project/Time 分组(持久化,key 与旧版一致) */
@@ -727,7 +727,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
         !renaming && (
           <>
             <div className="session-item-meta">
-              <span className="session-item-mode">{session.mode ?? 'chat'}</span>
+              <span className="session-item-mode">{session.mode ?? 'coding'}</span>
               <span className="session-item-time">{time}</span>
             </div>
             {/* hover 操作按钮(对齐旧版 .session-actions) */}

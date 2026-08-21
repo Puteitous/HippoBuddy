@@ -13,6 +13,7 @@
  *   - 不实现滚轮横向滚动(原生 overflow-x:auto 即可)
  */
 import type { FileTab } from '@/types';
+import { FileTypeIcon } from '@/components/FileTypeIcon';
 import './FileTabs.css';
 
 interface FileTabsProps {
@@ -56,10 +57,7 @@ export function FileTabs({ tabs, activePath, onSelect, onClose }: FileTabsProps)
                   <path d="M11 10l3 2-3 2" />
                 </svg>
               ) : (
-                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3z" />
-                  <polyline points="10 2 10 5 13 5" />
-                </svg>
+                <FileTypeIcon fileName={tab.name} size={12} />
               )}
             </span>
             <span className="file-tab-name">{tab.name}</span>

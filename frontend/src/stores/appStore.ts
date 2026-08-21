@@ -33,6 +33,29 @@ function persistActivityBarHidden(hidden: boolean): void {
   }
 }
 
+/** 全局模式持久化 key(与旧版 app-state.js 同 key,新旧版共享;默认 coding 与后端默认一致) */
+const MODE_KEY = 'hippo-agent-mode';
+
+/** 从 localStorage 读取全局模式(非法/缺失时回退默认 coding) */
+function readGlobalMode(): SessionMode {
+  try {
+    const v = localStorage.getItem(MODE_KEY);
+    if (v === 'chat' || v === 'coding' || v === 'office') return v;
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+  return 'coding';
+}
+
+/** 全局模式写入 localStorage(用户显式切换模式时持久化,作为新会话/无记录会话的兜底) */
+function persistGlobalMode(mode: SessionMode): void {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
 /** 当前会话 id 持久化 key(刷新后恢复上次会话) */
 const CURRENT_SESSION_KEY = 'hippo-current-session';
 
@@ -49,6 +72,34 @@ function persistCurrentSession(id: string | null): void {
   try {
     if (id) localStorage.setItem(CURRENT_SESSION_KEY, id);
     else localStorage.removeItem(CURRENT_SESSION_KEY);
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
+/** 会话列表 localStorage 缓存 key(刷新后先展示缓存,再后台请求刷新对齐) */
+const SESSIONS_CACHE_KEY = 'hippo-session-list-cache';
+
+/** 从 localStorage 读取会话列表缓存(无缓存或损坏时返回空数组) */
+export function readSessionsCache(): Session[] {
+  try {
+    const raw = localStorage.getItem(SESSIONS_CACHE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? (arr as Session[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 将会话列表写入 localStorage 缓存(空列表时清除,避免残留脏缓存) */
+function persistSessionsCache(sessions: Session[]): void {
+  try {
+    if (sessions.length === 0) {
+      localStorage.removeItem(SESSIONS_CACHE_KEY);
+    } else {
+      localStorage.setItem(SESSIONS_CACHE_KEY, JSON.stringify(sessions));
+    }
   } catch {
     /* localStorage 不可用时静默降级 */
   }
@@ -98,6 +149,11 @@ interface AppState {
   /** 进入 Settings 视图时初始定位的设置页(由 ModelSelectorPanel 等外部触发,消费后重置为 'general') */
   settingsInitialPage: string;
 
+  /** 会话输入草稿(内存态,对齐旧版 appState._sessionInputDrafts;key = sessionId) */
+  sessionInputDrafts: Record<string, string>;
+  /** hero 待定草稿(内存态,对齐旧版 appState._heroPendingDraft;只在 hero 空态使用) */
+  heroPendingDraft: string;
+
   /** 设置会话列表 */
   setSessions: (sessions: Session[]) => void;
   /** 切换当前会话(同时重置 chatStore 由组件层处理) */
@@ -126,12 +182,23 @@ interface AppState {
   setSkillMarketOpen: (open: boolean) => void;
   /** 设置 Settings 视图初始页(消费后应重置为 'general') */
   setSettingsInitialPage: (page: string) => void;
+
+  /** 保存会话输入草稿(空内容不入库,对齐旧版 saveSessionInputDraft) */
+  saveSessionInputDraft: (sessionId: string, text: string) => void;
+  /** 清除会话输入草稿(对齐旧版 clearSessionInputDraft) */
+  clearSessionInputDraft: (sessionId: string) => void;
+  /** 保存 hero 待定草稿(对齐旧版 saveHeroPendingDraft) */
+  saveHeroPendingDraft: (text: string) => void;
+  /** 清除 hero 待定草稿(对齐旧版 clearHeroPendingDraft) */
+  clearHeroPendingDraft: () => void;
+  /** 新建会话:生成 web-* id,并把 hero 待定草稿带入新会话草稿(对齐旧版 createNewSession) */
+  createNewSession: () => string;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   sessions: [],
   currentSessionId: readCurrentSession(),
-  mode: 'chat',
+  mode: readGlobalMode(),
   workspacePath: '',
   view: 'chat',
   isLoadingSessions: false,
@@ -142,28 +209,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   skillMarketOpen: false,
   settingsInitialPage: 'general',
 
-  setSessions: (sessions) => set({ sessions }),
+  sessionInputDrafts: {},
+  heroPendingDraft: '',
+
+  setSessions: (sessions) => {
+    persistSessionsCache(sessions);
+    set((state) => {
+      const patch: Partial<AppState> = { sessions };
+      // 刷新/加载会话列表后,恢复当前会话已固化的 mode(对齐旧版 batchSetSessionModes);
+      // 无记录时保持全局兜底 mode 不变
+      const cur = state.currentSessionId;
+      const curSession = sessions.find((s) => s.id === cur);
+      if (curSession?.mode) patch.mode = curSession.mode;
+      return patch;
+    });
+  },
   setCurrentSession: (sessionId) => {
     persistCurrentSession(sessionId);
-    set({ currentSessionId: sessionId });
+    set((state) => {
+      const patch: Partial<AppState> = { currentSessionId: sessionId };
+      // 切换会话时恢复该会话已固化的 mode;无记录(新会话/虚拟会话)保持全局兜底不变
+      const target = state.sessions.find((s) => s.id === sessionId);
+      if (target?.mode) patch.mode = target.mode;
+      return patch;
+    });
   },
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) => {
+    persistGlobalMode(mode);
+    set({ mode });
+  },
   setWorkspacePath: (path) => set({ workspacePath: path }),
   setView: (view) => set({ view }),
   setIsLoadingSessions: (loading) => set({ isLoadingSessions: loading }),
   setSessionsError: (error) => set({ sessionsError: error }),
 
   updateSession: (sessionId, patch) =>
-    set((state) => ({
-      sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, ...patch } : s)),
-    })),
+    set((state) => {
+      const sessions = state.sessions.map((s) =>
+        s.id === sessionId ? { ...s, ...patch } : s,
+      );
+      persistSessionsCache(sessions);
+      return { sessions };
+    }),
 
   removeSession: (sessionId) =>
-    set((state) => ({
-      sessions: state.sessions.filter((s) => s.id !== sessionId),
-      currentSessionId:
-        state.currentSessionId === sessionId ? null : state.currentSessionId,
-    })),
+    set((state) => {
+      const sessions = state.sessions.filter((s) => s.id !== sessionId);
+      persistSessionsCache(sessions);
+      return {
+        sessions,
+        currentSessionId:
+          state.currentSessionId === sessionId ? null : state.currentSessionId,
+      };
+    }),
 
   toggleActivityBar: () => {
     const next = !get().activityBarHidden;
@@ -178,4 +276,28 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSkillMarketOpen: (open) => set({ skillMarketOpen: open }),
   setSettingsInitialPage: (page) => set({ settingsInitialPage: page }),
+
+  saveSessionInputDraft: (sessionId, text) =>
+    set((s) => ({ sessionInputDrafts: { ...s.sessionInputDrafts, [sessionId]: text } })),
+  clearSessionInputDraft: (sessionId) =>
+    set((s) => {
+      const drafts = { ...s.sessionInputDrafts };
+      delete drafts[sessionId];
+      return { sessionInputDrafts: drafts };
+    }),
+  saveHeroPendingDraft: (text) => set({ heroPendingDraft: text }),
+  clearHeroPendingDraft: () => set({ heroPendingDraft: '' }),
+  createNewSession: () => {
+    const id = `web-${Date.now()}`;
+    const heroDraft = get().heroPendingDraft;
+    set((s) => {
+      const drafts = { ...s.sessionInputDrafts };
+      // 新建会话时把 hero 待定草稿带入新会话(对齐旧版 createNewSession 的
+      // savedDraft = getHeroPendingDraft 逻辑;空草稿不占位)
+      if (heroDraft) drafts[id] = heroDraft;
+      return { currentSessionId: id, sessionInputDrafts: drafts };
+    });
+    persistCurrentSession(id);
+    return id;
+  },
 }));

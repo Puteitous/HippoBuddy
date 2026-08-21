@@ -5,9 +5,10 @@
  *
  * 设计要点:
  *  - 受控组件:images state 由 ChatPanel 持有,本组件通过 onAdd/onRemove 通知变更
- *  - 上传按钮可见性:依赖当前模型是否支持视觉(读 localStorage hippo_model_config)
- *  - 触发方式:按钮点击 → 隐藏 input[type=file](粘贴由 ChatPanel 在 textarea 上
- *    直接 onPaste 处理,因 textarea 不在 .image-upload 内部)
+ *  - 上传按钮可见性:依赖当前模型是否支持视觉。
+ *    初始拉取 GET /api/config/llm,切换模型时订阅 llm:changed 事件即时刷新。
+ *  - 触发方式:按钮点击 → 隐藏 input[type=file](粘贴由 ChatPanel 在输入框上
+ *    直接 onPaste 处理,因输入框不在 .image-upload 内部)
  *  - 大小校验:超过 20MB 给出 toast-like 内联警告(无第三方依赖)
  *  - 缩略图:点击在新标签打开 dataUrl(简化,不引入 image-lightbox)
  *
@@ -23,8 +24,10 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   fileToDataUrl,
   generateImageId,
-  isVisionSupported,
+  isVisionProviderModel,
 } from '@/utils/image-vision';
+import { configApi } from '@/api/client';
+import { on, type LlmChangedPayload } from '@/utils/eventBus';
 import './ImageUpload.css';
 
 interface ImageUploadProps {
@@ -45,19 +48,31 @@ function ImageUploadComponent({
   showPreview = true,
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  // 视觉能力是否支持(仅初始化 + storage 事件触发时刷新)
+  // 视觉能力是否支持(由当前生效模型的 provider/model 决定)
   const [visionSupported, setVisionSupported] = useState(false);
   // 内联错误提示(单条,3s 后自动消失)
   const [warning, setWarning] = useState<string | null>(null);
 
   // ── 视觉能力检测 ──────────────────────────────────────
   useEffect(() => {
-    const check = () => setVisionSupported(isVisionSupported());
-    check();
-    // 监听其他 tab 写入 storage(本 tab 的 setItem 不触发 storage 事件,
-    // 但 ChatRequest 模式变更通常发生在 Settings 视图,跨视图时刷新一次足够)
-    window.addEventListener('storage', check);
-    return () => window.removeEventListener('storage', check);
+    let disposed = false;
+    // 初始拉取当前生效模型
+    configApi
+      .getLlm()
+      .then((llm) => {
+        if (!disposed) setVisionSupported(isVisionProviderModel(llm.provider, llm.model));
+      })
+      .catch(() => {
+        // 拉取失败保持隐藏(不可用即不当作用户上传入口)
+      });
+    // 订阅模型切换,即时刷新
+    const offLlmChanged = on<LlmChangedPayload>('llm:changed', (payload) => {
+      setVisionSupported(isVisionProviderModel(payload.provider, payload.model));
+    });
+    return () => {
+      disposed = true;
+      offLlmChanged();
+    };
   }, []);
 
   // 警告 3s 后自动消失

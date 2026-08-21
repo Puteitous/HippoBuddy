@@ -810,6 +810,13 @@ export const zh: Record<string, string> = {
   'mermaid.export': '导出',
   'mermaid.exportPng': '导出 PNG',
   'mermaid.exportSvg': '导出 SVG',
+  'mermaid.preview': '预览',
+  'mermaid.showSource': '显示源码',
+  'mermaid.syntaxError': '图表语法错误',
+  'mermaid.rendering': '渲染中...',
+  'mermaid.saved': '已保存: ',
+  'mermaid.svgImage': 'SVG 图片',
+  'mermaid.pngImage': 'PNG 图片',
 
   /* ==================== Memory Panel ==================== */
   'memory.back': '返回',
@@ -1658,6 +1665,13 @@ export const en: Record<string, string> = {
   'mermaid.export': 'Export',
   'mermaid.exportPng': 'Export PNG',
   'mermaid.exportSvg': 'Export SVG',
+  'mermaid.preview': 'Preview',
+  'mermaid.showSource': 'Show Source',
+  'mermaid.syntaxError': 'Diagram Syntax Error',
+  'mermaid.rendering': 'Rendering...',
+  'mermaid.saved': 'Saved: ',
+  'mermaid.svgImage': 'SVG Image',
+  'mermaid.pngImage': 'PNG Image',
 
   'memory.back': 'Back',
   'memory.view': 'View',

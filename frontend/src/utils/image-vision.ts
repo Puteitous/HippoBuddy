@@ -36,6 +36,7 @@ const VISION_MODEL_KEYWORDS = [
   'bakllava',
   'qwen',
   'vl',
+  'vision',
   'cogvlm',
   'glm-4v',
   'glm-5v',
@@ -54,21 +55,31 @@ interface StoredModelConfig {
 }
 
 /**
+ * 判断指定 provider/model 是否支持视觉(图片上传)。
+ *
+ * 纯函数,供各种来源的当前模型复用(store 状态 / 后端接口 / localStorage 迁移)。
+ */
+export function isVisionProviderModel(provider?: string, model?: string): boolean {
+  const p = (provider ?? '').toLowerCase();
+  const m = (model ?? '').toLowerCase();
+  if (VISION_PROVIDERS.includes(p)) return true;
+  return VISION_MODEL_KEYWORDS.some((kw) => m.includes(kw));
+}
+
+/**
  * 检测当前模型是否支持视觉(图片上传)。
  *
- * 数据来源:localStorage `hippo_model_config`(由旧版 SettingsPanel 写入,3.6 迁移后可改 appStore)。
+ * 数据来源:localStorage `hippo_model_config`(旧版 SettingsPanel 写入的遗留 key)。
  * 数据缺失或解析失败时返回 false,UI 自动隐藏上传按钮。
+ * 注意:新版前端不再写该 key;实时模型已改用 llm:changed 事件 + /api/config/llm,
+ *       此函数保留仅为兼容旧版 localStorage 读取。
  */
 export function isVisionSupported(): boolean {
   try {
     const raw = localStorage.getItem(MODEL_CONFIG_STORAGE_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw) as StoredModelConfig;
-    const provider = (data.provider ?? '').toLowerCase();
-    const model = (data.model ?? '').toLowerCase();
-
-    if (VISION_PROVIDERS.includes(provider)) return true;
-    return VISION_MODEL_KEYWORDS.some((kw) => model.includes(kw));
+    return isVisionProviderModel(data.provider, data.model);
   } catch {
     return false;
   }

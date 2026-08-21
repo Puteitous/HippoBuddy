@@ -39,6 +39,49 @@
   white-space: pre-wrap;
 }
 
+/* ── 用户消息长内容折叠 ─────────────────────────────── */
+.msg-user-collapsible {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 折叠态:裁剪内容 + 底部遮罩 */
+.msg-user-collapsible.collapsible:not(.expanded) {
+  max-height: 200px;
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+/* 展开态:无限制 */
+.msg-user-collapsible.expanded {
+  max-height: none;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+/* 展开/收起按钮:收起态三点居中,展开态朝上收拢箭头 */
+.msg-user-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  margin: 0 auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  user-select: none;
+}
+
+.msg-user-expand-btn:hover {
+  background: var(--bg-code);
+  color: var(--text-primary);
+}
+
 .msg-user-multimodal {
   display: flex;
   flex-direction: column;
@@ -220,6 +263,308 @@
   background: transparent;
   font-size: var(--font-size-sm);
   color: inherit;
+}
+
+/* ── 代码块(语法高亮,对齐旧版 .code-block-wrapper) ──────────────
+   选择器同时覆盖 .file-md-preview:文件预览与聊天共用 renderMarkdown,
+   让两处代码块视觉一致。背景/边框/文字跟随主题,语法 token 色跟随主题:
+   浅色 → github 浅色配色,深色/midnight/系统深色 → github-dark 配色。 */
+
+/* 语法高亮 token 配色(浅色默认,对齐 highlight.js github 主题) */
+:root {
+  --hl-text:      #24292e;
+  --hl-keyword:   #d73a49;
+  --hl-title:     #6f42c1;
+  --hl-constant:  #005cc5;
+  --hl-string:    #032f62;
+  --hl-builtin:   #e36209;
+  --hl-comment:   #6a737d;
+  --hl-tag:       #22863a;
+  --hl-section:   #005cc5;
+  --hl-bullet:    #735c0f;
+  --hl-add:       #22863a;
+  --hl-add-bg:    #f0fff4;
+  --hl-del:       #b31d28;
+  --hl-del-bg:    #ffeef0;
+}
+
+/* 深色系主题(对齐 highlight.js github-dark 配色) */
+[data-theme="dark"],
+[data-theme="midnight"] {
+  --hl-text:      #c9d1d9;
+  --hl-keyword:   #ff7b72;
+  --hl-title:     #d2a8ff;
+  --hl-constant:  #79c0ff;
+  --hl-string:    #a5d6ff;
+  --hl-builtin:   #ffa657;
+  --hl-comment:   #8b949e;
+  --hl-tag:       #7ee787;
+  --hl-section:   #1f6feb;
+  --hl-bullet:    #f2cc60;
+  --hl-add:       #aff5b4;
+  --hl-add-bg:    #033a16;
+  --hl-del:       #ffdcd7;
+  --hl-del-bg:    #67060c;
+}
+
+/* 系统深色(system 主题,无 data-theme 属性时跟随系统) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --hl-text:      #c9d1d9;
+    --hl-keyword:   #ff7b72;
+    --hl-title:     #d2a8ff;
+    --hl-constant:  #79c0ff;
+    --hl-string:    #a5d6ff;
+    --hl-builtin:   #ffa657;
+    --hl-comment:   #8b949e;
+    --hl-tag:       #7ee787;
+    --hl-section:   #1f6feb;
+    --hl-bullet:    #f2cc60;
+    --hl-add:       #aff5b4;
+    --hl-add-bg:    #033a16;
+    --hl-del:       #ffdcd7;
+    --hl-del-bg:    #67060c;
+  }
+}
+
+/* token 基础文字色(类名仅存在于本应用代码块中,可全局定义) */
+.hljs {
+  color: var(--hl-text);
+  background: transparent;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  color: var(--hl-keyword);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  color: var(--hl-title);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: var(--hl-constant);
+}
+
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+  color: var(--hl-string);
+}
+
+.hljs-built_in,
+.hljs-symbol {
+  color: var(--hl-builtin);
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: var(--hl-comment);
+}
+
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  color: var(--hl-tag);
+}
+
+.hljs-subst {
+  color: var(--hl-text);
+}
+
+.hljs-section {
+  color: var(--hl-section);
+  font-weight: bold;
+}
+
+.hljs-bullet {
+  color: var(--hl-bullet);
+}
+
+.hljs-emphasis {
+  color: var(--hl-text);
+  font-style: italic;
+}
+
+.hljs-strong {
+  color: var(--hl-text);
+  font-weight: bold;
+}
+
+.hljs-addition {
+  color: var(--hl-add);
+  background-color: var(--hl-add-bg);
+}
+
+.hljs-deletion {
+  color: var(--hl-del);
+  background-color: var(--hl-del-bg);
+}
+
+/* 代码块容器与结构 */
+.msg-markdown .code-block,
+.file-md-preview .code-block {
+  position: relative;
+  margin: 12px 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-code);
+  background: var(--bg-code);
+}
+
+.msg-markdown .code-block-header,
+.file-md-preview .code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 头部右侧操作组(复制 + mermaid 预览,对齐旧版 .code-header-actions) */
+.msg-markdown .code-header-actions,
+.file-md-preview .code-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.msg-markdown .code-lang,
+.file-md-preview .code-lang {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+.msg-markdown .code-copy-btn,
+.file-md-preview .code-copy-btn {
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+}
+
+.msg-markdown .code-copy-btn:hover,
+.file-md-preview .code-copy-btn:hover {
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.msg-markdown .code-copy-btn.copied,
+.file-md-preview .code-copy-btn.copied {
+  color: var(--success-color);
+}
+
+.msg-markdown .code-block-body,
+.file-md-preview .code-block-body {
+  display: flex;
+  overflow: hidden;
+}
+
+.msg-markdown .code-ln-nums,
+.file-md-preview .code-ln-nums {
+  flex-shrink: 0;
+  display: flex;
+}
+
+.msg-markdown .code-ln-nums pre,
+.file-md-preview .code-ln-nums pre {
+  margin: 0;
+  padding: 10px 8px;
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+}
+
+.msg-markdown .code-block-body > pre,
+.file-md-preview .code-block-body > pre {
+  flex: 1;
+  margin: 0;
+  padding: 10px 14px;
+  background: transparent;
+  overflow-x: auto;
+  border: none;
+  /* 与行号列保持完全一致的排版,否则行号与代码行会错位 */
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.msg-markdown .code-block-body > pre code,
+.file-md-preview .code-block-body > pre code {
+  display: block; /* 对齐旧版主题 pre code.hljs,避免行内 code 行高不一致 */
+  background: transparent !important;
+  padding: 0 !important;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: inherit;
+}
+
+/* 代码块内基础文字色严格取 --hl-text(覆盖既有的 pre code color: inherit) */
+.msg-markdown .code-block .hljs,
+.file-md-preview .code-block .hljs {
+  color: var(--hl-text);
+  background: transparent;
+}
+
+/* ── 数学公式(KaTeX,对齐旧版 .katex-block / .katex-copy-btn) ── */
+.msg-markdown .katex-block,
+.file-md-preview .katex-block {
+  position: relative;
+  margin: 8px 0;
+  overflow-x: auto; /* 长公式横向滚动 */
+}
+
+.msg-markdown .katex-block .katex-copy-btn,
+.file-md-preview .katex-block .katex-copy-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: none;
+  z-index: 1;
+}
+
+.msg-markdown .katex-block:hover .katex-copy-btn,
+.file-md-preview .katex-block:hover .katex-copy-btn {
+  display: flex;
+}
+
+.msg-markdown .katex-display,
+.file-md-preview .katex-display {
+  margin: 0;
 }
 
 .msg-markdown a {
@@ -649,4 +994,281 @@
 .web-search-row-detail .web-search-detail-item.failed {
   color: var(--text-muted);
   text-decoration: line-through;
+}
+
+/* ════════════════════════════════════════════════════════
+   Mermaid 图表预览(对齐旧版 workspace.css 1663-1918 行)
+   预览按钮在代码块 header 内;预览容器运行时插入 .code-block-body 之后。
+   作用域与代码块样式一致:同时覆盖聊天(.msg-markdown)与 md 文件预览(.file-md-preview)。
+   ════════════════════════════════════════════════════════ */
+
+/* 预览按钮(复用 copy-btn 风格) */
+.msg-markdown .mermaid-preview-btn,
+.file-md-preview .mermaid-preview-btn {
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.4;
+}
+
+.msg-markdown .mermaid-preview-btn:hover,
+.file-md-preview .mermaid-preview-btn:hover {
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+/* 图表预览容器 */
+.msg-markdown .mermaid-preview-container,
+.file-md-preview .mermaid-preview-container {
+  padding: 16px 16px 12px;
+  overflow: auto;
+  background: var(--bg-app);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 60px;
+  animation: mermaid-fade-in 0.25s ease-out;
+}
+
+@keyframes mermaid-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.msg-markdown .mermaid-preview-container svg,
+.file-md-preview .mermaid-preview-container svg {
+  max-width: 100%;
+  height: auto;
+  animation: mermaid-svg-fade-in 0.3s ease-out;
+}
+
+@keyframes mermaid-svg-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 缩放工具栏 */
+.msg-markdown .mermaid-zoom-toolbar,
+.file-md-preview .mermaid-zoom-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  align-self: flex-end;
+}
+
+.msg-markdown .mermaid-zoom-btn,
+.file-md-preview .mermaid-zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.msg-markdown .mermaid-zoom-btn:hover,
+.file-md-preview .mermaid-zoom-btn:hover {
+  border-color: var(--border);
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+}
+
+.msg-markdown .mermaid-zoom-level,
+.file-md-preview .mermaid-zoom-level {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  min-width: 36px;
+  text-align: center;
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+/* 缩放包裹层 */
+.msg-markdown .mermaid-zoom-wrap,
+.file-md-preview .mermaid-zoom-wrap {
+  width: 100%;
+  overflow: hidden;
+  cursor: default;
+}
+
+.msg-markdown .mermaid-zoom-wrap svg,
+.file-md-preview .mermaid-zoom-wrap svg {
+  max-width: none;
+  display: block;
+  animation: mermaid-svg-fade-in 0.3s ease-out;
+}
+
+/* 工具栏分隔符 */
+.msg-markdown .mermaid-zoom-sep,
+.file-md-preview .mermaid-zoom-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+/* 全屏模式 */
+.msg-markdown .mermaid-preview-container:fullscreen,
+.file-md-preview .mermaid-preview-container:fullscreen {
+  padding: 24px;
+  background: var(--bg-app, #fff);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.msg-markdown .mermaid-preview-container:fullscreen .mermaid-zoom-toolbar,
+.file-md-preview .mermaid-preview-container:fullscreen .mermaid-zoom-toolbar {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 10001;
+}
+
+.msg-markdown .mermaid-preview-container:fullscreen .mermaid-zoom-wrap,
+.file-md-preview .mermaid-preview-container:fullscreen .mermaid-zoom-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+/* 全屏图标切换:全屏时变为"退出全屏"图标 */
+.msg-markdown .mermaid-preview-container:fullscreen .mermaid-fullscreen-icon,
+.file-md-preview .mermaid-preview-container:fullscreen .mermaid-fullscreen-icon {
+  transform: scale(-1, 1);
+}
+
+/* 导出下拉菜单 */
+.msg-markdown .mermaid-export-group,
+.file-md-preview .mermaid-export-group {
+  position: relative;
+}
+
+.msg-markdown .mermaid-export-menu,
+.file-md-preview .mermaid-export-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 110px;
+  background: var(--bg-sidebar, #fff);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.msg-markdown .mermaid-export-menu.show,
+.file-md-preview .mermaid-export-menu.show {
+  display: block;
+}
+
+.msg-markdown .mermaid-export-menu-item,
+.file-md-preview .mermaid-export-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  white-space: nowrap;
+}
+
+.msg-markdown .mermaid-export-menu-item:hover,
+.file-md-preview .mermaid-export-menu-item:hover {
+  background: var(--bg-code);
+}
+
+.msg-markdown .mermaid-export-menu-item:first-child,
+.file-md-preview .mermaid-export-menu-item:first-child {
+  border-bottom: 1px solid var(--border);
+}
+
+/* 加载中状态 */
+.msg-markdown .mermaid-loading,
+.file-md-preview .mermaid-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 60px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* 加载中旋转圆环 */
+.msg-markdown .mermaid-loading::before,
+.file-md-preview .mermaid-loading::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: mermaid-spin 0.6s linear infinite;
+}
+
+@keyframes mermaid-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 错误状态 */
+.msg-markdown .mermaid-error,
+.file-md-preview .mermaid-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 60px;
+  justify-content: center;
+  color: var(--error-text, #c62828);
+  font-size: var(--font-size-sm);
+}
+
+.msg-markdown .mermaid-error svg,
+.file-md-preview .mermaid-error svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.msg-markdown .mermaid-error-detail,
+.file-md-preview .mermaid-error-detail {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  max-width: 400px;
+  text-align: center;
+  word-break: break-all;
 }

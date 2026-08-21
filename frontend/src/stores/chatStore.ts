@@ -8,7 +8,7 @@
  * 的状态分发基础。
  */
 import { create } from 'zustand';
-import type { Message, ToolCallRecord, WebSearchAction } from '@/types';
+import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { useAppStore } from '@/stores/appStore';
 import { chatApi } from '@/api/client';
 import { ApiError } from '@/api/error';
@@ -441,10 +441,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       addedToolIds.add(tc.id);
       // todo_write 固化时携带会话累计树,使未刷新(前端直接固化)的渲染与 streaming
       // 一致不空白;后端历史加载走 assistant.tool_calls,不使用该字段。
+      // 携带 args 使未刷新固化的渲染与刷新后的历史一致:
+      // todo_write 固化会话累计树;其余工具透传原始 args,供 timelineFilePath 解析
+      // 出 path,「查看变更」按钮在固化后也能显示(对齐旧版 args 全程携带)。
       const withArgs =
         tc.name === 'todo_write'
           ? { args: { mode: 'merge', todos: state.todoList } }
-          : {};
+          : tc.args != null
+            ? { args: tc.args }
+            : {};
       additions.push({
         id: tc.id,
         role: 'tool',
@@ -609,7 +614,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // 先固化一条 ask 记录(含 answered),使底部实时 ask 卡转为消息流内只读卡并自动收起
     // (对齐点选项的 commitAskUser;点选项路径此时 askUserData 已为空,不会重复固化)。
     if (get().askUserData) get().commitAskUser(message);
-    get().addMessage({ id: `local-${Date.now()}`, role: 'user', content: message });
+    // 乐观更新:构造与后端返回一致的多模态 content。
+    // 有图片时用 ContentPart[](本地 dataUrl,与旧版 appendUserMessage 即时显示一致);
+    // 无图片保持纯文本 string,避免引入多余结构。
+    const images = options?.images;
+    let optimisticContent: string | ContentPart[] = message;
+    if (images && images.length > 0) {
+      const parts: ContentPart[] = [{ type: 'text', text: message }];
+      for (const url of images) parts.push({ type: 'image_url', image_url: { url } });
+      optimisticContent = parts;
+    }
+    get().addMessage({ id: `local-${Date.now()}`, role: 'user', content: optimisticContent });
     get().resetStreaming();
     get().clearToolCalls();
     // 预分配唯一回合序号:保证某些没有任何 thinking 事件(仅 content)的请求,

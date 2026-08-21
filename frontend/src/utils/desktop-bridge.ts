@@ -111,11 +111,14 @@ export const desktopBridge = {
    */
   async writeFile(filePath: string, content: string): Promise<boolean> {
     try {
+      // 成功返回 true 或 { path, size } 等非 error 对象;仅带 error 标记时才算失败
       if (window.electronAPI?.writeFile) {
-        return (await window.electronAPI.writeFile(filePath, content)) === true;
+        const result = await window.electronAPI.writeFile(filePath, content);
+        return !(result && typeof result === 'object' && result.error);
       }
       if (window.HippoDesktop?.writeFile) {
-        return (await window.HippoDesktop.writeFile(filePath, content)) === true;
+        const result = await window.HippoDesktop.writeFile(filePath, content);
+        return !(result && typeof result === 'object' && (result as Record<string, unknown>).error);
       }
       return false;
     } catch (e) {

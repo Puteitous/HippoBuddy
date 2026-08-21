@@ -19,7 +19,8 @@ interface Window {
     readDir?: (path: string) => Promise<DirEntryResult | null>;
     /** Electron 封装返回 { path, content } 对象(desktopBridge 内部归一化为纯文本) */
     readFile?: (path: string) => Promise<{ path?: string; content?: string; error?: boolean; code?: string; message?: string } | string | null>;
-    writeFile?: (path: string, content: string) => Promise<boolean>;
+    /** Electron 封装返回 { path, size } 对象(desktopBridge 内部判定 error 标记) */
+    writeFile?: (path: string, content: string) => Promise<{ path?: string; size?: number; error?: boolean; code?: string; message?: string }>;
     createFile?: (path: string) => Promise<boolean>;
     createDir?: (path: string) => Promise<boolean>;
     rename?: (oldPath: string, newPath: string) => Promise<boolean>;
@@ -78,6 +79,9 @@ interface Window {
     /** 当前工作区根路径(用于把绝对路径精简为相对路径) */
     currentPath?: string;
   };
+
+  // ── Mermaid 图表渲染(mermaid.ts 全局导出菜单关闭委托) ──
+  __mermaidDocClickHandler?: (e: MouseEvent) => void;
 }
 
 /** desktopBridge.readDir 返回的目录条目结构(Electron / JCEF 一致) */

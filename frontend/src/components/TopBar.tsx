@@ -99,10 +99,11 @@ export function TopBar() {
   // 鼠标离开 group/dropdown 时:旧版 desktop-bridge.js 检查 relatedTarget,
   // 若目标是自身内部(含 dropdown)则不收起;否则延迟收起
   const handleRecentLeave = (e: React.MouseEvent) => {
-    const related = e.relatedTarget as Node | null;
+    const related = e.relatedTarget;
     const group = folderGroupRef.current;
     const dropdown = recentDropdownRef.current;
-    if (related && ((group && group.contains(related)) || (dropdown && dropdown.contains(related)))) return;
+    // relatedTarget 可能是 window 等非 Node 对象(如鼠标移出浏览器窗口),而 contains 要求参数必须是 Node
+    if (related instanceof Node && ((group && group.contains(related)) || (dropdown && dropdown.contains(related)))) return;
     scheduleRecentClose();
   };
 
@@ -141,7 +142,7 @@ export function TopBar() {
   useEffect(() => {
     if (!recentOpen) return;
     const handleDocClick = (e: MouseEvent) => {
-      if (folderGroupRef.current && !folderGroupRef.current.contains(e.target as Node)) {
+      if (folderGroupRef.current && e.target instanceof Node && !folderGroupRef.current.contains(e.target)) {
         setRecentOpen(false);
       }
     };
