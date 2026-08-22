@@ -14,24 +14,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
+  width: 26px;
   height: 26px;
-  padding: 0 6px;
-  border: 1px solid var(--hb-border, #d1d5db);
+  padding: 0;
+  border: none;
   border-radius: 5px;
-  background: var(--hb-bg, #ffffff);
+  background: transparent;
   color: var(--hb-text-soft, #6b7280);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition: background 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
 }
 
 .context-selector-btn:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.05));
   color: var(--hb-text, #1f2937);
-  border-color: var(--hb-text-soft, #6b7280);
+}
+
+.context-selector-btn:active {
+  transform: scale(0.92);
 }
 
 .context-selector-hash {
@@ -257,17 +262,16 @@
 }
 
 /* ========== 暗色模式 ========== */
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .context-selector-btn {
-    background: var(--hb-bg-dark, #1a1a1a);
+    background: transparent;
     color: var(--hb-text-soft-dark, #9ca3af);
-    border-color: var(--hb-border-dark, #4b5563);
   }
 
   .context-selector-btn:hover {
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
     color: var(--hb-text-dark, #e5e7eb);
-    border-color: var(--hb-text-soft-dark, #9ca3af);
   }
 
   .context-selector-panel {

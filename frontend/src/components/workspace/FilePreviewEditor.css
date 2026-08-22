@@ -1,0 +1,102 @@
+/* FilePreviewEditor - CM6 编辑器 AI 变更标记(diff 基线高亮)样式 */
+
+/* ── Diff 行背景色(极淡,主要信息由 gutter 竖条承担) ── */
+.cm-diff-line-added,
+.cm-diff-line-modified {
+  background: rgba(45, 164, 78, 0.06) !important;
+}
+
+[data-theme="dark"] .cm-diff-line-added,
+[data-theme="dark"] .cm-diff-line-modified,
+[data-theme="midnight"] .cm-diff-line-added,
+[data-theme="midnight"] .cm-diff-line-modified {
+  background: rgba(45, 164, 78, 0.06) !important;
+}
+
+/* ── Diff gutter 竖条(IDE 式,行号旁) ──
+   绿条 = AI 新增行(added),蓝条 = AI 修改行(modified)。
+   modified 用横向明暗斑马纹区分"混改",与 added 纯色实心形成"实=纯、纹=混"。 */
+.cm-diff-gutter {
+  width: 3px;
+}
+
+.cm-diff-gutter .cm-gutterElement {
+  padding: 0;
+}
+
+.cm-diff-gutter-marker {
+  width: 100%;
+  height: 100%;
+}
+
+.cm-diff-gutter-marker.added {
+  background: rgba(45, 164, 78, 0.75);
+}
+
+.cm-diff-gutter-marker.modified {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(31, 111, 235, 0.75) 0 4px,
+    rgba(31, 111, 235, 0.3) 4px 6px
+  );
+}
+
+[data-theme="dark"] .cm-diff-gutter-marker.added,
+[data-theme="midnight"] .cm-diff-gutter-marker.added {
+  background: rgba(63, 185, 80, 0.75);
+}
+
+[data-theme="dark"] .cm-diff-gutter-marker.modified,
+[data-theme="midnight"] .cm-diff-gutter-marker.modified {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(88, 166, 255, 0.75) 0 4px,
+    rgba(88, 166, 255, 0.3) 4px 6px
+  );
+}
+
+/* ── 滚动条整文色带(VS Code 式 overview) ──
+   挂在 .cm-editor 下、scrollDOM 的兄弟节点,absolute 盖在滚动条轨道内侧不随内容滚动 */
+.cm-editor .cm-diff-overview {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  width: 4px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.cm-diff-overview-marker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 2px;
+}
+
+.cm-diff-overview-marker.added {
+  background: rgba(45, 164, 78, 0.45);
+}
+
+.cm-diff-overview-marker.modified {
+  background: rgba(31, 111, 235, 0.45);
+}
+
+.cm-diff-overview-marker.deleted {
+  background: rgba(248, 81, 73, 0.45);
+}
+
+[data-theme="dark"] .cm-diff-overview-marker.added,
+[data-theme="midnight"] .cm-diff-overview-marker.added {
+  background: rgba(63, 185, 80, 0.45);
+}
+
+[data-theme="dark"] .cm-diff-overview-marker.modified,
+[data-theme="midnight"] .cm-diff-overview-marker.modified {
+  background: rgba(88, 166, 255, 0.45);
+}
+
+[data-theme="dark"] .cm-diff-overview-marker.deleted,
+[data-theme="midnight"] .cm-diff-overview-marker.deleted {
+  background: rgba(255, 123, 114, 0.45);
+}

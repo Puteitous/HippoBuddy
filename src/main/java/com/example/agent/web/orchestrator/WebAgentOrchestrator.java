@@ -593,6 +593,11 @@ public class WebAgentOrchestrator {
             int prompt = usage.getPromptTokens();
             int completion = usage.getCompletionTokens();
             int total = usage.getTotalTokens() > 0 ? usage.getTotalTokens() : (prompt + completion);
+            // 防御：无有效 token 计数的帧（如 Chat Completions 中间 chunk 的空 usage `{}`）不推送给前端，
+            // 否则前端会把累计值覆盖为 0（"数字闪现后归零"）。
+            if (total <= 0) {
+                return;
+            }
             ObjectNode node = objectMapper.createObjectNode();
             node.put("live", true);
             node.put("hasKnownUsage", true);

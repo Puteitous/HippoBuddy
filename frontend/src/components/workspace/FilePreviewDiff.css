@@ -25,6 +25,14 @@
   table-layout: fixed;
 }
 
+.diff-col-gutter {
+  width: 26px;
+}
+
+.diff-col-marker {
+  width: 16px;
+}
+
 .diff-row {
   vertical-align: top;
 }
@@ -35,12 +43,12 @@
 }
 
 .diff-gutter {
-  width: 48px;
-  min-width: 48px;
+  width: 26px;
+  min-width: 26px;
   text-align: right;
-  padding: 0 8px !important;
+  padding: 0 4px !important;
   color: var(--hb-text-soft, #9ca3af);
-  background: var(--hb-gutter-bg, #f9fafb);
+  background: transparent;
   user-select: none;
   white-space: nowrap;
   border-right: 1px solid var(--hb-border, #e5e7eb);
@@ -52,10 +60,11 @@
 }
 
 .diff-marker {
-  width: 20px;
-  min-width: 20px;
+  width: 16px;
+  min-width: 16px;
   text-align: center;
   color: var(--hb-text-soft, #9ca3af);
+  background: transparent;
   user-select: none;
   font-weight: 600;
 }
@@ -75,33 +84,31 @@
   overflow: visible;
 }
 
-/* equal 行 */
+/* equal 行:整行统一窗口底色 */
 .diff-equal .diff-content {
   background: var(--hb-bg, #ffffff);
   color: var(--hb-text, #1f2937);
 }
 
-/* insert 行 */
+/* insert 行:gutter/marker/内容同色,整行统一新增底色 */
 .diff-insert .diff-gutter,
-.diff-insert .diff-marker {
-  background: var(--hb-diff-add-bg, rgba(34, 197, 94, 0.1));
-  color: var(--hb-diff-add-text, #15803d);
+.diff-insert .diff-marker,
+.diff-insert .diff-content {
+  background: var(--hb-diff-add-content, rgba(34, 197, 94, 0.08));
 }
 
 .diff-insert .diff-content {
-  background: var(--hb-diff-add-content, rgba(34, 197, 94, 0.08));
   color: var(--hb-text, #1f2937);
 }
 
-/* delete 行 */
+/* delete 行:gutter/marker/内容同色,整行统一删除底色 */
 .diff-delete .diff-gutter,
-.diff-delete .diff-marker {
-  background: var(--hb-diff-del-bg, rgba(239, 68, 68, 0.1));
-  color: var(--hb-diff-del-text, #b91c1c);
+.diff-delete .diff-marker,
+.diff-delete .diff-content {
+  background: var(--hb-diff-del-content, rgba(239, 68, 68, 0.08));
 }
 
 .diff-delete .diff-content {
-  background: var(--hb-diff-del-content, rgba(239, 68, 68, 0.08));
   color: var(--hb-text, #1f2937);
 }
 
@@ -111,7 +118,8 @@
 }
 
 /* ── 暗色模式 ── */
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .file-preview-diff {
     background: var(--hb-bg-dark, #1a1a1a);
   }
@@ -120,7 +128,7 @@
   }
   .diff-gutter {
     color: var(--hb-text-soft-dark, #6b7280);
-    background: var(--hb-gutter-bg-dark, #242424);
+    background: transparent;
     border-right-color: var(--hb-border-dark, #374151);
   }
   .diff-gutter.new {
@@ -128,28 +136,21 @@
   }
   .diff-marker {
     color: var(--hb-text-soft-dark, #6b7280);
+    background: transparent;
   }
   .diff-equal .diff-content {
     background: var(--hb-bg-dark, #1a1a1a);
     color: var(--hb-text-dark, #e5e7eb);
   }
   .diff-insert .diff-gutter,
-  .diff-insert .diff-marker {
-    background: var(--hb-diff-add-bg-dark, rgba(34, 197, 94, 0.16));
-    color: var(--hb-diff-add-text-dark, #4ade80);
-  }
+  .diff-insert .diff-marker,
   .diff-insert .diff-content {
     background: var(--hb-diff-add-content-dark, rgba(34, 197, 94, 0.1));
-    color: var(--hb-text-dark, #e5e7eb);
   }
   .diff-delete .diff-gutter,
-  .diff-delete .diff-marker {
-    background: var(--hb-diff-del-bg-dark, rgba(239, 68, 68, 0.16));
-    color: var(--hb-diff-del-text-dark, #f87171);
-  }
+  .diff-delete .diff-marker,
   .diff-delete .diff-content {
     background: var(--hb-diff-del-content-dark, rgba(239, 68, 68, 0.1));
-    color: var(--hb-text-dark, #e5e7eb);
   }
   .diff-row.focused {
     box-shadow: inset 4px 0 0 var(--hb-accent-dark, #60a5fa);
@@ -230,7 +231,8 @@
 }
 
 /* ── 暗色模式(批次 A 新增样式) ── */
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .diff-word-del {
     color: var(--hb-diff-del-text-dark, #f87171);
   }

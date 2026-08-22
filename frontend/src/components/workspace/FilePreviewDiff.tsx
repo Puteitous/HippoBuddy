@@ -94,6 +94,13 @@ export function FilePreviewDiff({ lines, wordDiff, focusStartLine }: FilePreview
         </div>
       )}
       <table className="diff-table">
+        {/* 显式声列宽:table-layout:fixed 时按 colgroup 分配,不依赖首行(折叠 hunk 行是 colSpan=4 首行,否则列宽会均分成 335px) */}
+        <colgroup>
+          <col className="diff-col-gutter" />
+          <col className="diff-col-gutter" />
+          <col className="diff-col-marker" />
+          <col />
+        </colgroup>
         <tbody>
           {displaySeq.map((item) => {
             if (item.type === 'hunk') {

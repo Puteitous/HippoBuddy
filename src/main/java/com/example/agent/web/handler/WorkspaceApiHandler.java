@@ -122,7 +122,9 @@ public class WorkspaceApiHandler implements HttpHandler {
         // 监控：重置后逐会话检查 prompt 是否仍保持重置前的固化内容（预期：未改变）
         inspectCachedSessionPromptsAfterSwitch(oldFolder, newFolder, beforePrompts);
         ObjectNode node = MAPPER.createObjectNode();
-        node.put("path", "");
+        // 返回重置后的真实默认工作区路径（而非空字符串），便于前端直接回填 UI，
+        // 避免把「已回到默认工作区」误显示成「未设置工作区」。
+        node.put("path", WorkspaceContext.getCurrentFolder());
         sendJson(exchange, 200, node);
     }
 

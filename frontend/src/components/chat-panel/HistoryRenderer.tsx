@@ -14,7 +14,8 @@ import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCall, ToolCallRecord } from '@/types';
 import { useChatStore } from '@/stores/chatStore';
 import { MessageBubble, MessageFooter } from './MessageBubble';
-import { RollbackButton } from '../rollback/RollbackButton';
+import { RollbackButton, RollbackPanel } from '../rollback/RollbackButton';
+import { useRollback } from '../rollback/useRollback';
 import { extractFilesFromToolCalls, type MessageFileProduct } from './message-utils';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
@@ -49,6 +50,53 @@ type RoundEntry =
   | { kind: 'assistant'; msg: Message }
   | { kind: 'timeline'; items: Message[] }
   | { kind: 'tool-card'; msg: Message };
+
+/**
+ * 回合级"footer + 回滚面板"组合(对齐旧版 DOM):
+ *  - 回滚按钮进入 footer 的操作行;
+ *  - 回滚确认面板作为「独立整行块」渲染在 footer 之后(旧版独立 860px 块)。
+ * 两者共享同一 useRollback 状态机,由本组合组件统一驱动。
+ */
+interface RoundRollbackProps {
+  /** 回滚目标用户消息 id(可空,空则不渲染回滚按钮/面板) */
+  targetId: string;
+  /** 整回合 assistant 文本(复制按钮内容) */
+  roundText: string;
+  onRetry?: () => void;
+  onFork?: () => void;
+  files?: MessageFileProduct[];
+}
+
+function RoundRollback({ targetId, roundText, onRetry, onFork, files }: RoundRollbackProps) {
+  const { status, previewFiles, currentSessionId, handleOpen, handleCancel, handleConfirm } =
+    useRollback(targetId);
+
+  return (
+    <>
+      <MessageFooter
+        onCopy={() => {
+          if (roundText) navigator.clipboard?.writeText(roundText).catch(() => {});
+        }}
+        onRetry={onRetry}
+        onFork={onFork}
+        rollback={
+          targetId ? (
+            <RollbackButton status={status} disabled={!currentSessionId} onOpen={handleOpen} />
+          ) : undefined
+        }
+        files={files}
+      />
+      {targetId && status !== 'idle' && (
+        <RollbackPanel
+          status={status}
+          previewFiles={previewFiles}
+          onCancel={handleCancel}
+          onConfirm={handleConfirm}
+        />
+      )}
+    </>
+  );
+}
 
 export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps) {
   const messages = useChatStore((s) => s.messages);
@@ -258,14 +306,12 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
         const anchor =
           round[0].kind === 'timeline' ? round[0].items[0].id : round[0].msg.id;
         rows.push(
-          <MessageFooter
+          <RoundRollback
             key={`round-footer-${anchor}`}
-            onCopy={() => {
-              if (roundText) navigator.clipboard?.writeText(roundText).catch(() => {});
-            }}
+            targetId={forkTarget ?? ''}
+            roundText={roundText}
             onRetry={retryContent && onRetry ? () => onRetry(retryContent) : undefined}
             onFork={forkTarget && onFork ? () => onFork(forkTarget) : undefined}
-            rollback={forkTarget ? <RollbackButton targetId={forkTarget} /> : undefined}
             files={roundFiles.length > 0 ? dedupeFiles(roundFiles) : undefined}
           />,
         );

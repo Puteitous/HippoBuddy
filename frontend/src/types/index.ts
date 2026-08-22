@@ -349,6 +349,8 @@ export interface FileTab {
   endLine?: number;
   /** 可选:diff 模式下匹配的工具调用 id(定位历史变更) */
   toolCallId?: string;
+  /** 可选:是否有未保存的改动(标签右侧显示脏标记圆点,对齐旧版 file-tab.dirty) */
+  dirty?: boolean;
 }
 
 /** 词级 diff 中的单个 token(对齐后端 DiffComputer.computeWordDiff) */

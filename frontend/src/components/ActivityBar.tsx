@@ -21,17 +21,16 @@
  *
  * 集成位置:挂在 AppShell 左侧 Sidebar 之外,浮动面板 absolute 定位。
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { useAppStore } from '@/stores/appStore';
+import type { ActivityPanelId } from '@/stores/appStore';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { showToast } from '@/utils/toastStore';
 import { useI18n, translate } from '@/i18n';
 import { TokenMonitor } from './chat-panel/TokenMonitor';
 import { MetricsPanel } from './MetricsPanel';
 import './ActivityBar.css';
-
-/** 面板 id */
-export type ActivityPanelId = 'token' | 'metrics';
 
 /** 动作 id */
 export type ActivityActionId =
@@ -46,8 +45,8 @@ interface ActivityButton {
   id: string;
   /** 鼠标悬停 tooltip 的 i18n key */
   titleKey: string;
-  /** SVG path(viewBox 0 0 24 24,fill=none stroke=currentColor) */
-  icon: string;
+  /** SVG 图标(JXS,对齐旧版 cockpit.html 中各按钮的 SVG 结构) */
+  icon: ReactNode;
   /** 若为面板按钮,指定 panelId */
   panel?: ActivityPanelId;
   /** 若为动作按钮,指定 action */
@@ -58,31 +57,57 @@ const BUTTONS: ActivityButton[] = [
   {
     id: 'abToken',
     titleKey: 'activity.token',
-    icon: 'M12 2v20M2 12h20M5 5l14 14M19 5L5 19',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="14" width="4" height="6" rx="0.5" />
+        <rect x="10" y="8" width="4" height="12" rx="0.5" />
+        <rect x="16" y="2" width="4" height="18" rx="0.5" />
+      </svg>
+    ),
     panel: 'token',
   },
   {
     id: 'abMetrics',
     titleKey: 'activity.monitor',
-    icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="1 17 7 11 11 14 18 6" />
+        <polyline points="14 6 18 6 18 10" />
+      </svg>
+    ),
     panel: 'metrics',
   },
   {
     id: 'abSkillMarket',
     titleKey: 'activity.skillMarket',
-    icon: 'M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21l2.3-7.4-6-4.6h7.6z',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="21" r="1" />
+        <circle cx="20" cy="21" r="1" />
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+      </svg>
+    ),
     action: 'skillMarket',
   },
   {
     id: 'abOpenBrowser',
     titleKey: 'activity.browser',
-    icon: 'M3 9h14v10H3zM17 13h4v4h-4M7 5h12v4M5 5h2v4H5z',
+    icon: (
+      <svg viewBox="0 0 512 512" width="18" height="18" fill="currentColor">
+        <path d="M437,75A256,256,0,0,0,75,437,256,256,0,0,0,437,75ZM256,492c-30.84,0-60.34-23.7-83.08-66.72-10.76-20.36-19.32-43.8-25.49-69.28H364.57c-6.17,25.48-14.73,48.92-25.49,69.28C316.34,468.3,286.84,492,256,492ZM143.16,336a450.51,450.51,0,0,1,0-160H368.84A439.33,439.33,0,0,1,376,256a439.33,439.33,0,0,1-7.16,80ZM256,20c30.84,0,60.34,23.7,83.08,66.72,10.76,20.36,19.32,43.8,25.49,69.28H147.43c6.17-25.48,14.73-48.92,25.49-69.28C195.66,43.7,225.16,20,256,20ZM389.15,176H478a236,236,0,0,1,0,160H389.15A460.57,460.57,0,0,0,396,256,460.57,460.57,0,0,0,389.15,176Zm80.58-20H385.1c-6.63-28.94-16.16-55.58-28.33-78.62-10.34-19.57-22.14-35.67-35-48A237.09,237.09,0,0,1,469.73,156ZM190.21,29.34c-12.84,12.37-24.64,28.47-35,48-12.17,23-21.7,49.68-28.33,78.62H42.27A237.09,237.09,0,0,1,190.21,29.34ZM34,176h88.88a470.58,470.58,0,0,0,0,160H34a236,236,0,0,1,0-160Zm8.3,180H126.9c6.63,28.94,16.16,55.58,28.33,78.62,10.34,19.57,22.14,35.67,35,48A237.09,237.09,0,0,1,42.27,356ZM321.79,482.66c12.84-12.37,24.64-28.47,35-48,12.17-23,21.7-49.68,28.33-78.62h84.63A237.09,237.09,0,0,1,321.79,482.66Z" />
+      </svg>
+    ),
     action: 'openBrowser',
   },
   {
     id: 'abOpenTerminal',
     titleKey: 'activity.terminal',
-    icon: 'M4 4h16v16H4zM8 9l3 3-3 3M14 15h3',
+    icon: (
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="4 4 8 8 4 12" />
+        <line x1="11" y1="12" x2="13" y2="12" />
+      </svg>
+    ),
     action: 'openTerminal',
   },
 ];
@@ -102,12 +127,12 @@ export function ActivityBar() {
   const hidden = useAppStore((s) => s.activityBarHidden);
   const toggleActivityBar = useAppStore((s) => s.toggleActivityBar);
   const setSkillMarketOpen = useAppStore((s) => s.setSkillMarketOpen);
+  const activePanel = useAppStore((s) => s.activityPanel);
+  const activePanelPinned = useAppStore((s) => s.activityPanelPinned);
+  const setActivityPanel = useAppStore((s) => s.setActivityPanel);
 
-  const [activePanel, setActivePanel] = useState<ActivityPanelId | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  /** 是否被点击固定展开(hover 预览时为 false) */
-  const pinnedRef = useRef(false);
   /** 延迟关闭定时器(hover 移出后留出移动到面板的时间) */
   const closeTimerRef = useRef<number | null>(null);
   /** 标记本次打开是否要忽略一次外部点击(由按钮点击冒泡触发) */
@@ -122,30 +147,28 @@ export function ActivityBar() {
 
   /** hover 移出后延迟关闭,留出鼠标移动到面板的时间;固定展开时不自动关闭 */
   const scheduleClose = useCallback(() => {
-    if (pinnedRef.current) return;
+    if (activePanelPinned) return;
     clearCloseTimer();
-    closeTimerRef.current = window.setTimeout(() => setActivePanel(null), 150);
-  }, [clearCloseTimer]);
+    closeTimerRef.current = window.setTimeout(() => setActivityPanel(null), 150);
+  }, [activePanelPinned, clearCloseTimer, setActivityPanel]);
 
   const closePanel = useCallback(() => {
     clearCloseTimer();
-    pinnedRef.current = false;
-    setActivePanel(null);
-  }, [clearCloseTimer]);
+    setActivityPanel(null);
+  }, [clearCloseTimer, setActivityPanel]);
 
   /** 点击按钮:面板 → toggle,动作 → 执行 */
   const handleClickButton = useCallback(
     (btn: ActivityButton) => {
       if (btn.panel) {
         // 再次点击已固定的当前面板 → 取消固定并关闭;否则点击固定展开
-        if (activePanel === btn.panel && pinnedRef.current) {
+        if (activePanel === btn.panel && activePanelPinned) {
           closePanel();
           return;
         }
-        pinnedRef.current = true;
         clearCloseTimer();
         ignoreNextOutsideClickRef.current = true;
-        setActivePanel(btn.panel);
+        setActivityPanel(btn.panel, true);
         // 下一帧清除忽略标记,避免误伤后续点击
         setTimeout(() => {
           ignoreNextOutsideClickRef.current = false;
@@ -182,7 +205,7 @@ export function ActivityBar() {
         }
       }
     },
-    [activePanel, clearCloseTimer, closePanel, setSkillMarketOpen, toggleActivityBar],
+    [activePanel, activePanelPinned, clearCloseTimer, closePanel, setActivityPanel, setSkillMarketOpen, toggleActivityBar],
   );
 
   /** 悬停预览:鼠标移入面板按钮 → 展开对应面板(不影响点击固定状态) */
@@ -190,9 +213,9 @@ export function ActivityBar() {
     (btn: ActivityButton) => {
       if (!btn.panel) return;
       clearCloseTimer();
-      setActivePanel(btn.panel);
+      setActivityPanel(btn.panel, false);
     },
-    [clearCloseTimer],
+    [clearCloseTimer, setActivityPanel],
   );
 
   // 组件卸载时清理延迟关闭定时器
@@ -262,18 +285,7 @@ export function ActivityBar() {
               onClick={() => handleClickButton(btn)}
               onMouseEnter={() => handleBtnHover(btn)}
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d={btn.icon} />
-              </svg>
+              {btn.icon}
             </button>
           );
         })}

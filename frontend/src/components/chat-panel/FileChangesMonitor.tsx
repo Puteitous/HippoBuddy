@@ -16,6 +16,7 @@ import { fileApi } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { emit, on } from '@/utils/eventBus';
 import type { RollbackCompletedPayload } from '@/utils/eventBus';
+import { FileTypeIcon } from '../FileTypeIcon';
 import './FileChangesMonitor.css';
 
 interface ChangeRecord {
@@ -233,20 +234,7 @@ function FileChangesMonitorComponent() {
                       title={g.filePath}
                     >
                       <span className="chat-panel-files-icon">
-                        <svg
-                          viewBox="0 0 16 16"
-                          width="14"
-                          height="14"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
-                        >
-                          <path d="M3 2h6l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
-                          <path d="M9 2v3h3" />
-                        </svg>
+                        <FileTypeIcon fileName={fileName} size={14} />
                       </span>
                       <span className="chat-panel-files-name">
                         <span className="chat-panel-files-basename">{fileName}</span>

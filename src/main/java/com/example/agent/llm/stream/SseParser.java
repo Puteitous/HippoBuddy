@@ -166,7 +166,15 @@ public class SseParser {
                 usage.setPromptTokensDetails(promptDetails);
             }
         }
-        
+
+        // 空 usage 帧（如 Chat Completions 中间 chunk 的 `usage:{}` 或 `usage:null`）：
+        // 无任何 token 计数值，视为"无真实 usage"，返回 null 让调用方不携带 usage，
+        // 避免 WebAgentOrchestrator 把它当成可用帧推给前端（导致 Token 面板数字归零闪烁）。
+        if (usage.getPromptTokens() <= 0 && usage.getCompletionTokens() <= 0
+                && usage.getTotalTokens() <= 0) {
+            return null;
+        }
+
         return usage;
     }
 

@@ -7,10 +7,29 @@
   min-width: 0;
   width: var(--preview-panel-width, 460px);
   flex-shrink: 0;
-  border-left: 1px solid var(--border);
   background: var(--bg-app);
   color: var(--text-primary);
   overflow: hidden;
+}
+
+/* 聊天面板收起时,预览面板铺满剩余空间(对齐旧版 chat-panel.collapsed 后 preview flex:1) */
+.chat-layout:has(.chat-panel-collapsed) .preview-panel {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+/* 聊天面板收起时,分隔条无意义,隐藏(对齐旧版 workspace-manager 隐藏 resizer) */
+.chat-layout:has(.chat-panel-collapsed) .preview-resizer {
+  display: none;
+}
+
+/* 边框随左右排布切换(对齐旧版):默认 preview-left 预览靠左 → 右边框;chat-left 预览靠右 → 左边框 */
+.chat-layout .preview-panel {
+  border-right: 1px solid var(--border);
+}
+.chat-layout.layout-chat-first .preview-panel {
+  border-left: 1px solid var(--border);
 }
 
 .preview-panel-content {
@@ -55,4 +74,87 @@
 /* 拖拽期间移除宽度过渡,避免卡顿 */
 .preview-panel.resizing {
   transition: none;
+}
+
+/* 关闭未保存文件确认弹窗:复用 file-tree-modal-* 类名以保持与 FileTree 确认框视觉统一。
+   因 FileTree.css 由组件局部 import,此处独立再声明一遍以保证本面板弹窗自足(同类名重复定义无害)。 */
+.preview-panel .file-tree-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.preview-panel .file-tree-modal {
+  width: 360px;
+  max-width: calc(100vw - 48px);
+  background: var(--hb-menu-bg, #ffffff);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.preview-panel .file-tree-modal-header {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hb-text, #1f2937);
+  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+}
+
+.preview-panel .file-tree-modal-body {
+  padding: 14px 16px;
+}
+
+.preview-panel .file-tree-modal-message {
+  margin: 0;
+  font-size: 13px;
+  color: var(--hb-text, #1f2937);
+  line-height: 1.5;
+}
+
+.preview-panel .file-tree-modal-names {
+  margin: 4px 0 0;
+  padding: 0 0 0 18px;
+  font-size: 12px;
+  color: var(--hb-text-soft, #6b7280);
+  line-height: 1.6;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.preview-panel .file-tree-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--hb-border, #e5e7eb);
+}
+
+.preview-panel .file-tree-modal-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.preview-panel .file-tree-modal-btn:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+}
+
+.preview-panel .file-tree-modal-btn-danger {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.preview-panel .file-tree-modal-btn-danger:hover {
+  background: #dc2626;
 }

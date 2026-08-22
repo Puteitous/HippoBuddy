@@ -248,6 +248,20 @@ export const fileApi = {
     }>(`${API_BASE}/files/summary?sessionId=${encodeURIComponent(sessionId)}`),
 
   /**
+   * GET /api/diff/original?path=xxx&sessionId=xxx - 获取 AI 修改前的原始内容(编辑器 diff 基线)
+   *
+   * 仅返回当前会话内该文件最早一次变更的 originalContent,作为编辑器内联 diff 的基线。
+   * 无基线时返回 content 为 null(空对象)。
+   */
+  getDiffOriginal: (filePath: string, sessionId?: string) => {
+    const params = new URLSearchParams({ path: filePath });
+    if (sessionId) params.set('sessionId', sessionId);
+    return getJson<{ content?: string | null; source?: string }>(
+      `${API_BASE}/diff/original?${params.toString()}`,
+    );
+  },
+
+  /**
    * GET /api/files/diff?path=xxx&all=true - 整文件 diff(历史 + 净 diff)
    *
    * 返回该文件所有工具变更记录,以及"最早 original vs 最新 newContent"的逐行 diff。

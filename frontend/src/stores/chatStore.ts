@@ -24,8 +24,10 @@ import type { SseEvent } from '@/api/sse';
 import {
   deepMergeTodoList,
   parseTodoArgs,
+  parseToolArgs,
   type FlatTodo,
 } from '@/components/tool-renderers/shared-utils';
+import { emit } from '@/utils/eventBus';
 
 /**
  * 当前发送中的 AbortController。
@@ -775,6 +777,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           payload.result,
           payload.error,
         );
+        // AI 写/编辑/删除文件后,通知预览面板重载命中文件(对齐旧版 _emitFileEventsFromToolResult)
+        emitFilePreviewReload(payload);
         break;
       }
       case 'tool_confirmation': {
@@ -893,3 +897,23 @@ useChatStore.subscribe((state) => {
   if (!id) return;
   useChatStore.getState().putMessageCache(id, state.messages);
 });
+
+// ── AI 工具文件变更 → 预览刷新 ───────────────────────────────────────
+/**
+ * 从 tool_result 事件提取文件操作,通知预览面板重载(对齐旧版
+ * _emitFileEventsFromToolResult 的 preview-reload 部分):
+ *   - write_file / edit_file → emit 'file:preview-reload' 携带 args.path
+ *   - delete_file           → 对 args.paths 中每个路径各 emit 一次
+ * 由 PreviewPanel 订阅,命中当前预览文件时自动重载,AI 写代码时预览实时更新。
+ */
+function emitFilePreviewReload(payload: ChatSseEventMap['tool_result']): void {
+  if (!payload.args) return;
+  const args = parseToolArgs<Record<string, unknown>>(payload.args);
+  if (payload.name === 'write_file' || payload.name === 'edit_file') {
+    if (typeof args.path === 'string') emit('file:preview-reload', args.path);
+  } else if (payload.name === 'delete_file' && Array.isArray(args.paths)) {
+    for (const p of args.paths) {
+      if (typeof p === 'string') emit('file:preview-reload', p);
+    }
+  }
+}

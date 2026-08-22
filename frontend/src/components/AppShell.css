@@ -35,7 +35,31 @@
   min-width: 0;
 }
 
-@media (prefers-color-scheme: dark) {
+/* 面板左右排布(对齐旧版 cockpit.css 的 order 重排):
+   默认 preview-left = 预览靠左、聊天靠右 */
+.chat-layout .preview-panel {
+  order: 1;
+}
+.chat-layout .preview-resizer {
+  order: 2;
+}
+.chat-layout .chat-panel {
+  order: 3;
+}
+
+/* chat-left = 聊天靠左、预览靠右 */
+.chat-layout.layout-chat-first .chat-panel {
+  order: 1;
+}
+.chat-layout.layout-chat-first .preview-resizer {
+  order: 2;
+}
+.chat-layout.layout-chat-first .preview-panel {
+  order: 3;
+}
+
+[data-theme="dark"],
+[data-theme="midnight"] {
   .app-shell-main {
     border-left-color: var(--hb-border-dark, #374151);
     background: var(--hb-bg-dark, #1a1a1a);

@@ -8,10 +8,11 @@
  *
  * 状态由全局 previewStore 承载(文件树在 Sidebar,跨组件共享)。
  */
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePreviewStore } from '@/stores/previewStore';
 import { on as onEvent } from '@/utils/eventBus';
 import type { RollbackCompletedPayload } from '@/utils/eventBus';
+import type { FileTab } from '@/types';
 import { FileTabs } from './FileTabs';
 import { FilePreview } from './FilePreview';
 import { FileDiffView } from './FileDiffView';
@@ -23,6 +24,10 @@ export function PreviewPanel() {
   const previewReloadKey = usePreviewStore((s) => s.previewReloadKey);
   const openDiff = usePreviewStore((s) => s.openDiff);
   const closeTab = usePreviewStore((s) => s.closeTab);
+  const closeOthers = usePreviewStore((s) => s.closeOthers);
+  const closeRight = usePreviewStore((s) => s.closeRight);
+  const closeAll = usePreviewStore((s) => s.closeAll);
+  const reorderTabs = usePreviewStore((s) => s.reorderTabs);
   const setActivePath = usePreviewStore((s) => s.setActivePath);
   const forceReload = usePreviewStore((s) => s.forceReload);
   const replaceTabs = usePreviewStore((s) => s.replaceTabs);
@@ -33,11 +38,95 @@ export function PreviewPanel() {
   useEffect(() => {
     activePathRef.current = activePath;
   }, [activePath]);
+  // AI 工具写/编辑/删除当前预览文件 → 防抖重建预览(对齐旧版 file:preview-reload 的 150ms 防抖)
+  const reloadTimerRef = useRef<number | null>(null);
+  const pendingReloadPathRef = useRef<string | null>(null);
 
   const activeTab = useMemo(
     () => tabs.find((t) => t.path === activePath) ?? null,
     [tabs, activePath],
   );
+
+  // 脏检查把关:关闭单个标签 / 切换标签时,若目标会话含未保存改动,先用局部确认弹窗拦截,
+  // 确认后才真正执行动作。确认逻辑统一在 UI 层,store 保持同步纯净。
+  //   - 关闭:判定"被关闭标签"是否 dirty
+  //   - 切换:判定"当前激活(将要离开)标签"是否 dirty
+  type ConfirmIntent =
+    | { kind: 'close'; tab: FileTab }
+    | { kind: 'switch'; from: FileTab; to: string }
+    | { kind: 'batch'; names: string[]; run: () => void };
+  const [confirm, setConfirm] = useState<ConfirmIntent | null>(null);
+
+  const handleCloseTab = useCallback(
+    (path: string) => {
+      const tab = tabs.find((t) => t.path === path);
+      if (tab?.dirty) {
+        setConfirm({ kind: 'close', tab });
+        return;
+      }
+      closeTab(path);
+    },
+    [tabs, closeTab],
+  );
+
+  // 切换同样把关:当前激活标签 dirty 时拦截(对齐旧版 onBeforeSwitch)
+  const handleSelectTab = useCallback(
+    (path: string) => {
+      if (path === activePath) return;
+      const from = tabs.find((t) => t.path === activePath && t.dirty);
+      if (from) {
+        setConfirm({ kind: 'switch', from, to: path });
+        return;
+      }
+      setActivePath(path);
+    },
+    [tabs, activePath, setActivePath],
+  );
+
+  // 确认后执行对应动作
+  const confirmAction = useCallback(() => {
+    if (!confirm) return;
+    if (confirm.kind === 'close') {
+      closeTab(confirm.tab.path);
+    } else if (confirm.kind === 'switch') {
+      setActivePath(confirm.to);
+    } else {
+      confirm.run();
+    }
+    setConfirm(null);
+  }, [confirm, closeTab, setActivePath]);
+
+  // 批量关闭把关:收集实际被关闭的脏文件,聚合到一次确认。(对齐旧版 _confirmBatchClose)
+  const guardBatch = useCallback(
+    (dirty: FileTab[], run: () => void) => {
+      if (dirty.length === 0) {
+        run();
+        return;
+      }
+      setConfirm({ kind: 'batch', names: dirty.map((t) => t.name), run });
+    },
+    [],
+  );
+
+  const handleCloseOthers = useCallback(
+    (path: string) => {
+      guardBatch(tabs.filter((t) => t.path !== path && t.dirty), () => closeOthers(path));
+    },
+    [tabs, guardBatch, closeOthers],
+  );
+
+  const handleCloseRight = useCallback(
+    (path: string) => {
+      const idx = tabs.findIndex((t) => t.path === path);
+      const rightDirty = idx >= 0 ? tabs.slice(idx + 1).filter((t) => t.dirty) : [];
+      guardBatch(rightDirty, () => closeRight(path));
+    },
+    [tabs, guardBatch, closeRight],
+  );
+
+  const handleCloseAll = useCallback(() => {
+    guardBatch(tabs.filter((t) => t.dirty), () => closeAll());
+  }, [tabs, guardBatch, closeAll]);
 
   // 订阅 eventBus 'workspace:openDiff'(ChatPanel 工具卡片触发)
   useEffect(() => {
@@ -79,6 +168,40 @@ export function PreviewPanel() {
     return unsubscribe;
   }, [forceReload, replaceTabs]);
 
+  // 订阅 eventBus 'file:preview-reload'(AI 工具 write/edit/delete 命中当前预览文件 → 自动重载)。
+  // 防抖 150ms 合并 AI 一次回复对同一文件的连续写/编辑,避免预览区反复重建闪烁/滚动跳动
+  // (对齐旧版 FilePreview.reload() 的防抖口径)。仅命中 preview 标签,不处理 diff 视图。
+  useEffect(() => {
+    const unsubscribe = onEvent<string>(
+      'file:preview-reload',
+      (path) => {
+        if (!path) return;
+        const s = usePreviewStore.getState();
+        const cur = s.activePath;
+        if (!cur || normalizePath(cur) !== normalizePath(path)) return;
+        const tab = s.tabs.find((t) => t.path === cur);
+        if (!tab || tab.mode !== 'preview') return;
+        pendingReloadPathRef.current = path;
+        if (reloadTimerRef.current != null) return;
+        reloadTimerRef.current = window.setTimeout(() => {
+          reloadTimerRef.current = null;
+          const target = pendingReloadPathRef.current;
+          pendingReloadPathRef.current = null;
+          if (!target) return;
+          usePreviewStore.getState().forceReload();
+        }, 150);
+      },
+    );
+    return () => {
+      unsubscribe();
+      if (reloadTimerRef.current != null) {
+        window.clearTimeout(reloadTimerRef.current);
+        reloadTimerRef.current = null;
+      }
+      pendingReloadPathRef.current = null;
+    };
+  }, []);
+
   // 无打开文件时不渲染(聊天占满主区,对齐旧版 preview-panel hidden);
   // 用户主动收起时同样隐藏(对齐旧版 hidePreview,标签保留,打开/切换文件时恢复)
   if (collapsed || !activeTab || !activePath || tabs.length === 0) return null;
@@ -88,8 +211,12 @@ export function PreviewPanel() {
       <FileTabs
         tabs={tabs}
         activePath={activePath}
-        onSelect={setActivePath}
-        onClose={closeTab}
+        onSelect={handleSelectTab}
+        onClose={handleCloseTab}
+        onCloseOthers={handleCloseOthers}
+        onCloseRight={handleCloseRight}
+        onCloseAll={handleCloseAll}
+        onReorder={reorderTabs}
       />
       <div className="preview-panel-content">
         {activeTab.mode === 'diff' ? (
@@ -107,6 +234,78 @@ export function PreviewPanel() {
           />
         )}
       </div>
+      {confirm && (
+        <ConfirmDirtyClose
+          kind={confirm.kind}
+          name={confirm.kind === 'close' ? confirm.tab.name : confirm.kind === 'switch' ? confirm.from.name : ''}
+          names={confirm.kind === 'batch' ? confirm.names : undefined}
+          action={confirm.kind === 'close' ? '关闭' : confirm.kind === 'switch' ? '切换' : '关闭'}
+          onCancel={() => setConfirm(null)}
+          onConfirm={confirmAction}
+        />
+      )}
     </div>
   );
+}
+
+/**
+ * 未保存改动确认弹窗(复用 FileTree 的 file-tree-modal-* 样式类,保持弹窗视觉统一)。
+ * 覆盖三类场景(对齐旧版 onBeforeClose / onBeforeSwitch / _confirmBatchClose):
+ *   - close:关闭单个 dirty 标签
+ *   - switch:切换标签且当前激活标签 dirty
+ *   - batch:批量关闭(关闭其他/右侧/全部),将脏文件聚合成列表一次确认
+ */
+function ConfirmDirtyClose({
+  kind,
+  name,
+  names,
+  action,
+  onCancel,
+  onConfirm,
+}: {
+  kind: 'close' | 'switch' | 'batch';
+  name: string;
+  names?: string[];
+  action: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const isBatch = kind === 'batch';
+  const count = names?.length ?? 0;
+  return (
+    <div className="file-tree-modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="file-tree-modal">
+        <div className="file-tree-modal-header">
+          <span className="file-tree-modal-title">未保存的更改</span>
+        </div>
+        <div className="file-tree-modal-body">
+          {isBatch ? (
+            <>
+              <p className="file-tree-modal-message">有 {count} 个文件包含未保存的改动,{action}将丢弃这些修改。确定{action}吗?</p>
+              <ul className="file-tree-modal-names">
+                {names?.map((n) => <li key={n}>{n}</li>)}
+              </ul>
+            </>
+          ) : (
+            <p className="file-tree-modal-message">
+              <strong>{name}</strong> 有未保存的改动,{action}将丢弃这些修改。确定{action}吗?
+            </p>
+          )}
+        </div>
+        <div className="file-tree-modal-footer">
+          <button type="button" className="file-tree-modal-btn" onClick={onCancel}>
+            取消
+          </button>
+          <button type="button" className="file-tree-modal-btn file-tree-modal-btn-danger" onClick={onConfirm}>
+            {action}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 规范化文件路径用于比较(统一分隔符 + 小写,对齐旧版 preview-reload 匹配) */
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').toLowerCase();
 }

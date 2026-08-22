@@ -14,6 +14,35 @@ import type { Session, SessionMode } from '@/types';
 /** 主视图类型 */
 export type AppView = 'chat' | 'settings';
 
+/** 面板布局偏好(对齐旧版 hippo-layout):preview-left=预览靠左/聊天靠右,chat-left=聊天靠左/预览靠右 */
+export type PanelLayout = 'preview-left' | 'chat-left';
+
+/** 面板布局持久化 key(与旧版 GeneralSettingsPage 同 key,新旧版共享) */
+const PANEL_LAYOUT_KEY = 'hippo-layout';
+
+/** ActivityBar 浮动面板 id */
+export type ActivityPanelId = 'token' | 'metrics';
+
+/** 从 localStorage 读取面板布局(非法/缺失时回退默认 preview-left,对齐旧版默认) */
+function readPanelLayout(): PanelLayout {
+  try {
+    const v = localStorage.getItem(PANEL_LAYOUT_KEY);
+    if (v === 'preview-left' || v === 'chat-left') return v;
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+  return 'preview-left';
+}
+
+/** 面板布局写入 localStorage */
+function persistPanelLayout(layout: PanelLayout): void {
+  try {
+    localStorage.setItem(PANEL_LAYOUT_KEY, layout);
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
 /** ActivityBar 可见性持久化 key */
 const ACTIVITY_BAR_HIDDEN_KEY = 'hippo-activity-bar-hidden';
 
@@ -142,12 +171,18 @@ interface AppState {
 
   /** ActivityBar 是否隐藏(从 localStorage 恢复) */
   activityBarHidden: boolean;
+  /** 当前激活的 ActivityBar 浮动面板 id(null=无)。从状态栏等外部也可联动打开 */
+  activityPanel: ActivityPanelId | null;
+  /** 面板是否被点击固定展开(hover 预览为 false,不持久化) */
+  activityPanelPinned: boolean;
   /** Sidebar 是否折叠(从 localStorage 恢复) */
   sidebarCollapsed: boolean;
   /** SkillMarket 面板是否打开 */
   skillMarketOpen: boolean;
   /** 进入 Settings 视图时初始定位的设置页(由 ModelSelectorPanel 等外部触发,消费后重置为 'general') */
   settingsInitialPage: string;
+  /** 面板布局偏好(聊天/预览左右排布,从 localStorage 恢复,默认 preview-left 对齐旧版) */
+  panelLayout: PanelLayout;
 
   /** 会话输入草稿(内存态,对齐旧版 appState._sessionInputDrafts;key = sessionId) */
   sessionInputDrafts: Record<string, string>;
@@ -176,12 +211,18 @@ interface AppState {
 
   /** 切换 ActivityBar 可见性(同时持久化到 localStorage) */
   toggleActivityBar: () => void;
+  /** 设置当前激活的 ActivityBar 浮动面板(外部可从状态栏等联动打开) */
+  setActivityPanel: (panel: ActivityPanelId | null, pinned?: boolean) => void;
+  /** 外部打开 ActivityBar 面板:确保活动栏可见并固定展开;若面板已固定打开则关闭(toggle) */
+  openActivityPanel: (panel: ActivityPanelId) => void;
   /** 设置 Sidebar 折叠状态(同时持久化到 localStorage) */
   setSidebarCollapsed: (collapsed: boolean) => void;
   /** 设置 SkillMarket 打开/关闭 */
   setSkillMarketOpen: (open: boolean) => void;
   /** 设置 Settings 视图初始页(消费后应重置为 'general') */
   setSettingsInitialPage: (page: string) => void;
+  /** 设置面板布局(同时持久化到 localStorage,key 对齐旧版 hippo-layout) */
+  setPanelLayout: (layout: PanelLayout) => void;
 
   /** 保存会话输入草稿(空内容不入库,对齐旧版 saveSessionInputDraft) */
   saveSessionInputDraft: (sessionId: string, text: string) => void;
@@ -205,9 +246,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   sessionsError: null,
 
   activityBarHidden: readActivityBarHidden(),
+  activityPanel: null,
+  activityPanelPinned: false,
   sidebarCollapsed: readSidebarCollapsed(),
   skillMarketOpen: false,
   settingsInitialPage: 'general',
+  panelLayout: readPanelLayout(),
 
   sessionInputDrafts: {},
   heroPendingDraft: '',
@@ -269,6 +313,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ activityBarHidden: next });
   },
 
+  setActivityPanel: (panel, pinned = false) => {
+    set({ activityPanel: panel, activityPanelPinned: pinned });
+  },
+
+  openActivityPanel: (panel) => {
+    const s = get();
+    // 已固定打开同一面板 → 关闭(toggle);否则打开并确保活动栏可见
+    if (s.activityPanel === panel && s.activityPanelPinned) {
+      set({ activityPanel: null, activityPanelPinned: false });
+      return;
+    }
+    if (s.activityBarHidden) {
+      s.toggleActivityBar();
+    }
+    set({ activityPanel: panel, activityPanelPinned: true });
+  },
+
   setSidebarCollapsed: (collapsed) => {
     persistSidebarCollapsed(collapsed);
     set({ sidebarCollapsed: collapsed });
@@ -276,6 +337,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSkillMarketOpen: (open) => set({ skillMarketOpen: open }),
   setSettingsInitialPage: (page) => set({ settingsInitialPage: page }),
+  setPanelLayout: (layout) => {
+    persistPanelLayout(layout);
+    set({ panelLayout: layout });
+  },
 
   saveSessionInputDraft: (sessionId, text) =>
     set((s) => ({ sessionInputDrafts: { ...s.sessionInputDrafts, [sessionId]: text } })),

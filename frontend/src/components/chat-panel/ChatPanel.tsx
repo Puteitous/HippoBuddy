@@ -15,6 +15,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
 import { api } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
+import { translate } from '@/i18n';
 import type { Message, PendingImage, RefChip, ToolCallRecord } from '@/types';
 import { combineChipsToMessage } from '@/utils/ref-chips';
 import { on } from '@/utils/eventBus';
@@ -439,11 +440,11 @@ export function ChatPanel() {
           setCurrentSession(res.newSessionId);
           // 刷新会话列表(新分叉会话出现在列表)
           api.getSessions().then(setSessions).catch(() => {});
-          showToast('已分叉为新会话', { type: 'success', duration: 4000 });
+          showToast(translate('chat.forkSuccess'), { type: 'success', duration: 4000 });
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        showToast(`分叉失败:${msg}`, { type: 'error', duration: 3000 });
+        showToast(translate('chat.forkFailedMsg', { message: msg }), { type: 'error', duration: 3000 });
       }
     },
     [currentSessionId, setCurrentSession, setSessions],
@@ -716,7 +717,7 @@ export function ChatPanel() {
                   title="停止生成"
                   aria-label="停止生成"
                 >
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden>
                     <rect x="6" y="6" width="12" height="12" rx="2" />
                   </svg>
                 </button>
@@ -731,8 +732,8 @@ export function ChatPanel() {
                 >
                   <svg
                     viewBox="0 0 16 16"
-                    width="15"
-                    height="15"
+                    width="16"
+                    height="16"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"

@@ -57,12 +57,6 @@ body.window-maximized {
   letter-spacing: -0.01em;
 }
 
-.top-bar-tag {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-
 /* 侧栏折叠逃生按钮(对齐旧版 header 中 toolbar-escape 的胶囊外观) */
 .top-bar-sidebar-show {
   height: 26px;
@@ -367,7 +361,8 @@ body.desktop-window {
   overflow: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .top-bar {
     border-bottom-color: var(--border);
   }

@@ -5,6 +5,8 @@
   flex: 1;
   min-height: 0;
   height: 100%;
+  /* 为绝对定位的缩放工具栏提供定位上下文(对齐旧版 _container.style.position='relative') */
+  position: relative;
 }
 
 .image-preview.image {
@@ -159,7 +161,8 @@
   color: var(--hb-text-dark, #e5e7eb);
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .img-zoom-viewport {
     background-color: var(--hb-bg-dark, #1a1a1a);
     background-image: radial-gradient(circle, var(--hb-border-dark, #374151) 1px, transparent 1px);

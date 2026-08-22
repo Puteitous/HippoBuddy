@@ -209,13 +209,13 @@
   overflow-y: auto;
 }
 
-.diff-line {
+.tool-diff .diff-line {
   display: flex;
   align-items: flex-start;
   padding: 0;
 }
 
-.diff-gutter {
+.tool-diff .diff-gutter {
   flex-shrink: 0;
   width: 22px;
   padding: 0 6px;
@@ -225,24 +225,24 @@
   background: rgba(127, 127, 127, 0.08);
 }
 
-.diff-line-content {
+.tool-diff .diff-line-content {
   flex: 1;
   padding: 0 8px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.diff-added .diff-line-content {
+.tool-diff .diff-added .diff-line-content {
   background: rgba(34, 197, 94, 0.12);
   color: #86efac;
 }
 
-.diff-removed .diff-line-content {
+.tool-diff .diff-removed .diff-line-content {
   background: rgba(239, 68, 68, 0.12);
   color: #fca5a5;
 }
 
-.diff-context .diff-line-content {
+.tool-diff .diff-context .diff-line-content {
   color: #9ca3af;
 }
 

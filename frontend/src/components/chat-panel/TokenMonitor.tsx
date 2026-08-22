@@ -9,6 +9,7 @@
  *
  * 与旧版 TokenMonitor.js 的差异:
  *  - 不再轮询 30s(改为切会话 + SSE 驱动,降低后端压力)
+ *  - 每个回合终态 token_update 到达时重拉一次基准,校准会话累计字段(statusbar tooltip 的会话总计)
  *  - 状态栏变体(statusBar):紧凑展示(百分比 + 进度条 + hover tooltip),主题色用 CSS 变量
  *  - Activity Bar 变体(非 statusBar):完整面板 TokenVisualPanel(字段 + 两张趋势图)
  *  - 每回合有实际用量变化时写入 chatStore.tokenHistory,驱动完整面板趋势图(对齐旧版
@@ -71,6 +72,19 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
     void loadBase(currentSessionId);
   }, [currentSessionId, loadBase]);
 
+  // 每回合终态 token_update 到达时重拉基准统计,校准会话累计字段。
+  // 后端仅在回合终态推送一次 usage(Responses 协议 completed/incomplete 或
+  // chat-completions 最后一帧),故此处天然「每回合一次」;用 ref 按会话+total 去重,
+  // 避免依赖 baseStats(setState 会引发循环),也不需恢复旧版 30s 轮询。
+  const refreshedRef = useRef<{ sessionId: string; total: number }>({ sessionId: '', total: -1 });
+  useEffect(() => {
+    if (!currentSessionId || !lastTokenUpdate?.hasKnownUsage) return;
+    const cur = refreshedRef.current;
+    if (cur.sessionId === currentSessionId && cur.total === lastTokenUpdate.totalTokens) return;
+    refreshedRef.current = { sessionId: currentSessionId, total: lastTokenUpdate.totalTokens };
+    void loadBase(currentSessionId);
+  }, [currentSessionId, lastTokenUpdate, loadBase]);
+
   // 合并实时数据
   const stats = useMemo<MergedStats>(() => mergeStats(baseStats, lastTokenUpdate), [
     baseStats,
@@ -120,6 +134,13 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
     setTooltipOpen(false);
   }, []);
 
+  // 点击状态栏 → 打开公共 Token 统计面板(对齐旧版 statusBarToken 联动,复用左侧 ActivityBar 面板)
+  const openActivityTokenPanel = useAppStore((s) => s.openActivityPanel);
+  const handleStatusBarClick = useCallback(() => {
+    hideTooltip();
+    openActivityTokenPanel('token');
+  }, [hideTooltip, openActivityTokenPanel]);
+
   // 渲染后校正:超出右侧边界时右对齐(对齐旧版 offsetWidth 检测逻辑)
   useLayoutEffect(() => {
     if (!tooltipOpen || !tooltipPos || !tooltipRef.current || !statusBarRef.current) return;
@@ -168,7 +189,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
           aria-live="polite"
           onMouseEnter={showTooltip}
           onMouseLeave={hideTooltip}
-          onClick={hideTooltip}
+          onClick={handleStatusBarClick}
         >
           <svg
             viewBox="0 0 16 16"
@@ -200,7 +221,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
           aria-live="polite"
           onMouseEnter={showTooltip}
           onMouseLeave={hideTooltip}
-          onClick={hideTooltip}
+          onClick={handleStatusBarClick}
         >
           <svg
             viewBox="0 0 16 16"

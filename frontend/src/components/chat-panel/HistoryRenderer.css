@@ -40,6 +40,14 @@
   margin-top: -16px;
 }
 
+/* ── 回滚面板(独立整行块):作为 .history-list 直接子元素,夹在 gap:16px 之间。
+   用负 margin 抵消与 footer 之间的 gap,使面板紧贴该回合 footer(属于当前回合);
+   底部保留少量间距与下一条内容呼吸。宽度与水平居中由 RollbackButton.css 负责。 ── */
+.history-list > .rollback-inline {
+  margin-top: -16px;
+  margin-bottom: 4px;
+}
+
 .history-loading {
   display: flex;
   align-items: center;

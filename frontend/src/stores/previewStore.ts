@@ -9,6 +9,7 @@
  */
 import { create } from 'zustand';
 import type { FileTab } from '@/types';
+import { clearScrollPosition } from '@/utils/scroll-positions';
 
 /** 预览面板收起状态持久化 key(与旧版 workspace-manager.js 同 key,新旧版共享) */
 const PREVIEW_COLLAPSED_KEY = 'hippo-preview-collapsed';
@@ -39,14 +40,24 @@ interface PreviewState {
   /** 预览面板是否收起(用户主动收起,持久化;打开/切换文件时清除,对齐旧版 previewCollapseBtn) */
   collapsed: boolean;
 
-  /** 打开文件为 preview 模式(已有同路径 tab 则仅激活) */
-  openFile: (filePath: string) => void;
+  /** 打开文件为 preview 模式(已有同路径 tab 则仅激活;可选携带定位行) */
+  openFile: (filePath: string, startLine?: number, endLine?: number) => void;
   /** 打开文件为 diff 模式(已有同路径 diff tab 则更新 toolCallId) */
   openDiff: (filePath: string, toolCallId?: string) => void;
   /** 激活指定标签 */
   setActivePath: (path: string | null) => void;
   /** 关闭标签(激活相邻标签) */
   closeTab: (filePath: string) => void;
+  /** 关闭除指定外的所有标签(对齐旧版 closeOthers) */
+  closeOthers: (filePath: string) => void;
+  /** 关闭指定标签右侧的所有标签(对齐旧版 closeRight) */
+  closeRight: (filePath: string) => void;
+  /** 关闭所有标签(对齐旧版 closeAll) */
+  closeAll: () => void;
+  /** 拖拽排序:将 fromPath 移动到 toPath 前(insertBefore=true)或后(对齐旧版 drag drop) */
+  reorderTabs: (fromPath: string, toPath: string, insertBefore: boolean) => void;
+  /** 设置标签脏状态(未保存改动,对齐旧版 setDirty) */
+  setTabDirty: (filePath: string, dirty: boolean) => void;
   /** 批量更新标签(回滚后 diff 降级为 preview 等) */
   replaceTabs: (updater: (tabs: FileTab[]) => FileTab[]) => void;
   /** 强制重建当前预览(回滚后刷新内容) */
@@ -69,15 +80,30 @@ export const usePreviewStore = create<PreviewState>((set) => ({
   previewReloadKey: 0,
   collapsed: readPreviewCollapsed(),
 
-  openFile: (filePath) => {
+  openFile: (filePath, startLine, endLine) => {
     // 打开文件清除收起状态(对齐旧版 handleFileSelect removeItem)
     persistPreviewCollapsed(false);
     set((state) => {
-      // 已存在同路径标签(preview 或 diff)则仅激活
-      if (state.tabs.some((t) => t.path === filePath)) {
-        return { activePath: filePath, collapsed: false };
+      // 已存在同路径标签:若是 diff 则降级为 preview(对齐回滚降级语义)并激活,否则仅激活
+      const existing = state.tabs.find((t) => t.path === filePath);
+      if (existing) {
+        const tabs =
+          existing.mode === 'diff'
+            ? state.tabs.map((t) =>
+                t.path === filePath
+                  ? { ...t, mode: 'preview' as const, toolCallId: undefined, startLine, endLine }
+                  : t,
+              )
+            : state.tabs;
+        return { tabs, activePath: filePath, collapsed: false };
       }
-      const tab: FileTab = { path: filePath, name: basename(filePath), mode: 'preview' };
+      const tab: FileTab = {
+        path: filePath,
+        name: basename(filePath),
+        mode: 'preview',
+        startLine,
+        endLine,
+      };
       return { tabs: [...state.tabs, tab], activePath: filePath, collapsed: false };
     });
   },
@@ -106,7 +132,9 @@ export const usePreviewStore = create<PreviewState>((set) => ({
     set({ activePath: path, collapsed: false });
   },
 
-  closeTab: (filePath) =>
+  closeTab: (filePath) => {
+    // 关闭标签时清除该文件的滚动位置(对齐旧版 clearScrollPosition:重新打开从顶部开始)
+    clearScrollPosition(filePath);
     set((state) => {
       const idx = state.tabs.findIndex((t) => t.path === filePath);
       if (idx < 0) return state;
@@ -117,9 +145,57 @@ export const usePreviewStore = create<PreviewState>((set) => ({
         activePath = fallback ? fallback.path : null;
       }
       return { tabs: next, activePath };
-    }),
+    });
+  },
 
   forceReload: () => set((s) => ({ previewReloadKey: s.previewReloadKey + 1 })),
+
+  closeOthers: (filePath) => {
+    clearScrollPosition(filePath);
+    set((state) => {
+      // 关闭除 filePath 外的所有标签,保留并激活 filePath(对齐旧版 closeOthers)
+      return { tabs: state.tabs.filter((t) => t.path === filePath), activePath: filePath };
+    });
+  },
+
+  closeRight: (filePath) => {
+    clearScrollPosition(filePath);
+    set((state) => {
+      const idx = state.tabs.findIndex((t) => t.path === filePath);
+      if (idx < 0) return state;
+      const tabs = state.tabs.slice(0, idx + 1);
+      // 若激活标签在右侧被关闭,则激活到目标标签
+      const rightClosed = state.tabs.slice(idx + 1).some((t) => t.path === state.activePath);
+      const activePath = rightClosed ? filePath : state.activePath;
+      return { tabs, activePath };
+    });
+  },
+
+  closeAll: () => {
+    set({ tabs: [], activePath: null });
+  },
+
+  reorderTabs: (fromPath, toPath, insertBefore) =>
+    set((state) => {
+      const fromIdx = state.tabs.findIndex((t) => t.path === fromPath);
+      const toIdx = state.tabs.findIndex((t) => t.path === toPath);
+      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return state;
+      const tabs = [...state.tabs];
+      const [moved] = tabs.splice(fromIdx, 1);
+      // splice 后 toPath 索引可能偏移,重新定位
+      const adjusted = tabs.findIndex((t) => t.path === toPath);
+      const target = insertBefore ? adjusted : adjusted + 1;
+      tabs.splice(target, 0, moved);
+      return { tabs };
+    }),
+
+  setTabDirty: (filePath, dirty) =>
+    set((state) => {
+      if (!state.tabs.some((t) => t.path === filePath && t.dirty !== dirty)) return state;
+      return {
+        tabs: state.tabs.map((t) => (t.path === filePath ? { ...t, dirty } : t)),
+      };
+    }),
 
   replaceTabs: (updater) =>
     set((state) => ({ tabs: updater(state.tabs) })),

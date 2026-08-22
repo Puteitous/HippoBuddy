@@ -115,7 +115,8 @@
 }
 
 /* ── 暗色模式 ── */
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .ooxml-viewer {
     background: var(--hb-bg-dark, #1a1a1a);
   }

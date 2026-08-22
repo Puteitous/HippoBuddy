@@ -18,6 +18,7 @@
   background: transparent;
   cursor: pointer;
   color: inherit;
+  min-width: 0; /* 允许在窄宽度下收缩,使模型名省略而非溢出 */
   max-width: 260px;
 }
 
@@ -206,7 +207,8 @@
   background: var(--hb-border, #e5e7eb);
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .msp-panel {
     background: var(--hb-bg-dark, #1f2937);
     border-color: var(--hb-border-dark, #374151);

@@ -10,6 +10,7 @@
   overflow: hidden;
 }
 
+/* ── 头部 ── */
 .file-diff-view-header {
   display: flex;
   align-items: center;
@@ -80,14 +81,167 @@
   background: var(--hb-hover, rgba(0, 0, 0, 0.05));
 }
 
+/* ── 主体布局:左侧时间线 + 右侧 diff 内容 ── */
+.file-diff-view-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 .file-diff-view-body {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   display: flex;
   flex-direction: column;
 }
 
+/* ── 左侧历史时间线 ── */
+.file-diff-timeline {
+  width: 180px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg-soft, #f9fafb);
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.file-diff-timeline.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hb-text-soft, #6b7280);
+  font-size: 12px;
+  padding: 16px 8px;
+}
+
+.file-diff-timeline-divider {
+  height: 1px;
+  margin: 4px 12px 6px;
+  background: var(--hb-border, #e5e7eb);
+}
+
+.file-diff-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+
+.file-diff-timeline-item:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.04));
+}
+
+.file-diff-timeline-item.active {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+  border-left-color: var(--hb-primary, #2563eb);
+}
+
+.file-diff-timeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hb-text-soft, #9ca3af);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.file-diff-timeline-item.active .file-diff-timeline-dot {
+  background: var(--hb-primary, #2563eb);
+}
+
+.file-diff-timeline-content {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-diff-timeline-time {
+  font-size: 11px;
+  color: var(--hb-text-soft, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+
+.file-diff-timeline-tool {
+  font-size: 12px;
+  color: var(--hb-text, #1f2937);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-diff-timeline-stats {
+  margin-left: 6px;
+  font-family: var(--hb-mono, 'JetBrains Mono', 'Consolas', monospace);
+  font-size: 11px;
+}
+
+.file-diff-timeline-stats .diff-stat-add,
+.file-diff-timeline-stats .diff-stat-del {
+  margin-right: 4px;
+}
+
+/* ── 底部操作栏 ── */
+.file-diff-view-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px solid var(--hb-border, #e5e7eb);
+  background: var(--hb-bg-soft, #f9fafb);
+}
+
+.file-diff-view-stat {
+  font-family: var(--hb-mono, 'JetBrains Mono', 'Consolas', monospace);
+  font-size: 12px;
+}
+
+.file-diff-view-stat .diff-stat-add,
+.file-diff-view-stat .diff-stat-del {
+  margin-right: 8px;
+}
+
+.file-diff-view-footer-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.file-diff-view-footer-actions button {
+  padding: 4px 12px;
+  font-size: 12px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--hb-text, #1f2937);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-diff-view-footer-actions button:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+.file-diff-view-rollback-btn {
+  border-color: var(--hb-diff-del-text, #b91c1c) !important;
+  color: var(--hb-diff-del-text, #b91c1c) !important;
+}
+
+.file-diff-view-rollback-btn:hover {
+  background: rgba(185, 28, 28, 0.08) !important;
+}
+
+.file-diff-view-rollback-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── 加载 / 错误 / 空态 ── */
 .file-diff-view-loading,
 .file-diff-view-error,
 .file-diff-view-empty {
@@ -118,7 +272,8 @@
 }
 
 /* ── 暗色模式 ── */
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .file-diff-view {
     background: var(--hb-bg-dark, #1a1a1a);
     color: var(--hb-text-dark, #e5e7eb);
@@ -145,6 +300,53 @@
   }
   .file-diff-view-actions button:hover {
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+  }
+  .file-diff-timeline {
+    border-right-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-soft-dark, #242424);
+  }
+  .file-diff-timeline.empty {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .file-diff-timeline-divider {
+    background: var(--hb-border-dark, #374151);
+  }
+  .file-diff-timeline-item:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.04));
+  }
+  .file-diff-timeline-item.active {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.07));
+    border-left-color: var(--hb-primary-dark, #60a5fa);
+  }
+  .file-diff-timeline-dot {
+    background: var(--hb-text-soft-dark, #6b7280);
+  }
+  .file-diff-timeline-item.active .file-diff-timeline-dot {
+    background: var(--hb-primary-dark, #60a5fa);
+  }
+  .file-diff-timeline-time {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .file-diff-timeline-tool {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-diff-view-footer {
+    border-top-color: var(--hb-border-dark, #374151);
+    background: var(--hb-bg-soft-dark, #242424);
+  }
+  .file-diff-view-footer-actions button {
+    border-color: var(--hb-border-dark, #374151);
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-diff-view-footer-actions button:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+  }
+  .file-diff-view-rollback-btn {
+    border-color: var(--hb-diff-del-text-dark, #f87171) !important;
+    color: var(--hb-diff-del-text-dark, #f87171) !important;
+  }
+  .file-diff-view-rollback-btn:hover {
+    background: rgba(248, 113, 113, 0.12) !important;
   }
   .file-diff-view-loading,
   .file-diff-view-error,

@@ -30,13 +30,16 @@
   cursor: not-allowed;
 }
 
-/* ── 内联面板容器 ─────────────────────────────────────── */
+/* ── 内联面板容器(独立整行块,对齐旧版) ──────────────────
+   作为 .history-list 直接子元素,水平居中、限宽 860px,
+   不再受消息 footer 的 flex 操作行挤压。 */
 .rollback-inline {
   width: 100%;
-  margin-top: 8px;
-  border: 1px solid rgba(127, 127, 127, 0.22);
+  margin: 2px auto 4px;
+  max-width: 860px;
+  border: 1px solid rgba(127, 127, 127, 0.55);
   border-radius: 8px;
-  background: rgba(127, 127, 127, 0.05);
+  background: rgba(127, 127, 127, 0.1);
   animation: rollback-slide-in 0.2s ease-out;
 }
 
@@ -322,8 +325,9 @@
   }
 }
 
-/* ── 深色模式适配 ─────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
+/* ── 深色模式适配(跟随 app 主题 data-theme,而非系统偏好) ── */
+[data-theme="dark"],
+[data-theme="midnight"] {
   .rollback-btn {
     color: #9ca3af;
   }

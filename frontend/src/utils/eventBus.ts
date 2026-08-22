@@ -30,6 +30,13 @@ export type EventBusEvent =
   // ── 3.8:回滚完成联动 ───────────────────────────────
   /** 回滚成功后发出,携带被回滚文件路径列表(对齐旧版 file:rollback-completed),PreviewPanel 订阅后刷新预览 */
   | 'rollback:completed'
+  // ── 3.8-x:AI 工具文件变更联动 ───────────────────────
+  /**
+   * AI 工具(write_file/edit_file/delete_file)执行后发出,携带被修改的文件路径
+   * (对齐旧版 file:preview-reload)。PreviewPanel 订阅后,命中当前预览文件时自动重载,
+   * 使 AI 边写代码边看预览实时更新。delete_file 对每个被删路径各发一次。
+   */
+  | 'file:preview-reload'
   // ── LLM 模型切换 ───────────────────────────────────
   /**
    * 模型切换成功后发出,携带新生效的 provider/model。

@@ -16,6 +16,7 @@
  */
 import { memo, useMemo, useState } from 'react';
 import { desktopBridge } from '@/utils/desktop-bridge';
+import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
 import type { TimelineToolItem } from './tool-timeline-utils';
 import { ToolTimelineConfirmation } from './ToolTimelineConfirmation';
@@ -309,16 +310,41 @@ function ToolTimelineComponent({ items }: ToolTimelineProps) {
 }
 
 /** 单行(摘要 + 可展开详情) */
+const PATH_SUMMARY_TOOLS = [
+  'read_file',
+  'edit_file',
+  'write_file',
+  'undo_file',
+  'read_office_file',
+  'write_office_file',
+  'delete_file',
+  'lint_diagnostics',
+  'list_directory',
+];
+
 function TimelineRow({ item }: { item: TimelineToolItem }) {
   const [expanded, setExpanded] = useState(item.status === 'pending_confirmation');
+  const workspacePath = useAppStore((s) => s.workspacePath);
 
   const summary = useMemo(() => {
-    const fromArgs = timelineSummary(item.name, item.args);
-    if (fromArgs) return fromArgs;
+    let text = timelineSummary(item.name, item.args);
+    if (text) {
+      // 路径类工具:若路径以工作区根路径开头,精简为相对路径(更简洁易读,对齐旧版)
+      // 注意:根路径需保留末位 `/`,且归一化反斜杠后再比对
+      if (
+        PATH_SUMMARY_TOOLS.includes(item.name) &&
+        workspacePath &&
+        (text = text.replace(/\\/g, '/')) &&
+        text.startsWith(`${workspacePath.replace(/\\/g, '/').replace(/\/+$/, '')}/`)
+      ) {
+        text = text.slice(`${workspacePath.replace(/\\/g, '/').replace(/\/+$/, '')}/`.length);
+      }
+      return text;
+    }
     // 无 args(历史消息)时退化为内容首行
     const body = item.content?.trim() ?? '';
     return body.split('\n')[0].slice(0, 120) || item.name;
-  }, [item.name, item.args, item.content]);
+  }, [item.name, item.args, item.content, workspacePath]);
   const filePath = useMemo(() => timelineFilePath(item.name, item.args), [item.name, item.args]);
 
   const hasDetail = useMemo(() => {
@@ -364,7 +390,15 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
         <span
           className="tool-timeline-summary"
           data-clickable={filePath ? '' : undefined}
-          onClick={filePath ? (e) => { e.stopPropagation(); desktopBridge.navigateToFile(filePath); } : undefined}
+          onClick={
+            filePath
+              ? (e) => {
+                  e.stopPropagation();
+                  // Windows 路径反斜杠转正斜杠,避免跳转时路径解析异常(对齐旧版 jsPath)
+                  desktopBridge.navigateToFile(filePath.replace(/\\/g, '/'));
+                }
+              : undefined
+          }
           title={filePath || summary}
         >
           {summary}

@@ -11,6 +11,8 @@
  * 优先级:electronAPI(Electron) > HippoDesktop(旧 JCEF) > 浏览器 noop / null。
  */
 
+import { useAppStore } from '@/stores/appStore';
+
 /** 在浏览器环境或后端未注入时安全降级 */
 export const desktopBridge = {
   // ────────────────────────── 环境判断 ──────────────────────────
@@ -49,9 +51,11 @@ export const desktopBridge = {
     }
   },
 
-  /** 获取当前工作区根路径(未注入时返回空串) */
+  /** 获取当前工作区根路径
+   *  优先读 HippoWorkspace.currentPath(旧版注入);新版走 appStore.workspacePath(workspaceApi 拉取的可靠根),保证
+   *  toRelativePath 等依赖能正确精简为相对路径。 */
   getCurrentPath(): string {
-    return window.HippoWorkspace?.currentPath ?? '';
+    return window.HippoWorkspace?.currentPath || useAppStore.getState().workspacePath || '';
   },
 
   // ────────────────────────── 文件系统 ──────────────────────────
@@ -159,8 +163,14 @@ export const desktopBridge = {
   /** 创建空文件(对齐旧版 createFile) */
   async createFile(path: string): Promise<boolean> {
     try {
-      if (window.electronAPI?.createFile) return (await window.electronAPI.createFile(path)) === true;
-      if (window.HippoDesktop?.createFile) return (await window.HippoDesktop.createFile(path)) === true;
+      if (window.electronAPI?.createFile) {
+        await window.electronAPI.createFile(path);
+        return true;
+      }
+      if (window.HippoDesktop?.createFile) {
+        await window.HippoDesktop.createFile(path);
+        return true;
+      }
       return false;
     } catch (e) {
       console.warn('[desktopBridge] createFile 失败:', e);
@@ -171,8 +181,14 @@ export const desktopBridge = {
   /** 创建文件夹(对齐旧版 createDir) */
   async createDir(path: string): Promise<boolean> {
     try {
-      if (window.electronAPI?.createDir) return (await window.electronAPI.createDir(path)) === true;
-      if (window.HippoDesktop?.createDir) return (await window.HippoDesktop.createDir(path)) === true;
+      if (window.electronAPI?.createDir) {
+        await window.electronAPI.createDir(path);
+        return true;
+      }
+      if (window.HippoDesktop?.createDir) {
+        await window.HippoDesktop.createDir(path);
+        return true;
+      }
       return false;
     } catch (e) {
       console.warn('[desktopBridge] createDir 失败:', e);
@@ -183,8 +199,16 @@ export const desktopBridge = {
   /** 移动 / 重命名文件或文件夹(对齐旧版 rename) */
   async rename(oldPath: string, newPath: string): Promise<boolean> {
     try {
-      if (window.electronAPI?.rename) return (await window.electronAPI.rename(oldPath, newPath)) === true;
-      if (window.HippoDesktop?.rename) return (await window.HippoDesktop.rename(oldPath, newPath)) === true;
+      // electron/HippoDesktop 的 rename 成功时返回结果对象而非 true,失败时抛异常;
+      // 因此以「未抛错」判定成功,不能与 === true 比较。
+      if (window.electronAPI?.rename) {
+        await window.electronAPI.rename(oldPath, newPath);
+        return true;
+      }
+      if (window.HippoDesktop?.rename) {
+        await window.HippoDesktop.rename(oldPath, newPath);
+        return true;
+      }
       return false;
     } catch (e) {
       console.warn('[desktopBridge] rename 失败:', e);
@@ -195,8 +219,14 @@ export const desktopBridge = {
   /** 删除文件或文件夹(对齐旧版 deleteFile) */
   async deleteFile(path: string): Promise<boolean> {
     try {
-      if (window.electronAPI?.deleteFile) return (await window.electronAPI.deleteFile(path)) === true;
-      if (window.HippoDesktop?.deleteFile) return (await window.HippoDesktop.deleteFile(path)) === true;
+      if (window.electronAPI?.deleteFile) {
+        await window.electronAPI.deleteFile(path);
+        return true;
+      }
+      if (window.HippoDesktop?.deleteFile) {
+        await window.HippoDesktop.deleteFile(path);
+        return true;
+      }
       return false;
     } catch (e) {
       console.warn('[desktopBridge] deleteFile 失败:', e);

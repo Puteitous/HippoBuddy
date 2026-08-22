@@ -211,7 +211,10 @@ export function TopBar() {
   const handleClearWorkspace = async () => {
     try {
       await workspaceApi.resetCurrent();
-      setWorkspacePath('');
+      // 重置后后端当前工作区已回退到默认工作区;重新拉取并回填,
+      // 避免 UI 误判为「未设置工作区」(对齐旧版 clearWorkspace 的重新加载行为)。
+      const state = await workspaceApi.getCurrent();
+      setWorkspacePath(state.path || '');
       showToast(translate('html.header.resetWorkspace'), { type: 'success', duration: 2000 });
     } catch (e) {
       showToast(translate('topbar.resetFailed', { err: errMsg(e) }), { type: 'error', duration: 3000 });
@@ -271,7 +274,6 @@ export function TopBar() {
           </svg>
         </span>
         <span className="top-bar-name">HippoBuddy</span>
-        <span className="top-bar-tag">React + TS</span>
         {/* 侧栏折叠时的逃生展开按钮(对齐旧版 header 中 toolbar-escape) */}
         {sidebarCollapsed && (
           <button

@@ -744,15 +744,6 @@
   cursor: not-allowed;
 }
 
-/* 回滚内联面板(点击回滚按钮后展开):浮在消息气泡下方,不挤压 footer 行 */
-.msg-bubble-assistant .rollback-inline {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 30;
-}
-
 /* ════════════════════════════════════════════════════════
    文件产物指示器(对齐旧版 .message-file-indicator + popover)
    旧版样式见 css/components/chat-panel.css 321-412 行

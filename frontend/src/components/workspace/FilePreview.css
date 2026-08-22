@@ -168,6 +168,46 @@
 /* 覆盖 CM6 内部样式:与 .file-preview-content 的观感对齐 */
 .file-preview-editor .cm-editor {
   height: 100%;
+  /* 编辑器底色锁定为 --bg-chat(浅色 #fff / dark #171717 / midnight #181d27),
+     用 0,2,0 优先级压过 oneDark/vsCodeLight 各自 .cm-theme-* 的底色(0,1,0),
+     保证无论 CM 样式注入顺序如何都随 data-theme 语义色 */
+  background-color: var(--bg-chat);
+}
+
+/* 行号区同底色,避免 oneDark 的 #21252b 竖条与正文产生色差(对齐旧版 cm-gutters) */
+.file-preview-editor .cm-editor .cm-gutters {
+  background-color: var(--bg-chat);
+}
+
+/* ── 对齐旧版 workspace.css 的 CM 主题色覆盖 ──
+   以下把 oneDark/vsCodeLight 各主题的硬编码色(选区/当前行/行号高亮)
+   拉回应用语义色,保证随 data-theme 一致(与背景色同理,用 !important 压过主题选择器) */
+
+/* 隐藏 CM 自绘的全宽选中背景(中间行会铺满整行宽度) */
+.file-preview-editor .cm-selectionBackground {
+  background: transparent !important;
+}
+
+/* 使用浏览器原生 ::selection 渲染选中,精确覆盖文字字符 */
+.file-preview-editor .cm-content ::selection {
+  background: var(--selection-bg) !important;
+}
+
+/* 深色模式下当前行背景对齐旧版 */
+[data-theme="dark"] .file-preview-editor .cm-activeLine,
+[data-theme="midnight"] .file-preview-editor .cm-activeLine {
+  background: rgb(44, 49, 58) !important;
+}
+
+/* 选中文字时隐藏当前行高亮(必须放在上面 activeLine 规则之后,确保覆盖；对齐旧版) */
+.file-preview-editor.has-selection .cm-activeLine {
+  background: transparent !important;
+}
+
+/* 深色模式下当前行行号文字高亮 */
+[data-theme="dark"] .file-preview-editor .cm-activeLineGutter,
+[data-theme="midnight"] .file-preview-editor .cm-activeLineGutter {
+  color: var(--text-primary) !important;
 }
 
 .file-preview-editor .cm-scroller {

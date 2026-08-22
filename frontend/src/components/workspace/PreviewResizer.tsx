@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { usePreviewStore } from '@/stores/previewStore';
+import { useAppStore } from '@/stores/appStore';
 import './PreviewPanel.css';
 
 /** 拖拽宽度范围 */
@@ -21,6 +22,7 @@ const WIDTH_KEY = 'hippo-preview-width';
 
 export function PreviewResizer() {
   const hasTabs = usePreviewStore((s) => s.tabs.length > 0);
+  const panelLayout = useAppStore((s) => s.panelLayout);
   const resizerRef = useRef<HTMLDivElement | null>(null);
 
   // 启动时恢复已保存的宽度(仅当尚未设置时)
@@ -48,9 +50,16 @@ export function PreviewResizer() {
     const startWidth = panel.offsetWidth;
 
     const onMove = (ev: MouseEvent) => {
-      // 分隔条是预览面板的左边界:往左拖(负)面板变宽,往右拖(正)面板变窄
+      // 分隔条贴近预览面板的一侧:chat-left(预览在右)时是预览左边界 → -diff;
+      // preview-left(预览在左)时是预览右边界 → +diff,保证朝分隔条方向拖拽面板变宽
       const diff = ev.clientX - startX;
-      const w = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth - diff));
+      const w = Math.max(
+        MIN_WIDTH,
+        Math.min(
+          MAX_WIDTH,
+          panelLayout === 'chat-left' ? startWidth - diff : startWidth + diff,
+        ),
+      );
       document.documentElement.style.setProperty('--preview-panel-width', w + 'px');
     };
 
@@ -74,7 +83,7 @@ export function PreviewResizer() {
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, []);
+  }, [panelLayout]);
 
   // 无打开文件时不显示分隔条(对应 PreviewPanel 空态)
   if (!hasTabs) return null;

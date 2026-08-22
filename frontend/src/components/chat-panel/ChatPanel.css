@@ -218,7 +218,7 @@
   white-space: nowrap;
   padding: 2px 4px;
   border-radius: var(--radius-sm);
-  overflow: visible;
+  overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
   position: relative;
@@ -282,6 +282,13 @@
   background: transparent;
   padding: 2px 4px;
   border-radius: var(--radius-sm);
+}
+
+/* 状态栏左区收缩保护:窄宽度下各项可收缩省略,避免溢出顶到发送按钮
+   (msp-root 默认 flex-shrink:0 固定不收缩,此处仅对状态栏场景覆盖) */
+.chat-panel-status-left .msp-root {
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 /* 状态栏右侧动作(发送/停止,对齐旧版 .status-bar-actions) */
@@ -376,6 +383,10 @@
   font-weight: 500;
   color: var(--text-secondary);
   user-select: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 [data-theme="dark"] .chat-panel-title,
@@ -437,6 +448,13 @@
   color: var(--text-secondary);
 }
 
+/* 无预览面板(未打开文件或预览已收起,此时 .preview-panel 不存在)时,
+   收起聊天无意义,隐藏收起按钮(对齐旧版 cockpit.css:319
+   .preview-panel.hidden + .panel-resizer + .chat-panel .panel-toggle-btn)。 */
+.chat-layout:not(:has(.preview-panel)) .chat-panel .panel-toggle-btn {
+  display: none;
+}
+
 /* ── 历史会话下拉(对齐旧版) ────────────────────────── */
 
 .chat-history-wrapper {
@@ -459,7 +477,7 @@
   top: calc(100% + 4px);
   left: 50%;
   right: auto;
-  transform: translateX(calc(-50% - 60px));
+  transform: translateX(calc(-50% - 80px));
   min-width: 250px;
   max-width: 250px;
   max-height: 360px;
@@ -559,6 +577,14 @@
 
 .chat-panel-collapsed {
   position: relative;
+  /* 收起后真正压缩为 0 宽度(对齐旧版 .chat-panel.collapsed 的 width:0)。
+     必须用 !important 覆盖 .chat-layout > .chat-panel 的 flex:1,
+     否则 flex-basis/grow 会把面板重新撑开,导致聊天区留白、预览无法铺满。 */
+  flex: 0 0 auto !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  background: transparent;
 }
 
 .chat-show-btn {

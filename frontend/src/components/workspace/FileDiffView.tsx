@@ -1,38 +1,61 @@
 /**
- * FileDiffView - 文件变更对比视图(阶段 3.5 简化版)
+ * FileDiffView - 文件变更对比视图(对齐旧版 static/js/components/FileDiffView.js)
  *
  * 数据源:GET /api/files/diff?path=xxx&all=true(fileApi.getDiff)
  *
- * 视图:
- *   - 头部:文件名 + 行数统计(+insertions / -deletions)+ 工具操作
- *   - 主体:整文件净 diff(netDiff 逐行渲染,委托 FilePreviewDiff)
+ * 视图三栏布局:
+ *   - 头部:文件名 + 行数统计(+insertions / -deletions)+ 工具操作(刷新 / 打开位置)
+ *   - 左侧时间线:「整体变更」置顶 + 每次工具变更逐条(点击切换整体/历史视图)
+ *   - 主区:当前视图 diff(整体 = 净 diff;历史 = 该次变更 diff,均委托 FilePreviewDiff)
+ *   - 底部:当前视图 +/- 统计 + 「在编辑器中打开」 + 「回滚此变更」
  *
- * 简化(留 3.7):
- *   - 不实现历史时间线(仅显示净 diff)
- *   - 不实现 hunk 折叠 / 上下文折叠
- *   - 不实现回滚按钮(留 3.7 RollbackPanel)
- *   - 不实现词级(word-level)行内高亮
- *   - 不实现差分同步滚动
+ * 对齐旧版能力:
+ *   - 历史时间线 + 整体/历史切换(默认展示整体变更)
+ *   - 单次变更回滚(走 /api/files/rollback,按 toolCallId)
+ *   - "在编辑器中打开"定位到当前视图首个变更行的新文件行号
+ *   - 二进制文件隐藏回滚按钮并提示不可对比
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fileApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { desktopBridge, toRelativePath } from '@/utils/desktop-bridge';
-import type { FileDiffResponse } from '@/types';
+import { usePreviewStore } from '@/stores/previewStore';
+import { showToast } from '@/utils/toastStore';
+import { emit } from '@/utils/eventBus';
+import { translate } from '@/i18n';
+import type { DiffLine, FileChangeDiffItem, FileDiffResponse } from '@/types';
 import { FilePreviewDiff } from './FilePreviewDiff';
 import './FileDiffView.css';
 
 interface FileDiffViewProps {
   /** 文件绝对路径 */
   filePath: string;
-  /** 可选:聚焦的 toolCallId(传给后端定位 targetIndex) */
+  /** 可选:聚焦的 toolCallId(传给后端定位 targetIndex;缺省默认展示整体变更) */
   toolCallId?: string;
 }
+
+interface DiffViewData {
+  /** 当前渲染的 diff 内容 */
+  changes: DiffLine[];
+  /** 当前渲染的词级 diff */
+  wordDiff?: FileChangeDiffItem['wordDiff'];
+  /** 是否二进制(历史变更可能为二进制) */
+  binary: boolean;
+  /** 是否整体变更视图 */
+  overall: boolean;
+}
+
+/** 当前选中的变更索引:-1 = 整体变更;0..n-1 = 历史变更 */
+const OVERALL_INDEX = -1;
 
 export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
   const [data, setData] = useState<FileDiffResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 当前选中视图索引(初始按 toolCallId / 整体决定,load 后校正)
+  const [activeIndex, setActiveIndex] = useState<number>(OVERALL_INDEX);
+  // 回滚进行中(按钮 loading,防重复点击)
+  const [rolling, setRolling] = useState(false);
 
   const load = useCallback(async (path: string, tcId?: string) => {
     setLoading(true);
@@ -41,6 +64,9 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
     try {
       const resp = await fileApi.getDiff(path, tcId);
       setData(resp);
+      // 默认视图:传入 toolCallId 时聚焦对应历史变更(用后端 targetIndex + 前端兜底匹配),
+      // 否则展示整体变更(与旧版一致)
+      setActiveIndex(resolveInitialIndex(resp, tcId));
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
       setError(msg);
@@ -59,6 +85,53 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
     return { insertions: ins, deletions: del };
   }, [data]);
 
+  // 当前选中视图的渲染数据
+  const viewData: DiffViewData | null = useMemo(() => {
+    if (!data) return null;
+    if (activeIndex === OVERALL_INDEX) {
+      return { changes: data.netDiff ?? [], wordDiff: data.netWordDiff, binary: false, overall: true };
+    }
+    const c = data.allChanges[activeIndex];
+    if (!c) return null;
+    return { changes: c.changes ?? [], wordDiff: c.wordDiff, binary: !!c.binary, overall: false };
+  }, [data, activeIndex]);
+
+  // 当前选中变更的 toolCallId(整体视图为空 → 无回滚按钮)
+  const activeToolCallId =
+    activeIndex !== OVERALL_INDEX ? data?.allChanges[activeIndex]?.toolCallId ?? '' : '';
+
+  // 是否二进制:仅历史变更可能为二进制;整体视图恒为文本 diff
+  const isBinary = viewData?.overall ? false : !!viewData?.binary;
+
+  const selectIndex = useCallback((idx: number) => setActiveIndex(idx), []);
+
+  const handleRollback = useCallback(async () => {
+    if (!filePath || !activeToolCallId || rolling) return;
+    setRolling(true);
+    try {
+      const res = await fileApi.rollback(filePath, activeToolCallId);
+      if (res.success) {
+        showToast(translate('diff.rollbackSuccess') + basename(filePath), { type: 'success', duration: 3000 });
+        // 通知预览等刷新被回滚文件;并在事件后才重新加载(让所有订阅方先感知本次回滚)
+        emit('rollback:completed', { paths: [filePath], mode: 'files' });
+        await load(filePath, toolCallId);
+      } else {
+        showToast(translate('diff.rollbackFailed') + (res.error || '未知错误'), { type: 'error', duration: 3000 });
+      }
+    } catch (e) {
+      showToast(translate('diff.rollbackFailed') + String(e), { type: 'error', duration: 3000 });
+    } finally {
+      setRolling(false);
+    }
+  }, [filePath, activeToolCallId, rolling, load, toolCallId]);
+
+  const handleOpenInEditor = useCallback(() => {
+    if (!filePath || !viewData) return;
+    const line = getFirstChangeLine(viewData.changes);
+    // 对齐旧版:切到 preview tab 并定位到首个变更行的新行号(替代依赖旧版全局 HippoWorkspace 的无反应调用)
+    usePreviewStore.getState().openFile(filePath, line ?? undefined);
+  }, [filePath, viewData]);
+
   return (
     <div className="file-diff-view">
       <div className="file-diff-view-header">
@@ -71,17 +144,13 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
         <div className="file-diff-view-stats">
           {stats && (
             <>
-              <span className="diff-stat-add" title="新增行数">+{stats.insertions}</span>
-              <span className="diff-stat-del" title="删除行数">-{stats.deletions}</span>
+              <span className="diff-stat-add" title={translate('diff.netStatsTip')}>+{stats.insertions}</span>
+              <span className="diff-stat-del" title={translate('diff.netStatsTip')}>-{stats.deletions}</span>
             </>
           )}
         </div>
         <div className="file-diff-view-actions">
-          <button
-            type="button"
-            onClick={() => void load(filePath, toolCallId)}
-            title="重新加载"
-          >
+          <button type="button" onClick={() => void load(filePath, toolCallId)} title={translate('diff.title')}>
             刷新
           </button>
           <button
@@ -93,28 +162,269 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
           </button>
         </div>
       </div>
-      <div className="file-diff-view-body">
-        {loading && <div className="file-diff-view-loading">加载中…</div>}
-        {error && (
-          <div className="file-diff-view-error">
-            <p>{error}</p>
-            <button type="button" onClick={() => void load(filePath, toolCallId)}>重试</button>
+
+      {!loading && !error && data && (
+        <div className="file-diff-view-layout">
+          <FileDiffTimeline
+            allChanges={data.allChanges}
+            hasNetDiff={Array.isArray(data.netDiff) && data.netDiff.length > 0}
+            activeIndex={activeIndex}
+            onSelect={selectIndex}
+          />
+          <div className="file-diff-view-body">
+            {viewData &&
+              (viewData.binary ? (
+                <div className="file-diff-view-empty">{translate('diff.binary')}</div>
+              ) : viewData.changes.length > 0 ? (
+                <FilePreviewDiff lines={viewData.changes} wordDiff={viewData.wordDiff} />
+              ) : (
+                <div className="file-diff-view-empty">
+                  {data.allChanges.length === 0 ? translate('diff.noRecords') : translate('diff.noContent')}
+                </div>
+              ))}
           </div>
-        )}
-        {!loading && !error && data && (
-          data.netDiff && data.netDiff.length > 0 ? (
-            <FilePreviewDiff lines={data.netDiff} wordDiff={data.netWordDiff} />
-          ) : (
-            <div className="file-diff-view-empty">
-              {data.allChanges.length === 0
-                ? '该文件暂无变更记录'
-                : '文件为二进制或无文本差异'}
-            </div>
-          )
+        </div>
+      )}
+
+      {loading && <div className="file-diff-view-loading">{translate('diff.loading')}</div>}
+      {error && (
+        <div className="file-diff-view-error">
+          <p>{error}</p>
+          <button type="button" onClick={() => void load(filePath, toolCallId)}>重试</button>
+        </div>
+      )}
+
+      <FileDiffViewFooter
+        changes={viewData?.changes ?? []}
+        isBinary={isBinary}
+        hasHistory={!!data && data.allChanges.length > 0}
+        activeToolCallId={activeToolCallId}
+        rolling={rolling}
+        onOpenInEditor={handleOpenInEditor}
+        onRollback={() => void handleRollback()}
+      />
+    </div>
+  );
+}
+
+// ============================================================================
+// 时间线组件
+// ============================================================================
+
+interface FileDiffTimelineProps {
+  allChanges: FileChangeDiffItem[];
+  hasNetDiff: boolean;
+  activeIndex: number;
+  onSelect: (index: number) => void;
+}
+
+function FileDiffTimeline({ allChanges, hasNetDiff, activeIndex, onSelect }: FileDiffTimelineProps) {
+  if (allChanges.length === 0) {
+    return <div className="file-diff-timeline empty">{translate('diff.noRecords')}</div>;
+  }
+
+  return (
+    <div className="file-diff-timeline">
+      {/* 置顶条目:整体变更 */}
+      {hasNetDiff && (
+        <>
+          <TimelineItem
+            active={activeIndex === OVERALL_INDEX}
+            title={translate('diff.overall')}
+            label={translate('diff.overall')}
+            stats={netStatsOf(allChanges)}
+            onClick={() => onSelect(OVERALL_INDEX)}
+          />
+          <div className="file-diff-timeline-divider" />
+        </>
+      )}
+      {allChanges.map((c, i) => {
+        const [added, removed] = countDiff(c.changes);
+        return (
+          <TimelineItem
+            key={c.toolCallId || c.timestamp || i}
+            active={activeIndex === i}
+            title={formatTime(c.timestamp)}
+            label={toolLabel(c.toolName)}
+            stats={{ added, removed }}
+            onClick={() => onSelect(i)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+interface TimelineItemProps {
+  active: boolean;
+  title: string;
+  label: string;
+  stats: { added: number; removed: number };
+  onClick: () => void;
+}
+
+function TimelineItem({ active, title, label, stats, onClick }: TimelineItemProps) {
+  return (
+    <div className={`file-diff-timeline-item ${active ? 'active' : ''}`} onClick={onClick}>
+      <span className="file-diff-timeline-dot" />
+      <div className="file-diff-timeline-content">
+        <div className="file-diff-timeline-time">{title}</div>
+        <div className="file-diff-timeline-tool">
+          {label}
+          {(stats.added > 0 || stats.removed > 0) && (
+            <span className="file-diff-timeline-stats">
+              <span className="diff-stat-add">+{stats.added}</span>
+              <span className="diff-stat-del">-{stats.removed}</span>
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// 底部操作栏
+// ============================================================================
+
+interface FileDiffViewFooterProps {
+  changes: DiffLine[];
+  isBinary: boolean;
+  hasHistory: boolean;
+  activeToolCallId: string;
+  rolling: boolean;
+  onOpenInEditor: () => void;
+  onRollback: () => void;
+}
+
+function FileDiffViewFooter({
+  changes,
+  isBinary,
+  hasHistory,
+  activeToolCallId,
+  rolling,
+  onOpenInEditor,
+  onRollback,
+}: FileDiffViewFooterProps) {
+  const [added, removed] = countDiff(changes);
+  const showStats = added > 0 || removed > 0;
+  // 回滚按钮仅历史变更且非二进制时显示
+  const showRollback = hasHistory && activeToolCallId.length > 0 && !isBinary;
+
+  return (
+    <div className="file-diff-view-footer">
+      {showStats && (
+        <div className="file-diff-view-stat">
+          <span className="diff-stat-add">+{added}</span>
+          <span className="diff-stat-del">-{removed}</span>
+        </div>
+      )}
+      <div className="file-diff-view-footer-actions">
+        <button
+          type="button"
+          className="file-diff-view-open-btn"
+          onClick={onOpenInEditor}
+          title={translate('diff.openInEditor')}
+        >
+          {translate('diff.openInEditor')}
+        </button>
+        {showRollback && (
+          <button
+            type="button"
+            className="file-diff-view-rollback-btn"
+            onClick={onRollback}
+            disabled={rolling}
+            title={translate('diff.rollbackBtn')}
+          >
+            {rolling ? translate('diff.rollingBack') : translate('diff.rollbackBtn')}
+          </button>
         )}
       </div>
     </div>
   );
+}
+
+// ============================================================================
+// 工具函数(对齐旧版 FileDiffView.js)
+// ============================================================================
+
+/** 按 toolCallId 解析初始视图索引:未指定 → 整体变更;指定 → 聚焦对应历史(找不到降级整体) */
+function resolveInitialIndex(data: FileDiffResponse, tcId?: string): number {
+  if (!tcId) return OVERALL_INDEX;
+  if (data && data.allChanges.length > 0) {
+    const idx = data.allChanges.findIndex((c) => c.toolCallId === tcId);
+    if (idx >= 0) return idx;
+  }
+  return OVERALL_INDEX;
+}
+
+/** 工具名 → 中文标签(对齐旧版 _getToolLabel) */
+function toolLabel(toolName: string): string {
+  switch (toolName) {
+    case 'edit_file':
+      return translate('diff.typeEdit');
+    case 'write_file':
+      return translate('diff.typeWrite');
+    case 'delete_file':
+      return translate('diff.typeDelete');
+    default:
+      return toolName;
+  }
+}
+
+/** 统计一组 diff 的 +/- 行数(二进制/空返回 0) */
+function countDiff(changes: DiffLine[] | undefined): [number, number] {
+  if (!changes) return [0, 0];
+  let added = 0;
+  let removed = 0;
+  for (const ch of changes) {
+    if (ch.type === 'added') added++;
+    else if (ch.type === 'removed') removed++;
+  }
+  return [added, removed];
+}
+
+/** 净 diff 的 +/- 行数(整体变更时间线条目用) */
+function netStatsOf(allChanges: FileChangeDiffItem[]): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  for (const c of allChanges) {
+    const [a, r] = countDiff(c.changes);
+    added += a;
+    removed += r;
+  }
+  return { added, removed };
+}
+
+function formatTime(timestamp: number): string {
+  if (!timestamp) return '';
+  const d = new Date(timestamp);
+  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+/**
+ * 计算当前视图首个变更行对应的新文件行号(1-based),供"在编辑器中打开"定位。
+ * 语义:编辑打开的是文件当前内容,故一律定位到"新文件中存在的行":
+ *   added → 其新行号;removed → 向后取紧随其后的第一个 added/same 的新行号;
+ *   整个文件只剩删除 → 返回 null。
+ */
+function getFirstChangeLine(changes: DiffLine[]): number | null {
+  if (!changes || changes.length === 0) return null;
+  let firstIdx = -1;
+  for (let k = 0; k < changes.length; k++) {
+    if (changes[k].type === 'added' || changes[k].type === 'removed') {
+      firstIdx = k;
+      break;
+    }
+  }
+  if (firstIdx === -1) return null;
+  let newLineNum = 1;
+  for (let k = 0; k < changes.length; k++) {
+    if (changes[k].type === 'removed') continue;
+    if (k >= firstIdx) return newLineNum;
+    newLineNum++;
+  }
+  return null;
 }
 
 function basename(path: string): string {

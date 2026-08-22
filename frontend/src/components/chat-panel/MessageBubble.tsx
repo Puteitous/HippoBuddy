@@ -16,6 +16,7 @@ import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
 import { desktopBridge } from '@/utils/desktop-bridge';
+import { FileTypeIcon } from '../FileTypeIcon';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import type { MessageFileProduct } from './message-utils';
 import './MessageBubble.css';
@@ -41,6 +42,18 @@ function MessageBubbleComponent({
   dataMessageId,
 }: MessageBubbleProps) {
   const [showReasoning, setShowReasoning] = useState(false);
+
+  // 思考内容滚动跟随(对齐旧版 RenderPipeline 的 smartScroll):
+  // 流式期间若用户未主动上滚,则自动跟随到最新输出位置;若用户上滚阅读则不打断。
+  const reasoningRef = useRef<HTMLDivElement>(null);
+  const [userScrolledUp, setUserScrolledUp] = useState(false);
+
+  // 流式 content 增长时,贴近底部则跟随输出
+  useEffect(() => {
+    if (!userScrolledUp && reasoningRef.current) {
+      reasoningRef.current.scrollTop = reasoningRef.current.scrollHeight;
+    }
+  }, [message.reasoning_content, userScrolledUp]);
 
   // 助手消息的 HTML(Markdown 渲染 + DOMPurify 净化)
   const html = useMemo(() => {
@@ -126,7 +139,16 @@ function MessageBubbleComponent({
             </span>
           </div>
           <div className="msg-reasoning-content">
-            <div className="msg-reasoning-content-inner">
+            <div
+              ref={reasoningRef}
+              className="msg-reasoning-content-inner"
+              onScroll={(e) => {
+                // 贴近底部视为跟随态,否则视为用户上滚阅读(不与自动跟随冲突)
+                const el = e.currentTarget;
+                const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+                setUserScrolledUp(!nearBottom);
+              }}
+            >
               {message.reasoning_content.replace(/\n{2,}/g, '\n')}
             </div>
           </div>
@@ -576,16 +598,20 @@ function FileIndicator({ files }: { files: MessageFileProduct[] }) {
     <span className="message-file-indicator" title="查看文件产物">
       {FILE_SVG} {files.length}
       <div className="message-file-popover">
-        {files.map((f) => (
-          <div
-            key={f.path}
-            className="popover-file-item"
-            onClick={() => desktopBridge.navigateToFile(f.path)}
-          >
-            <span className="file-name" title={f.path}>{toRelativePath(f.path)}</span>
-            <span className={`file-status status-${statusClass(f.action)}`}>{f.action}</span>
-          </div>
-        ))}
+        {files.map((f) => {
+          const fileName = toRelativePath(f.path);
+          return (
+            <div
+              key={f.path}
+              className="popover-file-item"
+              onClick={() => desktopBridge.navigateToFile(f.path)}
+            >
+              <FileTypeIcon fileName={fileName} size={14} />
+              <span className="file-name" title={f.path}>{fileName}</span>
+              <span className={`file-status status-${statusClass(f.action)}`}>{f.action}</span>
+            </div>
+          );
+        })}
       </div>
     </span>
   );

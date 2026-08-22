@@ -39,6 +39,7 @@ import './AppShell.css';
 
 export function AppShell() {
   const view = useAppStore((s) => s.view);
+  const panelLayout = useAppStore((s) => s.panelLayout);
   const skillMarketOpen = useAppStore((s) => s.skillMarketOpen);
   const setSkillMarketOpen = useAppStore((s) => s.setSkillMarketOpen);
   const setSessions = useAppStore((s) => s.setSessions);
@@ -108,7 +109,7 @@ export function AppShell() {
             <SettingsPanel />
           ) : (
             /* 聊天常驻,文件预览面板与聊天并排(对齐旧版 chat-panel + preview-panel) */
-            <div className="chat-layout">
+            <div className={`chat-layout${panelLayout === 'chat-left' ? ' layout-chat-first' : ''}`}>
               <ChatPanel />
               <PreviewResizer />
               <PreviewPanel />

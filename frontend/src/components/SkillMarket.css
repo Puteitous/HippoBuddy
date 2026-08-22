@@ -599,7 +599,8 @@
 }
 
 /* ========== 暗色模式 ========== */
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .skill-market-container,
   .skill-market-header,
   .skill-market-preview-panel {

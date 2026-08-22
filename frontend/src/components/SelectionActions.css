@@ -28,7 +28,8 @@
   color: #6b7280;
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .selection-action-btn {
     background: var(--hb-bg-dark, #1f2937);
     border-color: var(--hb-border-dark, #374151);

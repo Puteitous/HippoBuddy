@@ -251,7 +251,8 @@
 }
 
 /* ── 深色模式适配 ─────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .metrics-group-title {
     color: #9ca3af;
   }

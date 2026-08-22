@@ -221,7 +221,8 @@
 }
 
 /* ── 暗色模式 ── */
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"],
+[data-theme="midnight"] {
   .ob-welcome-panel {
     background: var(--hb-bg-dark, #1e1e1e);
   }

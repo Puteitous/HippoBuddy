@@ -38,11 +38,22 @@ interface FilePreviewProps {
   endLine?: number;
 }
 
-type PreviewKind = 'text' | 'markdown' | 'image' | 'pdf' | 'binary' | 'unknown';
+type PreviewKind = 'text' | 'markdown' | 'image' | 'pdf' | 'binary' | 'opaque' | 'unknown';
 
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
 const OFFICE_EXT = ['docx', 'pptx', 'xlsx', 'xls'];
 const HTML_EXT = ['html', 'htm'];
+// 无法预览的已知二进制(压缩包/可执行/库文件等,对齐旧版 shared.js isBinaryFile 黑名单)
+const BINARY_EXT = new Set([
+  'zip', 'tar', 'gz', 'bz2', 'xz', 'rar', '7z', 'zst', 'tgz', 'tzst', 'lz4',
+  'exe', 'dll', 'so', 'dylib', 'wasm',
+  'class', 'jar', 'war', 'ear',
+  'pyc', 'pyo',
+  'o', 'obj', 'lib', 'a', 'la',
+  'iso', 'img', 'dmg', 'deb', 'rpm', 'msi', 'pkg',
+  'db', 'sqlite', 'sqlite3',
+  'bin', 'dat',
+]);
 const WRAP_STORAGE_KEY = 'hb.filePreview.wrap';
 
 export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) {
@@ -67,6 +78,8 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
   const [saveError, setSaveError] = useState(false);
   // 头部"重新加载"按钮:文本直接重拉,其余类型通过 key 递增重挂载
   const [reloadTick, setReloadTick] = useState(0);
+  // 保存成功版本号:每次成功写入文件自增,传给编辑器清空 AI diff 基线(对齐旧版保存后清基线)
+  const [saveRevision, setSaveRevision] = useState(0);
   // 自动换行(对齐旧版 previewWrapBtn;按文件持久化,md 默认换行其余默认不换行)
   const [wrapEnabled, setWrapEnabled] = useState<boolean>(() => getWrapPref(filePath));
 
@@ -140,6 +153,8 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
       setDirty(false);
       // 保存成功后同步 md 草稿,保证切回预览显示的是磁盘最新内容
       setMdContent(content);
+      // 自增版本号,通知编辑器清空 AI diff 基线(标记使命完成)
+      setSaveRevision((v) => v + 1);
     } else {
       setSaveError(true);
     }
@@ -174,6 +189,11 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
     if (kind !== 'text' && kind !== 'markdown') return;
     void loadText(filePath);
   }, [filePath, kind, loadText]);
+
+  // 同步脏状态到标签栏(对齐旧版:FilePreview 编辑变更 → FileTabs.setDirty,标签显示圆点)
+  useEffect(() => {
+    usePreviewStore.getState().setTabDirty(filePath, dirty);
+  }, [filePath, dirty]);
 
   // 阶段 3.8:Ctrl+F / Ctrl+H 打开搜索浮层,Esc 关闭(文本/md 编辑模式生效)
   useEffect(() => {
@@ -385,6 +405,24 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
         {kind === 'binary' && (
           <BinaryPreview key={reloadTick} filePath={filePath} />
         )}
+        {kind === 'opaque' && (
+          <div className="file-preview-unsupported">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+            <p><strong>{basename(filePath)}</strong></p>
+            <p>{getExt(filePath).toUpperCase()} 文件无法在编辑器中预览,请在本地打开</p>
+            <button
+              type="button"
+              className="file-preview-download"
+              onClick={() => void desktopBridge.showItemInFolder(filePath)}
+            >
+              在文件管理器中查看
+            </button>
+          </div>
+        )}
         {kind === 'unknown' && (
           <div className="file-preview-unsupported">
             <p>未知文件类型</p>
@@ -411,6 +449,7 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
                   startLine={startLine}
                   endLine={endLine}
                   wrapEnabled={wrapEnabled}
+                  saveRevision={saveRevision}
                   onViewReady={setEditorView}
                   onDocChange={() => setDirty(true)}
                   onSave={() => void handleSave()}
@@ -444,6 +483,7 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
                   startLine={startLine}
                   endLine={endLine}
                   wrapEnabled={wrapEnabled}
+                  saveRevision={saveRevision}
                   onViewReady={setEditorView}
                   onDocChange={() => setDirty(true)}
                   onSave={() => void handleSave()}
@@ -477,6 +517,8 @@ function detectKind(filePath: string): PreviewKind {
   if (ext === 'md' || ext === 'markdown') return 'markdown';
   // 已知二进制 office 类型(留给 3.7 BinaryPreview)
   if (['docx', 'pptx', 'xlsx', 'xls'].includes(ext)) return 'binary';
+  // 其他已知二进制(压缩包/可执行/库文件等)→ 只读占位提示,避免按文本打开乱码
+  if (BINARY_EXT.has(ext)) return 'opaque';
   // 其他扩展名(含无扩展名)默认按文本处理
   return 'text';
 }

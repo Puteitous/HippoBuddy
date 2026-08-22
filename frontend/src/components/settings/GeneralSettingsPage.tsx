@@ -9,8 +9,28 @@
 import { useEffect, useState } from 'react';
 import { workspaceApi, dataDirApi } from '@/api/client';
 import { ApiError } from '@/api/error';
+import { desktopBridge } from '@/utils/desktop-bridge';
 import { useThemeStore, type Theme } from '@/stores/themeStore';
+import { useAppStore } from '@/stores/appStore';
 import { showToast } from './toastStore';
+
+/** 文件夹图标(对齐旧版 settings-input-btn 浏览按钮) */
+function FolderIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: 'light', label: '浅色' },
@@ -22,6 +42,8 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 export function GeneralSettingsPage() {
   const theme = useThemeStore((s) => s.theme);
   const applyTheme = useThemeStore((s) => s.applyTheme);
+  const panelLayout = useAppStore((s) => s.panelLayout);
+  const setPanelLayout = useAppStore((s) => s.setPanelLayout);
   const [lang, setLang] = useState<'zh' | 'en'>('zh');
   const [workspacePath, setWorkspacePath] = useState('');
   const [dataDir, setDataDir] = useState('');
@@ -159,19 +181,54 @@ export function GeneralSettingsPage() {
           </div>
 
           <div className="settings-field-horizontal">
+            <label className="settings-field-label">面板布局</label>
+            <div className="settings-field-body">
+              <div className="settings-toggle-group">
+                <button
+                  type="button"
+                  className={`settings-toggle-btn${panelLayout === 'preview-left' ? ' active' : ''}`}
+                  onClick={() => setPanelLayout('preview-left')}
+                >
+                  预览靠左
+                </button>
+                <button
+                  type="button"
+                  className={`settings-toggle-btn${panelLayout === 'chat-left' ? ' active' : ''}`}
+                  onClick={() => setPanelLayout('chat-left')}
+                >
+                  聊天靠左
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-field-horizontal">
             <div className="settings-field-label">
               <div>默认工作区</div>
               <div className="settings-field-hint">作为应用启动时的初始工作区</div>
             </div>
             <div className="settings-field-body">
-              <input
-                className="settings-input"
-                type="text"
-                value={workspacePath}
-                placeholder="选择工作区路径"
-                onChange={(e) => setWorkspacePath(e.target.value)}
-                onBlur={(e) => handleWorkspacePathChange(e.target.value)}
-              />
+              <div className="settings-input-wrap" style={{ width: 360 }}>
+                <input
+                  className="settings-input"
+                  type="text"
+                  value={workspacePath}
+                  placeholder="选择工作区路径"
+                  onChange={(e) => setWorkspacePath(e.target.value)}
+                  onBlur={(e) => handleWorkspacePathChange(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="settings-input-btn"
+                  title="选择文件夹"
+                  onClick={async () => {
+                    const path = await desktopBridge.openFileDialog();
+                    if (path) handleWorkspacePathChange(path);
+                  }}
+                >
+                  <FolderIcon />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -181,14 +238,27 @@ export function GeneralSettingsPage() {
               <div className="settings-field-hint">变更后需要重启应用生效</div>
             </div>
             <div className="settings-field-body">
-              <input
-                className="settings-input"
-                type="text"
-                value={dataDir}
-                placeholder="默认"
-                onChange={(e) => setDataDir(e.target.value)}
-                onBlur={(e) => handleDataDirConfirm(e.target.value)}
-              />
+              <div className="settings-input-wrap" style={{ width: 360 }}>
+                <input
+                  className="settings-input"
+                  type="text"
+                  value={dataDir}
+                  placeholder="默认"
+                  onChange={(e) => setDataDir(e.target.value)}
+                  onBlur={(e) => handleDataDirConfirm(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="settings-input-btn"
+                  title="选择文件夹"
+                  onClick={async () => {
+                    const path = await desktopBridge.openFileDialog();
+                    if (path) handleDataDirConfirm(path);
+                  }}
+                >
+                  <FolderIcon />
+                </button>
+              </div>
               {dataDirRestartMsg && (
                 <span
                   style={{
