@@ -453,6 +453,10 @@
   flex: none;
   color: var(--text-muted, #6b7280);
 }
+.ask-user-answer-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 .ask-user-options {
   display: flex;

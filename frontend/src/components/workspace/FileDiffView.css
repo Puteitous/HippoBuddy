@@ -17,7 +17,7 @@
   gap: 12px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--hb-border, #e5e7eb);
-  background: var(--hb-bg-soft, #f9fafb);
+  background: var(--hb-bg, #ffffff);
   flex-shrink: 0;
 }
 
@@ -45,13 +45,6 @@
   flex: 1;
 }
 
-.file-diff-view-stats {
-  display: flex;
-  gap: 8px;
-  font-size: 12px;
-  font-family: var(--hb-mono, 'JetBrains Mono', 'Consolas', monospace);
-}
-
 .diff-stat-add {
   color: var(--hb-diff-add-text, #15803d);
   font-weight: 600;
@@ -64,21 +57,53 @@
 
 .file-diff-view-actions {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.file-diff-view-actions button {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid var(--hb-border, #d1d5db);
-  background: transparent;
-  color: var(--hb-text, #1f2937);
+/* 图标动作按钮(对齐 FilePreview 的 .preview-btn:24×24 透明,hover 背景) */
+.file-diff-view-actions .preview-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
   border-radius: 4px;
+  background: transparent;
+  color: var(--hb-text-soft, #6b7280);
   cursor: pointer;
+  transition: color var(--transition-fast, 0.15s), background var(--transition-fast, 0.15s);
+  flex-shrink: 0;
 }
 
-.file-diff-view-actions button:hover {
+.file-diff-view-actions .preview-btn:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+  color: var(--hb-text, #1f2937);
+}
+
+/* 收起预览按钮(对齐 FilePreview 的 .panel-toggle-btn,末尾固定) */
+.file-diff-view-actions .panel-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--hb-text-soft, #6b7280);
+  cursor: pointer;
+  transition: color var(--transition-fast, 0.15s), background var(--transition-fast, 0.15s);
+  flex-shrink: 0;
+}
+
+.file-diff-view-actions .panel-toggle-btn:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+  color: var(--hb-text, #1f2937);
 }
 
 /* ── 主体布局:左侧时间线 + 右侧 diff 内容 ── */
@@ -100,10 +125,10 @@
 
 /* ── 左侧历史时间线 ── */
 .file-diff-timeline {
-  width: 180px;
+  width: 135px;
   flex-shrink: 0;
   border-right: 1px solid var(--hb-border, #e5e7eb);
-  background: var(--hb-bg-soft, #f9fafb);
+  background: var(--hb-bg, #ffffff);
   overflow-y: auto;
   padding: 8px 0;
 }
@@ -195,7 +220,7 @@
   justify-content: space-between;
   padding: 6px 12px;
   border-top: 1px solid var(--hb-border, #e5e7eb);
-  background: var(--hb-bg-soft, #f9fafb);
+  background: var(--hb-bg, #ffffff);
 }
 
 .file-diff-view-stat {
@@ -280,7 +305,7 @@
   }
   .file-diff-view-header {
     border-bottom-color: var(--hb-border-dark, #374151);
-    background: var(--hb-bg-soft-dark, #242424);
+    background: var(--hb-bg-dark, #1a1a1a);
   }
   .file-diff-view-name {
     color: var(--hb-text-dark, #e5e7eb);
@@ -294,16 +319,23 @@
   .diff-stat-del {
     color: var(--hb-diff-del-text-dark, #f87171);
   }
-  .file-diff-view-actions button {
-    border-color: var(--hb-border-dark, #374151);
+  .file-diff-view-actions .preview-btn {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .file-diff-view-actions .preview-btn:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
     color: var(--hb-text-dark, #e5e7eb);
   }
-  .file-diff-view-actions button:hover {
+  .file-diff-view-actions .panel-toggle-btn {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+  .file-diff-view-actions .panel-toggle-btn:hover {
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
+    color: var(--hb-text-dark, #e5e7eb);
   }
   .file-diff-timeline {
     border-right-color: var(--hb-border-dark, #374151);
-    background: var(--hb-bg-soft-dark, #242424);
+    background: var(--hb-bg-dark, #1a1a1a);
   }
   .file-diff-timeline.empty {
     color: var(--hb-text-soft-dark, #9ca3af);
@@ -332,7 +364,7 @@
   }
   .file-diff-view-footer {
     border-top-color: var(--hb-border-dark, #374151);
-    background: var(--hb-bg-soft-dark, #242424);
+    background: var(--hb-bg-dark, #1a1a1a);
   }
   .file-diff-view-footer-actions button {
     border-color: var(--hb-border-dark, #374151);

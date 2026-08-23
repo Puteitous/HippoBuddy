@@ -87,6 +87,13 @@
   /* --- 字体 --- */
   --font-mono:
     'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas',
+    'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC',
+    monospace;
+  /* 代码区等宽字体(含中文字体回退):西文走等宽,中文走微软雅黑/苹方,
+     避免注释里的中文落到系统默认 monospace(Windows 宋体偏细/mac 华文)导致观感不一致 */
+  --hb-mono:
+    'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas',
+    'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC',
     monospace;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
@@ -379,6 +386,13 @@ body {
   margin: 0;
   background: var(--bg-canvas);
   color: var(--text-primary);
+  /* 对齐旧版 cockpit.css 的整页渐入，掩盖首帧主题闪断 */
+  animation: app-fade-in 0.5s ease;
+}
+
+@keyframes app-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ============================================================

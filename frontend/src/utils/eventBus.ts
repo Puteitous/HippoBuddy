@@ -42,7 +42,15 @@ export type EventBusEvent =
    * 模型切换成功后发出,携带新生效的 provider/model。
    * ModelSelectorPanel 切换成功后广播,ImageUpload 等依赖当前模型能力的组件订阅后即时刷新。
    */
-  | 'llm:changed';
+  | 'llm:changed'
+  // ── 会话切换:历史消息加载完成 ──────────────────────
+  /**
+   * useSessionMessages 在切换会话、历史消息加载完成后发出,携带当前会话 id。
+   * 后端 handleGetMessages 此时已执行 loadSessionChanges 把该会话的变更数据加载进内存,
+   * 故依赖该数据的组件(如 FileChangesMonitor)应订阅本事件再刷新,而非与消息加载并发,
+   * 从而复刻旧版 switchSession 的顺序语义,消除"切换后读不到变更数据"的竞态。
+   */
+  | 'session:messages-loaded';
 
 /** selection:add-to-input 的 payload(对齐旧版 selection-actions.js 事件结构) */
 export interface SelectionAddToInputPayload {
@@ -72,6 +80,11 @@ export interface RollbackCompletedPayload {
 export interface LlmChangedPayload {
   provider: string;
   model: string;
+}
+
+/** session:messages-loaded 的 payload:当前会话 id */
+export interface SessionMessagesLoadedPayload {
+  sessionId: string | null;
 }
 
 type Handler<T = unknown> = (payload: T) => void;

@@ -396,13 +396,20 @@ function buildToolItemFromCall(tc: ToolCall, toolMsg?: Message): TimelineToolIte
       ? 'failed'
       : 'success'
     : 'cancelled';
-  const lower = content.toLowerCase();
-  if (lower.includes('用户拒绝')) {
-    status = 'denied';
-  } else if (lower.includes('cancelled') || lower.includes('user_cancelled')) {
-    status = 'cancelled';
-  } else if (lower.includes('interrupted')) {
-    status = 'interrupted';
+  // 仅明确失败时才从 content 关键字细分 cancelled / denied;
+  // 成功态绝不被结果文本中的单词覆盖(否则正常执行易被误判为"已取消"，对齐旧版)。
+  if (status === 'failed') {
+    const lower = content.toLowerCase();
+    if (lower.includes('用户拒绝')) {
+      status = 'denied';
+    } else if (
+      lower.includes('cancelled') ||
+      lower.includes('user_cancelled') ||
+      lower.includes('interrupted')
+    ) {
+      // interrupted 与 cancelled 语义一致,统一合并为 cancelled
+      status = 'cancelled';
+    }
   }
   return {
     id: tc.id,

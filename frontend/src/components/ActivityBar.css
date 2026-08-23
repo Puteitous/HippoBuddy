@@ -12,7 +12,9 @@
   flex-shrink: 0;
   padding: 8px 0;
   background: var(--hb-bg-alt, #f7f7f8);
-  border-right: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: var(--radius-lg);
+  /* 活动栏↔侧边栏单独留 2px 间距(gap:0 下补 margin,右侧紧贴保持) */
+  margin-right: 2px;
 }
 
 .activity-bar-btn {
@@ -68,7 +70,9 @@
 .activity-floating-panel {
   position: absolute;
   top: 0;
-  left: 44px;
+  /* 定位基准为 .app-shell-body(padding-left:10px),活动栏宽 44px,
+     故贴活动栏右缘需左移 = 10 + 44 = 54px */
+  left: 54px;
   z-index: 50;
   width: 320px;
   max-height: calc(100vh - 80px);

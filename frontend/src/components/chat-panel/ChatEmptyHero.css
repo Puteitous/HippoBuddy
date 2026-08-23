@@ -21,8 +21,8 @@
   font-size: 56px;
   line-height: 1;
   margin-bottom: 8px;
-  opacity: 0.9;
-  filter: grayscale(0.15);
+  opacity: 1;
+  filter: grayscale(0);
   cursor: pointer;
   transition: transform 0.3s ease, filter 0.3s ease;
   position: relative;
@@ -40,6 +40,13 @@
 
 .empty-logo:hover .hippo-char {
   animation-play-state: paused;
+}
+
+/* 浅色主题下河马单独提亮:白色背景上灰棕 SVG 偏旧偏暗,
+   brightness+saturate 让河马更明亮、棕色更鲜艳(不影响 dark/midnight) */
+[data-theme="light"] .empty-logo,
+[data-theme="light"] .empty-logo:hover {
+  filter: grayscale(0) brightness(1.08) saturate(1.15);
 }
 
 .empty-logo.bouncing {
@@ -85,6 +92,82 @@
 [data-theme="dark"] .hippo-bubble,
 [data-theme="midnight"] .hippo-bubble {
   background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.6), rgba(96,165,250,0.4) 50%, rgba(96,165,250,0.15));
+}
+
+/* 河马对话框气泡(对齐旧版 common.css .hippo-speech) */
+.hippo-speech {
+  position: absolute;
+  bottom: 100%;
+  right: -8px;
+  left: auto;
+  top: auto;
+  margin-bottom: 8px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform-origin: bottom right;
+  animation: hippo-speak 3s ease forwards;
+}
+
+.hippo-speech::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 16px;
+  left: auto;
+  bottom: auto;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-app);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0 0 3px 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+@keyframes hippo-speak {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  16% {
+    transform: scale(0.96);
+  }
+  20% {
+    transform: scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.85) translateY(-6px);
+  }
+}
+
+[data-theme="dark"] .hippo-speech,
+[data-theme="midnight"] .hippo-speech {
+  background: var(--bg-code);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .hippo-speech::after,
+[data-theme="midnight"] .hippo-speech::after {
+  background: var(--bg-code);
+  border-color: var(--border);
 }
 
 /* ── 标题 + 标语 ─────────────────────────────────────── */

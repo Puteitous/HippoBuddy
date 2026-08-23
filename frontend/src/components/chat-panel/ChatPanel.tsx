@@ -46,6 +46,7 @@ import { ModelSelectorPanel } from '../ModelSelectorPanel';
 import type { RuleItem as ContextRuleItem, SkillItem as ContextSkillItem } from '../ContextSelector';
 import InlineInput from './InlineInput';
 import type { InlineInputHandle } from './InlineInput';
+import { PermissionBadge } from './PermissionBadge';
 import '../tool-renderers/tool-renderers.css';
 import './ChatPanel.css';
 
@@ -687,6 +688,8 @@ export function ChatPanel() {
           {/* 状态栏(对齐旧版 .input-status-bar):# / 📷 | Token | 文件变更 | 模型 | 发送/停止 */}
           <div className="chat-panel-input-status-bar">
             <div className="chat-panel-status-left">
+              <PermissionBadge />
+              <span className="chat-panel-status-divider" aria-hidden />
               <ContextSelector
                 selectedRuleIds={selectedRuleIds}
                 selectedSkillPaths={selectedSkillPaths}

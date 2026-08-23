@@ -15,8 +15,9 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: transparent;
+  background: var(--bg-app);
   min-width: 52px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   transition: width var(--transition-normal), opacity var(--transition-normal), min-width var(--transition-normal);
   contain: layout style paint;
@@ -614,7 +615,7 @@
   flex-shrink: 0;
   position: relative;
   z-index: 10;
-  margin: 0 2px;
+  margin: 0;
   background: transparent;
   transition: background 0.15s;
   border-radius: 2px;

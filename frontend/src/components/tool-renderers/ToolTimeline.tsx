@@ -6,7 +6,7 @@
  *  - 每个工具一行摘要(.tool-timeline-item > .tool-timeline-row):
  *    图标点 + 工具名 + 摘要(可点击跳转文件)+ 复制按钮(bash)+ 状态图标
  *  - 点击行展开/折叠详情(.tool-timeline-detail)
- *  - 状态语义:running / success / failed / cancelled / interrupted /
+ *  - 状态语义:running / success / failed / cancelled /
  *    pending_confirmation(待确认态默认展开,确认 UI 行内渲染)
  *
  * 与旧版的差异(刻意简化):
@@ -15,7 +15,6 @@
  *  - 「查看变更」按钮走 previewStore.openDiff 打开 diff 标签页(替代旧版 window.showFileDiff)
  */
 import { memo, useMemo, useState } from 'react';
-import { desktopBridge } from '@/utils/desktop-bridge';
 import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
 import type { TimelineToolItem } from './tool-timeline-utils';
@@ -124,15 +123,6 @@ function StatusGlyph({ item }: { item: TimelineToolItem }) {
       </svg>
     );
   }
-  if (status === 'interrupted') {
-    return (
-      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1z" />
-        <line x1="8" y1="5" x2="8" y2="9" />
-        <line x1="8" y1="11" x2="8.01" y2="11" />
-      </svg>
-    );
-  }
   if (status === 'denied') {
     // 用户拒绝执行/删除:禁止符号(区别于 cancelled 的 ✕ 与 failed 的 ✖)
     return (
@@ -208,9 +198,6 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
   }
   if (status === 'cancelled') {
     return <div className="timeline-detail-status cancelled">已取消(未确认)</div>;
-  }
-  if (status === 'interrupted') {
-    return <div className="timeline-detail-status interrupted">已中断</div>;
   }
   if (status === 'denied') {
     // 用户拒绝执行/删除:中性提示而非红色错误(对齐旧版 delete 被拒显示"已拒绝删除")
@@ -341,9 +328,11 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
       }
       return text;
     }
-    // 无 args(历史消息)时退化为内容首行
+    // 无 args(历史消息)时退化为内容首行;
+    // content 也为空(如流式首次 tool_start args 未到位)时留空,避免
+    // summary 与 .tool-timeline-name 重复显示工具名。
     const body = item.content?.trim() ?? '';
-    return body.split('\n')[0].slice(0, 120) || item.name;
+    return body.split('\n')[0].slice(0, 120);
   }, [item.name, item.args, item.content, workspacePath]);
   const filePath = useMemo(() => timelineFilePath(item.name, item.args), [item.name, item.args]);
 
@@ -394,8 +383,9 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
             filePath
               ? (e) => {
                   e.stopPropagation();
-                  // Windows 路径反斜杠转正斜杠,避免跳转时路径解析异常(对齐旧版 jsPath)
-                  desktopBridge.navigateToFile(filePath.replace(/\\/g, '/'));
+                  // 应用内 openFile 跳转并定位行号(与文件引用芯片一致,
+                  // 规避新版 Electron 无 HippoWorkspace.navigateToFile 的问题)
+                  usePreviewStore.getState().openFile(filePath);
                 }
               : undefined
           }

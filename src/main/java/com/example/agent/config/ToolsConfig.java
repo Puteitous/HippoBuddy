@@ -7,6 +7,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ToolsConfig {
 
+    /** 权限模式：strict=仅工作区 + 需确认；relaxed=全目录 + 跳过确认。默认 strict */
+    private String mode = "strict";
+
     private BashToolConfig bash = new BashToolConfig();
     private FileToolConfig file = new FileToolConfig();
     private SubAgentToolConfig subagent = new SubAgentToolConfig();
@@ -16,6 +19,19 @@ public class ToolsConfig {
 
     @JsonProperty("web_search")
     private WebSearchConfig webSearch = new WebSearchConfig();
+
+    /** 当前是否为宽松模式 */
+    public boolean isModeRelaxed() {
+        return "relaxed".equalsIgnoreCase(mode);
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    public void setMode(String mode) {
+        this.mode = mode;
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class BashToolConfig {

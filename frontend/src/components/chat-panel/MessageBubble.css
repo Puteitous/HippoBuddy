@@ -436,8 +436,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
 }
 
 /* 头部右侧操作组(复制 + mermaid 预览,对齐旧版 .code-header-actions) */
@@ -454,7 +453,6 @@
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-weight: 500;
-  text-transform: lowercase;
 }
 
 .msg-markdown .code-copy-btn,
@@ -577,28 +575,39 @@
 }
 
 .msg-markdown blockquote {
-  margin: 8px 0;
-  padding: 4px 12px;
-  border-left: 3px solid var(--border);
-  background: var(--bg-secondary);
+  border-left: 4px solid var(--success-color);
+  margin: 12px 0;
+  padding: 8px 16px;
+  background: var(--bg-code);
   color: var(--text-secondary);
+  font-size: var(--font-size-lg);
+}
+
+.msg-markdown blockquote p {
+  margin: 0;
 }
 
 .msg-markdown table {
   border-collapse: collapse;
-  margin: 8px 0;
+  width: 100%;
+  margin: 12px 0;
+  font-size: var(--font-size-md);
 }
 
 .msg-markdown th,
 .msg-markdown td {
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-  font-size: var(--font-size-md);
+  border: 1px solid var(--border-color);
+  padding: 10px 14px;
+  text-align: left;
 }
 
 .msg-markdown th {
-  background: var(--bg-hover);
+  background: var(--bg-code);
   font-weight: 600;
+}
+
+.msg-markdown table tr:nth-child(even) {
+  background: var(--bg-code);
 }
 
 /* ── 流式光标(闪烁) ─────────────────────────────────── */
@@ -680,13 +689,11 @@
 
 .message-action-btn:hover {
   background: var(--bg-app);
-  border-color: var(--border);
   color: var(--text-secondary);
 }
 
 .message-action-btn.copied {
   background: var(--bg-app);
-  border-color: var(--border);
   color: var(--text-secondary);
 }
 
@@ -735,7 +742,6 @@
 
 .msg-bubble-assistant .message-actions .rollback-btn:hover:not(:disabled) {
   background: var(--bg-app);
-  border-color: var(--border);
   color: var(--text-secondary);
 }
 
@@ -768,6 +774,20 @@
 .message-file-indicator:hover {
   background: var(--bg-code, rgba(0, 0, 0, 0.04));
   color: var(--text-secondary);
+}
+
+/* hover 桥：填平指示器与 popover 之间 bottom: calc(100% + 6px) 的 6px 空隙，
+   避免鼠标移向面板中途 :hover 丢失导致面板消失(对齐旧版 mouseenter 防抖体验)。
+   注：伪元素被 hover 时会触发宿主 :hover，因此指针位于透明桥内时面板保持显示。
+   不能使用 visibility:hidden(鼠标事件会穿透)，应保持透明常驻。 */
+.message-file-indicator::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 6px;
+  pointer-events: auto;
 }
 
 .message-file-indicator svg {

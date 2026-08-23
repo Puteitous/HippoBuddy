@@ -43,6 +43,11 @@ public class PathSecurityUtils {
         return getEffectiveRoot();
     }
 
+    /** 当前是否为宽松权限模式（可从配置读取） */
+    private static boolean isRelaxedMode() {
+        return com.example.agent.config.Config.getInstance().getTools().isModeRelaxed();
+    }
+
     public static Path validateAndResolve(String filePath) throws ToolExecutionException {
         if (filePath == null || filePath.trim().isEmpty()) {
             return getEffectiveRoot();
@@ -70,6 +75,11 @@ public class PathSecurityUtils {
             throw new ToolExecutionException(sb.toString());
         }
 
+        // 宽松模式：已放行全路径，跳过系统敏感目录黑名单
+        if (isRelaxedMode()) {
+            return path;
+        }
+
         String pathString = path.toString();
         String normalizedPath = pathString.replace("/", File.separator).replace("\\", File.separator);
 
@@ -83,11 +93,11 @@ public class PathSecurityUtils {
         return path;
     }
 
-    private static List<String> getRestrictedPathsForOS() {
-        return File.separator.equals("/") ? RESTRICTED_PATHS_UNIX : RESTRICTED_PATHS_WINDOWS;
-    }
-
     public static boolean isWithinAllowedPath(Path path) {
+        // 宽松模式：允许访问全目录
+        if (isRelaxedMode()) {
+            return true;
+        }
         if (path == null) {
             return false;
         }
@@ -108,6 +118,10 @@ public class PathSecurityUtils {
         }
 
         return false;
+    }
+
+    private static List<String> getRestrictedPathsForOS() {
+        return File.separator.equals("/") ? RESTRICTED_PATHS_UNIX : RESTRICTED_PATHS_WINDOWS;
     }
 
     public static boolean isWithinProject(Path path) {

@@ -226,12 +226,21 @@ export const workspaceApi = {
 export const fileApi = {
   /**
    * GET /api/files/changes - 最近 50 条文件变更记录
+   * 每条附带该文件在会话内的净变化行数 insertions/deletions
+   * (由后端按 filePath 分组用 netDiffStats 计算,供面板 item 展示 +x/-y)
    * @param sessionId 可选,按会话过滤
    */
   getChanges: (sessionId?: string) =>
-    getJson<Array<{ filePath: string; toolName: string; timestamp: number; binary: boolean }>>(
-      `${API_BASE}/files/changes${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`,
-    ),
+    getJson<
+      Array<{
+        filePath: string;
+        toolName: string;
+        timestamp: number;
+        binary: boolean;
+        insertions: number;
+        deletions: number;
+      }>
+    >(`${API_BASE}/files/changes${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`),
 
   /**
    * GET /api/files/summary?sessionId=xxx - 会话级文件变更汇总

@@ -328,21 +328,24 @@ export interface PendingImage {
 // ============================================================================
 
 /** FilePreview 的渲染模式 */
-export type FileViewMode = 'preview' | 'diff';
+export type FileViewMode = 'preview' | 'diff' | 'web';
 
 /**
  * 工作区打开的文件标签
  *
  * - 默认 mode = 'preview'(只读文本/图片/PDF)
  * - 触发"查看 diff"操作时切换为 'diff'(对接 /api/files/diff)
+ * - mode = 'web':内嵌浏览器标签(openWeb 打开,path 存 url 作为唯一 key)
  */
 export interface FileTab {
-  /** 文件绝对路径(唯一键) */
+  /** 对应文件绝对路径或 web 标签的 url(唯一键) */
   path: string;
-  /** 文件名(去路径前缀) */
+  /** 展示名(文件名去路径前缀,web 标签为 URL 主机名或指定显示名) */
   name: string;
   /** 渲染模式 */
   mode: FileViewMode;
+  /** web 标签:当前加载的 URL(仅 mode === 'web' 存在) */
+  url?: string;
   /** 可选:打开时定位的起始行(用于工具卡片跳转) */
   startLine?: number;
   /** 可选:打开时定位的结束行 */

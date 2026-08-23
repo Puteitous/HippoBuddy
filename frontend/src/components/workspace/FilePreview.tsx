@@ -36,6 +36,8 @@ interface FilePreviewProps {
   startLine?: number;
   /** 可选:打开时定位的结束行 */
   endLine?: number;
+  /** 跳转触发信号:每次引用点击自增,即使 startLine 相同也重新定位(对齐旧版) */
+  deepLinkTick?: number;
 }
 
 type PreviewKind = 'text' | 'markdown' | 'image' | 'pdf' | 'binary' | 'opaque' | 'unknown';
@@ -56,7 +58,7 @@ const BINARY_EXT = new Set([
 ]);
 const WRAP_STORAGE_KEY = 'hb.filePreview.wrap';
 
-export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) {
+export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: FilePreviewProps) {
   const kind = useMemo<PreviewKind>(() => detectKind(filePath), [filePath]);
   // 收起预览面板(对齐旧版 previewCollapseBtn;标签保留,打开/切换文件时恢复)
   const collapsePreview = usePreviewStore((s) => s.collapsePreview);
@@ -151,9 +153,9 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
     const ok = await desktopBridge.writeFile(filePath, content);
     if (ok) {
       setDirty(false);
-      // 保存成功后同步 md 草稿,保证切回预览显示的是磁盘最新内容
-      setMdContent(content);
-      // 自增版本号,通知编辑器清空 AI diff 基线(标记使命完成)
+      // 不在这里 setMdContent:执行保存时正处在编辑态,若更新 mdContent 会改变传给编辑器的
+      // content prop,触发 FilePreviewEditor 按 [filePath, content] 重建、清空撤销历史。
+      // 切回预览时 toggleMdMode 自会用当前编辑器内容同步 mdContent,无需在此更新。
       setSaveRevision((v) => v + 1);
     } else {
       setSaveError(true);
@@ -448,6 +450,7 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
                   content={mdContent ?? textContent}
                   startLine={startLine}
                   endLine={endLine}
+                  deepLinkTick={deepLinkTick}
                   wrapEnabled={wrapEnabled}
                   saveRevision={saveRevision}
                   onViewReady={setEditorView}
@@ -482,6 +485,7 @@ export function FilePreview({ filePath, startLine, endLine }: FilePreviewProps) 
                   content={textContent}
                   startLine={startLine}
                   endLine={endLine}
+                  deepLinkTick={deepLinkTick}
                   wrapEnabled={wrapEnabled}
                   saveRevision={saveRevision}
                   onViewReady={setEditorView}

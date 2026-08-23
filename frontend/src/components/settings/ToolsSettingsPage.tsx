@@ -26,6 +26,7 @@ const WEB_PROVIDER_ITEMS = [
 
 function defaultTools(): ToolsConfigSection {
   return {
+    mode: 'strict',
     bash: { enabled: true, require_confirmation: true },
     file: {},
     subagent: { enabled: false },
@@ -100,6 +101,30 @@ export function ToolsSettingsPage() {
       <h2 className="settings-page-title">工具</h2>
       <p className="settings-page-desc">配置内置工具行为与执行策略。</p>
       <hr className="settings-page-divider" />
+
+      {/* 权限模式 */}
+      <div className="settings-field-group-title">权限模式</div>
+      <div className="settings-field-group">
+        <div className="settings-form">
+          <div className="settings-field-horizontal">
+            <label className="settings-field-label">模式</label>
+            <div className="settings-field-body">
+              <select
+                className="settings-select"
+                value={tools.mode === 'relaxed' ? 'relaxed' : 'strict'}
+                onChange={(e) => save({ mode: e.target.value as 'strict' | 'relaxed' })}
+              >
+                <option value="strict">严格模式(仅工作区 + 需确认)</option>
+                <option value="relaxed">宽松模式(全目录 + 跳过确认)</option>
+              </select>
+              <div className="settings-field-hint" style={{ marginTop: 6 }}>
+                严格模式仅允许操作当前工作区目录，危险操作会弹确认卡片；宽松模式放开全目录访问，
+                并跳过 bash/文件删除的确认卡片。危险命令(如 rm -rf /)两种模式下均会被拦截。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Bash */}
       <div className="settings-field-group-title">Bash 命令</div>

@@ -5,8 +5,8 @@
  *
  * 设计决策:
  *  - 语言包按扩展名动态 import(vite 自动分包),不全部打进主 bundle
- *  - 主题跟随 data-theme(oneDark 深色 / vsCodeLight 浅色),用 Compartment 切换
- *  - 可编辑:history() + defaultKeymap 提供撤销/缩进等编辑能力;Mod-s 触发 onSave
+ *  - 主题跟随 data-theme(oneDark 深色 / githubLight 浅色),用 Compartment 切换
+ *  - 可编辑:basicSetup 提供完整编辑能力(行号/折叠/括号/补全/块选/历史等);Mod-s 触发 onSave
  *  - 脏追踪:updateListener 监听 docChanged → onDocChange 通知(父组件维护 dirty 状态)
  *  - 暴露 view:onViewReady 回调 + 挂到容器 DOM 的 _cmPreviewView(供 SelectionActions 计算行号)
  *  - search() 扩展内置:高亮所有匹配 + SearchQuery 状态(SearchPanel 消费)
@@ -16,11 +16,11 @@
  */
 import { useEffect, useRef } from 'react';
 import { EditorState, Compartment } from '@codemirror/state';
-import { EditorView, lineNumbers, highlightActiveLine, keymap } from '@codemirror/view';
-import { history, defaultKeymap } from '@codemirror/commands';
-import { highlightSelectionMatches, search } from '@codemirror/search';
+import { EditorView, keymap, scrollPastEnd } from '@codemirror/view';
+import { search } from '@codemirror/search';
+import { basicSetup } from 'codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { vsCodeLight } from '@fsegurai/codemirror-theme-vscode-light';
+import { githubLight } from '@fsegurai/codemirror-theme-github-light';
 import type { LanguageSupport } from '@codemirror/language';
 import { fileApi } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
@@ -59,6 +59,8 @@ interface FilePreviewEditorProps {
   startLine?: number;
   /** 可选:打开时定位的结束行 */
   endLine?: number;
+  /** 跳转触发信号:每次引用点击自增,即使 startLine 相同也重新定位(对齐旧版每次点击卡片都跳转) */
+  deepLinkTick?: number;
   /** 编辑器实例就绪回调(供 SearchPanel / 父组件使用) */
   onViewReady?: (view: EditorView) => void;
   /** 文档发生编辑时回调(父组件据此置 dirty) */
@@ -143,6 +145,7 @@ export function FilePreviewEditor({
   content,
   startLine,
   endLine,
+  deepLinkTick,
   onViewReady,
   onDocChange,
   onSave,
@@ -177,20 +180,16 @@ export function FilePreviewEditor({
     // diff 基线 Compartment(AI 变更标记;基线就绪后 reconfigure 注入,保存后置空清除)
     const diffCompartment = new Compartment();
 
-    const theme = resolveIsDark() ? oneDark : vsCodeLight;
+    const theme = resolveIsDark() ? oneDark : githubLight;
 
     const state = EditorState.create({
       doc: content,
       extensions: [
-        history(),
+        basicSetup, // 完整基础编辑能力(行号/历史/折叠/括号/补全/块选/高亮等,对齐旧版);不含 search(),SearchPanel 需显式安装
         keymap.of([
           // Mod-s 保存(对齐旧版),保存成功后由父组件清 dirty
           { key: 'Mod-s', run: () => { onSaveRef.current?.(view!.state.doc.toString()); return true; } },
-          ...defaultKeymap,
         ]),
-        lineNumbers(),
-        highlightActiveLine(),
-        highlightSelectionMatches(),
         search(),
         wrapCompartment.of(wrapEnabled ? EditorView.lineWrapping : []),
         // 编辑时通知父组件置 dirty(供保存按钮/标签标记) + 防抖重算 AI diff 标记
@@ -207,10 +206,11 @@ export function FilePreviewEditor({
         diffCompartment.of([]), // 暂不启用 diff,等基线就绪后 reconfigure 注入
         themeCompartment.of(theme),
         langCompartment.of([]),
+        scrollPastEnd(), // 滚动到文档末尾后额外留白,避免末行贴底(对齐旧版)
         EditorView.theme({
           '&': { height: '100%' },
-          '.cm-scroller': { overflow: 'auto', fontFamily: "var(--hb-mono, 'JetBrains Mono', 'Consolas', 'Monaco', monospace)" },
-          '.cm-content': { fontFamily: "var(--hb-mono, 'JetBrains Mono', 'Consolas', 'Monaco', monospace)", fontSize: '12.5px' },
+          '.cm-scroller': { overflow: 'auto', fontFamily: "var(--hb-mono, 'JetBrains Mono', 'Consolas', 'Monaco', monospace)", fontSize: '13px', lineHeight: '1.7' },
+          '.cm-content': { fontFamily: "var(--hb-mono, 'JetBrains Mono', 'Consolas', 'Monaco', monospace)", fontSize: '13px', lineHeight: '1.7' },
         }),
       ],
     });
@@ -228,18 +228,15 @@ export function FilePreviewEditor({
     }
 
     // 滚动位置恢复/定位(对齐旧版):
-    //   - 有已存滚动位置 → 恢复(保持上次阅读位置;AI 改文件 reload 重建后不丢位置)
-    //   - 无已存位置但有 startLine → 用 startLine 定位(工具卡片跳转,对齐旧版 scrollToLine 覆盖)
-    const savedScroll = readScrollPosition(filePath);
-    if (savedScroll != null) {
-      restoreScrollPosition(view, savedScroll);
-    } else if (startLine != null) {
-      const lineNo = Math.min(Math.max(1, startLine), view.state.doc.lines);
-      const pos = view.state.doc.line(lineNo).from;
-      view.dispatch({
-        selection: { anchor: pos },
-        effects: EditorView.scrollIntoView(pos, { y: 'center' }),
-      });
+    //   - 有 startLine(工具卡深链跳转)→ 选中目标行并定位,忽略已存滚动位置(深链语义优先)
+    //   - 无 startLine 但有已存滚动位置 → 恢复上次阅读位置(AI 改文件 reload 重建后不丢位置)
+    if (startLine != null) {
+      jumpToLine(view, startLine, endLine);
+    } else {
+      const savedScroll = readScrollPosition(filePath);
+      if (savedScroll != null) {
+        restoreScrollPosition(view, savedScroll);
+      }
     }
 
     // ── 滚动位置持久化:滚动节流 1.5s 保存 + beforeunload 保存 + 卸载保存(对齐旧版) ──
@@ -252,6 +249,12 @@ export function FilePreviewEditor({
       }, 1500);
     };
     view.scrollDOM.addEventListener('scroll', onScroll, { passive: true });
+    // 滚动条轨道点击定位(对齐旧版 _handleScrollbarClick):点击轨道而非滑块时,
+    // 按"滑块中心对齐点击位置"的比例映射目标滚动量,替代浏览器默认的逐页滚动
+    const onScrollbarClick = (e: MouseEvent) => {
+      handleScrollbarClick(view!, e);
+    };
+    view.scrollDOM.addEventListener('mousedown', onScrollbarClick);
     const onBeforeUnload = () => {
       if (view) writeScrollPosition(filePath, captureScrollPos(view));
     };
@@ -261,7 +264,7 @@ export function FilePreviewEditor({
     // 同时监听 data-theme 变化(MutationObserver)与系统偏好变化,切换时 reconfigure。
     const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
     const applyResolvedTheme = () => {
-      view?.dispatch({ effects: themeCompartment.reconfigure(resolveIsDark() ? oneDark : vsCodeLight) });
+      view?.dispatch({ effects: themeCompartment.reconfigure(resolveIsDark() ? oneDark : githubLight) });
     };
     const onMediaChange = () => {
       if (!document.documentElement.getAttribute('data-theme')) applyResolvedTheme();
@@ -350,7 +353,9 @@ export function FilePreviewEditor({
       const scrollDOM = view.scrollDOM;
       const docHeight = scrollDOM.scrollHeight;
       const stripHeight = scrollDOM.clientHeight;
-      if (!(docHeight > 0) || !(stripHeight > 0)) return;
+      if (!(docHeight > 0) || !(stripHeight > 0)) {
+        return;
+      }
 
       const lineBlocks: OverviewLineBlock[] = [];
       const DELETED_BLOCK_HEIGHT = 2;
@@ -430,6 +435,7 @@ export function FilePreviewEditor({
       if (scrollThrottleTimer != null) window.clearTimeout(scrollThrottleTimer);
       window.removeEventListener('beforeunload', onBeforeUnload);
       view?.scrollDOM.removeEventListener('scroll', onScroll);
+      view?.scrollDOM.removeEventListener('mousedown', onScrollbarClick);
       darkMedia.removeEventListener('change', onMediaChange);
       themeObserver.disconnect();
       view?.destroy();
@@ -438,8 +444,9 @@ export function FilePreviewEditor({
       wrapViewRef.current = null;
       (host as HTMLElement & { _cmPreviewView?: EditorView })._cmPreviewView = undefined;
     };
-    // content/filePath 变化时重建编辑器(FilePreview 用 key 控制,这里双保险)
-  }, [filePath, content, startLine, endLine]);
+    // content/filePath 变化时重建编辑器(FilePreview 用 key 控制,这里双保险)。
+    // startLine/endLine 不在依赖中:初始定位由本 effect 捕获初始值执行,后续变化由下方独立 effect 触发跳转。
+  }, [filePath, content]);
 
   // 自动换行动态切换(对齐旧版:通过 Compartment reconfigure,不重建编辑器、不丢光标/滚动)
   useEffect(() => {
@@ -448,6 +455,16 @@ export function FilePreviewEditor({
     if (!view || !comp) return;
     view.dispatch({ effects: comp.reconfigure(wrapEnabled ? EditorView.lineWrapping : []) });
   }, [wrapEnabled]);
+
+  // 深链定位:startLine 变化或 deepLinkTick 递增时强制选中目标行(对齐旧版每次点击卡片都跳转)。
+  // 首次挂载由主 effect 定位,此处复用同一逻辑处理后续变化;
+  // deepLinkTick 保证"预览区已是该文件且 startLine 相同"时,重复点击引用芯片仍能重新定位。
+  useEffect(() => {
+    if (startLine == null) return;
+    const view = wrapViewRef.current;
+    if (!view) return;
+    jumpToLine(view, startLine, endLine);
+  }, [startLine, endLine, deepLinkTick]);
 
   // 保存成功后清空 diff 基线:父组件每次成功写入文件自增 saveRevision,
   // 此处监听到变化即触发 clearDiff(保存 = 接受内容,AI 变更标记使命完成,对齐旧版)
@@ -470,6 +487,87 @@ function getExt(path: string): string {
   const clean = path.replace(/\\/g, '/').split('/').pop() ?? '';
   const idx = clean.lastIndexOf('.');
   return idx >= 0 ? clean.slice(idx + 1).toLowerCase() : '';
+}
+
+// ============================================================================
+// 滚动条轨道点击定位(对齐旧版 FilePreview.js 的 _handleScrollbarClick)
+// ============================================================================
+
+/**
+ * 处理原生滚动条轨道点击:直接跳到点击位置。
+ * 浏览器默认行为是"逐页滚动"(相当于 PageUp/PageDown),
+ * 这里用坐标判断点击是否落在轨道上(而非滑块/内容区),
+ * 再按"滑块中心对齐到点击位置"的比例映射换算目标 scrollTop,并阻止原生行为。
+ * 逻辑与旧版 FilePreview.js 完全一致。
+ */
+function handleScrollbarClick(view: EditorView, e: MouseEvent): void {
+  if (e.button !== 0) return; // 只处理左键
+  const scrollDOM = view.scrollDOM;
+
+  const maxV = scrollDOM.scrollHeight - scrollDOM.clientHeight;
+  const maxH = scrollDOM.scrollWidth - scrollDOM.clientWidth;
+  // 内容不满一屏(无可滚动量)时不存在滚动条,直接放行
+  if (maxV <= 0 && maxH <= 0) return;
+
+  const rect = scrollDOM.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  // 滚动条区域 = 内容区(client 区)之外、元素边框之内
+  const inVTrack = x >= scrollDOM.clientWidth && x < rect.width && y < scrollDOM.clientHeight;
+  const inHTrack = y >= scrollDOM.clientHeight && y < rect.height && x < scrollDOM.clientWidth;
+  if (!inVTrack && !inHTrack) return; // 点击内容区 / 滚动条 corner,不干预
+
+  // 点中滑块:交给浏览器原生拖动,不拦截。
+  // 滑块几何近似:thumbH ≈ client² / scroll,thumbTop 按可滚动范围等比映射
+  if (inVTrack && maxV > 0) {
+    const trackH = scrollDOM.clientHeight;
+    const thumbH = Math.max(20, (trackH * trackH) / scrollDOM.scrollHeight);
+    const thumbTop = (scrollDOM.scrollTop / maxV) * (trackH - thumbH);
+    if (y >= thumbTop && y <= thumbTop + thumbH) return;
+    // 点击轨道:滑块中心对齐到点击位置 → scrollTop 按同比例映射
+    const ratio = (y - thumbH / 2) / (trackH - thumbH);
+    scrollDOM.scrollTop = Math.max(0, Math.min(maxV, ratio * maxV));
+    e.preventDefault();
+  } else if (inHTrack && maxH > 0) {
+    const trackW = scrollDOM.clientWidth;
+    const thumbW = Math.max(20, (trackW * trackW) / scrollDOM.scrollWidth);
+    const thumbLeft = (scrollDOM.scrollLeft / maxH) * (trackW - thumbW);
+    if (x >= thumbLeft && x <= thumbLeft + thumbW) return;
+    const ratio = (x - thumbW / 2) / (trackW - thumbW);
+    scrollDOM.scrollLeft = Math.max(0, Math.min(maxH, ratio * maxH));
+    e.preventDefault();
+  }
+}
+
+// ============================================================================
+// 深链跳转定位(工具卡打开/跳转文件到指定行,深链锚点)
+// ============================================================================
+
+/**
+ * 深链跳转:选中目标行(start-end 范围,无 endLine 时光标定位到该行)并滚动到视口上方留白处。
+ * 对齐旧版 FilePreview.scrollToLine:选中状态持续保留,不自动消失。
+ * 先 focus 编辑器:CM6 仅在聚焦(.cm-focused)时渲染选中背景,否则点击 ref 卡片后看不到选中高亮。
+ * 跳转忽略已存滚动位置(深链语义优先)。
+ */
+function jumpToLine(
+  view: EditorView,
+  startLine: number,
+  endLine: number | undefined,
+): void {
+  const doc = view.state.doc;
+  const from = Math.min(Math.max(1, startLine), doc.lines);
+  const to = endLine != null ? Math.min(Math.max(from, endLine), doc.lines) : from;
+  const fromPos = doc.line(from).from;
+  const toPos = to > from ? doc.line(to).to : fromPos;
+
+  // 聚焦编辑器,确保选中背景可见(对齐旧版打开文件即聚焦)
+  view.focus();
+  // 对齐旧版 scrollToLine:有 endLine 时选中 start-end 范围,否则光标定位到起始行
+  view.dispatch({
+    selection: { anchor: fromPos, head: toPos },
+    effects: EditorView.scrollIntoView(fromPos, { y: 'start' }),
+  });
 }
 
 // ============================================================================

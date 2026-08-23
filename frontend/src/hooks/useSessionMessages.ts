@@ -16,6 +16,7 @@ import { api } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
+import { emit } from '@/utils/eventBus';
 
 export function useSessionMessages(): void {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
@@ -52,6 +53,10 @@ export function useSessionMessages(): void {
         const data = await api.sessions.getMessages(currentSessionId);
         if (cancelled) return;
         setMessages(data);
+        // 后端 getMessages 已在返回前同步执行 loadSessionChanges(sessionId),
+        // 此时该会话的变更数据已加载进内存。发出信号让依赖该数据的组件
+        // (如 FileChangesMonitor) 刷新,而非与其并发请求造成竞态(对齐旧版 switchSession 顺序语义)。
+        emit('session:messages-loaded', { sessionId: currentSessionId });
       } catch (e) {
         if (cancelled) return;
         const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);

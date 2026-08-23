@@ -165,7 +165,14 @@ function RingChart({ percent }: { percent: number }) {
         r="15.9155"
         style={{ strokeDasharray: `${pct} ${100 - pct}`, stroke: ringColor(pct) }}
       />
-      <text className="metrics-ring-text" x="18" y="18" textAnchor="middle" dominantBaseline="central">
+      <text
+        className="metrics-ring-text"
+        x="18"
+        y="18"
+        textAnchor="middle"
+        dominantBaseline="central"
+        style={{ fill: ringColor(pct) }}
+      >
         {pct}%
       </text>
     </svg>

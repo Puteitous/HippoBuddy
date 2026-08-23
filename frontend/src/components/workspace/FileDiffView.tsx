@@ -56,6 +56,8 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
   const [activeIndex, setActiveIndex] = useState<number>(OVERALL_INDEX);
   // 回滚进行中(按钮 loading,防重复点击)
   const [rolling, setRolling] = useState(false);
+  // 收起预览面板(对齐 FilePreview 的 panel-toggle-btn,标签保留;打开/切换文件时恢复)
+  const collapsePreview = usePreviewStore((s) => s.collapsePreview);
 
   const load = useCallback(async (path: string, tcId?: string) => {
     setLoading(true);
@@ -78,12 +80,6 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
   useEffect(() => {
     void load(filePath, toolCallId);
   }, [filePath, toolCallId, load]);
-
-  const stats = useMemo(() => {
-    if (!data) return null;
-    const [ins, del] = data.netStats ?? [0, 0];
-    return { insertions: ins, deletions: del };
-  }, [data]);
 
   // 当前选中视图的渲染数据
   const viewData: DiffViewData | null = useMemo(() => {
@@ -141,24 +137,44 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
             {toRelativePath(filePath) || filePath}
           </span>
         </div>
-        <div className="file-diff-view-stats">
-          {stats && (
-            <>
-              <span className="diff-stat-add" title={translate('diff.netStatsTip')}>+{stats.insertions}</span>
-              <span className="diff-stat-del" title={translate('diff.netStatsTip')}>-{stats.deletions}</span>
-            </>
-          )}
-        </div>
         <div className="file-diff-view-actions">
-          <button type="button" onClick={() => void load(filePath, toolCallId)} title={translate('diff.title')}>
-            刷新
+          <button
+            type="button"
+            className="preview-btn"
+            onClick={() => void load(filePath, toolCallId)}
+            title={translate('diff.refresh')}
+            aria-label={translate('diff.refresh')}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2" />
+              <polyline points="14 2 14 5 11 5" />
+              <polyline points="2 14 2 11 5 11" />
+            </svg>
           </button>
           <button
             type="button"
+            className="preview-btn"
             onClick={() => void desktopBridge.showItemInFolder(filePath)}
-            title="在资源管理器中显示"
+            title={translate('diff.showInFolder')}
+            aria-label={translate('diff.showInFolder')}
           >
-            打开位置
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M10 2h4v4" />
+              <path d="M14 2L8 8" />
+              <path d="M11 10v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3" />
+            </svg>
+          </button>
+          {/* 收起预览(对齐 FilePreview 的 panel-toggle-btn,标签保留,打开/切换文件时恢复) */}
+          <button
+            type="button"
+            className="panel-toggle-btn"
+            onClick={collapsePreview}
+            title={translate('diff.collapse')}
+            aria-label={translate('diff.collapse')}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="12 4 4 8 12 12" />
+            </svg>
           </button>
         </div>
       </div>
@@ -176,7 +192,11 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
               (viewData.binary ? (
                 <div className="file-diff-view-empty">{translate('diff.binary')}</div>
               ) : viewData.changes.length > 0 ? (
-                <FilePreviewDiff lines={viewData.changes} wordDiff={viewData.wordDiff} />
+                <FilePreviewDiff
+                  lines={viewData.changes}
+                  wordDiff={viewData.wordDiff}
+                  filePath={filePath}
+                />
               ) : (
                 <div className="file-diff-view-empty">
                   {data.allChanges.length === 0 ? translate('diff.noRecords') : translate('diff.noContent')}

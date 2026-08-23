@@ -234,6 +234,12 @@ export function FileTabs({
                   <path d="M3 12h4" />
                   <path d="M11 10l3 2-3 2" />
                 </svg>
+              ) : tab.mode === 'web' ? (
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8" cy="8" r="6.5" />
+                  <path d="M1.5 8h13" />
+                  <path d="M8 1.5c1.8 1.8 2.8 4 2.8 6.5S9.8 12.7 8 14.5c-1.8-1.8-2.8-4-2.8-6.5S6.2 3.3 8 1.5z" />
+                </svg>
               ) : (
                 <FileTypeIcon fileName={tab.name} size={12} />
               )}

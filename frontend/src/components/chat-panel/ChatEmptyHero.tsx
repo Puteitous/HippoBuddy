@@ -93,11 +93,12 @@ function ChatEmptyHeroComponent({ onPresetSelect }: ChatEmptyHeroProps) {
 
   const presets = MODE_PRESETS[mode] ?? MODE_PRESETS.coding;
 
-  /** 点击河马:弹跳 + 冒泡 */
+  /** 点击河马:弹跳 + 冒泡 + 吐对话框气泡 */
   const handleLogoClick = () => {
     if (isBouncing) return;
     setIsBouncing(true);
     spawnBubbles(logoRef.current);
+    spawnHippoSpeech(logoRef.current);
     window.setTimeout(() => setIsBouncing(false), 520);
   };
 
@@ -219,6 +220,39 @@ function spawnBubbles(el: HTMLDivElement | null) {
     el.appendChild(bubble);
     bubble.addEventListener('animationend', () => bubble.remove());
   }
+}
+
+/** 河马点击时吐对话框气泡(对齐旧版 _spawnHippoSpeech 文案) */
+const HIPPO_SPEECHES = [
+  '代码写得不错嘛 👍',
+  '好热🫠',
+  '想泡水💧',
+  '饿了吗🍉',
+  '今天吃什么 🍗',
+  '又在写 bug 了？',
+  '你好呀 👋',
+  '让我看看… 👀',
+  '这个我熟！',
+  '要帮忙吗？',
+  '💤 有点困…',
+  '该下班了 🕐',
+  '正在思考中… 🤔',
+  '快夸我快夸我',
+  '👿 哼！',
+  '好一个屁屁哦，😯',
+];
+
+function spawnHippoSpeech(el: HTMLDivElement | null) {
+  if (!el) return;
+  const existing = el.querySelector('.hippo-speech');
+  if (existing) existing.remove();
+
+  const text = HIPPO_SPEECHES[Math.floor(Math.random() * HIPPO_SPEECHES.length)];
+  const speech = document.createElement('div');
+  speech.className = 'hippo-speech';
+  speech.textContent = text;
+  el.appendChild(speech);
+  speech.addEventListener('animationend', () => speech.remove());
 }
 
 export const ChatEmptyHero = memo(ChatEmptyHeroComponent);

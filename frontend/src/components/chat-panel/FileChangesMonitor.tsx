@@ -11,11 +11,11 @@
  * 数据源:fileApi.getChanges / fileApi.getSummary(与旧版 /api/files/changes 一致)
  * 刷新时机:挂载 + 会话切换 + 15s 轮询 + rollback:completed 事件(对齐旧版 file:changes-updated)
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { fileApi } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { emit, on } from '@/utils/eventBus';
-import type { RollbackCompletedPayload } from '@/utils/eventBus';
+import type { RollbackCompletedPayload, SessionMessagesLoadedPayload } from '@/utils/eventBus';
 import { FileTypeIcon } from '../FileTypeIcon';
 import './FileChangesMonitor.css';
 
@@ -24,6 +24,9 @@ interface ChangeRecord {
   toolName: string;
   timestamp: number;
   binary: boolean;
+  /** 该文件在会话内的净变化行数(后端按 filePath 分组用 netDiffStats 计算) */
+  insertions: number;
+  deletions: number;
 }
 
 interface SummaryData {
@@ -32,12 +35,15 @@ interface SummaryData {
   deletions: number;
 }
 
-/** 按文件路径分组:每组保留最新一条 + 修改次数(对齐旧版 FileChangeManager 分组逻辑) */
+/** 按文件路径分组:每组保留最新一条 + 修改次数 + 净变化行数(对齐旧版 FileChangeManager 分组逻辑) */
 interface GroupedChange {
   filePath: string;
   toolName: string;
   timestamp: number;
   count: number;
+  /** 该文件在会话内的净变化行数(由后端随每条变更返回,组内任一条相同) */
+  insertions: number;
+  deletions: number;
 }
 
 function groupChanges(changes: ChangeRecord[]): GroupedChange[] {
@@ -56,6 +62,8 @@ function groupChanges(changes: ChangeRecord[]): GroupedChange[] {
         toolName: c.toolName,
         timestamp: c.timestamp,
         count: 1,
+        insertions: c.insertions,
+        deletions: c.deletions,
       });
     }
   }
@@ -83,6 +91,9 @@ function FileChangesMonitorComponent() {
   /** popover 是否 hover 显示 */
   const [hovered, setHovered] = useState(false);
   const rootRef = useRef<HTMLSpanElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  /** 智能居中:面板越出 .chat-panel 边界时用于水平平移回退的偏移量 */
+  const [popoverX, setPopoverX] = useState(0);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
@@ -120,12 +131,57 @@ function FileChangesMonitorComponent() {
     return offRollback;
   }, [currentSessionId, load]);
 
+  // 会话切换、历史消息加载完成后刷新,用事件里的 sessionId(而非并发读取 currentSessionId)。
+  // 后端 getMessages 已在返回前执行 loadSessionChanges 把该会话变更加载进内存,
+  // 本组件此刻再 getChanges 即可读到数据,复刻旧版 switchSession 顺序语义,避免"切回不显示"。
+  useEffect(() => {
+    const offLoaded = on<SessionMessagesLoadedPayload>('session:messages-loaded', (payload) => {
+      void load(payload.sessionId);
+    });
+    return offLoaded;
+  }, [load]);
+
   const groups = useMemo(
     () => groupChanges(changes).sort((a, b) => b.timestamp - a.timestamp),
     [changes],
   );
 
   const showPopover = pinned || hovered;
+
+  // ── 智能居中:面板默认围绕触发点居中,越出 .chat-panel 边界时平移回退到边距内 ──
+  // 触发点在聊天面板左半区,当 chat 面板较窄时居中会让面板左边越界,这里用
+  // getBoundingClientRect 测量触发点与 chat 面板的左右边界,计算所需的水平偏移。
+  useLayoutEffect(() => {
+    if (!showPopover) return;
+    const root = rootRef.current;
+    const popover = popoverRef.current;
+    if (!root || !popover) return;
+
+    const measure = () => {
+      const rootRect = root.getBoundingClientRect();
+      const popoverRect = popover.getBoundingClientRect();
+      // .chat-panel 是本组件最近的祖先容器(输入卡状态栏,非滚动容器,固定可见)
+      const panel = root.closest('.chat-panel');
+      const panelRect = panel?.getBoundingClientRect();
+
+      let nextX = 0;
+      if (panelRect) {
+        const GAP = 8; // 面板距 chat 面板左右边界的最小间距
+        // 面板假定位于触发点正上方(bottom:100%),同一水平中线
+        const left = rootRect.left + rootRect.width / 2 - popoverRect.width / 2 + nextX;
+        const right = left + popoverRect.width;
+        if (left < panelRect.left + GAP) {
+          nextX = panelRect.left + GAP - (rootRect.left + rootRect.width / 2 - popoverRect.width / 2);
+        } else if (right > panelRect.right - GAP) {
+          nextX = panelRect.right - GAP - (rootRect.left + rootRect.width / 2 + popoverRect.width / 2);
+        }
+      }
+      setPopoverX((prev) => (prev === nextX ? prev : nextX));
+    };
+
+    measure();
+    // popover 尺寸固定,无需监听 resize;但内容变化(组数)可能改变高度,低频场景可忽略
+  }, [showPopover]);
 
   // ── hover 显示/隐藏(200ms 防抖,对齐旧版 _bindPopoverHover) ──
   const handleEnter = useCallback(() => {
@@ -201,7 +257,11 @@ function FileChangesMonitorComponent() {
       {countText !== '' && <span className="chat-panel-status-value">{countText}</span>}
 
       {showPopover && (
-        <div className="chat-panel-files-popover">
+        <div
+          ref={popoverRef}
+          className="chat-panel-files-popover"
+          style={{ '--popover-x': `${popoverX}px` } as CSSProperties}
+        >
           {/* 会话级汇总条(对齐旧版 #filesPopoverSummary) */}
           {summary && summary.fileCount > 0 && (
             <div className="fcs-summary">
@@ -245,6 +305,10 @@ function FileChangesMonitorComponent() {
                           ×{g.count}
                         </span>
                       )}
+                      <span className="chat-panel-files-stats">
+                        <span className="fcs-add">+{g.insertions}</span>
+                        <span className="fcs-del">-{g.deletions}</span>
+                      </span>
                       <span className={`chat-panel-files-status ${st.className}`}>{st.letter}</span>
                     </div>
                   );

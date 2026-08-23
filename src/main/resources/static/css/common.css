@@ -341,8 +341,8 @@ input, textarea {
   font-size: 56px;
   line-height: 1;
   margin-bottom: 8px;
-  opacity: 0.9;
-  filter: grayscale(0.15);
+  opacity: 1;
+  filter: grayscale(0);
   cursor: pointer;
   transition: transform 0.3s ease, filter 0.3s ease;
   position: relative;
@@ -360,6 +360,13 @@ input, textarea {
 
 .empty-logo:hover .hippo-char {
   animation-play-state: paused;
+}
+
+/* 浅色主题下河马单独提亮:白色背景上灰棕 SVG 偏旧偏暗,
+   brightness+saturate 让河马更明亮、棕色更鲜艳(不影响 dark/midnight) */
+[data-theme="light"] .empty-logo,
+[data-theme="light"] .empty-logo:hover {
+  filter: grayscale(0) brightness(1.08) saturate(1.15);
 }
 
 .empty-logo.bouncing {

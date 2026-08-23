@@ -39,9 +39,15 @@ interface PreviewState {
   previewReloadKey: number;
   /** 预览面板是否收起(用户主动收起,持久化;打开/切换文件时清除,对齐旧版 previewCollapseBtn) */
   collapsed: boolean;
+  /** 每次 openFile 自增的跳转触发信号:即使 startLine 相同,点击引用芯片也会重新定位(对齐旧版每次点击卡片都 navigateToFile) */
+  deepLinkTick: number;
 
   /** 打开文件为 preview 模式(已有同路径 tab 则仅激活;可选携带定位行) */
   openFile: (filePath: string, startLine?: number, endLine?: number) => void;
+  /** 打开内嵌浏览器标签(已有同 URL tab 则仅激活;可选指定显示名) */
+  openWeb: (url: string, displayName?: string) => void;
+  /** 更新 web 标签当前地址(浏览器内导航后写回,切换回时按记忆地址重载) */
+  updateWebUrl: (path: string, url: string) => void;
   /** 打开文件为 diff 模式(已有同路径 diff tab 则更新 toolCallId) */
   openDiff: (filePath: string, toolCallId?: string) => void;
   /** 激活指定标签 */
@@ -74,28 +80,44 @@ function basename(path: string): string {
   return idx >= 0 ? norm.slice(idx + 1) : norm;
 }
 
+/** web 标签默认显示名:提取 URL 主机名,about:blank 等无主机时回退'浏览器'(对齐旧版 displayName 语义) */
+function guessWebName(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname) return parsed.hostname;
+  } catch {
+    /* 非完整 URL,回退 */
+  }
+  return '浏览器';
+}
+
 export const usePreviewStore = create<PreviewState>((set) => ({
   tabs: [],
   activePath: null,
   previewReloadKey: 0,
   collapsed: readPreviewCollapsed(),
+  deepLinkTick: 0,
 
   openFile: (filePath, startLine, endLine) => {
     // 打开文件清除收起状态(对齐旧版 handleFileSelect removeItem)
     persistPreviewCollapsed(false);
     set((state) => {
-      // 已存在同路径标签:若是 diff 则降级为 preview(对齐回滚降级语义)并激活,否则仅激活
+      // 已存在同路径标签:若是 diff 则降级为 preview(对齐回滚降级语义)并激活;
+      // 否则仅激活,但更新 startLine/endLine,保证已打开文件再次跳转(如选中引用点击)能定位到行
       const existing = state.tabs.find((t) => t.path === filePath);
       if (existing) {
-        const tabs =
-          existing.mode === 'diff'
-            ? state.tabs.map((t) =>
-                t.path === filePath
-                  ? { ...t, mode: 'preview' as const, toolCallId: undefined, startLine, endLine }
-                  : t,
-              )
-            : state.tabs;
-        return { tabs, activePath: filePath, collapsed: false };
+        const tabs = state.tabs.map((t) =>
+          t.path === filePath
+            ? {
+                ...t,
+                mode: 'preview' as const,
+                toolCallId: undefined,
+                startLine,
+                endLine,
+              }
+            : t,
+        );
+        return { tabs, activePath: filePath, collapsed: false, deepLinkTick: state.deepLinkTick + 1 };
       }
       const tab: FileTab = {
         path: filePath,
@@ -104,9 +126,28 @@ export const usePreviewStore = create<PreviewState>((set) => ({
         startLine,
         endLine,
       };
-      return { tabs: [...state.tabs, tab], activePath: filePath, collapsed: false };
+      return { tabs: [...state.tabs, tab], activePath: filePath, collapsed: false, deepLinkTick: state.deepLinkTick + 1 };
     });
   },
+
+  openWeb: (url, displayName) => {
+    // 打开浏览器清除收起状态(对齐 openFile:打开文件清除收起)
+    persistPreviewCollapsed(false);
+    set((state) => {
+      // 已存在同 URL 的 web 标签:仅激活(对齐旧版 openWebTab 复用 tab)
+      const existing = state.tabs.find((t) => t.mode === 'web' && t.url === url);
+      if (existing) {
+        return { activePath: existing.path, collapsed: false };
+      }
+      const tab: FileTab = { path: url, name: displayName ?? guessWebName(url), mode: 'web', url };
+      return { tabs: [...state.tabs, tab], activePath: url, collapsed: false };
+    });
+  },
+
+  updateWebUrl: (path, url) =>
+    set((state) => ({
+      tabs: state.tabs.map((t) => (t.path === path && t.mode === 'web' ? { ...t, url } : t)),
+    })),
 
   openDiff: (filePath, toolCallId) => {
     persistPreviewCollapsed(false);

@@ -13,14 +13,17 @@
   display: flex;
   min-height: 0;
   position: relative;
+  /* 方案A:画布留白 + 面板间距,让白色圆角卡片浮在画布底上 */
+  gap: 0;
+  padding: 0 10px 10px;
 }
 
 .app-shell-main {
   flex: 1;
   min-width: 0;
   overflow: auto;
-  border-left: 1px solid var(--hb-border, #e5e7eb);
   background: var(--hb-bg, #ffffff);
+  border-radius: var(--radius-lg);
 }
 
 /* 聊天常驻 + 预览面板并排(对齐旧版 chat-panel + preview-panel) */
@@ -61,7 +64,6 @@
 [data-theme="dark"],
 [data-theme="midnight"] {
   .app-shell-main {
-    border-left-color: var(--hb-border-dark, #374151);
     background: var(--hb-bg-dark, #1a1a1a);
   }
 }

@@ -19,6 +19,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { DiffLine, WordDiffMap, WordDiffToken } from '@/types';
 import { buildHunkSequence, HUNK_EXPAND_MAX_LINES } from '@/utils/diff-hunks';
+import { highlightDiffLines } from '@/utils/diff-highlight';
 import { showToast } from '@/utils/toastStore';
 import './FilePreviewDiff.css';
 
@@ -26,11 +27,13 @@ interface FilePreviewDiffProps {
   lines: DiffLine[];
   /** 行内词级 diff(按 1-based 行号索引;缺省时不做词级高亮) */
   wordDiff?: WordDiffMap;
+  /** 当前文件路径,用于按扩展名推断语法高亮语言(缺省时不启用语法高亮) */
+  filePath?: string;
   /** 可选:起始聚焦行(高亮显示,3.5 不滚动) */
   focusStartLine?: number;
 }
 
-export function FilePreviewDiff({ lines, wordDiff, focusStartLine }: FilePreviewDiffProps) {
+export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: FilePreviewDiffProps) {
   // 行号映射:预计算每个原始下标对应的旧/新文件行号,覆盖全部 changes
   // (含被折叠/丢弃的头部上下文段),保证折叠/展开后行号绝对准确
   const numMaps = useMemo(() => buildNumMaps(lines), [lines]);
@@ -38,6 +41,13 @@ export function FilePreviewDiff({ lines, wordDiff, focusStartLine }: FilePreview
   const displaySeq = useMemo(() => buildHunkSequence(lines), [lines]);
   // 已展开的折叠段集合(存 hunk.from)
   const [expandedHunks, setExpandedHunks] = useState<ReadonlySet<number>>(new Set());
+
+  // 语法高亮:整块 diff 文本交给 highlight.js 后按行切分(词级 diff 优先于语法高亮);
+  // 无文件路径 / 高亮失败 / 超限时返回 null,由渲染处回退纯文本。
+  const highlightedLines = useMemo(
+    () => highlightDiffLines(lines, filePath ?? ''),
+    [lines, filePath],
+  );
 
   const hunks = useMemo(
     () => displaySeq.filter((it) => it.type === 'hunk') as Array<Extract<(typeof displaySeq)[number], { type: 'hunk' }>>,
@@ -120,6 +130,7 @@ export function FilePreviewDiff({ lines, wordDiff, focusStartLine }: FilePreview
                   item={item}
                   lines={lines}
                   numMaps={numMaps}
+                  highlightedLines={highlightedLines}
                   onToggle={() => toggleHunk(item.from)}
                 />
               );
@@ -146,7 +157,14 @@ export function FilePreviewDiff({ lines, wordDiff, focusStartLine }: FilePreview
                   {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
                 </td>
                 <td className="diff-content">
-                  <pre className="diff-line">{renderLineContent(item.idx, line, wordDiff, numMaps)}</pre>
+                  {(() => {
+                    const rendered = renderLineContent(item.idx, line, wordDiff, numMaps, highlightedLines);
+                    return rendered.kind === 'html' ? (
+                      <pre className="diff-line" dangerouslySetInnerHTML={{ __html: rendered.value as string }} />
+                    ) : (
+                      <pre className="diff-line">{rendered.value}</pre>
+                    );
+                  })()}
                 </td>
               </tr>
             );
@@ -166,17 +184,22 @@ function ExpandedHunkRows({
   item,
   lines,
   numMaps,
+  highlightedLines,
   onToggle,
 }: {
   item: Extract<ReturnType<typeof buildHunkSequence>[number], { type: 'hunk' }>;
   lines: DiffLine[];
   numMaps: NumMaps;
+  highlightedLines: string[] | null;
   onToggle: () => void;
 }) {
   const rows = [];
   for (let k = item.from; k < item.to; k++) {
     const oldNo = numMaps.oldNumAt.get(k);
     const newNo = numMaps.newNumAt.get(k);
+    const content = highlightedLines && k < highlightedLines.length
+      ? highlightedLines[k]
+      : lines[k].content;
     rows.push(
       <tr key={k} className="diff-row diff-equal">
         <td className="diff-gutter old" title="旧行号">
@@ -189,7 +212,11 @@ function ExpandedHunkRows({
           {' '}
         </td>
         <td className="diff-content">
-          <pre className="diff-line">{lines[k].content}</pre>
+          {highlightedLines && k < highlightedLines.length ? (
+            <pre className="diff-line" dangerouslySetInnerHTML={{ __html: content }} />
+          ) : (
+            <pre className="diff-line">{content}</pre>
+          )}
         </td>
       </tr>,
     );
@@ -213,13 +240,14 @@ function HunkRow({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-/** 渲染单行内容:词级 token 存在时逐 token 渲染,否则整行文本 */
+/** 渲染单行内容:词级 token → 语法高亮 HTML → 纯文本(优先级递减) */
 function renderLineContent(
   idx: number,
   line: DiffLine,
   wordDiff: WordDiffMap | undefined,
   numMaps: NumMaps,
-): ReactNode {
+  highlightedLines: string[] | null,
+): { kind: 'react' | 'html'; value: ReactNode } {
   if (wordDiff && (line.type === 'removed' || line.type === 'added')) {
     const lineNo =
       line.type === 'removed' ? numMaps.oldNumAt.get(idx) : numMaps.newNumAt.get(idx);
@@ -228,11 +256,15 @@ function renderLineContent(
       const linesArr = line.type === 'removed' ? wordDiff.old : wordDiff.new;
       const tokens = linesArr && Array.isArray(linesArr) ? linesArr[lineNo - 1] : null;
       if (tokens && tokens.some((t) => (line.type === 'removed' ? t.type === 'delete' : t.type === 'insert'))) {
-        return renderWordTokens(tokens, line.type);
+        return { kind: 'react', value: renderWordTokens(tokens, line.type) };
       }
     }
   }
-  return line.content;
+  // 语法高亮有效时返回高亮 HTML(仅当高亮行数与 changes 对齐,避免下标错位)
+  if (highlightedLines && idx < highlightedLines.length) {
+    return { kind: 'html', value: highlightedLines[idx] };
+  }
+  return { kind: 'react', value: line.content };
 }
 
 /**

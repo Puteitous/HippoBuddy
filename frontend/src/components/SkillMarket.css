@@ -1,13 +1,13 @@
 /* SkillMarket - 技能市场主面板
    命名空间 .skill-market-*
-   全屏浮层,由 AppShell 挂载(appStore.skillMarketOpen 控制显隐) */
+   内嵌于 app-shell-main,由 AppShell 挂载(appStore.skillMarketOpen 控制显隐) */
 
 .skill-market-container {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
+  /* 内嵌于 app-shell-main,替换聊天面板(对齐旧版:保留活动栏/会话列表) */
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
   background: var(--hb-bg, #ffffff);
   animation: skill-market-in 0.2s ease;
 }

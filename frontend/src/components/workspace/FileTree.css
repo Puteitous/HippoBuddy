@@ -130,6 +130,12 @@
   min-width: 0;
 }
 
+/* 紧凑目录节点名称(单链合并 "a › b › c") */
+.file-tree-name-compact {
+  color: var(--hb-text-soft, #6b7280);
+  opacity: 0.92;
+}
+
 .file-tree-node-loading,
 .file-tree-node-empty {
   padding: 4px 8px;
@@ -377,6 +383,9 @@
   }
   .file-tree-root-name {
     color: var(--hb-text-dark, #e5e7eb);
+  }
+  .file-tree-name-compact {
+    color: var(--hb-text-soft-dark, #9ca3af);
   }
   .file-tree-refresh-btn {
     color: var(--hb-text-soft-dark, #9ca3af);

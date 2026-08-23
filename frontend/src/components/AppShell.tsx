@@ -104,8 +104,13 @@ export function AppShell() {
         <ActivityBar />
         <Sidebar />
         <SidebarResizer />
+        {/* 技能市场在打开时于主内容区内嵌展示(对齐旧版:替换聊天面板,保留活动栏/会话列表) */}
         <main className="app-shell-main">
-          {view === 'settings' ? (
+          {skillMarketOpen ? (
+            <SkillMarket
+              onClose={() => setSkillMarketOpen(false)}
+            />
+          ) : view === 'settings' ? (
             <SettingsPanel />
           ) : (
             /* 聊天常驻,文件预览面板与聊天并排(对齐旧版 chat-panel + preview-panel) */
@@ -117,12 +122,6 @@ export function AppShell() {
           )}
         </main>
       </div>
-      {/* 技能市场浮层(由 appStore.skillMarketOpen 控制) */}
-      {skillMarketOpen && (
-        <SkillMarket
-          onClose={() => setSkillMarketOpen(false)}
-        />
-      )}
       {/* 文本选中快捷操作(全局监听 selectionchange,选中内容 → 输入框 RefChip) */}
       <SelectionActions />
       {/* 全局 Toast 视图(任意组件可触发 showToast) */}

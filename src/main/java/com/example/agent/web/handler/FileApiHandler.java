@@ -81,6 +81,18 @@ public class FileApiHandler implements HttpHandler {
             changes = FileChangeTracker.getRecentChanges(50);
         }
 
+        // 每个文件的净变化行数(最早 original vs 最新 newContent)-> filePath → [insertions, deletions]。
+        // 供前端在文件变更面板的每个 item 上显示该文件自身的 +x/-y(对齐会话汇总的净统计口径)。
+        Map<String, int[]> netByFile = new HashMap<>();
+        Map<String, List<FileChangeTracker.FileChange>> byFile = new HashMap<>();
+        for (FileChangeTracker.FileChange c : changes) {
+            byFile.computeIfAbsent(c.filePath, k -> new ArrayList<>()).add(c);
+        }
+        for (Map.Entry<String, List<FileChangeTracker.FileChange>> e : byFile.entrySet()) {
+            int[] stats = netDiffStats(e.getValue());
+            if (stats != null) netByFile.put(e.getKey(), stats);
+        }
+
         List<Map<String, Object>> jsonList = new ArrayList<>();
         for (FileChangeTracker.FileChange c : changes) {
             Map<String, Object> item = new HashMap<>();
@@ -88,6 +100,9 @@ public class FileApiHandler implements HttpHandler {
             item.put("toolName", c.toolName);
             item.put("timestamp", c.timestamp);
             item.put("binary", c.binary);
+            int[] stats = netByFile.get(c.filePath);
+            item.put("insertions", stats != null ? stats[0] : 0);
+            item.put("deletions", stats != null ? stats[1] : 0);
             jsonList.add(item);
         }
         sendJson(exchange, 200, objectMapper.writeValueAsString(jsonList));

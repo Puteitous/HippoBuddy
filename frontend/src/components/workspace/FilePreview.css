@@ -169,18 +169,39 @@
 .file-preview-editor .cm-editor {
   height: 100%;
   /* 编辑器底色锁定为 --bg-chat(浅色 #fff / dark #171717 / midnight #181d27),
-     用 0,2,0 优先级压过 oneDark/vsCodeLight 各自 .cm-theme-* 的底色(0,1,0),
+     用 0,2,0 优先级压过 oneDark/githubLight 各自 .cm-theme-* 的底色(0,1,0),
      保证无论 CM 样式注入顺序如何都随 data-theme 语义色 */
   background-color: var(--bg-chat);
 }
 
-/* 行号区同底色,避免 oneDark 的 #21252b 竖条与正文产生色差(对齐旧版 cm-gutters) */
+/* 行号区同底色,避免 oneDark 的 #21252b 竖条与正文产生色差(对齐旧版 cm-gutters);
+   同时去掉 border-right,恢复旧版"行号区右侧无分割线"的观感(否则浅色 githubLight 主题会画出 1px 灰色竖线) */
 .file-preview-editor .cm-editor .cm-gutters {
   background-color: var(--bg-chat);
+  border-right: none;
+}
+
+/* ── 对齐全局滚动条观感 ──
+   githubLight 主题自带 track: #e1e4e8,在纯白 --bg-chat 背景上会有色差;
+   这里把 editor 滚动条压回应用语义色(与 index.css 全局一致),深色 oneDark 不定义 scrollbar,无需覆盖 */
+.file-preview-editor .cm-editor .cm-scroller::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.file-preview-editor .cm-editor .cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+.file-preview-editor .cm-editor .cm-scroller::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: none;
+  border-radius: 3px;
+}
+.file-preview-editor .cm-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 /* ── 对齐旧版 workspace.css 的 CM 主题色覆盖 ──
-   以下把 oneDark/vsCodeLight 各主题的硬编码色(选区/当前行/行号高亮)
+   以下把 oneDark/githubLight 各主题的硬编码色(选区/当前行/行号高亮)
    拉回应用语义色,保证随 data-theme 一致(与背景色同理,用 !important 压过主题选择器) */
 
 /* 隐藏 CM 自绘的全宽选中背景(中间行会铺满整行宽度) */

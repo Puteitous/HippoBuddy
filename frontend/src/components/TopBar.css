@@ -11,10 +11,9 @@
   align-items: center;
   gap: 16px;
   padding: 0 12px 0 14px;
-  height: 48px;
+  height: 42px;
   flex-shrink: 0;
   background: var(--bg-canvas);
-  border-bottom: 1px solid var(--border);
 }
 
 /* 桌面端:整条顶栏可拖拽移动窗口(按钮/交互元素 no-drag) */
@@ -359,11 +358,4 @@ body.window-maximized {
 body.desktop-window {
   border-radius: 12px;
   overflow: hidden;
-}
-
-[data-theme="dark"],
-[data-theme="midnight"] {
-  .top-bar {
-    border-bottom-color: var(--border);
-  }
 }

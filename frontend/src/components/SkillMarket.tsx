@@ -1,7 +1,7 @@
 /**
  * SkillMarket - 技能市场主面板
  *
- * 对标旧版 components/SkillMarket.js,作为全屏浮层叠加在 AppShell 之上。
+ * 对标旧版 components/SkillMarket.js,内嵌于 app-shell-main 替换聊天面板(保留活动栏/会话列表)。
  *
  * 功能:
  *  - 浏览精选技能(分类过滤 + 关键字搜索)

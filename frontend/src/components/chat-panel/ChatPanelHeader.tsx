@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
-import type { Session } from '@/types';
+import type { Session, SessionMode } from '@/types';
 
 /** 历史下拉最大条数(对齐旧版 MAX_ITEMS = 40) */
 const HISTORY_MAX_ITEMS = 40;
@@ -45,10 +45,18 @@ interface ChatPanelHeaderProps {
   onCollapse: () => void;
 }
 
+/** 模式友好名称(悬浮面板展示用) */
+const MODE_LABELS: Record<SessionMode, string> = {
+  chat: '对话',
+  coding: '编码',
+  office: '办公',
+};
+
 export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
   const sessions = useAppStore((s) => s.sessions);
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const workspacePath = useAppStore((s) => s.workspacePath);
+  const mode = useAppStore((s) => s.mode);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const createNewSession = useAppStore((s) => s.createNewSession);
 
@@ -68,12 +76,9 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
     return () => document.removeEventListener('click', handleDocClick);
   }, [open]);
 
-  // ── 标题与项目名 ──────────────────────────────────────
+  // ── 标题 ────────────────────────────────────────────
   const currentSession = sessions.find((s) => s.id === currentSessionId);
   const title = currentSession ? sessionTitle(currentSession) : 'Chat';
-  const projectName = workspacePath
-    ? workspacePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || ''
-    : '';
 
   // ── 历史会话分组渲染 ──────────────────────────────────
   const grouped = useMemo(() => groupSessionsByTime(sessions), [sessions]);
@@ -97,7 +102,20 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
         <span className="chat-panel-title" title={currentSession ? title : undefined}>
           {title}
         </span>
-        {projectName && <span className="chat-panel-project">{projectName}</span>}
+        {(workspacePath || mode) && (
+          <div className="chat-panel-title-popover">
+            {workspacePath && (
+              <div className="popover-row">
+                <span className="popover-label">项目路径</span>
+                <span className="popover-value">{workspacePath}</span>
+              </div>
+            )}
+            <div className="popover-row">
+              <span className="popover-label">当前模式</span>
+              <span className="popover-value">{MODE_LABELS[mode] ?? mode}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="chat-header-actions">

@@ -2,7 +2,7 @@
  * GeneralSettingsPage - 通用设置
  *
  *  - 主题切换(状态与持久化收敛到 stores/themeStore,与 TopBar 主题按钮共用)
- *  - 语言切换(3.6 不实现 i18n,disabled 占位)
+ *  - 语言切换(走 i18n store,切换后组件自动重渲染)
  *  - 工作区路径(GET/PUT /api/workspace/default,使用 workspaceApi)
  *  - 数据目录(GET/POST /api/settings/data-dir,变更后需重启)
  */
@@ -13,6 +13,7 @@ import { desktopBridge } from '@/utils/desktop-bridge';
 import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { useAppStore } from '@/stores/appStore';
 import { showToast } from './toastStore';
+import { i18nStore, useI18n } from '@/i18n';
 
 /** 文件夹图标(对齐旧版 settings-input-btn 浏览按钮) */
 function FolderIcon() {
@@ -32,11 +33,11 @@ function FolderIcon() {
   );
 }
 
-const THEME_OPTIONS: { value: Theme; label: string }[] = [
-  { value: 'light', label: '浅色' },
-  { value: 'dark', label: '深色' },
-  { value: 'midnight', label: '午夜' },
-  { value: 'system', label: '跟随系统' },
+const THEME_OPTIONS: { value: Theme; labelKey: string }[] = [
+  { value: 'light', labelKey: 'settingsPage.generalLight' },
+  { value: 'dark', labelKey: 'settingsPage.generalDark' },
+  { value: 'midnight', labelKey: 'settingsPage.generalMidnight' },
+  { value: 'system', labelKey: 'settingsPage.generalSystem' },
 ];
 
 export function GeneralSettingsPage() {
@@ -44,7 +45,7 @@ export function GeneralSettingsPage() {
   const applyTheme = useThemeStore((s) => s.applyTheme);
   const panelLayout = useAppStore((s) => s.panelLayout);
   const setPanelLayout = useAppStore((s) => s.setPanelLayout);
-  const [lang, setLang] = useState<'zh' | 'en'>('zh');
+  const { t, lang } = useI18n();
   const [workspacePath, setWorkspacePath] = useState('');
   const [dataDir, setDataDir] = useState('');
   const [dataDirRestartMsg, setDataDirRestartMsg] = useState(false);
@@ -114,31 +115,31 @@ export function GeneralSettingsPage() {
   };
 
   if (loading) {
-    return <div className="settings-loading">加载中...</div>;
+    return <div className="settings-loading">{t('settingsPage.modelLoading')}</div>;
   }
 
   if (loadError) {
     return (
       <div>
-        <h2 className="settings-page-title">通用</h2>
-        <p className="settings-page-desc">应用基础设置。</p>
+        <h2 className="settings-page-title">{t('settingsPage.generalTitle')}</h2>
+        <p className="settings-page-desc">{t('settingsPage.generalDesc')}</p>
         <hr className="settings-page-divider" />
-        <p className="settings-error-text">配置不可用:{loadError}</p>
+        <p className="settings-error-text">{t('settingsPage.configUnavailable')}:{loadError}</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h2 className="settings-page-title">通用</h2>
-      <p className="settings-page-desc">应用基础设置,主题、语言、默认工作区等。</p>
+      <h2 className="settings-page-title">{t('settingsPage.generalTitle')}</h2>
+      <p className="settings-page-desc">{t('settingsPage.generalDesc')}</p>
       <hr className="settings-page-divider" />
 
-      <div className="settings-field-group-title">基础</div>
+      <div className="settings-field-group-title">{t('settingsPage.generalBasic')}</div>
       <div className="settings-field-group">
         <div className="settings-form">
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">主题</label>
+            <label className="settings-field-label">{t('settingsPage.generalTheme')}</label>
             <div className="settings-field-body">
               <div className="settings-toggle-group">
                 {THEME_OPTIONS.map((opt) => (
@@ -148,7 +149,7 @@ export function GeneralSettingsPage() {
                     className={`settings-toggle-btn${theme === opt.value ? ' active' : ''}`}
                     onClick={() => applyTheme(opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -156,32 +157,29 @@ export function GeneralSettingsPage() {
           </div>
 
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">语言</label>
+            <label className="settings-field-label">{t('settingsPage.generalLanguage')}</label>
             <div className="settings-field-body">
               <div className="settings-toggle-group">
                 <button
                   type="button"
                   className={`settings-toggle-btn${lang === 'zh' ? ' active' : ''}`}
-                  onClick={() => setLang('zh')}
+                  onClick={() => i18nStore.getState().setLang('zh')}
                 >
-                  中文
+                  {t('settingsPage.generalLangZh')}
                 </button>
                 <button
                   type="button"
                   className={`settings-toggle-btn${lang === 'en' ? ' active' : ''}`}
-                  onClick={() => {
-                    setLang('en');
-                    showToast('英文界面将在后续版本支持', { type: 'warning', duration: 2500 });
-                  }}
+                  onClick={() => i18nStore.getState().setLang('en')}
                 >
-                  English
+                  {t('settingsPage.generalLangEn')}
                 </button>
               </div>
             </div>
           </div>
 
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">面板布局</label>
+            <label className="settings-field-label">{t('settingsPage.generalLayout')}</label>
             <div className="settings-field-body">
               <div className="settings-toggle-group">
                 <button
@@ -189,14 +187,14 @@ export function GeneralSettingsPage() {
                   className={`settings-toggle-btn${panelLayout === 'preview-left' ? ' active' : ''}`}
                   onClick={() => setPanelLayout('preview-left')}
                 >
-                  预览靠左
+                  {t('settingsPage.generalPreviewLeft')}
                 </button>
                 <button
                   type="button"
                   className={`settings-toggle-btn${panelLayout === 'chat-left' ? ' active' : ''}`}
                   onClick={() => setPanelLayout('chat-left')}
                 >
-                  聊天靠左
+                  {t('settingsPage.generalChatLeft')}
                 </button>
               </div>
             </div>
@@ -204,8 +202,8 @@ export function GeneralSettingsPage() {
 
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
-              <div>默认工作区</div>
-              <div className="settings-field-hint">作为应用启动时的初始工作区</div>
+              <div>{t('settingsPage.generalWorkspace')}</div>
+              <div className="settings-field-hint">{t('settingsPage.generalWorkspaceHint')}</div>
             </div>
             <div className="settings-field-body">
               <div className="settings-input-wrap" style={{ width: 360 }}>
@@ -213,14 +211,14 @@ export function GeneralSettingsPage() {
                   className="settings-input"
                   type="text"
                   value={workspacePath}
-                  placeholder="选择工作区路径"
+                  placeholder={t('settingsPage.generalWorkspacePh')}
                   onChange={(e) => setWorkspacePath(e.target.value)}
                   onBlur={(e) => handleWorkspacePathChange(e.target.value)}
                 />
                 <button
                   type="button"
                   className="settings-input-btn"
-                  title="选择文件夹"
+                  title={t('settingsPage.generalBrowseFolder')}
                   onClick={async () => {
                     const path = await desktopBridge.openFileDialog();
                     if (path) handleWorkspacePathChange(path);
@@ -234,8 +232,8 @@ export function GeneralSettingsPage() {
 
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
-              <div>数据目录</div>
-              <div className="settings-field-hint">变更后需要重启应用生效</div>
+              <div>{t('settingsPage.generalDataDir')}</div>
+              <div className="settings-field-hint">{t('settingsPage.generalDataDirHint')}</div>
             </div>
             <div className="settings-field-body">
               <div className="settings-input-wrap" style={{ width: 360 }}>
@@ -243,14 +241,14 @@ export function GeneralSettingsPage() {
                   className="settings-input"
                   type="text"
                   value={dataDir}
-                  placeholder="默认"
+                  placeholder={t('settingsPage.generalDataDirDefault')}
                   onChange={(e) => setDataDir(e.target.value)}
                   onBlur={(e) => handleDataDirConfirm(e.target.value)}
                 />
                 <button
                   type="button"
                   className="settings-input-btn"
-                  title="选择文件夹"
+                  title={t('settingsPage.generalDataDirBrowse')}
                   onClick={async () => {
                     const path = await desktopBridge.openFileDialog();
                     if (path) handleDataDirConfirm(path);
@@ -267,7 +265,7 @@ export function GeneralSettingsPage() {
                     color: '#d97706',
                   }}
                 >
-                  重启后生效
+                  {t('settingsPage.generalDataDirRestart')}
                 </span>
               )}
             </div>

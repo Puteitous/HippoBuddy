@@ -100,3 +100,66 @@
 [data-theme="midnight"] .cm-diff-overview-marker.deleted {
   background: rgba(255, 123, 114, 0.45);
 }
+
+/* ── 代码折叠 Gutter(浅色交给 GitHub Light 主题自带,深色沿用 oneDark) ──
+   浅色:GitHub Light pack 内建 base03/base01 配色
+   深色:未单设 → CM6 默认 #888(旧版 oneDark 亦不覆盖)
+   不设固定宽度,由折叠标记内容自然撑开(对齐旧版) */
+[data-theme="dark"] .cm-foldGutter .cm-gutterElement,
+[data-theme="midnight"] .cm-foldGutter .cm-gutterElement {
+  color: #888;
+}
+
+/* ── 自动补全弹层(浅色交给 GitHub Light 自带配色,深色沿用 oneDark) ──
+   浅色(GitHub Light):tooltip/border/选中配色均由包内建
+   深色(oneDark):tooltip bg #353a42、选中 bg #2c313a 文字 #abb2bf
+   这里仅保留字体/布局(颜色一律不设,交给主题接管) */
+.cm-tooltip.cm-tooltip-autocomplete {
+  border-radius: 4px;
+  overflow: hidden;
+  font-family: var(--hb-mono, 'JetBrains Mono', Consolas, monospace);
+  font-size: 12.5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.cm-tooltip.cm-tooltip-autocomplete > ul {
+  font-family: inherit;
+  font-size: inherit;
+  max-height: 300px;
+}
+
+[data-theme="dark"] .cm-tooltip.cm-tooltip-autocomplete,
+[data-theme="midnight"] .cm-tooltip.cm-tooltip-autocomplete {
+  border: 1px solid #45413e;
+  background: #353a42;
+  color: #abb2bf;
+}
+
+[data-theme="dark"] .cm-tooltip.cm-tooltip-autocomplete > ul > li,
+[data-theme="midnight"] .cm-tooltip.cm-tooltip-autocomplete > ul > li {
+  color: #abb2bf;
+}
+
+[data-theme="dark"] .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected],
+[data-theme="midnight"] .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: #2c313a;
+  color: #abb2bf;
+}
+
+[data-theme="dark"] .cm-tooltip.cm-tooltip-autocomplete > ul > li > span.cm-completionIcon,
+[data-theme="midnight"] .cm-tooltip.cm-tooltip-autocomplete > ul > li > span.cm-completionIcon,
+[data-theme="dark"] .cm-tooltip.cm-tooltip-autocomplete > ul > li > span.cm-completionDetail,
+[data-theme="midnight"] .cm-tooltip.cm-tooltip-autocomplete > ul > li > span.cm-completionDetail {
+  color: #abb2bf;
+}
+
+/* ── 深链跳转目标行高亮(工具卡跳转到指定行时短暂闪烁的锚点) ──
+   用品牌色弱底纹整行高亮,约 0.9s 后由 JS 移除装饰 */
+.cm-content .cm-deeplink-target {
+  background: rgba(59, 130, 246, 0.16);
+}
+
+[data-theme="dark"] .cm-content .cm-deeplink-target,
+[data-theme="midnight"] .cm-content .cm-deeplink-target {
+  background: rgba(96, 165, 250, 0.2);
+}

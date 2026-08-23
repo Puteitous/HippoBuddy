@@ -63,6 +63,8 @@ export interface DeleteFileToolConfigSection {
 }
 
 export interface ToolsConfigSection {
+  /** 权限模式:strict=仅工作区+需确认;relaxed=全目录+跳过确认 */
+  mode?: 'strict' | 'relaxed';
   bash: BashToolConfigSection;
   /** FileToolConfig 当前为空对象,后端保留扩展位 */
   file: Record<string, unknown>;

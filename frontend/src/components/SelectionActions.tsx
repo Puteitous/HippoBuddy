@@ -10,7 +10,7 @@
  *
  * 支持区域(映射新版实际 DOM class):
  *  - .file-preview-editor(文件预览 CM6 编辑器,3.8)→ 文件引用(@path + 行号 + 选中片段)
- *  - .msg-markdown / .msg-user-text / .msg-reasoning-body(聊天消息)
+ *  - .msg-markdown / .msg-user-text / .msg-reasoning-content-inner(聊天消息)
  *  - .tool-card / .tool-body / .bash-output(工具卡片代码区)
  *
  * 阶段 3.8 升级:
@@ -28,7 +28,7 @@ const SELECTABLE_AREAS = [
   '.file-preview-editor',
   '.msg-markdown',
   '.msg-user-text',
-  '.msg-reasoning-body',
+  '.msg-reasoning-content-inner',
   '.tool-card',
   '.tool-body',
   '.bash-output',
@@ -45,7 +45,7 @@ interface CmHost extends HTMLElement {
       doc: {
         lineAt: (pos: number) => { number: number };
         lines: number;
-        sliceDoc: (from: number, to: number) => string;
+        sliceString: (from: number, to: number) => string;
       };
     };
   } | null;
@@ -149,6 +149,7 @@ export function SelectionActions() {
     const payload: SelectionAddToInputPayload = filePath
       ? buildFilePayload(filePath, cmView, text)
       : { text, refType: 'text' };
+
     emit('selection:add-to-input', payload);
 
     selection.removeAllRanges();
@@ -246,14 +247,17 @@ function buildFilePayload(
       const startLine = cmView.state.doc.lineAt(sel.from).number;
       const endLine = cmView.state.doc.lineAt(sel.to).number;
       const lineCount = endLine - startLine + 1;
-      const sliced = lineCount <= LINE_THRESHOLD ? cmView.state.doc.sliceDoc(sel.from, sel.to) : undefined;
+      // 行数 ≤ LINE_THRESHOLD 时内联携带选中片段(省去 LLM 一次 read_file);
+      // 超过阈值仅发 @path:start-end,不携带全量文本(对齐旧版)
+      // 注意:sliceString 是 Text 的方法;sliceDoc 是 EditorState 的方法,不能挂在 doc 上
+      const sliced = lineCount <= LINE_THRESHOLD ? cmView.state.doc.sliceString(sel.from, sel.to) : undefined;
       return {
         text: filePath,
         refType: 'file',
         filePath,
         startLine,
         endLine,
-        selectedText: sliced ?? selectedText,
+        selectedText: sliced,
       };
     } catch {
       // CM 状态异常时降级为纯路径引用

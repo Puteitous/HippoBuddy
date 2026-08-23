@@ -84,8 +84,6 @@
   max-height: 296px;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, black 8px, black calc(100% - 8px), transparent 100%);
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
 }
 
 .chat-nav-items::-webkit-scrollbar {

@@ -19,12 +19,13 @@
 
 .inline-input-placeholder {
   position: absolute;
-  top: 6px;
-  left: 8px;
+  /* 与 .inline-input-editor 首行对齐:上0 左14,字号行高一致 */
+  top: 0;
+  left: 14px;
   color: var(--text-muted, #888);
   pointer-events: none;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--font-size-lg);
+  line-height: 1.6;
   user-select: none;
   white-space: nowrap;
   overflow: hidden;
@@ -39,9 +40,11 @@
   overflow-y: auto;
   /* 对齐旧版 .input-row textarea:滚动带平滑动画 */
   scroll-behavior: smooth;
-  padding: 6px 8px;
-  font-size: 13px;
-  line-height: 1.5;
+  /* 上padding置0,右12 下4 左14 */
+  padding: 0 12px 4px 14px;
+  /* 对齐旧版 .input-row textarea: font-size:var(--font-size-lg); line-height:1.6 */
+  font-size: var(--font-size-lg);
+  line-height: 1.6;
   color: var(--text-primary, #e0e0e0);
   background: transparent;
   border: none;
@@ -82,11 +85,29 @@
   opacity: 0.8;
 }
 
+/* 文件引用芯片可点击跳转(对齐旧版 input-ref-chip-navigable) */
+.inline-chip-navigable {
+  cursor: pointer;
+}
+.inline-chip-navigable:hover {
+  filter: brightness(1.15);
+}
+
 .inline-chip-text {
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 文件引用行号徽标(对齐旧版 input-ref-chip-lines:无背景纯文字,弱化显示) */
+.inline-chip-lines {
+  font-size: 11px;
+  line-height: 1;
+  margin-left: 2px;
+  opacity: 0.7;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .inline-chip-close {

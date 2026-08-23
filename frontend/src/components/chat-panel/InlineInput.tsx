@@ -14,6 +14,7 @@
  */
 import { useCallback, useEffect, useImperativeHandle, useRef, forwardRef, useState } from 'react';
 import type { RefChip } from '@/types';
+import { usePreviewStore } from '@/stores/previewStore';
 import './InlineInput.css';
 
 export interface InlineInputHandle {
@@ -65,7 +66,24 @@ function createChipElement(chip: RefChip): HTMLSpanElement {
   closeBtn.dataset.action = 'remove-chip';
   closeBtn.tabIndex = -1;
 
-  wrapper.append(icon, text, closeBtn);
+  // 文件引用:统一标记可点击跳转(对齐旧版 input-ref-chip-navigable),
+  // 带行号时在文件名后显示 start-end 行号徽标(对齐旧版 input-ref-chip-lines);
+  // title 展示完整路径 + 行号,文件名截断时可 hover 查看
+  if (chip.kind === 'file' && chip.filePath) {
+    wrapper.classList.add('inline-chip-navigable');
+    const hasLines = chip.startLine != null && chip.endLine != null;
+    wrapper.title = hasLines ? `${chip.filePath}:${chip.startLine}-${chip.endLine}` : chip.filePath;
+    if (hasLines) {
+      const lines = document.createElement('span');
+      lines.className = 'inline-chip-lines';
+      lines.textContent = `${chip.startLine}-${chip.endLine}`;
+      wrapper.append(icon, text, lines, closeBtn);
+    } else {
+      wrapper.append(icon, text, closeBtn);
+    }
+  } else {
+    wrapper.append(icon, text, closeBtn);
+  }
   return wrapper;
 }
 
@@ -353,7 +371,7 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
 
   // ── 事件处理 ─────────────────────────────────────────────
 
-  // 点击：关闭按钮
+  // 点击：关闭按钮移除芯片;文件引用芯片点击跳转(对齐旧版 input-ref-chip-navigable)
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.dataset.action === 'remove-chip') {
@@ -363,6 +381,19 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
         updatePlaceholder();
         notifyDraftChange();
         editorRef.current?.focus();
+      }
+      return;
+    }
+    // 点击文件引用芯片(非关闭按钮)→ 在应用内打开文件并定位行号(对齐旧版 input-ref-chip-navigable 跳转)
+    const chip = target.closest('.inline-chip') as HTMLElement | null;
+    if (chip) {
+      try {
+        const data = JSON.parse(chip.dataset.chip || '{}') as RefChip;
+        if (data.kind === 'file' && data.filePath) {
+          usePreviewStore.getState().openFile(data.filePath.replace(/\\/g, '/'), data.startLine, data.endLine);
+        }
+      } catch {
+        // 忽略损坏的 chip 数据
       }
     }
   }, [updatePlaceholder, notifyDraftChange]);

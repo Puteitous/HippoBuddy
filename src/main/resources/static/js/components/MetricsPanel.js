@@ -217,6 +217,9 @@ export class MetricsPanel {
         
         this._updateRing(this.elements.abMetLlmRingFg, llmRate);
         this._setText(this.elements.abMetLlmRingText, llmRate + '%');
+        if (this.elements.abMetLlmRingText) {
+          this.elements.abMetLlmRingText.style.fill = this._getRingColor(llmRate);
+        }
         
         // 文本指标
         this._setText(this.elements.abMetLlmTotal, llm.totalRequests);

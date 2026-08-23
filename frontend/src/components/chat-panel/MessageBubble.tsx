@@ -15,7 +15,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
-import { desktopBridge } from '@/utils/desktop-bridge';
+import { emit } from '@/utils/eventBus';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import type { MessageFileProduct } from './message-utils';
@@ -604,7 +604,8 @@ function FileIndicator({ files }: { files: MessageFileProduct[] }) {
             <div
               key={f.path}
               className="popover-file-item"
-              onClick={() => desktopBridge.navigateToFile(f.path)}
+              // 点击打开该文件的 diff 视图(对齐旧版 showFileDiff 语义:消息产物点开看"这轮改了什么")
+              onClick={() => emit('workspace:openDiff', { filePath: f.path })}
             >
               <FileTypeIcon fileName={fileName} size={14} />
               <span className="file-name" title={f.path}>{fileName}</span>

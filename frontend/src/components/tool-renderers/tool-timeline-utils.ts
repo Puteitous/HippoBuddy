@@ -17,7 +17,6 @@ export type TimelineStatus =
   | 'success'
   | 'failed'
   | 'cancelled'
-  | 'interrupted'
   | 'denied'
   | 'pending_confirmation';
 
@@ -76,18 +75,25 @@ function extractContentText(content: Message['content']): string {
  *
  * 历史消息仅含 toolName / content / success,无 args。
  * 状态从 success 推导,并尝试从 content 关键字还原旧版的
- * cancelled / interrupted 语义(后端 result 字段的历史约定)。
+ * cancelled / denied 语义(后端 result 字段的历史约定)。
  */
 export function fromToolMessage(msg: Message): TimelineToolItem {
   const content = extractContentText(msg.content);
   let status: TimelineStatus = msg.success === false ? 'failed' : 'success';
-  const lower = content.toLowerCase();
-  if (lower.includes('用户拒绝')) {
-    status = 'denied';
-  } else if (lower.includes('cancelled') || lower.includes('user_cancelled')) {
-    status = 'cancelled';
-  } else if (lower.includes('interrupted')) {
-    status = 'interrupted';
+  // 仅明确失败时才从 content 关键字细分 cancelled / denied;
+  // 成功态绝不被结果文本中的单词覆盖(否则正常执行易被误判为"已取消"，对齐旧版)。
+  if (status === 'failed') {
+    const lower = content.toLowerCase();
+    if (lower.includes('用户拒绝')) {
+      status = 'denied';
+    } else if (
+      lower.includes('cancelled') ||
+      lower.includes('user_cancelled') ||
+      lower.includes('interrupted')
+    ) {
+      // interrupted 与 cancelled 语义一致,统一合并为 cancelled
+      status = 'cancelled';
+    }
   }
   return {
     id: msg.id,

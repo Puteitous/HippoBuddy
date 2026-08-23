@@ -25,6 +25,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import type { ActivityPanelId } from '@/stores/appStore';
+import { usePreviewStore } from '@/stores/previewStore';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { showToast } from '@/utils/toastStore';
 import { useI18n, translate } from '@/i18n';
@@ -184,7 +185,8 @@ export function ActivityBar() {
             toggleActivityBar();
             return;
           case 'openBrowser':
-            desktopBridge.openExternal('about:blank');
+            // 打开应用内嵌浏览器标签页(对齐旧版 ws.openWebBrowser → 内嵌浏览器,替代原 openExternal 调系统浏览器)
+            usePreviewStore.getState().openWeb('about:blank');
             return;
           case 'openTerminal':
             try {

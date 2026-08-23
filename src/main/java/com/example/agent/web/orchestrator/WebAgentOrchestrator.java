@@ -660,11 +660,12 @@ public class WebAgentOrchestrator {
                         }
 
                         if (hookResult.isConfirmationRequired()) {
-                            // 检查配置：如果用户关闭了"需确认"开关，跳过确认直接执行
-                            if (!Config.getInstance().getTools().getBash().isRequireConfirmation()) {
-                                // ⚠️ 安全提示：确认弹窗已被配置关闭，需确认级别的命令将直接执行；
-                                // 严格禁止（denied）的命令不受此开关影响，仍会被拦截。
-                                logger.warn("bash 确认已全局关闭（require_confirmation=false），" +
+                            // 跳过确认的两种情况：① 用户关闭了"需确认"开关；② 宽松权限模式（放开全目录，跳过确认）。
+                            // 严格禁止（denied）的命令不受影响，无论什么模式仍会被拦截。
+                            boolean skipConfirm = !Config.getInstance().getTools().getBash().isRequireConfirmation()
+                                    || Config.getInstance().getTools().isModeRelaxed();
+                            if (skipConfirm) {
+                                logger.warn("bash 确认已跳过（require_confirmation=false 或宽松模式），" +
                                         "需确认命令直接执行: sessionId={}, command={}, riskLevel={}",
                                     sessionId, command, hookResult.getRiskLevel());
                                 // 放行，走到下方的流式执行逻辑
@@ -766,7 +767,9 @@ public class WebAgentOrchestrator {
                     }
 
                     // 检查配置：是否需要用户确认
-                    boolean requireConfirm = Config.getInstance().getTools().getDeleteFile().isRequireConfirmation();
+                    // 宽松模式或关闭确认开关时直接执行，不弹确认卡片
+                    boolean requireConfirm = Config.getInstance().getTools().getDeleteFile().isRequireConfirmation()
+                            && !Config.getInstance().getTools().isModeRelaxed();
 
                     if (requireConfirm) {
                         // 需要用户确认

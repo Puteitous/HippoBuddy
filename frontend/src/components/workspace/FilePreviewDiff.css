@@ -19,10 +19,17 @@
   font-style: italic;
 }
 
+/* 表格宽度随内容自适应(max-content):长代码行会把表格撑宽,超出容器时由
+   .file-preview-diff(overflow:auto)产生横向滚动条;min-width:100% 保证内容
+   较短的 diff 仍填满容器,不因表格缩到内容宽而在 gutter 右侧留白。
+   (旧版 table-layout:fixed + width:100% 会把表格锁死在容器宽,配合
+    .diff-content 的 white-space:pre + overflow:hidden,导致超宽内容被直接裁掉,
+    面板窄时既无横向滚动条也看不见内容 —— 现改为 content-driven,对齐 VS Code/GitHub) */
 .diff-table {
   border-collapse: collapse;
-  width: 100%;
-  table-layout: fixed;
+  table-layout: auto;
+  width: max-content;
+  min-width: 100%;
 }
 
 .diff-col-gutter {
@@ -69,10 +76,11 @@
   font-weight: 600;
 }
 
+/* 内容不折行(white-space:pre 保留代码行语义);去掉 overflow:hidden,
+   让长行真实撑开单元格宽度,配合 .diff-table 的 width:max-content 触发横向滚动 */
 .diff-content {
   padding: 0 8px !important;
   white-space: pre;
-  overflow: hidden;
 }
 
 .diff-line {
@@ -82,6 +90,177 @@
   font-size: inherit;
   white-space: pre;
   overflow: visible;
+}
+
+/* ── diff 语法高亮配色 → 复用全局 --hl-* 变量(对齐 highlight.js github/github-dark) ──
+   类名来自 highlight.js 输出的 hljs-* token;这里显式给出兜底色值,
+   保证 diff 视图单独打开时(尚未渲染其它 hljs 容器)颜色依旧稳定,
+   且与 MessageBubble 的代码高亮配色保持一致。 */
+.diff-line .hljs {
+  color: var(--hl-text, #24292e);
+  background: transparent;
+}
+
+.diff-line .hljs-doctag,
+.diff-line .hljs-keyword,
+.diff-line .hljs-meta .hljs-keyword,
+.diff-line .hljs-template-tag,
+.diff-line .hljs-template-variable,
+.diff-line .hljs-type,
+.diff-line .hljs-variable.language_ {
+  color: var(--hl-keyword, #d73a49);
+}
+
+.diff-line .hljs-title,
+.diff-line .hljs-title.class_,
+.diff-line .hljs-title.class_.inherited__,
+.diff-line .hljs-title.function_ {
+  color: var(--hl-title, #6f42c1);
+}
+
+.diff-line .hljs-attr,
+.diff-line .hljs-attribute,
+.diff-line .hljs-literal,
+.diff-line .hljs-meta,
+.diff-line .hljs-number,
+.diff-line .hljs-operator,
+.diff-line .hljs-variable,
+.diff-line .hljs-selector-attr,
+.diff-line .hljs-selector-class,
+.diff-line .hljs-selector-id {
+  color: var(--hl-constant, #005cc5);
+}
+
+.diff-line .hljs-regexp,
+.diff-line .hljs-string,
+.diff-line .hljs-meta .hljs-string {
+  color: var(--hl-string, #032f62);
+}
+
+.diff-line .hljs-built_in,
+.diff-line .hljs-symbol {
+  color: var(--hl-builtin, #e36209);
+}
+
+.diff-line .hljs-comment,
+.diff-line .hljs-code,
+.diff-line .hljs-formula {
+  color: var(--hl-comment, #6a737d);
+}
+
+.diff-line .hljs-name,
+.diff-line .hljs-quote,
+.diff-line .hljs-selector-tag,
+.diff-line .hljs-selector-pseudo {
+  color: var(--hl-tag, #22863a);
+}
+
+.diff-line .hljs-subst {
+  color: var(--hl-text, #24292e);
+}
+
+.diff-line .hljs-section {
+  color: var(--hl-section, #005cc5);
+  font-weight: bold;
+}
+
+.diff-line .hljs-bullet {
+  color: var(--hl-bullet, #735c0f);
+}
+
+.diff-line .hljs-emphasis {
+  color: var(--hl-text, #24292e);
+  font-style: italic;
+}
+
+.diff-line .hljs-strong {
+  color: var(--hl-text, #24292e);
+  font-weight: bold;
+}
+
+.diff-line .hljs-addition {
+  color: var(--hl-add, #22863a);
+  background-color: var(--hl-add-bg, #f0fff4);
+}
+
+.diff-line .hljs-deletion {
+  color: var(--hl-del, #b31d28);
+  background-color: var(--hl-del-bg, #ffeef0);
+}
+
+/* 深色系:diff 高亮钉到 github-dark 配色 */
+[data-theme="dark"] .diff-line .hljs {
+  color: var(--hl-text, #c9d1d9);
+}
+[data-theme="dark"] .diff-line .hljs-doctag,
+[data-theme="dark"] .diff-line .hljs-keyword,
+[data-theme="dark"] .diff-line .hljs-meta .hljs-keyword,
+[data-theme="dark"] .diff-line .hljs-template-tag,
+[data-theme="dark"] .diff-line .hljs-template-variable,
+[data-theme="dark"] .diff-line .hljs-type,
+[data-theme="dark"] .diff-line .hljs-variable.language_ {
+  color: var(--hl-keyword, #ff7b72);
+}
+[data-theme="dark"] .diff-line .hljs-title,
+[data-theme="dark"] .diff-line .hljs-title.class_,
+[data-theme="dark"] .diff-line .hljs-title.class_.inherited__,
+[data-theme="dark"] .diff-line .hljs-title.function_ {
+  color: var(--hl-title, #d2a8ff);
+}
+[data-theme="dark"] .diff-line .hljs-attr,
+[data-theme="dark"] .diff-line .hljs-attribute,
+[data-theme="dark"] .diff-line .hljs-literal,
+[data-theme="dark"] .diff-line .hljs-meta,
+[data-theme="dark"] .diff-line .hljs-number,
+[data-theme="dark"] .diff-line .hljs-operator,
+[data-theme="dark"] .diff-line .hljs-variable,
+[data-theme="dark"] .diff-line .hljs-selector-attr,
+[data-theme="dark"] .diff-line .hljs-selector-class,
+[data-theme="dark"] .diff-line .hljs-selector-id {
+  color: var(--hl-constant, #79c0ff);
+}
+[data-theme="dark"] .diff-line .hljs-regexp,
+[data-theme="dark"] .diff-line .hljs-string,
+[data-theme="dark"] .diff-line .hljs-meta .hljs-string {
+  color: var(--hl-string, #a5d6ff);
+}
+[data-theme="dark"] .diff-line .hljs-built_in,
+[data-theme="dark"] .diff-line .hljs-symbol {
+  color: var(--hl-builtin, #ffa657);
+}
+[data-theme="dark"] .diff-line .hljs-comment,
+[data-theme="dark"] .diff-line .hljs-code,
+[data-theme="dark"] .diff-line .hljs-formula {
+  color: var(--hl-comment, #8b949e);
+}
+[data-theme="dark"] .diff-line .hljs-name,
+[data-theme="dark"] .diff-line .hljs-quote,
+[data-theme="dark"] .diff-line .hljs-selector-tag,
+[data-theme="dark"] .diff-line .hljs-selector-pseudo {
+  color: var(--hl-tag, #7ee787);
+}
+[data-theme="dark"] .diff-line .hljs-subst {
+  color: var(--hl-text, #c9d1d9);
+}
+[data-theme="dark"] .diff-line .hljs-section {
+  color: var(--hl-section, #1f6feb);
+}
+[data-theme="dark"] .diff-line .hljs-bullet {
+  color: var(--hl-bullet, #f2cc60);
+}
+[data-theme="dark"] .diff-line .hljs-emphasis {
+  color: var(--hl-text, #c9d1d9);
+}
+[data-theme="dark"] .diff-line .hljs-strong {
+  color: var(--hl-text, #c9d1d9);
+}
+[data-theme="dark"] .diff-line .hljs-addition {
+  color: var(--hl-add, #aff5b4);
+  background-color: var(--hl-add-bg, #033a16);
+}
+[data-theme="dark"] .diff-line .hljs-deletion {
+  color: var(--hl-del, #ffdcd7);
+  background-color: var(--hl-del-bg, #67060c);
 }
 
 /* equal 行:整行统一窗口底色 */
@@ -180,7 +359,7 @@
 .diff-row.diff-hunk td {
   text-align: center;
   padding: 3px 12px !important;
-  background: var(--hb-gutter-bg, #f9fafb);
+  background: var(--hb-bg);
   color: var(--hb-text-soft, #9ca3af);
 }
 
@@ -242,7 +421,7 @@
   }
 
   .diff-row.diff-hunk td {
-    background: var(--hb-gutter-bg-dark, #242424);
+    background: var(--hb-bg-dark);
     color: var(--hb-text-soft-dark, #6b7280);
   }
 

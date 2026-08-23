@@ -50,6 +50,10 @@ function applyDataTheme(theme: Theme): void {
   }
 }
 
+// 模块加载即同步应用已保存主题,避免刷新后首帧回落到 CSS prefers-color-scheme 兜底
+// (系统深色时闪一下深色 hero)。对齐旧版 main.js initTheme 中的同步 setAttribute 行为。
+applyDataTheme(readStoredTheme() ?? 'system');
+
 interface ThemeState {
   /** 当前主题(含 system) */
   theme: Theme;

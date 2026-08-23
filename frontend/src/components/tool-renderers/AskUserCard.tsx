@@ -64,6 +64,13 @@ export function AskUserCard({ record }: AskUserCardProps = {}) {
   // 均无数据(未收到 waiting_user,且无历史记录)时不渲染
   if (!askUserData && !record) return null;
 
+  // 后端经 JSON 序列化传递时,真实换行可能被编码为字面转义序列(如 "\n\n"),
+  // 这类字符不被 white-space: pre-wrap 识别,会原样显示。统一还原为真实换行,
+  // 交由 CSS pre-wrap 正确排版(对齐旧版 <br> 换行语义)。
+  const normalizeBreaks = (s: string) => s.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+  const displayQuestion = normalizeBreaks(question);
+  const displayAnswer = answered != null ? normalizeBreaks(answered) : null;
+
   // 仅"实时等待且未答复"才可交互;record 存在(历史/固化)或已答复一律只读,
   // 避免跨会话误提交,并保证刷新重建的卡片不会激活错误交互。
   const interactive = !fromRecord && answered == null && waitingForUser;
@@ -107,12 +114,12 @@ export function AskUserCard({ record }: AskUserCardProps = {}) {
       defaultExpanded={interactive}
       collapsible={!interactive}
     >
-      <div className="ask-user-question">{question}</div>
+      <div className="ask-user-question">{displayQuestion}</div>
 
       {answered != null ? (
         <div className="ask-user-answer">
           <span className="ask-user-answer-label">已回复</span>
-          <span>{answered}</span>
+          <span className="ask-user-answer-text">{displayAnswer}</span>
         </div>
       ) : (
         options.length > 0 && (

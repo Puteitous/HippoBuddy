@@ -10,7 +10,7 @@
  *      在资源管理器中显示、在终端中打开
  *   6. 刷新(保留展开 + 高亮,refreshToken 变化时重载)、折叠全部
  *
- * 尚未对齐(留后续):拖拽移动、紧凑目录链合并(a › b › c)。
+ * 尚未对齐(留后续):拖拽移动。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -35,6 +35,66 @@ interface FileTreeProps {
 
 /** 展开状态持久化 key(按 rootPath 分别保存,对齐旧版会话级持久化) */
 const EXPANDED_KEY = 'hippo-file-tree-expanded';
+
+/** 单链目录折叠最大探测深度(对齐旧版 FileTree.js _compactMaxDepth) */
+const COMPACT_MAX_DEPTH = 5;
+
+/**
+ * compact 检测用的 readDir 结果缓存,避免逐层重复读目录。
+ * 在每次整体刷新 / 路径切换时由 clearCompactCache 清空。
+ */
+const compactReadDirCache = new Map<string, DirEntry[] | null>();
+
+function clearCompactCache(): void {
+  compactReadDirCache.clear();
+}
+
+/** 带缓存的 readDir(供 resolveCompactChain 使用) */
+async function readDirCached(dirPath: string): Promise<DirEntry[] | null> {
+  const cached = compactReadDirCache.get(dirPath);
+  if (cached !== undefined) return cached;
+  const entries = await desktopBridge.readDir(dirPath);
+  compactReadDirCache.set(dirPath, entries ?? null);
+  return entries ?? null;
+}
+
+/**
+ * 单链目录折叠结果:chain 为后续链上目录名,leafDir 为链最深目录完整路径
+ */
+interface CompactChain {
+  chain: string[];
+  leafDir: string;
+}
+
+/**
+ * 检测从 startPath 开始是否存在"单链"嵌套目录。
+ * 单链:每层只有 1 个子目录且没有文件,一直延伸到分叉处(有文件 / 多个目录则停止)。
+ * 返回 { chain, leafDir } 或 null。chain 不包含 startPath 本身的 name,只含后续链上目录名。
+ */
+async function resolveCompactChain(
+  startPath: string,
+): Promise<CompactChain | null> {
+  const names: string[] = [];
+  let currentPath = startPath;
+
+  for (let i = 0; i < COMPACT_MAX_DEPTH; i++) {
+    const entries = await readDirCached(currentPath);
+    if (!entries) return null;
+
+    const dirs = entries.filter((e) => e.isDirectory && !e.name.startsWith('.'));
+    const files = entries.filter((e) => !e.isDirectory && !e.name.startsWith('.'));
+
+    // 有文件或非单目录 → 不是单链,停止
+    if (files.length > 0) break;
+    if (dirs.length !== 1) break;
+
+    names.push(dirs[0].name);
+    currentPath = joinPath(currentPath, dirs[0].name);
+  }
+
+  if (names.length === 0) return null;
+  return { chain: names, leafDir: currentPath };
+}
 
 function readExpanded(rootPath: string): Set<string> {
   try {
@@ -88,6 +148,8 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
 
   // ── 根目录加载(路径变化 / 内部刷新 / 外部 refreshToken 变化时) ──
   useEffect(() => {
+    // 刷新 / 切路径时 compact 检测缓存失效(对齐旧版 _doRefresh 清空 _readDirCache)
+    clearCompactCache();
     const rootChanged = prevRootRef.current !== rootPath;
     prevRootRef.current = rootPath;
     if (rootChanged) {
@@ -463,7 +525,29 @@ function FileTreeNode({
 }: FileTreeNodeProps) {
   const fullPath = joinPath(rootPath, entry.name);
   const isDir = entry.isDirectory;
-  const expanded = expandedDirs.has(fullPath);
+
+  // 单链紧凑折叠检测:对目录异步探测是否存在只含单目录的嵌套链
+  const [compact, setCompact] = useState<CompactChain | null>(null);
+  useEffect(() => {
+    if (!isDir) {
+      setCompact(null);
+      return;
+    }
+    let cancelled = false;
+    void resolveCompactChain(fullPath).then((c) => {
+      if (!cancelled) setCompact(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDir, fullPath, treeVersion]);
+
+  // compact 生效时,本节点代表链最深目录(leafDir),展开 key / 加载 / 跳转均以它为基准
+  const dirPath = compact ? compact.leafDir : fullPath;
+  // 合并展示名:如 "src › components › ui"
+  const displayName = compact ? `${entry.name} › ${compact.chain.join(' › ')}` : entry.name;
+  const expanded = expandedDirs.has(dirPath);
+
   const [children, setChildren] = useState<DirEntry[] | null>(null);
   const [childrenLoading, setChildrenLoading] = useState(false);
 
@@ -473,7 +557,7 @@ function FileTreeNode({
     let cancelled = false;
     setChildrenLoading(true);
     (async () => {
-      const entries = await desktopBridge.readDir(fullPath);
+      const entries = await desktopBridge.readDir(dirPath);
       if (cancelled) return;
       setChildren(entries ? sortEntries(entries) : []);
       setChildrenLoading(false);
@@ -481,28 +565,28 @@ function FileTreeNode({
     return () => {
       cancelled = true;
     };
-  }, [isDir, expanded, fullPath, treeVersion]);
+  }, [isDir, expanded, dirPath, treeVersion]);
 
-  const isActive = activePath === fullPath;
-  const relativePath = rootPath && fullPath.startsWith(rootPath + '/')
-    ? fullPath.slice(rootPath.length + 1)
-    : fullPath;
+  const isActive = activePath === dirPath;
+  const relativePath = rootPath && dirPath.startsWith(rootPath + '/')
+    ? dirPath.slice(rootPath.length + 1)
+    : dirPath;
   const status = gitFiles ? gitFiles[relativePath] : undefined;
   const indentStyle = useMemo(() => ({ paddingLeft: `${depth * 14 + 8}px` }), [depth]);
 
   const handleClick = useCallback(() => {
-    if (isDir) onToggle(fullPath);
-    else onFileSelect(fullPath);
-  }, [isDir, fullPath, onToggle, onFileSelect]);
+    if (isDir) onToggle(dirPath);
+    else onFileSelect(dirPath);
+  }, [isDir, dirPath, onToggle, onFileSelect]);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
       // 文件与文件夹均可拖入输入框生成引用芯片(对齐旧版 FileTree.js)
-      e.dataTransfer.setData('text/plain', fullPath);
+      e.dataTransfer.setData('text/plain', dirPath);
       e.dataTransfer.setData('text/x-hippo-type', isDir ? 'directory' : 'file');
       e.dataTransfer.effectAllowed = 'copyMove';
     },
-    [isDir, fullPath],
+    [isDir, dirPath],
   );
 
   // 目录作为拖放目标:允许落点,设置高亮(仅目录)
@@ -514,9 +598,9 @@ function FileTreeNode({
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
-      onDragOverChange(fullPath);
+      onDragOverChange(dirPath);
     },
-    [isDir, fullPath, onDragOverChange],
+    [isDir, dirPath, onDragOverChange],
   );
 
   // 移出目标目录(未进入其子节点)时清除高亮
@@ -539,15 +623,15 @@ function FileTreeNode({
       const sourcePath = e.dataTransfer.getData('text/plain');
       if (!sourcePath) return;
       // 禁止拖到自身 或 自己的子目录(对齐旧版 FileTree.js)
-      if (sourcePath === fullPath || sourcePath.startsWith(fullPath + '/')) return;
+      if (sourcePath === dirPath || sourcePath.startsWith(dirPath + '/')) return;
       const fileName = sourcePath.split('/').pop() || sourcePath;
-      onMoveTo({ sourcePath, destPath: joinPath(fullPath, fileName), fileName });
+      onMoveTo({ sourcePath, destPath: joinPath(dirPath, fileName), fileName });
     },
-    [isDir, fullPath, onDragOverChange, onMoveTo],
+    [isDir, dirPath, onDragOverChange, onMoveTo],
   );
 
   // 当前是否为高亮目标目录
-  const isDragOver = isDir && dragOverPath === fullPath;
+  const isDragOver = isDir && dragOverPath === dirPath;
 
   return (
     <li role="treeitem" aria-expanded={isDir ? expanded : undefined} className="file-tree-node-wrap">
@@ -558,6 +642,7 @@ function FileTreeNode({
           isActive ? 'active' : '',
           expanded ? 'expanded' : '',
           isDragOver ? 'drag-over' : '',
+          compact ? 'is-compact' : '',
           status ? `status-${status.toLowerCase()}` : '',
         ].join(' ').trim()}
         style={indentStyle}
@@ -567,7 +652,7 @@ function FileTreeNode({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={handleClick}
-        onContextMenu={(e) => onContextMenu(e, fullPath, isDir)}
+        onContextMenu={(e) => onContextMenu(e, dirPath, isDir)}
       >
         <span className="file-tree-toggle">
           {isDir ? (
@@ -583,8 +668,8 @@ function FileTreeNode({
             <FileTypeIcon fileName={entry.name} size={14} />
           )}
         </span>
-        <span className="file-tree-name" title={entry.name}>
-          {entry.name}
+        <span className={compact ? 'file-tree-name file-tree-name-compact' : 'file-tree-name'} title={displayName}>
+          {displayName}
         </span>
         {status && <span className={`file-tree-status-badge status-${status.toLowerCase()}`}>{status}</span>}
       </div>
@@ -595,8 +680,8 @@ function FileTreeNode({
           ) : children && children.length > 0 ? (
             children.map((child) => (
               <FileTreeNode
-                key={joinPath(fullPath, child.name)}
-                rootPath={fullPath}
+                key={joinPath(dirPath, child.name)}
+                rootPath={dirPath}
                 entry={child}
                 depth={depth + 1}
                 expandedDirs={expandedDirs}

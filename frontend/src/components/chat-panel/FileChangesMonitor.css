@@ -12,10 +12,11 @@
   flex-direction: column;
   position: absolute;
   bottom: calc(100% + 6px);
+  /* 默认围绕触发点居中;--popover-x 由 JS 在越出 .chat-panel 边界时平移回退(智能居中) */
   left: 50%;
-  transform: translateX(-50%);
-  min-width: 260px;
-  max-width: 340px;
+  transform: translateX(calc(-50% + var(--popover-x, 0px)));
+  min-width: 280px;
+  max-width: 400px;
   max-height: 340px;
   background: var(--bg-white);
   border: 1px solid var(--border);
@@ -29,11 +30,9 @@
 @keyframes fcm-popover-in {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
   }
 }
 
@@ -127,6 +126,30 @@
   font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+/* 文件自身的净变化行数 +x/-y(复用汇总条 fcs-add/fcs-del 配色,字号更小) */
+.chat-panel-files-stats {
+  flex-shrink: 0;
+  display: inline-flex;
+  gap: 4px;
+  font-size: 10px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.chat-panel-files-stats .fcs-add,
+.chat-panel-files-stats .fcs-del {
+  display: inline-block;
+}
+
+.chat-panel-files-stats .fcs-add {
+  color: var(--success-color);
+}
+
+.chat-panel-files-stats .fcs-del {
+  color: var(--error-color);
 }
 
 .chat-panel-files-status {

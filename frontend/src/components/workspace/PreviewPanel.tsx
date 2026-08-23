@@ -16,6 +16,7 @@ import type { FileTab } from '@/types';
 import { FileTabs } from './FileTabs';
 import { FilePreview } from './FilePreview';
 import { FileDiffView } from './FileDiffView';
+import { WebPreviewBrowser } from './WebPreviewBrowser';
 import './PreviewPanel.css';
 
 export function PreviewPanel() {
@@ -31,7 +32,9 @@ export function PreviewPanel() {
   const setActivePath = usePreviewStore((s) => s.setActivePath);
   const forceReload = usePreviewStore((s) => s.forceReload);
   const replaceTabs = usePreviewStore((s) => s.replaceTabs);
+  const updateWebUrl = usePreviewStore((s) => s.updateWebUrl);
   const collapsed = usePreviewStore((s) => s.collapsed);
+  const deepLinkTick = usePreviewStore((s) => s.deepLinkTick);
 
   // 订阅回调里读取最新 activePath(避免闭包捕获过期值)
   const activePathRef = useRef<string | null>(null);
@@ -219,11 +222,20 @@ export function PreviewPanel() {
         onReorder={reorderTabs}
       />
       <div className="preview-panel-content">
+        {/* 主可视区:同一时刻仅渲染一份内容 —— diff、内嵌浏览器 或 文件预览。
+            切走 web 标签即卸载(预览区不残留浏览器),切回时按记忆地址开 WebPreviewBrowser 重载 */}
         {activeTab.mode === 'diff' ? (
           <FileDiffView
             key={`diff-${activePath}-${activeTab.toolCallId ?? ''}`}
             filePath={activePath}
             toolCallId={activeTab.toolCallId}
+          />
+        ) : activeTab.mode === 'web' ? (
+          <WebPreviewBrowser
+            key={activePath}
+            url={activeTab.url ?? activePath}
+            displayName={activeTab.name}
+            onNavigate={(url) => updateWebUrl(activePath, url)}
           />
         ) : (
           <FilePreview
@@ -231,6 +243,7 @@ export function PreviewPanel() {
             filePath={activePath}
             startLine={activeTab.startLine}
             endLine={activeTab.endLine}
+            deepLinkTick={deepLinkTick}
           />
         )}
       </div>

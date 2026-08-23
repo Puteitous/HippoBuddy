@@ -15,6 +15,7 @@
   /* ChatNav(.chat-nav-strip 绝对定位)以 .chat-panel 为定位基准 */
   position: relative;
   background: var(--bg-chat, var(--bg-app));
+  border-radius: var(--radius-lg);
 }
 
 .chat-panel-empty {
@@ -291,6 +292,107 @@
   min-width: 0;
 }
 
+/* 权限模式徽章(输入框底部状态栏左侧) */
+.permission-badge {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.permission-badge-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.permission-badge-btn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-code);
+}
+
+.permission-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.permission-badge-dot.strict {
+  background: var(--accent);
+}
+
+.permission-badge-dot.relaxed {
+  background: var(--success, #16a34a);
+}
+
+.permission-badge-text {
+  line-height: 1;
+}
+
+.permission-badge-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  background: var(--bg-elevated, var(--bg-code));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.permission-badge-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: background var(--transition-fast);
+}
+
+.permission-badge-opt:hover {
+  background: var(--bg-code);
+}
+
+.permission-badge-opt.selected {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.permission-badge-opt-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.permission-badge-opt-dot.strict {
+  background: var(--accent);
+}
+
+.permission-badge-opt-dot.relaxed {
+  background: var(--success, #16a34a);
+}
+
 /* 状态栏右侧动作(发送/停止,对齐旧版 .status-bar-actions) */
 .chat-panel-status-actions {
   display: flex;
@@ -395,26 +497,61 @@
 }
 
 .chat-panel-title-group {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0;
   min-width: 0;
 }
 
-.chat-panel-project {
-  font-size: var(--font-size-xs);
+/* 标题悬浮面板:展示完整项目路径 + 当前模式(hover 触发,纯 CSS) */
+.chat-panel-title-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+  max-width: 360px;
+  padding: 8px 10px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-2px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  pointer-events: none;
+}
+
+.chat-panel-title-group:hover .chat-panel-title-popover {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.popover-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.popover-label {
+  font-size: 10px;
+  line-height: 1.3;
   color: var(--text-muted);
   user-select: none;
-  margin-left: 6px;
-  margin-top: 3px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  line-height: 1.2;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.popover-value {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  word-break: break-all;
 }
 
 /* ── 头部操作按钮 ──────────────────────────────────── */
