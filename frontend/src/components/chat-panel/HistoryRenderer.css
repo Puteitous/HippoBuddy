@@ -96,5 +96,6 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 6px;
+  /* 紧贴上方回合(收尾块):不再额外悬空 */
+  margin-top: 0;
 }

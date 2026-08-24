@@ -243,10 +243,12 @@
 
 /* ── 行内确认区(bash/delete_file 待确认,对齐旧版内嵌确认卡片) ─── */
 .timeline-detail-confirmation {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--risk-border, var(--border-color));
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--bg-white);
+  /* 暗色下为 #262626(38,38,38),浅色下为 #edeff2,比聊天背景更明显的卡片底 */
+  background: var(--bg-canvas);
+  box-shadow: var(--shadow-sm, none);
 }
 
 .timeline-detail-confirmation.high {
@@ -271,8 +273,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  background: var(--bg-app);
+  padding: 10px 12px;
+  background: transparent;
 }
 
 .confirmation-header-icon {
@@ -286,7 +288,8 @@
 }
 
 .confirmation-header-title {
-  flex: 1;
+  /* 不占满剩余空间,让右侧风险徽章紧贴标题(而非推到最右) */
+  flex: none;
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-primary);
@@ -296,9 +299,9 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 1px 7px;
-  border-radius: 10px;
-  font-size: 10px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   background: var(--risk-bg);
@@ -308,20 +311,23 @@
 }
 
 .confirmation-body {
-  padding: 0 0 10px;
+  padding: 12px;
   max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .confirmation-command {
-  margin-bottom: 8px;
+  margin: 0;
 }
 
 .confirmation-command pre {
   margin: 0;
-  padding: 8px 12px;
-  background: var(--bg-code);
-  border-radius: 0;
-  border-left: none;
+  padding: 10px 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   overflow-x: auto;
 }
 
@@ -337,8 +343,7 @@
 .confirmation-reason {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  padding: 0 12px;
-  margin-bottom: 8px;
+  margin: 0;
   line-height: 1.5;
 }
 
@@ -346,48 +351,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 12px;
+  padding: 0;
 }
 
 .confirmation-buttons {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
 }
 
-/* ── delete_file 确认 - 单文件(内联) ──────────────────── */
-.delete-file-simple {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 12px 4px;
-}
-
-.delete-file-simple .delete-file-icon {
-  flex-shrink: 0;
-  color: #dc2626;
-  margin-top: 2px;
-}
-
-.delete-file-simple .delete-file-label {
-  flex-shrink: 0;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.delete-file-simple .delete-file-path {
-  font-size: var(--font-size-sm);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  word-break: break-all;
-  font-weight: 450;
-}
-
-/* ── delete_file 确认 - 多文件(列表) ──────────────────── */
+/* ── delete_file 确认 - 文件列表(单文件/多文件统一) ──────── */
 .delete-file-multi {
-  padding: 8px 4px;
+  padding: 0;
 }
 
 .delete-file-multi-header {
@@ -401,36 +376,33 @@
 
 .delete-file-multi-header .delete-file-icon {
   flex-shrink: 0;
-  color: #dc2626;
+  color: var(--error-color);
 }
 
 .delete-file-multi-list {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding-left: 10px;
+  padding: 10px 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
 }
 
 .delete-file-list-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: var(--font-size-xs);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-sans);
   color: var(--text-secondary);
   line-height: 1.7;
   word-break: break-all;
-  padding-left: 15px;
-  position: relative;
 }
 
-.delete-file-list-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 9px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  opacity: 0.6;
+.delete-file-item-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
 /* ── 详情:输出 ────────────────────────────────────────── */

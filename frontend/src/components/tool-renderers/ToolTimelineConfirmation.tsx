@@ -8,13 +8,37 @@
 import { useState } from 'react';
 import { chatApi } from '@/api/client';
 import { ApiError } from '@/api/error';
+import { translate } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
+import { FileIcon } from '@/components/FileIcon';
+import { FileTypeIcon } from '@/components/FileTypeIcon';
 import type {
   BashToolConfirmationPayload,
   DeleteFileToolConfirmationPayload,
   ToolConfirmationPayload,
 } from '@/types/sse';
+
+/** 翻译后端返回的 riskReason。
+ *  后端以 "i18n:key:param=value" 格式返回 i18n key(对齐旧版 confirmation.js),
+ *  解析 key 与参数后经前端字典翻译;不带 i18n: 前缀的旧格式原样返回。 */
+function translateRiskReason(reason: string): string {
+  if (!reason || !reason.startsWith('i18n:')) return reason;
+  const body = reason.slice(5);
+  const colonIdx = body.indexOf(':');
+  const key = colonIdx > 0 ? body.slice(0, colonIdx) : body;
+  const params: Record<string, string> = {};
+  if (colonIdx > 0) {
+    for (const seg of body.slice(colonIdx + 1).split(':')) {
+      const eqIdx = seg.indexOf('=');
+      if (eqIdx > 0) {
+        params[seg.slice(0, eqIdx)] = decodeURIComponent(seg.slice(eqIdx + 1));
+      }
+    }
+  }
+  const translated = translate(key, params);
+  return translated === key ? reason : translated;
+}
 
 /** 判定确认数据是否为 delete_file */
 function isDeleteFilePayload(
@@ -156,33 +180,32 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
         )}
 
         {isBash && confirmationData.riskReason && (
-          <div className="confirmation-reason">{confirmationData.riskReason}</div>
+          <div className="confirmation-reason">{translateRiskReason(confirmationData.riskReason)}</div>
         )}
 
-        {isDelete &&
-          (deleteItems.length === 1 ? (
-            <div className="delete-file-simple">
+        {isDelete && (
+          <div className="delete-file-multi">
+            <div className="delete-file-multi-header">
               <TrashIcon />
-              <span className="delete-file-label">删除:</span>
-              <span className="delete-file-path">{deleteItems[0]}</span>
+              <span>
+                删除 <strong>{deleteItems.length}</strong> 个文件
+              </span>
             </div>
-          ) : (
-            <div className="delete-file-multi">
-              <div className="delete-file-multi-header">
-                <TrashIcon />
-                <span>
-                  删除 <strong>{deleteItems.length}</strong> 个文件
-                </span>
-              </div>
-              <div className="delete-file-multi-list">
-                {deleteItems.map((f, i) => (
-                  <div key={`item-${i}`} className="delete-file-list-item">
-                    {f}
-                  </div>
-                ))}
-              </div>
+            <div className="delete-file-multi-list">
+              {deleteItems.map((f, i) => (
+                <div key={`item-${i}`} className="delete-file-list-item">
+                  {/* 目录(以 / 结尾)用文件夹图标,文件用文件树同款按类型彩色图标 */}
+                  {f.endsWith('/') ? (
+                    <FileIcon kind="folder" size={13} className="delete-file-item-icon" />
+                  ) : (
+                    <FileTypeIcon fileName={f} size={13} className="delete-file-item-icon" />
+                  )}
+                  <span>{f}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+        )}
 
         {error && <div className="timeline-detail-error">{error}</div>}
 

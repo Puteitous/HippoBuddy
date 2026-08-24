@@ -525,6 +525,12 @@ export const zh: Record<string, string> = {
   'tool.confirm.deny': '拒绝',
   'tool.confirm.execute': '执行',
 
+  /* 后端 Bash 拦截器 riskReason(i18n:key 前缀),需在此翻译 */
+  'blocker.bash.chainedCommand': '检测到链式命令，请确认后执行',
+  'blocker.bash.localScript': '执行本地脚本可能带来未知风险',
+  'blocker.bash.sideEffect': '命令 "{cmd}" 可能有副作用，请确认后执行',
+  'blocker.bash.unknownCommand': '未知命令 "{cmd}"，请确认安全后执行',
+
   'tool.askUser.title': '需要确认',
   'tool.todo.title': '任务清单',
   'tool.todo.unnamed': '未命名任务',
@@ -1402,6 +1408,12 @@ export const en: Record<string, string> = {
   'tool.confirm.lowRisk': 'Low Risk',
   'tool.confirm.deny': 'Deny',
   'tool.confirm.execute': 'Execute',
+
+  /* Bash blocker riskReason (i18n:key prefix) */
+  'blocker.bash.chainedCommand': 'Chained command detected, please confirm to execute',
+  'blocker.bash.localScript': 'Executing local script may introduce unknown risks',
+  'blocker.bash.sideEffect': 'Command "{cmd}" may have side effects, please confirm to execute',
+  'blocker.bash.unknownCommand': 'Unknown command "{cmd}", please confirm it is safe to execute',
 
   'tool.askUser.title': 'Confirmation Required',
   'tool.todo.title': 'Task List',

@@ -1089,6 +1089,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       updateSession(sid, (s) => {
         s.messages = [...s.messages, ...additions];
         s.stream = [];
+        // 固化即最终定稿:置 false,避免中止流后(abort 不再收到 reasoning_done)
+        // isReasoning 永远卡 true,导致 ChatPanel tail 仍以 hasThinking=true 包一个
+        // 空 body 的 ProcessSection,与已固化回合的 process-{roundKey} 重 key,
+        // 出现双摘要条 / React 重复 key 告警。
+        s.isReasoning = false;
         // 保留待确认(未决策)的工具记录:确认区需在流结束后仍可见(对齐旧版回合级
         // 行内确认),由 ChatPanel.pendingConfirmRecords 独立渲染;决策后 confirmationData
         // 被清除(completeToolCall),下次固化为普通已执行记录。

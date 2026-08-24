@@ -33,6 +33,7 @@ import { HistoryRenderer } from './HistoryRenderer';
 import { ProcessSection } from './ProcessSection';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
+import { ToolTimelineConfirmation } from '../tool-renderers/ToolTimelineConfirmation';
 import {
   fromToolCallRecord,
   TIMELINE_STANDALONE_TOOLS,
@@ -665,12 +666,16 @@ export function ChatPanel() {
                 直到用户决策(confirmTool)清除 confirmationData 才消失。 */}
             {pendingConfirmRecords.length > 0 && (
               <div className="history-confirm-zone">
-                {pendingConfirmRecords.map((tc) => (
-                  <ToolTimeline
-                    key={`confirm-${tc.id}`}
-                    items={[fromToolCallRecord(tc)]}
-                  />
-                ))}
+                {pendingConfirmRecords.map((tc) =>
+                  tc.confirmationData ? (
+                    // 直接渲染自足的确认块(命令+风险+允许/拒绝),不再包一层
+                    // ToolTimeline,避免出现冗余的 bash 摘要行(命令重复显示+多余复制按钮)。
+                    <ToolTimelineConfirmation
+                      key={`confirm-${tc.id}`}
+                      confirmationData={tc.confirmationData}
+                    />
+                  ) : null,
+                )}
               </div>
             )}
         {/* 错误提示 */}
