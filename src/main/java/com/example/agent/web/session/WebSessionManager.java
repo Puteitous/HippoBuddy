@@ -545,6 +545,47 @@ public class WebSessionManager implements SessionManager {
     }
 
     /**
+     * 将会话置顶状态持久化到 session.json。
+     * <p>
+     * 由 SessionApiHandler 的 POST /api/sessions/{id}/pin 调用。置顶状态与
+     * mode/workspacePath/lastActivityAt 同文件共存，跨重启稳定。读取时由
+     * {@link com.example.agent.web.util.SessionListBuilder#resolvePin} 回填。
+     * </p>
+     *
+     * @param sessionId 会话 ID
+     * @param pinned    是否置顶
+     */
+    public void persistPinToDisk(String sessionId, boolean pinned) {
+        if (sessionId == null) return;
+        try {
+            Path metadataFile = WorkspaceManager.getSessionMetadataFile(sessionId);
+            if (!Files.exists(metadataFile.getParent())) {
+                Files.createDirectories(metadataFile.getParent());
+            }
+
+            Map<String, Object> metadata = new HashMap<>();
+            if (Files.exists(metadataFile)) {
+                try {
+                    byte[] bytes = Files.readAllBytes(metadataFile);
+                    if (bytes.length > 0) {
+                        JsonNode node = objectMapper.readTree(bytes);
+                        if (node.isObject()) {
+                            metadata = objectMapper.convertValue(node, Map.class);
+                        }
+                    }
+                } catch (IOException ignored) {
+                }
+            }
+
+            metadata.put("pinned", pinned);
+            objectMapper.writeValue(metadataFile.toFile(), metadata);
+            logger.debug("持久化置顶状态: sessionId={}, pinned={}", sessionId, pinned);
+        } catch (IOException e) {
+            logger.debug("持久化置顶状态失败: sessionId={}", sessionId, e);
+        }
+    }
+
+    /**
      * 从 session.json 读取会话模式（重启恢复用）。
      * 读取后回填到内存 Map，避免重复读盘。
      */

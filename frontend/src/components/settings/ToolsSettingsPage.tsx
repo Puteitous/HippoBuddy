@@ -102,33 +102,6 @@ export function ToolsSettingsPage() {
       <p className="settings-page-desc">配置内置工具行为与执行策略。</p>
       <hr className="settings-page-divider" />
 
-      {/* 权限范围 */}
-      <div className="settings-field-group-title">权限范围</div>
-      <div className="settings-field-group">
-        <div className="settings-form">
-          <div className="settings-field-horizontal">
-            <label className="settings-field-label">范围</label>
-            <div className="settings-field-body">
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                <select
-                  className="settings-select"
-                  value={tools.mode === 'relaxed' ? 'relaxed' : 'strict'}
-                  onChange={(e) => save({ mode: e.target.value as 'strict' | 'relaxed' })}
-                >
-                  <option value="strict">仅工作区</option>
-                  <option value="relaxed">全目录</option>
-                </select>
-                <div className="settings-field-hint" style={{ marginTop: 6 }}>
-                  权限范围只控制文件访问边界：仅工作区 = 只能操作当前项目目录；全目录 = 放开整机访问。
-                  Bash / 文件删除的确认卡片由下方独立开关控制，与范围无关。
-                  危险命令(如 rm -rf /)无论哪种范围仍会被拦截。
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Bash */}
       <div className="settings-field-group-title">Bash 命令</div>
       <div className="settings-field-group">

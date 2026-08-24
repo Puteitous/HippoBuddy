@@ -485,6 +485,52 @@
   background: var(--bg-app);
 }
 
+/* ========== 置顶区头(位于列表最上方,样式对齐项目分组头,融合不割裂) ========== */
+.session-pinned-header {
+  padding: 7px 8px 6px 10px;
+  margin: 6px 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  border-radius: 6px;
+}
+
+.session-pinned-header svg {
+  color: #f59e0b; /* 图钉强调色,对齐"置顶"语义 */
+  flex-shrink: 0;
+}
+
+/* 置顶会话项轻微强调底色,与普通会话区分(对齐微信置顶视觉) */
+.session-item.session-item-pinned {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+/* ---------- hover 置顶按钮 ---------- */
+.session-actions .pin-action {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.session-actions .pin-action:hover:not(:disabled) {
+  color: #f59e0b;
+  opacity: 1;
+}
+
+/* 已置顶:图钉实心高亮 */
+.session-actions .pin-action.pinned {
+  color: #f59e0b;
+  opacity: 1;
+}
+
+.session-actions .pin-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 /* ========== 项目分组头(对齐旧版 .session-project-header) ========== */
 .session-project-header {
   padding: 7px 8px 6px 10px;

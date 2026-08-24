@@ -7,13 +7,15 @@
  *  - 数据目录(GET/POST /api/settings/data-dir,变更后需重启)
  */
 import { useEffect, useState } from 'react';
-import { workspaceApi, dataDirApi } from '@/api/client';
+import { workspaceApi, dataDirApi, configApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { useAppStore } from '@/stores/appStore';
 import { showToast } from './toastStore';
 import { i18nStore, useI18n } from '@/i18n';
+import { setDefaultProcessView } from '@/utils/process-view-config';
+import type { UiConfigSection, ToolsConfigSection } from '@/types/config';
 
 /** 文件夹图标(对齐旧版 settings-input-btn 浏览按钮) */
 function FolderIcon() {
@@ -51,6 +53,10 @@ export function GeneralSettingsPage() {
   const [dataDirRestartMsg, setDataDirRestartMsg] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** 回合默认展示模式:full=完整展示处理过程;result=只展示最终结果 */
+  const [processView, setProcessView] = useState<'full' | 'result'>('full');
+  /** 权限范围:strict=仅工作区;relaxed=放开整机访问 */
+  const [scopeMode, setScopeMode] = useState<'strict' | 'relaxed'>('strict');
 
   useEffect(() => {
     let cancelled = false;
@@ -58,9 +64,10 @@ export function GeneralSettingsPage() {
       setLoading(true);
       setLoadError(null);
       try {
-        const [ws, dd] = await Promise.allSettled([
+        const [ws, dd, cfg] = await Promise.allSettled([
           workspaceApi.getDefault(),
           dataDirApi.get(),
+          configApi.getFull(),
         ]);
         if (cancelled) return;
         if (ws.status === 'fulfilled') {
@@ -68,6 +75,12 @@ export function GeneralSettingsPage() {
         }
         if (dd.status === 'fulfilled') {
           setDataDir(dd.value.path || '');
+        }
+        if (cfg.status === 'fulfilled') {
+          const v = (cfg.value.ui?.default_process_view === 'result' ? 'result' : 'full');
+          setProcessView(v);
+          setDefaultProcessView(v);
+          setScopeMode(cfg.value.tools?.mode === 'relaxed' ? 'relaxed' : 'strict');
         }
       } catch (e) {
         if (cancelled) return;
@@ -81,6 +94,51 @@ export function GeneralSettingsPage() {
       cancelled = true;
     };
   }, []);
+
+  const handleProcessViewChange = async (value: 'full' | 'result') => {
+    if (value === processView) return;
+    setProcessView(value);
+    setDefaultProcessView(value);
+    try {
+      // 读取当前 ui 再合并,避免覆盖其他 ui 配置(theme/prompt 等)
+      const config = await configApi.getFull();
+      const ui: UiConfigSection = {
+        ...((config.ui ?? {}) as UiConfigSection),
+        default_process_view: value,
+      };
+      await configApi.updateFull({ ui });
+      showToast(
+        value === 'result'
+          ? t('settingsPage.generalProcessViewSavedResult')
+          : t('settingsPage.generalProcessViewSavedFull'),
+        { type: 'success', duration: 2000 },
+      );
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast('保存默认展示模式失败:' + msg, { type: 'error', duration: 3000 });
+    }
+  };
+
+  /** 保存权限范围:读取当前 tools 再合并 mode,避免覆盖其他工具配置 */
+  const handleScopeModeChange = async (value: 'strict' | 'relaxed') => {
+    if (value === scopeMode) return;
+    setScopeMode(value);
+    try {
+      const config = await configApi.getFull();
+      const tools: ToolsConfigSection = {
+        ...((config.tools ?? {}) as ToolsConfigSection),
+        mode: value,
+      };
+      await configApi.updateFull({ tools });
+      showToast(value === 'relaxed' ? '已切换为全目录访问' : '已切换为仅工作区访问', {
+        type: 'success',
+        duration: 2000,
+      });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast('保存权限范围失败:' + msg, { type: 'error', duration: 3000 });
+    }
+  };
 
   const handleWorkspacePathChange = async (path: string) => {
     const trimmed = path.trim();
@@ -197,6 +255,48 @@ export function GeneralSettingsPage() {
                   {t('settingsPage.generalChatLeft')}
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div className="settings-field-horizontal">
+            <div className="settings-field-label">
+              <div>{t('settingsPage.generalProcessView')}</div>
+              <div className="settings-field-hint">{t('settingsPage.generalProcessViewHint')}</div>
+            </div>
+            <div className="settings-field-body">
+              <div className="settings-toggle-group">
+                <button
+                  type="button"
+                  className={`settings-toggle-btn${processView === 'full' ? ' active' : ''}`}
+                  onClick={() => handleProcessViewChange('full')}
+                >
+                  {t('settingsPage.generalProcessViewFull')}
+                </button>
+                <button
+                  type="button"
+                  className={`settings-toggle-btn${processView === 'result' ? ' active' : ''}`}
+                  onClick={() => handleProcessViewChange('result')}
+                >
+                  {t('settingsPage.generalProcessViewResult')}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-field-horizontal">
+            <div className="settings-field-label">
+              <div>权限范围</div>
+              <div className="settings-field-hint">仅工作区 = 只能操作当前项目目录；全目录 = 放开整机访问。</div>
+            </div>
+            <div className="settings-field-body">
+              <select
+                className="settings-select"
+                value={scopeMode}
+                onChange={(e) => handleScopeModeChange(e.target.value as 'strict' | 'relaxed')}
+              >
+                <option value="strict">仅工作区</option>
+                <option value="relaxed">全目录</option>
+              </select>
             </div>
           </div>
 

@@ -17,6 +17,7 @@ import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/ty
 import { useAppStore } from '@/stores/appStore';
 import { chatApi, sessionApi } from '@/api/client';
 import { ApiError } from '@/api/error';
+import { translate } from '@/i18n';
 import type { ChatRequest } from '@/types';
 import type {
   ChatSseEventName,
@@ -33,6 +34,7 @@ import {
   type FlatTodo,
 } from '@/components/tool-renderers/shared-utils';
 import { emit } from '@/utils/eventBus';
+import { getDefaultProcessCollapsed } from '@/utils/process-view-config';
 
 /**
  * 各会话发送中的 AbortController(sessionId → controller)。
@@ -208,7 +210,7 @@ function emptySessionStream(): SessionStreamState {
     warnings: [],
     error: null,
     isLoadingMessages: false,
-    processCollapsed: false,
+    processCollapsed: getDefaultProcessCollapsed(),
     processStartedAt: undefined,
     processEndedAt: undefined,
   };
@@ -660,6 +662,12 @@ export const useChatStore = create<ChatState>((set, get) => {
       // 自动生成会话标题(基于本条消息,不覆盖用户手动重命名;静默失败,保留现有标题)。
       // 对齐旧版 ChatPanel._generateSessionTitle:传递 message 原文以解决标题 API 比
       // Chat API 先抵达后端的竞态,不阻塞本次流式请求。
+      // 对齐旧版 session:auto-name:首条消息时先把无标题新会话的显示名置为「新会话」,
+      // 等 generateTitle 返回真实标题后由 updateSession 覆盖(s.title 优先于临时名)。
+      const curSession = useAppStore.getState().sessions.find((x) => x.id === sid);
+      if (!curSession?.title) {
+        useAppStore.getState().setSessionDisplayName(sid, translate('session.defaultName'));
+      }
       void sessionApi
         .generateTitle(sid, message || (images && images.length > 0 ? '[图片]' : ''))
         .then((res) => {

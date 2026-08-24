@@ -188,6 +188,8 @@ interface AppState {
   sessionInputDrafts: Record<string, string>;
   /** hero 待定草稿(内存态,对齐旧版 appState._heroPendingDraft;只在 hero 空态使用) */
   heroPendingDraft: string;
+  /** 会话临时显示名(内存态,对齐旧版 sessionManager.sessionNames:首条消息时把无标题新会话置为「新会话」,真实标题生成后由 s.title 优先覆盖;key = sessionId) */
+  sessionDisplayNames: Record<string, string>;
 
   /** 设置会话列表 */
   setSessions: (sessions: Session[]) => void;
@@ -208,6 +210,8 @@ interface AppState {
   updateSession: (sessionId: string, patch: Partial<Session>) => void;
   /** 删除会话 */
   removeSession: (sessionId: string) => void;
+  /** 设置会话临时显示名(仅首次,不覆盖已有;对齐旧版 setSessionName) */
+  setSessionDisplayName: (sessionId: string, name: string) => void;
 
   /** 切换 ActivityBar 可见性(同时持久化到 localStorage) */
   toggleActivityBar: () => void;
@@ -255,6 +259,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   sessionInputDrafts: {},
   heroPendingDraft: '',
+  sessionDisplayNames: {},
 
   setSessions: (sessions) => {
     persistSessionsCache(sessions);
@@ -306,6 +311,12 @@ export const useAppStore = create<AppState>((set, get) => ({
           state.currentSessionId === sessionId ? null : state.currentSessionId,
       };
     }),
+
+  setSessionDisplayName: (sessionId, name) => {
+    const cur = get().sessionDisplayNames[sessionId];
+    if (cur) return; // 仅首次,不覆盖(对齐旧版 setSessionName)
+    set({ sessionDisplayNames: { ...get().sessionDisplayNames, [sessionId]: name } });
+  },
 
   toggleActivityBar: () => {
     const next = !get().activityBarHidden;

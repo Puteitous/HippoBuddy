@@ -14,9 +14,10 @@ import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useSessionStream } from '@/hooks/useSessionStream';
-import { api } from '@/api/client';
+import { api, configApi } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { translate } from '@/i18n';
+import { setDefaultProcessView } from '@/utils/process-view-config';
 import type { Message, PendingImage, RefChip, ToolCallRecord } from '@/types';
 import { combineChipsToMessage } from '@/utils/ref-chips';
 import { on } from '@/utils/eventBus';
@@ -78,6 +79,23 @@ export function ChatPanel() {
   } = useSessionStream();
   const clearWarnings = useChatStore((s) => s.clearWarnings);
   const toggleProcessCollapsed = useChatStore((s) => s.toggleProcessCollapsed);
+
+  // 挂载时同步一次默认展示模式(来源于后端 ui.default_process_view),供新建会话初始态使用。
+  // 沿 PermissionBadge 模式:组件自读 configApi,避免引入全局 config store。
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const config = await configApi.getFull();
+        if (!cancelled) setDefaultProcessView(config.ui?.default_process_view);
+      } catch {
+        // 读取失败保持内存默认(full),不打扰
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 流式渲染行:按 stream 顺序交错渲染 assistant 气泡与工具卡片(对齐旧版 segment 时序)。
   // 文本/思考段落渲染为 assistant 气泡,连续普通工具合并为 timeline,todo_write 独立卡片;

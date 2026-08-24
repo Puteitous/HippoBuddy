@@ -67,6 +67,12 @@ public class SessionListBuilder {
                 sessionInfo.put("mode", mode);
             }
 
+            // 从 session.json 读取置顶状态 (pinned)
+            Boolean pinned = resolvePin(entry.getKey(), null);
+            if (pinned != null) {
+                sessionInfo.put("pinned", pinned);
+            }
+
             sessionList.add(sessionInfo);
             seenIds.add(entry.getKey());
         }
@@ -111,6 +117,12 @@ public class SessionListBuilder {
             String mode = resolveMode(sessionId, jsonl);
             if (mode != null) {
                 sessionInfo.put("mode", mode);
+            }
+
+            // 从 session.json 读取置顶状态 (pinned)
+            Boolean pinned = resolvePin(sessionId, jsonl);
+            if (pinned != null) {
+                sessionInfo.put("pinned", pinned);
             }
 
             sessionList.add(sessionInfo);
@@ -225,6 +237,38 @@ public class SessionListBuilder {
                     com.fasterxml.jackson.databind.JsonNode m = node.get("mode");
                     if (m != null && !m.asText().isBlank()) {
                         return m.asText();
+                    }
+                }
+            } catch (IOException e) {
+                // ignore
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 从 session.json 读取置顶状态 (pinned)。
+     *
+     * @param sessionId 会话 ID
+     * @param jsonlPath 会话的 JSONL 文件路径，为 null 时自动计算
+     * @return 是否置顶；session.json 缺失或未记录时返回 null
+     */
+    private Boolean resolvePin(String sessionId, Path jsonlPath) {
+        Path sessionDir;
+        if (jsonlPath != null) {
+            sessionDir = jsonlPath.getParent();
+        } else {
+            sessionDir = com.example.agent.logging.WorkspaceManager.getSessionDir(sessionId);
+        }
+        Path metadataFile = sessionDir.resolve("session.json");
+        if (Files.exists(metadataFile)) {
+            try {
+                byte[] bytes = Files.readAllBytes(metadataFile);
+                if (bytes.length > 0) {
+                    com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(bytes);
+                    com.fasterxml.jackson.databind.JsonNode p = node.get("pinned");
+                    if (p != null && !p.isNull()) {
+                        return p.asBoolean(false);
                     }
                 }
             } catch (IOException e) {

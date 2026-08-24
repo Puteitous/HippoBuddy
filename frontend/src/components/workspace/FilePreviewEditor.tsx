@@ -67,6 +67,8 @@ interface FilePreviewEditorProps {
   onDocChange?: () => void;
   /** 保存回调(Mod-s 触发;由父组件负责写入文件) */
   onSave?: (content: string) => void;
+  /** 卸载时内容快照回调(父组件持久化未保存草稿;仅在内容相对 content prop 有变化时触发) */
+  onContentSnapshot?: (content: string) => void;
   /** 保存成功版本号:父组件每次成功写入文件后自增,触发编辑器清空 diff 基线(对齐旧版保存后清基线) */
   saveRevision?: number;
   /** 自动换行(对齐旧版 previewWrapBtn,通过 Compartment 动态切换,不重建编辑器) */
@@ -149,10 +151,14 @@ export function FilePreviewEditor({
   onViewReady,
   onDocChange,
   onSave,
+  onContentSnapshot,
   saveRevision,
   wrapEnabled = false,
 }: FilePreviewEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  // 当前编辑器实例内用户是否真正滚动过(滚动事件置位)。用于判断卸载时是否该持久化滚动位置:
+  // 仅用户(或恢复)滚动过后才写,避免 content 变化触发的重建在恢复落地前把已存位置覆盖成首行。
+  const userScrolledRef = useRef(false);
   // 主 effect 创建编辑器时写入 wrap Compartment,供切换 effect 动态 reconfigure
   const wrapCompartmentRef = useRef<Compartment | null>(null);
   const wrapViewRef = useRef<EditorView | null>(null);
@@ -162,6 +168,8 @@ export function FilePreviewEditor({
   onDocChangeRef.current = onDocChange;
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
+  const onContentSnapshotRef = useRef(onContentSnapshot);
+  onContentSnapshotRef.current = onContentSnapshot;
   // 供 updateListener 在 docChanged 时触发 diff 防抖重算(ref 持有,避免闭包捕获过期)
   const scheduleDiffRefreshRef = useRef<(() => void) | null>(null);
   // 供 saveRevision 变化 effect 触发清空 diff 基线标记
@@ -228,20 +236,20 @@ export function FilePreviewEditor({
     }
 
     // 滚动位置恢复/定位(对齐旧版):
-    //   - 有 startLine(工具卡深链跳转)→ 选中目标行并定位,忽略已存滚动位置(深链语义优先)
-    //   - 无 startLine 但有已存滚动位置 → 恢复上次阅读位置(AI 改文件 reload 重建后不丢位置)
-    if (startLine != null) {
+    // 深链跳转(startLine)仅在"没有已存滚动位置"时执行——用户已在编辑态滚动到某处后
+    // 切走再切回(或预览↔编辑互切)时优先恢复上次编辑位置,避免被遗留的参考行覆盖。
+    // 已挂载态下的引用芯片点击由下方 deepLinkTick effect 触发 jumpToLine 重新定位。
+    const savedScroll = readScrollPosition(filePath);
+    if (savedScroll != null) {
+      restoreScrollPosition(view, savedScroll);
+    } else if (startLine != null) {
       jumpToLine(view, startLine, endLine);
-    } else {
-      const savedScroll = readScrollPosition(filePath);
-      if (savedScroll != null) {
-        restoreScrollPosition(view, savedScroll);
-      }
     }
 
     // ── 滚动位置持久化:滚动节流 1.5s 保存 + beforeunload 保存 + 卸载保存(对齐旧版) ──
     let scrollThrottleTimer: number | null = null;
     const onScroll = () => {
+      userScrolledRef.current = true;
       if (scrollThrottleTimer != null) return;
       scrollThrottleTimer = window.setTimeout(() => {
         scrollThrottleTimer = null;
@@ -430,8 +438,19 @@ export function FilePreviewEditor({
       removeDiffOverview();
       scheduleDiffRefreshRef.current = null;
       clearDiffRef.current = null;
-      // 卸载前保存当前滚动位置(切换文件/内容重建/收起面板时均不丢位置)
-      if (view) writeScrollPosition(filePath, captureScrollPos(view));
+      // 卸载前快照未保存草稿(切走回编辑态、预览↔编辑互切时保留编辑内容,父组件写入 tab.mdDraft);
+      // 仅在文档相对当前 content prop 有变化时回调,避免无编辑也写入
+      if (view && onContentSnapshotRef.current) {
+        const docText = view.state.doc.toString();
+        if (docText !== content) onContentSnapshotRef.current(docText);
+      }
+      // 卸载前保存当前滚动位置(切换文件/内容重建/收起面板时均不丢位置)。
+      // 仅当"用户(或恢复)真正滚动过 且 当前视口不在顶部"才写——这是"确实有位置要保存"的信号。
+      // content 变化触发的重建,其卸载常发生在恢复落地前(此时 scrollTop 可能仍为 0),
+      // 若此时写入会把已经存好的位置覆盖回首行,故用 scrollTop>0 再加一道闸。
+      if (view && userScrolledRef.current && view.scrollDOM.scrollTop > 0) {
+        writeScrollPosition(filePath, captureScrollPos(view));
+      }
       if (scrollThrottleTimer != null) window.clearTimeout(scrollThrottleTimer);
       window.removeEventListener('beforeunload', onBeforeUnload);
       view?.scrollDOM.removeEventListener('scroll', onScroll);

@@ -85,6 +85,9 @@ public class SessionApiHandler implements HttpHandler {
             } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/rename$")) {
                 String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/rename"));
                 handleRenameSession(exchange, sessionId);
+            } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/pin$")) {
+                String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/pin"));
+                handlePinSession(exchange, sessionId);
             } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/title$")) {
                 String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/title"));
                 handleGenerateTitle(exchange, sessionId);
@@ -234,6 +237,44 @@ public class SessionApiHandler implements HttpHandler {
             sendError(exchange, 404, "Session not found");
         }
         exchange.close();
+    }
+
+    /**
+     * 设置会话置顶状态。
+     * POST /api/sessions/{id}/pin
+     * 请求体: {"pinned": true|false}
+     */
+    private void handlePinSession(HttpExchange exchange, String sessionId) throws IOException {
+        String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        boolean pinned = false;
+        try {
+            JsonNode json = objectMapper.readTree(requestBody);
+            if (json.has("pinned") && json.get("pinned").isBoolean()) {
+                pinned = json.get("pinned").asBoolean();
+            }
+        } catch (IOException e) {
+            sendError(exchange, 400, "Invalid request body");
+            exchange.close();
+            return;
+        }
+
+        // 校验会话存在（内存或磁盘任一存在即可）
+        Path jsonl = jsonlReader.findJsonlFile(sessionId);
+        boolean exists = WebSessionManager.getInstance().getSessions().containsKey(sessionId)
+            || (jsonl != null && Files.exists(jsonl));
+        if (!exists) {
+            sendError(exchange, 404, "Session not found");
+            exchange.close();
+            return;
+        }
+
+        WebSessionManager.getInstance().persistPinToDisk(sessionId, pinned);
+        logger.info("设置置顶状态：sessionId={}, pinned={}", sessionId, pinned);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("pinned", pinned);
+        sendJson(exchange, response);
     }
 
     /**

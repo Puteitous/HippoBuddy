@@ -84,6 +84,8 @@ export interface UiConfigSection {
   show_token_usage: boolean;
   show_timestamp: boolean;
   color_output: boolean;
+  /** 回合默认展示模式:full=完整展示处理过程;result=只展示最终结果(默认收起) */
+  default_process_view: string;
 }
 
 // ============================================================================

@@ -75,8 +75,7 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
   // 阶段 3.8:CM6 编辑器实例 + 搜索浮层显隐
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [searchOpen, setSearchOpen] = useState<'find' | 'replace' | null>(null);
-  // 阶段 3.8(对齐旧版):编辑脏状态(有未保存改动)
-  const [dirty, setDirty] = useState(false);
+  // 阶段 3.8(对齐旧版):编辑脏状态(有未保存改动)随标签持久化(tab.dirty),编辑置 true / 保存重置
   const [saveError, setSaveError] = useState(false);
   // 头部"重新加载"按钮:文本直接重拉,其余类型通过 key 递增重挂载
   const [reloadTick, setReloadTick] = useState(0);
@@ -89,21 +88,26 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
   const isHtml = HTML_EXT.includes(getExt(filePath));
   const isOffice = OFFICE_EXT.includes(getExt(filePath));
 
-  // MD 预览/编辑切换(对齐旧版 previewMdToggleBtn):默认打开为渲染预览,点击切换编辑模式
-  const [mdMode, setMdMode] = useState<'preview' | 'edit'>('preview');
-  // md 编辑态最新内容(含未保存草稿;null 表示未编辑过,回退用 textContent)
-  const [mdContent, setMdContent] = useState<string | null>(null);
+  // MD 预览/编辑切换(对齐旧版 previewMdToggleBtn):首次打开默认渲染预览,点击切换编辑模式。
+  // 模式 / 未保存草稿(tab.mdMode / tab.mdDraft)与脏状态(tab.dirty)均随标签持久化,
+  // 切走再切回保留编辑上下文(编辑态、草稿、滚动位置),避免回到预览与丢失进度。
+  const mdMode = usePreviewStore((s) => s.tabs.find((t) => t.path === filePath)?.mdMode ?? 'preview');
+  const mdContent = usePreviewStore((s) => s.tabs.find((t) => t.path === filePath)?.mdDraft ?? null);
+  const dirty = usePreviewStore((s) => s.tabs.find((t) => t.path === filePath)?.dirty ?? false);
+  const setMdMode = usePreviewStore((s) => s.setMdMode);
+  const setMdDraft = usePreviewStore((s) => s.setMdDraft);
+  const setTabDirty = usePreviewStore((s) => s.setTabDirty);
   // 当前是否处于"可编辑"态:纯文本,或 md 编辑模式(对齐旧版 _updateSearchBtn/_updateWrapBtn)
   const isEditable = kind === 'text' || (kind === 'markdown' && mdMode === 'edit');
-  // 切换 md 预览/编辑:从编辑切回预览时用编辑器当前内容渲染(对齐旧版 toggle 传 content)
+  // 切换 md 预览/编辑:从编辑切回预览时用编辑器当前内容写入草稿(切回预览仍可见未保存修改)
   const toggleMdMode = useCallback(() => {
     if (mdMode === 'edit' && editorView) {
-      setMdContent(editorView.state.doc.toString());
+      setMdDraft(filePath, editorView.state.doc.toString());
     }
-    setMdMode((prev) => (prev === 'preview' ? 'edit' : 'preview'));
+    setMdMode(filePath, mdMode === 'preview' ? 'edit' : 'preview');
     // 切换时关闭搜索浮层(对齐旧版 _registerMdToggleBtn 中 close)
     setSearchOpen(null);
-  }, [mdMode, editorView]);
+  }, [mdMode, editorView, filePath, setMdMode, setMdDraft]);
 
   const loadText = useCallback(async (path: string) => {
     setLoading(true);
@@ -135,14 +139,14 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
   const reload = useCallback(() => {
     if (kind === 'text' || kind === 'markdown') {
       if (kind === 'markdown') {
-        setMdContent(null);
-        setDirty(false);
+        setMdDraft(filePath, null);
+        setTabDirty(filePath, false);
       }
       void loadText(filePath);
     } else {
       setReloadTick((t) => t + 1);
     }
-  }, [kind, filePath, loadText]);
+  }, [kind, filePath, loadText, setMdDraft, setTabDirty]);
 
   // 保存当前文本编辑器内容(对齐旧版 HippoDesktop.writeFile):
   // 优先桌面桥直写,成功清 dirty / 失败提示。md 编辑模式同样可保存。
@@ -152,15 +156,15 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
     setSaveError(false);
     const ok = await desktopBridge.writeFile(filePath, content);
     if (ok) {
-      setDirty(false);
-      // 不在这里 setMdContent:执行保存时正处在编辑态,若更新 mdContent 会改变传给编辑器的
+      setTabDirty(filePath, false);
+      // 不在这里更新草稿:执行保存时正处在编辑态,若更新 mdDraft 会改变传给编辑器的
       // content prop,触发 FilePreviewEditor 按 [filePath, content] 重建、清空撤销历史。
-      // 切回预览时 toggleMdMode 自会用当前编辑器内容同步 mdContent,无需在此更新。
+      // 切回预览时 toggleMdMode 自会用当前编辑器内容同步草稿,无需在此更新。
       setSaveRevision((v) => v + 1);
     } else {
       setSaveError(true);
     }
-  }, [editorView, filePath, isEditable]);
+  }, [editorView, filePath, isEditable, setTabDirty]);
 
   // 切换自动换行并持久化到本地(对齐旧版 _setWrapPreference)
   const toggleWrap = useCallback(() => {
@@ -171,13 +175,9 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
     });
   }, [filePath]);
 
-  // 切换文件时按该文件持久化偏好重置换行态
+  // 切换文件时按该文件持久化偏好重置换行态;md 模式/草稿/脏状态随标签保存在 store,不在此重置
   useEffect(() => {
     setWrapEnabled(getWrapPref(filePath));
-    // 对齐旧版:切换文件后重置 md 为预览模式、清空草稿与脏状态(旧版 show() 清 dirty)
-    setMdMode('preview');
-    setMdContent(null);
-    setDirty(false);
     setSearchOpen(null);
   }, [filePath]);
 
@@ -193,10 +193,7 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
   }, [filePath, kind, loadText]);
 
   // 同步脏状态到标签栏(对齐旧版:FilePreview 编辑变更 → FileTabs.setDirty,标签显示圆点)
-  useEffect(() => {
-    usePreviewStore.getState().setTabDirty(filePath, dirty);
-  }, [filePath, dirty]);
-
+  // 已在 onDocChange / handleSave / reload 直接调用 setTabDirty 写入,无需额外 effect。
   // 阶段 3.8:Ctrl+F / Ctrl+H 打开搜索浮层,Esc 关闭(文本/md 编辑模式生效)
   useEffect(() => {
     if (!isEditable) return;
@@ -454,8 +451,9 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
                   wrapEnabled={wrapEnabled}
                   saveRevision={saveRevision}
                   onViewReady={setEditorView}
-                  onDocChange={() => setDirty(true)}
+                  onDocChange={() => setTabDirty(filePath, true)}
                   onSave={() => void handleSave()}
+                  onContentSnapshot={(c) => setMdDraft(filePath, c)}
                 />
                 {/* 搜索浮层(绝对定位,挂在编辑器上方;仅编辑器就绪后可用) */}
                 {searchOpen && editorView && (
@@ -489,7 +487,7 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
                   wrapEnabled={wrapEnabled}
                   saveRevision={saveRevision}
                   onViewReady={setEditorView}
-                  onDocChange={() => setDirty(true)}
+                  onDocChange={() => setTabDirty(filePath, true)}
                   onSave={() => void handleSave()}
                 />
                 {/* 搜索浮层(绝对定位,挂在编辑器上方;仅编辑器就绪后可用) */}

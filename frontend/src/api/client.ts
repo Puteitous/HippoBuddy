@@ -76,6 +76,13 @@ export const sessionApi = {
       { name },
     ),
 
+  /** POST /api/sessions/:id/pin - 设置会话置顶状态(写入 session.json 的 pinned) */
+  pin: (sessionId: string, pinned: boolean) =>
+    postJson<{ success: boolean; pinned: boolean }>(
+      `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/pin`,
+      { pinned },
+    ),
+
   /** POST /api/sessions/:id/title - 用 LLM 生成会话标题 */
   generateTitle: (sessionId: string, userMessage?: string) =>
     postJson<{ title: string }>(

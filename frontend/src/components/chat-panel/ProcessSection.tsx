@@ -17,18 +17,12 @@ import { memo } from 'react';
 import type { ReactNode } from 'react';
 import './ProcessSection.css';
 
-/** 大脑 SVG 图标(与 MessageBubble 思考图标同一套,复用视觉) */
-const THINK_SVG = (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
-    <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
-    <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
-    <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" />
-    <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" />
-    <path d="M3.477 10.896a4 4 0 0 1 .585-.396" />
-    <path d="M19.938 10.5a4 4 0 0 1 .585.396" />
-    <path d="M6 18a4 4 0 0 1-1.967-.516" />
-    <path d="M19.967 17.484A4 4 0 0 1 18 18" />
+/** 流程 SVG 图标(分层堆叠/收纳,传达「过程可折叠、可展开」,与思考段大脑图标区分) */
+const PROCESS_SVG = (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+    <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+    <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
   </svg>
 );
 
@@ -81,8 +75,8 @@ function ProcessSectionComponent({
           }
         }}
       >
-        <span className="process-summary-icon">{THINK_SVG}</span>
-        <span className="process-summary-text">{buildSummary(hasThinking, toolCount, elapsedMs)}</span>
+        <span className="process-summary-icon">{PROCESS_SVG}</span>
+        <span className="process-summary-text">{buildSummary(streaming, hasThinking, toolCount, elapsedMs)}</span>
         <span className={`process-summary-arrow${collapsed ? '' : ' expanded'}`}>{CHEVRON_SVG}</span>
       </div>
       <div className="process-body">{children}</div>
@@ -90,10 +84,16 @@ function ProcessSectionComponent({
   );
 }
 
-/** 折叠摘要文案:已思考 · N 个工具 · 总耗时 X.Xs(按可用信息裁剪) */
-function buildSummary(hasThinking: boolean, toolCount: number, elapsedMs: number | null): string {
+/** 折叠摘要文案:状态词 · N 个工具 · 总耗时 X.Xs(按可用信息裁剪)
+ *  流式时用「处理中…」、固化后用「本次处理」,避免与单个思考段的「已思考」撞车 */
+function buildSummary(
+  streaming: boolean | undefined,
+  hasThinking: boolean,
+  toolCount: number,
+  elapsedMs: number | null,
+): string {
   const parts: string[] = [];
-  if (hasThinking) parts.push('已思考');
+  if (hasThinking) parts.push(streaming ? '处理中…' : '本次处理');
   if (toolCount > 0) parts.push(`${toolCount} 个工具`);
   if (elapsedMs != null) parts.push(`总耗时 ${formatDuration(elapsedMs)}`);
   return parts.length > 0 ? parts.join(' · ') : '处理过程';

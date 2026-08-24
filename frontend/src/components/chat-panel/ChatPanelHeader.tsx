@@ -35,8 +35,9 @@ function categorize(timestamp: number): TimeCategory {
 }
 
 /** 会话显示名(对齐旧版:优先 sessionNames / title,兜底 "会话 + 短 id") */
-function sessionTitle(s: Session): string {
+function sessionTitle(s: Session, displayNames: Record<string, string>): string {
   if (s.title && s.title.trim()) return s.title;
+  if (displayNames[s.id]) return displayNames[s.id];
   const shortId = s.id.replace(/^web-/, '').slice(-6);
   return shortId ? `会话 ${shortId}` : '未命名会话';
 }
@@ -58,6 +59,7 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const workspacePath = useAppStore((s) => s.workspacePath);
   const mode = useAppStore((s) => s.mode);
+  const sessionDisplayNames = useAppStore((s) => s.sessionDisplayNames);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const createNewSession = useAppStore((s) => s.createNewSession);
 
@@ -79,7 +81,7 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
 
   // ── 标题 ────────────────────────────────────────────
   const currentSession = sessions.find((s) => s.id === currentSessionId);
-  const title = currentSession ? sessionTitle(currentSession) : 'Chat';
+  const title = currentSession ? sessionTitle(currentSession, sessionDisplayNames) : 'Chat';
 
   // ── 历史会话分组渲染 ──────────────────────────────────
   const grouped = useMemo(() => groupSessionsByTime(sessions), [sessions]);
@@ -206,6 +208,7 @@ interface HistoryItemProps {
 
 /** 历史下拉中的单条会话项:订阅该会话前端活跃流,流式/工具进行中时显示旋转提示 */
 function HistoryItem({ session, isCurrent, onSelect }: HistoryItemProps) {
+  const sessionDisplayNames = useAppStore((s) => s.sessionDisplayNames);
   const streaming = useChatStore(
     (s) =>
       (s.sessionStreams[session.id]?.isSending === true ||
@@ -216,10 +219,10 @@ function HistoryItem({ session, isCurrent, onSelect }: HistoryItemProps) {
     <div
       className={`chat-history-item${isCurrent ? ' active' : ''}`}
       onClick={onSelect}
-      title={sessionTitle(session)}
+      title={sessionTitle(session, sessionDisplayNames)}
     >
       {streaming && <span className="chat-history-spinner" aria-label="streaming" />}
-      <span className="history-item-name">{sessionTitle(session)}</span>
+      <span className="history-item-name">{sessionTitle(session, sessionDisplayNames)}</span>
     </div>
   );
 }

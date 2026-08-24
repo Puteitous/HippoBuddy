@@ -64,6 +64,10 @@ interface PreviewState {
   reorderTabs: (fromPath: string, toPath: string, insertBefore: boolean) => void;
   /** 设置标签脏状态(未保存改动,对齐旧版 setDirty) */
   setTabDirty: (filePath: string, dirty: boolean) => void;
+  /** 设置 md 预览/编辑模式(随标签持久化,切走切回保留;首次打开默认预览) */
+  setMdMode: (filePath: string, mode: 'preview' | 'edit') => void;
+  /** 设置 md 编辑态草稿(未保存内容;null 表示清空并回退磁盘内容) */
+  setMdDraft: (filePath: string, content: string | null) => void;
   /** 批量更新标签(回滚后 diff 降级为 preview 等) */
   replaceTabs: (updater: (tabs: FileTab[]) => FileTab[]) => void;
   /** 强制重建当前预览(回滚后刷新内容) */
@@ -236,6 +240,20 @@ export const usePreviewStore = create<PreviewState>((set) => ({
       return {
         tabs: state.tabs.map((t) => (t.path === filePath ? { ...t, dirty } : t)),
       };
+    }),
+
+  setMdMode: (filePath, mode) =>
+    set((state) => {
+      const tab = state.tabs.find((t) => t.path === filePath);
+      if (!tab || tab.mdMode === mode) return state;
+      return { tabs: state.tabs.map((t) => (t.path === filePath ? { ...t, mdMode: mode } : t)) };
+    }),
+
+  setMdDraft: (filePath, content) =>
+    set((state) => {
+      const tab = state.tabs.find((t) => t.path === filePath);
+      if (!tab || tab.mdDraft === content) return state;
+      return { tabs: state.tabs.map((t) => (t.path === filePath ? { ...t, mdDraft: content } : t)) };
     }),
 
   replaceTabs: (updater) =>

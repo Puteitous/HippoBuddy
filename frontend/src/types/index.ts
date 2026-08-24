@@ -31,6 +31,8 @@ export interface Session {
   lastActivityAt?: string;
   /** 会话模式 */
   mode?: SessionMode;
+  /** 是否置顶(来自 session.json 的 pinned;置顶会话在列表最上方独立分区) */
+  pinned?: boolean;
 }
 
 /** 会话状态 - GET /api/sessions/:id/status */
@@ -354,6 +356,10 @@ export interface FileTab {
   toolCallId?: string;
   /** 可选:是否有未保存的改动(标签右侧显示脏标记圆点,对齐旧版 file-tab.dirty) */
   dirty?: boolean;
+  /** 可选:md 渲染/编辑模式(仅 markdown;默认预览,切走切回保留工作上下文,首次打开才是预览) */
+  mdMode?: 'preview' | 'edit';
+  /** 可选:md 编辑态最新内容(未保存草稿;null/undefined 表示未编辑,渲染回退用磁盘内容) */
+  mdDraft?: string | null;
 }
 
 /** 词级 diff 中的单个 token(对齐后端 DiffComputer.computeWordDiff) */

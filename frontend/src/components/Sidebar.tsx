@@ -19,8 +19,11 @@
  *    当前活跃会话所属项目 has-active 高亮
  *  - Time 分组:今天/昨天/7天内/30天内/更早(北京时区,sticky 分类头)
  *  - 无限滚动:每批 20 条,IntersectionObserver + sentinel(对齐旧版)
- *  - 虚拟会话注入:新建会话(web-*)未持久化时,显示在"其他"或"今天"分组
  *  - 会话命名兜底对齐旧版:title || "会话 <id后6位>"
+ *  - 虚拟会话(新建未持久化的 web-*)不显示在列表,列表仅由已持久化会话驱动
+ *  - 置顶会话:顶部独立置顶区(图钉图标),置顶会话从原分组移除仅在置顶区出现一次,
+ *    空置顶区不渲染,独立于 project/time 分组模式且不被无限滚动裁掉;
+ *    置顶状态持久化到后端 session.json 的 pinned 字段
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { sessionApi, workspaceApi } from '@/api/client';
@@ -59,8 +62,9 @@ function readSidebarView(): SidebarView {
   }
 }
 
-/** 渲染行:项目分组头 / 时间分类头 / 会话项 */
+/** 渲染行:置顶区头 / 项目分组头 / 时间分类头 / 会话项 */
 type Row =
+  | { type: 'pinned-header' }
   | { type: 'project-header'; projectKey: string; name: string; fullPath: string; collapsed: boolean }
   | { type: 'category'; category: string }
   | { type: 'session'; session: Session; name: string };
@@ -70,9 +74,9 @@ function sessionTime(s: Session): number {
   return parseInt(s.lastActivityAt || s.createdAt, 10) || 0;
 }
 
-/** 会话显示名(对齐旧版:s.title || '会话 ' + id 后 6 位) */
-function sessionDisplayName(s: Session): string {
-  return s.title || `会话 ${s.id.replace('web-', '').slice(-6)}`;
+/** 会话显示名(对齐旧版:s.title || sessionNames || '会话 ' + id 后 6 位) */
+function sessionDisplayName(s: Session, displayNames: Record<string, string>): string {
+  return s.title || displayNames[s.id] || `会话 ${s.id.replace('web-', '').slice(-6)}`;
 }
 
 /** 归一化项目路径(反斜杠统一为正斜杠;无路径归入"其他") */
@@ -148,6 +152,7 @@ export function Sidebar() {
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
   const workspacePath = useAppStore((s) => s.workspacePath);
   const setWorkspacePath = useAppStore((s) => s.setWorkspacePath);
+  const sessionDisplayNames = useAppStore((s) => s.sessionDisplayNames);
   // 预览面板状态(文件树点击 → 打开主区预览)
   const previewOpenFile = usePreviewStore((s) => s.openFile);
   const previewActivePath = usePreviewStore((s) => s.activePath);
@@ -254,15 +259,30 @@ export function Sidebar() {
    * 对齐旧版 renderSessionList / _computeRows / _injectVirtualSession。
    */
   const rows = useMemo<Row[]>(() => {
+    // 置顶会话分离到独立分区(置顶区);普通会话参与 project/time 分组。
+    // 置顶会话从原分组移除,仅在置顶区出现一次(取消置顶后自动回到所属分组)。
+    const pinnedSessions = sessions
+      .filter((s) => s.pinned)
+      .sort((a, b) => sessionTime(b) - sessionTime(a));
+    const normalSessions = sessions.filter((s) => !s.pinned);
     // 按 lastActivityAt 降序(回退 createdAt)
-    const sorted = [...sessions].sort((a, b) => sessionTime(b) - sessionTime(a));
+    const sorted = [...normalSessions].sort((a, b) => sessionTime(b) - sessionTime(a));
     const rows: Row[] = [];
+
+    // 置顶区:仅当存在置顶会话时渲染(空区不占黄金位置);插到列表最上方,
+    // 独立于 project/time 分组模式,且不被无限滚动裁掉(始终位于 rows 头部)。
+    if (pinnedSessions.length > 0) {
+      rows.push({ type: 'pinned-header' });
+      for (const s of pinnedSessions) {
+        rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
+      }
+    }
 
     if (groupMode === 'time') {
       for (const [category, arr] of groupSessionsByTime(sorted)) {
         rows.push({ type: 'category', category });
         for (const s of arr) {
-          rows.push({ type: 'session', session: s, name: sessionDisplayName(s) });
+          rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
         }
       }
     } else {
@@ -303,49 +323,15 @@ export function Sidebar() {
         });
         if (collapsedProjects.has(p.projectKey)) continue;
         for (const s of p.sessions) {
-          rows.push({ type: 'session', session: s, name: sessionDisplayName(s) });
+          rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
         }
       }
     }
 
-    // 4. 虚拟会话注入:当前会话未持久化(新建 web-*)时,显示在"其他"或"今天"
-    const currentInList = sessions.some((s) => s.id === currentSessionId);
-    if (!currentInList && currentSessionId) {
-      const virtual: Session = {
-        id: currentSessionId,
-        messageCount: 0,
-        createdAt: String(Date.now()),
-        active: false,
-        running: false,
-        projectPath: '',
-      };
-      const vname = sessionDisplayName(virtual);
-      if (groupMode === 'time') {
-        const todayIdx = rows.findIndex((r) => r.type === 'category' && r.category === '今天');
-        if (todayIdx !== -1) {
-          rows.splice(todayIdx + 1, 0, { type: 'session', session: virtual, name: vname });
-        } else {
-          rows.unshift({ type: 'category', category: '今天' }, { type: 'session', session: virtual, name: vname });
-        }
-      } else {
-        const otherIdx = rows.findIndex((r) => r.type === 'project-header' && r.projectKey === OTHER_PROJECT_KEY);
-        if (otherIdx !== -1) {
-          // 对齐旧版:"其他"分组折叠时不显示其下虚拟会话(展开后 rows 重算会重新注入)
-          const otherHeader = rows[otherIdx];
-          if (otherHeader.type === 'project-header' && !otherHeader.collapsed) {
-            rows.splice(otherIdx + 1, 0, { type: 'session', session: virtual, name: vname });
-          }
-        } else {
-          rows.unshift(
-            { type: 'project-header', projectKey: OTHER_PROJECT_KEY, name: '其他', fullPath: '', collapsed: false },
-            { type: 'session', session: virtual, name: vname },
-          );
-        }
-      }
-    }
-
+    // 虚拟会话(新建未持久化的 web-*)不显示在会话列表,列表仅由已持久化会话驱动,
+    // 刷新后行为即天然一致(不会出现"当前会话消失/不一致")。
     return rows;
-  }, [sessions, groupMode, collapsedProjects, currentSessionId]);
+  }, [sessions, groupMode, collapsedProjects]);
 
   /** 当前活跃会话所属项目 key(用于项目头 has-active 高亮;虚拟会话归入"其他") */
   const activeProjectKey = useMemo(() => {
@@ -504,7 +490,7 @@ export function Sidebar() {
       <div className="sidebar-body" ref={bodyRef}>
         {isLoading && <p className="sidebar-empty">加载中…</p>}
 
-        {error && (
+        {!isLoading && error && rows.length === 0 && (
           <div className="sidebar-error">
             <p>加载会话失败</p>
             <pre>{error}</pre>
@@ -515,9 +501,22 @@ export function Sidebar() {
           <p className="sidebar-empty">暂无会话</p>
         )}
 
-        {!isLoading && !error && rows.length > 0 && (
+        {!isLoading && rows.length > 0 && (
           <div className="session-list">
             {visibleRows.map((row) => {
+              if (row.type === 'pinned-header') {
+                return (
+                  <div key="pinned-header" className="session-pinned-header">
+                    {/* 置顶区头:图钉图标 + 置顶标题 */}
+                    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9.5 1.5L14.5 6.5" />
+                      <path d="M12.5 3.5l-3 6-3.5 1.5 1.5-3.5 6-3z" fill="none" />
+                      <path d="M6 11l-2.5 2.5" />
+                    </svg>
+                    <span>置顶</span>
+                  </div>
+                );
+              }
               if (row.type === 'project-header') {
                 return (
                   <ProjectHeader
@@ -622,6 +621,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
   const updateSession = useAppStore((s) => s.updateSession);
   const removeSession = useAppStore((s) => s.removeSession);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
+  const sessionDisplayNames = useAppStore((s) => s.sessionDisplayNames);
 
   // 前端活跃流(对应会话在 sessionStreams 分区内的流式/工具调用进行中)——
   // 切走/新建其他会话后,原会话后台仍在流式,借此在会话项上提示续看。
@@ -632,7 +632,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
       (s.sessionStreams[session.id]?.toolCalls.length ?? 0) > 0),
   );
 
-  const title = sessionDisplayName(session);
+  const title = sessionDisplayName(session, sessionDisplayNames);
   const time = formatTime(session.lastActivityAt ?? session.createdAt);
 
   // 重命名状态
@@ -673,6 +673,22 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
     }
   };
 
+  /** 切换置顶状态(置顶会话在列表最上方独立分区) */
+  const handleTogglePin = async () => {
+    const next = !session.pinned;
+    setBusy(true);
+    try {
+      await sessionApi.pin(session.id, next);
+      updateSession(session.id, { pinned: next });
+      showToast(next ? '会话已置顶' : '已取消置顶', { type: 'success' });
+    } catch (e) {
+      const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
+      showToast(`设置置顶失败: ${msg}`, { type: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   /** 执行删除(二次确认后),对齐旧版 deleteSession */
   const doDelete = async () => {
     setBusy(true);
@@ -701,7 +717,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
 
   return (
     <div
-      className={`session-item ${active ? 'session-item-active' : ''}`}
+      className={`session-item ${active ? 'session-item-active' : ''}${session.pinned ? ' session-item-pinned' : ''}`}
       onClick={(e) => {
         // 操作按钮 / 输入框 / 确认条内点击不触发会话切换(对齐旧版 closest('.session-actions') 判断)
         if ((e.target as HTMLElement).closest('.session-actions, .session-rename-input, .session-confirm-delete')) return;
@@ -766,6 +782,25 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
             </div>
             {/* hover 操作按钮(对齐旧版 .session-actions) */}
             <div className="session-actions">
+              <button
+                type="button"
+                className={`pin-action${session.pinned ? ' pinned' : ''}`}
+                title={session.pinned ? '取消置顶' : '置顶'}
+                aria-label={session.pinned ? '取消置顶' : '置顶'}
+                disabled={busy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmDelete(false);
+                  setRenaming(false);
+                  void handleTogglePin();
+                }}
+              >
+                <svg viewBox="0 0 16 16" width="13" height="13" fill={session.pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9.5 1.5L14.5 6.5" />
+                  <path d="M12.5 3.5l-3 6-3.5 1.5 1.5-3.5 6-3z" />
+                  <path d="M6 11l-2.5 2.5" />
+                </svg>
+              </button>
               <button
                 type="button"
                 title="重命名"

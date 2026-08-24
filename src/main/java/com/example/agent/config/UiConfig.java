@@ -7,7 +7,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class UiConfig {
 
     private static final String DEFAULT_THEME = "dark";
-    private static final String DEFAULT_PROMPT = "agent>";
+    private static final String DEFAULT_PROMPT = "agent";
+
+    /**
+     * 默认展示模式:full=完整展示处理过程(思考+工具,收起展开);result=只展示最终结果(默认收起)。
+     * 对应前端 ChatPanel 回合折叠容器 processCollapsed 的初始值。
+     */
+    @JsonProperty("default_process_view")
+    private String defaultProcessView = "full";
 
     private String theme = DEFAULT_THEME;
     private String prompt = DEFAULT_PROMPT;
@@ -41,6 +48,14 @@ public class UiConfig {
 
     public void setPrompt(String prompt) {
         this.prompt = prompt;
+    }
+
+    public String getDefaultProcessView() {
+        return defaultProcessView;
+    }
+
+    public void setDefaultProcessView(String defaultProcessView) {
+        this.defaultProcessView = defaultProcessView;
     }
 
     public boolean isSyntaxHighlight() {
@@ -80,6 +95,7 @@ public class UiConfig {
         return "UiConfig{" +
                 "theme='" + theme + '\'' +
                 ", prompt='" + prompt + '\'' +
+                ", defaultProcessView='" + defaultProcessView + '\'' +
                 ", syntaxHighlight=" + syntaxHighlight +
                 ", showTokenUsage=" + showTokenUsage +
                 ", showTimestamp=" + showTimestamp +
