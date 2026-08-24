@@ -12,11 +12,17 @@
  */
 import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCall, ToolCallRecord } from '@/types';
+import { useSessionStream } from '@/hooks/useSessionStream';
 import { useChatStore } from '@/stores/chatStore';
 import { MessageBubble, MessageFooter } from './MessageBubble';
+import { ProcessSection } from './ProcessSection';
 import { RollbackButton, RollbackPanel } from '../rollback/RollbackButton';
 import { useRollback } from '../rollback/useRollback';
-import { extractFilesFromToolCalls, type MessageFileProduct } from './message-utils';
+import {
+  extractFilesFromToolCalls,
+  extractFilesFromToolMessage,
+  type MessageFileProduct,
+} from './message-utils';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import { AskUserCard } from '../tool-renderers/AskUserCard';
@@ -99,19 +105,22 @@ function RoundRollback({ targetId, roundText, onRetry, onFork, files }: RoundRol
 }
 
 export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps) {
-  const messages = useChatStore((s) => s.messages);
-  const isLoading = useChatStore((s) => s.isLoadingMessages);
-  const error = useChatStore((s) => s.error);
-  // 是否正在流式发送。流式期间不显示回合末条 assistant 的 footer(对齐旧版:
-  // 旧版按钮容器初始 display:none,整个 SSE 结束后才显示)
-  const isSending = useChatStore((s) => s.isSending);
+  // 当前会话的流式分区(权威数据源;含 messages/isLoadingMessages/error/isSending 等)
+  const {
+    messages,
+    isLoadingMessages: isLoading,
+    error,
+    isSending,
+    toolCalls,
+    askUserData,
+    waitingForUser,
+    processCollapsed,
+  } = useSessionStream();
+  const toggleProcessCollapsed = useChatStore((s) => s.toggleProcessCollapsed);
   // 是否有工具正在等待确认(带 confirmationData)。确认阶段后端会发 complete 把
   // isSending 提前置 false(见 WebAgentOrchestrator 确认后 return false → finally 发
   // complete),但对话并未结束;若不额外兜底,旧回合 footer 会在确认期间浮现。
-  const waitingConfirm = useChatStore((s) => s.toolCalls.some((tc) => !!tc.confirmationData));
-  // ask_user 内联卡片数据(waiting_user 事件驱动,提交后固化为消息流只读记录)
-  const askUserData = useChatStore((s) => s.askUserData);
-  const waitingForUser = useChatStore((s) => s.waitingForUser);
+  const waitingConfirm = toolCalls.some((tc) => !!tc.confirmationData);
 
   if (isLoading) {
     return (
@@ -205,13 +214,32 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
       // 已被 assistant.tool_calls 消费的 tool 消息 id(避免重复渲染)
       const consumed = new Set<string>();
 
+      // ── 回合处理过程内容(思维链气泡 + 工具时间线/卡片),统一包进 ProcessSection ──
+      const processRows: ReactNode[] = [];
+      let hasThinking = false;
+      let toolCount = 0;
+
+      // 回合最终正文段:回合内最后一个 assistant 段(而非 process-body 末尾子元素,
+      // 因回合可能以独立工具卡 / todo_write 收尾)。收起态据此保留该段正文,
+      // 与流式 tail(ChatPanel)对最后一段 assistant 打标记的逻辑保持一致。
+      let finalAssistantId: string | null = null;
+      for (let i = round.length - 1; i >= 0; i--) {
+        const entry = round[i];
+        if (entry.kind === 'assistant') {
+          finalAssistantId = entry.msg.id;
+          break;
+        }
+      }
+
       round.forEach((entry) => {
         if (entry.kind === 'assistant') {
-          rows.push(
+          if (entry.msg.reasoning_content) hasThinking = true;
+          processRows.push(
             <MessageBubble
               key={entry.msg.id}
               message={entry.msg}
               dataMessageId={entry.msg.id}
+              className={entry.msg.id === finalAssistantId ? 'round-final-text' : undefined}
             />,
           );
 
@@ -235,7 +263,8 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
                       : deepMergeTodoList(todoCache, todos);
                   item.args = { mode, todos: todoCache };
                 }
-                rows.push(
+                toolCount++;
+                processRows.push(
                   <ToolCardDispatcher key={item.id} record={toolItemToRecord(item)} />,
                 );
               } else {
@@ -243,7 +272,8 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
               }
             }
             if (tlItems.length > 0) {
-              rows.push(<ToolTimeline key={`tl-${entry.msg.id}`} items={tlItems} />);
+              toolCount += tlItems.length;
+              processRows.push(<ToolTimeline key={`tl-${entry.msg.id}`} items={tlItems} />);
             }
           }
         } else if (entry.kind === 'timeline') {
@@ -252,7 +282,8 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
             .filter((m) => !consumed.has(m.id))
             .map(fromToolMessage);
           if (items.length > 0) {
-            rows.push(
+            toolCount += items.length;
+            processRows.push(
               <ToolTimeline
                 key={`tl-${entry.items[0].id}`}
                 items={items}
@@ -262,10 +293,11 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
         } else {
           // 独立工具卡片(todo_write / ask_user)——已被 assistant.tool_calls 消费则跳过
           if (!consumed.has(entry.msg.id)) {
+            toolCount++;
             // ask_user:以 record(固化携带 question/options/answered)渲染只读卡。
             // TodoWrite 等其它独立工具仍走 MessageBubble。
             if (entry.msg.toolName === 'ask_user') {
-              rows.push(
+              processRows.push(
                 <AskUserCard
                   key={entry.msg.id}
                   record={{
@@ -280,7 +312,7 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
                 />,
               );
             } else {
-              rows.push(
+              processRows.push(
                 <MessageBubble
                   key={entry.msg.id}
                   message={entry.msg}
@@ -291,6 +323,30 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
           }
         }
       });
+
+      // ── 回合处理过程统一收起:仅当有思考或工具时包 ProcessSection(纯文本回合不显示摘要条)。
+      //    收起态隐藏思维链 + 工具卡,回合最终正文(content 气泡)不受影响。
+      const anchor =
+        round[0].kind === 'timeline' ? round[0].items[0].id : round[0].msg.id;
+      const wrapRound = processRows.length > 0 && (hasThinking || toolCount > 0);
+      if (wrapRound) {
+        // key 用回合级 user 消息 id,与流式 tail ChatPanel 的 key 一致,
+        // 同一回合内多次 thinking 不改变 key,避免 DOM 卸载重挂导致摘要条闪现。
+        rows.push(
+          <ProcessSection
+            key={`process-${roundUserId ?? anchor}`}
+            collapsed={processCollapsed}
+            onToggle={toggleProcessCollapsed}
+            hasThinking={hasThinking}
+            toolCount={toolCount}
+            elapsedMs={computeRoundElapsed(round)}
+          >
+            {processRows}
+          </ProcessSection>,
+        );
+      } else {
+        rows.push(...processRows);
+      }
 
       // ── 回合级 footer:渲染在回合所有条目(assistant + 工具卡 + ask 卡)之后,作整回合的收尾操作条。
       //    条件:回合产出了 assistant 文本(纯工具回合抑制,避免复制的空 footer)+ 对话未结束阶段
@@ -348,6 +404,9 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
       }
       // tool:连续普通工具累积为 timeline,独立工具(todo_write/ask_user)单独卡片
       if (m.toolName && !TIMELINE_STANDALONE_TOOLS.has(m.toolName)) {
+        // 实时固化的工具消息带 args,补全文件产物(assistant 无 tool_calls);
+        // refresh 后工具消息无 args、返回空,由上方 assistant.tool_calls 兜底。
+        roundFiles = roundFiles.concat(extractFilesFromToolMessage(m));
         toolGroup.push(m);
       } else {
         flushToolGroup();
@@ -382,6 +441,32 @@ function dedupeFiles(files: MessageFileProduct[]): MessageFileProduct[] {
   const seen = new Map<string, MessageFileProduct>();
   for (const f of files) seen.set(f.path, f);
   return Array.from(seen.values());
+}
+
+/**
+ * 回合处理过程总耗时:取回合内所有消息 timestamp 的首尾差值(近似值)。
+ * 消息无 timestamp(极少数历史)时返回 null,摘要条自动省略耗时。
+ */
+function computeRoundElapsed(round: RoundEntry[]): number | null {
+  let min = Infinity;
+  let max = 0;
+  const consider = (ts?: number) => {
+    if (ts && Number.isFinite(ts)) {
+      if (ts < min) min = ts;
+      if (ts > max) max = ts;
+    }
+  };
+  for (const e of round) {
+    if (e.kind === 'assistant') {
+      consider(e.msg.timestamp);
+    } else if (e.kind === 'timeline') {
+      for (const m of e.items) consider(m.timestamp);
+    } else {
+      consider(e.msg.timestamp);
+    }
+  }
+  if (!Number.isFinite(min) || max <= min) return null;
+  return max - min;
 }
 
 /**

@@ -28,6 +28,10 @@ llm:
   model_history: []
 
 tools:
+  # 权限范围：strict=仅操作当前工作区；relaxed=可操作全目录。默认 strict。
+  # 确认卡片由 bash / delete_file 各自的 require_confirmation 独立控制，与范围无关。
+  # 但严格禁止的危险命令（rm -rf /、format、diskpart 等）任何范围下仍会被拦截。
+  mode: strict
   bash:
     enabled: true
     # ⚠️ 关闭后"需确认"级别的命令将直接执行（不弹确认框）。

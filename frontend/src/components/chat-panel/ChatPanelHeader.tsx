@@ -12,6 +12,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
+import { useChatStore } from '@/stores/chatStore';
 import type { Session, SessionMode } from '@/types';
 
 /** 历史下拉最大条数(对齐旧版 MAX_ITEMS = 40) */
@@ -152,14 +153,12 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
                   <div key={group.category}>
                     <div className="chat-history-category">{group.category}</div>
                     {group.sessions.map((s) => (
-                      <div
+                      <HistoryItem
                         key={s.id}
-                        className={`chat-history-item${s.id === currentSessionId ? ' active' : ''}`}
-                        onClick={() => handleSelectSession(s.id)}
-                        title={sessionTitle(s)}
-                      >
-                        <span className="history-item-name">{sessionTitle(s)}</span>
-                      </div>
+                        session={s}
+                        isCurrent={s.id === currentSessionId}
+                        onSelect={() => handleSelectSession(s.id)}
+                      />
                     ))}
                   </div>
                 ))
@@ -195,6 +194,32 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
           </svg>
         </button>
       </div>
+    </div>
+  );
+}
+
+interface HistoryItemProps {
+  session: Session;
+  isCurrent: boolean;
+  onSelect: () => void;
+}
+
+/** 历史下拉中的单条会话项:订阅该会话前端活跃流,流式/工具进行中时显示旋转提示 */
+function HistoryItem({ session, isCurrent, onSelect }: HistoryItemProps) {
+  const streaming = useChatStore(
+    (s) =>
+      (s.sessionStreams[session.id]?.isSending === true ||
+      (s.sessionStreams[session.id]?.stream.length ?? 0) > 0 ||
+      (s.sessionStreams[session.id]?.toolCalls.length ?? 0) > 0),
+  );
+  return (
+    <div
+      className={`chat-history-item${isCurrent ? ' active' : ''}`}
+      onClick={onSelect}
+      title={sessionTitle(session)}
+    >
+      {streaming && <span className="chat-history-spinner" aria-label="streaming" />}
+      <span className="history-item-name">{sessionTitle(session)}</span>
     </div>
   );
 }

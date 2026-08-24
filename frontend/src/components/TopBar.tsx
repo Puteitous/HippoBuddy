@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { useSessionStream } from '@/hooks/useSessionStream';
 import { sessionApi, workspaceApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { desktopBridge } from '@/utils/desktop-bridge';
@@ -61,7 +62,7 @@ export function TopBar() {
   const workspacePath = useAppStore((s) => s.workspacePath);
   const setWorkspacePath = useAppStore((s) => s.setWorkspacePath);
 
-  const isSending = useChatStore((s) => s.isSending);
+  const { isSending } = useSessionStream();
   const setMessages = useChatStore((s) => s.setMessages);
 
   const theme = useThemeStore((s) => s.theme);

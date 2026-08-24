@@ -15,7 +15,7 @@
  * 阶段 3.2:ChatPanel 由占位升级为真实实现(纯文本对话)。
  * 阶段 3.6:Settings 由占位升级为真实实现(8 个设置页 + 主壳 + Toast)。
  * 阶段 3.7-1:挂载全局 ToastViewport / ActivityBar / SkillMarket 浮层。
- * 历史消息加载由 useSessionMessages Hook 处理(切会话时自动 reset + load)。
+ * 历史消息加载由 useSessionMessages Hook 处理(切会话时复用活跃流分区 / 加载历史)。
  */
 import { useEffect } from 'react';
 import { api } from '@/api/client';
@@ -23,6 +23,7 @@ import { ApiError } from '@/api/error';
 import { useAppStore, readSessionsCache } from '@/stores/appStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useSessionMessages } from '@/hooks/useSessionMessages';
+import { useCompletedTaskNotification } from '@/hooks/useCompletedTaskNotification';
 import { Sidebar } from './Sidebar';
 import { SidebarResizer } from './SidebarResizer';
 import { TopBar } from './TopBar';
@@ -50,6 +51,9 @@ export function AppShell() {
 
   // 切换会话时:reset chatStore + 加载历史消息(由 Hook 统一处理)
   useSessionMessages();
+
+  // 后台会话任务完成时弹 toast 提醒(仅监听 done 事件,不影响当前会话)
+  useCompletedTaskNotification();
 
   // 启动时初始化主题(localStorage + 桌面端 Electron 校正)
   useEffect(() => {

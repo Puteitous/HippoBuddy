@@ -57,7 +57,7 @@ public class WriteOfficeFileTool implements ToolExecutor {
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "输出文件路径（绝对路径或相对路径，只能访问项目目录内）"
+                            "description": "输出文件路径（绝对路径或相对路径）"
                         },
                         "data": {
                             "type": "object",

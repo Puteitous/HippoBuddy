@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
+import { useSessionStream } from '@/hooks/useSessionStream';
 import { api } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { translate } from '@/i18n';
@@ -28,6 +29,7 @@ import {
 
 import { MessageBubble, WebSearchStreamingRow } from './MessageBubble';
 import { HistoryRenderer } from './HistoryRenderer';
+import { ProcessSection } from './ProcessSection';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
 import {
@@ -58,20 +60,24 @@ export function ChatPanel() {
   const clearSessionInputDraft = useAppStore((s) => s.clearSessionInputDraft);
   const saveHeroPendingDraft = useAppStore((s) => s.saveHeroPendingDraft);
   const clearHeroPendingDraft = useAppStore((s) => s.clearHeroPendingDraft);
-  const messages = useChatStore((s) => s.messages);
-  const isReasoning = useChatStore((s) => s.isReasoning);
-  // 流式渲染序列(对齐旧版 segment 时序:思考/文本/工具按事件顺序交错)
-  const stream = useChatStore((s) => s.stream);
-  const error = useChatStore((s) => s.error);
-  const warnings = useChatStore((s) => s.warnings);
+  // 当前会话的流式分区(权威数据源;含 messages/stream/toolCalls/isSending 等)
+  const {
+    messages,
+    isReasoning,
+    stream,
+    error,
+    warnings,
+    toolCalls,
+    webSearchActions,
+    webSearching,
+    todoList,
+    isSending,
+    processCollapsed,
+    processStartedAt,
+    processEndedAt,
+  } = useSessionStream();
   const clearWarnings = useChatStore((s) => s.clearWarnings);
-  // 工具调用(实时流中显示,回合结束后由 messages 中的 tool role 消息接管)
-  const toolCalls = useChatStore((s) => s.toolCalls);
-  // 联网搜索动作累积 + 进行中标记(实时流搜索瞬态行 / 完成态聚合)
-  const webSearchActions = useChatStore((s) => s.webSearchActions);
-  const webSearching = useChatStore((s) => s.webSearching);
-  // 会话级 todo 累计树(tool_start 驱动,渲染时注入卡片)
-  const todoList = useChatStore((s) => s.todoList);
+  const toggleProcessCollapsed = useChatStore((s) => s.toggleProcessCollapsed);
 
   // 流式渲染行:按 stream 顺序交错渲染 assistant 气泡与工具卡片(对齐旧版 segment 时序)。
   // 文本/思考段落渲染为 assistant 气泡,连续普通工具合并为 timeline,todo_write 独立卡片;
@@ -162,6 +168,7 @@ export function ChatPanel() {
             message={msg}
             isStreaming={isOpen}
             isReasoning={isReasoning && isOpen}
+            className={idx === lastAssistantIdx ? 'round-final-text' : undefined}
           />,
         );
       } else {
@@ -175,8 +182,63 @@ export function ChatPanel() {
     if (webSearching) {
       rows.push(<WebSearchStreamingRow key="web-search-streaming" />);
     }
+
+    // ── 处理过程统一收起(Codex 风格) ──────────────────────────
+    // 仅当回合存在思考或工具调用时才包 ProcessSection(纯文本回合不显示摘要条)。
+    const hasThinking =
+      isReasoning || stream.some((a) => a.kind === 'assistant' && !!a.reasoning);
+    // 工具数为回合级累计:thinking 不再中途清空 toolCalls,流式期间 toolCalls 即整个
+    // 回合的工具数(无需再累加已固化到 messages 的部分)。done 后 toolCalls 清空
+    // (仅留待确认),wrap 随之失效,避免 stream 清空后仍因已固化工具数渲染出空 ProcessSection。
+    const toolCount = toolCalls.length;
+    // wrap 不依赖 rows.length:thinking 追加新空段、该段尚无 reasoning/text 时也要保持
+    // 摘要条,否则工具调用后重新思考的瞬间摘要条短暂消失又出现(闪现)。
+    const wrap = hasThinking || toolCount > 0;
+    // 回合级稳定 key:取当前 user 消息 id(而非首行 key),使同一回合内多次 thinking
+    // 不改变 ProcessSection key,避免 DOM 卸载重挂导致摘要条闪现。
+    const roundKey = [...messages].reverse().find((m) => m.role === 'user')?.id ?? 'tail';
+    if (wrap) {
+      // 处理过程总耗时:起点 = 思考/首个工具开始;终点 = 已定格结束时间,
+      // 仍在运行(isSending / 思考中 / 工具 running)时取当前时间实时跳动。
+      let end = processEndedAt ?? 0;
+      for (const tc of toolCalls) {
+        if (tc.endedAt) end = Math.max(end, tc.endedAt);
+      }
+      if (isSending || isReasoning || toolCalls.some((tc) => tc.status === 'running')) {
+        end = Date.now();
+      }
+      const elapsedMs =
+        processStartedAt != null && end > 0 ? Math.max(0, end - processStartedAt) : null;
+      // key 用回合级 user 消息 id,与固化后 HistoryRenderer 回合包装的 key 一致,保证 DOM 复用
+      return [
+        <ProcessSection
+          key={`process-${roundKey}`}
+          collapsed={processCollapsed}
+          onToggle={toggleProcessCollapsed}
+          hasThinking={hasThinking}
+          toolCount={toolCount}
+          elapsedMs={elapsedMs}
+          streaming={isSending}
+        >
+          {rows}
+        </ProcessSection>,
+      ];
+    }
     return rows;
-  }, [stream, toolCalls, isReasoning, webSearchActions, webSearching, todoList]);
+  }, [
+    messages,
+    stream,
+    toolCalls,
+    isReasoning,
+    webSearchActions,
+    webSearching,
+    todoList,
+    isSending,
+    processCollapsed,
+    processStartedAt,
+    processEndedAt,
+    toggleProcessCollapsed,
+  ]);
 
   // 待确认工具记录:独立于流式 tail 持久渲染(对齐旧版回合级行内确认)。
   // 从 toolCalls 过滤带 confirmationData 的记录,不依赖 isStreamSending;
@@ -574,7 +636,11 @@ export function ChatPanel() {
             <HistoryRenderer
               onRetry={handleRetry}
               onFork={handleFork}
-              tail={isStreamSending && streamRows.length > 0 ? streamRows : undefined}
+              // tail 不依赖 isStreamSending:确认阶段(tool_confirmation 后 complete 置
+              // isSending=false)stream 尚未固化,若切断 tail 会导致已输出的思考/工具
+              // 从屏幕消失只剩确认卡。改为仅看是否有流式内容;done/ask/abort 都会清空
+              // stream,此时 streamRows 为空自然消失,由 HistoryRenderer 固化渲染接管。
+              tail={streamRows.length > 0 ? streamRows : undefined}
             />
             {/* 待确认工具独立确认区:对齐旧版行内确认持久化。
                 不依赖 isStreamSending,流式结束后确认区仍保留在回合内,

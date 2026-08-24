@@ -32,7 +32,7 @@ public class EditFileTool implements ToolExecutor {
     public String getDescription() {
         return "精确替换文件中的文本内容。通过查找并替换指定的文本片段来编辑文件。" +
                "默认要求 old_text 在文件中唯一匹配；设置 replace_all=true 可替换所有匹配项。" +
-               "比 write_file 更安全，适合精确修改代码片段。只能编辑项目目录内的文件。";
+               "比 write_file 更安全，适合精确修改代码片段。";
     }
 
     @Override

@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ToolsConfig {
 
-    /** 权限模式：strict=仅工作区 + 需确认；relaxed=全目录 + 跳过确认。默认 strict */
+    /** 权限范围：strict=仅操作当前工作区；relaxed=可操作全目录。默认 strict。确认卡片由各工具的 require_confirmation 独立控制 */
     private String mode = "strict";
 
     private BashToolConfig bash = new BashToolConfig();
@@ -20,7 +20,7 @@ public class ToolsConfig {
     @JsonProperty("web_search")
     private WebSearchConfig webSearch = new WebSearchConfig();
 
-    /** 当前是否为宽松模式 */
+    /** 当前是否为全目录范围 */
     public boolean isModeRelaxed() {
         return "relaxed".equalsIgnoreCase(mode);
     }

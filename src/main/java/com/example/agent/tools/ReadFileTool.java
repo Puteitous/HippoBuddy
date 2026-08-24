@@ -111,7 +111,7 @@ public class ReadFileTool implements ToolExecutor {
 
     @Override
     public String getDescription() {
-        return "读取指定路径的文件内容。只能访问项目目录内的文件。";
+        return "读取指定路径的文件内容。";
     }
 
     @Override
@@ -122,7 +122,7 @@ public class ReadFileTool implements ToolExecutor {
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "要读取的文件路径（绝对路径或相对路径，只能访问项目目录内）"
+                        "description": "要读取的文件路径（绝对路径或相对路径）"
                     },
                     "offset": {
                         "type": "integer",

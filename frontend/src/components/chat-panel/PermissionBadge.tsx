@@ -1,7 +1,8 @@
 /**
  * PermissionBadge - 输入框底部的权限模式徽章。
  *
- * 平时显示一个小徽章(严格/宽松模式),点击展开下拉切换,切换后 PUT /api/config 持久化。
+ * 平时显示一个小徽章(仅工作区/全目录),点击展开下拉切换,切换后 PUT /api/config 持久化。
+ * 确认卡片由设置页「工具」中的 require_confirmation 开关独立控制,与权限范围无关。
  * 数据自行从 configApi 读取,与 ToolsSettingsPage 保持一致,避免引入全局 config store。
  */
 import { useEffect, useState, useRef } from 'react';
@@ -15,6 +16,28 @@ type Mode = 'strict' | 'relaxed';
 function defaultTools(mode: Mode): ToolsConfigSection {
   return { mode, bash: { enabled: true, require_confirmation: true }, file: {}, subagent: { enabled: false },
     delete_file: { require_confirmation: true }, web_search: { enabled: false, provider: 'brave', api_key: '' } };
+}
+
+/** 仅工作区:盾牌(受限安全) */
+function ShieldIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+    </svg>
+  );
+}
+
+/** 全目录:地球(全范围访问) */
+function GlobeIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  );
 }
 
 export function PermissionBadge() {
@@ -76,12 +99,14 @@ export function PermissionBadge() {
         type="button"
         className={`permission-badge-btn ${isRelaxed ? 'relaxed' : 'strict'}`}
         onClick={() => setOpen((v) => !v)}
-        title={isRelaxed ? '宽松模式:可操作全目录,跳过确认' : '严格模式:仅工作区,危险操作需确认'}
+        title={isRelaxed ? '全目录:可操作整个电脑上的文件' : '仅工作区:只能操作当前项目目录'}
         aria-label="切换权限模式"
         aria-expanded={open}
       >
-        <span className="permission-badge-dot" aria-hidden />
-        <span className="permission-badge-text">{isRelaxed ? '宽松模式' : '严格模式'}</span>
+        {isRelaxed
+          ? <GlobeIcon className="permission-badge-icon relaxed" size={12} />
+          : <ShieldIcon className="permission-badge-icon strict" size={12} />}
+        <span className="permission-badge-text">{isRelaxed ? '全目录' : '仅工作区'}</span>
         <svg
           viewBox="0 0 16 16"
           width="10"
@@ -104,17 +129,26 @@ export function PermissionBadge() {
             className={`permission-badge-opt ${!isRelaxed ? 'selected' : ''}`}
             onClick={() => select('strict')}
           >
-            <span className="permission-badge-opt-dot strict" aria-hidden />
-            严格模式(仅工作区 + 需确认)
+            <ShieldIcon className="permission-badge-opt-icon strict" size={18} />
+            <span className="permission-badge-opt-text">
+              <span className="permission-badge-opt-title">仅工作区</span>
+              <span className="permission-badge-opt-desc">只能操作当前项目目录</span>
+            </span>
           </button>
           <button
             type="button"
             className={`permission-badge-opt ${isRelaxed ? 'selected' : ''}`}
             onClick={() => select('relaxed')}
           >
-            <span className="permission-badge-opt-dot relaxed" aria-hidden />
-            宽松模式(全目录 + 跳过确认)
+            <GlobeIcon className="permission-badge-opt-icon relaxed" size={18} />
+            <span className="permission-badge-opt-text">
+              <span className="permission-badge-opt-title">全目录</span>
+              <span className="permission-badge-opt-desc">可操作整台电脑的文件</span>
+            </span>
           </button>
+          <div className="permission-badge-menu-hint">
+            确认卡片由设置页「工具」中的开关独立控制
+          </div>
         </div>
       )}
     </div>

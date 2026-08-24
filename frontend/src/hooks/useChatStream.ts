@@ -12,6 +12,7 @@
  */
 import { useCallback } from 'react';
 import { useChatStore } from '@/stores/chatStore';
+import { useSessionStream } from '@/hooks/useSessionStream';
 import type { ChatRequest } from '@/types';
 
 export interface UseChatStreamResult {
@@ -28,7 +29,7 @@ export interface UseChatStreamResult {
 }
 
 export function useChatStream(): UseChatStreamResult {
-  const isSending = useChatStore((s) => s.isSending);
+  const { isSending } = useSessionStream();
   const sendUserMessage = useChatStore((s) => s.sendUserMessage);
   const abortUserMessage = useChatStore((s) => s.abortUserMessage);
 

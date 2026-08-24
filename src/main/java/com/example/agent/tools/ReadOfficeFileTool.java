@@ -53,7 +53,7 @@ public class ReadOfficeFileTool implements ToolExecutor {
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "要读取的文件路径（绝对路径或相对路径，只能访问项目目录内）"
+                            "description": "要读取的文件路径（绝对路径或相对路径）"
                         },
                         "max_rows": {
                             "type": "integer",

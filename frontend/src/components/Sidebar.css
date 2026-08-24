@@ -298,18 +298,18 @@
   overflow: hidden;
 }
 
-.session-running-dot {
-  width: 6px;
-  height: 6px;
+.session-streaming-spinner {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #10b981;
+  border: 2px solid rgba(16, 185, 129, 0.25);
+  border-top-color: #10b981;
   flex-shrink: 0;
-  animation: session-running-pulse 1.4s ease-in-out infinite;
+  animation: session-stream-spin 0.8s linear infinite;
 }
 
-@keyframes session-running-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+@keyframes session-stream-spin {
+  to { transform: rotate(360deg); }
 }
 
 .session-item-name {

@@ -30,7 +30,7 @@ public class WriteFileTool implements ToolExecutor {
 
     @Override
     public String getDescription() {
-        return "将内容写入指定路径的文件。如果文件不存在则创建，如果存在则覆盖（原子写入）。支持 append 追加模式。只能访问项目目录内的文件。"
+        return "将内容写入指定路径的文件。如果文件不存在则创建，如果存在则覆盖（原子写入）。支持 append 追加模式。"
              + " 注意：对于超过 5000 字符的长内容，建议使用 append=true 分多次追加写入，可以有效避免长内容导致的 JSON 格式问题。";
     }
 
@@ -42,7 +42,7 @@ public class WriteFileTool implements ToolExecutor {
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "要写入的文件路径（绝对路径或相对路径，只能访问项目目录内）"
+                        "description": "要写入的文件路径（绝对路径或相对路径）"
                     },
                     "content": {
                         "type": "string",

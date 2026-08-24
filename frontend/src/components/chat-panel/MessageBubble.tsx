@@ -29,6 +29,8 @@ interface MessageBubbleProps {
   isReasoning?: boolean;
   /** 可选:挂载到根元素的 data-message-id,供 ChatNav 定位用 */
   dataMessageId?: string;
+  /** 附加到 assistant 根元素的额外 class(如回合最终正文标记 round-final-text) */
+  className?: string;
 }
 
 /** 大脑 SVG 图标(对齐旧版 RenderPipeline.renderThinkingBubble) */
@@ -40,6 +42,7 @@ function MessageBubbleComponent({
   isStreaming = false,
   isReasoning = false,
   dataMessageId,
+  className,
 }: MessageBubbleProps) {
   const [showReasoning, setShowReasoning] = useState(false);
 
@@ -110,7 +113,10 @@ function MessageBubbleComponent({
     return null;
   }
   return (
-    <div className="msg-bubble msg-bubble-assistant" data-message-id={dataMessageId}>
+    <div
+      className={`msg-bubble msg-bubble-assistant${className ? ` ${className}` : ''}`}
+      data-message-id={dataMessageId}
+    >
       {message.reasoning_content && (
         <div
           className={`msg-reasoning ${

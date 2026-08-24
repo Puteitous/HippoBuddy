@@ -1,0 +1,111 @@
+/* ============================================================
+   ProcessSection - 回合级「处理过程」折叠容器
+   ------------------------------------------------------------
+   头部摘要条 = 统一收起按钮(始终可见,点击切换)。
+   收起态通过 display:none 隐藏思维链 / 工具时间线 / 独立工具卡,
+   回合最终正文(content 气泡)不受影响、始终可见。
+   ============================================================ */
+
+.process-section {
+  position: relative;
+  margin: 6px 0;
+}
+
+/* ── 摘要条(统一收起按钮) ──────────────────────────────── */
+.process-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+  user-select: none;
+  line-height: 1.4;
+}
+
+.process-summary:hover {
+  background: var(--bg-canvas);
+}
+
+.process-summary:active {
+  background: var(--bg-code);
+}
+
+.process-summary-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.process-summary-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.process-summary-arrow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+/* 展开态箭头朝上,收起态朝下 */
+.process-summary-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+/* ── 收起态:隐藏思维链 + 工具时间线/卡片 + 中途过渡正文,只保留最终正文 ──
+   待确认工具卡由 ChatPanel 独立确认区渲染,不在容器内,不会误隐藏;
+   交互态 ask 卡也渲染在容器外,收起时仍可见可回答。 */
+.process-section.collapsed .msg-reasoning,
+.process-section.collapsed .tool-timeline,
+.process-section.collapsed .tool-card {
+  display: none;
+}
+
+/* 收起态只保留最后一段正文(对齐 Codex 折叠语义):
+   隐藏 process-body 内「非回合最终正文」段(含思考卡与过渡性正文),避免只隐藏
+   内容后残留空白气泡;标有 .round-final-text 的最终正文段仍显示。
+   不能再用 :last-child 判断:当回合以独立工具卡(todo_write/ask_user)收尾时,
+   最后一个 DOM 子元素是工具卡而非正文,会导致正文被误隐藏。改用组件层对回合
+   最后一段 assistant 加 .round-final-text 标记,与 DOM 末尾是否工具卡无关。 */
+.process-section.collapsed .process-body > .msg-bubble-assistant:not(.round-final-text) {
+  display: none;
+}
+
+/* 流式中收起(streaming):隐藏所有 assistant 正文(含当前输出段),只留摘要条,
+   避免流式推进时「最后一段」随 thinking 切换导致中途 content 闪现又消失;
+   done 固化后(无 streaming)恢复显示最终正文。 */
+.process-section.collapsed.streaming .process-body > .msg-bubble-assistant {
+  display: none;
+}
+
+/* ── 折叠容器内部间距修正 ────────────────────────────────
+   .history-list 对 .tool-timeline 用了 -16px 负 margin 抵消 16px gap,
+   该规则是后代选择器,会连带作用到 process-body 内的工具时间线,
+   导致与上方思考/正文重叠。这里恢复正间距。 */
+.history-list .process-section .tool-timeline {
+  margin-top: 6px;
+  margin-bottom: 6px;
+  margin-left: 30px;
+}
+
+/* 回合级 footer 原「紧邻 .msg-bubble-assistant 间距 0px」的规则因
+   assistant 气泡被包进 process-section 而失效,这里等价恢复:
+   footer 紧跟 process-section(其末尾即回合最终正文)时贴紧。 */
+.history-list > .process-section + .message-footer {
+  margin-top: -16px;
+}

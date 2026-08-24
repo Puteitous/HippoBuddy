@@ -27,6 +27,7 @@ import { sessionApi, workspaceApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
+import { useChatStore } from '@/stores/chatStore';
 import { showToast } from '@/utils/toastStore';
 import { on } from '@/utils/eventBus';
 import type { RollbackCompletedPayload } from '@/utils/eventBus';
@@ -198,6 +199,14 @@ export function Sidebar() {
   const [renderedCount, setRenderedCount] = useState(BATCH_SIZE);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // ── 无限滚动批次的重置控制 ──────────────────────────────
+  // 记录上一次 rows 行数与分组结构,用于判定是否发生「结构性变化」。
+  // 结构性变化(切换分组模式/折叠项目/列表整体缩短) → 重置批次为 BATCH_SIZE;
+  // 普通后台刷新(updateSession 改 title/messageCount/running、getSessions、切会话)
+  // 不应把用户已滚动出来的批次打回 BATCH_SIZE,否则列表会"滚着滚着又缩回"。
+  const prevRowsLenRef = useRef(0);
+  const prevGroupModeRef = useRef(groupMode);
+  const prevCollapsedProjectsRef = useRef(collapsedProjects);
 
   /** 对齐旧版 createNewSession:生成 web-* 会话 id 并把 hero 待定草稿带入新会话;
    *  首次发送消息时才真正持久化;useSessionMessages 会自动 reset chatStore。 */
@@ -345,10 +354,26 @@ export function Sidebar() {
     return cur ? projectKeyOf(cur) : OTHER_PROJECT_KEY;
   }, [sessions, currentSessionId]);
 
-  // 数据变化时重置无限滚动批次
+  // 数据变化时重置无限滚动批次。
+  // 仅当发生「结构性变化」(切换分组模式 / 折叠项目 / 列表整体缩短)时重置为 BATCH_SIZE;
+  // 普通后台刷新(改 title/messageCount/running、getSessions、切会话)不应重置已滚动批次,
+  // 避免列表"滚着滚着又缩回 BATCH_SIZE"导致显示不全。
   useEffect(() => {
-    setRenderedCount(BATCH_SIZE);
-  }, [rows]);
+    const structural =
+      groupMode !== prevGroupModeRef.current ||
+      collapsedProjects.size !== prevCollapsedProjectsRef.current.size ||
+      rows.length < prevRowsLenRef.current; // 行数减少(如删除会话)是真实结构收缩
+    prevRowsLenRef.current = rows.length;
+    prevGroupModeRef.current = groupMode;
+    prevCollapsedProjectsRef.current = collapsedProjects;
+    if (structural) {
+      setRenderedCount(BATCH_SIZE);
+      return;
+    }
+    // 非结构性变化:保留当前已滚动批次,但向上封顶不超出 rows 长度,
+    // 避免后台刷新导致 renderedCount 虚高而渲染不足(hasMore 判定用)。
+    setRenderedCount((c) => Math.min(c, rows.length));
+  }, [rows, groupMode, collapsedProjects]);
 
   const visibleRows = rows.slice(0, renderedCount);
   const hasMore = renderedCount < rows.length;
@@ -598,6 +623,15 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
   const removeSession = useAppStore((s) => s.removeSession);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
 
+  // 前端活跃流(对应会话在 sessionStreams 分区内的流式/工具调用进行中)——
+  // 切走/新建其他会话后,原会话后台仍在流式,借此在会话项上提示续看。
+  const streaming = useChatStore(
+    (s) =>
+      (s.sessionStreams[session.id]?.isSending === true ||
+      (s.sessionStreams[session.id]?.stream.length ?? 0) > 0 ||
+      (s.sessionStreams[session.id]?.toolCalls.length ?? 0) > 0),
+  );
+
   const title = sessionDisplayName(session);
   const time = formatTime(session.lastActivityAt ?? session.createdAt);
 
@@ -676,7 +710,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
       title={renaming ? undefined : title}
     >
       <div className="session-item-title">
-        {session.running && <span className="session-running-dot" aria-label="running" />}
+        {streaming && <span className="session-streaming-spinner" aria-label="streaming" />}
         {renaming ? (
           <input
             ref={renameInputRef}

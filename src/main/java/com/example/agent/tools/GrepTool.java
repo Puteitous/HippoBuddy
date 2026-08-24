@@ -39,7 +39,7 @@ public class GrepTool implements ToolExecutor {
                "path 参数支持文件或目录：传文件则只搜索该文件内容，传目录则递归搜索子文件。" +
                "支持上下文行（context_before/context_after）、" +
                "多行匹配（multiline）、输出模式切换（output_mode）和结果分页（offset）。" +
-               "用于查找代码、配置、日志等。只能搜索项目目录内的文件。";
+               "用于查找代码、配置、日志等。";
     }
 
     @Override

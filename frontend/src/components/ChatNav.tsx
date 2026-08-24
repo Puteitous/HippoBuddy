@@ -18,7 +18,7 @@
  * 无 user 消息时由 CSS data-empty 隐藏;消息容器实例由 ChatPanel 以 state 传入。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useChatStore } from '@/stores/chatStore';
+import { useSessionStream } from '@/hooks/useSessionStream';
 import type { Message } from '@/types';
 import './ChatNav.css';
 
@@ -59,7 +59,7 @@ interface ChatNavProps {
 }
 
 export function ChatNav({ container }: ChatNavProps) {
-  const messages = useChatStore((s) => s.messages);
+  const { messages } = useSessionStream();
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
   const rafIdRef = useRef<number | null>(null);

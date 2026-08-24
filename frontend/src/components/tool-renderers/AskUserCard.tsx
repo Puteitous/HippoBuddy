@@ -20,6 +20,7 @@
 import { useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useSessionStream } from '@/hooks/useSessionStream';
 import { ToolCardFrame, StatusBadge } from './shared';
 import { parseToolArgs } from './shared-utils';
 import type { ToolCallRecord } from '@/types';
@@ -29,8 +30,7 @@ interface AskUserCardProps {
 }
 
 export function AskUserCard({ record }: AskUserCardProps = {}) {
-  const askUserData = useChatStore((s) => s.askUserData);
-  const waitingForUser = useChatStore((s) => s.waitingForUser);
+  const { askUserData, waitingForUser } = useSessionStream();
   const commitAskUser = useChatStore((s) => s.commitAskUser);
   const setError = useChatStore((s) => s.setError);
   // 复用 store 内的统一发送通道(与主输入框同一请求、同一 AbortController)。

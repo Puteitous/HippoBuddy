@@ -304,9 +304,9 @@
   gap: 5px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  padding: 2px 6px;
+  color: inherit; /* 对齐 ModelSelectorPanel(.msp-trigger-model 继承主文字色),不再灰显 */
+  font-size: 13px; /* 对齐 .msp-trigger 字号 */
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
@@ -314,23 +314,22 @@
 }
 
 .permission-badge-btn:hover {
-  color: var(--text-secondary);
+  color: inherit;
   background: var(--bg-code);
 }
 
-.permission-badge-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+.permission-badge-icon {
   flex-shrink: 0;
 }
 
-.permission-badge-dot.strict {
-  background: var(--accent);
+.permission-badge-icon.strict,
+.permission-badge-opt-icon.strict {
+  color: var(--accent);
 }
 
-.permission-badge-dot.relaxed {
-  background: var(--success, #16a34a);
+.permission-badge-icon.relaxed,
+.permission-badge-opt-icon.relaxed {
+  color: var(--success, #16a34a);
 }
 
 .permission-badge-text {
@@ -341,12 +340,12 @@
   position: absolute;
   bottom: calc(100% + 6px);
   left: 0;
-  min-width: 220px;
+  min-width: 300px;
   background: var(--bg-elevated, var(--bg-code));
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-  padding: 4px;
+  padding: 6px;
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -356,16 +355,15 @@
 .permission-badge-opt {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
-  padding: 7px 8px;
+  padding: 9px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
-  white-space: nowrap;
   transition: background var(--transition-fast);
 }
 
@@ -375,22 +373,41 @@
 
 .permission-badge-opt.selected {
   color: var(--text-primary);
-  font-weight: 600;
 }
 
-.permission-badge-opt-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.permission-badge-opt-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.permission-badge-opt-icon {
   flex-shrink: 0;
 }
 
-.permission-badge-opt-dot.strict {
-  background: var(--accent);
+.permission-badge-opt-title {
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
 }
 
-.permission-badge-opt-dot.relaxed {
-  background: var(--success, #16a34a);
+.permission-badge-opt.selected .permission-badge-opt-title {
+  font-weight: 600;
+}
+
+.permission-badge-opt-desc {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+.permission-badge-menu-hint {
+  padding: 8px 12px 5px;
+  margin-top: 3px;
+  border-top: 1px solid var(--border);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 /* 状态栏右侧动作(发送/停止,对齐旧版 .status-bar-actions) */
@@ -654,6 +671,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chat-history-spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid rgba(16, 185, 129, 0.25);
+  border-top-color: #10b981;
+  flex-shrink: 0;
+  animation: hippo-spin 0.8s linear infinite;
+}
+
+@keyframes hippo-spin {
+  to { transform: rotate(360deg); }
 }
 
 .chat-history-category {

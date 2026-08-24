@@ -491,6 +491,17 @@ function createWindow() {
     }
   });
 
+  // 刷新/重新加载宿主页面时，前端内存态会全部丢失（SSE/停止按钮/spinner 均失效），
+  // 正在执行的任务将处于不可控状态。故在主进程拦截 did-start-loading（主进程不随页面销毁
+  // 消失，比渲染层 beforeunload 更可靠），中断后端所有运行中的会话——「刷新即离开，统一停止」。
+  // 与退出托盘菜单的中断逻辑（abortSessions(runningIds)）语义一致。
+  mainWindow.webContents.on('did-start-loading', () => {
+    if (!mainHomeLoaded) return; // 首次启动/splash 载入阶段不中断
+    getRunningSessionIds().then((ids) => {
+      if (ids.length) abortSessions(ids);
+    });
+  });
+
   // ⛔ 禁止 Ctrl+W / Cmd+W 关闭窗口（桌面端不需要浏览器标签页快捷键）
   mainWindow.webContents.on('before-input-event', (_event, input) => {
     if ((input.control || input.meta) && input.key.toLowerCase() === 'w') {
@@ -544,6 +555,7 @@ function setupSplashCommunication() {
             setTimeout(() => {
               mainWindow.loadURL(`${mainWindowHomeUrl()}?skipSplash=true`);
               mainWindow.setTitle('HippoBuddy');
+              mainHomeLoaded = true; // 主界面已加载，此后真正的刷新才会中断运行中任务
             }, 1100);
           }, 500);
         }
@@ -913,6 +925,9 @@ function backendPostJson(path, bodyObj) {
     req.end();
   });
 }
+
+/** 是否已加载过主界面（首个完成标志，避免首次启动/splash 载入时误中断任务） */
+let mainHomeLoaded = false;
 
 /** 查询所有正在执行任务的会话 ID（后端不可达时返回空数组，不阻塞退出） */
 async function getRunningSessionIds() {
@@ -1303,6 +1318,7 @@ app.whenReady().then(() => {
             setTimeout(() => {
               mainWindow.loadURL(`${mainWindowHomeUrl()}?skipSplash=true`);
               mainWindow.setTitle('HippoBuddy');
+              mainHomeLoaded = true; // 主界面已加载，此后真正的刷新才会中断运行中任务
             }, 1100);
           }, 500);
         }
