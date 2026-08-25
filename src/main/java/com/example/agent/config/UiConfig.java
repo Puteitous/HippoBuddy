@@ -3,6 +3,9 @@ package com.example.agent.config;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UiConfig {
 
@@ -18,7 +21,14 @@ public class UiConfig {
 
     private String theme = DEFAULT_THEME;
     private String prompt = DEFAULT_PROMPT;
-    
+
+    /**
+     * 用户自定义系统提示词,按任务模式(coding/chat/office)分开存。
+     * 某模式下取不到或为空字符串,表示该模式未自定义,聊天时使用内置默认提示词(含规则/技能/工作区增强)。
+     */
+    @JsonProperty("system_prompts")
+    private Map<String, String> systemPrompts = new HashMap<>();
+
     @JsonProperty("syntax_highlight")
     private boolean syntaxHighlight = true;
     
@@ -48,6 +58,14 @@ public class UiConfig {
 
     public void setPrompt(String prompt) {
         this.prompt = prompt;
+    }
+
+    public Map<String, String> getSystemPrompts() {
+        return systemPrompts;
+    }
+
+    public void setSystemPrompts(Map<String, String> systemPrompts) {
+        this.systemPrompts = systemPrompts;
     }
 
     public String getDefaultProcessView() {

@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ===== 文件操作 =====
   readDir: (path) => ipcRenderer.invoke('fs:readDir', path),
   readFile: (path) => ipcRenderer.invoke('fs:readFile', path),
+  readFileBase64: (path) => ipcRenderer.invoke('fs:readFileBase64', path),
   writeFile: (path, content) => ipcRenderer.invoke('fs:writeFile', path, content),
   createFile: (path) => ipcRenderer.invoke('fs:createFile', path),
   createDir: (path) => ipcRenderer.invoke('fs:createDir', path),
@@ -75,6 +76,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ===== 对话框 =====
   openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
+  openImageDialog: () => ipcRenderer.invoke('dialog:openImage'),
   saveFileDialog: (content, suggestedName, mimeType) =>
     ipcRenderer.invoke('dialog:saveFile', content, suggestedName, mimeType),
 

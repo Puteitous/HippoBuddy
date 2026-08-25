@@ -334,6 +334,31 @@ export const desktopBridge = {
     }
   },
 
+  /** 打开系统图片选择对话框(自定义背景用,仅桌面端有效) */
+  async openImageDialog(): Promise<string | null> {
+    try {
+      const result = await window.electronAPI?.openImageDialog?.();
+      return result?.path ?? null;
+    } catch (e) {
+      console.warn('[desktopBridge] openImageDialog 失败:', e);
+      return null;
+    }
+  },
+
+  /** 读取图片文件为 base64 data URL(自定义背景用) */
+  async readImageAsDataUrl(filePath: string): Promise<string | null> {
+    try {
+      const result = await window.electronAPI?.readFileBase64?.(filePath);
+      if (result && typeof result === 'object' && 'dataUrl' in result) {
+        return typeof result.dataUrl === 'string' ? result.dataUrl : null;
+      }
+      return null;
+    } catch (e) {
+      console.warn('[desktopBridge] readImageAsDataUrl 失败:', e);
+      return null;
+    }
+  },
+
   // ────────────────────────── DevTools ──────────────────────────
 
   /** 打开 DevTools(仅桌面端有效) */

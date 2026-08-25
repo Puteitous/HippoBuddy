@@ -220,8 +220,8 @@
 
 .settings-field .settings-field-label,
 .settings-field-horizontal .settings-field-label {
-    flex-shrink: 0;
-    width: 140px;
+    flex: 0 0 auto;
+    max-width: 60%;
     white-space: nowrap;
 }
 
@@ -229,7 +229,8 @@
     font-size: var(--font-size-md);
     color: var(--text-muted);
     font-weight: 400;
-    white-space: pre;
+    white-space: normal;
+    word-wrap: break-word;
 }
 
 .settings-field-body {

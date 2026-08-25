@@ -54,7 +54,7 @@
 
 /* 错误提示 */
 .chat-panel-error {
-  margin: 16px 0;
+  margin: 16px auto;
   padding: 10px 14px;
   background: var(--error-bg);
   border-left: 3px solid var(--error-color);
@@ -66,7 +66,7 @@
 /* 警告提示 */
 .chat-panel-warnings {
   position: relative;
-  margin: 8px 0;
+  margin: 8px auto;
   padding: 8px 14px 8px 12px;
   background: var(--warning-bg);
   border-left: 3px solid var(--warning-color);
@@ -137,6 +137,11 @@
   max-width: 860px;
   margin: 0 auto;
   min-height: 100px;
+}
+
+/* 玻璃主题:输入条减叠深,避免在聊天面板 0.4 上再叠一层 0.4 */
+[data-theme="glass"] .chat-panel-input-card {
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
 }
 
 .chat-panel-input-card:focus-within {
@@ -320,16 +325,18 @@
 
 .permission-badge-icon {
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
 }
 
 .permission-badge-icon.strict,
 .permission-badge-opt-icon.strict {
-  color: var(--accent);
+  color: var(--success-color, #16a34a);
 }
 
 .permission-badge-icon.relaxed,
 .permission-badge-opt-icon.relaxed {
-  color: var(--success, #16a34a);
+  color: var(--warning-color, #e6a817);
 }
 
 .permission-badge-text {
@@ -364,11 +371,12 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
 }
 
 .permission-badge-opt:hover {
-  background: var(--bg-code);
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .permission-badge-opt.selected {
@@ -384,6 +392,13 @@
 
 .permission-badge-opt-icon {
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  transition: transform var(--transition-fast);
+}
+
+.permission-badge-opt:hover .permission-badge-opt-icon {
+  transform: scale(1.08);
 }
 
 .permission-badge-opt-title {
@@ -495,6 +510,11 @@
   flex-shrink: 0;
   background: var(--bg-app);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* 玻璃主题:header 减叠深,与主面板同尺度,避免在聊天面板 0.4 上再叠一层 0.4 */
+[data-theme="glass"] .chat-panel-header {
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
 }
 
 .chat-panel-title {

@@ -58,6 +58,39 @@ public class ChatApiHandler implements HttpHandler {
         this.orchestrator = orchestrator;
     }
 
+    /**
+     * 在基础系统提示词后追加增强:项目规则 + 工作区 + 技能清单 + 日期 + 运行环境。
+     * 行为与 WebSessionManager.getDefaultSystemPrompt 的增强段保持一致,
+     * 用于用户自定义提示词或非 coding 模式提示词上补齐 Agent 的关键上下文。
+     */
+    private String augmentWithContext(String basePrompt) {
+        String prompt = basePrompt;
+        com.example.agent.domain.rule.RuleManager ruleManager =
+            ServiceLocator.getOrNull(com.example.agent.domain.rule.RuleManager.class);
+        if (ruleManager != null) {
+            prompt = ruleManager.enhanceSystemPrompt(prompt);
+        }
+        // 追加工作区路径
+        String workspacePath = WorkspaceContext.getCurrentFolder();
+        if (workspacePath != null && !workspacePath.isBlank()) {
+            prompt += "\n\n## 当前工作区\n用户已选择以下文件夹作为当前工作区。Agent 的所有文件操作应以此目录为根目录：\n"
+                + workspacePath;
+        }
+        // 追加可用技能清单
+        SkillManager skillManager = ServiceLocator.getOrNull(SkillManager.class);
+        if (skillManager != null) {
+            String skillSnippet = skillManager.buildSystemPromptSnippet();
+            if (!skillSnippet.isBlank()) {
+                prompt += skillSnippet;
+            }
+        }
+        // 追加当前日期
+        prompt += "\n\n## 当前日期\n" + java.time.LocalDate.now().toString();
+        // 注入运行环境信息,让 LLM 明确平台与 shell 类型
+        prompt += WorkspaceContext.getEnvironmentPromptSnippet();
+        return prompt;
+    }
+
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         if (!"POST".equals(exchange.getRequestMethod())) {
@@ -94,10 +127,15 @@ public class ChatApiHandler implements HttpHandler {
             String systemPromptOverride = json.has("systemPrompt") ? json.get("systemPrompt").asText() : null;
             String mode = json.has("mode") ? json.get("mode").asText() : null;
             sessionManager.setMode(sessionId, mode);
-            // 当没有自定义 systemPrompt 且指定了非 coding 模式时，
-            // 使用 PromptService 组装对应模式的提示词（含规则/技能/工作区增强）
-            if ((systemPromptOverride == null || systemPromptOverride.isBlank())
-                    && mode != null && !mode.isBlank() && !"coding".equals(mode)) {
+            // 系统提示词解析：
+            //  1. 用户自定义(前端「提示词」设置)→ 作为基础，仍叠加规则/技能/工作区/日期/环境增强，
+            //     避免自定义后丢失 Agent 的关键上下文；
+            //  2. 未自定义且指定非 coding 模式 → 用该模式基础提示词，并做同样的增强；
+            //  3. 其余(默认 coding)→ 使用会话创建时已固化的默认提示词，不在此处改动。
+            boolean hasCustomSystemPrompt = systemPromptOverride != null && !systemPromptOverride.isBlank();
+            if (hasCustomSystemPrompt) {
+                systemPromptOverride = augmentWithContext(systemPromptOverride);
+            } else if (mode != null && !mode.isBlank() && !"coding".equals(mode)) {
                 try {
                     com.example.agent.prompt.model.TaskMode taskMode =
                         com.example.agent.prompt.model.TaskMode.valueOf(mode.toUpperCase());
@@ -105,31 +143,7 @@ public class ChatApiHandler implements HttpHandler {
                         ServiceLocator.get(com.example.agent.prompt.PromptService.class);
                     String basePrompt = promptService.getSystemPrompt(
                         com.example.agent.prompt.PromptService.TaskContext.forMode(taskMode));
-                    // 注入项目规则（同 getDefaultSystemPrompt 逻辑）
-                    com.example.agent.domain.rule.RuleManager ruleManager =
-                        ServiceLocator.getOrNull(com.example.agent.domain.rule.RuleManager.class);
-                    if (ruleManager != null) {
-                        basePrompt = ruleManager.enhanceSystemPrompt(basePrompt);
-                    }
-                    // 追加工作区路径
-                    String workspacePath = com.example.agent.desktop.WorkspaceContext.getCurrentFolder();
-                    if (workspacePath != null && !workspacePath.isBlank()) {
-                        basePrompt += "\n\n## 当前工作区\n用户已选择以下文件夹作为当前工作区。Agent 的所有文件操作应以此目录为根目录：\n"
-                            + workspacePath;
-                    }
-                    // 追加可用技能清单（与会话创建固化的默认路径行为一致）
-                    SkillManager skillManager = ServiceLocator.getOrNull(SkillManager.class);
-                    if (skillManager != null) {
-                        String skillSnippet = skillManager.buildSystemPromptSnippet();
-                        if (!skillSnippet.isBlank()) {
-                            basePrompt += skillSnippet;
-                        }
-                    }
-                    // 追加当前日期（会话创建时固化，与默认路径一致）
-                    basePrompt += "\n\n## 当前日期\n" + java.time.LocalDate.now().toString();
-                    // 注入运行环境信息，让 LLM 明确平台与 shell 类型
-                    basePrompt += com.example.agent.desktop.WorkspaceContext.getEnvironmentPromptSnippet();
-                    systemPromptOverride = basePrompt;
+                    systemPromptOverride = augmentWithContext(basePrompt);
                 } catch (Exception e) {
                     logger.warn("无法解析 mode={}, 使用默认提示词", mode);
                 }

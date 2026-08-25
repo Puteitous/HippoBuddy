@@ -260,7 +260,7 @@ function MenuLevel({ onGoRules, onGoSkills }: MenuLevelProps) {
             </svg>
           </span>
           <span className="context-selector-menu-label">规则</span>
-          <span className="context-selector-menu-arrow">›</span>
+          <span className="context-selector-menu-arrow"><svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7988 12L29.7988 24L17.7988 36"/></svg></span>
         </button>
 
         <button
@@ -277,7 +277,7 @@ function MenuLevel({ onGoRules, onGoSkills }: MenuLevelProps) {
             </svg>
           </span>
           <span className="context-selector-menu-label">技能</span>
-          <span className="context-selector-menu-arrow">›</span>
+          <span className="context-selector-menu-arrow"><svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7988 12L29.7988 24L17.7988 36"/></svg></span>
         </button>
       </div>
     </>

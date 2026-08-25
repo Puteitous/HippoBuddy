@@ -19,6 +19,8 @@ interface Window {
     readDir?: (path: string) => Promise<DirEntryResult | null>;
     /** Electron 封装返回 { path, content } 对象(desktopBridge 内部归一化为纯文本) */
     readFile?: (path: string) => Promise<{ path?: string; content?: string; error?: boolean; code?: string; message?: string } | string | null>;
+    /** 读取图片文件，返回 base64 data URL（自定义背景用） */
+    readFileBase64?: (path: string) => Promise<{ dataUrl?: string; error?: boolean; code?: string; message?: string } | null>;
     /** Electron 封装返回 { path, size } 对象(desktopBridge 内部判定 error 标记) */
     writeFile?: (path: string, content: string) => Promise<{ path?: string; size?: number; error?: boolean; code?: string; message?: string }>;
     createFile?: (path: string) => Promise<boolean>;
@@ -44,6 +46,7 @@ interface Window {
 
     // ── 对话框 ──
     openFileDialog?: () => Promise<{ path?: string } | null>;
+    openImageDialog?: () => Promise<{ path?: string } | null>;
     saveFileDialog?: (
       content: string,
       suggestedName?: string,

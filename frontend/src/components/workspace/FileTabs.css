@@ -17,6 +17,12 @@
   flex-shrink: 0;
 }
 
+/* 玻璃主题:文件标签栏减叠深,避免在预览面板 0.4 上再叠一层 0.4 */
+[data-theme="glass"] .file-tabs,
+[data-theme="glass"] .file-tabs-empty {
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+}
+
 .file-tabs::-webkit-scrollbar {
   display: none;
 }

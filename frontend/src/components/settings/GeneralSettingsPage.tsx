@@ -12,6 +12,7 @@ import { ApiError } from '@/api/error';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { useAppStore } from '@/stores/appStore';
+import { useBackgroundStore, type BackgroundType } from '@/stores/backgroundStore';
 import { showToast } from './toastStore';
 import { i18nStore, useI18n } from '@/i18n';
 import { setDefaultProcessView } from '@/utils/process-view-config';
@@ -39,8 +40,56 @@ const THEME_OPTIONS: { value: Theme; labelKey: string }[] = [
   { value: 'light', labelKey: 'settingsPage.generalLight' },
   { value: 'dark', labelKey: 'settingsPage.generalDark' },
   { value: 'midnight', labelKey: 'settingsPage.generalMidnight' },
+  { value: 'glass', labelKey: 'settingsPage.generalGlass' },
   { value: 'system', labelKey: 'settingsPage.generalSystem' },
 ];
+
+/** 自定义背景-渐变预设(毛玻璃主题下透出效果较好) */
+const GRADIENT_PRESETS: { name: string; css: string }[] = [
+  { name: '暮色紫', css: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+  { name: '深海蓝', css: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' },
+  { name: '极光绿', css: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' },
+  { name: '落日橙', css: 'linear-gradient(135deg, #f83600 0%, #f9d423 100%)' },
+  { name: '樱花粉', css: 'linear-gradient(135deg, #ee9ca7 0%, #ffdde1 100%)' },
+  { name: '星夜紫', css: 'linear-gradient(135deg, #41295a 0%, #2f0743 100%)' },
+];
+
+const DEFAULT_BG_COLOR = '#5b6bbf';
+
+/**
+ * 压缩图片 data URL:限制最长边并降质量,控制体积以便存入 localStorage 并流畅渲染。
+ *  - 最长边超 maxEdge 时等比缩小(默认 1920,足够铺满常规屏幕)
+ *  - PNG 保留透明度(输出 PNG);其余格式转 JPEG(quality)
+ *  - 解码失败时抛异常,由调用方决定是否退回原图
+ */
+function compressImageDataUrl(dataUrl: string, maxEdge = 1920, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const { width, height } = img;
+        const scale = Math.min(1, maxEdge / Math.max(width, height));
+        const w = Math.max(1, Math.round(width * scale));
+        const h = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        const isPng = dataUrl.startsWith('data:image/png');
+        resolve(isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error('图片解码失败'));
+    img.src = dataUrl;
+  });
+}
 
 export function GeneralSettingsPage() {
   const theme = useThemeStore((s) => s.theme);
@@ -57,6 +106,17 @@ export function GeneralSettingsPage() {
   const [processView, setProcessView] = useState<'full' | 'result'>('full');
   /** 权限范围:strict=仅工作区;relaxed=放开整机访问 */
   const [scopeMode, setScopeMode] = useState<'strict' | 'relaxed'>('strict');
+  /** 自定义背景(类型 + 值) */
+  const background = useBackgroundStore((s) => s.background);
+  const setBackground = useBackgroundStore((s) => s.setBackground);
+  const resetBackground = useBackgroundStore((s) => s.resetBackground);
+  /** 玻璃主题背景样式参数(模糊强度 / 面板遮罩浓度) */
+  const glassStyle = useBackgroundStore((s) => s.glassStyle);
+  const setGlassStyle = useBackgroundStore((s) => s.setGlassStyle);
+  /** 图片背景尺寸解析:cover=铺满 / contain=适应 / 其余按缩放百分比 */
+  const bgSize = background.size && background.size !== 'cover' ? background.size : 'cover';
+  const bgMode = bgSize === 'cover' ? 'cover' : bgSize === 'contain' ? 'contain' : 'scale';
+  const scaleValue = bgMode === 'scale' ? parseInt(bgSize, 10) || 100 : 100;
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +200,48 @@ export function GeneralSettingsPage() {
     }
   };
 
+  /** 切换背景类型;切换到纯色/渐变/图片时保留可用旧值,避免误清空 */
+  const handleBgTypeChange = (type: BackgroundType) => {
+    if (type === background.type) return;
+    if (type === 'none') {
+      resetBackground();
+      return;
+    }
+    if (type === 'color') {
+      const value = /^#[0-9a-fA-F]{6}$/.test(background.value) ? background.value : DEFAULT_BG_COLOR;
+      setBackground({ type, value });
+      return;
+    }
+    if (type === 'gradient') {
+      const value =
+        background.type === 'gradient' && background.value
+          ? background.value
+          : GRADIENT_PRESETS[0].css;
+      setBackground({ type, value });
+      return;
+    }
+    // image:仅切换类型,若尚无图片值则停留在"选择图片"按钮
+    setBackground({ type, value: background.value });
+  };
+
+  /** 选择本地图片作为背景:读成 base64 data URL,压缩后持久化(避免大图超出 localStorage 配额/渲染卡顿) */
+  const handlePickImage = async () => {
+    const path = await desktopBridge.openImageDialog();
+    if (!path) return;
+    const dataUrl = await desktopBridge.readImageAsDataUrl(path);
+    if (!dataUrl) {
+      showToast('读取图片失败', { type: 'error', duration: 3000 });
+      return;
+    }
+    try {
+      const compressed = await compressImageDataUrl(dataUrl);
+      setBackground({ type: 'image', value: compressed });
+    } catch {
+      // 压缩失败(解码异常)时退回原图,保证至少能使用
+      setBackground({ type: 'image', value: dataUrl });
+    }
+  };
+
   const handleWorkspacePathChange = async (path: string) => {
     const trimmed = path.trim();
     if (!trimmed) return;
@@ -210,6 +312,194 @@ export function GeneralSettingsPage() {
                     {t(opt.labelKey)}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 自定义背景:配合玻璃主题使用,背景从半透明面板内透出 */}
+          <div className="settings-field-horizontal">
+            <div className="settings-field-label">
+              <div>{t('settingsPage.generalBackground')}</div>
+              {/* 已在玻璃主题时无需提示;仅其他主题下提示搭配玻璃使用 */}
+              {theme !== 'glass' && (
+                <div className="settings-field-hint">{t('settingsPage.generalBackgroundHint')}</div>
+              )}
+            </div>
+            <div className="settings-field-body">
+              {/* 纵向容器:body 默认横向 flex,多个编辑块需改为纵向排列避免横排溢出 */}
+              <div className="settings-bg-root">
+              <div className="settings-toggle-group">
+                <button
+                  type="button"
+                  className={`settings-toggle-btn${background.type === 'none' ? ' active' : ''}`}
+                  onClick={() => handleBgTypeChange('none')}
+                >
+                  {t('settingsPage.generalBgNone')}
+                </button>
+                <button
+                  type="button"
+                  className={`settings-toggle-btn${background.type === 'color' ? ' active' : ''}`}
+                  onClick={() => handleBgTypeChange('color')}
+                >
+                  {t('settingsPage.generalBgColor')}
+                </button>
+                <button
+                  type="button"
+                  className={`settings-toggle-btn${background.type === 'gradient' ? ' active' : ''}`}
+                  onClick={() => handleBgTypeChange('gradient')}
+                >
+                  {t('settingsPage.generalBgGradient')}
+                </button>
+                <button
+                  type="button"
+                  className={`settings-toggle-btn${background.type === 'image' ? ' active' : ''}`}
+                  onClick={() => handleBgTypeChange('image')}
+                >
+                  {t('settingsPage.generalBgImage')}
+                </button>
+              </div>
+
+              {/* 背景样式参数:模糊强度 + 面板遮罩浓度,仅在玻璃主题下生效并显示 */}
+              {theme === 'glass' && (
+                <div className="settings-bg-style">
+                  <div className="settings-bg-style-item">
+                    <span className="settings-bg-style-label">{t('settingsPage.generalBgBlur')}</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={40}
+                      step={2}
+                      value={glassStyle.blur}
+                      onChange={(e) => setGlassStyle({ blur: Number(e.target.value) })}
+                    />
+                    <span className="settings-bg-slider-val">{glassStyle.blur}px</span>
+                  </div>
+                  <div className="settings-bg-style-item">
+                    <span className="settings-bg-style-label">
+                      {t('settingsPage.generalBgPanelAlpha')}
+                    </span>
+                    <input
+                      type="range"
+                      min={0.4}
+                      max={0.95}
+                      step={0.05}
+                      value={glassStyle.panelAlpha}
+                      onChange={(e) => setGlassStyle({ panelAlpha: Number(e.target.value) })}
+                    />
+                    <span className="settings-bg-slider-val">{glassStyle.panelAlpha.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+
+              {background.type === 'color' && (
+                <div className="settings-bg-editor">
+                  <input
+                    type="color"
+                    value={/^#[0-9a-fA-F]{6}$/.test(background.value) ? background.value : DEFAULT_BG_COLOR}
+                    onChange={(e) => setBackground({ type: 'color', value: e.target.value })}
+                  />
+                  <span className="settings-bg-color-hex">
+                    {/^#[0-9a-fA-F]{6}$/.test(background.value) ? background.value : DEFAULT_BG_COLOR}
+                  </span>
+                </div>
+              )}
+
+              {background.type === 'gradient' && (
+                <div className="settings-bg-swatches">
+                  {GRADIENT_PRESETS.map((g) => (
+                    <button
+                      key={g.css}
+                      type="button"
+                      className={`settings-bg-swatch${background.value === g.css ? ' active' : ''}`}
+                      style={{ background: g.css }}
+                      title={g.name}
+                      onClick={() => setBackground({ type: 'gradient', value: g.css })}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {background.type === 'image' && (
+                <div className="settings-bg-image">
+                  {background.value ? (
+                    <>
+                      {/* 预览窗口:模拟玻璃主题下的铺满效果(半透明面板示意) */}
+                      <div
+                        className="settings-bg-window"
+                        style={{
+                          background: `url("${background.value}") center / ${bgSize} no-repeat`,
+                        }}
+                      >
+                        <div className="settings-bg-window-panel">
+                          <span className="settings-bg-window-text">
+                            {t('settingsPage.generalBgPreview')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 显示模式 + 缩放 */}
+                      <div className="settings-bg-scale">
+                        <div className="settings-toggle-group">
+                          <button
+                            type="button"
+                            className={`settings-toggle-btn${bgMode === 'cover' ? ' active' : ''}`}
+                            onClick={() => setBackground({ ...background, size: 'cover' })}
+                          >
+                            {t('settingsPage.generalBgCover')}
+                          </button>
+                          <button
+                            type="button"
+                            className={`settings-toggle-btn${bgMode === 'contain' ? ' active' : ''}`}
+                            onClick={() => setBackground({ ...background, size: 'contain' })}
+                          >
+                            {t('settingsPage.generalBgContain')}
+                          </button>
+                          <button
+                            type="button"
+                            className={`settings-toggle-btn${bgMode === 'scale' ? ' active' : ''}`}
+                            onClick={() =>
+                              setBackground({ ...background, size: '100% auto' })
+                            }
+                          >
+                            {t('settingsPage.generalBgScale')}
+                          </button>
+                        </div>
+
+                        {bgMode === 'scale' && (
+                          <div className="settings-bg-slider">
+                            <input
+                              type="range"
+                              min={50}
+                              max={200}
+                              step={10}
+                              value={scaleValue}
+                              onChange={(e) =>
+                                setBackground({
+                                  ...background,
+                                  size: `${e.target.value}% auto`,
+                                })
+                              }
+                            />
+                            <span className="settings-bg-slider-val">{scaleValue}%</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="settings-bg-remove"
+                        onClick={resetBackground}
+                      >
+                        {t('settingsPage.generalBgRemove')}
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="settings-bg-pick" onClick={handlePickImage}>
+                      {t('settingsPage.generalBgPickImage')}
+                    </button>
+                  )}
+                </div>
+              )}
               </div>
             </div>
           </div>

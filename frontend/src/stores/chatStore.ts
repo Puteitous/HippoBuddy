@@ -658,6 +658,12 @@ export const useChatStore = create<ChatState>((set, get) => {
         images: options?.images,
         selectedRules: options?.selectedRules,
       };
+      // 携带当前模式的自定义系统提示词(空则后端使用该模式默认提示词含规则/技能增强)
+      if (!useAppStore.getState().systemPromptLoaded) {
+        await useAppStore.getState().loadSystemPrompt();
+      }
+      const sp = useAppStore.getState().systemPrompts[request.mode ?? ''];
+      if (sp) request.systemPrompt = sp;
 
       // 自动生成会话标题(基于本条消息,不覆盖用户手动重命名;静默失败,保留现有标题)。
       // 对齐旧版 ChatPanel._generateSessionTitle:传递 message 原文以解决标题 API 比

@@ -16,6 +16,8 @@ import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+// 加载 mhchem 扩展:注册 \ce/\pu 等化学式命令(对齐旧版 vendor/mhchem.min.js),否则 KaTeX 会把 \ce 当作未定义命令原样渲染
+import 'katex/contrib/mhchem';
 import { marked } from 'marked';
 import { translate } from '@/i18n';
 import { initMermaidPreview } from '@/utils/mermaid';

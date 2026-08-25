@@ -10,6 +10,8 @@
  */
 import { create } from 'zustand';
 import type { Session, SessionMode } from '@/types';
+import { configApi } from '@/api/client';
+
 
 /** 主视图类型 */
 export type AppView = 'chat' | 'settings';
@@ -160,6 +162,10 @@ interface AppState {
   currentSessionId: string | null;
   /** 当前会话模式 */
   mode: SessionMode;
+  /** 各任务模式(coding/chat/office)的自定义系统提示词。某模式空串/缺省=未自定义,聊天时用该模式内置默认;持久化在 ui.system_prompts */
+  systemPrompts: Record<string, string>;
+  /** 是否已从后端加载过 systemPrompts(避免每次发送都请求) */
+  systemPromptLoaded: boolean;
   /** 当前工作区路径 */
   workspacePath: string;
   /** 当前主视图(中间工作区显示 chat 还是 settings) */
@@ -197,6 +203,10 @@ interface AppState {
   setCurrentSession: (sessionId: string | null) => void;
   /** 设置会话模式 */
   setMode: (mode: SessionMode) => void;
+  /** 设置生效的自定义系统提示词(设置页保存后同步更新) */
+  setSystemPrompt: (mode: SessionMode, prompt: string) => void;
+  /** 从后端加载各模式自定义系统提示词(仅首次;后续发送直接读取) */
+  loadSystemPrompt: () => Promise<void>;
   /** 设置工作区路径 */
   setWorkspacePath: (path: string) => void;
   /** 切换主视图 */
@@ -244,6 +254,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   sessions: [],
   currentSessionId: readCurrentSession(),
   mode: readGlobalMode(),
+  systemPrompts: {},
+  systemPromptLoaded: false,
   workspacePath: '',
   view: 'chat',
   isLoadingSessions: false,
@@ -287,21 +299,34 @@ export const useAppStore = create<AppState>((set, get) => ({
     persistGlobalMode(mode);
     set({ mode });
   },
+  setSystemPrompt: (mode, prompt) =>
+    set((s) => ({ systemPrompts: { ...s.systemPrompts, [mode]: prompt } })),
+  loadSystemPrompt: async () => {
+    if (get().systemPromptLoaded) return;
+    try {
+      const cfg = await configApi.getFull();
+      set({ systemPrompts: cfg.ui?.system_prompts ?? {}, systemPromptLoaded: true });
+    } catch {
+      // 加载失败时不阻塞发送,回退为未自定义(使用内置默认提示词)
+      set({ systemPromptLoaded: true });
+    }
+  },
   setWorkspacePath: (path) => set({ workspacePath: path }),
   setView: (view) => set({ view }),
   setIsLoadingSessions: (loading) => set({ isLoadingSessions: loading }),
   setSessionsError: (error) => set({ sessionsError: error }),
 
-  updateSession: (sessionId, patch) =>
+  updateSession: (sessionId, patch) => {
     set((state) => {
       const sessions = state.sessions.map((s) =>
         s.id === sessionId ? { ...s, ...patch } : s,
       );
       persistSessionsCache(sessions);
       return { sessions };
-    }),
+    });
+  },
 
-  removeSession: (sessionId) =>
+  removeSession: (sessionId) => {
     set((state) => {
       const sessions = state.sessions.filter((s) => s.id !== sessionId);
       persistSessionsCache(sessions);
@@ -310,7 +335,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentSessionId:
           state.currentSessionId === sessionId ? null : state.currentSessionId,
       };
-    }),
+    });
+  },
 
   setSessionDisplayName: (sessionId, name) => {
     const cur = get().sessionDisplayNames[sessionId];

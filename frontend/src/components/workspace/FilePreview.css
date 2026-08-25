@@ -220,6 +220,11 @@
   background: rgb(44, 49, 58) !important;
 }
 
+/* 玻璃模式当前行跟随半透明弱盖,保持毛玻璃通透不显实色块 */
+[data-theme="glass"] .file-preview-editor .cm-activeLine {
+  background: var(--bg-hover) !important;
+}
+
 /* 选中文字时隐藏当前行高亮(必须放在上面 activeLine 规则之后,确保覆盖；对齐旧版) */
 .file-preview-editor.has-selection .cm-activeLine {
   background: transparent !important;

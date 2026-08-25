@@ -18,12 +18,13 @@ function defaultTools(mode: Mode): ToolsConfigSection {
     delete_file: { require_confirmation: true }, web_search: { enabled: false, provider: 'brave', api_key: '' } };
 }
 
-/** 仅工作区:盾牌(受限安全) */
+/** 仅工作区:盾牌打勾(受限/安全校验通过) */
 function ShieldIcon({ size = 14, className }: { size?: number; className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2"
+    <svg viewBox="0 0 48 48" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="4"
       strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="M6 9.25564L24.0086 4L42 9.25564V20.0337C42 31.3622 34.7502 41.4194 24.0026 45.0005C13.2521 41.4195 6 31.36 6 20.0287V9.25564Z" />
+      <path d="M15 23L22 30L34 18" />
     </svg>
   );
 }

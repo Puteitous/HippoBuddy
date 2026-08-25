@@ -161,7 +161,7 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
               className="rollback-inline-btn rollback-inline-btn-confirm"
               onClick={() => onConfirm('all')}
             >
-              <span className="dropdown-check">✓</span>全部回滚(文件 + 会话)
+              <span className="dropdown-check"><svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 25l10 10 20-22"/></svg></span>全部回滚(文件 + 会话)
             </button>
             <button
               type="button"

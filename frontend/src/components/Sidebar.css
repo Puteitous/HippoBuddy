@@ -210,6 +210,9 @@
 /* ========== 会话列表(对齐旧版 .session-list) ========== */
 .sidebar-body {
   flex: 1;
+  /* 允许 flex 子项收缩到内容以下,否则 min-height:auto 会把容器撑高,
+     内容超出 .sidebar 的 overflow:hidden 被裁剪,导致"只有几条、无滚动条、无法滑动" */
+  min-height: 0;
   overflow-y: auto;
   padding: 0 6px 8px;
   background: var(--bg-app);
@@ -275,6 +278,11 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* 玻璃主题:深色半透明底上黑色 hover 不可见,改为半透明白弱盖 */
+[data-theme="glass"] .session-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* 当前会话:灰底高亮(对齐旧版 .session-item.active) */
 .session-item-active,
 .session-item-active:hover {
@@ -286,6 +294,12 @@
 [data-theme="midnight"] .session-item-active,
 [data-theme="dark"] .session-item-active:hover,
 [data-theme="midnight"] .session-item-active:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 玻璃主题:与深色分支一致用半透明白弱盖,避免浅灰实块在毛玻璃下突兀 */
+[data-theme="glass"] .session-item-active,
+[data-theme="glass"] .session-item-active:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 

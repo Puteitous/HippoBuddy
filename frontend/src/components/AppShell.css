@@ -67,3 +67,34 @@
     background: var(--hb-bg-dark, #1a1a1a);
   }
 }
+
+/* 玻璃主题:消除 app-shell-main 与 chat/preview 面板的半透明双叠层,
+   主容器遮罩取 --glass-panel 的 70%(默认 0.4 → 约 0.28)提升通透度,
+   仍随用户的面板遮罩参数(--glass-panel)成比例联动 */
+[data-theme="glass"] .app-shell-main {
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+}
+
+/* ========== Glass 玻璃主题:毛玻璃效果 ==========
+   采用「全屏 frost 层」方案而非给面板加 backdrop-filter:
+   - backdrop-filter 会让元素成为 fixed 后代的 containing block,应用内大量
+     弹层(Lightbox / 右键菜单 / 设置弹窗 / TokenMonitor 等)都在面板内部,
+     给面板加模糊会导致这些 fixed 元素错位。
+   - 因此把模糊放在 body::before(固定铺满全屏、不拦截点击),面板仅用
+     index.css 中定义的半透明底色,组合出毛玻璃观感且不影响任何弹层。 */
+[data-theme="glass"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* 模糊强度由 backgroundStore 按「毛玻璃/清晰」样式控制(--glass-blur) */
+  backdrop-filter: blur(var(--glass-blur, 26px)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 26px)) saturate(140%);
+}
+
+/* 顶栏与全屏一致:不单独铺清晰背景,用半透明底色透出 frost 模糊后的背景,
+   与面板保持相同质感与可读性(遮罩浓度随 --glass-panel 联动) */
+[data-theme="glass"] .top-bar {
+  background: var(--glass-panel, rgba(22, 24, 32, 0.4));
+}

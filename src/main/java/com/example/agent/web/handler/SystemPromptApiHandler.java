@@ -68,6 +68,9 @@ public class SystemPromptApiHandler implements HttpHandler {
             } else if ("GET".equals(method) && path.matches("/api/system-prompts/presets/[^/]+")) {
                 String presetId = path.substring("/api/system-prompts/presets/".length());
                 handleGetPreset(exchange, presetId);
+            } else if ("GET".equals(method) && path.matches("/api/system-prompts/default/[^/]+")) {
+                String mode = path.substring("/api/system-prompts/default/".length());
+                handleGetDefaultPrompt(exchange, mode);
             } else {
                 sendError(exchange, 404, "未找到");
             }
@@ -121,6 +124,23 @@ public class SystemPromptApiHandler implements HttpHandler {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("presets", presetList);
         sendJson(exchange, 200, response);
+    }
+
+    private void handleGetDefaultPrompt(HttpExchange exchange, String mode) throws IOException {
+        Set<String> MODES = Set.of("coding", "chat", "office");
+        if (!MODES.contains(mode)) {
+            sendError(exchange, 404, "未知模式: " + mode);
+            return;
+        }
+        try {
+            TaskMode taskMode = TaskMode.valueOf(mode.toUpperCase());
+            Map<String, String> resp = new LinkedHashMap<>();
+            resp.put("mode", mode);
+            resp.put("prompt", loadPromptFromLibrary(taskMode));
+            sendJson(exchange, 200, resp);
+        } catch (Exception e) {
+            sendError(exchange, 500, "加载默认提示词失败: " + e.getMessage());
+        }
     }
 
     private void handleGetPreset(HttpExchange exchange, String presetId) throws IOException {

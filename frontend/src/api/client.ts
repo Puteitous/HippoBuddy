@@ -196,12 +196,22 @@ export const configApi = {
   /** GET /api/config - 读取完整配置(所有配置节) */
   getFull: () => getJson<FullConfig>(`${API_BASE}/config`),
 
-  /**
-   * PUT /api/config - 部分更新配置
+  /** PUT /api/config - 部分更新配置
    * @param values 配置节字典(只更新出现的节)
    */
   updateFull: (values: UpdateConfigRequest) =>
     putJson<{ success: boolean }>(`${API_BASE}/config`, { values }),
+};
+
+/**
+ * GET /api/system-prompts/default/{mode} - 某任务模式的内置默认基础提示词
+ * 仅用于设置页展示该模式的系统预设提示词(实际发送时后端还会叠加规则/技能/工作区等增强)。
+ */
+export const systemPromptApi = {
+  getDefault: (mode: string) =>
+    getJson<{ mode: string; prompt: string }>(
+      `${API_BASE}/system-prompts/default/${encodeURIComponent(mode)}`,
+    ),
 };
 
 // ============================================================================

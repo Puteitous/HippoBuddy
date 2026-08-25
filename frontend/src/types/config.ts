@@ -80,6 +80,8 @@ export interface ToolsConfigSection {
 export interface UiConfigSection {
   theme: string;
   prompt: string;
+  /** 用户自定义系统提示词,按任务模式(coding/chat/office)分存。某模式缺省或空串=未自定义,用该模式内置默认提示词 */
+  system_prompts?: Record<string, string>;
   syntax_highlight: boolean;
   show_token_usage: boolean;
   show_timestamp: boolean;

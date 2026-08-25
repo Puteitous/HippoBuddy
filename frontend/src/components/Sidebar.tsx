@@ -345,10 +345,11 @@ export function Sidebar() {
   // 普通后台刷新(改 title/messageCount/running、getSessions、切会话)不应重置已滚动批次,
   // 避免列表"滚着滚着又缩回 BATCH_SIZE"导致显示不全。
   useEffect(() => {
+    const prevLen = prevRowsLenRef.current;
     const structural =
       groupMode !== prevGroupModeRef.current ||
       collapsedProjects.size !== prevCollapsedProjectsRef.current.size ||
-      rows.length < prevRowsLenRef.current; // 行数减少(如删除会话)是真实结构收缩
+      rows.length < prevLen; // 行数减少(如删除会话)是真实结构收缩
     prevRowsLenRef.current = rows.length;
     prevGroupModeRef.current = groupMode;
     prevCollapsedProjectsRef.current = collapsedProjects;
@@ -356,10 +357,16 @@ export function Sidebar() {
       setRenderedCount(BATCH_SIZE);
       return;
     }
-    // 非结构性变化:保留当前已滚动批次,但向上封顶不超出 rows 长度,
-    // 避免后台刷新导致 renderedCount 虚高而渲染不足(hasMore 判定用)。
-    setRenderedCount((c) => Math.min(c, rows.length));
-  }, [rows, groupMode, collapsedProjects]);
+    // 非结构性变化:保留当前已滚动批次,但向上封顶不超出 rows 长度。
+    // 关键修复:如果当前 renderedCount 已被压成 0(列表从"空"恢复时首次挂载被
+    // Math.min(20,0) 清零),此时要给一个初始批次 min(BATCH_SIZE, rows.length),
+    // 否则 visibleRows 永远是空数组,列表显示为空白。
+    let next = Math.min(renderedCount, rows.length);
+    if (rows.length > 0 && renderedCount === 0) {
+      next = Math.min(BATCH_SIZE, rows.length);
+    }
+    setRenderedCount(next);
+  }, [rows, groupMode, collapsedProjects, renderedCount]);
 
   const visibleRows = rows.slice(0, renderedCount);
   const hasMore = renderedCount < rows.length;
@@ -508,10 +515,8 @@ export function Sidebar() {
                 return (
                   <div key="pinned-header" className="session-pinned-header">
                     {/* 置顶区头:图钉图标 + 置顶标题 */}
-                    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9.5 1.5L14.5 6.5" />
-                      <path d="M12.5 3.5l-3 6-3.5 1.5 1.5-3.5 6-3z" fill="none" />
-                      <path d="M6 11l-2.5 2.5" />
+                    <svg viewBox="0 0 48 48" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round">
+                      <path d="M10.6963 17.5042C13.3347 14.8657 16.4701 14.9387 19.8781 16.8076L32.62 9.74509L31.8989 4.78683L43.2126 16.1005L38.2656 15.3907L31.1918 28.1214C32.9752 31.7589 33.1337 34.6647 30.4953 37.3032C30.4953 37.3032 26.235 33.0429 22.7171 29.525L6.44305 41.5564L18.4382 25.2461C14.9202 21.7281 10.6963 17.5042 10.6963 17.5042Z" />
                     </svg>
                     <span>置顶</span>
                   </div>
@@ -795,10 +800,8 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
                   void handleTogglePin();
                 }}
               >
-                <svg viewBox="0 0 16 16" width="13" height="13" fill={session.pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9.5 1.5L14.5 6.5" />
-                  <path d="M12.5 3.5l-3 6-3.5 1.5 1.5-3.5 6-3z" />
-                  <path d="M6 11l-2.5 2.5" />
+                <svg viewBox="0 0 48 48" width="12" height="12" fill={session.pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="4" strokeLinejoin="round">
+                  <path d="M10.6963 17.5042C13.3347 14.8657 16.4701 14.9387 19.8781 16.8076L32.62 9.74509L31.8989 4.78683L43.2126 16.1005L38.2656 15.3907L31.1918 28.1214C32.9752 31.7589 33.1337 34.6647 30.4953 37.3032C30.4953 37.3032 26.235 33.0429 22.7171 29.525L6.44305 41.5564L18.4382 25.2461C14.9202 21.7281 10.6963 17.5042 10.6963 17.5042Z" />
                 </svg>
               </button>
               <button

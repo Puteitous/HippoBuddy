@@ -13,14 +13,14 @@
 import { create } from 'zustand';
 import { desktopBridge } from '@/utils/desktop-bridge';
 
-export type Theme = 'light' | 'dark' | 'midnight' | 'system';
+export type Theme = 'light' | 'dark' | 'midnight' | 'glass' | 'system';
 
 const THEME_KEY = 'hippo-theme';
 
 function readStoredTheme(): Theme | null {
   try {
     const v = localStorage.getItem(THEME_KEY);
-    if (v === 'light' || v === 'dark' || v === 'midnight' || v === 'system') return v;
+    if (v === 'light' || v === 'dark' || v === 'midnight' || v === 'glass' || v === 'system') return v;
   } catch {
     /* localStorage 不可用时静默降级 */
   }
@@ -57,8 +57,8 @@ applyDataTheme(readStoredTheme() ?? 'system');
 interface ThemeState {
   /** 当前主题(含 system) */
   theme: Theme;
-  /** 用户偏好的暗色主题(dark / midnight),toggle 时从 light 跳回 */
-  preferredDark: 'dark' | 'midnight';
+  /** 用户偏好的暗色主题(dark / midnight / glass),toggle 时从 light 跳回 */
+  preferredDark: 'dark' | 'midnight' | 'glass';
 
   /**
    * 初始化主题(应用启动时调用一次):
@@ -76,7 +76,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   theme: readStoredTheme() ?? 'system',
   preferredDark: (() => {
     const t = readStoredTheme();
-    return t === 'dark' || t === 'midnight' ? t : 'dark';
+    return t === 'dark' || t === 'midnight' || t === 'glass' ? t : 'dark';
   })(),
 
   initTheme: async () => {
@@ -92,7 +92,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     applyDataTheme(theme);
     set({
       theme,
-      preferredDark: theme === 'dark' || theme === 'midnight' ? theme : get().preferredDark,
+      preferredDark: theme === 'dark' || theme === 'midnight' || theme === 'glass' ? theme : get().preferredDark,
     });
 
     // 同步到桌面端(下次启动 splash 保持一致;system 交由系统,不同步)
@@ -106,7 +106,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     saveStoredTheme(theme);
 
     let preferredDark = get().preferredDark;
-    if (theme === 'dark' || theme === 'midnight') {
+    if (theme === 'dark' || theme === 'midnight' || theme === 'glass') {
       preferredDark = theme;
     }
     set({ theme, preferredDark });
@@ -120,7 +120,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   toggleTheme: () => {
     const { theme, preferredDark } = get();
     const next: Theme =
-      theme === 'dark' || theme === 'midnight' ? 'light' : preferredDark;
+      theme === 'dark' || theme === 'midnight' || theme === 'glass' ? 'light' : preferredDark;
     get().applyTheme(next);
     return next;
   },

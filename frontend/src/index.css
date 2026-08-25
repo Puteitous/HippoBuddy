@@ -307,8 +307,119 @@
   --hb-menu-bg-dark:   var(--bg-app);
 }
 
+/* ========== Glass 玻璃主题（半透明毛玻璃，配合自定义背景使用） ==========
+   面板统一使用半透明底色，由 AppShell.css 的 backdrop-filter 提供毛玻璃模糊；
+   画布默认是一组近色渐变，用户设置自定义背景后由 --app-bg 覆盖 body 背景。 */
+[data-theme="glass"] {
+  /* 背景样式可调:--glass-blur 控制 frost 模糊强度(毛玻璃/清晰),
+     --glass-panel 控制面板遮罩浓度(清晰模式需加深以保证可读性)。
+     默认值由 backgroundStore 按用户选择的样式覆盖。 */
+  --glass-blur:    26px;
+  --glass-panel:   rgba(22, 24, 32, 0.4);
+
+  --bg-canvas:     linear-gradient(135deg, #2b3040 0%, #1d2029 48%, #27222f 100%);
+  --bg-app:        var(--glass-panel);
+  --bg-sidebar:    var(--glass-panel);
+  --bg-chat:       var(--glass-panel);
+  --bg-code:       rgba(16, 18, 25, 0.55);
+  --bg-hover:      rgba(255, 255, 255, 0.06);
+  --bg-active:     rgba(255, 255, 255, 0.1);
+  --bg-secondary:  rgba(255, 255, 255, 0.04);
+  --bg-overlay:    rgba(26, 28, 36, 0.92);
+
+  --border:        rgba(255, 255, 255, 0.1);
+  --text-primary:  #e7e9ef;
+  --text-secondary:#b4b9c6;
+  --text-muted:    #868d9c;
+
+  --accent:        #b0b6c4;
+  --selection-bg:  rgb(58, 82, 138);
+
+  /* --- 向后兼容别名 --- */
+  --bg-white:      var(--bg-app);
+  --bg-light:      var(--bg-sidebar);
+  --bg-lighter:    var(--bg-sidebar);
+  --border-color:  var(--border);
+  --border-code:   var(--border);
+  --text-light:    #868d9c;
+
+  --primary-color: var(--accent);
+  --primary-hover: #c0c5d2;
+
+  --success-color: #66bb6a;
+  --success-bg:    rgba(27, 58, 30, 0.6);
+  --success-text:  #81c784;
+
+  --error-color:   #ef5350;
+  --error-bg:      rgba(58, 26, 26, 0.6);
+  --error-text:    #ef5350;
+  --error-hover:   #d32f2f;
+
+  --warning-color: #ff9800;
+  --warning-bg:    rgba(58, 42, 16, 0.6);
+
+  /* 会话列表中"含活跃会话的项目标题"高亮色 */
+  --active-project: #60a5fa;
+
+  /* 词级 diff 标记（行内精确变更） */
+  --diff-word-del-bg: rgba(122, 42, 42, 0.7);
+  --diff-word-ins-bg: rgba(46, 93, 52, 0.7);
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.45);
+
+  /* 新版组件兼容别名 */
+  --hb-bg:             var(--bg-app);
+  --hb-bg-dark:        var(--bg-app);
+  --hb-bg-soft:        var(--bg-hover);
+  --hb-bg-soft-dark:   var(--bg-hover);
+  --hb-bg-alt:         var(--bg-sidebar);
+  --hb-bg-alt-dark:    var(--bg-sidebar);
+  --hb-border:         var(--border);
+  --hb-border-dark:    var(--border);
+  --hb-text:           var(--text-primary);
+  --hb-text-dark:      var(--text-primary);
+  --hb-text-soft:      var(--text-secondary);
+  --hb-text-soft-dark: var(--text-secondary);
+  --hb-hover:          var(--bg-hover);
+  --hb-hover-dark:     var(--bg-hover);
+  --hb-icon:           var(--text-muted);
+  --hb-icon-dark:      var(--text-muted);
+  --hb-folder:         #fbbf24;
+  --hb-folder-dark:    #fbbf24;
+  --hb-active:         rgba(96, 165, 250, 0.18);
+  --hb-active-dark:    rgba(96, 165, 250, 0.18);
+  --hb-active-text:    #93c5fd;
+  --hb-active-text-dark: #93c5fd;
+  --hb-menu-bg:        var(--bg-overlay);
+  --hb-menu-bg-dark:   var(--bg-overlay);
+}
+
+/* ========== Glass 浮层实底覆盖 ==========
+   浮层(右键菜单 / 下拉 / popover / tooltip)与面板不同:面板半透明是设计,
+   浮层需要相对实才能保证可读性。玻璃主题漏定义整套 --hb-*,导致这些浮层要么
+   回落到 --bg-app 的半透明(底层内容透出、文字穿帮),要么回落到 #fff 白底。
+   这里统一为 --bg-overlay 深实底,文字本就是浅色(text-primary),一次收敛全部浮层。 */
+[data-theme="glass"] .chat-panel-title-popover,
+[data-theme="glass"] .permission-badge-menu,
+[data-theme="glass"] .message-file-popover,
+[data-theme="glass"] .chat-panel-files-popover,
+[data-theme="glass"] .mermaid-export-menu,
+[data-theme="glass"] .header-folder-dropdown,
+[data-theme="glass"] .chat-history-dropdown,
+[data-theme="glass"] .context-selector-panel,
+[data-theme="glass"] .msp-panel,
+[data-theme="glass"] .ob-tooltip,
+[data-theme="glass"] .file-tabs-context-menu,
+[data-theme="glass"] .file-tree-context-menu,
+[data-theme="glass"] .rollback-inline-split-dropdown {
+  background: var(--bg-overlay);
+}
+
 /* 未显式指定 data-theme 时,跟随系统深浅色(默认浅色) */
-@media (prefers-color-scheme: dark) {
+  @media (prefers-color-scheme: dark) {
+    /* (占位,保持原结构不变) */
   :root:not([data-theme]) {
     --bg-canvas:     #262626;
     --bg-app:        #171717;
@@ -384,7 +495,8 @@ body,
 
 body {
   margin: 0;
-  background: var(--bg-canvas);
+  /* 自定义背景(--app-bg,由 backgroundStore 设置)优先;未设置时回落到主题画布色 */
+  background: var(--app-bg, var(--bg-canvas));
   color: var(--text-primary);
   /* 对齐旧版 cockpit.css 的整页渐入，掩盖首帧主题闪断 */
   animation: app-fade-in 0.5s ease;

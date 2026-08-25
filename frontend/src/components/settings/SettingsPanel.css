@@ -221,8 +221,8 @@
   font-size: 14px;
   color: var(--hb-text, #1f2937);
   font-weight: 600;
-  flex-shrink: 0;
-  width: 140px;
+  flex: 0 0 auto;
+  max-width: 60%;
   white-space: nowrap;
 }
 
@@ -231,7 +231,8 @@
   color: var(--hb-text-soft, #6b7280);
   font-weight: 400;
   margin-top: 4px;
-  white-space: pre;
+  white-space: normal;
+  word-wrap: break-word;
   line-height: 1.4;
 }
 
@@ -367,6 +368,188 @@
   color: var(--hb-text, #1f2937);
   font-weight: 550;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ========== 自定义背景设置 ========== */
+.settings-bg-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.settings-bg-editor input[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--hb-border, #d1d5db);
+  border-radius: var(--radius-sm, 4px);
+  background: none;
+  cursor: pointer;
+}
+
+.settings-bg-color-hex {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--hb-text-soft, #6b7280);
+  font-family: var(--font-mono, monospace);
+}
+
+.settings-bg-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.settings-bg-swatch {
+  width: 44px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+.settings-bg-swatch:hover {
+  transform: scale(1.08);
+}
+
+.settings-bg-swatch.active {
+  border-color: var(--hb-text, #1f2937);
+}
+
+.settings-bg-image {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* 预览窗口:模拟玻璃主题下背景铺满 + 半透明面板的效果 */
+.settings-bg-window {
+  position: relative;
+  width: 260px;
+  height: 146px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--hb-border, #d1d5db);
+  overflow: hidden;
+}
+
+.settings-bg-window-panel {
+  position: absolute;
+  inset: 10px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(22, 24, 32, 0.5);
+  backdrop-filter: blur(5px);
+}
+
+.settings-bg-window-text {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+}
+
+/* 显示模式 + 缩放 */
+.settings-bg-scale {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* 自定义背景编辑区纵向容器:settings-field-body 默认横向 flex + flex-end,
+   多个编辑块(类型切换/参数/预览等)需纵向排列,否则会被横排挤出容器导致左侧溢出 */
+.settings-bg-root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 背景样式参数(模糊强度 / 面板遮罩浓度) */
+.settings-bg-style {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.settings-bg-style-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-bg-style-label {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--hb-text-soft, #6b7280);
+  white-space: nowrap;
+  min-width: 64px;
+}
+
+.settings-bg-style-item input[type="range"] {
+  width: 160px;
+  accent-color: var(--accent, #787c82);
+  cursor: pointer;
+}
+
+.settings-bg-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-bg-slider input[type="range"] {
+  width: 160px;
+  accent-color: var(--accent, #787c82);
+  cursor: pointer;
+}
+
+.settings-bg-slider-val {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--hb-text-soft, #6b7280);
+  font-family: var(--font-mono, monospace);
+  min-width: 40px;
+}
+
+.settings-bg-pick {
+  padding: 6px 14px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  border-radius: var(--radius-md, 8px);
+  background: var(--hb-bg-soft, #f3f4f6);
+  color: var(--hb-text, #1f2937);
+  font-size: var(--font-size-md, 13px);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.settings-bg-pick:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+.settings-bg-remove {
+  padding: 4px 10px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--error-color, #c62828);
+  font-size: var(--font-size-sm, 12px);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.settings-bg-remove:hover {
+  background: var(--error-bg, #ffebee);
 }
 
 /* ========== 胶囊开关 ========== */
@@ -759,7 +942,7 @@
 
 .settings-editor-textarea {
   width: 100%;
-  min-height: 320px;
+  min-height: 440px;
   padding: 16px;
   border: none;
   background: var(--hb-bg-soft, #fafafa);

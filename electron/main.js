@@ -110,7 +110,7 @@ function getSavedTheme() {
   try {
     const data = fs.readFileSync(getThemePath(), 'utf-8');
     const parsed = JSON.parse(data);
-    if (parsed.theme === 'dark' || parsed.theme === 'light' || parsed.theme === 'midnight') {
+    if (parsed.theme === 'dark' || parsed.theme === 'light' || parsed.theme === 'midnight' || parsed.theme === 'glass') {
       return parsed.theme;
     }
   } catch { /* 文件不存在或解析失败 */ }
@@ -408,7 +408,7 @@ function createWindow() {
     x: savedState?.x,
     y: savedState?.y,
     frame: false,
-    backgroundColor: getSavedTheme() === 'dark' || getSavedTheme() === 'midnight' ? '#1a1b1e' : '#edeff2',
+    backgroundColor: getSavedTheme() === 'dark' || getSavedTheme() === 'midnight' || getSavedTheme() === 'glass' ? '#1a1b1e' : '#edeff2',
     show: false,
     icon: path.join(__dirname, 'assets', 'icon2.png'),
     webPreferences: {
@@ -671,6 +671,37 @@ ipcMain.handle('fs:readFile', async (_event, filePath) => {
   }
 });
 
+/** 图片扩展名 → MIME 类型映射 */
+const IMAGE_MIME_MAP = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+};
+
+/** 读取图片文件，返回 base64 data URL（供自定义背景使用） */
+ipcMain.handle('fs:readFileBase64', async (_event, filePath) => {
+  const file = path.resolve(filePath);
+  try {
+    const stat = await fs.promises.stat(file);
+    if (!stat.isFile()) {
+      return { error: true, code: 'NOT_A_FILE' };
+    }
+    const mime = IMAGE_MIME_MAP[path.extname(file).toLowerCase()] || 'image/png';
+    const buf = await fs.promises.readFile(file);
+    return { dataUrl: `data:${mime};base64,${buf.toString('base64')}` };
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return { error: true, code: 'ENOENT' };
+    }
+    return { error: true, code: 'UNKNOWN', message: err.message };
+  }
+});
+
 /** 写入文件内容 */
 ipcMain.handle('fs:writeFile', async (_event, filePath, content) => {
   const file = path.resolve(filePath);
@@ -748,6 +779,21 @@ ipcMain.handle('dialog:openFile', async () => {
   return { path: result.filePaths[0] };
 });
 
+/** 打开图片文件选择对话框（供自定义背景使用） */
+ipcMain.handle('dialog:openImage', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    title: '选择背景图片',
+    filters: [
+      { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico'] },
+    ],
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return { path: null };
+  }
+  return { path: result.filePaths[0] };
+});
+
 /** 保存文件对话框 — 接收 base64 内容，弹出系统另存为对话框后写入文件 */
 ipcMain.handle('dialog:saveFile', async (_event, content, suggestedName, mimeType) => {
   if (!content) return { path: null, error: '内容为空' };
@@ -811,7 +857,7 @@ ipcMain.handle('theme:get', () => {
 });
 
 ipcMain.handle('theme:set', (_event, theme) => {
-  if (theme === 'dark' || theme === 'light' || theme === 'midnight') {
+  if (theme === 'dark' || theme === 'light' || theme === 'midnight' || theme === 'glass') {
     saveTheme(theme);
   }
 });

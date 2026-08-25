@@ -15,6 +15,7 @@ import { useAppStore } from '@/stores/appStore';
 import { ToastViewport } from './toast';
 import { GeneralSettingsPage } from './GeneralSettingsPage';
 import { ModelSettingsPage } from './ModelSettingsPage';
+import { PromptSettingsPage } from './PromptSettingsPage';
 import { RulesSettingsPage } from './RulesSettingsPage';
 import { SkillsSettingsPage } from './SkillsSettingsPage';
 import { ContextSettingsPage } from './ContextSettingsPage';
@@ -27,6 +28,7 @@ import './SettingsPanel.css';
 type SettingsPageId =
   | 'general'
   | 'model'
+  | 'prompt'
   | 'rules'
   | 'skills'
   | 'context'
@@ -52,6 +54,11 @@ const NAV_ITEMS: NavItem[] = [
     id: 'model',
     label: '模型',
     icon: 'M4 4h16v16H4z M9 9h6v6H9z M2 12h2 M20 12h2 M12 2v2 M12 20v2',
+  },
+  {
+    id: 'prompt',
+    label: '提示词',
+    icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z M14 2v6h6 M9 13l2 2 4-4',
   },
   {
     id: 'rules',
@@ -91,6 +98,8 @@ function renderPage(page: SettingsPageId) {
       return <GeneralSettingsPage />;
     case 'model':
       return <ModelSettingsPage />;
+    case 'prompt':
+      return <PromptSettingsPage />;
     case 'rules':
       return <RulesSettingsPage />;
     case 'skills':

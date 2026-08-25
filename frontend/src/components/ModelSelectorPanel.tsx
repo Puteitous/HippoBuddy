@@ -252,7 +252,7 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
               >
                 <span className="msp-menu-label">模型</span>
                 <span className="msp-menu-value">{model || '未配置模型'}</span>
-                <span className="msp-menu-arrow">›</span>
+                <span className="msp-menu-arrow"><svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7988 12L29.7988 24L17.7988 36"/></svg></span>
               </button>
               {supported && (
                 <button
@@ -264,7 +264,7 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                 >
                   <span className="msp-menu-label">思考强度</span>
                   <span className="msp-menu-value">{effort || '默认'}</span>
-                  <span className="msp-menu-arrow">›</span>
+                  <span className="msp-menu-arrow"><svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7988 12L29.7988 24L17.7988 36"/></svg></span>
                 </button>
               )}
             </>
@@ -279,7 +279,10 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                   onClick={() => setLevel('menu')}
                   title="返回"
                 >
-                  ←
+                  <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5.79889 24H41.7989" />
+                    <path d="M17.7988 36L5.79883 24L17.7988 12" />
+                  </svg>
                 </button>
                 <span>模型</span>
               </div>
@@ -310,7 +313,7 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                       }}
                     >
                       <span className="msp-item-label">{item.label}</span>
-                      {isSelected && <span className="msp-item-check">✓</span>}
+                      {isSelected && <span className="msp-item-check"><svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 25l10 10 20-22"/></svg></span>}
                     </button>
                   );
                 })}
@@ -327,7 +330,10 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                   onClick={() => setLevel('menu')}
                   title="返回"
                 >
-                  ←
+                  <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5.79889 24H41.7989" />
+                    <path d="M17.7988 36L5.79883 24L17.7988 12" />
+                  </svg>
                 </button>
                 <span>思考强度</span>
               </div>
@@ -342,7 +348,7 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                       onClick={() => handleEffortSelect(provider, model, item.value)}
                     >
                       <span className="msp-item-label">{item.label}</span>
-                      {isSelected && <span className="msp-item-check">✓</span>}
+                      {isSelected && <span className="msp-item-check"><svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 25l10 10 20-22"/></svg></span>}
                     </button>
                   );
                 })}
