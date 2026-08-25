@@ -389,6 +389,23 @@ export function Sidebar() {
     return () => io.disconnect();
   }, [hasMore, rows]);
 
+  // 兜底:列表未填满可视区时自动续批。
+  // 结构性缩回(删会话/切分组/折项目)会把批次打回 BATCH_SIZE,此时若 sentinel
+  // 已在可视范围内却未被 observer 触发(或位于视口上方够不到),列表会一直停留在
+  // 开头那批、看似"只有几条"。这里以"是否产生滚动条"判定:未填满 → sentinel 必可见
+  // → 主动补足,直到有滚动条(长列表)或全部渲染(短列表)。不改变长列表的无限滚动行为。
+  useEffect(() => {
+    if (!hasMore) return;
+    const body = bodyRef.current;
+    if (!body) return;
+    const canGrow = body.scrollHeight - body.clientHeight < 1;
+    if (!canGrow) return;
+    const raf = requestAnimationFrame(() => {
+      setRenderedCount((c) => Math.min(c + BATCH_SIZE, rows.length));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [hasMore, rows, renderedCount]);
+
   return (
     <aside className={`sidebar${sidebarCollapsed ? ' hidden' : ''}`}>
       {/* 顶部圆角胶囊工具栏(对齐旧版 .session-toolbar) */}

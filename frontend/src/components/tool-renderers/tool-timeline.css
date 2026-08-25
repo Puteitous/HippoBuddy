@@ -192,6 +192,50 @@
   color: var(--text-muted);
 }
 
+/* ── 详情:搜索类工具元信息(对齐旧版 grep/glob/list_directory 简洁化) ── */
+.timeline-detail-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.timeline-detail-meta > span + span {
+  margin-left: 8px;
+}
+
+.timeline-detail-grep-filter {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.timeline-detail-grep-count,
+.timeline-detail-glob-count {
+  color: var(--text-secondary);
+}
+
+.timeline-detail-grep-empty,
+.timeline-detail-glob-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── 详情:web 工具元信息(对齐旧版 web_search/web_fetch 简洁化) ── */
+.timeline-detail-web-count {
+  color: var(--text-secondary);
+}
+
+.timeline-detail-web-truncated {
+  font-size: var(--font-size-xs);
+  color: var(--warning-color, #d97706);
+  font-style: italic;
+}
+
+.timeline-detail-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* ── 详情:流式进度(执行中) ────────────────────────────── */
 .timeline-detail-progress {
   margin: 4px 0;

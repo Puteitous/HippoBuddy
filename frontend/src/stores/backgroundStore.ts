@@ -154,8 +154,10 @@ interface BackgroundState {
   setBackground: (cfg: BackgroundConfig) => void;
   /** 恢复默认(无背景,回落到主题画布) */
   resetBackground: () => void;
-  /** 更新玻璃背景样式参数(立即应用 + 持久化) */
+  /** 更新玻璃背景样式参数(立即应用,不落盘;由 persistGlassStyle 在松手时持久化) */
   setGlassStyle: (style: Partial<GlassStyle>) => void;
+  /** 将当前玻璃背景样式参数写入 localStorage(滑杆松手时调用,避免拖动过程频繁写盘) */
+  persistGlassStyle: () => void;
 }
 
 export const useBackgroundStore = create<BackgroundState>((set, get) => ({
@@ -177,7 +179,10 @@ export const useBackgroundStore = create<BackgroundState>((set, get) => ({
   setGlassStyle: (patch) => {
     const next: GlassStyle = { ...get().glassStyle, ...patch };
     applyGlassStyle(next);
-    saveGlassStyle(next);
     set({ glassStyle: next });
+  },
+
+  persistGlassStyle: () => {
+    saveGlassStyle(get().glassStyle);
   },
 }));

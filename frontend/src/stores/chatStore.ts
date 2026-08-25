@@ -635,6 +635,9 @@ export const useChatStore = create<ChatState>((set, get) => {
         s.messages = [...s.messages, { id: `local-${Date.now()}`, role: 'user', content: optimisticContent }];
         s.stream = [];
         s.toolCalls = [];
+        // 新一轮开始重置 doneReason:使「后台任务完成提醒」按每一轮触发,而非会话终生只提醒一次
+        // (配合 done 事件的哨兵归一,清空后由空→非空即代表本回合刚完成)
+        s.doneReason = null;
         // 新请求开始,重置处理过程计时(thinking/tool_start 事件会重新写入)
         s.processStartedAt = undefined;
         s.processEndedAt = undefined;
@@ -980,7 +983,10 @@ export const useChatStore = create<ChatState>((set, get) => {
           // 回合正常结束,提交最终 assistant 消息
           get().commitStreamingMessage(sid);
           updateSession(sid, (s) => {
-            s.doneReason = payload.reason ?? null;
+            // 正常完成时后端发 done {} (reason 为空)。若不兜底, doneReason 会一直是 null,
+            // 后台任务完成提醒钩子按「doneReason 由空→非空」判定会永远不触发。
+            // 这里归一到哨兵值,使正常完成也能被识别为一次「刚完成」。
+            s.doneReason = payload.reason ?? 'completed';
             s.isSending = false;
             s.isReasoning = false;
             // 回合结束,处理过程计时定格

@@ -113,6 +113,7 @@ export function GeneralSettingsPage() {
   /** 玻璃主题背景样式参数(模糊强度 / 面板遮罩浓度) */
   const glassStyle = useBackgroundStore((s) => s.glassStyle);
   const setGlassStyle = useBackgroundStore((s) => s.setGlassStyle);
+  const persistGlassStyle = useBackgroundStore((s) => s.persistGlassStyle);
   /** 图片背景尺寸解析:cover=铺满 / contain=适应 / 其余按缩放百分比 */
   const bgSize = background.size && background.size !== 'cover' ? background.size : 'cover';
   const bgMode = bgSize === 'cover' ? 'cover' : bgSize === 'contain' ? 'contain' : 'scale';
@@ -274,6 +275,42 @@ export function GeneralSettingsPage() {
     }
   };
 
+  /** 背景样式参数(模糊强度/面板遮罩):玻璃主题下渲染;图片模式并入右侧栏,其余类型单独一段 */
+  const glassStylePanel = theme === 'glass' ? (
+    <div className="settings-bg-style">
+      <div className="settings-bg-style-item">
+        <span className="settings-bg-style-label">{t('settingsPage.generalBgBlur')}</span>
+        <input
+          type="range"
+          min={0}
+          max={40}
+          step={2}
+          value={glassStyle.blur}
+          onChange={(e) => setGlassStyle({ blur: Number(e.target.value) })}
+          onPointerUp={persistGlassStyle}
+          onBlur={persistGlassStyle}
+        />
+        <span className="settings-bg-slider-val">{glassStyle.blur}px</span>
+      </div>
+      <div className="settings-bg-style-item">
+        <span className="settings-bg-style-label">
+          {t('settingsPage.generalBgPanelAlpha')}
+        </span>
+        <input
+          type="range"
+          min={0.4}
+          max={0.95}
+          step={0.05}
+          value={glassStyle.panelAlpha}
+          onChange={(e) => setGlassStyle({ panelAlpha: Number(e.target.value) })}
+          onPointerUp={persistGlassStyle}
+          onBlur={persistGlassStyle}
+        />
+        <span className="settings-bg-slider-val">{glassStyle.panelAlpha.toFixed(2)}</span>
+      </div>
+    </div>
+  ) : null;
+
   if (loading) {
     return <div className="settings-loading">{t('settingsPage.modelLoading')}</div>;
   }
@@ -359,37 +396,8 @@ export function GeneralSettingsPage() {
                 </button>
               </div>
 
-              {/* 背景样式参数:模糊强度 + 面板遮罩浓度,仅在玻璃主题下生效并显示 */}
-              {theme === 'glass' && (
-                <div className="settings-bg-style">
-                  <div className="settings-bg-style-item">
-                    <span className="settings-bg-style-label">{t('settingsPage.generalBgBlur')}</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={40}
-                      step={2}
-                      value={glassStyle.blur}
-                      onChange={(e) => setGlassStyle({ blur: Number(e.target.value) })}
-                    />
-                    <span className="settings-bg-slider-val">{glassStyle.blur}px</span>
-                  </div>
-                  <div className="settings-bg-style-item">
-                    <span className="settings-bg-style-label">
-                      {t('settingsPage.generalBgPanelAlpha')}
-                    </span>
-                    <input
-                      type="range"
-                      min={0.4}
-                      max={0.95}
-                      step={0.05}
-                      value={glassStyle.panelAlpha}
-                      onChange={(e) => setGlassStyle({ panelAlpha: Number(e.target.value) })}
-                    />
-                    <span className="settings-bg-slider-val">{glassStyle.panelAlpha.toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
+              {/* 背景样式参数:模糊强度 + 面板遮罩浓度;图片模式走右侧栏,其余类型独立一段 */}
+              {background.type !== 'image' && glassStylePanel}
 
               {background.type === 'color' && (
                 <div className="settings-bg-editor">
@@ -420,83 +428,91 @@ export function GeneralSettingsPage() {
               )}
 
               {background.type === 'image' && (
-                <div className="settings-bg-image">
-                  {background.value ? (
-                    <>
-                      {/* 预览窗口:模拟玻璃主题下的铺满效果(半透明面板示意) */}
-                      <div
-                        className="settings-bg-window"
-                        style={{
-                          background: `url("${background.value}") center / ${bgSize} no-repeat`,
-                        }}
-                      >
-                        <div className="settings-bg-window-panel">
-                          <span className="settings-bg-window-text">
-                            {t('settingsPage.generalBgPreview')}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 显示模式 + 缩放 */}
-                      <div className="settings-bg-scale">
-                        <div className="settings-toggle-group">
-                          <button
-                            type="button"
-                            className={`settings-toggle-btn${bgMode === 'cover' ? ' active' : ''}`}
-                            onClick={() => setBackground({ ...background, size: 'cover' })}
-                          >
-                            {t('settingsPage.generalBgCover')}
-                          </button>
-                          <button
-                            type="button"
-                            className={`settings-toggle-btn${bgMode === 'contain' ? ' active' : ''}`}
-                            onClick={() => setBackground({ ...background, size: 'contain' })}
-                          >
-                            {t('settingsPage.generalBgContain')}
-                          </button>
-                          <button
-                            type="button"
-                            className={`settings-toggle-btn${bgMode === 'scale' ? ' active' : ''}`}
-                            onClick={() =>
-                              setBackground({ ...background, size: '100% auto' })
-                            }
-                          >
-                            {t('settingsPage.generalBgScale')}
-                          </button>
-                        </div>
-
-                        {bgMode === 'scale' && (
-                          <div className="settings-bg-slider">
-                            <input
-                              type="range"
-                              min={50}
-                              max={200}
-                              step={10}
-                              value={scaleValue}
-                              onChange={(e) =>
-                                setBackground({
-                                  ...background,
-                                  size: `${e.target.value}% auto`,
-                                })
-                              }
-                            />
-                            <span className="settings-bg-slider-val">{scaleValue}%</span>
+                <div className="settings-bg-split">
+                  {/* 左栏:图片预览 + 显示模式 + 缩放 + 移除 */}
+                  <div className="settings-bg-col">
+                    {background.value ? (
+                      <>
+                        {/* 预览窗口:模拟玻璃主题下的铺满效果(半透明面板示意) */}
+                        <div
+                          className="settings-bg-window"
+                          style={{
+                            background: `url("${background.value}") center / ${bgSize} no-repeat`,
+                          }}
+                        >
+                          <div className="settings-bg-window-panel">
+                            <span className="settings-bg-window-text">
+                              {t('settingsPage.generalBgPreview')}
+                            </span>
                           </div>
-                        )}
-                      </div>
+                        </div>
 
-                      <button
-                        type="button"
-                        className="settings-bg-remove"
-                        onClick={resetBackground}
-                      >
-                        {t('settingsPage.generalBgRemove')}
+                        {/* 显示模式 + 缩放 */}
+                        <div className="settings-bg-scale">
+                          <div className="settings-toggle-group">
+                            <button
+                              type="button"
+                              className={`settings-toggle-btn${bgMode === 'cover' ? ' active' : ''}`}
+                              onClick={() => setBackground({ ...background, size: 'cover' })}
+                            >
+                              {t('settingsPage.generalBgCover')}
+                            </button>
+                            <button
+                              type="button"
+                              className={`settings-toggle-btn${bgMode === 'contain' ? ' active' : ''}`}
+                              onClick={() => setBackground({ ...background, size: 'contain' })}
+                            >
+                              {t('settingsPage.generalBgContain')}
+                            </button>
+                            <button
+                              type="button"
+                              className={`settings-toggle-btn${bgMode === 'scale' ? ' active' : ''}`}
+                              onClick={() =>
+                                setBackground({ ...background, size: '100% auto' })
+                              }
+                            >
+                              {t('settingsPage.generalBgScale')}
+                            </button>
+                          </div>
+
+                          {bgMode === 'scale' && (
+                            <div className="settings-bg-slider">
+                              <input
+                                type="range"
+                                min={50}
+                                max={200}
+                                step={10}
+                                value={scaleValue}
+                                onChange={(e) =>
+                                  setBackground({
+                                    ...background,
+                                    size: `${e.target.value}% auto`,
+                                  })
+                                }
+                              />
+                              <span className="settings-bg-slider-val">{scaleValue}%</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="settings-bg-remove"
+                          onClick={resetBackground}
+                        >
+                          {t('settingsPage.generalBgRemove')}
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="settings-bg-pick" onClick={handlePickImage}>
+                        {t('settingsPage.generalBgPickImage')}
                       </button>
-                    </>
-                  ) : (
-                    <button type="button" className="settings-bg-pick" onClick={handlePickImage}>
-                      {t('settingsPage.generalBgPickImage')}
-                    </button>
+                    )}
+                  </div>
+
+                  {/* 右栏:玻璃主题参数(模糊/遮罩) */}
+                  {glassStylePanel && (
+                    <div className="settings-bg-col">{glassStylePanel}</div>
                   )}
                 </div>
               )}

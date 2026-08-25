@@ -413,13 +413,15 @@
 [data-theme="glass"] .ob-tooltip,
 [data-theme="glass"] .file-tabs-context-menu,
 [data-theme="glass"] .file-tree-context-menu,
-[data-theme="glass"] .rollback-inline-split-dropdown {
+[data-theme="glass"] .rollback-inline-split-dropdown,
+[data-theme="glass"] .activity-floating-panel,
+[data-theme="glass"] .status-bar-tooltip,
+[data-theme="glass"] .selection-action-btn {
   background: var(--bg-overlay);
 }
 
 /* 未显式指定 data-theme 时,跟随系统深浅色(默认浅色) */
-  @media (prefers-color-scheme: dark) {
-    /* (占位,保持原结构不变) */
+@media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --bg-canvas:     #262626;
     --bg-app:        #171717;

@@ -263,6 +263,142 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
       </div>
     ) : null;
   }
+  // 搜索类工具:只展示元信息摘要,具体匹配/文件列表在行首摘要已体现,
+  // 无需完整展开(对齐旧版 renderGrepDetail / renderGlobDetail / renderListDirectoryDetail)
+  if (name === 'grep') {
+    const args = parseToolArgs<{ file_pattern?: string }>(item.args);
+    const resultText = result || '';
+    if (!resultText.trim() || resultText.includes('未找到匹配的内容')) {
+      return (
+        <div className="timeline-detail-meta">
+          <span className="timeline-detail-grep-empty">未找到匹配</span>
+        </div>
+      );
+    }
+    // 解析尾部统计信息(后端返回中文原文)
+    let fileCount: number | null = null;
+    let matchCount: number | null = null;
+    const summaryMatch = resultText.match(/在\s*(\d+)\s*个文件中找到\s*(\d+)\s*处匹配/);
+    if (summaryMatch) {
+      fileCount = parseInt(summaryMatch[1], 10);
+      matchCount = parseInt(summaryMatch[2], 10);
+    }
+    const totalMatch = resultText.match(/总计\s*(\d+)\s*处匹配/);
+    if (totalMatch && matchCount === null) matchCount = parseInt(totalMatch[1], 10);
+    return (
+      <div className="timeline-detail-meta">
+        {args.file_pattern && <span className="timeline-detail-grep-filter">{args.file_pattern}</span>}
+        {matchCount !== null && (
+          <span className="timeline-detail-grep-count">
+            {fileCount !== null ? `${fileCount} 个文件, ` : ''}
+            {matchCount} 处匹配
+          </span>
+        )}
+      </div>
+    );
+  }
+  if (name === 'glob') {
+    const resultText = result || '';
+    if (!resultText.trim() || resultText.includes('未找到匹配的文件')) {
+      return (
+        <div className="timeline-detail-meta">
+          <span className="timeline-detail-glob-empty">未找到匹配的文件</span>
+        </div>
+      );
+    }
+    let fileCount: number | null = null;
+    let totalSize: string | null = null;
+    const countMatch = resultText.match(/找到\s*(\d+)\s*个文件/);
+    if (countMatch) fileCount = parseInt(countMatch[1], 10);
+    const sizeMatch = resultText.match(/总大小:\s*(.+)/);
+    if (sizeMatch) totalSize = sizeMatch[1];
+    return (
+      <div className="timeline-detail-meta">
+        {fileCount !== null && (
+          <span className="timeline-detail-glob-count">
+            {fileCount} 个文件{totalSize ? ` | ${totalSize}` : ''}
+          </span>
+        )}
+      </div>
+    );
+  }
+  if (name === 'list_directory') {
+    const resultText = result || '';
+    if (!resultText || resultText.includes('(空目录)')) {
+      return (
+        <div className="timeline-detail-meta">
+          <span className="timeline-detail-glob-empty">空目录</span>
+        </div>
+      );
+    }
+    let dirCount: number | null = null;
+    let fileCount: number | null = null;
+    let totalSize: string | null = null;
+    const statsMatch = resultText.match(/统计:\s*(\d+)\s*个目录,\s*(\d+)\s*个文件(?:,\s*总大小:\s*(.+))?/);
+    if (statsMatch) {
+      dirCount = parseInt(statsMatch[1], 10);
+      fileCount = parseInt(statsMatch[2], 10);
+      totalSize = statsMatch[3] || null;
+    }
+    const parts: string[] = [];
+    if (dirCount !== null && fileCount !== null) {
+      parts.push(`${dirCount} 个目录, ${fileCount} 个文件`);
+    }
+    if (totalSize) parts.push(totalSize);
+    if (parts.length === 0) return null;
+    return (
+      <div className="timeline-detail-meta">
+        <span className="timeline-detail-glob-count">{parts.join(' | ')}</span>
+      </div>
+    );
+  }
+  // web 工具:只展示元信息摘要,具体内容在行首摘要已体现,无需完整展开
+  // (对齐旧版 renderWebSearchDetail / renderWebFetchDetail)
+  if (name === 'web_search') {
+    const resultText = result || '';
+    if (!resultText.trim() || resultText.includes('未找到')) {
+      return (
+        <div className="timeline-detail-meta">
+          <span className="timeline-detail-empty">未找到相关结果</span>
+        </div>
+      );
+    }
+    // 统计结果数:按 "N. **标题**" 格式匹配
+    const resultCount = (resultText.match(/\d+\. \*\*/g) ?? []).length;
+    if (resultCount === 0) {
+      return (
+        <div className="timeline-detail-meta">
+          <span className="timeline-detail-empty">未找到相关结果</span>
+        </div>
+      );
+    }
+    return (
+      <div className="timeline-detail-meta">
+        <span className="timeline-detail-web-count">找到 {resultCount} 条结果</span>
+      </div>
+    );
+  }
+  if (name === 'web_fetch') {
+    const resultText = result || '';
+    if (!resultText.trim()) {
+      return (
+        <div className="timeline-detail-meta">
+          <span className="timeline-detail-empty">无内容</span>
+        </div>
+      );
+    }
+    const charCount = resultText.length;
+    const kb = (charCount / 1024).toFixed(1);
+    const isTruncated = resultText.includes('[内容过长，已截断');
+    return (
+      <div className="timeline-detail-meta">
+        <span className="timeline-detail-web-count">
+          {kb}KB ({charCount.toLocaleString()} 字符)
+        </span>
+        {isTruncated && <span className="timeline-detail-web-truncated">内容过长，已截断</span>}
+      </div>
+    );
+  }
   // 其他工具:直接展示结果/内容
   const body = result || content;
   if (!body) return null;
@@ -341,6 +477,16 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
     // 待确认:行内确认区必须展示
     if (status === 'pending_confirmation' && confirmationData) return true;
     if (status !== 'success') return !!(progress?.length || result || error || content);
+    // 成功态:read_file / read_office_file / write_office_file / undo_file 的摘要行已展示路径,
+    // 展开无额外内容,不可展开(对齐旧版 renderReadFileDetail / renderReadOfficeFileDetail / undo_file 返回空)
+    if (
+      item.name === 'read_file' ||
+      item.name === 'read_office_file' ||
+      item.name === 'write_office_file' ||
+      item.name === 'undo_file'
+    ) {
+      return false;
+    }
     // 成功态:bash/其他看 result;edit/write 有 args 必有 diff
     return !!(result || content);
   }, [item]);
