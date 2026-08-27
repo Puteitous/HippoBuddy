@@ -14,6 +14,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useSessionStream } from '@/hooks/useSessionStream';
+import { useVisionSupport } from '@/hooks/useVisionSupport';
 import { api, configApi } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { translate } from '@/i18n';
@@ -284,6 +285,8 @@ export function ChatPanel() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   // 复用 chatStore.pushWarning 展示图片上传警告(语义可接受)
   const pushWarning = useChatStore((s) => s.pushWarning);
+  /** 当前模型是否支持视觉(粘贴图片时校验,对齐旧版 ImageUpload._isVisionSupported) */
+  const visionSupported = useVisionSupport();
 
   // ── ContextSelector 选中状态(规则/技能) ──────────────────
   /** 选中的规则 id 列表(规则 id = `${source}:${name}`) */
@@ -442,6 +445,11 @@ export function ChatPanel() {
   const handlePasteImage = useCallback(
     (blob: Blob, name: string) => {
       if (isStreamSending) return;
+      // 模型不支持视觉时拦截粘贴图片(对齐旧版 ImageUpload 粘贴校验)
+      if (!visionSupported) {
+        pushWarning('当前模型不支持图片上传');
+        return;
+      }
       if (blob.size > MAX_IMAGE_SIZE_BYTES) {
         pushWarning(`图片 ${name} 超过 20MB 限制`);
         return;
@@ -454,7 +462,7 @@ export function ChatPanel() {
           pushWarning(`读取图片失败${err instanceof Error ? `: ${err.message}` : ''}`);
         });
     },
-    [isStreamSending, addImage, pushWarning],
+    [isStreamSending, visionSupported, addImage, pushWarning],
   );
 
   const handleSend = useCallback(() => {

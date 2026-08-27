@@ -221,8 +221,8 @@ export function GeneralSettingsPage() {
       setBackground({ type, value });
       return;
     }
-    // image:仅切换类型,若尚无图片值则停留在"选择图片"按钮
-    setBackground({ type, value: background.value });
+    // image:直接置空,始终停留在"选择图片"按钮,避免误用纯色/渐变的旧值作为图片源
+    setBackground({ type, value: '' });
   };
 
   /** 选择本地图片作为背景:读成 base64 data URL,压缩后持久化(避免大图超出 localStorage 配额/渲染卡顿) */
@@ -429,24 +429,35 @@ export function GeneralSettingsPage() {
 
               {background.type === 'image' && (
                 <div className="settings-bg-split">
-                  {/* 左栏:图片预览 + 显示模式 + 缩放 + 移除 */}
+                  {/* 左栏:仅图片预览 */}
                   <div className="settings-bg-col">
                     {background.value ? (
-                      <>
-                        {/* 预览窗口:模拟玻璃主题下的铺满效果(半透明面板示意) */}
-                        <div
-                          className="settings-bg-window"
-                          style={{
-                            background: `url("${background.value}") center / ${bgSize} no-repeat`,
-                          }}
-                        >
-                          <div className="settings-bg-window-panel">
-                            <span className="settings-bg-window-text">
-                              {t('settingsPage.generalBgPreview')}
-                            </span>
-                          </div>
+                      /* 预览窗口:模拟玻璃主题下的铺满效果(半透明面板示意) */
+                      <div
+                        className="settings-bg-window"
+                        style={{
+                          background: `url("${background.value}") center / ${bgSize} no-repeat`,
+                        }}
+                      >
+                        <div className="settings-bg-window-panel">
+                          <span className="settings-bg-window-text">
+                            {t('settingsPage.generalBgPreview')}
+                          </span>
                         </div>
+                      </div>
+                    ) : (
+                      <button type="button" className="settings-bg-pick" onClick={handlePickImage}>
+                        {t('settingsPage.generalBgPickImage')}
+                      </button>
+                    )}
+                  </div>
 
+                  {/* 右栏:玻璃参数(模糊/遮罩) + 显示模式 + 移除,纵向堆叠 */}
+                  <div className="settings-bg-col">
+                    {glassStylePanel}
+
+                    {background.value && (
+                      <>
                         {/* 显示模式 + 缩放 */}
                         <div className="settings-bg-scale">
                           <div className="settings-toggle-group">
@@ -498,22 +509,13 @@ export function GeneralSettingsPage() {
                         <button
                           type="button"
                           className="settings-bg-remove"
-                          onClick={resetBackground}
+                          onClick={() => setBackground({ type: 'image', value: '' })}
                         >
                           {t('settingsPage.generalBgRemove')}
                         </button>
                       </>
-                    ) : (
-                      <button type="button" className="settings-bg-pick" onClick={handlePickImage}>
-                        {t('settingsPage.generalBgPickImage')}
-                      </button>
                     )}
                   </div>
-
-                  {/* 右栏:玻璃主题参数(模糊/遮罩) */}
-                  {glassStylePanel && (
-                    <div className="settings-bg-col">{glassStylePanel}</div>
-                  )}
                 </div>
               )}
               </div>

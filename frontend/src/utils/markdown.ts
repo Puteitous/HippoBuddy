@@ -146,15 +146,19 @@ export function resolveImageSrc(src: string, baseDir?: string): string {
   if (normSrc.startsWith('/')) {
     abs = baseDir + normSrc.replace(/^\/+/, '');
   } else {
-    // 相对路径:基于 baseDir 解析(含 ./ 与 ../ 归一化)
+    // 相对路径:基于 baseDir 解析(含 ./ 与 ../ 归一化)。
+    // 归一化会把 baseDir 开头的空段一并跳过,导致丢失前导 '/';
+    // 后端 RawFileHandler 要求绝对路径(Paths.get 相对 CWD 解析可能 404),
+    // 故归一化后按 baseDir 是否以 '/' 开头补回前导(Windows 盘符开头则不补)。
     abs = baseDir + normSrc;
+    const leading = abs.startsWith('/') ? '/' : '';
     const parts: string[] = [];
     for (const seg of abs.split('/')) {
       if (seg === '.' || seg === '') continue;
       if (seg === '..') parts.pop();
       else parts.push(seg);
     }
-    abs = parts.join('/');
+    abs = leading + parts.join('/');
   }
 
   return '/api/file/raw?path=' + encodeURIComponent(abs);

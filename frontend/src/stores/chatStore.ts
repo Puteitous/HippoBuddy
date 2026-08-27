@@ -617,14 +617,15 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (!sid) return false;
       const sess = get().sessionStreams[sid];
       if (sess?.isSending) return false;
-      if (!message.trim()) return false;
+      // 纯图片消息(无文字)也允许发送:仅当既无文本又无图片时才拦截
+      const images = options?.images;
+      if (!message.trim() && !(images && images.length > 0)) return false;
 
       // 乐观更新:本地立即追加用户消息,再进入流式状态(对齐主输入框发送流程)
       // 若当前正处于等待 ask(ask_user 未回复),此次发送即视为对该 ask 的文字回答,
       // 先固化一条 ask 记录(含 answered),使底部实时 ask 卡转为消息流内只读卡并自动收起。
       if (sess?.askUserData) get().commitAskUser(message);
       // 乐观更新:构造与后端返回一致的多模态 content。
-      const images = options?.images;
       let optimisticContent: string | ContentPart[] = message;
       if (images && images.length > 0) {
         const parts: ContentPart[] = [{ type: 'text', text: message }];

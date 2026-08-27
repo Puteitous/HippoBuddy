@@ -24,10 +24,8 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   fileToDataUrl,
   generateImageId,
-  isVisionProviderModel,
 } from '@/utils/image-vision';
-import { configApi } from '@/api/client';
-import { on, type LlmChangedPayload } from '@/utils/eventBus';
+import { useVisionSupport } from '@/hooks/useVisionSupport';
 import './ImageUpload.css';
 
 interface ImageUploadProps {
@@ -49,31 +47,9 @@ function ImageUploadComponent({
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // 视觉能力是否支持(由当前生效模型的 provider/model 决定)
-  const [visionSupported, setVisionSupported] = useState(false);
+  const visionSupported = useVisionSupport();
   // 内联错误提示(单条,3s 后自动消失)
   const [warning, setWarning] = useState<string | null>(null);
-
-  // ── 视觉能力检测 ──────────────────────────────────────
-  useEffect(() => {
-    let disposed = false;
-    // 初始拉取当前生效模型
-    configApi
-      .getLlm()
-      .then((llm) => {
-        if (!disposed) setVisionSupported(isVisionProviderModel(llm.provider, llm.model));
-      })
-      .catch(() => {
-        // 拉取失败保持隐藏(不可用即不当作用户上传入口)
-      });
-    // 订阅模型切换,即时刷新
-    const offLlmChanged = on<LlmChangedPayload>('llm:changed', (payload) => {
-      setVisionSupported(isVisionProviderModel(payload.provider, payload.model));
-    });
-    return () => {
-      disposed = true;
-      offLlmChanged();
-    };
-  }, []);
 
   // 警告 3s 后自动消失
   useEffect(() => {

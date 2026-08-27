@@ -111,7 +111,9 @@ export async function fileToDataUrl(file: Blob): Promise<string> {
       if (!ctx) throw new Error('canvas 2d context unavailable');
       ctx.drawImage(bitmap, 0, 0);
       bitmap.close();
-      return canvas.toDataURL('image/png');
+      // 保留原始图片格式(JPEG 等照片转 PNG 会体积膨胀数倍),
+      // 浏览器不支持该格式时 canvas 会自动降级为 image/png
+      return canvas.toDataURL(file.type || 'image/png');
     } catch {
       // 降级到 Image 路径
     }
@@ -131,7 +133,7 @@ export async function fileToDataUrl(file: Blob): Promise<string> {
       }
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/png'));
+      resolve(canvas.toDataURL(file.type || 'image/png'));
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
