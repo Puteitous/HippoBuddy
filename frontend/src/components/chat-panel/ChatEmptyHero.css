@@ -134,6 +134,12 @@
   clip-path: polygon(0 0, 100% 0, 100% 100%);
 }
 
+/* 玻璃主题:气泡为悬浮浮层,改用近实底避免半透明透出背景(含箭头) */
+[data-theme="glass"] .hippo-speech,
+[data-theme="glass"] .hippo-speech::after {
+  background: var(--bg-overlay);
+}
+
 @keyframes hippo-speak {
   0% {
     opacity: 0;

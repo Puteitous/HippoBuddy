@@ -216,7 +216,12 @@ export function ChatPanel() {
     const wrap = hasThinking || toolCount > 0;
     // 回合级稳定 key:取当前 user 消息 id(而非首行 key),使同一回合内多次 thinking
     // 不改变 ProcessSection key,避免 DOM 卸载重挂导致摘要条闪现。
-    const roundKey = [...messages].reverse().find((m) => m.role === 'user')?.id ?? 'tail';
+    // 必须与 HistoryRenderer 固化侧一致用 serverId ?? id:user 消息乐观追加时 id 为
+    // local-* 临时值,message_id 事件会把后端真实 uuid 记到 serverId;若这里只用 id
+    // 而固化侧用 serverId,done 固化时 key 从 process-local-* 变为 process-{uuid},
+    // 整回合被判定为新节点卸载重挂,重放进场动画(闪烁回归,由 4407e85 引入)。
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    const roundKey = lastUser ? (lastUser.serverId ?? lastUser.id) : 'tail';
     if (wrap) {
       // 处理过程总耗时:起点 = 思考/首个工具开始;终点 = 已定格结束时间,
       // 仍在运行(isSending / 思考中 / 工具 running)时取当前时间实时跳动。

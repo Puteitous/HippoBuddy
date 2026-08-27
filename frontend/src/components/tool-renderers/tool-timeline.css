@@ -287,18 +287,24 @@
 
 /* ── 行内确认区(bash/delete_file 待确认,对齐旧版内嵌确认卡片) ─── */
 .timeline-detail-confirmation {
-  border: 1px solid var(--risk-border, var(--border-color));
+  /* 整卡用中性细边框(保留卡片与聊天背景的区分,不随风险级别变色黄/红),
+     风险等级仅由右侧风险徽章传达 */
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;
   /* 暗色下为 #262626(38,38,38),浅色下为 #edeff2,比聊天背景更明显的卡片底 */
   background: var(--bg-canvas);
   box-shadow: var(--shadow-sm, none);
+  /* 作为 flex 子项时默认 stretch 会撑到父容器满宽,这里约束为不超出父容器 */
+  max-width: 100%;
 }
 
 .timeline-detail-confirmation.high {
   --risk-color: var(--error-text);
   --risk-bg: rgba(220, 60, 60, 0.08);
   --risk-border: rgba(220, 60, 60, 0.25);
+  /* 高风险(delete_file)保留红色边框,与 bash 中性细边框区分 */
+  border-color: var(--risk-border);
 }
 
 .timeline-detail-confirmation.medium {
@@ -356,7 +362,8 @@
 
 .confirmation-body {
   padding: 12px;
-  max-width: 1200px;
+  /* 旧版固定的 1200px 上限会让内容撑得比消息区(860px)还宽,新版改为跟随父容器 */
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 10px;

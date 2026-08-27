@@ -1,28 +1,16 @@
 /* RollbackButton 回滚按钮 + 内联确认面板样式
    命名空间 .rollback- *,内嵌于助手消息气泡内 */
 
-/* ── 回滚按钮(气泡头部,小图标按钮) ──────────────────── */
+/* ── 回滚按钮(气泡头部,小图标按钮) ────────────────────
+   视觉对齐其它操作按钮:复用 .message-action-btn 的基础样式
+   (内边距/边框/配色/hover),此处只补充 ↩ 文字字形所需的字号。 */
 .rollback-btn {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #6b7280;
-  font-size: 15px;
+  font-size: var(--font-size-md);
   line-height: 1;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.rollback-btn:hover:not(:disabled) {
-  background: rgba(127, 127, 127, 0.1);
-  color: #1f2937;
 }
 
 .rollback-btn:disabled {
@@ -336,15 +324,6 @@
 [data-theme="dark"],
 [data-theme="midnight"],
 [data-theme="glass"] {
-  .rollback-btn {
-    color: #9ca3af;
-  }
-
-  .rollback-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-    color: #e5e7eb;
-  }
-
   .rollback-inline {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.18);

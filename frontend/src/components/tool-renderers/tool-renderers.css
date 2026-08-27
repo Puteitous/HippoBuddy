@@ -8,6 +8,8 @@
   margin: 8px 0;
   font-size: 13px;
   overflow: hidden;
+  /* 对齐消息气泡/工具时间线的宽度上限(85%),避免大卡撑满 860px 显得过宽 */
+  max-width: 85%;
 }
 
 /* ── 卡片头部(图标 + 标题 + 状态 + 箭头) ──────────────── */
@@ -402,15 +404,11 @@
 .ask-user-card {
   margin: 6px 0;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-code);
+  border-radius: var(--radius-lg);
+  background: var(--bg-canvas);
+  box-shadow: var(--shadow-sm, none);
   overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
-}
-/* 等待用户输入时高亮主色边框(对齐旧版 .waiting-user-card 的 2px 边框) */
-.ask-user-card.waiting-user-card {
-  border: 2px solid var(--primary-color);
-  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.2);
 }
 
 /* 头部对齐旧版:紧凑 padding/gap + 无常驻底色,仅 hover 高亮 */
@@ -496,16 +494,27 @@
   transform: scale(0.96);
 }
 
-/* glass 下 --primary-color 为浅灰(白字对比不足),等待高亮边框与选项 hover
-   改用品牌靛蓝(与 .confirmation-btn.allow 暗色一致),保证在深色玻璃底上可见 */
-[data-theme="glass"] .ask-user-card.waiting-user-card {
-  border-color: #6054f1;
-}
-
+/* glass 下 --primary-color 为浅灰(白字对比不足),选项 hover 改用品牌靛蓝
+   (与 .confirmation-btn.allow 暗色一致),保证在深色玻璃底上可见 */
 [data-theme="glass"] .ask-user-option-btn:hover {
   background: #6054f1;
   border-color: #6054f1;
   color: #fff;
+}
+
+/* 玻璃主题:卡片底从完全不透 --bg-canvas 改为轻微半透明 + 模糊,
+   让下层玻璃背景微微借光、边缘更有通透感(局部透一点,不过度);
+   但交互区(回答条/选项按钮)用实底 --bg-overlay,避免半透明叠深影响可读可点 */
+[data-theme="glass"] .ask-user-card {
+  background: rgba(16, 18, 25, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+[data-theme="glass"] .ask-user-answer {
+  background: var(--bg-overlay);
+}
+[data-theme="glass"] .ask-user-option-btn {
+  background: var(--bg-overlay);
 }
 
 /* ── 默认卡片参数显示 ─────────────────────────────────── */

@@ -416,7 +416,8 @@
 [data-theme="glass"] .rollback-inline-split-dropdown,
 [data-theme="glass"] .activity-floating-panel,
 [data-theme="glass"] .status-bar-tooltip,
-[data-theme="glass"] .selection-action-btn {
+[data-theme="glass"] .selection-action-btn,
+[data-theme="glass"] .file-md-toc-floating {
   background: var(--bg-overlay);
 }
 

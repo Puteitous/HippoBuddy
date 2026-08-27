@@ -33,7 +33,7 @@ export function RollbackButton({ status, disabled, onOpen }: RollbackButtonProps
   return (
     <button
       type="button"
-      className="rollback-btn"
+      className="rollback-btn message-action-btn"
       title="回滚到该轮之前(文件与会话)"
       aria-label="回滚"
       onClick={onOpen}

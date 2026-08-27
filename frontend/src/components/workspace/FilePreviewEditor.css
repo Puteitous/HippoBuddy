@@ -137,7 +137,7 @@
 
 [data-theme="glass"] .cm-tooltip.cm-tooltip-autocomplete {
   border: 1px solid var(--border);
-  background: var(--bg-app);
+  background: var(--bg-overlay);
   color: var(--text-primary);
 }
 

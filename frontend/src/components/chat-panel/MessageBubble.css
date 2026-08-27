@@ -741,30 +741,6 @@
 
 /* ── 助手消息:操作按钮常显(对齐旧版 assistant footer 按钮常显) ── */
 
-/* 回滚按钮在 footer 内:对齐 message-action-btn 小图标风格
-   (覆盖 RollbackButton.css 的 26x26 边框按钮样式) */
-.msg-bubble-assistant .message-actions .rollback-btn {
-  width: auto;
-  height: auto;
-  padding: 4px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-size-md);
-  transition: all var(--transition-fast);
-}
-
-.msg-bubble-assistant .message-actions .rollback-btn:hover:not(:disabled) {
-  background: var(--bg-app);
-  color: var(--text-secondary);
-}
-
-.msg-bubble-assistant .message-actions .rollback-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 /* ════════════════════════════════════════════════════════
    文件产物指示器(对齐旧版 .message-file-indicator + popover)
    旧版样式见 css/components/chat-panel.css 321-412 行

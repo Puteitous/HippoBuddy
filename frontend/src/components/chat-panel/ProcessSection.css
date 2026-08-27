@@ -109,3 +109,11 @@
 .history-list > .process-section + .message-footer {
   margin-top: -16px;
 }
+
+/* 实时 ask 卡(liveAsk)为 history-list 直接子元素,渲染在 process-section 之后,
+   受 gap:16px 影响会与正文拉出大空隙;用负 margin 抵消 gap,使间距回到
+   气泡 padding + process-section mb(6) 的紧贴效果,与 process-body 内
+   历史只读 ask 卡(仅自身 6px margin)的间距视觉统一。 */
+.history-list > .process-section + .ask-user-card {
+  margin-top: -16px;
+}
