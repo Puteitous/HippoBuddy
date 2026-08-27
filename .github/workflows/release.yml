@@ -155,8 +155,22 @@ jobs:
   # 第三阶段：macOS 打包
   # ============================================================
   build-mac:
+    # 用 matrix 分别打 x64 与 arm64 两个 mac 包：
+    # 各自在原生架构 runner 上 jlink + 打包，确保内置 JRE 与 App 架构一致。
     needs: build-jar
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x64
+            target: --x64
+            runner: macos-26-intel
+            cache: mac-x64-electron
+          - name: arm64
+            target: --arm64
+            runner: macos-latest
+            cache: mac-arm64-electron
     env:
       ELECTRON_CACHE: electron/.electron-cache
       ELECTRON_BUILDER_CACHE: electron/.builder-cache
@@ -194,7 +208,7 @@ jobs:
           path: |
             electron/.electron-cache
             electron/.builder-cache
-          key: mac-electron-${{ hashFiles('electron/package-lock.json') }}
+          key: ${{ matrix.cache }}-${{ hashFiles('electron/package-lock.json') }}
 
       - name: Set version from tag
         run: |
@@ -218,10 +232,79 @@ jobs:
             --output electron/resources/jre \
             --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
-      - name: Build macOS DMG (Intel + Apple Silicon)
-        run: cd electron && npx electron-builder --mac --x64 --arm64 --publish=never
+      - name: Build macOS DMG (${{ matrix.name }})
+        run: cd electron && npx electron-builder --mac ${{ matrix.target }} --publish=never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      # 冒烟测试：在 macOS runner 上真实启动打包后的 .app，
+      # 验证「内置 JRE + hippo-agent.jar → 后端启动 → /cockpit 可访问」整条链路。
+      # 任何一步失败都会输出主进程日志并让本 job 报错。
+      - name: Smoke test macOS app
+        shell: bash
+        run: |
+          # 1. 根据 runner 架构选择匹配的打包产物 .app
+          if [ "$(uname -m)" = "arm64" ]; then
+            APP="electron/release/mac-arm64/HippoBuddy.app"
+            [ -d "$APP" ] || APP="electron/release/mac/HippoBuddy.app"
+          else
+            APP="electron/release/mac/HippoBuddy.app"
+            [ -d "$APP" ] || APP="electron/release/mac-arm64/HippoBuddy.app"
+          fi
+          if [ ! -d "$APP" ]; then
+            echo "ERROR: 未找到打包好的 HippoBuddy.app"
+            ls -R electron/release
+            exit 1
+          fi
+          echo "Bundled app: $APP (arch: $(uname -m))"
+
+          # 2. 产物自检：内置 JRE 与 JAR 必须存在
+          [ -f "$APP/Contents/Resources/jre/bin/java" ] || { echo "ERROR: 缺少内置 JRE"; exit 1; }
+          [ -f "$APP/Contents/Resources/hippo-agent.jar" ] || { echo "ERROR: 缺少 hippo-agent.jar"; exit 1; }
+          echo "OK: 内置 JRE 与 hippo-agent.jar 均已就位"
+
+          # 3. 清理 9090 端口残留，避免干扰
+          if lsof -ti tcp:9090 >/dev/null 2>&1; then
+            echo "WARN: 端口 9090 已被占用，清理"
+            lsof -ti tcp:9090 | xargs kill -9 || true
+            sleep 2
+          fi
+
+          # 4. 直接执行主进程二进制以捕获日志，后台运行
+          LOG=/tmp/hippo-smoke.log
+          rm -f "$LOG"
+          "$APP/Contents/MacOS/HippoBuddy" >"$LOG" 2>&1 &
+          APP_PID=$!
+          echo "Launched main process PID=$APP_PID"
+
+          # 5. 轮询后端就绪（最多 120s）
+          READY=0
+          for i in $(seq 1 120); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:9090/cockpit" || echo 000)
+            if [ "$code" = "200" ]; then
+              READY=1
+              echo "SMOKE OK: /cockpit HTTP 200（第 $i 次探测）"
+              break
+            fi
+            if ! kill -0 $APP_PID 2>/dev/null; then
+              echo "ERROR: 主进程提前退出（第 $i 次探测）"
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$READY" != "1" ]; then
+            echo "=== SMOKE FAILED ==="
+            echo "--- 主进程日志 ---"
+            cat "$LOG" || true
+            exit 1
+          fi
+          echo "PASS: macOS app 启动成功，后端就绪，/cockpit 可访问"
+
+          # 6. 清理：关闭应用与后端
+          kill -9 $APP_PID 2>/dev/null || true
+          pkill -f "hippo-agent.jar" 2>/dev/null || true
+          echo "SMOKE TEST COMPLETE"
 
       - name: Upload macOS DMG to Release
         uses: softprops/action-gh-release@v2
