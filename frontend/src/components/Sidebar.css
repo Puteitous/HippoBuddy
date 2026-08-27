@@ -518,6 +518,42 @@
   flex-shrink: 0;
 }
 
+.session-pinned-header-title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 置顶区收起/展开切换按钮(对齐项目头箭头交互) */
+.session-pinned-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.session-pinned-collapse:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.session-pinned-header .session-pinned-collapse svg {
+  color: inherit; /* 箭头使用普通文字色,非图钉黄 */
+  transition: transform 0.15s ease;
+}
+
+.session-pinned-collapse.collapsed svg {
+  transform: rotate(-90deg);
+}
+
 /* 置顶会话项轻微强调底色,与普通会话区分(对齐微信置顶视觉) */
 .session-item.session-item-pinned {
   background: rgba(245, 158, 11, 0.05);

@@ -45,6 +45,7 @@ const BATCH_SIZE = 20;
 const GROUP_MODE_KEY = 'hippo-session-group-mode';
 /** 折叠项目持久化 key(与旧版一致) */
 const COLLAPSED_PROJECTS_KEY = 'hippo-collapsed-projects';
+const PINNED_COLLAPSED_KEY = 'hippo-pinned-collapsed';
 /** 无工作区路径的会话归入的"其他"分组 key */
 const OTHER_PROJECT_KEY = '__other__';
 
@@ -104,6 +105,22 @@ function readCollapsedProjects(): Set<string> {
 function persistCollapsedProjects(projects: Set<string>): void {
   try {
     localStorage.setItem(COLLAPSED_PROJECTS_KEY, JSON.stringify([...projects]));
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
+function readPinnedCollapsed(): boolean {
+  try {
+    return localStorage.getItem(PINNED_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistPinnedCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(PINNED_COLLAPSED_KEY, collapsed ? '1' : '0');
   } catch {
     /* localStorage 不可用时静默降级 */
   }
@@ -200,6 +217,7 @@ export function Sidebar() {
   // 分组模式 / 折叠项目(初始化读取 localStorage,与旧版 key 一致)
   const [groupMode, setGroupMode] = useState<GroupMode>(readGroupMode);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(readCollapsedProjects);
+  const [pinnedCollapsed, setPinnedCollapsed] = useState<boolean>(readPinnedCollapsed);
   // 无限滚动:已渲染行数
   const [renderedCount, setRenderedCount] = useState(BATCH_SIZE);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -243,6 +261,15 @@ export function Sidebar() {
     });
   };
 
+  /** 折叠/展开置顶区(持久化,与折叠项目同一套交互) */
+  const togglePinnedCollapsed = () => {
+    setPinnedCollapsed((prev) => {
+      const next = !prev;
+      persistPinnedCollapsed(next);
+      return next;
+    });
+  };
+
   /** 打开项目工作区(对齐旧版 HippoWorkspace.openWorkspace,走新版 workspaceApi) */
   const openProjectWorkspace = async (path: string) => {
     try {
@@ -271,10 +298,13 @@ export function Sidebar() {
 
     // 置顶区:仅当存在置顶会话时渲染(空区不占黄金位置);插到列表最上方,
     // 独立于 project/time 分组模式,且不被无限滚动裁掉(始终位于 rows 头部)。
+    // 折叠时仅保留头部(保留箭头切换),跳过其下置顶会话。
     if (pinnedSessions.length > 0) {
       rows.push({ type: 'pinned-header' });
-      for (const s of pinnedSessions) {
-        rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
+      if (!pinnedCollapsed) {
+        for (const s of pinnedSessions) {
+          rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
+        }
       }
     }
 
@@ -331,7 +361,7 @@ export function Sidebar() {
     // 虚拟会话(新建未持久化的 web-*)不显示在会话列表,列表仅由已持久化会话驱动,
     // 刷新后行为即天然一致(不会出现"当前会话消失/不一致")。
     return rows;
-  }, [sessions, groupMode, collapsedProjects]);
+  }, [sessions, groupMode, collapsedProjects, pinnedCollapsed]);
 
   /** 当前活跃会话所属项目 key(用于项目头 has-active 高亮;虚拟会话归入"其他") */
   const activeProjectKey = useMemo(() => {
@@ -535,7 +565,18 @@ export function Sidebar() {
                     <svg viewBox="0 0 48 48" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round">
                       <path d="M10.6963 17.5042C13.3347 14.8657 16.4701 14.9387 19.8781 16.8076L32.62 9.74509L31.8989 4.78683L43.2126 16.1005L38.2656 15.3907L31.1918 28.1214C32.9752 31.7589 33.1337 34.6647 30.4953 37.3032C30.4953 37.3032 26.235 33.0429 22.7171 29.525L6.44305 41.5564L18.4382 25.2461C14.9202 21.7281 10.6963 17.5042 10.6963 17.5042Z" />
                     </svg>
-                    <span>置顶</span>
+                    <span className="session-pinned-header-title">置顶</span>
+                    <button
+                      type="button"
+                      className={`session-pinned-collapse${pinnedCollapsed ? ' collapsed' : ''}`}
+                      title={pinnedCollapsed ? '展开置顶会话' : '收起置顶会话'}
+                      aria-label={pinnedCollapsed ? '展开置顶会话' : '收起置顶会话'}
+                      onClick={togglePinnedCollapsed}
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </button>
                   </div>
                 );
               }
