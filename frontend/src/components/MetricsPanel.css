@@ -252,7 +252,8 @@
 
 /* ── 深色模式适配 ─────────────────────────────────────── */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .metrics-group-title {
     color: #9ca3af;
   }

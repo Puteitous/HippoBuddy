@@ -110,7 +110,8 @@
 
 /* ── 深色模式(跟随 app 主题 data-theme,而非系统偏好) ── */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .image-upload-btn {
     border-color: #4b5563;
   }

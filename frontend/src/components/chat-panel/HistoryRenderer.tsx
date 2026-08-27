@@ -390,7 +390,9 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
         // 被排到本条 user 气泡之后,导致上一回合的 tool-timeline 串到新一轮 assistant 前面。
         flushToolGroup();
         flushRound();
-        roundUserId = m.id;
+        // 乐观追加的 user 消息 id 是 local-* 临时值(渲染 key 稳定用),回滚/分叉
+        // 必须用后端真实 uuid(serverId)才能在后端 JSONL 定位,故优先取 serverId。
+        roundUserId = m.serverId ?? m.id;
         roundUserContent = extractText(m.content);
         rows.push(<MessageBubble key={m.id} message={m} dataMessageId={m.id} />);
         continue;

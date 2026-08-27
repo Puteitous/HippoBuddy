@@ -139,6 +139,13 @@
   min-height: 100px;
 }
 
+/* 玻璃主题:头部与输入条同理减叠深。头部作为 .chat-panel 子元素,
+   面板已铺一层 --glass-panel,再铺 var(--bg-app) 会叠成两层 0.4 导致头部
+   明显比消息区深;改为透明透出面板单层,与消息区背景完全一致。 */
+[data-theme="glass"] .chat-panel-header {
+  background: transparent;
+}
+
 /* 玻璃主题:输入条减叠深,避免在聊天面板 0.4 上再叠一层 0.4 */
 [data-theme="glass"] .chat-panel-input-card {
   background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
@@ -512,11 +519,6 @@
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
-/* 玻璃主题:header 减叠深,与主面板同尺度,避免在聊天面板 0.4 上再叠一层 0.4 */
-[data-theme="glass"] .chat-panel-header {
-  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
-}
-
 .chat-panel-title {
   font-size: var(--font-size-md);
   font-weight: 500;
@@ -701,6 +703,106 @@
   border-top-color: #10b981;
   flex-shrink: 0;
   animation: hippo-spin 0.8s linear infinite;
+}
+
+/* ===== 历史项 hover 操作按钮 / 内联重命名 / 删除二次确认(对齐侧栏会话项) ===== */
+.chat-history-actions {
+  display: none;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.chat-history-item:hover .chat-history-actions {
+  display: flex;
+}
+
+.chat-history-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0 3px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-fast);
+}
+
+.chat-history-item:hover .chat-history-action-btn:hover {
+  color: var(--text-primary);
+}
+
+.chat-history-rename-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: var(--font-size-sm);
+  outline: none;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast);
+  font-family: inherit;
+}
+
+.chat-history-rename-input:focus {
+  border-color: #d1d5db;
+}
+
+[data-theme="dark"] .chat-history-rename-input:focus,
+[data-theme="midnight"] .chat-history-rename-input:focus {
+  border-color: #4b5563;
+}
+
+.chat-history-confirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 6px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.chat-history-confirm-text {
+  font-size: var(--font-size-xs);
+  color: #dc2626;
+  white-space: nowrap;
+}
+
+.chat-history-confirm-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  line-height: 1.6;
+  transition: all var(--transition-fast);
+}
+
+.chat-history-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.chat-history-confirm-btn.confirm-yes {
+  background: #dc2626;
+  color: #fff;
+}
+
+.chat-history-confirm-btn.confirm-yes:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.chat-history-confirm-btn.confirm-no {
+  color: var(--text-secondary);
+}
+
+.chat-history-confirm-btn.confirm-no:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 
 @keyframes hippo-spin {

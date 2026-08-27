@@ -170,6 +170,17 @@ describe('chatStore', () => {
     expect(useChatStore.getState().tokenHistory).toHaveLength(1);
   });
 
+  it('routeSseEvent: message_id 把真实 uuid 写到乐观 user 消息的 serverId(不改渲染 key)', () => {
+    const st = useChatStore.getState();
+    // 模拟发送时为当前回合乐观追加的 user 消息(id 为 local-* 临时值)
+    st.setMessages([{ id: 'local-100', role: 'user', content: 'hi' }]);
+    st.routeSseEvent('s1', { event: 'message_id', data: { id: 'real-uuid-1' } } as never);
+    const after = useChatStore.getState().sessionStreams.s1.messages;
+    // id 保持稳定(渲染 key 不变),真实 uuid 记录到 serverId
+    expect(after[0].id).toBe('local-100');
+    expect(after[0].serverId).toBe('real-uuid-1');
+  });
+
   it('routeSseEvent: thinking→content→done 固化 assistant 消息', () => {
     const st = useChatStore.getState();
     st.setMessages([]);

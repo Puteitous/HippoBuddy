@@ -740,6 +740,21 @@ export const useChatStore = create<ChatState>((set, get) => {
           const payload = data as ChatSseEventMap['message_id'];
           updateSession(sid, (s) => {
             s.streamingMessageId = payload.id;
+            // 对齐旧版(ChatPanel 在 message_id 事件把用户消息定位 id 更新为后端真实 uuid):
+            // 乐观追加的 user 消息其 `id` 是 local-* 临时值,后端 JSONL 以该 uuid 为准,
+            // 回滚/分叉依赖它在存储中定位,不关联真实 uuid 则后端永远匹配不到而失效。
+            // 这里不替换 `id`(渲染 key 保持稳定,避免 key 变化重挂重放进场动画),
+            // 而是记到该消息的 `serverId`,由 HistoryRenderer 以 `serverId ?? id` 取目标。
+            // 仅更新最近一条 local- user 消息(即当前请求对应的乐观消息)。
+            for (let i = s.messages.length - 1; i >= 0; i--) {
+              const m = s.messages[i];
+              if (m.role === 'user' && m.id.startsWith('local-')) {
+                const next = s.messages.slice();
+                next[i] = { ...next[i], serverId: payload.id };
+                s.messages = next;
+                break;
+              }
+            }
           });
           break;
         }

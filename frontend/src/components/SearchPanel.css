@@ -180,7 +180,8 @@
 
 /* ========== 暗色模式 ========== */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .search-panel {
     background: var(--hb-bg-dark, #1a1a1a);
     border-color: var(--hb-border-dark, #4b5563);

@@ -14,7 +14,7 @@
  *  - 状态徽章和图标集中在 shared,各卡片只关注自身专属内容
  *  - 折叠态由 ToolCardFrame 内部 useState 管理,外部可通过 defaultExpanded 控制
  */
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { ToolCallStatus } from '@/types';
 import { desktopBridge, toRelativePath } from '@/utils/desktop-bridge';
 import type { DiffLine } from './shared-utils';
@@ -96,14 +96,27 @@ export function ToolCardFrame({
   className = '',
 }: ToolCardFrameProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  // 记录用户是否手动折叠过,避免 defaultExpanded 变为 true 时被自动撑开
+  const userToggledRef = useRef(false);
+  // 首卡挂载时 defaultExpanded 可能为 false(累计树/参数尚未就绪),数据到位后自动展开,
+  // 但用户手动折叠过的状态不受影响。
+  useEffect(() => {
+    if (defaultExpanded && !userToggledRef.current) {
+      setExpanded(true);
+    }
+  }, [defaultExpanded]);
   const hasBody = !!children || !!summary;
   const canToggle = collapsible && hasBody;
+  const toggle = () => {
+    userToggledRef.current = true;
+    setExpanded((v) => !v);
+  };
 
   return (
     <div className={`tool-card ${className}`.trim()}>
       <div
         className={`tool-header ${expanded ? 'expanded' : ''}`.trim()}
-        onClick={canToggle ? () => setExpanded((v) => !v) : undefined}
+        onClick={canToggle ? toggle : undefined}
         role={canToggle ? 'button' : undefined}
         tabIndex={canToggle ? 0 : undefined}
         onKeyDown={
@@ -111,7 +124,7 @@ export function ToolCardFrame({
             ? (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setExpanded((v) => !v);
+                  toggle();
                 }
               }
             : undefined

@@ -373,7 +373,8 @@
 
 /* ── 暗色模式(对齐 index.css [data-theme] 主题体系) ── */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .file-tree {
     background: var(--hb-bg-dark, #1a1a1a);
     color: var(--hb-text-dark, #e5e7eb);
@@ -492,4 +493,10 @@
   .file-tree-modal-btn:hover {
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.08));
   }
+}
+
+/* ── 玻璃主题专属:header 背景改透明,透出 .file-tree 单层 --glass-panel,
+   避免 3 层半透明叠加(header 比树体更深),与树体/会话列表观感对齐 ── */
+[data-theme="glass"] .file-tree-header {
+  background: transparent;
 }

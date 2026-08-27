@@ -14,6 +14,7 @@
  *  - 下拉选项用 CSS hover 展开(对齐旧版行为)
  *  - 中文硬编码,不引入 i18n
  */
+import { useEffect, useRef, useState } from 'react';
 import type { RollbackStatus } from './useRollback';
 import type { RollbackPreviewFile } from '@/types';
 import './RollbackButton.css';
@@ -55,6 +56,21 @@ interface RollbackPanelProps {
  * 仅在 status != 'idle' 时由组合组件挂载,故内部不需再判断 idle。
  */
 export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: RollbackPanelProps) {
+  // ── 下拉固定开关:点击 ▾ 可固定展开,再次点击或点外部收起 ──
+  const splitRef = useRef<HTMLSpanElement>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (splitRef.current && !splitRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [dropdownOpen]);
+
   // ── loading / rolling:加载态 ────────────────────────────
   if (status === 'loading' || status === 'rolling') {
     return (
@@ -139,7 +155,10 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
         >
           取消
         </button>
-        <span className="rollback-inline-split">
+        <span
+          className={`rollback-inline-split${dropdownOpen ? ' dropdown-open' : ''}`}
+          ref={splitRef}
+        >
           <button
             type="button"
             className="rollback-inline-btn rollback-inline-btn-confirm"
@@ -150,8 +169,9 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
           <button
             type="button"
             className="rollback-inline-split-toggle"
-            title="更多选项"
+            title={dropdownOpen ? '收起选项' : '更多选项'}
             aria-label="更多选项"
+            onClick={() => setDropdownOpen((o) => !o)}
           >
             ▾
           </button>
@@ -159,14 +179,20 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
             <button
               type="button"
               className="rollback-inline-btn rollback-inline-btn-confirm"
-              onClick={() => onConfirm('all')}
+              onClick={() => {
+                setDropdownOpen(false);
+                onConfirm('all');
+              }}
             >
               <span className="dropdown-check"><svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 25l10 10 20-22"/></svg></span>全部回滚(文件 + 会话)
             </button>
             <button
               type="button"
               className="rollback-inline-btn rollback-inline-btn-files"
-              onClick={() => onConfirm('files')}
+              onClick={() => {
+                setDropdownOpen(false);
+                onConfirm('files');
+              }}
             >
               <span className="dropdown-check-placeholder" />仅回滚文件
             </button>

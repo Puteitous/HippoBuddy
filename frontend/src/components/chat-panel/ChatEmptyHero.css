@@ -90,7 +90,8 @@
 }
 
 [data-theme="dark"] .hippo-bubble,
-[data-theme="midnight"] .hippo-bubble {
+[data-theme="midnight"] .hippo-bubble,
+[data-theme="glass"] .hippo-bubble {
   background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.6), rgba(96,165,250,0.4) 50%, rgba(96,165,250,0.15));
 }
 
@@ -164,8 +165,18 @@
   border-color: var(--border);
 }
 
+[data-theme="glass"] .hippo-speech {
+  background: var(--bg-code);
+  border-color: var(--border);
+}
+
 [data-theme="dark"] .hippo-speech::after,
 [data-theme="midnight"] .hippo-speech::after {
+  background: var(--bg-code);
+  border-color: var(--border);
+}
+
+[data-theme="glass"] .hippo-speech::after {
   background: var(--bg-code);
   border-color: var(--border);
 }
@@ -256,7 +267,8 @@
 }
 
 [data-theme="dark"] .mode-btn.active,
-[data-theme="midnight"] .mode-btn.active {
+[data-theme="midnight"] .mode-btn.active,
+[data-theme="glass"] .mode-btn.active {
   background: var(--bg-hover);
 }
 
@@ -282,7 +294,8 @@
 }
 
 [data-theme="dark"] .hero-mode-capsule,
-[data-theme="midnight"] .hero-mode-capsule {
+[data-theme="midnight"] .hero-mode-capsule,
+[data-theme="glass"] .hero-mode-capsule {
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -298,7 +311,8 @@
 }
 
 [data-theme="dark"] .hero-mode-capsule .mode-btn.active,
-[data-theme="midnight"] .hero-mode-capsule .mode-btn.active {
+[data-theme="midnight"] .hero-mode-capsule .mode-btn.active,
+[data-theme="glass"] .hero-mode-capsule .mode-btn.active {
   background: rgba(255, 255, 255, 0.10);
 }
 

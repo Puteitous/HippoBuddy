@@ -85,6 +85,13 @@ export interface WebSearchAction {
 export interface Message {
   id: string;
   role: MessageRole;
+  /**
+   * 仅前端乐观追加(user/ask 等)消息记录服务器真实 id。
+   * 乐观消息的 `id` 为 `local-*` 临时值(渲染 key 保持稳定,避免 key 变化重挂重放进场动画),
+   * 后端 JSONL 以 `message_id` 事件分配的 uuid 为准;回滚/分叉需用该 uuid 才能定位,
+   * 故在此记录 `serverId`,回滚/分叉目标以 `serverId ?? id` 取值。
+   */
+  serverId?: string;
   /** 消息时间戳(ms,后端 JSONL 写入;缺失时前端用当前时间兜底) */
   timestamp?: number;
   /**

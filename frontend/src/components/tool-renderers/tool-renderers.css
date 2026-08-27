@@ -348,7 +348,8 @@
   opacity: 0.9;
 }
 
-[data-theme='dark'] .confirmation-btn.allow {
+[data-theme='dark'] .confirmation-btn.allow,
+[data-theme='glass'] .confirmation-btn.allow {
   background: #6054f1;
   border-color: #6054f1;
 }
@@ -378,12 +379,14 @@
   background: #e8c4be;
   border-color: #dcb4ac;
 }
-[data-theme='dark'] .confirmation-btn.delete-confirm {
+[data-theme='dark'] .confirmation-btn.delete-confirm,
+[data-theme='glass'] .confirmation-btn.delete-confirm {
   background: rgb(69, 43, 53);
   color: rgb(210, 130, 130);
   border-color: rgb(69, 43, 53);
 }
-[data-theme='dark'] .confirmation-btn.delete-confirm:hover {
+[data-theme='dark'] .confirmation-btn.delete-confirm:hover,
+[data-theme='glass'] .confirmation-btn.delete-confirm:hover {
   background: rgb(90, 55, 65);
   border-color: rgb(90, 55, 65);
 }
@@ -493,6 +496,18 @@
   transform: scale(0.96);
 }
 
+/* glass 下 --primary-color 为浅灰(白字对比不足),等待高亮边框与选项 hover
+   改用品牌靛蓝(与 .confirmation-btn.allow 暗色一致),保证在深色玻璃底上可见 */
+[data-theme="glass"] .ask-user-card.waiting-user-card {
+  border-color: #6054f1;
+}
+
+[data-theme="glass"] .ask-user-option-btn:hover {
+  background: #6054f1;
+  border-color: #6054f1;
+  color: #fff;
+}
+
 /* ── 默认卡片参数显示 ─────────────────────────────────── */
 .tool-args,
 .tool-result {
@@ -535,37 +550,45 @@
 }
 
 /* ── 深色模式 ─────────────────────────────────────────── */
-/* 手动主题(dark / midnight)用 data-theme 覆盖,避免与系统偏好脱节
-   (系统浅色但手动切深色时 @media 不生效,会留下深色文字看不清)。 */
+/* 手动主题(dark / midnight / glass)用 data-theme 覆盖,避免与系统偏好脱节
+   (系统浅色但手动切深色时 @media 不生效,会留下深色文字看不清;
+    glass 同为深底浅字主题,一并接入)。 */
 [data-theme="dark"] .tool-header,
-[data-theme="midnight"] .tool-header {
+[data-theme="midnight"] .tool-header,
+[data-theme="glass"] .tool-header {
   background: rgba(127, 127, 127, 0.08);
 }
 
 [data-theme="dark"] .tool-title,
-[data-theme="midnight"] .tool-title {
+[data-theme="midnight"] .tool-title,
+[data-theme="glass"] .tool-title {
   color: #f3f4f6;
 }
 
 [data-theme="dark"] .tool-file-path,
-[data-theme="midnight"] .tool-file-path {
+[data-theme="midnight"] .tool-file-path,
+[data-theme="glass"] .tool-file-path {
   color: #60a5fa;
 }
 
 [data-theme="dark"] .tool-summary,
 [data-theme="dark"] .bash-meta,
 [data-theme="midnight"] .tool-summary,
-[data-theme="midnight"] .bash-meta {
+[data-theme="midnight"] .bash-meta,
+[data-theme="glass"] .tool-summary,
+[data-theme="glass"] .bash-meta {
   color: #9ca3af;
 }
 
 [data-theme="dark"] .tool-body,
-[data-theme="midnight"] .tool-body {
+[data-theme="midnight"] .tool-body,
+[data-theme="glass"] .tool-body {
   border-top-color: rgba(127, 127, 127, 0.15);
 }
 
 [data-theme="dark"] .tool-detail-value,
-[data-theme="midnight"] .tool-detail-value {
+[data-theme="midnight"] .tool-detail-value,
+[data-theme="glass"] .tool-detail-value {
   color: #f3f4f6;
 }
 

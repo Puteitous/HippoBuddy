@@ -222,7 +222,8 @@
 
 /* ── 暗色模式 ── */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .ob-welcome-panel {
     background: var(--hb-bg-dark, #1e1e1e);
   }

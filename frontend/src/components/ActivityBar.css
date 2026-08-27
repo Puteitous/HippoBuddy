@@ -158,7 +158,8 @@
 
 /* ========== 暗色模式(对齐 index.css [data-theme] 主题体系) ========== */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .activity-bar {
     background: var(--hb-bg-alt-dark, #111827);
     border-right-color: var(--hb-border-dark, #374151);

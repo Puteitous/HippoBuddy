@@ -116,7 +116,8 @@
 
 /* ── 暗色模式 ── */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .ooxml-viewer {
     background: var(--hb-bg-dark, #1a1a1a);
   }

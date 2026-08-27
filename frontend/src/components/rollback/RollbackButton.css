@@ -206,7 +206,7 @@
   align-items: stretch;
 }
 
-.rollback-inline-split .rollback-inline-btn-confirm {
+.rollback-inline-split > .rollback-inline-btn-confirm {
   border-radius: 5px 0 0 5px;
   border-right: none;
   background: #3c3c3c;
@@ -242,6 +242,11 @@
   border-color: #2a2a2a;
 }
 
+.rollback-inline-split.dropdown-open .rollback-inline-split-toggle {
+  background: #2a2a2a;
+  border-color: #2a2a2a;
+}
+
 /* ── 下拉菜单(hover 展开,对齐旧版) ───────────────────── */
 .rollback-inline-split-dropdown {
   display: none;
@@ -250,7 +255,7 @@
   right: 0;
   margin-top: 4px;
   z-index: 10;
-  background: #ffffff;
+  background: var(--bg-overlay);
   border: 1px solid rgba(127, 127, 127, 0.25);
   border-radius: 5px;
   padding: 4px;
@@ -300,7 +305,8 @@
 }
 
 .rollback-inline-split:hover .rollback-inline-split-dropdown,
-.rollback-inline-split-dropdown:hover {
+.rollback-inline-split-dropdown:hover,
+.rollback-inline-split.dropdown-open .rollback-inline-split-dropdown {
   display: block;
 }
 
@@ -325,9 +331,11 @@
   }
 }
 
-/* ── 深色模式适配(跟随 app 主题 data-theme,而非系统偏好) ── */
+/* ── 深色模式适配(跟随 app 主题 data-theme,而非系统偏好)。
+   玻璃(glass)同为深底浅字主题,一并接入,避免硬编码浅色文字串底。 ── */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .rollback-btn {
     color: #9ca3af;
   }
@@ -379,13 +387,13 @@
     background: rgba(255, 255, 255, 0.14);
   }
 
-  .rollback-inline-split .rollback-inline-btn-confirm {
+  .rollback-inline-split > .rollback-inline-btn-confirm {
     background: #e8e8ee;
     color: #181a1b;
     border-color: #d0d0d4;
   }
 
-  .rollback-inline-split .rollback-inline-btn-confirm:hover {
+  .rollback-inline-split > .rollback-inline-btn-confirm:hover {
     background: #dcdce2;
     border-color: #c0c0c4;
   }
@@ -401,14 +409,24 @@
     color: #333;
   }
 
+  .rollback-inline-split.dropdown-open .rollback-inline-split-toggle {
+    background: #dcdce2;
+    color: #333;
+  }
+
   .rollback-inline-split-dropdown {
-    background: #2d2d30;
+    /* 用不透明深底覆盖 var(--bg-overlay) 的半透明,避免玻璃下
+       白色 hover 叠加透出底下浅色内容而发白 */
+    background: #2a2a2b;
     border-color: #444;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   }
 
   .rollback-inline-split-dropdown .rollback-inline-btn-files,
   .rollback-inline-split-dropdown .rollback-inline-btn-confirm {
+    /* 显式透明背景,避免继承按钮默认底色或在主按钮浅色样式下残留,
+       深色面板(不透明)上保持浅色文字清晰可读 */
+    background: transparent;
     color: #e5e7eb;
   }
 

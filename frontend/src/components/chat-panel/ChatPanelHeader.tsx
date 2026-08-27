@@ -10,9 +10,12 @@
  *  - ChatPanelHeader:会话级(当前会话标题 / 历史会话快捷切换 / 新建 / 收起聊天面板)
  * 两者职责不重叠,不重复。
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { sessionApi } from '@/api/client';
+import { ApiError } from '@/api/error';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
+import { showToast } from '@/utils/toastStore';
 import type { Session, SessionMode } from '@/types';
 
 /** 历史下拉最大条数(对齐旧版 MAX_ITEMS = 40) */
@@ -63,16 +66,36 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const createNewSession = useAppStore((s) => s.createNewSession);
 
-  /** 历史下拉是否展开(hover 展开 / 点击外部关闭,对齐旧版) */
+  /** 历史下拉是否展开(hover 展开 / 点击钉住 / 点击外部关闭,对齐旧版) */
   const [open, setOpen] = useState(false);
+  /** 是否由点击"钉住":open 由 click 触发时,离开 wrapper 不关闭,需再点或点外部才关 */
+  const pinnedOpenRef = useRef(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  /** 钉住打开(点击触发),离开也不自动关 */
+  const pinOpen = () => {
+    pinnedOpenRef.current = true;
+    setOpen(true);
+  };
+
+  /** 关闭并解除钉住(wrapper 鼠标离开 / 点击外部 / 选择会话 / 新建会话) */
+  const closeDropdown = () => {
+    pinnedOpenRef.current = false;
+    setOpen(false);
+  };
+
+  /** 历史项进入编辑(重命名/删除确认)时钉住,防止打字时鼠标移出误关面板 */
+  const pinOnEdit = useCallback((editing: boolean) => {
+    pinnedOpenRef.current = editing;
+    if (editing) setOpen(true);
+  }, []);
 
   // 点击外部关闭下拉(对齐旧版 document click 监听)
   useEffect(() => {
     if (!open) return;
     const handleDocClick = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        closeDropdown();
       }
     };
     document.addEventListener('click', handleDocClick);
@@ -91,12 +114,12 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
     // 对齐旧版 createNewSession:生成 web-* 会话 id 并把 hero 待定草稿带入新会话;
     // 首次发送消息时才真正持久化;useSessionMessages 会自动 reset chatStore。
     createNewSession();
-    setOpen(false);
+    closeDropdown();
   };
 
   const handleSelectSession = (id: string) => {
     if (id !== currentSessionId) setCurrentSession(id);
-    setOpen(false);
+    closeDropdown();
   };
 
   return (
@@ -127,7 +150,10 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
           ref={wrapperRef}
           className="chat-history-wrapper"
           onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
+          onMouseLeave={() => {
+            // 点击钉住时离开不关闭,悬浮预览态才自动关
+            if (!pinnedOpenRef.current) setOpen(false);
+          }}
         >
           <button
             type="button"
@@ -135,6 +161,11 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
             title="历史会话"
             aria-label="历史会话"
             aria-expanded={open}
+            onClick={() => {
+              // 已钉住则点击关闭,否则点击钉住打开(hover 已展开时点击也会转为钉住)
+              if (open && pinnedOpenRef.current) closeDropdown();
+              else pinOpen();
+            }}
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="8" cy="8" r="6.5" />
@@ -160,6 +191,7 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
                         session={s}
                         isCurrent={s.id === currentSessionId}
                         onSelect={() => handleSelectSession(s.id)}
+                        onPinnedChange={pinOnEdit}
                       />
                     ))}
                   </div>
@@ -204,25 +236,170 @@ interface HistoryItemProps {
   session: Session;
   isCurrent: boolean;
   onSelect: () => void;
+  /** 编辑态(重命名/删除确认)变化时通知父级:进入编辑即钉住面板 */
+  onPinnedChange: (editing: boolean) => void;
 }
 
-/** 历史下拉中的单条会话项:订阅该会话前端活跃流,流式/工具进行中时显示旋转提示 */
-function HistoryItem({ session, isCurrent, onSelect }: HistoryItemProps) {
+/** 历史下拉中的单条会话项:订阅该会话前端活跃流,流式/工具进行中时显示旋转提示
+ *  对齐侧栏会话项交互:悬浮显示重命名/删除,重命名内联编辑,删除内联二次确认 */
+function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryItemProps) {
   const sessionDisplayNames = useAppStore((s) => s.sessionDisplayNames);
+  const updateSession = useAppStore((s) => s.updateSession);
+  const removeSession = useAppStore((s) => s.removeSession);
+  const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const streaming = useChatStore(
     (s) =>
       (s.sessionStreams[session.id]?.isSending === true ||
       (s.sessionStreams[session.id]?.stream.length ?? 0) > 0 ||
       (s.sessionStreams[session.id]?.toolCalls.length ?? 0) > 0),
   );
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
+
+  const title = sessionTitle(session, sessionDisplayNames);
+
+  // 编辑态(重命名/删除确认)变化时通知父级钉住面板,避免打字时鼠标移出误关
+  useEffect(() => {
+    onPinnedChange(renaming || confirmDelete);
+  }, [renaming, confirmDelete, onPinnedChange]);
+
+  // 进入重命名态时回填当前名并聚焦全选(对齐侧栏)
+  useEffect(() => {
+    if (renaming) {
+      setRenameValue(title);
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [renaming]);
+
+  /** 提交重命名(blur / Enter 触发),对齐侧栏 submitRename */
+  const submitRename = async () => {
+    const newName = renameValue.trim() || title;
+    if (newName === title) {
+      setRenaming(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      await sessionApi.rename(session.id, newName);
+      updateSession(session.id, { title: newName });
+      setRenaming(false);
+    } catch (e) {
+      const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
+      showToast(`重命名失败: ${msg}`, { type: 'error' });
+      setRenaming(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 执行删除(二次确认后),对齐侧栏 doDelete */
+  const doDelete = async () => {
+    setBusy(true);
+    try {
+      await sessionApi.delete(session.id);
+      removeSession(session.id);
+      // 对齐侧栏:删除当前会话后自动新建临时会话
+      if (isCurrent) setCurrentSession(`web-${Date.now()}`);
+      showToast('会话已删除', { type: 'success' });
+    } catch (e) {
+      const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
+      showToast(`删除失败: ${msg}`, { type: 'error' });
+    } finally {
+      setBusy(false);
+      setConfirmDelete(false);
+    }
+  };
+
   return (
     <div
       className={`chat-history-item${isCurrent ? ' active' : ''}`}
-      onClick={onSelect}
-      title={sessionTitle(session, sessionDisplayNames)}
+      onClick={(e) => {
+        // 操作按钮 / 输入框 / 确认条内点击不触发会话切换(对齐侧栏 closest 判断)
+        if ((e.target as HTMLElement).closest('.chat-history-actions, .chat-history-rename-input, .chat-history-confirm')) return;
+        onSelect();
+      }}
+      title={title}
     >
       {streaming && <span className="chat-history-spinner" aria-label="streaming" />}
-      <span className="history-item-name">{sessionTitle(session, sessionDisplayNames)}</span>
+      {renaming ? (
+        <input
+          ref={renameInputRef}
+          className="chat-history-rename-input"
+          value={renameValue}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onBlur={() => void submitRename()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void submitRename();
+            else if (e.key === 'Escape') setRenaming(false);
+          }}
+        />
+      ) : confirmDelete ? (
+        <div className="chat-history-confirm" onClick={(e) => e.stopPropagation()}>
+          <span className="chat-history-confirm-text">确定删除？</span>
+          <button
+            type="button"
+            className="chat-history-confirm-btn confirm-yes"
+            onClick={() => void doDelete()}
+            disabled={busy}
+            title="确认删除"
+          >
+            {busy ? '…' : '删除'}
+          </button>
+          <button
+            type="button"
+            className="chat-history-confirm-btn confirm-no"
+            onClick={() => setConfirmDelete(false)}
+            disabled={busy}
+            title="取消"
+          >
+            取消
+          </button>
+        </div>
+      ) : (
+        <>
+          <span className="history-item-name">{title}</span>
+          {/* hover 操作按钮(对齐侧栏 .session-actions) */}
+          <div className="chat-history-actions">
+            <button
+              type="button"
+              className="chat-history-action-btn"
+              title="重命名"
+              aria-label="重命名"
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmDelete(false);
+                setRenaming(true);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="chat-history-action-btn"
+              title="删除"
+              aria-label="删除"
+              onClick={(e) => {
+                e.stopPropagation();
+                setRenaming(false);
+                setConfirmDelete(true);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

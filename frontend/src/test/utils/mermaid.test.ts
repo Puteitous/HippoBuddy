@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { initMermaidPreview } from '@/utils/mermaid';
 
 vi.mock('@/i18n', () => ({

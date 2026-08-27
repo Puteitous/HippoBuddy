@@ -600,7 +600,8 @@
 
 /* ========== 暗色模式 ========== */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .skill-market-container,
   .skill-market-header,
   .skill-market-preview-panel {

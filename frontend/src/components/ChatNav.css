@@ -33,13 +33,15 @@
 }
 
 [data-theme="dark"] .chat-nav-strip,
-[data-theme="midnight"] .chat-nav-strip {
+[data-theme="midnight"] .chat-nav-strip,
+[data-theme="glass"] .chat-nav-strip {
   background: transparent;
   box-shadow: none;
 }
 
 [data-theme="dark"] .chat-nav-strip:hover,
-[data-theme="midnight"] .chat-nav-strip:hover {
+[data-theme="midnight"] .chat-nav-strip:hover,
+[data-theme="glass"] .chat-nav-strip:hover {
   background: rgba(30, 30, 35, 0.95);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
@@ -128,7 +130,8 @@
 }
 
 [data-theme="dark"] .chat-nav-item:hover,
-[data-theme="midnight"] .chat-nav-item:hover {
+[data-theme="midnight"] .chat-nav-item:hover,
+[data-theme="glass"] .chat-nav-item:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 

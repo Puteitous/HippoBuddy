@@ -392,7 +392,14 @@
     font-size: var(--font-size-md);
     padding: 0 4px;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: color var(--transition-fast);
+}
+
+.session-item .session-actions button svg {
+    display: block;
 }
 
 .session-item.active .session-actions button {

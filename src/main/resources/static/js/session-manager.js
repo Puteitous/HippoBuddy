@@ -409,7 +409,9 @@ export class SessionManager {
 
     const renameBtn = document.createElement('button');
     renameBtn.title = _t('session.rename');
-    renameBtn.innerHTML = '✏';
+    renameBtn.className = 'session-action-btn';
+    renameBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
     renameBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       window.renameSession(s.id, e);
@@ -417,7 +419,9 @@ export class SessionManager {
 
     const deleteBtn = document.createElement('button');
     deleteBtn.title = _t('session.delete');
-    deleteBtn.innerHTML = '×';
+    deleteBtn.className = 'session-action-btn';
+    deleteBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       window.deleteSession(s.id, e);

@@ -1091,8 +1091,9 @@
 /* ========== Toast ========== */
 .settings-toast-viewport {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  /* 右上角、低于 TopBar(42px),避免压到底部输入区 */
+  top: 56px;
+  right: 16px;
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -1101,29 +1102,46 @@
 }
 
 .settings-toast {
+  /* 语义强调色,按类型在下方 --type 类中覆写 */
+  --toast-accent: var(--text-muted);
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: var(--hb-text, #1f2937);
-  color: var(--hb-bg, #ffffff);
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-primary);
   font-size: 13px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   cursor: pointer;
   pointer-events: auto;
   max-width: 360px;
+  overflow: hidden;
   animation: settings-toast-in 0.2s ease;
+}
+
+/* 左侧语义色细条:克制点缀,避免整块纯色显眼 */
+.settings-toast::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--toast-accent);
 }
 
 @keyframes settings-toast-in {
   from {
     opacity: 0;
-    transform: translateX(8px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
@@ -1135,9 +1153,10 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
+  background: color-mix(in srgb, var(--toast-accent) 16%, transparent);
+  color: var(--toast-accent);
 }
 
 .settings-toast-msg {
@@ -1147,19 +1166,19 @@
 }
 
 .settings-toast-success {
-  background: #16a34a;
+  --toast-accent: var(--success-color);
 }
 
 .settings-toast-error {
-  background: #dc2626;
+  --toast-accent: var(--error-color);
 }
 
 .settings-toast-warning {
-  background: #d97706;
+  --toast-accent: var(--warning-color);
 }
 
 .settings-toast-info {
-  background: var(--hb-text, #1f2937);
+  --toast-accent: var(--text-secondary);
 }
 
 /* ========== 暗色模式 ========== */
@@ -1476,8 +1495,4 @@
   color: var(--hb-text-soft-dark, #9ca3af);
 }
 
-[data-theme="dark"] .settings-toast-info,
-[data-theme="midnight"] .settings-toast-info {
-  background: var(--hb-text-dark, #e5e7eb);
-  color: var(--hb-bg-dark, #1a1a1a);
-}
+

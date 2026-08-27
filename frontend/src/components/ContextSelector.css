@@ -263,7 +263,8 @@
 
 /* ========== 暗色模式 ========== */
 [data-theme="dark"],
-[data-theme="midnight"] {
+[data-theme="midnight"],
+[data-theme="glass"] {
   .context-selector-btn {
     background: transparent;
     color: var(--hb-text-soft-dark, #9ca3af);
