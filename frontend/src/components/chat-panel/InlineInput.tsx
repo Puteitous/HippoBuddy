@@ -15,7 +15,18 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, forwardRef, useState } from 'react';
 import type { RefChip } from '@/types';
 import { usePreviewStore } from '@/stores/previewStore';
+import { getFileIconUrl } from '@/utils/file-icons';
 import './InlineInput.css';
+
+/** 从 chip 提取文件名(用于扩展名图标解析);无路径时返回 null → 回落通用图标 */
+function getChipFileName(chip: RefChip): string | null {
+  if (chip.kind === 'text') return null;
+  const path = chip.filePath || chip.text;
+  if (!path) return null;
+  const norm = path.replace(/\\/g, '/').replace(/\/$/, '');
+  const idx = norm.lastIndexOf('/');
+  return idx >= 0 ? norm.slice(idx + 1) : norm;
+}
 
 export interface InlineInputHandle {
   insertChipAtCursor: (chip: RefChip) => void;
@@ -52,9 +63,25 @@ function createChipElement(chip: RefChip): HTMLSpanElement {
   wrapper.className = 'inline-chip';
   wrapper.dataset.chip = JSON.stringify(chip);
 
-  const icon = document.createElement('span');
-  icon.className = 'inline-chip-icon';
-  icon.textContent = chip.kind === 'file' ? '📄' : chip.kind === 'rule' ? '📋' : '💬';
+  // 文件引用:按扩展名显示与文件树一致的彩色图标;rule/text 回落 emoji
+  const fileName = getChipFileName(chip);
+  const icon =
+    chip.kind === 'file' && fileName
+      ? (() => {
+          const img = document.createElement('img');
+          img.className = 'inline-chip-icon';
+          img.src = getFileIconUrl(fileName, false);
+          img.alt = '';
+          img.draggable = false;
+          img.loading = 'lazy';
+          return img;
+        })()
+      : (() => {
+          const span = document.createElement('span');
+          span.className = 'inline-chip-icon';
+          span.textContent = chip.kind === 'rule' ? '📋' : '💬';
+          return span;
+        })();
 
   const text = document.createElement('span');
   text.className = 'inline-chip-text';

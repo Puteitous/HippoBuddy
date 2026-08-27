@@ -499,6 +499,12 @@
   background: var(--bg-app);
 }
 
+/* 玻璃主题下 --bg-app 为半透明(--glass-panel),吸顶头盖不住下方滚过的
+   .session-item 会穿帮;改用 --bg-overlay 深实底,确保滚动时不透字 */
+[data-theme="glass"] .session-category {
+  background: var(--bg-overlay);
+}
+
 /* ========== 置顶区头(位于列表最上方,样式对齐项目分组头,融合不割裂) ========== */
 .session-pinned-header {
   padding: 7px 8px 6px 10px;
@@ -552,11 +558,6 @@
 
 .session-pinned-collapse.collapsed svg {
   transform: rotate(-90deg);
-}
-
-/* 置顶会话项轻微强调底色,与普通会话区分(对齐微信置顶视觉) */
-.session-item.session-item-pinned {
-  background: rgba(245, 158, 11, 0.05);
 }
 
 /* ---------- hover 置顶按钮 ---------- */

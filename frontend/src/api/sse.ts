@@ -110,7 +110,7 @@ export async function streamSse<K extends ChatSseEventName>(
  *
  * data 可能多行,需拼接。
  */
-function parseSseChunk<K extends ChatSseEventName>(chunk: string): SseEvent<K> | null {
+export function parseSseChunk<K extends ChatSseEventName>(chunk: string): SseEvent<K> | null {
   const lines = chunk.split('\n');
   let eventName: string | null = null;
   const dataLines: string[] = [];

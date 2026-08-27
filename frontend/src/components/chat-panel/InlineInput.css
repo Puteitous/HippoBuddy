@@ -84,6 +84,14 @@
   line-height: 1;
   opacity: 0.8;
 }
+/* 文件引用图标(<img>):与文件树一致按扩展名显彩色图标,固定尺寸居中对齐 */
+.inline-chip-icon[src] {
+  width: 14px;
+  height: 14px;
+  opacity: 1;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
 
 /* 文件引用芯片可点击跳转(对齐旧版 input-ref-chip-navigable) */
 .inline-chip-navigable {

@@ -802,10 +802,17 @@ export function ChatPanel() {
                 showPreview={false}
               />
               <span className="chat-panel-status-divider" aria-hidden />
-              <TokenMonitor statusBar />
-              <span className="chat-panel-status-divider" aria-hidden />
-              <FileChangesMonitor />
-              <span className="chat-panel-status-divider" aria-hidden />
+              {/* Token 使用率 / 文件变更:hero 空态下隐藏,仅消息态显示(对齐旧版
+                  .hero-mode .status-bar-item:not(#statusBarModelSelector) 隐藏;旧版隐藏全部
+                  除模型选择器外的状态项,此处按需求仅收敛这两个) */}
+              {!showHero && (
+                <>
+                  <TokenMonitor statusBar />
+                  <span className="chat-panel-status-divider" aria-hidden />
+                  <FileChangesMonitor />
+                  <span className="chat-panel-status-divider" aria-hidden />
+                </>
+              )}
               <ModelSelectorPanel placement="top" />
             </div>
             <div className="chat-panel-status-actions">

@@ -6,7 +6,7 @@
  *  - 导航:Chat / Settings 视图切换
  *  - 工具区(对齐旧版 .header-actions):
  *    - 工作区指示器(桌面端,显示当前工作区路径 + 重置)
- *    - 压缩上下文(有会话时显示,对齐旧版 compactBtn)
+ *    (压缩上下文按钮已隐藏,与旧版 compactBtn 的 display:none 保持一致)
  *    - 打开文件夹 + 最近文件夹下拉(桌面端,对齐旧版 header-folder-group)
  *    - 设置(跳转 Settings 视图)、主题切换
  *    - DevTools / 刷新(桌面端)
@@ -17,10 +17,8 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
-import { useChatStore } from '@/stores/chatStore';
 import { useThemeStore } from '@/stores/themeStore';
-import { useSessionStream } from '@/hooks/useSessionStream';
-import { sessionApi, workspaceApi } from '@/api/client';
+import { workspaceApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { showToast } from '@/utils/toastStore';
@@ -55,15 +53,11 @@ function errMsg(e: unknown): string {
 
 export function TopBar() {
   const { t } = useI18n();
-  const currentSessionId = useAppStore((s) => s.currentSessionId);
   const setView = useAppStore((s) => s.setView);
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
   const workspacePath = useAppStore((s) => s.workspacePath);
   const setWorkspacePath = useAppStore((s) => s.setWorkspacePath);
-
-  const { isSending } = useSessionStream();
-  const setMessages = useChatStore((s) => s.setMessages);
 
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
@@ -72,8 +66,6 @@ export function TopBar() {
 
   // ── 窗口最大化状态(桌面端) ──────────────────────────────
   const [maximized, setMaximized] = useState(false);
-  // ── 压缩上下文进行中 ────────────────────────────────────
-  const [compacting, setCompacting] = useState(false);
   // ── 最近文件夹下拉 ──────────────────────────────────────
   const [recentOpen, setRecentOpen] = useState(false);
   const [recentFolders, setRecentFolders] = useState<string[]>(readRecentFolders);
@@ -222,38 +214,6 @@ export function TopBar() {
     }
   };
 
-  // ── 压缩上下文(对齐旧版 handleCompact) ────────────────────
-  const handleCompact = async () => {
-    if (!currentSessionId || compacting || isSending) return;
-    // 与旧版 prompt 交互一致:留空则自动智能压缩
-    const instruction = window.prompt(translate('chat.compactHint'));
-    if (instruction === null) return; // 用户取消
-
-    setCompacting(true);
-    try {
-      const result = await sessionApi.compact(currentSessionId, instruction || undefined);
-      showToast(
-        translate('chatui.compactSuccess', {
-          method: result.method,
-          originalCount: String(result.originalCount),
-          compactedCount: String(result.compactedCount),
-          reducedCount: String(result.reducedCount),
-          savedTokens: result.savedTokens.toLocaleString(),
-          savedPercent: String(result.savedPercent),
-          summary: result.summary,
-        }),
-        { type: 'success', duration: 8000 },
-      );
-      // compact 后端会重写会话消息,重新拉取刷新列表
-      const msgs = await sessionApi.getMessages(currentSessionId);
-      setMessages(msgs);
-    } catch (e) {
-      showToast(translate('topbar.compressFailed', { err: errMsg(e) }), { type: 'error', duration: 4000 });
-    } finally {
-      setCompacting(false);
-    }
-  };
-
   // ── 工具按钮 ─────────────────────────────────────────────
   const handleSettings = () => setView('settings');
   const handleDevTools = () => {
@@ -313,28 +273,6 @@ export function TopBar() {
               </svg>
             </button>
           </div>
-        )}
-
-        {/* 压缩上下文(有会话时显示) */}
-        {currentSessionId && (
-          <button
-            type="button"
-            className="top-bar-icon-btn"
-            title={t('html.header.compressContext')}
-            aria-label={t('html.header.compressContext')}
-            disabled={compacting || isSending}
-            onClick={handleCompact}
-          >
-            {compacting ? (
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="top-bar-spin">
-                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 14h6m0 0v6m0-6l-6 6M20 10h-6m0 0V4m0 6l6-6" />
-              </svg>
-            )}
-          </button>
         )}
 
         {/* 打开文件夹 + 最近文件夹下拉(桌面端,hover 展开对齐旧版) */}

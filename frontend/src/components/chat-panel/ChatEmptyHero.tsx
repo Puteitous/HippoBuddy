@@ -204,21 +204,30 @@ function ChatEmptyHeroComponent({ onPresetSelect }: ChatEmptyHeroProps) {
   );
 }
 
-/** 河马点击时冒泡(与旧版 .hippo-bubble 一致) */
+/** 河马点击时冒泡(对齐旧版 _spawnHippoBubbles:2~3 个小泡,6~11px,从河马中心散布) */
 function spawnBubbles(el: HTMLDivElement | null) {
   if (!el) return;
-  const count = 5;
+  const state = el.closest('.chat-empty-hero') as HTMLElement | null;
+  if (!state) return;
+  const hippoRect = el.getBoundingClientRect();
+  const stateRect = state.getBoundingClientRect();
+  const cx = hippoRect.left - stateRect.left + hippoRect.width / 2;
+  const cy = hippoRect.top - stateRect.top + hippoRect.height / 2;
+  const count = 2 + Math.floor(Math.random() * 2);
   for (let i = 0; i < count; i++) {
-    const bubble = document.createElement('span');
-    bubble.className = 'hippo-bubble';
-    const size = 10 + Math.random() * 14;
-    bubble.style.width = `${size}px`;
-    bubble.style.height = `${size}px`;
-    bubble.style.left = `${50 + (Math.random() - 0.5) * 60}%`;
-    bubble.style.top = `${40 + Math.random() * 20}%`;
-    bubble.style.setProperty('--bubble-drift', `${(Math.random() - 0.5) * 32}px`);
-    el.appendChild(bubble);
-    bubble.addEventListener('animationend', () => bubble.remove());
+    window.setTimeout(() => {
+      const bubble = document.createElement('span');
+      bubble.className = 'hippo-bubble';
+      const size = 6 + Math.random() * 5;
+      const drift = (Math.random() - 0.5) * 30;
+      bubble.style.width = `${size}px`;
+      bubble.style.height = `${size}px`;
+      bubble.style.left = `${cx - size / 2}px`;
+      bubble.style.top = `${cy - size / 2}px`;
+      bubble.style.setProperty('--bubble-drift', `${drift}px`);
+      state.appendChild(bubble);
+      bubble.addEventListener('animationend', () => bubble.remove());
+    }, i * 80);
   }
 }
 

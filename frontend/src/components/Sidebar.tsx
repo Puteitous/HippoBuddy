@@ -780,7 +780,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
 
   return (
     <div
-      className={`session-item ${active ? 'session-item-active' : ''}${session.pinned ? ' session-item-pinned' : ''}`}
+      className={`session-item ${active ? 'session-item-active' : ''}`}
       onClick={(e) => {
         // 操作按钮 / 输入框 / 确认条内点击不触发会话切换(对齐旧版 closest('.session-actions') 判断)
         if ((e.target as HTMLElement).closest('.session-actions, .session-rename-input, .session-confirm-delete')) return;
