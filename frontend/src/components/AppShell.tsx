@@ -81,9 +81,17 @@ export function AppShell() {
         const data = await api.getSessions();
         if (cancelled) return;
         setSessions(data);
-        // 以后台返回的最新列表为准,再次校正当前会话
-        const currentExists = currentSessionId && data.some((s) => s.id === currentSessionId);
-        if (data.length > 0 && !currentExists) {
+        // 以后台返回的最新列表为准,再次校正当前会话。
+        // 注意必须读取「此刻」的 currentSessionId,而非挂载闭包里的旧值:
+        // 等待 getSessions 期间用户可能已点击「新建」生成了 web-* 虚拟会话。
+        // 若沿用旧值判断(旧值常为 null 或失效的 web-*,不在真实列表),会误判
+        // 为当前会话失效,进而用 data[0] 覆盖用户主动新建的空会话,把 hero 跳回历史对话。
+        // 故:当前会话为空、或为真实会话且确已失效时才兜底选中 data[0];
+        // 当前为虚拟 web-*(用户正在新建)时保持原状,不跳回。
+        const latestId = useAppStore.getState().currentSessionId;
+        const latestExists = !!latestId && data.some((s) => s.id === latestId);
+        const isVirtualNew = !!latestId && latestId.startsWith('web-');
+        if (data.length > 0 && !latestExists && !isVirtualNew) {
           setCurrentSession(data[0].id);
         }
       } catch (e) {

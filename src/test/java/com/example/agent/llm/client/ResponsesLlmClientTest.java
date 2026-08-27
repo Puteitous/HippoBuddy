@@ -5,7 +5,9 @@ import com.example.agent.llm.exception.LlmApiException;
 import com.example.agent.llm.model.ChatRequest;
 import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.FunctionCall;
+import com.example.agent.llm.model.ImagePart;
 import com.example.agent.llm.model.Message;
+import com.example.agent.llm.model.TextPart;
 import com.example.agent.llm.model.Tool;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.WebSearchAction;
@@ -77,6 +79,46 @@ class ResponsesLlmClientTest {
             assertEquals("user", input.get(0).get("role").asText());
             assertEquals("你好", input.get(0).get("content").get(0).get("text").asText());
             assertEquals("input_text", input.get(0).get("content").get(0).get("type").asText());
+        }
+
+        @Test
+        @DisplayName("多模态 user 消息转为 input_text + input_image")
+        void testMultimodalMessage() throws Exception {
+            Message multimodal = new Message("user", "", null);
+            multimodal.setContentParts(List.of(
+                    new TextPart("看看这张图"),
+                    new ImagePart("data:image/png;base64,iVBORw0KGgo=")
+            ));
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(multimodal));
+
+            JsonNode body = objectMapper.readTree(client.buildResponsesRequestBody(request));
+            JsonNode input = body.get("input");
+            assertEquals(1, input.size());
+            assertEquals("message", input.get(0).get("type").asText());
+            assertEquals("user", input.get(0).get("role").asText());
+            JsonNode content = input.get(0).get("content");
+            assertEquals(2, content.size());
+            assertEquals("input_text", content.get(0).get("type").asText());
+            assertEquals("看看这张图", content.get(0).get("text").asText());
+            assertEquals("input_image", content.get(1).get("type").asText());
+            assertEquals("data:image/png;base64,iVBORw0KGgo=", content.get(1).get("image_url").asText());
+        }
+
+        @Test
+        @DisplayName("纯图片 user 消息不跳过，生成 input_image")
+        void testImageOnlyMessage() throws Exception {
+            Message multimodal = new Message("user", "", null);
+            multimodal.setContentParts(List.of(new ImagePart("data:image/png;base64,iVBORw0KGgo=")));
+            ChatRequest request = ChatRequest.of("deepseek-v4-flash", List.of(multimodal));
+
+            JsonNode body = objectMapper.readTree(client.buildResponsesRequestBody(request));
+            JsonNode input = body.get("input");
+            assertEquals(1, input.size());
+            assertEquals("message", input.get(0).get("type").asText());
+            JsonNode content = input.get(0).get("content");
+            assertEquals(1, content.size());
+            assertEquals("input_image", content.get(0).get("type").asText());
+            assertEquals("data:image/png;base64,iVBORw0KGgo=", content.get(0).get("image_url").asText());
         }
 
         @Test

@@ -14,6 +14,7 @@ public class SessionConfig {
     private static final int MAX_MAX_SAVED_SESSIONS = 1000;
     private static final int DEFAULT_CLEANUP_PERIOD_DAYS = 90;
     private static final boolean DEFAULT_ENABLE_BACKGROUND_CLEANUP = true;
+    private static final boolean DEFAULT_ENABLE_MAX_SAVED_CLEANUP = true;
     private static final int DEFAULT_TOMBSTONE_THRESHOLD_MB = 50;
     private static final int MIN_CLEANUP_PERIOD_DAYS = 1;
     private static final int MAX_CLEANUP_PERIOD_DAYS = 365;
@@ -26,6 +27,9 @@ public class SessionConfig {
 
     @JsonProperty("enable_background_cleanup")
     private boolean enableBackgroundCleanup = DEFAULT_ENABLE_BACKGROUND_CLEANUP;
+
+    @JsonProperty("enable_max_saved_cleanup")
+    private boolean enableMaxSavedCleanup = DEFAULT_ENABLE_MAX_SAVED_CLEANUP; // false = 永久保留全部历史，不触发数量清理
 
     @JsonProperty("tombstone_threshold_mb")
     private int tombstoneThresholdMb = DEFAULT_TOMBSTONE_THRESHOLD_MB;
@@ -76,6 +80,14 @@ public class SessionConfig {
         this.enableBackgroundCleanup = enableBackgroundCleanup;
     }
 
+    public boolean isEnableMaxSavedCleanup() {
+        return enableMaxSavedCleanup;
+    }
+
+    public void setEnableMaxSavedCleanup(boolean enableMaxSavedCleanup) {
+        this.enableMaxSavedCleanup = enableMaxSavedCleanup;
+    }
+
     public int getTombstoneThresholdMb() {
         return tombstoneThresholdMb;
     }
@@ -118,6 +130,7 @@ public class SessionConfig {
                 "maxSavedSessions=" + maxSavedSessions +
                 ", cleanupPeriodDays=" + cleanupPeriodDays +
                 ", enableBackgroundCleanup=" + enableBackgroundCleanup +
+                ", enableMaxSavedCleanup=" + enableMaxSavedCleanup +
                 ", tombstoneThresholdMb=" + tombstoneThresholdMb +
                 '}';
     }

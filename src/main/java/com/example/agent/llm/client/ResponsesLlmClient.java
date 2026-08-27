@@ -10,7 +10,9 @@ import com.example.agent.llm.exception.LlmTimeoutException;
 import com.example.agent.llm.model.ChatRequest;
 import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.Choice;
+import com.example.agent.llm.model.ContentPart;
 import com.example.agent.llm.model.FunctionCall;
+import com.example.agent.llm.model.ImagePart;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.PromptTokensDetails;
 import com.example.agent.llm.model.Tool;
@@ -20,6 +22,7 @@ import com.example.agent.llm.model.WebSearchAction;
 import com.example.agent.llm.retry.RetryPolicy;
 import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.llm.stream.ToolCallDelta;
+import com.example.agent.tools.ImageStoreService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -197,25 +200,50 @@ public class ResponsesLlmClient extends AbstractLlmClient {
             boolean hasToolCalls = "assistant".equals(role)
                 && msg.getToolCalls() != null && !msg.getToolCalls().isEmpty();
             String text = msg.getContent();
+            // 多模态消息（含图片）：Responses API 以 input_text + input_image content part 传入
+            List<ContentPart> parts = msg.isMultimodal() ? msg.getContentParts() : null;
+            boolean hasImage = parts != null && parts.stream().anyMatch(p -> p instanceof ImagePart);
 
-            // 无文本且无工具调用的空消息跳过
-            if ((text == null || text.isEmpty()) && !hasToolCalls) {
+            // 无文本、无图片且无工具调用的空消息跳过
+            // （纯图片消息必须保留，否则 input 为空数组会触发 Responses API 400 错误）
+            if ((text == null || text.isEmpty()) && !hasImage && !hasToolCalls) {
                 continue;
             }
 
-            // 有文本时输出 message item（assistant 纯工具调用消息省略 message item，仅输出 function_call）
-            if (text != null && !text.isEmpty()) {
+            // 有文本或图片时输出 message item（assistant 纯工具调用消息省略 message item，仅输出 function_call）
+            if ((text != null && !text.isEmpty()) || hasImage) {
                 ObjectNode item = objectMapper.createObjectNode();
                 item.put("type", "message");
                 item.put("role", role);
                 ArrayNode contentArray = objectMapper.createArrayNode();
-                ObjectNode contentBlock = objectMapper.createObjectNode();
-                // 历史消息统一用 input_text（assistant 消息的 output_text 也可回传，input_text 更通用）
-                contentBlock.put("type", "input_text");
-                contentBlock.put("text", text);
-                contentArray.add(contentBlock);
-                item.set("content", contentArray);
-                input.add(item);
+                if (text != null && !text.isEmpty()) {
+                    ObjectNode contentBlock = objectMapper.createObjectNode();
+                    // 历史消息统一用 input_text（assistant 消息的 output_text 也可回传，input_text 更通用）
+                    contentBlock.put("type", "input_text");
+                    contentBlock.put("text", text);
+                    contentArray.add(contentBlock);
+                }
+                if (hasImage) {
+                    ImageStoreService imageStore = new ImageStoreService();
+                    for (ContentPart part : parts) {
+                        if (!(part instanceof ImagePart)) {
+                            continue;
+                        }
+                        String dataUri = imageStore.toDataUri(((ImagePart) part).getUrl());
+                        if (dataUri == null) {
+                            logger.warn("Responses API: 图片文件不存在，跳过: {}", ((ImagePart) part).getUrl());
+                            continue;
+                        }
+                        ObjectNode imageBlock = objectMapper.createObjectNode();
+                        imageBlock.put("type", "input_image");
+                        imageBlock.put("image_url", dataUri);
+                        contentArray.add(imageBlock);
+                    }
+                }
+                if (contentArray.size() > 0) {
+                    item.set("content", contentArray);
+                    input.add(item);
+                }
             }
 
             // assistant 消息的工具调用 → function_call items（跟随在 assistant 消息之后）

@@ -54,6 +54,7 @@ tools:
 
 session:
   max_saved_sessions: 1000             # 最大保存会话数（0 = 禁用持久化）
+  enable_max_saved_cleanup: true       # 是否启用历史清理（false = 永久保留全部历史，磁盘自负）
 
 ui:
   theme: dark

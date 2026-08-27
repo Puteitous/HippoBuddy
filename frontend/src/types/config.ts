@@ -15,6 +15,8 @@
 export interface SessionConfigSection {
   /** 最大保存会话数(0~1000,0 表示禁用持久化) */
   max_saved_sessions: number;
+  /** 是否启用历史会话数量清理(关闭则保留全部历史,不触发超限清理) */
+  enable_max_saved_cleanup: boolean;
   /** 清理周期(天) */
   cleanup_period_days: number;
   /** 是否启用后台清理 */

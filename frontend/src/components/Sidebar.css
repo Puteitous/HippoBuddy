@@ -255,7 +255,7 @@
 
 /* ========== 会话项(对齐旧版 .session-item) ========== */
 .session-item {
-  padding: 8px 10px;
+  padding: 8px 10px 8px 20px;
   margin: 0 0 1px;
   border-radius: 6px;
   cursor: pointer;
@@ -497,12 +497,23 @@
   z-index: 2;
   /* 吸顶头部需不透底:取列表底色(--bg-app),与 .session-item 同底 */
   background: var(--bg-app);
+  /* 时钟图标 + 文案 水平对齐 */
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
-/* 玻璃主题下 --bg-app 为半透明(--glass-panel),吸顶头盖不住下方滚过的
-   .session-item 会穿帮;改用 --bg-overlay 深实底,确保滚动时不透字 */
+/* 玻璃主题吸顶分类头:默认与 .session-item 一致为透明、无模糊;仅当分类头
+   吸顶命中(JS 检测后加 .stuck)才对后方滑过的 .session-item 做局部模糊,
+   实现「平时完全透明,吸顶时才看不清后方文字」。局部模糊无 fixed 后代,安全。 */
 [data-theme="glass"] .session-category {
-  background: var(--bg-overlay);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+[data-theme="glass"] .session-category.stuck {
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
 }
 
 /* ========== 置顶区头(位于列表最上方,样式对齐项目分组头,融合不割裂) ========== */

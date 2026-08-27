@@ -436,6 +436,31 @@ export function Sidebar() {
     return () => cancelAnimationFrame(raf);
   }, [hasMore, rows, renderedCount]);
 
+  // 玻璃主题:检测时间分类头是否吸顶命中,命中才加 .stuck 开启局部模糊。
+  // sticky 吸顶时其 top 会吸附到滚动容器(.sidebar-body)顶部,用该判据区分
+  // "正在吸顶"与"平时透明",避免未吸顶时也带 backdrop-filter。
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const apply = () => {
+      const bodyTop = body.getBoundingClientRect().top;
+      body.querySelectorAll<HTMLElement>('.session-category').forEach((el) => {
+        const stuck = el.getBoundingClientRect().top <= bodyTop + 1;
+        el.classList.toggle('stuck', stuck);
+      });
+    };
+    apply();
+    body.addEventListener('scroll', apply, { passive: true });
+    const ro = new ResizeObserver(apply);
+    ro.observe(body);
+    window.addEventListener('resize', apply);
+    return () => {
+      body.removeEventListener('scroll', apply);
+      ro.disconnect();
+      window.removeEventListener('resize', apply);
+    };
+  }, [rows]);
+
   return (
     <aside className={`sidebar${sidebarCollapsed ? ' hidden' : ''}`}>
       {/* 顶部圆角胶囊工具栏(对齐旧版 .session-toolbar) */}
@@ -596,6 +621,11 @@ export function Sidebar() {
               if (row.type === 'category') {
                 return (
                   <div key={row.category} className="session-category">
+                    {/* 时间分类头:时钟图标 + 分类文案,语义贴合时间分组 */}
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
                     {row.category}
                   </div>
                 );

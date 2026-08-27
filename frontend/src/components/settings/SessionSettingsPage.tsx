@@ -22,6 +22,7 @@ const MAX_SAVED_SESSIONS_ITEMS = [
 function defaultSession(): SessionConfigSection {
   return {
     max_saved_sessions: 1000,
+    enable_max_saved_cleanup: true,
     cleanup_period_days: 90,
     enable_background_cleanup: true,
     tombstone_threshold_mb: 50,
@@ -70,6 +71,17 @@ export function SessionSettingsPage() {
     }
   };
 
+  const handleCleanupToggle = async (enabled: boolean) => {
+    const next: SessionConfigSection = { ...session, enable_max_saved_cleanup: enabled };
+    setSession(next);
+    try {
+      await configApi.updateFull({ session: next });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast('保存会话配置失败:' + msg, { type: 'error', duration: 3000 });
+    }
+  };
+
   if (loading) {
     return <div className="settings-loading">加载中...</div>;
   }
@@ -94,6 +106,22 @@ export function SessionSettingsPage() {
       <div className="settings-field-group-title">保存策略</div>
       <div className="settings-field-group">
         <div className="settings-form">
+          <div className="settings-field-horizontal">
+            <div className="settings-field-label">
+              <div>清理历史会话</div>
+              <div className="settings-field-hint">关闭后保留全部历史对话，不触发超限清理</div>
+            </div>
+            <div className="settings-field-body">
+              <label className="settings-switch">
+                <input
+                  type="checkbox"
+                  checked={session.enable_max_saved_cleanup !== false}
+                  onChange={(e) => handleCleanupToggle(e.target.checked)}
+                />
+                <span className="settings-switch-slider" />
+              </label>
+            </div>
+          </div>
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
               <div>最大保存会话数</div>

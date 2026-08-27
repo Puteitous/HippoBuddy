@@ -9,8 +9,10 @@ import com.example.agent.domain.skill.SkillManager;
 import com.example.agent.llm.model.Message;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.application.ConversationService;
+import com.example.agent.config.SessionConfig;
 import com.example.agent.prompt.PromptLibrary;
 import com.example.agent.prompt.PromptService;
+import com.example.agent.tools.FileChangeTracker;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -21,11 +23,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 
 public class WebSessionManager implements SessionManager {
 
@@ -346,8 +354,166 @@ public class WebSessionManager implements SessionManager {
                 logger.info("Web 新会话创建：sessionId={}, 无历史记录", id);
             }
 
+            // 新会话创建是会话数量增长的时机：超过 max_saved_sessions 上限时清理最旧的历史会话
+            // （与该会话创建解耦，仅顺势触发；保护活跃/运行中/置顶会话）
+            cleanupSessionsIfNeeded();
+
             return conversation;
         });
+    }
+
+    /**
+     * 超过 max_saved_sessions 上限时，清理最旧的历史会话。
+     * <p>
+     * 在新会话创建时顺势触发（会话数量增长的唯一时机），并非删除当前刚创建的会话。
+     * 保护的会话：活跃内存会话（sessions）、正在运行（sessionRunning）、置顶（pinned）、
+     * 以及尚未落盘的新会话。0 表示禁用持久化，跳过清理。
+     * </p>
+     */
+    private void cleanupSessionsIfNeeded() {
+        int maxSaved;
+        try {
+            SessionConfig sessionConfig = Config.getInstance().getSession();
+            maxSaved = sessionConfig == null ? 1000 : sessionConfig.getMaxSavedSessions();
+            // 「启用历史清理」关闭时，不触发任何数量清理（会话仍正常持久化）
+            if (sessionConfig != null && !sessionConfig.isEnableMaxSavedCleanup()) {
+                return;
+            }
+        } catch (Exception e) {
+            logger.warn("读取 max_saved_sessions 失败，跳过会话数量清理", e);
+            return;
+        }
+        if (maxSaved <= 0) {
+            // 0 = 禁用持久化/上限清理
+            return;
+        }
+
+        Map<String, Conversation> active = getSessions();
+        // 统计磁盘会话
+        List<Map.Entry<Path, Long>> candidates = new ArrayList<>();
+        Set<String> protectedIds = new HashSet<>(active.keySet());
+        int protectedCount = 0; // 磁盘上受保护会话数（置顶/运行中），计入总数占名额但不删除
+        try {
+            Path sessionsRoot = WorkspaceManager.getHippoRoot().resolve("sessions");
+            if (!Files.exists(sessionsRoot)) {
+                return;
+            }
+            List<Path> sessionDirs = new ArrayList<>();
+            try (Stream<Path> dateDirs = Files.list(sessionsRoot)) {
+                dateDirs.filter(Files::isDirectory).forEach(dateDir -> {
+                    try (Stream<Path> sub = Files.list(dateDir)) {
+                        sub.filter(Files::isDirectory).forEach(sessionDirs::add);
+                    } catch (IOException ignored) {
+                    }
+                });
+            }
+            for (Path sessionDir : sessionDirs) {
+                String sid = sessionDir.getFileName().toString();
+                Path jsonl = sessionDir.resolve("conversation.jsonl");
+                if (!Files.exists(jsonl)) {
+                    continue; // 仅计入真实存在的会话
+                }
+                if (protectedIds.contains(sid)
+                        || Boolean.TRUE.equals(sessionRunning.get(sid))
+                        || isPinned(sid)) {
+                    protectedCount++; // 受保护会话占名额但不删除
+                    continue;
+                }
+                Path metadata = sessionDir.resolve("session.json");
+                long activity = resolveLastActivity(metadata, jsonl);
+                candidates.add(Map.entry(sessionDir, activity));
+            }
+        } catch (IOException e) {
+            logger.warn("扫描会话目录失败，跳过数量清理", e);
+            return;
+        }
+
+        // 需要清理的数量 = 总会话数（活跃 + 受保护 + 可删候选）超出上限
+        int toDelete = (active.size() + protectedCount + candidates.size()) - maxSaved;
+        if (toDelete <= 0) {
+            return;
+        }
+
+        // 按最近活跃时间升序（最旧在前）
+        candidates.sort(Comparator.comparingLong(Map.Entry::getValue));
+        int deleted = 0;
+        for (int i = 0; i < candidates.size() && deleted < toDelete; i++) {
+            Path sessionDir = candidates.get(i).getKey();
+            String sid = sessionDir.getFileName().toString();
+            if (deleteSessionDir(sessionDir)) {
+                FileChangeTracker.removeSessionChanges(sid);
+                deleted++;
+                logger.info("超过 max_saved_sessions={}，已清理旧会话：{}", maxSaved, sid);
+            }
+        }
+        if (deleted > 0) {
+            logger.info("会话数量清理完成：上限={}, 清理 {} 个旧会话", maxSaved, deleted);
+        }
+    }
+
+    /**
+     * 会话最近活跃时间：优先读取 session.json 的 lastActivityAt，否则回退到 conversation.jsonl 的修改时间。
+     */
+    private long resolveLastActivity(Path metadata, Path jsonl) {
+        try {
+            if (Files.exists(metadata)) {
+                byte[] bytes = Files.readAllBytes(metadata);
+                if (bytes.length > 0 && bytes.length < 1_048_576) {
+                    JsonNode node = objectMapper.readTree(bytes);
+                    JsonNode la = node.get("lastActivityAt");
+                    if (la != null && !la.asText().isBlank()) {
+                        return Long.parseLong(la.asText());
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            return Files.getLastModifiedTime(jsonl).toMillis();
+        } catch (IOException e) {
+            return Long.MAX_VALUE; // 无法确定时间，放最后，尽量不删
+        }
+    }
+
+    /**
+     * 会话是否已置顶（pinned）。
+     */
+    private boolean isPinned(String sessionId) {
+        try {
+            Path metadataFile = WorkspaceManager.getSessionMetadataFile(sessionId);
+            if (Files.exists(metadataFile)) {
+                byte[] bytes = Files.readAllBytes(metadataFile);
+                if (bytes.length > 0 && bytes.length < 1_048_576) {
+                    JsonNode node = objectMapper.readTree(bytes);
+                    JsonNode p = node.get("pinned");
+                    if (p != null && !p.isNull()) {
+                        return p.asBoolean(false);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    /**
+     * 递归删除会话目录（含子文件）。
+     */
+    private boolean deleteSessionDir(Path sessionDir) {
+        try (Stream<Path> walk = Files.walk(sessionDir)) {
+            walk.sorted(Comparator.reverseOrder())
+                .forEach(path -> {
+                    try {
+                        Files.delete(path);
+                    } catch (IOException e) {
+                        logger.warn("删除会话文件失败: {}", path);
+                    }
+                });
+            return true;
+        } catch (IOException e) {
+            logger.warn("删除会话目录失败：{}", sessionDir, e);
+            return false;
+        }
     }
 
     @Override
