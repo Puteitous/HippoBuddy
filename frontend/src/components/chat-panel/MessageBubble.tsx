@@ -16,6 +16,7 @@ import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
 import { emit } from '@/utils/eventBus';
+import { useI18n, translate } from '@/i18n';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import type { MessageFileProduct } from './message-utils';
@@ -44,6 +45,7 @@ function MessageBubbleComponent({
   dataMessageId,
   className,
 }: MessageBubbleProps) {
+  const { t } = useI18n();
   const [showReasoning, setShowReasoning] = useState(false);
 
   // 思考内容滚动跟随(对齐旧版 RenderPipeline 的 smartScroll):
@@ -141,7 +143,7 @@ function MessageBubbleComponent({
               dangerouslySetInnerHTML={{ __html: THINK_SVG }}
             />
             <span className="msg-reasoning-label">
-              {isStreaming && isReasoning ? '思考中...' : '已思考'}
+              {isStreaming && isReasoning ? t('chat.reasoningThinking') : t('chat.reasoningDone')}
             </span>
           </div>
           <div className="msg-reasoning-content">
@@ -176,9 +178,10 @@ function MessageBubbleComponent({
 
 /** 联网搜索摘要行(对齐旧版 RenderPipeline.renderWebSearchRow 完成态) */
 function WebSearchRow({ actions }: { actions: WebSearchAction[] }) {
+  const { t, lang } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const summary = useMemo(() => buildWebSearchSummary(actions), [actions]);
-  const detailGroups = useMemo(() => buildWebSearchDetailGroups(actions), [actions]);
+  const summary = useMemo(() => buildWebSearchSummary(actions), [actions, lang]);
+  const detailGroups = useMemo(() => buildWebSearchDetailGroups(actions, t), [actions, lang]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleable = detailGroups.length > 0;
 
   return (
@@ -188,7 +191,7 @@ function WebSearchRow({ actions }: { actions: WebSearchAction[] }) {
         role={toggleable ? 'button' : undefined}
         tabIndex={toggleable ? 0 : undefined}
         aria-expanded={expanded}
-        title={toggleable ? '展开搜索详情' : undefined}
+        title={toggleable ? t('chat.expandWebSearchDetail') : undefined}
         onClick={toggleable ? () => setExpanded((v) => !v) : undefined}
         onKeyDown={
           toggleable
@@ -212,11 +215,12 @@ function WebSearchRow({ actions }: { actions: WebSearchAction[] }) {
 
 /** 联网搜索瞬态行(实时流进行中显示,对齐旧版 renderWebSearchRow 流式态) */
 export function WebSearchStreamingRow() {
+  const { t } = useI18n();
   return (
     <div className="web-search-row streaming">
       <div className="web-search-row-header">
         <span className="web-search-row-icon">{SEARCH_SVG}</span>
-        <span className="web-search-row-label">正在联网搜索…</span>
+        <span className="web-search-row-label">{t('chat.webSearchStreaming')}</span>
       </div>
     </div>
   );
@@ -237,7 +241,7 @@ const CHEVRON_SVG = (
 
 /** 聚合摘要(对齐旧版 _buildWebSearchSummary):统计搜索词 / 打开的网页 / 页内查找 */
 function buildWebSearchSummary(actions: WebSearchAction[]): string {
-  if (!actions.length) return '已联网搜索';
+  if (!actions.length) return translate('chat.webSearchBase');
   let queryCount = 0;
   let openCount = 0;
   let findCount = 0;
@@ -252,14 +256,14 @@ function buildWebSearchSummary(actions: WebSearchAction[]): string {
     }
   }
   const parts: string[] = [];
-  if (queryCount > 0) parts.push(`${queryCount} 个关键词`);
-  if (openCount > 0) parts.push(`打开 ${openCount} 个网页`);
-  if (findCount > 0) parts.push(`页内查找 ${findCount} 次`);
-  return parts.length > 0 ? `已联网搜索 · ${parts.join(' · ')}` : '已联网搜索';
+  if (queryCount > 0) parts.push(translate('chat.webSearchQueryCount', { count: queryCount }));
+  if (openCount > 0) parts.push(translate('chat.webSearchOpenCount', { count: openCount }));
+  if (findCount > 0) parts.push(translate('chat.webSearchFindCount', { count: findCount }));
+  return parts.length > 0 ? translate('chat.webSearchJoined', { parts: parts.join(' · ') }) : translate('chat.webSearchBase');
 }
 
 /** 展开详情分组(对齐旧版 _buildWebSearchDetails):搜索词 / 打开的网页 / 页内查找 */
-function buildWebSearchDetailGroups(actions: WebSearchAction[]): ReactNode[] {
+function buildWebSearchDetailGroups(actions: WebSearchAction[], t: (k: string, p?: Record<string, string | number>) => string): ReactNode[] {
   const queries: string[] = [];
   const pages: { url: string; failed: boolean }[] = [];
   const finds: { url: string; pattern: string; failed: boolean }[] = [];
@@ -280,7 +284,7 @@ function buildWebSearchDetailGroups(actions: WebSearchAction[]): ReactNode[] {
   if (queries.length) {
     groups.push(
       <div key="q" className="web-search-detail-group">
-        <div className="web-search-detail-title">搜索关键词</div>
+        <div className="web-search-detail-title">{t('chat.webSearchTitleQueries')}</div>
         {queries.map((q, i) => (
           <div key={i} className="web-search-detail-item">{q}</div>
         ))}
@@ -290,7 +294,7 @@ function buildWebSearchDetailGroups(actions: WebSearchAction[]): ReactNode[] {
   if (pages.length) {
     groups.push(
       <div key="p" className="web-search-detail-group">
-        <div className="web-search-detail-title">打开的网页</div>
+        <div className="web-search-detail-title">{t('chat.webSearchTitlePages')}</div>
         {pages.map((p, i) => (
           <div key={i} className={`web-search-detail-item${p.failed ? ' failed' : ''}`}>
             {buildWebUrlLink(p.url)}
@@ -302,7 +306,7 @@ function buildWebSearchDetailGroups(actions: WebSearchAction[]): ReactNode[] {
   if (finds.length) {
     groups.push(
       <div key="f" className="web-search-detail-group">
-        <div className="web-search-detail-title">页内查找</div>
+        <div className="web-search-detail-title">{t('chat.webSearchTitleFinds')}</div>
         {finds.map((f, i) => (
           <div key={i} className={`web-search-detail-item${f.failed ? ' failed' : ''}`}>
             {buildWebUrlLink(f.url)}
@@ -337,6 +341,7 @@ function buildWebUrlLink(url: string): ReactNode {
 const COLLAPSE_THRESHOLD = 200; // px，超过此高度自动折叠
 
 function UserContent({ content }: { content: string | ContentPart[] }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [collapsible, setCollapsible] = useState(false);
@@ -368,7 +373,7 @@ function UserContent({ content }: { content: string | ContentPart[] }) {
                   <img
                     key={i}
                     src={part.image_url.url}
-                    alt="用户上传图片"
+                    alt={t('chat.userImageAlt')}
                     className="msg-user-image"
                   />
                 );
@@ -383,8 +388,8 @@ function UserContent({ content }: { content: string | ContentPart[] }) {
           type="button"
           className={`msg-user-expand-btn${expanded ? ' open' : ''}`}
           onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? '收起' : '展开全文'}
-          title={expanded ? '收起' : '展开全文'}
+          aria-label={expanded ? t('chat.collapseContent') : t('chat.expandFullText')}
+          title={expanded ? t('chat.collapseContent') : t('chat.expandFullText')}
         >
           {expanded ? (
             /* 展开态:朝上的收拢箭头 */
@@ -545,6 +550,7 @@ interface MessageFooterProps {
 
 /** 消息底部操作条:时间 + 操作按钮(复制/重试/回滚/分叉/文件产物),对齐旧版交互 */
 export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }: MessageFooterProps) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -560,8 +566,8 @@ export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }
           <button
             type="button"
             className="message-action-btn"
-            title="重试"
-            aria-label="重试"
+            title={t('chatui.retry')}
+            aria-label={t('chatui.retry')}
             onClick={onRetry}
           >
             {RETRY_SVG}
@@ -570,8 +576,8 @@ export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }
         <button
           type="button"
           className={`message-action-btn${copied ? ' copied' : ''}`}
-          title={copied ? '已复制' : '复制'}
-          aria-label={copied ? '已复制' : '复制'}
+          title={copied ? t('chatui.copied') : t('chatui.copy')}
+          aria-label={copied ? t('chatui.copied') : t('chatui.copy')}
           onClick={handleCopy}
         >
           {copied ? CHECK_SVG : COPY_SVG}
@@ -581,8 +587,8 @@ export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }
           <button
             type="button"
             className="message-action-btn"
-            title="分叉"
-            aria-label="分叉"
+            title={t('chatui.fork')}
+            aria-label={t('chatui.fork')}
             onClick={onFork}
           >
             {FORK_SVG}
@@ -600,8 +606,9 @@ export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }
  * 显示"📄 N",hover 弹出文件列表(文件名 + 状态字母 A/M/D),点击跳转文件。
  */
 function FileIndicator({ files }: { files: MessageFileProduct[] }) {
+  const { t } = useI18n();
   return (
-    <span className="message-file-indicator" title="查看文件产物">
+    <span className="message-file-indicator" title={t('chatui.viewFileProducts')}>
       {FILE_SVG} {files.length}
       <div className="message-file-popover">
         {files.map((f) => {

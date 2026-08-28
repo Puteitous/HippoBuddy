@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react';
 import { configApi } from '@/api/client';
 import { ApiError } from '@/api/error';
+import { translate, useI18n } from '@/i18n';
 import { showToast } from './toastStore';
 import type { ToolsConfigSection } from '@/types/config';
 
@@ -36,6 +37,7 @@ function defaultTools(): ToolsConfigSection {
 }
 
 export function ToolsSettingsPage() {
+  const { t } = useI18n();
   const [tools, setTools] = useState<ToolsConfigSection>(defaultTools());
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -56,7 +58,7 @@ export function ToolsSettingsPage() {
         if (cancelled) return;
         const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
         setLoadError(msg);
-        showToast('加载工具配置失败:' + msg, { type: 'error', duration: 3000 });
+        showToast(translate('settingsPage.toolsLoadFailedToast') + msg, { type: 'error', duration: 3000 });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -77,37 +79,37 @@ export function ToolsSettingsPage() {
       await configApi.updateFull({ tools: next });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('保存工具配置失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.toolsSaveFailedToast') + msg, { type: 'error', duration: 3000 });
     }
   };
 
   if (loading) {
-    return <div className="settings-loading">加载中...</div>;
+    return <div className="settings-loading">{t('settingsPage.rulesLoading')}</div>;
   }
 
   if (loadError) {
     return (
       <div>
-        <h2 className="settings-page-title">工具</h2>
-        <p className="settings-page-desc">配置内置工具行为与执行策略。</p>
+        <h2 className="settings-page-title">{t('settingsPage.toolsPageTitle')}</h2>
+        <p className="settings-page-desc">{t('settingsPage.toolsPageDesc')}</p>
         <hr className="settings-page-divider" />
-        <p className="settings-error-text">配置不可用:{loadError}</p>
+        <p className="settings-error-text">{t('settingsPage.configUnavailableShort')}{loadError}</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h2 className="settings-page-title">工具</h2>
-      <p className="settings-page-desc">配置内置工具行为与执行策略。</p>
+      <h2 className="settings-page-title">{t('settingsPage.toolsPageTitle')}</h2>
+      <p className="settings-page-desc">{t('settingsPage.toolsPageDesc')}</p>
       <hr className="settings-page-divider" />
 
       {/* Bash */}
-      <div className="settings-field-group-title">Bash 命令</div>
+      <div className="settings-field-group-title">{t('settingsPage.toolsGroupBash')}</div>
       <div className="settings-field-group">
         <div className="settings-form">
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">需要确认</label>
+            <label className="settings-field-label">{t('settingsPage.toolsNeedConfirm')}</label>
             <div className="settings-field-body">
               <label className="settings-switch">
                 <input
@@ -130,11 +132,11 @@ export function ToolsSettingsPage() {
       </div>
 
       {/* Web Search */}
-      <div className="settings-field-group-title">联网搜索</div>
+      <div className="settings-field-group-title">{t('settingsPage.toolsGroupWeb')}</div>
       <div className="settings-field-group">
         <div className="settings-form">
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">启用</label>
+            <label className="settings-field-label">{t('settingsPage.toolsEnable')}</label>
             <div className="settings-field-body">
               <label className="settings-switch">
                 <input
@@ -155,8 +157,8 @@ export function ToolsSettingsPage() {
           </div>
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
-              <div>搜索服务商</div>
-              <div className="settings-field-hint">不同服务商需要不同的 API Key</div>
+              <div>{t('settingsPage.toolsSearchProvider')}</div>
+              <div className="settings-field-hint">{t('settingsPage.toolsProviderHint')}</div>
             </div>
             <div className="settings-field-body">
               <select
@@ -180,14 +182,14 @@ export function ToolsSettingsPage() {
             </div>
           </div>
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">API Key</label>
+            <label className="settings-field-label">{t('settingsPage.toolsApiKey')}</label>
             <div className="settings-field-body">
               <div className="settings-input-wrap">
                 <input
                   className="settings-input"
                   type={apiKeyVisible ? 'text' : 'password'}
                   value={tools.web_search.api_key || ''}
-                  placeholder="输入 API Key"
+                  placeholder={t('settingsPage.toolsApiKeyPh')}
                   onChange={(e) =>
                     save({
                       web_search: {
@@ -200,7 +202,7 @@ export function ToolsSettingsPage() {
                 <button
                   type="button"
                   className="settings-input-btn"
-                  title={apiKeyVisible ? '隐藏' : '显示'}
+                  title={apiKeyVisible ? t('settingsPage.modelHide') : t('settingsPage.modelShow')}
                   onClick={() => setApiKeyVisible((v) => !v)}
                 >
                   <svg
@@ -224,11 +226,11 @@ export function ToolsSettingsPage() {
       </div>
 
       {/* SubAgent */}
-      <div className="settings-field-group-title">子 Agent</div>
+      <div className="settings-field-group-title">{t('settingsPage.toolsGroupSubagent')}</div>
       <div className="settings-field-group">
         <div className="settings-form">
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">启用</label>
+            <label className="settings-field-label">{t('settingsPage.toolsEnable')}</label>
             <div className="settings-field-body">
               <label className="settings-switch">
                 <input
@@ -251,11 +253,11 @@ export function ToolsSettingsPage() {
       </div>
 
       {/* Delete File */}
-      <div className="settings-field-group-title">文件删除</div>
+      <div className="settings-field-group-title">{t('settingsPage.toolsGroupDelete')}</div>
       <div className="settings-field-group">
         <div className="settings-form">
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">需要确认</label>
+            <label className="settings-field-label">{t('settingsPage.toolsNeedConfirm')}</label>
             <div className="settings-field-body">
               <label className="settings-switch">
                 <input

@@ -20,6 +20,7 @@ import { memo } from 'react';
 import type { RefChip } from '@/types';
 import { FileIcon } from '../FileIcon';
 import { FileTypeIcon } from '../FileTypeIcon';
+import { useI18n, translate } from '@/i18n';
 import './RefChips.css';
 
 interface RefChipsProps {
@@ -28,12 +29,13 @@ interface RefChipsProps {
 }
 
 function RefChipsComponent({ chips, onRemove }: RefChipsProps) {
+  const { t, lang } = useI18n();
   if (chips.length === 0) return null;
 
   return (
     <div className="ref-chips" role="list">
       {chips.map((chip) => (
-        <span key={chip.id} className="ref-chip" role="listitem" title={buildTitle(chip)}>
+        <span key={chip.id} className="ref-chip" role="listitem" title={buildTitle(chip, lang)}>
           <span className="ref-chip-icon" aria-hidden>
             {chip.kind === 'text' ? (
               <FileIcon kind="text" size={13} />
@@ -53,7 +55,7 @@ function RefChipsComponent({ chips, onRemove }: RefChipsProps) {
             type="button"
             className="ref-chip-close"
             onClick={() => onRemove(chip.id)}
-            aria-label="移除引用"
+            aria-label={t('chat.refChipRemove')}
           >
             ×
           </button>
@@ -75,19 +77,19 @@ function getChipFileName(chip: RefChip): string | null {
 }
 
 /** 构建 hover title:展示完整路径 / 完整文本 / 规则 id */
-function buildTitle(chip: RefChip): string {
+function buildTitle(chip: RefChip, _lang: string): string {
   if (chip.kind === 'text') return chip.text;
   const parts: string[] = [];
   if (chip.filePath) {
     const hasLines = chip.startLine != null && chip.endLine != null;
     parts.push(hasLines ? `${chip.filePath}:${chip.startLine}-${chip.endLine}` : chip.filePath);
   }
-  if (chip.ruleId) parts.push(`规则 id: ${chip.ruleId}`);
+  if (chip.ruleId) parts.push(translate('chat.refChipRule', { id: chip.ruleId }));
   if (chip.selectedText) {
     const preview = chip.selectedText.length > 200
       ? `${chip.selectedText.slice(0, 200)}…`
       : chip.selectedText;
-    parts.push(`选中文字:\n${preview}`);
+    parts.push(translate('chat.refChipSelection', { selection: preview }));
   }
   return parts.join('\n');
 }

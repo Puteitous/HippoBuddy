@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { configApi } from '@/api/client';
 import { ApiError } from '@/api/error';
+import { translate, useI18n } from '@/i18n';
 import { showToast } from './toastStore';
 import type { SessionConfigSection } from '@/types/config';
 
@@ -16,7 +17,7 @@ const MAX_SAVED_SESSIONS_ITEMS = [
   { label: '100', value: '100' },
   { label: '200', value: '200' },
   { label: '500', value: '500' },
-  { label: '默认(1000)', value: '1000' },
+  { labelKey: 'settingsPage.sessionDefaultItem', value: '1000' },
 ];
 
 function defaultSession(): SessionConfigSection {
@@ -30,6 +31,7 @@ function defaultSession(): SessionConfigSection {
 }
 
 export function SessionSettingsPage() {
+  const { t } = useI18n();
   const [session, setSession] = useState<SessionConfigSection>(defaultSession());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function SessionSettingsPage() {
         if (cancelled) return;
         const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
         setLoadError(msg);
-        showToast('加载会话配置失败:' + msg, { type: 'error', duration: 3000 });
+        showToast(translate('settingsPage.sessionLoadFailedToast') + msg, { type: 'error', duration: 3000 });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -67,7 +69,7 @@ export function SessionSettingsPage() {
       await configApi.updateFull({ session: next });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('保存会话配置失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.sessionSaveFailedToast') + msg, { type: 'error', duration: 3000 });
     }
   };
 
@@ -78,38 +80,38 @@ export function SessionSettingsPage() {
       await configApi.updateFull({ session: next });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('保存会话配置失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.sessionSaveFailedToast') + msg, { type: 'error', duration: 3000 });
     }
   };
 
   if (loading) {
-    return <div className="settings-loading">加载中...</div>;
+    return <div className="settings-loading">{t('settingsPage.rulesLoading')}</div>;
   }
 
   if (loadError) {
     return (
       <div>
-        <h2 className="settings-page-title">会话管理</h2>
-        <p className="settings-page-desc">配置会话保存与清理策略。</p>
+        <h2 className="settings-page-title">{t('settingsPage.sessionTitle')}</h2>
+        <p className="settings-page-desc">{t('settingsPage.sessionDesc')}</p>
         <hr className="settings-page-divider" />
-        <p className="settings-error-text">配置不可用:{loadError}</p>
+        <p className="settings-error-text">{t('settingsPage.configUnavailableShort')}{loadError}</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h2 className="settings-page-title">会话管理</h2>
-      <p className="settings-page-desc">配置会话保存与清理策略。会话路径由 WorkspaceManager 自动管理,不可配置。</p>
+      <h2 className="settings-page-title">{t('settingsPage.sessionTitle')}</h2>
+      <p className="settings-page-desc">{t('settingsPage.sessionDescPage')}</p>
       <hr className="settings-page-divider" />
 
-      <div className="settings-field-group-title">保存策略</div>
+      <div className="settings-field-group-title">{t('settingsPage.sessionSavePolicy')}</div>
       <div className="settings-field-group">
         <div className="settings-form">
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
-              <div>清理历史会话</div>
-              <div className="settings-field-hint">关闭后保留全部历史对话，不触发超限清理</div>
+              <div>{t('settingsPage.sessionCleanup')}</div>
+              <div className="settings-field-hint">{t('settingsPage.sessionCleanupHint')}</div>
             </div>
             <div className="settings-field-body">
               <label className="settings-switch">
@@ -124,8 +126,8 @@ export function SessionSettingsPage() {
           </div>
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
-              <div>最大保存会话数</div>
-              <div className="settings-field-hint">超出后自动清理最早归档会话</div>
+              <div>{t('settingsPage.sessionMaxSaved')}</div>
+              <div className="settings-field-hint">{t('settingsPage.sessionMaxSavedHint')}</div>
             </div>
             <div className="settings-field-body">
               <select
@@ -135,7 +137,7 @@ export function SessionSettingsPage() {
               >
                 {MAX_SAVED_SESSIONS_ITEMS.map((it) => (
                   <option key={it.value} value={it.value}>
-                    {it.label}
+                    {it.labelKey ? t(it.labelKey) : it.label}
                   </option>
                 ))}
               </select>

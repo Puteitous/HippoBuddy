@@ -35,6 +35,7 @@ import { showToast } from '@/utils/toastStore';
 import { on } from '@/utils/eventBus';
 import type { RollbackCompletedPayload } from '@/utils/eventBus';
 import type { Session } from '@/types';
+import { useI18n, translate } from '@/i18n';
 import { FileTree } from './workspace/FileTree';
 import './Sidebar.css';
 
@@ -77,7 +78,7 @@ function sessionTime(s: Session): number {
 
 /** 会话显示名(对齐旧版:s.title || sessionNames || '会话 ' + id 后 6 位) */
 function sessionDisplayName(s: Session, displayNames: Record<string, string>): string {
-  return s.title || displayNames[s.id] || `会话 ${s.id.replace('web-', '').slice(-6)}`;
+  return s.title || displayNames[s.id] || translate('chat.sessionPrefix', { id: s.id.replace('web-', '').slice(-6) });
 }
 
 /** 归一化项目路径(反斜杠统一为正斜杠;无路径归入"其他") */
@@ -158,7 +159,17 @@ function groupSessionsByTime(sessions: Session[]): Array<[string, Session[]]> {
   return Object.entries(buckets).filter(([, arr]) => arr.length > 0);
 }
 
+/** 时间分类(内部中文常量,兼作分组 key 与 React key)→ 对应 i18n key,展示时 t() 输出 */
+const CATEGORY_KEYS: Record<string, string> = {
+  '今天': 'session.today',
+  '昨天': 'session.yesterday',
+  '7天内': 'session.days7',
+  '30天内': 'session.days30',
+  '更早': 'session.earlier',
+};
+
 export function Sidebar() {
+  const { t, lang } = useI18n();
   const sessions = useAppStore((s) => s.sessions);
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const isLoading = useAppStore((s) => s.isLoadingSessions);
@@ -286,10 +297,10 @@ export function Sidebar() {
   const openProjectWorkspace = async (path: string) => {
     try {
       await workspaceApi.setCurrent(path);
-      showToast('工作区已切换: ' + path, { type: 'success' });
+      showToast(translate('workspace.switched') + path, { type: 'success' });
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-      showToast(`切换工作区失败: ${msg}`, { type: 'error' });
+      showToast(translate('topbar.switchWorkspaceFailed', { err: msg }), { type: 'error' });
     }
   };
 
@@ -344,7 +355,7 @@ export function Sidebar() {
           const fullPath = projectKey === OTHER_PROJECT_KEY ? '' : projectKey;
           const name = fullPath
             ? fullPath.split('/').filter(Boolean).pop() || fullPath
-            : '其他';
+            : translate('session.other');
           return { projectKey, fullPath, name, sessions: arr, latest };
         })
         .sort((a, b) => b.latest - a.latest);
@@ -373,7 +384,7 @@ export function Sidebar() {
     // 虚拟会话(新建未持久化的 web-*)不显示在会话列表,列表仅由已持久化会话驱动,
     // 刷新后行为即天然一致(不会出现"当前会话消失/不一致")。
     return rows;
-  }, [sessions, groupMode, collapsedProjects, pinnedCollapsed]);
+  }, [sessions, groupMode, collapsedProjects, pinnedCollapsed, lang]);
 
   /** 当前活跃会话所属项目 key(用于项目头 has-active 高亮;虚拟会话归入"其他") */
   const activeProjectKey = useMemo(() => {
@@ -480,8 +491,8 @@ export function Sidebar() {
         <button
           type="button"
           className="toolbar-btn"
-          title="折叠会话面板"
-          aria-label="折叠会话面板"
+          title={t('sidebar.collapse')}
+          aria-label={t('sidebar.collapse')}
           onClick={() => setSidebarCollapsed(true)}
         >
           <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
@@ -496,8 +507,8 @@ export function Sidebar() {
         <button
           type="button"
           className="toolbar-btn"
-          title="新建会话"
-          aria-label="新建会话"
+          title={t('chat.newSession')}
+          aria-label={t('chat.newSession')}
           onClick={handleNewSession}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -513,8 +524,8 @@ export function Sidebar() {
           <button
             type="button"
             className={`capsule-btn${sidebarView === 'sessions' ? ' active' : ''}`}
-            title="会话列表"
-            aria-label="会话列表"
+            title={t('session.sessionList')}
+            aria-label={t('session.sessionList')}
             onClick={() => switchSidebarView('sessions')}
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -526,8 +537,8 @@ export function Sidebar() {
           <button
             type="button"
             className={`capsule-btn${sidebarView === 'files' ? ' active' : ''}`}
-            title="文件浏览"
-            aria-label="文件浏览"
+            title={t('session.fileBrowse')}
+            aria-label={t('session.fileBrowse')}
             onClick={() => switchSidebarView('files')}
           >
             <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
@@ -546,7 +557,7 @@ export function Sidebar() {
         /* 文件树视图(对齐旧版 .file-tree-view,替代会话列表) */
         <div className="sidebar-file-tree">
           {!workspacePath ? (
-            <div className="sidebar-file-tree-empty">未设置工作区</div>
+            <div className="sidebar-file-tree-empty">{t('sidebar.noWorkspace')}</div>
           ) : (
             <FileTree
               rootPath={workspacePath}
@@ -565,32 +576,32 @@ export function Sidebar() {
           <svg className="sidebar-header-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
             <path d="M13.5 2H2.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2.5l2 2 2-2h4.5a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" />
           </svg>
-          <span className="sidebar-title">会话</span>
+          <span className="sidebar-title">{t('session.title')}</span>
           <button
             type="button"
             className="group-mode-toggle"
-            title="切换分组方式"
-            aria-label="切换分组方式"
+            title={t('session.toggleGroup')}
+            aria-label={t('session.toggleGroup')}
             onClick={toggleGroupMode}
           >
-            {groupMode === 'project' ? 'Project' : 'Time'}
+            {t(groupMode === 'project' ? 'session.groupProject' : 'session.groupTime')}
           </button>
         </div>
         <span className="sidebar-count">{sessions.length}</span>
       </div>
 
       <div className="sidebar-body" ref={bodyRef}>
-        {isLoading && <p className="sidebar-empty">加载中…</p>}
+        {isLoading && <p className="sidebar-empty">{t('chat.loading')}</p>}
 
         {!isLoading && error && rows.length === 0 && (
           <div className="sidebar-error">
-            <p>加载会话失败</p>
+            <p>{t('sidebar.loadFailed')}</p>
             <pre>{error}</pre>
           </div>
         )}
 
         {!isLoading && !error && rows.length === 0 && (
-          <p className="sidebar-empty">暂无会话</p>
+          <p className="sidebar-empty">{t('sidebar.empty')}</p>
         )}
 
         {!isLoading && rows.length > 0 && (
@@ -603,12 +614,12 @@ export function Sidebar() {
                     <svg viewBox="0 0 48 48" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round">
                       <path d="M10.6963 17.5042C13.3347 14.8657 16.4701 14.9387 19.8781 16.8076L32.62 9.74509L31.8989 4.78683L43.2126 16.1005L38.2656 15.3907L31.1918 28.1214C32.9752 31.7589 33.1337 34.6647 30.4953 37.3032C30.4953 37.3032 26.235 33.0429 22.7171 29.525L6.44305 41.5564L18.4382 25.2461C14.9202 21.7281 10.6963 17.5042 10.6963 17.5042Z" />
                     </svg>
-                    <span className="session-pinned-header-title">置顶</span>
+                    <span className="session-pinned-header-title">{t('sidebar.pinned')}</span>
                     <button
                       type="button"
                       className={`session-pinned-collapse${pinnedCollapsed ? ' collapsed' : ''}`}
-                      title={pinnedCollapsed ? '展开置顶会话' : '收起置顶会话'}
-                      aria-label={pinnedCollapsed ? '展开置顶会话' : '收起置顶会话'}
+                      title={pinnedCollapsed ? t('sidebar.expandPinned') : t('sidebar.collapsePinned')}
+                      aria-label={pinnedCollapsed ? t('sidebar.expandPinned') : t('sidebar.collapsePinned')}
                       onClick={togglePinnedCollapsed}
                     >
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -639,7 +650,7 @@ export function Sidebar() {
                       <circle cx="12" cy="12" r="10" />
                       <polyline points="12 6 12 12 16 14" />
                     </svg>
-                    {row.category}
+                    {t(CATEGORY_KEYS[row.category])}
                   </div>
                 );
               }
@@ -673,6 +684,7 @@ interface ProjectHeaderProps {
 }
 
 function ProjectHeader({ name, fullPath, collapsed, active, onToggle, onOpen }: ProjectHeaderProps) {
+  const { t } = useI18n();
   return (
     <div
       className={`session-project-header${collapsed ? ' collapsed' : ''}${active ? ' has-active' : ''}`}
@@ -700,8 +712,8 @@ function ProjectHeader({ name, fullPath, collapsed, active, onToggle, onOpen }: 
         <button
           type="button"
           className="project-open-btn"
-          title="打开工作区"
-          aria-label="打开工作区"
+          title={t('sidebar.openProject')}
+          aria-label={t('sidebar.openProject')}
           onClick={(e) => {
             e.stopPropagation();
             onOpen();
@@ -724,6 +736,7 @@ interface SessionItemProps {
 }
 
 function SessionItem({ session, active, onSelect }: SessionItemProps) {
+  const { t } = useI18n();
   const updateSession = useAppStore((s) => s.updateSession);
   const removeSession = useAppStore((s) => s.removeSession);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
@@ -785,7 +798,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
       setRenaming(false);
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-      showToast(`重命名失败: ${msg}`, { type: 'error' });
+      showToast(translate('chat.renameFailed', { msg }), { type: 'error' });
       setRenaming(false);
     } finally {
       setBusy(false);
@@ -799,10 +812,10 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
     try {
       await sessionApi.pin(session.id, next);
       updateSession(session.id, { pinned: next });
-      showToast(next ? '会话已置顶' : '已取消置顶', { type: 'success' });
+      showToast(next ? translate('sidebar.pinnedSuccess') : translate('sidebar.unpinned'), { type: 'success' });
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-      showToast(`设置置顶失败: ${msg}`, { type: 'error' });
+      showToast(translate('sidebar.pinFailed', { msg }), { type: 'error' });
     } finally {
       setBusy(false);
     }
@@ -818,10 +831,10 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
       if (active) {
         setCurrentSession(`web-${Date.now()}`);
       }
-      showToast('会话已删除', { type: 'success' });
+      showToast(translate('chat.sessionDeleted'), { type: 'success' });
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-      showToast(`删除失败: ${msg}`, { type: 'error' });
+      showToast(translate('chat.deleteFailed', { msg }), { type: 'error' });
     } finally {
       setBusy(false);
       setConfirmDelete(false);
@@ -855,7 +868,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
             height="13"
             aria-label="awaiting-confirm"
           >
-            <title>等待确认</title>
+            <title>{t('chat.awaitingConfirm')}</title>
             <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
             <path d="M6.3 6.1a1.8 1.8 0 1 1 3.1 1.3c-.7.7-1.4 1-1.4 2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
             <circle cx="8" cy="11.6" r="0.9" fill="currentColor" />
@@ -868,7 +881,7 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
           <span
             className="session-completed-dot"
             aria-label="completed"
-            title="任务已完成,点击关闭提醒"
+            title={t('sidebar.completedTip')}
             onClick={(e) => {
               e.stopPropagation();
               dismissSessionCompleted(session.id);
@@ -901,24 +914,24 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
       {!renaming && confirmDelete ? (
         /* 删除二次确认条(对齐旧版 ConfirmDialog 的确认语义) */
         <div className="session-confirm-delete" onClick={(e) => e.stopPropagation()}>
-          <span className="session-confirm-text">确认删除？</span>
+          <span className="session-confirm-text">{t('chat.confirmDelete')}</span>
           <button
             type="button"
             className="session-confirm-btn confirm-yes"
             onClick={() => void doDelete()}
             disabled={busy}
-            title="确认删除"
+            title={t('chat.confirmDeleteTitle')}
           >
-            {busy ? '…' : '删除'}
+            {busy ? '…' : t('session.delete')}
           </button>
           <button
             type="button"
             className="session-confirm-btn confirm-no"
             onClick={() => setConfirmDelete(false)}
             disabled={busy}
-            title="取消"
+            title={t('chat.cancel')}
           >
-            取消
+            {t('chat.cancel')}
           </button>
         </div>
       ) : (
@@ -933,8 +946,8 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
               <button
                 type="button"
                 className={`pin-action${session.pinned ? ' pinned' : ''}`}
-                title={session.pinned ? '取消置顶' : '置顶'}
-                aria-label={session.pinned ? '取消置顶' : '置顶'}
+                title={session.pinned ? t('sidebar.unpin') : t('sidebar.pin')}
+                aria-label={session.pinned ? t('sidebar.unpin') : t('sidebar.pin')}
                 disabled={busy}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -949,8 +962,8 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
               </button>
               <button
                 type="button"
-                title="重命名"
-                aria-label="重命名"
+                title={t('session.rename')}
+                aria-label={t('session.rename')}
                 onClick={(e) => {
                   e.stopPropagation();
                   setConfirmDelete(false);
@@ -965,8 +978,8 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
               </button>
               <button
                 type="button"
-                title="删除"
-                aria-label="删除"
+                title={t('session.delete')}
+                aria-label={t('session.delete')}
                 onClick={(e) => {
                   e.stopPropagation();
                   setConfirmDelete(true);

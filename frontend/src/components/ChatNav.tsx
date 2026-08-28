@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSessionStream } from '@/hooks/useSessionStream';
 import type { Message } from '@/types';
+import { useI18n } from '@/i18n';
 import './ChatNav.css';
 
 /** 单条用户消息在导航条中的渲染数据 */
@@ -59,6 +60,7 @@ interface ChatNavProps {
 }
 
 export function ChatNav({ container }: ChatNavProps) {
+  const { t } = useI18n();
   const { messages } = useSessionStream();
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -164,7 +166,7 @@ export function ChatNav({ container }: ChatNavProps) {
       className="chat-nav-strip"
       id="chatNavStrip"
       data-empty={items.length === 0 ? 'true' : undefined}
-      aria-label="会话内用户消息导航"
+      aria-label={t('chatNav.label')}
     >
       <div className="chat-nav-panel" id="chatNavPanel">
         <div className="chat-nav-items" id="chatNavItems">
@@ -184,7 +186,7 @@ export function ChatNav({ container }: ChatNavProps) {
                   scrollToMessage(item.messageId);
                 }}
               >
-                {item.preview || '(空消息)'}
+                {item.preview || t('chatNav.empty')}
               </div>
             );
           })}

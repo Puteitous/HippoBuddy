@@ -57,7 +57,6 @@ public class WebAgentOrchestrator {
 
     private static final Logger logger = LoggerFactory.getLogger(WebAgentOrchestrator.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final int MAX_TURNS = 50;
 
     /**
      * LLM 前缀缓存命中率告警阈值（百分比）。单次响应命中率低于该值时 WARN 提醒。
@@ -207,7 +206,11 @@ public class WebAgentOrchestrator {
         // 切换工作区/跨天/MCP 后续注册均不影响已有会话；mode 变化或新建会话才重建。
         List<Tool> tools = getOrCreateToolsSnapshot(sessionId, mode);
 
-        for (int turn = 0; turn < MAX_TURNS; turn++) {
+        // 自动执行轮数上限，可配置（context.max_agent_turns）。0 表示不限制。
+        int maxAgentTurns = Config.getInstance().getContext().getMaxAgentTurns();
+        boolean unlimitedAgentTurns = maxAgentTurns <= 0;
+
+        for (int turn = 0; unlimitedAgentTurns || turn < maxAgentTurns; turn++) {
             if (cancelManager.isCancelled(sessionId)) {
                 logger.info("收到取消信号，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
                 return;
@@ -495,13 +498,14 @@ public class WebAgentOrchestrator {
                 return;
             }
 
-            if (turn < MAX_TURNS - 1) {
+            // 未达到轮数上限（或无限制）时，发送 continue 让前端进入下一轮
+            if (unlimitedAgentTurns || turn < maxAgentTurns - 1) {
                 sseWriter.sendSseEvent("continue", "{\"reason\":\"tool_complete\",\"nextTurn\":" + (turn + 2) + "}");
             }
         }
 
-        // 诊断：循环耗尽（达到 MAX_TURNS 上限），工具调用可能未完成
-        logger.warn("[AgentLoop] 达到最大轮数被截断: sessionId={}, MAX_TURNS={}", sessionId, MAX_TURNS);
+        // 诊断：循环耗尽（达到轮数上限），工具调用可能未完成
+        logger.warn("[AgentLoop] 达到最大轮数被截断: sessionId={}, maxAgentTurns={}", sessionId, maxAgentTurns);
         sseWriter.sendSseEvent("done", "{\"reason\":\"max_turns\"}");
     }
 

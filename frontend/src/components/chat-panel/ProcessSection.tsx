@@ -16,6 +16,7 @@
  */
 import { memo } from 'react';
 import type { ReactNode } from 'react';
+import { useI18n, translate } from '@/i18n';
 import './ProcessSection.css';
 
 /** 流程 SVG 图标(分层堆叠/收纳,传达「过程可折叠、可展开」,与思考段大脑图标区分) */
@@ -60,6 +61,7 @@ function ProcessSectionComponent({
   streaming,
   children,
 }: ProcessSectionProps) {
+  const { t, lang } = useI18n();
   return (
     <div className={`process-section${collapsed ? ' collapsed' : ''}${streaming ? ' streaming' : ''}`}>
       <div
@@ -67,7 +69,7 @@ function ProcessSectionComponent({
         role="button"
         tabIndex={0}
         aria-expanded={!collapsed}
-        title={collapsed ? '展开完整处理过程' : '收起处理过程'}
+        title={collapsed ? t('chat.expandProcess') : t('chat.collapseProcess')}
         onClick={onToggle}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -77,7 +79,7 @@ function ProcessSectionComponent({
         }}
       >
         <span className="process-summary-icon">{PROCESS_SVG}</span>
-        <span className="process-summary-text">{buildSummary(streaming, hasThinking, toolCount, elapsedMs)}</span>
+        <span className="process-summary-text">{buildSummary(streaming, hasThinking, toolCount, elapsedMs, lang)}</span>
         <span className={`process-summary-arrow${collapsed ? '' : ' expanded'}`}>{CHEVRON_SVG}</span>
       </div>
       <div className="process-body">{children}</div>
@@ -92,12 +94,13 @@ function buildSummary(
   hasThinking: boolean,
   toolCount: number,
   elapsedMs: number | null,
+  _lang: string,
 ): string {
   const parts: string[] = [];
-  if (hasThinking) parts.push(streaming ? '处理中…' : '本次处理');
-  if (toolCount > 0) parts.push(`${toolCount} 个工具`);
-  if (elapsedMs != null) parts.push(`总耗时 ${formatDuration(elapsedMs)}`);
-  return parts.length > 0 ? parts.join(' · ') : '处理过程';
+  if (hasThinking) parts.push(streaming ? translate('chat.processSummaryProcessing') : translate('chat.processSummaryRound'));
+  if (toolCount > 0) parts.push(translate('chat.processSummaryTools', { count: toolCount }));
+  if (elapsedMs != null) parts.push(translate('chat.processSummaryElapsed', { time: formatDuration(elapsedMs) }));
+  return parts.length > 0 ? parts.join(' · ') : translate('chat.processSummary');
 }
 
 /** 时长格式化:毫秒 → "0.8s" / "12.4s" / "1m 05s" */

@@ -12,19 +12,21 @@ import { useEffect, useState } from 'react';
 import { configApi, systemPromptApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { useAppStore } from '@/stores/appStore';
+import { translate, useI18n } from '@/i18n';
 import { showToast } from './toastStore';
 import { MODE_ORDER } from '@/components/chat-panel/modePresetsData';
 import type { SessionMode } from '@/types';
 import type { UiConfigSection } from '@/types/config';
 
-/** 模式 → 展示名(顺序沿用 MODE_ORDER) */
-const MODE_LABELS: Record<SessionMode, string> = {
-  chat: '聊天',
-  coding: '编程',
-  office: '办公',
+/** 模式 → 展示 i18n key(顺序沿用 MODE_ORDER) */
+const MODE_LABEL_KEYS: Record<SessionMode, string> = {
+  chat: 'settingsPage.promptModeChat',
+  coding: 'settingsPage.promptModeCoding',
+  office: 'settingsPage.promptModeOffice',
 };
 
 export function PromptSettingsPage() {
+  const { t } = useI18n();
   /** 各模式已自定义的内容(key=模式;仅含用户自定义过的) */
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   /** 各模式内置默认基础提示词(懒加载缓存) */
@@ -47,7 +49,7 @@ export function PromptSettingsPage() {
       } catch (e) {
         if (cancelled) return;
         const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-        showToast('加载提示词失败:' + msg, { type: 'error', duration: 3000 });
+        showToast(translate('settingsPage.promptLoadFailedToast') + msg, { type: 'error', duration: 3000 });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -89,17 +91,17 @@ export function PromptSettingsPage() {
       for (const m of MODE_ORDER as SessionMode[]) {
         useAppStore.getState().setSystemPrompt(m, drafts[m] ?? '');
       }
-      showToast('系统提示词已保存', { type: 'success', duration: 2000 });
+      showToast(translate('settingsPage.promptSavedToast'), { type: 'success', duration: 2000 });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('保存失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.promptSaveFailedToast') + msg, { type: 'error', duration: 3000 });
     } finally {
       setSaving(false);
     }
   };
 
   const handleReset = async () => {
-    if (!window.confirm(`恢复「${MODE_LABELS[activeMode]}」模式为内置默认提示词?`)) {
+    if (!window.confirm(translate('settingsPage.promptResetConfirm', { mode: translate(MODE_LABEL_KEYS[activeMode]) }))) {
       return;
     }
     const next = { ...drafts };
@@ -113,16 +115,16 @@ export function PromptSettingsPage() {
 
   return (
     <div>
-      <h2 className="settings-page-title">提示词</h2>
+      <h2 className="settings-page-title">{t('settingsPage.promptPageTitle')}</h2>
       <p className="settings-page-desc">
-        查看并自定义各模式下模型使用的系统提示词。未自定义时显示该模式内置默认提示词。
+        {t('settingsPage.promptPageDesc')}
       </p>
       <hr className="settings-page-divider" />
 
-      <div className="settings-field-group-title">模式系统提示词</div>
+      <div className="settings-field-group-title">{t('settingsPage.promptSection')}</div>
       <div className="settings-field-group">
         {loading ? (
-          <div className="settings-loading">加载中...</div>
+          <div className="settings-loading">{t('settingsPage.rulesLoading')}</div>
         ) : (
           <div className="settings-form">
             <div className="settings-toggle-group" style={{ marginBottom: 12 }}>
@@ -133,7 +135,7 @@ export function PromptSettingsPage() {
                   className={`settings-toggle-btn${activeMode === m ? ' active' : ''}`}
                   onClick={() => setActiveMode(m)}
                 >
-                  {MODE_LABELS[m]}
+                  {t(MODE_LABEL_KEYS[m])}
                 </button>
               ))}
             </div>
@@ -143,7 +145,9 @@ export function PromptSettingsPage() {
               onChange={(e) =>
                 setDrafts((d) => ({ ...d, [activeMode]: e.target.value }))
               }
-              placeholder={`编辑「${MODE_LABELS[activeMode]}」模式的系统提示词...`}
+              placeholder={t('settingsPage.promptEditPh', {
+                mode: t(MODE_LABEL_KEYS[activeMode]),
+              })}
               spellCheck={false}
             />
             <div
@@ -157,8 +161,12 @@ export function PromptSettingsPage() {
               }}
             >
               <span>
-                上方为{shownValue === (defaults[activeMode] ?? '') ? '该模式内置默认' : '自定义'}
-                提示词;实际发送时后端还会自动叠加项目规则、可用技能、当前工作区等信息。
+                {t('settingsPage.promptRemark', {
+                  kind:
+                    shownValue === (defaults[activeMode] ?? '')
+                      ? t('settingsPage.promptRemarkDefault')
+                      : t('settingsPage.promptRemarkCustom'),
+                })}
               </span>
             </div>
             <div
@@ -175,7 +183,7 @@ export function PromptSettingsPage() {
                 onClick={handleReset}
                 disabled={saving}
               >
-                恢复默认
+                {t('settingsPage.promptReset')}
               </button>
               <button
                 type="button"
@@ -183,7 +191,7 @@ export function PromptSettingsPage() {
                 onClick={handleSave}
                 disabled={saving}
               >
-                {saving ? '保存中...' : '保存'}
+                {saving ? t('settingsPage.promptSaving') : t('settingsPage.promptSave')}
               </button>
             </div>
           </div>

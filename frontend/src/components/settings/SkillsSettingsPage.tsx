@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { skillsApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { on as onEvent } from '@/utils/eventBus';
+import { translate, useI18n } from '@/i18n';
 import { showToast } from './toastStore';
 import type { SkillEntry } from '@/types/config';
 
@@ -40,6 +41,7 @@ function emptyEditor(): EditorState {
 }
 
 export function SkillsSettingsPage() {
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('list');
   const [projectSkills, setProjectSkills] = useState<SkillEntry[]>([]);
   const [userSkills, setUserSkills] = useState<SkillEntry[]>([]);
@@ -91,7 +93,7 @@ export function SkillsSettingsPage() {
       setEditor((prev) => ({ ...prev, content: data.content || '' }));
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('加载技能内容失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.skillsLoadFailedToast') + msg, { type: 'error', duration: 3000 });
       setEditor((prev) => ({ ...prev, content: '' }));
     } finally {
       setContentLoading(false);
@@ -113,7 +115,7 @@ export function SkillsSettingsPage() {
     if (saving) return;
     const name = editor.name.trim();
     if (!name) {
-      showToast('请输入技能名称', { type: 'warning', duration: 2000 });
+      showToast(translate('settingsPage.skillsNameRequiredToast'), { type: 'warning', duration: 2000 });
       return;
     }
     setSaving(true);
@@ -128,20 +130,20 @@ export function SkillsSettingsPage() {
         ? await skillsApi.update({ filePath: editor.skill.filePath, ...body })
         : await skillsApi.create(body);
       if (result.success) {
-        showToast(mode === 'edit' ? '技能已保存' : '技能已创建', {
+        showToast(mode === 'edit' ? translate('settingsPage.skillsSaved') : translate('settingsPage.skillsCreated'), {
           type: 'success',
           duration: 2000,
         });
         setTimeout(closeEditor, 300);
       } else {
-        showToast((mode === 'edit' ? '保存失败:' : '创建失败:') + (result.message || '未知错误'), {
+        showToast((mode === 'edit' ? translate('settingsPage.saveFailedToast') : translate('settingsPage.skillsCreateFailedPrefix')) + (result.message || translate('settingsPage.skillsUnknownError')), {
           type: 'error',
           duration: 3000,
         });
       }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast((mode === 'edit' ? '保存失败:' : '创建失败:') + msg, {
+      showToast((mode === 'edit' ? translate('settingsPage.saveFailedToast') : translate('settingsPage.skillsCreateFailedPrefix')) + msg, {
         type: 'error',
         duration: 3000,
       });
@@ -152,21 +154,21 @@ export function SkillsSettingsPage() {
 
   const handleDelete = async (skill: SkillEntry) => {
     const name = skill.name || skill.fileName.replace(/\.md$/, '');
-    if (!window.confirm(`确定删除技能「${name}」?`)) return;
+    if (!window.confirm(translate('settingsPage.deleteConfirmSkill') + name + translate('settingsPage.deleteConfirmEnd'))) return;
     try {
       const result = await skillsApi.delete(skill.filePath);
       if (result.success) {
-        showToast('技能已删除:' + name, { type: 'success', duration: 2000 });
+        showToast(translate('settingsPage.skillsDeletedToast') + name, { type: 'success', duration: 2000 });
         loadSkills();
       } else {
-        showToast('删除失败:' + (result.message || '未知错误'), {
+        showToast(translate('settingsPage.skillsDeleteFailedPrefix') + (result.message || translate('settingsPage.skillsUnknownError')), {
           type: 'error',
           duration: 3000,
         });
       }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('删除失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.skillsDeleteFailedPrefix') + msg, { type: 'error', duration: 3000 });
     }
   };
 
@@ -175,12 +177,12 @@ export function SkillsSettingsPage() {
     return (
       <>
         <div className="settings-item-list-header">
-          <h3>技能列表</h3>
+          <h3>{t('settingsPage.skillsList')}</h3>
           <div className="settings-item-list-actions">
             <button
               type="button"
               className="settings-btn settings-btn-icon"
-              title="刷新"
+              title={t('settingsPage.skillsRefresh')}
               onClick={loadSkills}
             >
               <svg
@@ -202,26 +204,26 @@ export function SkillsSettingsPage() {
               className="settings-btn settings-btn-primary"
               onClick={openCreate}
             >
-              + 新建
+              + {t('settingsPage.skillsCreate')}
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="settings-loading">加载中...</div>
+          <div className="settings-loading">{t('settingsPage.skillsLoading')}</div>
         ) : error ? (
           <div className="settings-items-error">{error}</div>
         ) : total === 0 ? (
           <div className="settings-items-empty">
-            暂无技能
-            <span className="settings-items-empty-hint">点击右上角「+ 新建」创建第一个技能</span>
+            {t('settingsPage.skillsEmptyShort')}
+            <span className="settings-items-empty-hint">{t('settingsPage.skillsEmptyHint')}</span>
           </div>
         ) : (
           <>
             {projectSkills.length > 0 && (
               <div className="settings-item-group">
                 <div className="settings-item-group-header">
-                  <span className="settings-item-group-label">项目</span>
+                  <span className="settings-item-group-label">{t('settingsPage.skillsGroupProject')}</span>
                   <span className="settings-item-group-count">{projectSkills.length}</span>
                 </div>
                 <div className="settings-items">
@@ -229,7 +231,7 @@ export function SkillsSettingsPage() {
                     <SkillItemRow
                       key={s.filePath}
                       skill={s}
-                      badge="项目"
+                      badgeKey="settingsPage.skillsScopeProject"
                       onClick={() => openEdit(s, 'project')}
                       onDelete={() => handleDelete(s)}
                     />
@@ -240,7 +242,7 @@ export function SkillsSettingsPage() {
             {userSkills.length > 0 && (
               <div className="settings-item-group">
                 <div className="settings-item-group-header">
-                  <span className="settings-item-group-label">用户</span>
+                  <span className="settings-item-group-label">{t('settingsPage.skillsGroupUser')}</span>
                   <span className="settings-item-group-count">{userSkills.length}</span>
                 </div>
                 <div className="settings-items">
@@ -248,7 +250,7 @@ export function SkillsSettingsPage() {
                     <SkillItemRow
                       key={s.filePath}
                       skill={s}
-                      badge="用户"
+                      badgeKey="settingsPage.skillsScopeUser"
                       onClick={() => openEdit(s, 'user')}
                       onDelete={() => handleDelete(s)}
                     />
@@ -264,8 +266,8 @@ export function SkillsSettingsPage() {
 
   const renderEditor = () => {
     const title = mode === 'edit' && editor.skill
-      ? `编辑技能:${editor.skill.name || editor.skill.fileName.replace(/\.md$/, '')}`
-      : '新建技能';
+      ? translate('settingsPage.skillsEditTitlePrefix') + (editor.skill.name || editor.skill.fileName.replace(/\.md$/, ''))
+      : translate('settingsPage.skillsCreateTitle');
     return (
       <div className="settings-editor">
         <div className="settings-editor-header">
@@ -277,7 +279,7 @@ export function SkillsSettingsPage() {
               onClick={closeEditor}
               disabled={saving}
             >
-              返回列表
+              {t('settingsPage.skillsBackPlain')}
             </button>
             <button
               type="button"
@@ -285,47 +287,47 @@ export function SkillsSettingsPage() {
               onClick={handleSave}
               disabled={saving || contentLoading}
             >
-              {mode === 'edit' ? '保存' : '创建'}
+              {mode === 'edit' ? t('settingsPage.skillsSave') : t('settingsPage.skillsCreate')}
             </button>
           </div>
         </div>
         <div className="settings-editor-fields">
           <div className="settings-field">
-            <label className="settings-field-label">名称</label>
+            <label className="settings-field-label">{t('settingsPage.skillsNameLabel')}</label>
             <input
               className="settings-input"
               type="text"
               value={editor.name}
-              placeholder="技能名称"
+              placeholder={t('settingsPage.skillsNamePh2')}
               onChange={(e) => setEditor({ ...editor, name: e.target.value })}
             />
           </div>
           <div className="settings-field">
-            <label className="settings-field-label">描述</label>
+            <label className="settings-field-label">{t('settingsPage.skillsDesc')}</label>
             <input
               className="settings-input"
               type="text"
               value={editor.description}
-              placeholder="技能用途"
+              placeholder={t('settingsPage.skillsDescPh2')}
               onChange={(e) => setEditor({ ...editor, description: e.target.value })}
             />
           </div>
           <div className="settings-field">
-            <label className="settings-field-label">作用域</label>
+            <label className="settings-field-label">{t('settingsPage.skillsScope')}</label>
             <div className="settings-toggle-group">
               <button
                 type="button"
                 className={`settings-toggle-btn${editor.scope === 'project' ? ' active' : ''}`}
                 onClick={() => setEditor({ ...editor, scope: 'project' })}
               >
-                项目
+                {t('settingsPage.skillsScopeProject')}
               </button>
               <button
                 type="button"
                 className={`settings-toggle-btn${editor.scope === 'user' ? ' active' : ''}`}
                 onClick={() => setEditor({ ...editor, scope: 'user' })}
               >
-                用户
+                {t('settingsPage.skillsScopeUser')}
               </button>
             </div>
           </div>
@@ -333,7 +335,7 @@ export function SkillsSettingsPage() {
         <textarea
           className="settings-editor-textarea"
           value={editor.content}
-          placeholder={contentLoading ? '加载中...' : '技能内容(Markdown)'}
+          placeholder={contentLoading ? t('settingsPage.skillsLoading') : t('settingsPage.skillsContentPh2')}
           onChange={(e) => setEditor({ ...editor, content: e.target.value })}
           spellCheck={false}
         />
@@ -343,8 +345,8 @@ export function SkillsSettingsPage() {
 
   return (
     <div>
-      <h2 className="settings-page-title">技能</h2>
-      <p className="settings-page-desc">管理项目级与用户级技能(Markdown 文件),供 Agent 按需加载。</p>
+      <h2 className="settings-page-title">{t('settingsPage.skillsPageTitle')}</h2>
+      <p className="settings-page-desc">{t('settingsPage.skillsPageDesc')}</p>
       <hr className="settings-page-divider" />
 
       {mode === 'list' ? renderList() : renderEditor()}
@@ -354,15 +356,16 @@ export function SkillsSettingsPage() {
 
 function SkillItemRow({
   skill,
-  badge,
+  badgeKey,
   onClick,
   onDelete,
 }: {
   skill: SkillEntry;
-  badge: string;
+  badgeKey: string;
   onClick: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="settings-item" onClick={onClick}>
       <span className="settings-item-icon">📄</span>
@@ -374,11 +377,11 @@ function SkillItemRow({
           <div className="settings-item-meta">{skill.description}</div>
         )}
       </div>
-      <span className="settings-item-badge">{badge}</span>
+      <span className="settings-item-badge">{t(badgeKey)}</span>
       <button
         type="button"
         className="settings-item-del"
-        title="删除"
+        title={t('settingsPage.skillsDelete')}
         onClick={(e) => {
           e.stopPropagation();
           onDelete();

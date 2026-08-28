@@ -18,7 +18,7 @@
  *
  * 阶段 3.7-2 简化:
  *  - effort 档位表复用 utils/reasoning-effort.ts(与 ModelSettingsPage 共享)
- *  - 不引入 i18n,中文硬编码(与 3.2-3.6 一致)
+ *  - 文案经 useI18n / translate 迁移,随语言切换
  *  - 面板 absolute 定位在 TopBar 内,向下弹出(right 对齐,防右侧溢出)
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,6 +28,7 @@ import { useAppStore } from '@/stores/appStore';
 import { showToast } from '@/utils/toastStore';
 import { getReasoningItems, supportsReasoningEffort } from '@/utils/reasoning-effort';
 import { emit } from '@/utils/eventBus';
+import { useI18n, translate } from '@/i18n';
 import type { LlmConfig, ModelSnapshot } from '@/types';
 import './ModelSelectorPanel.css';
 
@@ -46,6 +47,7 @@ interface ModelSelectorPanelProps {
 }
 
 export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelProps = {}) {
+  const { t } = useI18n();
   const setView = useAppStore((s) => s.setView);
   const setSettingsInitialPage = useAppStore((s) => s.setSettingsInitialPage);
 
@@ -60,7 +62,7 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
       setLlm(data);
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-      showToast(`加载模型配置失败:${msg}`, { type: 'error', duration: 3000 });
+      showToast(translate('modelSelector.loadFailed', { msg }), { type: 'error', duration: 3000 });
     }
   }, []);
 
@@ -117,7 +119,7 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
         }
       } catch (e) {
         const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-        showToast(`切换失败:${msg}`, { type: 'error', duration: 3000 });
+        showToast(translate('modelSelector.switchFailed', { msg }), { type: 'error', duration: 3000 });
       }
     },
     [close, load],
@@ -126,7 +128,10 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
   /** 选择模型(从历史快照恢复) */
   const handleModelSelect = useCallback(
     (provider: string, model: string) => {
-      void applyLlmUpdate({ provider, model }, `已切换:${provider} · ${model}`);
+      void applyLlmUpdate(
+        { provider, model },
+        translate('modelSelector.switched', { provider, model }),
+      );
     },
     [applyLlmUpdate],
   );
@@ -136,7 +141,7 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
     (provider: string, model: string, effort: string) => {
       void applyLlmUpdate(
         { provider, model, reasoningEffort: effort },
-        `已设置思考强度:${effort || '默认'}`,
+        translate('modelSelector.effortSet', { effort: effort || translate('modelSelector.default') }),
       );
     },
     [applyLlmUpdate],
@@ -194,9 +199,9 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
     if (items.length > 0) {
       items.push({ label: '—', value: '__divider__', disabled: true });
     }
-    items.push({ label: '添加模型', value: ADD_MODEL_VALUE });
+    items.push({ label: translate('settingsPage.modelAdd'), value: ADD_MODEL_VALUE });
     if (items.length <= 1) {
-      items.unshift({ label: '未配置模型', value: '', disabled: true });
+      items.unshift({ label: translate('modelSelector.unconfigured'), value: '', disabled: true });
     }
     return items;
   }, [llm]);
@@ -216,9 +221,9 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
         type="button"
         className={`msp-trigger${open ? ' msp-open' : ''}`}
         onClick={() => setOpen((v) => !v)}
-        title="切换模型 / 思考强度"
+        title={t('modelSelector.triggerTitle')}
       >
-        <span className="msp-trigger-model">{model || '未配置模型'}</span>
+        <span className="msp-trigger-model">{model || t('modelSelector.unconfigured')}</span>
         {effort && (
           <>
             <span className="msp-trigger-sep">·</span>
@@ -250,8 +255,8 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                 className="msp-menu-item"
                 onClick={() => setLevel('models')}
               >
-                <span className="msp-menu-label">模型</span>
-                <span className="msp-menu-value">{model || '未配置模型'}</span>
+                <span className="msp-menu-label">{t('modelSelector.modelLabel')}</span>
+                <span className="msp-menu-value">{model || t('modelSelector.unconfigured')}</span>
                 <span className="msp-menu-arrow"><svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7988 12L29.7988 24L17.7988 36"/></svg></span>
               </button>
               {supported && (
@@ -259,11 +264,11 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                   type="button"
                   className={`msp-menu-item${!thinkingEnabled ? ' msp-disabled' : ''}`}
                   disabled={!thinkingEnabled}
-                  title={thinkingEnabled ? '' : '思考模式已关闭,无法设置档位'}
+                  title={thinkingEnabled ? '' : t('modelSelector.effortDisabled')}
                   onClick={() => setLevel('effort')}
                 >
-                  <span className="msp-menu-label">思考强度</span>
-                  <span className="msp-menu-value">{effort || '默认'}</span>
+                  <span className="msp-menu-label">{t('modelSelector.effortLabel')}</span>
+                  <span className="msp-menu-value">{effort || t('modelSelector.default')}</span>
                   <span className="msp-menu-arrow"><svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7988 12L29.7988 24L17.7988 36"/></svg></span>
                 </button>
               )}
@@ -277,14 +282,14 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                   type="button"
                   className="msp-back"
                   onClick={() => setLevel('menu')}
-                  title="返回"
+                  title={t('modelSelector.back')}
                 >
                   <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5.79889 24H41.7989" />
                     <path d="M17.7988 36L5.79883 24L17.7988 12" />
                   </svg>
                 </button>
-                <span>模型</span>
+                <span>{t('modelSelector.modelLabel')}</span>
               </div>
               <div className="msp-body">
                 {buildModelItems().map((item, i) => {
@@ -328,14 +333,14 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                   type="button"
                   className="msp-back"
                   onClick={() => setLevel('menu')}
-                  title="返回"
+                  title={t('modelSelector.back')}
                 >
                   <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5.79889 24H41.7989" />
                     <path d="M17.7988 36L5.79883 24L17.7988 12" />
                   </svg>
                 </button>
-                <span>思考强度</span>
+                <span>{t('modelSelector.effortLabel')}</span>
               </div>
               <div className="msp-body">
                 {getReasoningItems(provider).map((item) => {

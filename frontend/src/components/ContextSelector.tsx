@@ -12,7 +12,7 @@
  *  - 选中技能 → 通过 onSkillToggle 回调通知父组件,父组件生成 @filePath RefChip
  *
  * 简化(3.7-1):
- *  - 不引入 i18n,中文硬编码
+ *  - 文案经 useI18n 迁移,随语言切换
  *  - 数据懒加载:首次展开时调用 rulesApi.list / skillsApi.list
  *  - 选中状态由父组件管理(selectedRuleIds / selectedSkillPaths),本组件只渲染
  *
@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { rulesApi, skillsApi } from '@/api/client';
 import type { RuleEntry, SkillEntry } from '@/types/config';
+import { useI18n } from '@/i18n';
 import './ContextSelector.css';
 
 type Level = 'menu' | 'rules' | 'skills';
@@ -52,6 +53,7 @@ export function ContextSelector({
   onRuleToggle,
   onSkillToggle,
 }: ContextSelectorProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [sticky, setSticky] = useState(false);
   const [level, setLevel] = useState<Level>('menu');
@@ -183,7 +185,7 @@ export function ContextSelector({
       <button
         type="button"
         className="context-selector-btn"
-        title="选择规则 / 技能"
+        title={t('context.selectorTitle')}
         onClick={handleButtonClick}
         onMouseEnter={handleButtonEnter}
         onMouseLeave={handleButtonLeave}
@@ -198,12 +200,12 @@ export function ContextSelector({
         <div
           className="context-selector-panel"
           role="dialog"
-          aria-label="选择规则或技能"
+          aria-label={t('context.dialogAria')}
           onMouseEnter={handlePanelEnter}
           onMouseLeave={handlePanelLeave}
         >
           {loading ? (
-            <div className="context-selector-loading">加载中…</div>
+            <div className="context-selector-loading">{t('chat.loading')}</div>
           ) : level === 'menu' ? (
             <MenuLevel
               onGoRules={() => setLevel('rules')}
@@ -240,9 +242,10 @@ interface MenuLevelProps {
 }
 
 function MenuLevel({ onGoRules, onGoSkills }: MenuLevelProps) {
+  const { t } = useI18n();
   return (
     <>
-      <div className="context-selector-header">选择类别</div>
+      <div className="context-selector-header">{t('context.chooseCategory')}</div>
       <div className="context-selector-body">
         <button
           type="button"
@@ -259,7 +262,7 @@ function MenuLevel({ onGoRules, onGoSkills }: MenuLevelProps) {
               <path d="M6 8.5l1.5 1.5L10 7" />
             </svg>
           </span>
-          <span className="context-selector-menu-label">规则</span>
+          <span className="context-selector-menu-label">{t('context.rules')}</span>
           <span className="context-selector-menu-arrow"><svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7988 12L29.7988 24L17.7988 36"/></svg></span>
         </button>
 
@@ -276,7 +279,7 @@ function MenuLevel({ onGoRules, onGoSkills }: MenuLevelProps) {
               <path d="M12 2l2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5z" />
             </svg>
           </span>
-          <span className="context-selector-menu-label">技能</span>
+          <span className="context-selector-menu-label">{t('context.skills')}</span>
           <span className="context-selector-menu-arrow"><svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7988 12L29.7988 24L17.7988 36"/></svg></span>
         </button>
       </div>
@@ -296,6 +299,7 @@ interface RulesLevelProps {
 }
 
 function RulesLevel({ rules, selectedRuleIds, onBack, onToggle }: RulesLevelProps) {
+  const { t } = useI18n();
   const alwaysRules = rules.filter((r) => r.mode === 'always');
   const manualRules = rules.filter((r) => r.mode !== 'always');
 
@@ -309,26 +313,26 @@ function RulesLevel({ rules, selectedRuleIds, onBack, onToggle }: RulesLevelProp
             e.stopPropagation();
             onBack();
           }}
-          title="返回"
+          title={t('context.back')}
         >
           ←
         </button>
-        <span>规则</span>
+        <span>{t('context.rules')}</span>
       </div>
       <div className="context-selector-body">
         {rules.length === 0 ? (
           <div className="context-selector-empty">
-            暂无规则
-            <span className="context-selector-empty-hint">前往设置 → 规则 创建</span>
+            {t('context.noRules')}
+            <span className="context-selector-empty-hint">{t('context.addRuleHint')}</span>
           </div>
         ) : (
           <>
             {alwaysRules.length > 0 && (
-              <RuleGroup label="always(始终生效)" rules={alwaysRules} disabled />
+              <RuleGroup label={t('context.alwaysLabel')} rules={alwaysRules} disabled />
             )}
             {manualRules.length > 0 && (
               <RuleGroup
-                label="manual(按需引用)"
+                label={t('context.manualLabel')}
                 rules={manualRules}
                 selectedRuleIds={selectedRuleIds}
                 onToggle={onToggle}
@@ -395,6 +399,7 @@ interface SkillsLevelProps {
 }
 
 function SkillsLevel({ skills, selectedSkillPaths, onBack, onToggle }: SkillsLevelProps) {
+  const { t } = useI18n();
   const projectSkills = skills.filter((s) => s.source === 'project');
   const userSkills = skills.filter((s) => s.source === 'user');
 
@@ -408,23 +413,23 @@ function SkillsLevel({ skills, selectedSkillPaths, onBack, onToggle }: SkillsLev
             e.stopPropagation();
             onBack();
           }}
-          title="返回"
+          title={t('context.back')}
         >
           ←
         </button>
-        <span>技能</span>
+        <span>{t('context.skills')}</span>
       </div>
       <div className="context-selector-body">
         {skills.length === 0 ? (
           <div className="context-selector-empty">
-            暂无技能
-            <span className="context-selector-empty-hint">前往设置 → 技能 或技能市场 创建</span>
+            {t('context.noSkills')}
+            <span className="context-selector-empty-hint">{t('context.addSkillHint')}</span>
           </div>
         ) : (
           <>
             {projectSkills.length > 0 && (
               <SkillGroup
-                label="项目技能"
+                label={t('context.projectSkills')}
                 skills={projectSkills}
                 selectedSkillPaths={selectedSkillPaths}
                 onToggle={onToggle}
@@ -432,7 +437,7 @@ function SkillsLevel({ skills, selectedSkillPaths, onBack, onToggle }: SkillsLev
             )}
             {userSkills.length > 0 && (
               <SkillGroup
-                label="用户技能"
+                label={t('context.userSkills')}
                 skills={userSkills}
                 selectedSkillPaths={selectedSkillPaths}
                 onToggle={onToggle}

@@ -9,6 +9,7 @@ public class ContextConfig {
     public static final int DEFAULT_MAX_TOKENS = 1000000;
     public static final int DEFAULT_PER_TOOL_SAFE_LIMIT = 20000;
     public static final int DEFAULT_GLOBAL_HARD_LIMIT = 32000;
+    public static final int DEFAULT_MAX_AGENT_TURNS = 50;
 
     @JsonProperty("max_tokens")
     private int maxTokens = DEFAULT_MAX_TOKENS;
@@ -18,6 +19,9 @@ public class ContextConfig {
 
     @JsonProperty("global_hard_limit")
     private int globalHardLimit = DEFAULT_GLOBAL_HARD_LIMIT;
+
+    @JsonProperty("max_agent_turns")
+    private int maxAgentTurns = DEFAULT_MAX_AGENT_TURNS;
 
     public ContextConfig() {
     }
@@ -46,12 +50,22 @@ public class ContextConfig {
         this.globalHardLimit = Math.max(1000, globalHardLimit);
     }
 
+    public int getMaxAgentTurns() {
+        return maxAgentTurns;
+    }
+
+    public void setMaxAgentTurns(int maxAgentTurns) {
+        // 允许 0（无限制）；正数时至少 1
+        this.maxAgentTurns = maxAgentTurns <= 0 ? 0 : Math.max(1, maxAgentTurns);
+    }
+
     @Override
     public String toString() {
         return "ContextConfig{" +
                 "maxTokens=" + maxTokens +
                 ", perToolSafeLimit=" + perToolSafeLimit +
                 ", globalHardLimit=" + globalHardLimit +
+                ", maxAgentTurns=" + maxAgentTurns +
                 '}';
     }
 }

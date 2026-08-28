@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { rulesApi } from '@/api/client';
 import { ApiError } from '@/api/error';
+import { translate, useI18n } from '@/i18n';
 import { showToast } from './toastStore';
 import type { RuleEntry, RuleMode, RuleSource } from '@/types/config';
 
@@ -35,6 +36,7 @@ function emptyEditor(): EditorState {
 }
 
 export function RulesSettingsPage() {
+  const { t } = useI18n();
   const [pageMode, setPageMode] = useState<Mode>('list');
   const [alwaysRules, setAlwaysRules] = useState<Array<RuleEntry & { source: RuleSource }>>([]);
   const [manualRules, setManualRules] = useState<Array<RuleEntry & { source: RuleSource }>>([]);
@@ -89,7 +91,7 @@ export function RulesSettingsPage() {
       setEditor((prev) => ({ ...prev, content: data.content || '' }));
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('加载规则内容失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.rulesLoadFailedToast') + msg, { type: 'error', duration: 3000 });
       setEditor((prev) => ({ ...prev, content: '' }));
     } finally {
       setContentLoading(false);
@@ -111,7 +113,7 @@ export function RulesSettingsPage() {
     if (saving) return;
     const name = editor.name.trim();
     if (!name) {
-      showToast('请输入规则名称', { type: 'warning', duration: 2000 });
+      showToast(translate('settingsPage.rulesNameRequiredToast'), { type: 'warning', duration: 2000 });
       return;
     }
     setSaving(true);
@@ -127,20 +129,20 @@ export function RulesSettingsPage() {
         ? await rulesApi.update({ filePath: editor.rule.filePath, ...body })
         : await rulesApi.create(body);
       if (result.success) {
-        showToast(pageMode === 'edit' ? '规则已保存' : '规则已创建', {
+        showToast(pageMode === 'edit' ? translate('settingsPage.rulesSaved') : translate('settingsPage.rulesCreatedToast'), {
           type: 'success',
           duration: 2000,
         });
         setTimeout(closeEditor, 300);
       } else {
-        showToast((pageMode === 'edit' ? '保存失败:' : '创建失败:') + (result.message || '未知错误'), {
+        showToast((pageMode === 'edit' ? translate('settingsPage.saveFailedToast') : translate('settingsPage.rulesCreateFailedPrefix')) + (result.message || translate('settingsPage.rulesUnknownError')), {
           type: 'error',
           duration: 3000,
         });
       }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast((pageMode === 'edit' ? '保存失败:' : '创建失败:') + msg, {
+      showToast((pageMode === 'edit' ? translate('settingsPage.saveFailedToast') : translate('settingsPage.rulesCreateFailedPrefix')) + msg, {
         type: 'error',
         duration: 3000,
       });
@@ -150,21 +152,21 @@ export function RulesSettingsPage() {
   };
 
   const handleDelete = async (rule: RuleEntry & { source: RuleSource }) => {
-    if (!window.confirm(`确定删除规则「${rule.name}」?`)) return;
+    if (!window.confirm(translate('settingsPage.rulesDeleteConfirm') + rule.name + translate('settingsPage.deleteConfirmEnd'))) return;
     try {
       const result = await rulesApi.delete(rule.filePath);
       if (result.success) {
-        showToast('规则已删除:' + rule.name, { type: 'success', duration: 2000 });
+        showToast(translate('settingsPage.rulesDeletedToast') + rule.name, { type: 'success', duration: 2000 });
         loadRules();
       } else {
-        showToast('删除失败:' + (result.message || '未知错误'), {
+        showToast(translate('settingsPage.rulesDeleteFailedPrefix') + (result.message || translate('settingsPage.rulesUnknownError')), {
           type: 'error',
           duration: 3000,
         });
       }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('删除失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.rulesDeleteFailedPrefix') + msg, { type: 'error', duration: 3000 });
     }
   };
 
@@ -173,12 +175,12 @@ export function RulesSettingsPage() {
     return (
       <>
         <div className="settings-item-list-header">
-          <h3>规则列表</h3>
+          <h3>{t('settingsPage.rulesList')}</h3>
           <div className="settings-item-list-actions">
             <button
               type="button"
               className="settings-btn settings-btn-icon"
-              title="刷新"
+              title={t('settingsPage.rulesRefresh')}
               onClick={loadRules}
             >
               <svg
@@ -200,26 +202,26 @@ export function RulesSettingsPage() {
               className="settings-btn settings-btn-primary"
               onClick={openCreate}
             >
-              + 新建
+              + {t('settingsPage.rulesCreate')}
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="settings-loading">加载中...</div>
+          <div className="settings-loading">{t('settingsPage.rulesLoading')}</div>
         ) : error ? (
           <div className="settings-items-error">{error}</div>
         ) : total === 0 ? (
           <div className="settings-items-empty">
-            暂无规则
-            <span className="settings-items-empty-hint">点击右上角「+ 新建」创建第一条规则</span>
+            {t('settingsPage.rulesEmptyShort')}
+            <span className="settings-items-empty-hint">{t('settingsPage.rulesEmptyHint')}</span>
           </div>
         ) : (
           <>
             {alwaysRules.length > 0 && (
               <div className="settings-item-group">
                 <div className="settings-item-group-header">
-                  <span className="settings-item-group-label">⚡ 始终生效</span>
+                  <span className="settings-item-group-label">⚡ {t('settingsPage.rulesGroupAlways')}</span>
                   <span className="settings-item-group-count">{alwaysRules.length}</span>
                 </div>
                 <div className="settings-items">
@@ -237,7 +239,7 @@ export function RulesSettingsPage() {
             {manualRules.length > 0 && (
               <div className="settings-item-group">
                 <div className="settings-item-group-header">
-                  <span className="settings-item-group-label">📋 手动引用</span>
+                  <span className="settings-item-group-label">📋 {t('settingsPage.rulesGroupManual')}</span>
                   <span className="settings-item-group-count">{manualRules.length}</span>
                 </div>
                 <div className="settings-items">
@@ -260,8 +262,8 @@ export function RulesSettingsPage() {
 
   const renderEditor = () => {
     const title = pageMode === 'edit' && editor.rule
-      ? `编辑规则:${editor.rule.name}`
-      : '新建规则';
+      ? translate('settingsPage.rulesEditTitlePrefix') + editor.rule.name
+      : translate('settingsPage.rulesCreateTitle');
     return (
       <div className="settings-editor">
         <div className="settings-editor-header">
@@ -273,7 +275,7 @@ export function RulesSettingsPage() {
               onClick={closeEditor}
               disabled={saving}
             >
-              返回列表
+              {t('settingsPage.rulesBackPlain')}
             </button>
             <button
               type="button"
@@ -281,66 +283,66 @@ export function RulesSettingsPage() {
               onClick={handleSave}
               disabled={saving || contentLoading}
             >
-              {pageMode === 'edit' ? '保存' : '创建'}
+              {pageMode === 'edit' ? t('settingsPage.rulesSave') : t('settingsPage.rulesCreate')}
             </button>
           </div>
         </div>
         <div className="settings-editor-fields">
           <div className="settings-field">
-            <label className="settings-field-label">名称</label>
+            <label className="settings-field-label">{t('settingsPage.rulesNameLabel')}</label>
             <input
               className="settings-input"
               type="text"
               value={editor.name}
-              placeholder="规则名称"
+              placeholder={t('settingsPage.rulesNamePh2')}
               onChange={(e) => setEditor({ ...editor, name: e.target.value })}
             />
           </div>
           <div className="settings-field">
-            <label className="settings-field-label">描述</label>
+            <label className="settings-field-label">{t('settingsPage.rulesDesc')}</label>
             <input
               className="settings-input"
               type="text"
               value={editor.description}
-              placeholder="规则用途"
+              placeholder={t('settingsPage.rulesDescPh2')}
               onChange={(e) => setEditor({ ...editor, description: e.target.value })}
             />
           </div>
           <div className="settings-field">
-            <label className="settings-field-label">生效模式</label>
+            <label className="settings-field-label">{t('settingsPage.rulesModeLabel')}</label>
             <div className="settings-toggle-group">
               <button
                 type="button"
                 className={`settings-toggle-btn${editor.mode === 'always' ? ' active' : ''}`}
                 onClick={() => setEditor({ ...editor, mode: 'always' })}
               >
-                始终生效
+                {t('settingsPage.rulesGroupAlways')}
               </button>
               <button
                 type="button"
                 className={`settings-toggle-btn${editor.mode === 'manual' ? ' active' : ''}`}
                 onClick={() => setEditor({ ...editor, mode: 'manual' })}
               >
-                手动引用
+                {t('settingsPage.rulesGroupManual')}
               </button>
             </div>
           </div>
           <div className="settings-field">
-            <label className="settings-field-label">作用域</label>
+            <label className="settings-field-label">{t('settingsPage.rulesScope')}</label>
             <div className="settings-toggle-group">
               <button
                 type="button"
                 className={`settings-toggle-btn${editor.scope === 'project' ? ' active' : ''}`}
                 onClick={() => setEditor({ ...editor, scope: 'project' })}
               >
-                项目
+                {t('settingsPage.rulesProject')}
               </button>
               <button
                 type="button"
                 className={`settings-toggle-btn${editor.scope === 'user' ? ' active' : ''}`}
                 onClick={() => setEditor({ ...editor, scope: 'user' })}
               >
-                用户
+                {t('settingsPage.rulesGlobal')}
               </button>
             </div>
           </div>
@@ -348,7 +350,7 @@ export function RulesSettingsPage() {
         <textarea
           className="settings-editor-textarea"
           value={editor.content}
-          placeholder={contentLoading ? '加载中...' : '规则内容(Markdown)'}
+          placeholder={contentLoading ? t('settingsPage.rulesLoading') : t('settingsPage.rulesContentPh2')}
           onChange={(e) => setEditor({ ...editor, content: e.target.value })}
           spellCheck={false}
         />
@@ -358,8 +360,8 @@ export function RulesSettingsPage() {
 
   return (
     <div>
-      <h2 className="settings-page-title">规则</h2>
-      <p className="settings-page-desc">管理项目级与用户级规则(Markdown 文件),控制 Agent 行为边界。</p>
+      <h2 className="settings-page-title">{t('settingsPage.rulesPageTitle')}</h2>
+      <p className="settings-page-desc">{t('settingsPage.rulesPageDesc')}</p>
       <hr className="settings-page-divider" />
 
       {pageMode === 'list' ? renderList() : renderEditor()}
@@ -376,6 +378,7 @@ function RuleItemRow({
   onClick: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
   const isProject = rule.source === 'project';
   return (
     <div className="settings-item" onClick={onClick}>
@@ -386,11 +389,11 @@ function RuleItemRow({
           <div className="settings-item-meta">{rule.description}</div>
         )}
       </div>
-      <span className="settings-item-badge">{isProject ? '项目' : '全局'}</span>
+      <span className="settings-item-badge">{isProject ? t('settingsPage.rulesProject') : t('settingsPage.rulesGlobal')}</span>
       <button
         type="button"
         className="settings-item-del"
-        title="删除"
+        title={t('settingsPage.rulesDelete')}
         onClick={(e) => {
           e.stopPropagation();
           onDelete();

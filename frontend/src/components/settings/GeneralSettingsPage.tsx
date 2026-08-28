@@ -14,7 +14,7 @@ import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { useAppStore } from '@/stores/appStore';
 import { useBackgroundStore, type BackgroundType } from '@/stores/backgroundStore';
 import { showToast } from './toastStore';
-import { i18nStore, useI18n } from '@/i18n';
+import { i18nStore, useI18n, translate } from '@/i18n';
 import { setDefaultProcessView } from '@/utils/process-view-config';
 import type { UiConfigSection, ToolsConfigSection } from '@/types/config';
 
@@ -45,13 +45,13 @@ const THEME_OPTIONS: { value: Theme; labelKey: string }[] = [
 ];
 
 /** 自定义背景-渐变预设(毛玻璃主题下透出效果较好) */
-const GRADIENT_PRESETS: { name: string; css: string }[] = [
-  { name: '暮色紫', css: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-  { name: '深海蓝', css: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' },
-  { name: '极光绿', css: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' },
-  { name: '落日橙', css: 'linear-gradient(135deg, #f83600 0%, #f9d423 100%)' },
-  { name: '樱花粉', css: 'linear-gradient(135deg, #ee9ca7 0%, #ffdde1 100%)' },
-  { name: '星夜紫', css: 'linear-gradient(135deg, #41295a 0%, #2f0743 100%)' },
+const GRADIENT_PRESETS: { nameKey: string; css: string }[] = [
+  { nameKey: 'settingsPage.presetTwilight', css: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+  { nameKey: 'settingsPage.presetDeepSea', css: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' },
+  { nameKey: 'settingsPage.presetAurora', css: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' },
+  { nameKey: 'settingsPage.presetSunset', css: 'linear-gradient(135deg, #f83600 0%, #f9d423 100%)' },
+  { nameKey: 'settingsPage.presetSakura', css: 'linear-gradient(135deg, #ee9ca7 0%, #ffdde1 100%)' },
+  { nameKey: 'settingsPage.presetStarry', css: 'linear-gradient(135deg, #41295a 0%, #2f0743 100%)' },
 ];
 
 const DEFAULT_BG_COLOR = '#5b6bbf';
@@ -86,7 +86,7 @@ function compressImageDataUrl(dataUrl: string, maxEdge = 1920, quality = 0.85): 
         reject(e);
       }
     };
-    img.onerror = () => reject(new Error('图片解码失败'));
+    img.onerror = () => reject(new Error(translate('chat.readImageFailed')));
     img.src = dataUrl;
   });
 }
@@ -176,7 +176,7 @@ export function GeneralSettingsPage() {
       );
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('保存默认展示模式失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.generalProcessViewSaveFailed') + msg, { type: 'error', duration: 3000 });
     }
   };
 
@@ -191,13 +191,18 @@ export function GeneralSettingsPage() {
         mode: value,
       };
       await configApi.updateFull({ tools });
-      showToast(value === 'relaxed' ? '已切换为全目录访问' : '已切换为仅工作区访问', {
-        type: 'success',
-        duration: 2000,
-      });
+      showToast(
+        value === 'relaxed'
+          ? translate('settingsPage.generalScopeRelaxedToast')
+          : translate('settingsPage.generalScopeStrictToast'),
+        {
+          type: 'success',
+          duration: 2000,
+        },
+      );
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('保存权限范围失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.generalScopeSaveFailed') + msg, { type: 'error', duration: 3000 });
     }
   };
 
@@ -231,7 +236,7 @@ export function GeneralSettingsPage() {
     if (!path) return;
     const dataUrl = await desktopBridge.readImageAsDataUrl(path);
     if (!dataUrl) {
-      showToast('读取图片失败', { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.generalReadImageFailed'), { type: 'error', duration: 3000 });
       return;
     }
     try {
@@ -249,29 +254,29 @@ export function GeneralSettingsPage() {
     try {
       const result = await workspaceApi.setDefault(trimmed);
       setWorkspacePath(result.path);
-      showToast('默认工作区已保存', { type: 'success', duration: 2000 });
+      showToast(translate('settingsPage.generalWorkspaceSaved'), { type: 'success', duration: 2000 });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('保存默认工作区失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.generalWorkspaceSaveFailed') + msg, { type: 'error', duration: 3000 });
     }
   };
 
   const handleDataDirConfirm = async (newPath: string) => {
     const trimmed = newPath.trim();
     if (!trimmed) return;
-    if (!window.confirm(`确定将数据目录切换为:${trimmed}?需要重启应用后生效。`)) return;
+    if (!window.confirm(translate('settingsPage.generalDataDirSwitch', { path: trimmed }))) return;
     try {
       const result = await dataDirApi.update(trimmed);
       if (result.success) {
         setDataDir(result.path || trimmed);
         setDataDirRestartMsg(true);
-        showToast('数据目录已更新,重启后生效', { type: 'success', duration: 2500 });
+        showToast(translate('settingsPage.generalDataDirUpdated'), { type: 'success', duration: 2500 });
       } else {
-        showToast(result.error || '修改失败', { type: 'error', duration: 3000 });
+        showToast(result.error || translate('settingsPage.generalModifyFailed'), { type: 'error', duration: 3000 });
       }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('网络错误:' + msg, { type: 'error', duration: 3000 });
+      showToast(translate('settingsPage.generalNetworkError') + msg, { type: 'error', duration: 3000 });
     }
   };
 
@@ -420,7 +425,7 @@ export function GeneralSettingsPage() {
                       type="button"
                       className={`settings-bg-swatch${background.value === g.css ? ' active' : ''}`}
                       style={{ background: g.css }}
-                      title={g.name}
+                      title={t(g.nameKey)}
                       onClick={() => setBackground({ type: 'gradient', value: g.css })}
                     />
                   ))}
@@ -593,8 +598,8 @@ export function GeneralSettingsPage() {
 
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
-              <div>权限范围</div>
-              <div className="settings-field-hint">仅工作区 = 只能操作当前项目目录；全目录 = 放开整机访问。</div>
+              <div>{t('settingsPage.generalScopeLabel')}</div>
+              <div className="settings-field-hint">{t('settingsPage.generalScopeHint')}</div>
             </div>
             <div className="settings-field-body">
               <select
@@ -602,8 +607,8 @@ export function GeneralSettingsPage() {
                 value={scopeMode}
                 onChange={(e) => handleScopeModeChange(e.target.value as 'strict' | 'relaxed')}
               >
-                <option value="strict">仅工作区</option>
-                <option value="relaxed">全目录</option>
+                <option value="strict">{t('settingsPage.generalScopeStrict')}</option>
+                <option value="relaxed">{t('settingsPage.generalScopeRelaxed')}</option>
               </select>
             </div>
           </div>

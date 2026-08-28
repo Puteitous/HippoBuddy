@@ -36,6 +36,8 @@ export interface ContextConfigSection {
   per_tool_safe_limit: number;
   /** 全局硬上限 */
   global_hard_limit: number;
+  /** 自动执行轮数上限，0 表示不限制 */
+  max_agent_turns?: number;
 }
 
 // ============================================================================
