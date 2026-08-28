@@ -215,12 +215,13 @@
 }
 
 /* 玻璃主题下行号条:
-   平时保留同正文一致的半透玻璃质感(取 --glass-panel 的 70%,避免竖条色差);
+   平时保持透明,透出 .cm-editor 的 0.28 单层背景 —— 与正文(.cm-content 透出同层)、
+   头部、标签栏透明度完全一致;若在此再叠 0.28 会令行号条比邻区更深一层。
    仅当横向滚动(scrollLeft>0)时切为不透明实底,彻底遮挡滑进行号条下方的代码。
    不采用 backdrop-filter:本应用玻璃为"全屏 body::before frost 层",sticky 行号条的
    backdrop 采样端受限,无法糊掉下层滑入代码(见 FilePreviewEditor.tsx 的 is-h-scrolled 切换)。 */
 [data-theme="glass"] .file-preview-editor .cm-editor .cm-gutters {
-  background-color: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+  background-color: transparent;
 }
 [data-theme="glass"] .file-preview-editor.is-h-scrolled .cm-editor .cm-gutters {
   background-color: rgb(22, 24, 32);
