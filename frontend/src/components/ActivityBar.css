@@ -25,8 +25,7 @@
   height: 32px;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  color: var(--hb-text-soft, #6b7280);
+  color: var(--accent);
   cursor: pointer;
   padding: 0;
   transition: background 0.12s ease, color 0.12s ease;
@@ -34,9 +33,9 @@
 
 .activity-bar-btn:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.06));
-  color: var(--hb-text, #1f2937);
 }
 
+/* 选中态保持蓝色,用于区分当前激活面板;不改动以保留对比 */
 .activity-bar-btn.active {
   background: rgba(59, 130, 246, 0.12);
   color: #2563eb;
@@ -55,15 +54,13 @@
   height: 32px;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  color: var(--hb-text-soft, #6b7280);
+  color: var(--accent);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
 
 .activity-bar-show-btn:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.06));
-  color: var(--hb-text, #1f2937);
 }
 
 /* ========== 浮动面板 ========== */
@@ -166,12 +163,11 @@
   }
 
   .activity-bar-btn {
-    color: var(--hb-text-soft-dark, #9ca3af);
+    color: var(--accent);
   }
 
   .activity-bar-btn:hover {
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
-    color: var(--hb-text-dark, #e5e7eb);
   }
 
   .activity-bar-btn.active {
@@ -180,12 +176,11 @@
   }
 
   .activity-bar-show-btn {
-    color: var(--hb-text-soft-dark, #9ca3af);
+    color: var(--accent);
   }
 
   .activity-bar-show-btn:hover {
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
-    color: var(--hb-text-dark, #e5e7eb);
   }
 
   .activity-floating-panel {

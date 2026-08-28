@@ -609,7 +609,7 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--accent);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -621,7 +621,6 @@
 .chat-header-btn:hover,
 .panel-toggle-btn:hover {
   background: var(--bg-code);
-  color: var(--text-secondary);
 }
 
 /* 无预览面板(未打开文件或预览已收起,此时 .preview-panel 不存在)时,

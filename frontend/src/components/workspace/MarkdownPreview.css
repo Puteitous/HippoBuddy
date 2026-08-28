@@ -140,7 +140,7 @@
   text-decoration: none;
 }
 
-.file-md-toc-item {
+.file-md-toc .file-md-toc-item {
   display: block;
   margin: 0 8px;
   padding: 6px 8px;

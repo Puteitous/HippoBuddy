@@ -460,9 +460,8 @@ export function ModelSettingsPage() {
                   defaultValue=""
                   onChange={(e) => handleFetchedModelSelect(e.target.value)}
                 >
-                  <option value="" disabled>
-                    {t('settingsPage.modelFetchPick')}
-                  </option>
+                  {/* 隐藏占位选中项：初始不选中任何模型，避免浏览器自动高亮第一个 */}
+                  <option value="" selected hidden />
                   {fetchedModels.map((m) => (
                     <option key={m} value={m}>
                       {m}

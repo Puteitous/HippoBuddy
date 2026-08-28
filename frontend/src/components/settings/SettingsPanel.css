@@ -428,10 +428,12 @@
 }
 
 .settings-bg-split {
-  display: flex;
+  /* 固定两栏:左=预览(260px), 右=参数(占剩余). 用 grid 而非 flex-wrap,
+     避免右栏内容因中英文宽度差异越过临界点而整列换行到图片下方 */
+  display: grid;
+  grid-template-columns: 260px 1fr;
   gap: var(--spacer-16, 16px);
-  align-items: flex-start;
-  flex-wrap: wrap;
+  align-items: start;
   margin-top: 10px;
   width: 100%;
 }
@@ -999,6 +1001,8 @@
 /* ========== 从 API 拉取到的模型下拉(方案A微美化) ========== */
 .settings-model-fetch-select {
   min-height: auto;
+  padding-right: 12px;
+  background-image: none;
 }
 
 .settings-model-fetch-select option {
@@ -1012,13 +1016,13 @@
 }
 
 .settings-model-fetch-select option:hover {
-  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+  background: color-mix(in srgb, var(--hb-accent, #2563eb) 10%, transparent);
   color: var(--hb-text, #1f2937);
 }
 
 .settings-model-fetch-select option:checked {
-  background: var(--hb-text, #1f2937);
-  color: var(--hb-bg, #ffffff);
+  background: var(--hb-accent, #2563eb);
+  color: #ffffff;
 }
 
 .settings-model-header {
@@ -1383,6 +1387,15 @@
   border-color: var(--hb-text-dark, #e5e7eb);
 }
 
+/* 玻璃主题:主按钮用不透明浅底+深字,
+   避免 --bg-app(半透明深色)被当文字色导致文字发灰不显眼 */
+[data-theme="glass"] .settings-btn-primary,
+[data-theme="glass"] .settings-btn-primary:hover {
+  background: #e7e9ef;
+  color: #161820;
+  border-color: #e7e9ef;
+}
+
 [data-theme="dark"] .settings-item-group,
 [data-theme="midnight"] .settings-item-group {
   background: var(--hb-bg-soft-dark, #2a2a2a);
@@ -1532,14 +1545,14 @@
 
 [data-theme="dark"] .settings-model-fetch-select option:hover,
 [data-theme="midnight"] .settings-model-fetch-select option:hover {
-  background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
+  background: color-mix(in srgb, var(--hb-accent, #2563eb) 24%, transparent);
   color: var(--hb-text-dark, #e5e7eb);
 }
 
 [data-theme="dark"] .settings-model-fetch-select option:checked,
 [data-theme="midnight"] .settings-model-fetch-select option:checked {
-  background: var(--hb-text-dark, #e5e7eb);
-  color: var(--hb-bg-dark, #1a1a1a);
+  background: var(--hb-accent, #2563eb);
+  color: #ffffff;
 }
 
 [data-theme="dark"] .settings-loading,

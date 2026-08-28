@@ -98,7 +98,7 @@ body.window-maximized {
 .top-bar-icon-btn {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--accent);
   padding: 6px;
   border-radius: 6px;
   cursor: pointer;
@@ -111,7 +111,6 @@ body.window-maximized {
 
 .top-bar-icon-btn:hover {
   background: var(--bg-code);
-  color: var(--text-secondary);
 }
 
 .top-bar-icon-btn:disabled {
@@ -168,7 +167,7 @@ body.window-maximized {
 .workspace-indicator .workspace-clear {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--accent);
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
@@ -317,7 +316,7 @@ body.window-maximized {
   height: 34px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--accent);
   cursor: pointer;
   border-radius: 4px;
   transition: background 0.15s;
@@ -342,7 +341,7 @@ body.window-maximized {
   display: block;
 }
 
-/* 关闭按钮 hover 变红色(对齐旧版) */
+/* 关闭按钮 hover 变红色(对齐旧版):保持关闭的风险语义 */
 .window-btn-close:hover {
   background: #e81123;
   color: #ffffff;

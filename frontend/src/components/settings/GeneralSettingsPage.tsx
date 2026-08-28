@@ -13,6 +13,7 @@ import { desktopBridge } from '@/utils/desktop-bridge';
 import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { useAppStore } from '@/stores/appStore';
 import { useBackgroundStore, type BackgroundType } from '@/stores/backgroundStore';
+import { useAccentStore } from '@/stores/accentStore';
 import { showToast } from './toastStore';
 import { i18nStore, useI18n, translate } from '@/i18n';
 import { setDefaultProcessView } from '@/utils/process-view-config';
@@ -55,6 +56,9 @@ const GRADIENT_PRESETS: { nameKey: string; css: string }[] = [
 ];
 
 const DEFAULT_BG_COLOR = '#5b6bbf';
+
+/** 强调色取色器占位值:未自定义时向用户展示的默认颜色(与浅色主题默认 --accent 一致) */
+const DEFAULT_ACCENT_COLOR = '#787c82';
 
 /**
  * 压缩图片 data URL:限制最长边并降质量,控制体积以便存入 localStorage 并流畅渲染。
@@ -114,6 +118,10 @@ export function GeneralSettingsPage() {
   const glassStyle = useBackgroundStore((s) => s.glassStyle);
   const setGlassStyle = useBackgroundStore((s) => s.setGlassStyle);
   const persistGlassStyle = useBackgroundStore((s) => s.persistGlassStyle);
+  /** 全局强调色(覆盖 --accent,联动按钮/激活标签/进度条等强调元素) */
+  const accent = useAccentStore((s) => s.accent);
+  const setAccent = useAccentStore((s) => s.setAccent);
+  const resetAccent = useAccentStore((s) => s.resetAccent);
   /** 图片背景尺寸解析:cover=铺满 / contain=适应 / 其余按缩放百分比 */
   const bgSize = background.size && background.size !== 'cover' ? background.size : 'cover';
   const bgMode = bgSize === 'cover' ? 'cover' : bgSize === 'contain' ? 'contain' : 'scale';
@@ -337,7 +345,7 @@ export function GeneralSettingsPage() {
       <p className="settings-page-desc">{t('settingsPage.generalDesc')}</p>
       <hr className="settings-page-divider" />
 
-      <div className="settings-field-group-title">{t('settingsPage.generalBasic')}</div>
+      <div className="settings-field-group-title">{t('settingsPage.generalPersonalize')}</div>
       <div className="settings-field-group">
         <div className="settings-form">
           <div className="settings-field-horizontal">
@@ -527,6 +535,33 @@ export function GeneralSettingsPage() {
             </div>
           </div>
 
+          {/* 强调色:覆盖全站 --accent,联动实心按钮/激活标签/进度条等强调元素 */}
+          <div className="settings-field-horizontal">
+            <div className="settings-field-label">
+              <div>{t('settingsPage.generalAccent')}</div>
+              <div className="settings-field-hint">{t('settingsPage.generalAccentHint')}</div>
+            </div>
+            <div className="settings-field-body">
+              <div className="settings-bg-root">
+                <div className="settings-bg-editor">
+                  <input
+                    type="color"
+                    value={accent || DEFAULT_ACCENT_COLOR}
+                    onChange={(e) => setAccent(e.target.value)}
+                  />
+                  <span className="settings-bg-color-hex">
+                    {accent || t('settingsPage.generalAccentAuto')}
+                  </span>
+                  {accent && (
+                    <button type="button" className="settings-bg-remove" onClick={resetAccent}>
+                      {t('settingsPage.generalBgReset')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="settings-field-horizontal">
             <label className="settings-field-label">{t('settingsPage.generalLanguage')}</label>
             <div className="settings-field-body">
@@ -595,6 +630,12 @@ export function GeneralSettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+        </div>
+
+        <div className="settings-field-group-title">{t('settingsPage.generalOther')}</div>
+        <div className="settings-field-group">
+          <div className="settings-form">
 
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
