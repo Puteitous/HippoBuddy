@@ -26,6 +26,7 @@ import {
   generateImageId,
 } from '@/utils/image-vision';
 import { useVisionSupport } from '@/hooks/useVisionSupport';
+import { useI18n } from '@/i18n';
 import './ImageUpload.css';
 
 interface ImageUploadProps {
@@ -45,6 +46,7 @@ function ImageUploadComponent({
   disabled = false,
   showPreview = true,
 }: ImageUploadProps) {
+  const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // 视觉能力是否支持(由当前生效模型的 provider/model 决定)
   const visionSupported = useVisionSupport();
@@ -63,17 +65,18 @@ function ImageUploadComponent({
     async (file: File) => {
       if (!file.type.startsWith('image/')) return;
       if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        setWarning(`图片 ${file.name} 超过 20MB 限制`);
+        setWarning(t('chat.imageTooLarge', { name: file.name }));
         return;
       }
       try {
         const dataUrl = await fileToDataUrl(file);
         onAdd({ id: generateImageId(), dataUrl, name: file.name, size: file.size });
       } catch (e) {
-        setWarning(`读取图片失败: ${file.name}${e instanceof Error ? `(${e.message})` : ''}`);
+        const err = e instanceof Error ? ` (${e.message})` : '';
+        setWarning(t('chat.readImageFailedUpload', { name: file.name, err }));
       }
     },
-    [onAdd],
+    [onAdd, t],
   );
 
   const handleFileInputChange = useCallback(
@@ -123,8 +126,8 @@ function ImageUploadComponent({
         className="image-upload-btn"
         onClick={handleButtonClick}
         disabled={disabled}
-        title="添加图片(也可在输入框中直接粘贴)"
-        aria-label="上传图片"
+        title={t('chat.addImageTitle')}
+        aria-label={t('chat.uploadImage')}
       >
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -151,15 +154,15 @@ function ImageUploadComponent({
                 type="button"
                 className="image-upload-remove"
                 onClick={() => onRemove(img.id)}
-                aria-label={`移除 ${img.name}`}
-                title={`移除 ${img.name}`}
+                aria-label={t('chat.removeImage', { name: img.name })}
+                title={t('chat.removeImage', { name: img.name })}
               >
                 ×
               </button>
             </div>
           ))}
           {overflow > 0 && (
-            <span className="image-upload-overflow" title={`还有 ${overflow} 张图片`}>
+            <span className="image-upload-overflow" title={t('chat.moreImages', { count: overflow })}>
               +{overflow}
             </span>
           )}

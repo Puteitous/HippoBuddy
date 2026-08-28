@@ -15,6 +15,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { metricsApi } from '@/api/client';
+import { useI18n } from '@/i18n';
 import type { MetricsResponse, ToolUsageDetail } from '@/types';
 import './MetricsPanel.css';
 
@@ -37,6 +38,7 @@ const CHART_HEIGHT = 44;
 const CHART_PADDING = 2;
 
 export function MetricsPanel() {
+  const { t } = useI18n();
   const [data, setData] = useState<MetricsResponse | null>(null);
   /** 延迟采样历史(用于趋势图,初始值取自模块级持久化) */
   const [latencyHistory, setLatencyHistory] = useState<number[]>(persistentHistory);
@@ -91,20 +93,20 @@ export function MetricsPanel() {
     <div className="metrics-panel">
       {llm ? (
         <div className="metrics-group">
-          <div className="metrics-group-title">LLM 指标</div>
+          <div className="metrics-group-title">{t('monitor.llmTitle')}</div>
           <div className="metrics-item metrics-item-chart">
             <RingChart percent={successRate} />
             <div className="metrics-item-details">
               <div>
-                <span className="metrics-label">总请求</span>
+                <span className="metrics-label">{t('monitor.totalRequests')}</span>
                 <span className="metrics-value">{llm.totalRequests}</span>
               </div>
               <div>
-                <span className="metrics-label">平均延迟</span>
+                <span className="metrics-label">{t('monitor.avgLatencyMs')}</span>
                 <span className="metrics-value">{llm.avgLatencyMs}ms</span>
               </div>
               <div>
-                <span className="metrics-label">最大延迟</span>
+                <span className="metrics-label">{t('monitor.maxLatencyMs')}</span>
                 <span className="metrics-value">{llm.maxLatencyMs}ms</span>
               </div>
             </div>
@@ -114,24 +116,24 @@ export function MetricsPanel() {
           </div>
           <div className="metrics-trend-count">
             {latencyHistory.length > 0
-              ? `${latencyHistory.length} 次记录 · 最近 ${Math.max(...latencyHistory)}ms`
-              : '等待更多数据…'}
+              ? t('monitor.trendCount', { count: latencyHistory.length, max: Math.max(...latencyHistory) })
+              : t('monitor.waitingMore')}
           </div>
         </div>
       ) : (
-        !error && <div className="metrics-empty">暂无 LLM 指标</div>
+        !error && <div className="metrics-empty">{t('monitor.noData')}</div>
       )}
 
       {tools && (
         <div className="metrics-group">
-          <div className="metrics-group-title">工具调用</div>
+          <div className="metrics-group-title">{t('monitor.toolCalls')}</div>
           <div className="metrics-grid">
             <div className="metrics-item">
-              <span className="metrics-label">总调用</span>
+              <span className="metrics-label">{t('monitor.totalCalls')}</span>
               <span className="metrics-value">{tools.totalCalls}</span>
             </div>
             <div className="metrics-item">
-              <span className="metrics-label">失败</span>
+              <span className="metrics-label">{t('monitor.failed')}</span>
               <span className="metrics-value">{tools.failedCalls}</span>
             </div>
           </div>
@@ -139,8 +141,10 @@ export function MetricsPanel() {
         </div>
       )}
 
-      {error && <div className="metrics-error">获取指标失败:{error}</div>}
-      {updateTime && <div className="metrics-update-time">更新于 {updateTime}</div>}
+      {error && <div className="metrics-error">{t('monitor.fetchFailed', { err: error })}</div>}
+      {updateTime && (
+        <div className="metrics-update-time">{t('monitor.updatedAt', { time: updateTime })}</div>
+      )}
     </div>
   );
 }
@@ -157,10 +161,11 @@ function ringColor(percent: number): string {
 }
 
 function RingChart({ percent }: { percent: number }) {
+  const { t } = useI18n();
   const pct = Math.min(Math.max(percent, 0), 100);
   // 周长 = 2 * PI * 15.9155 ≈ 100,strokeDasharray 直接按百分比
   return (
-    <svg className="metrics-ring" viewBox="0 0 36 36" aria-label={`成功率 ${pct}%`}>
+    <svg className="metrics-ring" viewBox="0 0 36 36" aria-label={`${t('monitor.successRate')} ${pct}%`}>
       <circle className="metrics-ring-bg" cx="18" cy="18" r="15.9155" />
       <circle
         className="metrics-ring-fg"
@@ -188,8 +193,9 @@ function RingChart({ percent }: { percent: number }) {
 // ============================================================================
 
 function TrendChart({ history }: { history: number[] }) {
+  const { t } = useI18n();
   if (history.length < 2) {
-    return <div className="metrics-trend-empty">等待更多数据…</div>;
+    return <div className="metrics-trend-empty">{t('monitor.waitingMore')}</div>;
   }
 
   const values = history.slice(-MAX_TREND_POINTS);

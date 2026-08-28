@@ -18,6 +18,7 @@ import { useEffect } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { useAppStore } from '@/stores/appStore';
 import { showToast } from '@/utils/toastStore';
+import { translate } from '@/i18n';
 
 export function useCompletedTaskNotification() {
   useEffect(() => {
@@ -30,7 +31,7 @@ export function useCompletedTaskNotification() {
         const s = sessions.find((x) => x.id === sid);
         const title = s?.title?.trim()
           || (sid.replace(/^web-/, '').slice(-6) ?? sid);
-        showToast(`后台会话「${title}」已完成`, { type: 'success', duration: 4000 });
+        showToast(translate('chat.backgroundSessionCompleted', { title }), { type: 'success', duration: 4000 });
       }
     });
     return unsub;

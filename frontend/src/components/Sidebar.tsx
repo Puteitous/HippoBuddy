@@ -482,7 +482,9 @@ export function Sidebar() {
       ro.disconnect();
       window.removeEventListener('resize', apply);
     };
-  }, [rows]);
+    // rows 变化或视图在「会话列表 ↔ 文件树」间切换(.sidebar-body 会被卸载重建)时,
+    // 都需重新绑定滚动监听并对新容器做一次吸顶扫描,否则切回会话列表后模糊失效。
+  }, [rows, sidebarView]);
 
   return (
     <aside className={`sidebar${sidebarCollapsed ? ' hidden' : ''}`}>

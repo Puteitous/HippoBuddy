@@ -26,6 +26,7 @@ import {
   replaceAll,
 } from '@codemirror/search';
 import './SearchPanel.css';
+import { useI18n } from '../i18n';
 
 interface SearchPanelProps {
   /** CM6 编辑器实例(由 FilePreview 传入) */
@@ -48,6 +49,7 @@ interface SearchStats {
 }
 
 export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanelProps) {
+  const { t } = useI18n();
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
   const [opts, setOpts] = useState<SearchOptions>({
@@ -173,7 +175,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
     : '';
 
   return (
-    <div className="search-panel" role="dialog" aria-label="查找替换">
+    <div className="search-panel" role="dialog" aria-label={t('search.dialogLabel')}>
       {/* 查找行 */}
       <div className="search-row">
         <div className="search-input-wrap">
@@ -181,28 +183,28 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
             ref={findInputRef}
             className="search-input"
             type="text"
-            placeholder="查找"
+            placeholder={t('search.find')}
             value={findText}
             spellCheck={false}
             onChange={(e) => setFindText(e.target.value)}
             onKeyDown={onKeyDown}
-            aria-label="查找"
+            aria-label={t('search.find')}
           />
           <div className="search-opt-group">
             <OptionToggle
-              title="区分大小写"
+              title={t('search.caseSensitive')}
               active={opts.caseSensitive}
               onClick={() => setOpts((o) => ({ ...o, caseSensitive: !o.caseSensitive }))}
               icon="Aa"
             />
             <OptionToggle
-              title="正则表达式"
+              title={t('search.regex')}
               active={opts.regexp}
               onClick={() => setOpts((o) => ({ ...o, regexp: !o.regexp }))}
               icon=".*"
             />
             <OptionToggle
-              title="全字匹配"
+              title={t('search.wholeWord')}
               active={opts.wholeWord}
               onClick={() => setOpts((o) => ({ ...o, wholeWord: !o.wholeWord }))}
               icon="W"
@@ -217,7 +219,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
         <button
           type="button"
           className="search-nav-btn"
-          title="上一个(Shift+Enter)"
+          title={t('search.prev')}
           onClick={() => navTo('prev')}
           disabled={stats.total === 0}
         >
@@ -235,7 +237,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
         <button
           type="button"
           className="search-nav-btn"
-          title="下一个(Enter)"
+          title={t('search.next')}
           onClick={() => navTo('next')}
           disabled={stats.total === 0}
         >
@@ -254,7 +256,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
         <button
           type="button"
           className="search-expand"
-          title={showReplace ? '收起替换' : '展开替换'}
+          title={showReplace ? t('search.collapseReplace') : t('search.expandReplace')}
           onClick={() => setShowReplace((v) => !v)}
         >
           {showReplace ? (
@@ -268,7 +270,7 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
           )}
         </button>
 
-        <button type="button" className="search-close" title="关闭(Esc)" onClick={onClose}>
+        <button type="button" className="search-close" title={t('search.close')} onClick={onClose}>
           ×
         </button>
       </div>
@@ -279,30 +281,30 @@ export function SearchPanel({ view, initialMode = 'find', onClose }: SearchPanel
           <input
             className="search-input"
             type="text"
-            placeholder="替换为"
+            placeholder={t('search.replaceTo')}
             value={replaceText}
             spellCheck={false}
             onChange={(e) => setReplaceText(e.target.value)}
             onKeyDown={onKeyDown}
-            aria-label="替换为"
+            aria-label={t('search.replaceTo')}
           />
           <button
             type="button"
             className="search-action"
             onClick={doReplace}
             disabled={stats.total === 0}
-            title="替换当前匹配"
+            title={t('search.replaceTip')}
           >
-            替换
+            {t('search.replace')}
           </button>
           <button
             type="button"
             className="search-action"
             onClick={doReplaceAll}
             disabled={stats.total === 0}
-            title="替换全部匹配"
+            title={t('search.replaceAllTip')}
           >
-            全部替换
+            {t('search.replaceAll')}
           </button>
         </div>
       )}

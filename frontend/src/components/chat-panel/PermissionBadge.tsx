@@ -9,6 +9,7 @@ import { useEffect, useState, useRef } from 'react';
 import { configApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { showToast } from '../settings/toastStore';
+import { useI18n } from '@/i18n';
 import type { ToolsConfigSection } from '@/types/config';
 
 type Mode = 'strict' | 'relaxed';
@@ -42,6 +43,7 @@ function GlobeIcon({ size = 14, className }: { size?: number; className?: string
 }
 
 export function PermissionBadge() {
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('strict');
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -89,7 +91,7 @@ export function PermissionBadge() {
       await configApi.updateFull({ tools });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
-      showToast('保存权限模式失败:' + msg, { type: 'error', duration: 3000 });
+      showToast(t('permission.saveFailed', { msg }), { type: 'error', duration: 3000 });
     }
   };
 
@@ -100,14 +102,14 @@ export function PermissionBadge() {
         type="button"
         className={`permission-badge-btn ${isRelaxed ? 'relaxed' : 'strict'}`}
         onClick={() => setOpen((v) => !v)}
-        title={isRelaxed ? '全目录:可操作整个电脑上的文件' : '仅工作区:只能操作当前项目目录'}
-        aria-label="切换权限模式"
+        title={isRelaxed ? t('permission.relaxedTitle') : t('permission.strictTitle')}
+        aria-label={t('permission.switchLabel')}
         aria-expanded={open}
       >
         {isRelaxed
           ? <GlobeIcon className="permission-badge-icon relaxed" size={12} />
           : <ShieldIcon className="permission-badge-icon strict" size={12} />}
-        <span className="permission-badge-text">{isRelaxed ? '全目录' : '仅工作区'}</span>
+        <span className="permission-badge-text">{isRelaxed ? t('permission.relaxed') : t('permission.strict')}</span>
         <svg
           viewBox="0 0 16 16"
           width="10"
@@ -132,8 +134,8 @@ export function PermissionBadge() {
           >
             <ShieldIcon className="permission-badge-opt-icon strict" size={18} />
             <span className="permission-badge-opt-text">
-              <span className="permission-badge-opt-title">仅工作区</span>
-              <span className="permission-badge-opt-desc">只能操作当前项目目录</span>
+              <span className="permission-badge-opt-title">{t('permission.strict')}</span>
+              <span className="permission-badge-opt-desc">{t('permission.strictDesc')}</span>
             </span>
           </button>
           <button
@@ -143,12 +145,12 @@ export function PermissionBadge() {
           >
             <GlobeIcon className="permission-badge-opt-icon relaxed" size={18} />
             <span className="permission-badge-opt-text">
-              <span className="permission-badge-opt-title">全目录</span>
-              <span className="permission-badge-opt-desc">可操作整台电脑的文件</span>
+              <span className="permission-badge-opt-title">{t('permission.relaxed')}</span>
+              <span className="permission-badge-opt-desc">{t('permission.relaxedDesc')}</span>
             </span>
           </button>
           <div className="permission-badge-menu-hint">
-            确认卡片由设置页「工具」中的开关独立控制
+            {t('permission.confirmHint')}
           </div>
         </div>
       )}

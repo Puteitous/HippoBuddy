@@ -13,6 +13,7 @@
  */
 import type { TokenRecord } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useI18n } from '@/i18n';
 import { getTokenColor } from './tokenUtils';
 import type { MergedStats } from './tokenUtils';
 import { TokenEmojiIcon } from './TokenEmojiIcon';
@@ -33,6 +34,7 @@ function fmt(n: number): string {
  * Token 消耗趋势图(对齐旧版 renderTrendChart):y 轴随历史 min/max 动态缩放。
  */
 function TokenTrendChart({ history }: { history: TokenRecord[] }) {
+  const { t } = useI18n();
   // 过滤全 0 记录,取最近 N 条
   const data = history
     .filter((h) => (h.total || 0) > 0 || (h.prompt || 0) > 0 || (h.completion || 0) > 0)
@@ -40,8 +42,8 @@ function TokenTrendChart({ history }: { history: TokenRecord[] }) {
 
   const header = (
     <div className="token-trend-header">
-      <span className="token-trend-label">Token 消耗趋势</span>
-      <span className="token-trend-value">{history.length} 次记录</span>
+      <span className="token-trend-label">{t('tokenPanel.trend')}</span>
+      <span className="token-trend-value">{history.length}{t('tokenPanel.records')}</span>
     </div>
   );
 
@@ -50,7 +52,7 @@ function TokenTrendChart({ history }: { history: TokenRecord[] }) {
       <div className="token-trend">
         {header}
         <div className="token-trend-chart">
-          <div className="token-trend-empty">等待数据...</div>
+          <div className="token-trend-empty">{t('tokenPanel.waiting')}</div>
         </div>
       </div>
     );
@@ -110,6 +112,7 @@ function TokenTrendChart({ history }: { history: TokenRecord[] }) {
  * 顶部 100% 基准虚线直观反映与满命中的差距。
  */
 function CacheRateTrendChart({ history }: { history: TokenRecord[] }) {
+  const { t } = useI18n();
   // 过滤无缓存率数据的记录
   const data = history
     .filter((h) => typeof h.cacheRate === 'number' && !Number.isNaN(h.cacheRate))
@@ -117,8 +120,8 @@ function CacheRateTrendChart({ history }: { history: TokenRecord[] }) {
 
   const header = (
     <div className="token-trend-header">
-      <span className="token-trend-label">缓存命中率趋势</span>
-      <span className="token-trend-value">{data.length} 次记录</span>
+      <span className="token-trend-label">{t('tokenPanel.cacheTrend')}</span>
+      <span className="token-trend-value">{data.length}{t('tokenPanel.records')}</span>
     </div>
   );
 
@@ -127,7 +130,7 @@ function CacheRateTrendChart({ history }: { history: TokenRecord[] }) {
       <div className="token-trend cache-trend">
         {header}
         <div className="token-trend-chart">
-          <div className="token-trend-empty">等待数据...</div>
+          <div className="token-trend-empty">{t('tokenPanel.waiting')}</div>
         </div>
       </div>
     );
@@ -182,6 +185,7 @@ interface TokenVisualPanelProps {
 }
 
 export function TokenVisualPanel({ stats }: TokenVisualPanelProps) {
+  const { t } = useI18n();
   const tokenHistory = useChatStore((s) => s.tokenHistory);
 
   const percent = stats.usagePercent || 0;
@@ -198,16 +202,16 @@ export function TokenVisualPanel({ stats }: TokenVisualPanelProps) {
     : `~${fmt(stats.currentTokens)}`;
 
   const gridItems: Array<{ label: string; value: string; success?: boolean }> = [
-    { label: 'Prompt', value: promptText },
-    { label: 'Completion', value: completionText },
-    { label: '总输入', value: fmt(stats.sessionTotalInput) },
-    { label: '总输出', value: fmt(stats.sessionTotalOutput) },
-    { label: 'LLM 调用', value: fmt(stats.sessionLlmCalls) },
-    { label: '工具调用', value: fmt(stats.sessionToolCalls) },
-    { label: '缓存命中', value: `${stats.cacheHitTokens ? fmt(stats.cacheHitTokens) : '0'}`, success: true },
-    { label: '缓存率', value: `${stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%'}`, success: true },
-    { label: '总缓存命中', value: `${stats.sessionCacheHitTokens ? fmt(stats.sessionCacheHitTokens) : '0'}`, success: true },
-    { label: '总缓存率', value: `${stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%'}`, success: true },
+    { label: t('tokenPanel.prompt'), value: promptText },
+    { label: t('tokenPanel.completion'), value: completionText },
+    { label: t('tokenPanel.totalInput'), value: fmt(stats.sessionTotalInput) },
+    { label: t('tokenPanel.totalOutput'), value: fmt(stats.sessionTotalOutput) },
+    { label: t('tokenPanel.llmCalls'), value: fmt(stats.sessionLlmCalls) },
+    { label: t('tokenPanel.toolCalls'), value: fmt(stats.sessionToolCalls) },
+    { label: t('tokenPanel.cacheHit'), value: `${stats.cacheHitTokens ? fmt(stats.cacheHitTokens) : '0'}`, success: true },
+    { label: t('tokenPanel.cacheRate'), value: `${stats.cacheHitRate ? stats.cacheHitRate.toFixed(1) + '%' : '0%'}`, success: true },
+    { label: t('tokenPanel.totalCacheHit'), value: `${stats.sessionCacheHitTokens ? fmt(stats.sessionCacheHitTokens) : '0'}`, success: true },
+    { label: t('tokenPanel.totalCacheRate'), value: `${stats.sessionCacheHitRate ? stats.sessionCacheHitRate.toFixed(1) + '%' : '0%'}`, success: true },
   ];
 
   return (
@@ -215,7 +219,7 @@ export function TokenVisualPanel({ stats }: TokenVisualPanelProps) {
       {/* 上下文使用率 */}
       <div className="token-visual-item">
         <div className="token-visual-label">
-          <span>上下文使用率</span>
+          <span>{t('tokenPanel.usageRate')}</span>
           <span className="token-visual-value" style={{ color }}>
             <TokenEmojiIcon percent={percent} />
             {percent.toFixed(1)}%
@@ -254,7 +258,7 @@ export function TokenVisualPanel({ stats }: TokenVisualPanelProps) {
 
       {/* 会话总消耗 */}
       <div className="token-visual-total">
-        <span>会话总消耗</span>
+        <span>{t('tokenPanel.sessionTotal')}</span>
         <span className="tv-total-value">{fmt(stats.sessionTotalTokens)}</span>
       </div>
 

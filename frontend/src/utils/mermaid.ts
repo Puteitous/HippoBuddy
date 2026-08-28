@@ -241,7 +241,7 @@ async function loadMermaid(): Promise<MermaidLike> {
     });
 
     const mmd = (window as Window & { mermaid?: MermaidLike }).mermaid;
-    if (!mmd) throw new Error('Mermaid 库加载后未找到 window.mermaid');
+    if (!mmd) throw new Error(translate('mermaid.windowNotFound'));
 
     mmd.initialize({ theme: currentTheme, startOnLoad: false, securityLevel: 'loose' });
     lastTheme = currentTheme;

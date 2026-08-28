@@ -508,7 +508,7 @@
   font-size: var(--font-size-sm, 12px);
   color: var(--hb-text-soft, #6b7280);
   white-space: nowrap;
-  min-width: 64px;
+  flex: 0 0 96px; /* 固定等宽,避免中英文标签宽度差异导致列宽/换行位置变化 */
 }
 
 .settings-bg-style-item input[type="range"] {

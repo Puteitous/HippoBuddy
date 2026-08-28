@@ -6,26 +6,38 @@
  * 来源:社区知名仓库的精选技能,内置避免 GitHub API 网络依赖。
  * skillUrl 指向 GitHub raw 文件(或本地 /skills/featured/xxx.md),
  * 安装时通过 fetch 拉取内容,再调 skillsApi.create 写入本地用户级目录。
+ *
+ * 说明:desc / tag / category 等展示字段存储为 i18n key(见 frontend/src/i18n/messages.ts),
+ * 渲染时经 useI18n().t() 翻译,中文回退为 key 容器内的中文文案。
  */
+
+/** 分类筛选 key(对应 messages.ts 中 skillMarket.* 分类 key) */
+export type SkillCategoryKey = 'all' | 'dev' | 'frontend' | 'security' | 'devops' | 'data';
+
+/** 来源标记 tag(i18n key: skillMarket.tag.*) */
+export type SkillTagKey = 'official' | 'community' | 'vendor' | 'featured';
 
 /** 推荐来源仓库 */
 export interface SkillSource {
   id: string;
   name: string;
   stars: string;
+  /** i18n key(如 skillMarket.source.anthropic) */
   desc: string;
   url: string;
-  tag: '官方' | '社区' | '大厂' | '精选';
+  /** i18n key(如 skillMarket.tag.official = "官方") */
+  tag: SkillTagKey;
 }
 
 /** 精选技能(可直接安装) */
 export interface FeaturedSkill {
   name: string;
+  /** i18n key(如 skillMarket.skill.codeReview) */
   desc: string;
   /** 来源仓库 id(对应 SkillSource.id) */
   source: string;
-  /** 显示分类(对应 SkillCategory.label) */
-  category: string;
+  /** 显示分类 key(对应 SkillCategory.key,渲染时翻译为 skillMarket.<key>) */
+  category: Exclude<SkillCategoryKey, 'all'>;
   /** 安装 URL(GitHub raw 或本地 featured 路径) */
   skillUrl: string;
 }
@@ -33,9 +45,9 @@ export interface FeaturedSkill {
 /** 分类标签 */
 export interface SkillCategory {
   /** 用于过滤匹配的 key */
-  key: 'all' | 'dev' | 'frontend' | 'security' | 'devops' | 'data';
-  /** 显示标签 */
-  label: string;
+  key: SkillCategoryKey;
+  /** 显示标签 key(渲染时翻译为 skillMarket.<label>) */
+  label: SkillCategoryKey;
 }
 
 /** 推荐来源仓库(对齐旧版 SOURCES) */
@@ -44,33 +56,33 @@ export const SKILL_SOURCES: SkillSource[] = [
     id: 'anthropic',
     name: 'anthropics/skills',
     stars: '60.9k',
-    desc: 'Anthropic 官方技能仓库,Claude 技能生态标准,质量最稳定',
+    desc: 'skillMarket.source.anthropic',
     url: 'https://github.com/anthropics/skills',
-    tag: '官方',
+    tag: 'official',
   },
   {
     id: 'aas',
     name: 'antigravity-awesome-skills',
     stars: '41k+',
-    desc: '社区最大技能集合,1595+ 技能,覆盖全栈/安全/DevOps/数据科学',
+    desc: 'skillMarket.source.aas',
     url: 'https://github.com/sickn33/antigravity-awesome-skills',
-    tag: '社区',
+    tag: 'community',
   },
   {
     id: 'vercel',
     name: 'vercel-labs/agent-skills',
     stars: '—',
-    desc: 'Vercel 团队工程最佳实践,Next.js/React 专项技能',
+    desc: 'skillMarket.source.vercel',
     url: 'https://github.com/vercel-labs/agent-skills',
-    tag: '大厂',
+    tag: 'vendor',
   },
   {
     id: 'addyosmani',
     name: 'addyosmani/agent-skills',
     stars: '—',
-    desc: '生产级工程实践:TDD、代码审查、调试、性能优化',
+    desc: 'skillMarket.source.addyosmani',
     url: 'https://github.com/addyosmani/agent-skills',
-    tag: '精选',
+    tag: 'featured',
   },
 ];
 
@@ -78,85 +90,85 @@ export const SKILL_SOURCES: SkillSource[] = [
 export const FEATURED_SKILLS: FeaturedSkill[] = [
   {
     name: 'code-review',
-    desc: '代码审查 — 五轴审查:正确性/可读性/架构/安全/性能',
+    desc: 'skillMarket.skill.codeReview',
     source: 'addyosmani',
-    category: '开发',
+    category: 'dev',
     skillUrl: '/skills/featured/code-review.md',
   },
   {
     name: 'tdd-workflow',
-    desc: 'TDD 工作流 — Red → Green → Refactor 全流程引导',
+    desc: 'skillMarket.skill.tddWorkflow',
     source: 'addyosmani',
-    category: '开发',
+    category: 'dev',
     skillUrl: '/skills/featured/tdd-workflow.md',
   },
   {
     name: 'debugging',
-    desc: '调试与错误恢复 — 六阶段诊断:构建反馈循环到复盘',
+    desc: 'skillMarket.skill.debugging',
     source: 'addyosmani',
-    category: '开发',
+    category: 'dev',
     skillUrl: '/skills/featured/debugging.md',
   },
   {
     name: 'security-audit',
-    desc: '安全审计与加固 — OWASP Top 10 检查、漏洞扫描、威胁建模',
+    desc: 'skillMarket.skill.securityAudit',
     source: 'addyosmani',
-    category: '安全',
+    category: 'security',
     skillUrl: '/skills/featured/security-audit.md',
   },
   {
     name: 'api-design',
-    desc: 'API 设计 — RESTful 规范、请求验证、错误处理、文档生成',
+    desc: 'skillMarket.skill.apiDesign',
     source: 'addyosmani',
-    category: '开发',
+    category: 'dev',
     skillUrl: '/skills/featured/api-design.md',
   },
   {
     name: 'performance',
-    desc: '性能优化 — 加载性能、渲染优化、数据库查询优化',
+    desc: 'skillMarket.skill.performance',
     source: 'addyosmani',
-    category: '开发',
+    category: 'dev',
     skillUrl: '/skills/featured/performance.md',
   },
   {
     name: 'devops',
-    desc: 'DevOps 实践 — CI/CD 配置、Docker/K8s、监控告警',
+    desc: 'skillMarket.skill.devops',
     source: 'addyosmani',
-    category: 'DevOps',
+    category: 'devops',
     skillUrl: '/skills/featured/devops.md',
   },
   {
     name: 'react-patterns',
-    desc: 'React 模式 — Hooks 规范、状态管理、性能优化、组件设计',
+    desc: 'skillMarket.skill.reactPatterns',
     source: 'vercel',
-    category: '前端',
+    category: 'frontend',
     skillUrl: '/skills/featured/react-patterns.md',
   },
   {
     name: 'database-design',
-    desc: '数据库设计 — 表结构设计、索引优化、迁移策略、ORM 使用',
+    desc: 'skillMarket.skill.databaseDesign',
     source: 'aas',
-    category: '数据',
+    category: 'data',
     skillUrl: '/skills/featured/database-design.md',
   },
   {
     name: 'incremental-implementation',
-    desc: '增量实施 — 薄垂直切片实现,每步可测试可提交,避免大段一次性编码',
+    desc: 'skillMarket.skill.incrementalImplementation',
     source: 'addyosmani',
-    category: '开发',
+    category: 'dev',
     skillUrl: '/skills/featured/incremental-implementation.md',
   },
 ];
 
 /** 分类标签(对齐旧版 CATEGORIES) */
 export const SKILL_CATEGORIES: SkillCategory[] = [
-  { key: 'all', label: '全部' },
-  { key: 'dev', label: '开发' },
-  { key: 'frontend', label: '前端' },
-  { key: 'security', label: '安全' },
-  { key: 'devops', label: 'DevOps' },
-  { key: 'data', label: '数据' },
+  { key: 'all', label: 'all' },
+  { key: 'dev', label: 'dev' },
+  { key: 'frontend', label: 'frontend' },
+  { key: 'security', label: 'security' },
+  { key: 'devops', label: 'devops' },
+  { key: 'data', label: 'data' },
 ];
 
-/** 默认分类标签(对应旧版 CATEGORIES[0].label) */
+/** 默认分类 key(对应旧版 CATEGORIES[0].label) */
 export const DEFAULT_CATEGORY_LABEL = SKILL_CATEGORIES[0].label;

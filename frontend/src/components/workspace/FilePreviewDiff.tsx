@@ -20,6 +20,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import type { DiffLine, WordDiffMap, WordDiffToken } from '@/types';
 import { buildHunkSequence, HUNK_EXPAND_MAX_LINES } from '@/utils/diff-hunks';
 import { highlightDiffLines } from '@/utils/diff-highlight';
+import { useI18n } from '@/i18n';
 import { showToast } from '@/utils/toastStore';
 import './FilePreviewDiff.css';
 
@@ -34,6 +35,7 @@ interface FilePreviewDiffProps {
 }
 
 export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: FilePreviewDiffProps) {
+  const { t } = useI18n();
   // 行号映射:预计算每个原始下标对应的旧/新文件行号,覆盖全部 changes
   // (含被折叠/丢弃的头部上下文段),保证折叠/展开后行号绝对准确
   const numMaps = useMemo(() => buildNumMaps(lines), [lines]);
@@ -55,7 +57,7 @@ export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: F
   );
 
   if (!lines || lines.length === 0) {
-    return <div className="file-preview-diff empty">无差异内容</div>;
+    return <div className="file-preview-diff empty">{t('diff.noContent')}</div>;
   }
 
   const collapsedCount = hunks.filter((h) => !expandedHunks.has(h.from)).length;
@@ -70,7 +72,7 @@ export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: F
       } else {
         const hunk = hunks.find((h) => h.from === hunkFrom);
         if (hunk && hunk.count > HUNK_EXPAND_MAX_LINES) {
-          showToast('该段过大,无法展开', { type: 'warning', duration: 2500 });
+          showToast(t('diff.hunkTooLarge'), { type: 'warning', duration: 2500 });
           return prev;
         }
         next.add(hunkFrom);
@@ -82,7 +84,7 @@ export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: F
   const expandAllHunks = () => {
     const expandable = hunks.filter((h) => h.count <= HUNK_EXPAND_MAX_LINES);
     if (expandable.length === 0) {
-      showToast('该段过大,无法展开', { type: 'warning', duration: 2500 });
+      showToast(t('diff.hunkTooLarge'), { type: 'warning', duration: 2500 });
       return;
     }
     setExpandedHunks(new Set(expandable.map((h) => h.from)));
@@ -99,7 +101,7 @@ export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: F
             className="diff-toolbar-btn"
             onClick={allExpanded ? collapseAllHunks : expandAllHunks}
           >
-            {allExpanded ? '收起全部' : `展开全部 (${collapsedCount})`}
+            {allExpanded ? t('diff.collapseAll') : t('diff.expandAll', { count: collapsedCount })}
           </button>
         </div>
       )}
@@ -119,7 +121,7 @@ export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: F
                 return (
                   <HunkRow
                     key={`hunk-${item.from}`}
-                    label={`⋯ 跳过 ${item.count} 行`}
+                    label={t('diff.hunkSkip', { count: item.count })}
                     onClick={() => toggleHunk(item.from)}
                   />
                 );
@@ -147,10 +149,10 @@ export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: F
 
             return (
               <tr key={item.idx} className={`diff-row ${cls} ${isFocus ? 'focused' : ''}`}>
-                <td className="diff-gutter old" title="旧行号">
+                <td className="diff-gutter old" title={t('diff.oldLineNum')}>
                   {line.type !== 'added' && oldNo != null ? oldNo : ''}
                 </td>
-                <td className="diff-gutter new" title="新行号">
+                <td className="diff-gutter new" title={t('diff.newLineNum')}>
                   {line.type !== 'removed' && newNo != null ? newNo : ''}
                 </td>
                 <td className="diff-marker" aria-hidden>
@@ -193,6 +195,7 @@ function ExpandedHunkRows({
   highlightedLines: string[] | null;
   onToggle: () => void;
 }) {
+  const { t } = useI18n();
   const rows = [];
   for (let k = item.from; k < item.to; k++) {
     const oldNo = numMaps.oldNumAt.get(k);
@@ -202,10 +205,10 @@ function ExpandedHunkRows({
       : lines[k].content;
     rows.push(
       <tr key={k} className="diff-row diff-equal">
-        <td className="diff-gutter old" title="旧行号">
+        <td className="diff-gutter old" title={t('diff.oldLineNum')}>
           {oldNo != null ? oldNo : ''}
         </td>
-        <td className="diff-gutter new" title="新行号">
+        <td className="diff-gutter new" title={t('diff.newLineNum')}>
           {newNo != null ? newNo : ''}
         </td>
         <td className="diff-marker" aria-hidden>
@@ -223,7 +226,7 @@ function ExpandedHunkRows({
   }
   return (
     <>
-      <HunkRow label={`⋯ 已展开 ${item.count} 行`} onClick={onToggle} />
+      <HunkRow label={t('diff.hunkExpand', { count: item.count })} onClick={onToggle} />
       {rows}
     </>
   );

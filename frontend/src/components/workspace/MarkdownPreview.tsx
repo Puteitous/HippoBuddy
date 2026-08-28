@@ -10,6 +10,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMarkdown, resolveImageSrc } from '@/utils/markdown';
+import { translate } from '@/i18n';
 import './MarkdownPreview.css';
 
 interface MarkdownPreviewProps {
@@ -140,11 +141,11 @@ export function MarkdownPreview({ filePath, content }: MarkdownPreviewProps) {
       {tocItems.length > 0 && (
         <div className={`file-md-toc ${tocCollapsed ? 'collapsed' : ''}`}>
           <div className="file-md-toc-header">
-            <span className="file-md-toc-title">目录</span>
+            <span className="file-md-toc-title">{translate('preview.tocTitle')}</span>
             <button
               type="button"
               className="file-md-toc-toggle"
-              title={tocCollapsed ? '展开目录' : '收起目录'}
+              title={tocCollapsed ? translate('preview.tocExpand') : translate('preview.tocCollapse')}
               onClick={() => setTocCollapsed((v) => !v)}
             >
               {tocCollapsed ? (
@@ -174,7 +175,7 @@ export function MarkdownPreview({ filePath, content }: MarkdownPreviewProps) {
           {/* 折叠后的悬浮浮层面板(hover 弹出) */}
           <div className="file-md-toc-floating">
             <div className="file-md-toc-header">
-              <span className="file-md-toc-title">目录</span>
+              <span className="file-md-toc-title">{translate('preview.tocTitle')}</span>
             </div>
             {tocItems.map((item) => (
               <a

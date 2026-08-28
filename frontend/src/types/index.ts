@@ -290,7 +290,7 @@ export interface DefaultWorkspaceUpdateResult {
 
 /** 模式预设项(每个模式 4 个,共 12 个) */
 export interface ModePreset {
-  /** 显示标签(中文) */
+  /** 显示标签(i18n key,见 chat.preset.*) */
   label: string;
   /** SVG path 数据(viewBox 0 0 24 24,fill=none stroke=currentColor) */
   icon: string;

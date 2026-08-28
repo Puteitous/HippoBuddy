@@ -12,11 +12,12 @@
  *    (旧版为独立 860px 块,此处对齐,由 useRollback + 组合组件 RoundRollback 协同)。
  *  - 文件图标用状态字母(D/A/M)替代旧版 file-icons 图片
  *  - 下拉选项用 CSS hover 展开(对齐旧版行为)
- *  - 中文硬编码,不引入 i18n
+ *  - 文案走 i18n(rollback.* 命名空间)
  */
 import { useEffect, useRef, useState } from 'react';
 import type { RollbackStatus } from './useRollback';
 import type { RollbackPreviewFile } from '@/types';
+import { useI18n } from '@/i18n';
 import './RollbackButton.css';
 
 interface RollbackButtonProps {
@@ -30,12 +31,13 @@ interface RollbackButtonProps {
 
 /** 回滚按钮:常驻消息 footer,idle 显示 ↩,loading/rolling 显示 ⋯ 并禁用 */
 export function RollbackButton({ status, disabled, onOpen }: RollbackButtonProps) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       className="rollback-btn message-action-btn"
-      title="回滚到该轮之前(文件与会话)"
-      aria-label="回滚"
+      title={t('rollback.title')}
+      aria-label={t('rollback.rollbackShort')}
       onClick={onOpen}
       disabled={disabled || status !== 'idle'}
     >
@@ -56,6 +58,7 @@ interface RollbackPanelProps {
  * 仅在 status != 'idle' 时由组合组件挂载,故内部不需再判断 idle。
  */
 export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: RollbackPanelProps) {
+  const { t } = useI18n();
   // ── 下拉固定开关:点击 ▾ 可固定展开,再次点击或点外部收起 ──
   const splitRef = useRef<HTMLSpanElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -86,7 +89,7 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
         >
           <circle cx="12" cy="12" r="10" strokeDasharray="31.4 31.4" strokeLinecap="round" />
         </svg>
-        {status === 'loading' ? '正在检查文件变更…' : '正在回滚…'}
+        {status === 'loading' ? t('rollback.checkingFiles') : t('rollback.rollingBack')}
       </div>
     );
   }
@@ -115,9 +118,11 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
             <line x1="8" y1="11" x2="8" y2="11.5" />
           </svg>
         </span>
-        <span>回滚到该轮之前</span>
+        <span>{t('rollback.title')}</span>
         <span className="rollback-inline-count">
-          {changedFiles.length > 0 ? `${changedFiles.length} 个文件变更` : '无文件变更'}
+          {changedFiles.length > 0
+            ? t('rollback.changedFileCount', { count: changedFiles.length })
+            : t('rollback.noFileChanges')}
         </span>
       </div>
 
@@ -132,7 +137,7 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
                   <span className="file-name" title={f.filePath}>
                     {f.filePath}
                   </span>
-                  <span className="file-action-badge">{info.label}</span>
+                  <span className="file-action-badge">{t(info.labelKey)}</span>
                   {(f.insertions > 0 || f.deletions > 0) && (
                     <span className="diff-stats">
                       {f.insertions > 0 && <span className="diff-add">+{f.insertions}</span>}
@@ -153,7 +158,7 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
           className="rollback-inline-btn rollback-inline-btn-cancel"
           onClick={onCancel}
         >
-          取消
+          {t('rollback.cancel')}
         </button>
         <span
           className={`rollback-inline-split${dropdownOpen ? ' dropdown-open' : ''}`}
@@ -164,13 +169,13 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
             className="rollback-inline-btn rollback-inline-btn-confirm"
             onClick={() => onConfirm('all')}
           >
-            回滚
+            {t('rollback.rollbackShort')}
           </button>
           <button
             type="button"
             className="rollback-inline-split-toggle"
-            title={dropdownOpen ? '收起选项' : '更多选项'}
-            aria-label="更多选项"
+            title={dropdownOpen ? t('rollback.collapseOptions') : t('rollback.moreOptions')}
+            aria-label={t('rollback.moreOptions')}
             onClick={() => setDropdownOpen((o) => !o)}
           >
             ▾
@@ -184,7 +189,7 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
                 onConfirm('all');
               }}
             >
-              <span className="dropdown-check"><svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 25l10 10 20-22"/></svg></span>全部回滚(文件 + 会话)
+              <span className="dropdown-check"><svg viewBox="0 0 48 48" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 25l10 10 20-22"/></svg></span>{t('rollback.rollbackAll')}
             </button>
             <button
               type="button"
@@ -194,7 +199,7 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
                 onConfirm('files');
               }}
             >
-              <span className="dropdown-check-placeholder" />仅回滚文件
+              <span className="dropdown-check-placeholder" />{t('rollback.rollbackFilesOnly')}
             </button>
           </span>
         </span>
@@ -207,18 +212,18 @@ export function RollbackPanel({ status, previewFiles, onCancel, onConfirm }: Rol
 // 工具函数
 // ============================================================================
 
-/** 文件动作 → 状态字母 / 样式类 / 中文标签 */
+/** 文件动作 → 状态字母 / 样式类 / i18n 标签键 */
 function actionInfo(action: RollbackPreviewFile['action']): {
   letter: string;
   cls: 'action-delete' | 'action-add' | 'action-restore';
-  label: string;
+  labelKey: string;
 } {
   switch (action) {
     case 'delete':
-      return { letter: 'D', cls: 'action-delete', label: '回滚后删除' };
+      return { letter: 'D', cls: 'action-delete', labelKey: 'rollback.actionDelete' };
     case 'add':
-      return { letter: 'A', cls: 'action-add', label: '回滚后还原' };
+      return { letter: 'A', cls: 'action-add', labelKey: 'rollback.actionAdd' };
     case 'restore':
-      return { letter: 'M', cls: 'action-restore', label: '回滚后恢复' };
+      return { letter: 'M', cls: 'action-restore', labelKey: 'rollback.actionRestore' };
   }
 }

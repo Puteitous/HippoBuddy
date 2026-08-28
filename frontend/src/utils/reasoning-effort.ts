@@ -9,6 +9,8 @@
  * react-refresh/only-export-components 告警(与 utils/ref-chips.ts 同理)。
  */
 
+import { translate } from '@/i18n';
+
 /** 各 Provider 支持的 Reasoning Effort 档位(空串 = 默认,不传参) */
 export const REASONING_EFFORT_ITEMS_BY_PROVIDER: Record<
   string,
@@ -36,7 +38,12 @@ export const REASONING_EFFORT_ITEMS_BY_PROVIDER: Record<
 
 /** 读取指定 Provider 的档位列表(不区分大小写;未知 Provider 返回空数组) */
 export function getReasoningItems(provider: string): { label: string; value: string }[] {
-  return REASONING_EFFORT_ITEMS_BY_PROVIDER[(provider || '').trim().toLowerCase()] || [];
+  const items =
+    REASONING_EFFORT_ITEMS_BY_PROVIDER[(provider || '').trim().toLowerCase()] || [];
+  // 「默认」档位(空 value)需国际化,返回翻译后的 label
+  return items.map((item) =>
+    item.value === '' ? { ...item, label: translate('modelSelector.default') } : item,
+  );
 }
 
 /** 该 Provider 是否支持 Reasoning Effort(有档位列表即支持) */

@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { FileTab } from '@/types';
 import { FileTypeIcon } from '@/components/FileTypeIcon';
+import { useI18n } from '@/i18n';
 import './FileTabs.css';
 
 interface FileTabsProps {
@@ -54,6 +55,7 @@ export function FileTabs({
   onCloseAll,
   onReorder,
 }: FileTabsProps) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   // 右键菜单定位(显隐通过 path 是否为空判断)
   const [ctx, setCtx] = useState<ContextMenuState | null>(null);
@@ -273,7 +275,7 @@ export function FileTabs({
             <button
               type="button"
               className="file-tab-close"
-              aria-label="关闭"
+              aria-label={t('fileTabs.close')}
               onClick={(e) => {
                 e.stopPropagation();
                 onClose(tab.path);

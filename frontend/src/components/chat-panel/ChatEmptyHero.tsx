@@ -12,7 +12,7 @@
 import { memo, useRef, useState } from 'react';
 import type { SessionMode } from '@/types';
 import { useAppStore } from '@/stores/appStore';
-import { translate } from '@/i18n';
+import { translate, useI18n } from '@/i18n';
 import { MODE_ORDER, MODE_PRESETS, SLOGAN_MAP } from './modePresetsData';
 import './ChatEmptyHero.css';
 
@@ -88,11 +88,17 @@ interface ChatEmptyHeroProps {
 function ChatEmptyHeroComponent({ onPresetSelect }: ChatEmptyHeroProps) {
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
+  const { t } = useI18n();
   const [isBouncing, setIsBouncing] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const logoRef = useRef<HTMLDivElement | null>(null);
 
-  const presets = MODE_PRESETS[mode] ?? MODE_PRESETS.coding;
+  /** 解析预设的 label/prompt(i18n key → 当前语言文本) */
+  const presets = (MODE_PRESETS[mode] ?? MODE_PRESETS.coding).map((p) => ({
+    ...p,
+    label: t(p.label),
+    prompt: t(p.prompt),
+  }));
 
   /** 点击河马:弹跳 + 冒泡 + 吐对话框气泡 */
   const handleLogoClick = () => {

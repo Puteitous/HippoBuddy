@@ -8,6 +8,7 @@
  *  - 展示文件名与索引 n/total
  */
 import { useCallback, useEffect } from 'react';
+import { useI18n } from '@/i18n';
 import './Lightbox.css';
 
 interface LightboxImage {
@@ -26,6 +27,7 @@ interface LightboxProps {
 }
 
 export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProps) {
+  const { t } = useI18n();
   const current = images[index];
 
   const prev = useCallback(() => {
@@ -63,7 +65,7 @@ export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProp
       className="lightbox-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label={`图片预览 ${current.name}`}
+      aria-label={t('lightbox.preview', { name: current.name })}
       onClick={onClose}
     >
       <div className="lightbox-header">
@@ -77,8 +79,8 @@ export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProp
           type="button"
           className="lightbox-close"
           onClick={onClose}
-          aria-label="关闭预览"
-          title="关闭 (Esc)"
+          aria-label={t('lightbox.close')}
+          title={t('lightbox.closeTitle')}
         >
           ×
         </button>
@@ -96,8 +98,8 @@ export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProp
                 e.stopPropagation();
                 prev();
               }}
-              aria-label="上一张"
-              title="上一张 (←)"
+              aria-label={t('lightbox.prev')}
+              title={t('lightbox.prevShortcut')}
             >
               ‹
             </button>
@@ -108,8 +110,8 @@ export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProp
                 e.stopPropagation();
                 next();
               }}
-              aria-label="下一张"
-              title="下一张 (→)"
+              aria-label={t('lightbox.next')}
+              title={t('lightbox.nextShortcut')}
             >
               ›
             </button>

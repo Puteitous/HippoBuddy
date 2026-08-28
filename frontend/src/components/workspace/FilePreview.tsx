@@ -28,6 +28,7 @@ import { ImagePreview } from './ImagePreview';
 import { MarkdownPreview } from './MarkdownPreview';
 import { SearchPanel } from '@/components/SearchPanel';
 import { usePreviewStore } from '@/stores/previewStore';
+import { translate, useI18n } from '@/i18n';
 import './FilePreview.css';
 
 interface FilePreviewProps {
@@ -60,6 +61,7 @@ const BINARY_EXT = new Set([
 const WRAP_STORAGE_KEY = 'hb.filePreview.wrap';
 
 export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: FilePreviewProps) {
+  const { t } = useI18n();
   const kind = useMemo<PreviewKind>(() => detectKind(filePath), [filePath]);
   // 收起预览面板(对齐旧版 previewCollapseBtn;标签保留,打开/切换文件时恢复)
   const collapsePreview = usePreviewStore((s) => s.collapsePreview);
@@ -137,7 +139,7 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
       const res = await fetch(rawUrl);
       if (!res.ok) {
         const msg = await res.text().catch(() => '');
-        throw new ApiError(msg || `加载失败(${res.status})`, res.status);
+        throw new ApiError(msg || translate('preview.loadFailed', { status: res.status }), res.status);
       }
       setTextContent(await res.text());
     } catch (e) {
@@ -248,7 +250,7 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
                   <span
                     className="path-segment"
                     data-path={crumbs.slice(0, i + 1).join('/')}
-                    title="在文件树中显示"
+                    title={t('diff.revealInTreeTip')}
                     onClick={() => handleBreadcrumbDirClick(crumbs.slice(0, i + 1).join('/'))}
                   >
                     {part}
@@ -264,7 +266,7 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               :{startLine}{endLine && endLine !== startLine ? `-${endLine}` : ''}
             </span>
           )}
-          {dirty && <span className="file-preview-dirty" title="有未保存的改动">●</span>}
+          {dirty && <span className="file-preview-dirty" title={t('preview.dirtyUnsaved')}>●</span>}
         </div>
         {/* 动作按钮组(对齐旧版 .file-preview-toolbar-actions,按文件类型分派显隐) */}
         <div className="file-preview-actions">
@@ -274,8 +276,8 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               type="button"
               className={`preview-btn${mdMode === 'preview' ? ' active' : ''}`}
               onClick={toggleMdMode}
-              title={mdMode === 'preview' ? '编辑模式' : '预览模式'}
-              aria-label={mdMode === 'preview' ? '编辑模式' : '预览模式'}
+              title={mdMode === 'preview' ? t('preview.editMode') : t('preview.previewMode')}
+              aria-label={mdMode === 'preview' ? t('preview.editMode') : t('preview.previewMode')}
             >
               {mdMode === 'preview' ? (
                 <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinejoin="round" aria-hidden>
@@ -297,8 +299,8 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               type="button"
               className="preview-btn"
               onClick={() => setSearchOpen('find')}
-              title="搜索 (Ctrl+F)"
-              aria-label="搜索"
+              title={t('preview.search')}
+              aria-label={t('preview.searchAria')}
             >
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="7" cy="7" r="3" />
@@ -312,8 +314,8 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               type="button"
               className={`preview-btn${wrapEnabled ? ' active' : ''}`}
               onClick={toggleWrap}
-              title="自动换行"
-              aria-label="自动换行"
+              title={t('preview.wrap')}
+              aria-label={t('preview.wrap')}
             >
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <line x1="2" y1="4" x2="14" y2="4" />
@@ -323,8 +325,8 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
             </button>
           )}
           {saveError && (
-            <span className="file-preview-save-error" title="保存失败:当前环境不支持写入">
-              保存失败(仅桌面端可写)
+            <span className="file-preview-save-error" title={t('preview.saveFailedTitle')}>
+              {t('preview.saveFailedDetail')}
             </span>
           )}
           {/* HTML 预览页面:在外部浏览器打开(对齐旧版 previewHtmlToggleBtn,仅 html) */}
@@ -333,8 +335,8 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               type="button"
               className="preview-btn"
               onClick={openExternal}
-              title="预览页面"
-              aria-label="预览页面"
+              title={t('preview.htmlToggle')}
+              aria-label={t('preview.htmlToggle')}
             >
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3" />
@@ -349,8 +351,8 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               type="button"
               className="preview-btn"
               onClick={openExternal}
-              title="在外部程序中打开"
-              aria-label="在外部程序中打开"
+              title={t('preview.openExternal')}
+              aria-label={t('preview.openExternal')}
             >
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M10 2h4v4" />
@@ -365,8 +367,8 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               type="button"
               className="preview-btn"
               onClick={reload}
-              title="重新加载"
-              aria-label="重新加载"
+              title={t('preview.refresh')}
+              aria-label={t('preview.refresh')}
             >
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2" />
@@ -380,8 +382,8 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
             type="button"
             className="panel-toggle-btn"
             onClick={collapsePreview}
-            title="收起预览"
-            aria-label="收起预览"
+            title={t('preview.collapse')}
+            aria-label={t('preview.collapse')}
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <polyline points="12 4 4 8 12 12" />
@@ -412,28 +414,28 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               <line x1="9" y1="15" x2="15" y2="15" />
             </svg>
             <p><strong>{basename(filePath)}</strong></p>
-            <p>{getExt(filePath).toUpperCase()} 文件无法在编辑器中预览,请在本地打开</p>
+            <p>{t('preview.opaque', { ext: getExt(filePath).toUpperCase() })}</p>
             <button
               type="button"
               className="file-preview-download"
               onClick={() => void desktopBridge.showItemInFolder(filePath)}
             >
-              在文件管理器中查看
+              {t('preview.showInFolder')}
             </button>
           </div>
         )}
         {kind === 'unknown' && (
           <div className="file-preview-unsupported">
-            <p>未知文件类型</p>
+            <p>{t('ooxml.unknownType')}</p>
           </div>
         )}
         {kind === 'markdown' && (
           <>
-            {loading && <div className="file-preview-loading">加载中…</div>}
+            {loading && <div className="file-preview-loading">{t('preview.loading')}</div>}
             {error && (
               <div className="file-preview-error">
                 <p>{error}</p>
-                <button type="button" onClick={() => void loadText(filePath)}>重试</button>
+                <button type="button" onClick={() => void loadText(filePath)}>{t('chatui.retry')}</button>
               </div>
             )}
             {/* 渲染预览(默认;content 优先用编辑草稿,保证未保存修改切回预览仍可见) */}
@@ -469,11 +471,11 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
         )}
         {kind === 'text' && (
           <>
-            {loading && <div className="file-preview-loading">加载中…</div>}
+            {loading && <div className="file-preview-loading">{t('preview.loading')}</div>}
             {error && (
               <div className="file-preview-error">
                 <p>{error}</p>
-                <button type="button" onClick={() => void loadText(filePath)}>重试</button>
+                <button type="button" onClick={() => void loadText(filePath)}>{t('chatui.retry')}</button>
               </div>
             )}
             {textContent != null && (

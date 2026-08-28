@@ -12,6 +12,7 @@
  * 刷新时机:挂载 + 会话切换 + 15s 轮询 + rollback:completed 事件(对齐旧版 file:changes-updated)
  */
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useI18n } from '@/i18n';
 import { fileApi } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { emit, on } from '@/utils/eventBus';
@@ -81,6 +82,7 @@ const REFRESH_INTERVAL_MS = 15000;
 const MAX_VISIBLE = 10;
 
 function FileChangesMonitorComponent() {
+  const { t } = useI18n();
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const workspacePath = useAppStore((s) => s.workspacePath);
 
@@ -235,7 +237,7 @@ function FileChangesMonitorComponent() {
     <span
       ref={rootRef}
       className="chat-panel-status-item chat-panel-files-monitor"
-      title="文件变更"
+      title={t('fileChanges.title')}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
       onClick={() => setPinned((v) => !v)}
@@ -265,7 +267,7 @@ function FileChangesMonitorComponent() {
           {/* 会话级汇总条(对齐旧版 #filesPopoverSummary) */}
           {summary && summary.fileCount > 0 && (
             <div className="fcs-summary">
-              <span className="fcs-count">{summary.fileCount} 个文件</span>
+              <span className="fcs-count">{t('fileChanges.summaryFiles', { count: summary.fileCount })}</span>
               <span className="fcs-stats">
                 <span className="fcs-add">+{summary.insertions}</span>
                 <span className="fcs-del">-{summary.deletions}</span>
@@ -275,7 +277,7 @@ function FileChangesMonitorComponent() {
 
           <div className="chat-panel-files-body">
             {groups.length === 0 ? (
-              <div className="chat-panel-files-empty">暂无文件变更</div>
+              <div className="chat-panel-files-empty">{t('fileChanges.empty')}</div>
             ) : (
               <>
                 {groups.slice(0, MAX_VISIBLE).map((g) => {
@@ -301,7 +303,7 @@ function FileChangesMonitorComponent() {
                         {dirPart && <span className="chat-panel-files-path">{dirPart}</span>}
                       </span>
                       {g.count > 1 && (
-                        <span className="chat-panel-files-count" title={`修改 ${g.count} 次`}>
+                        <span className="chat-panel-files-count" title={t('fileChanges.modified', { count: g.count })}>
                           ×{g.count}
                         </span>
                       )}
@@ -315,7 +317,7 @@ function FileChangesMonitorComponent() {
                 })}
                 {groups.length > MAX_VISIBLE && (
                   <div className="chat-panel-files-overflow">
-                    还有 {groups.length - MAX_VISIBLE} 个文件
+                    {t('fileChanges.overflow', { overflow: groups.length - MAX_VISIBLE })}
                   </div>
                 )}
               </>

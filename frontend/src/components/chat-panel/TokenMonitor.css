@@ -59,7 +59,7 @@
   padding: 2px 4px;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  cursor: help;
+  cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast);
   /* 窄宽度下可收缩省略(悬浮面板走 portal,不受 overflow 影响) */
   min-width: 0;

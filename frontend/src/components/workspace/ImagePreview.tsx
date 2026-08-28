@@ -8,6 +8,7 @@
  *  - 视口尺寸变化时重新适配
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { translate as i18nTranslate } from '@/i18n';
 import './ImagePreview.css';
 
 interface ImagePreviewProps {
@@ -183,13 +184,13 @@ export function ImagePreview({ src, fileName }: ImagePreviewProps) {
   return (
     <div className="image-preview file-binary-preview image">
       <div className="img-zoom-toolbar">
-        <button type="button" className="img-zoom-btn" onClick={() => onToolbar('zoom-out')} title="缩小">
+        <button type="button" className="img-zoom-btn" onClick={() => onToolbar('zoom-out')} title={i18nTranslate('preview.zoomOut')}>
           −
         </button>
-        <button type="button" className="img-zoom-btn" onClick={() => onToolbar('zoom-in')} title="放大">
+        <button type="button" className="img-zoom-btn" onClick={() => onToolbar('zoom-in')} title={i18nTranslate('preview.zoomIn')}>
           +
         </button>
-        <button type="button" className="img-zoom-btn img-zoom-reset" onClick={() => onToolbar('reset')} title="重置缩放">
+        <button type="button" className="img-zoom-btn img-zoom-reset" onClick={() => onToolbar('reset')} title={i18nTranslate('preview.zoomResetScale')}>
           ⟲
         </button>
       </div>
@@ -205,7 +206,7 @@ export function ImagePreview({ src, fileName }: ImagePreviewProps) {
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <p>图片加载失败</p>
+            <p>{i18nTranslate('preview.imageLoadFailed')}</p>
           </div>
         ) : (
           <img

@@ -128,6 +128,7 @@ interface GitStatus {
 }
 
 export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refreshToken }: FileTreeProps) {
+  const { t } = useI18n();
   const [rootEntries, setRootEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -351,9 +352,9 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
           const isFile = action === 'new-file';
           const baseDir = isDir ? targetPath : parentOf(targetPath);
           setInputDialog({
-            title: isFile ? '新建文件' : '新建文件夹',
-            label: isFile ? '文件名称' : '文件夹名称',
-            hint: isFile ? '将创建在: ' + baseDir : '将创建在: ' + baseDir,
+            title: isFile ? translate('fileTree.newFile') : translate('fileTree.newFolder'),
+            label: isFile ? translate('fileTree.fileName') : translate('fileTree.folderName'),
+            hint: translate('fileTree.existsHint', { dir: baseDir }),
             placeholder: isFile ? 'index.js' : 'my-folder',
             onSubmit: async (name) => {
               const newPath = joinPath(baseDir, name);
@@ -361,10 +362,16 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
                 ? await desktopBridge.createFile(newPath)
                 : await desktopBridge.createDir(newPath);
               if (ok) {
-                showToast(`${isFile ? '文件' : '文件夹'}已创建: ${name}`, { type: 'success' });
+                showToast(
+                  translate('fileTree.created', {
+                    kind: isFile ? translate('fileTree.file') : translate('fileTree.folder'),
+                    name,
+                  }),
+                  { type: 'success' },
+                );
                 setTreeVersion((v) => v + 1);
               } else {
-                showToast('创建失败(可能已存在或无权限)', { type: 'error' });
+                showToast(translate('fileTree.createFailed'), { type: 'error' });
               }
             },
           });
@@ -373,8 +380,8 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
         case 'rename': {
           const oldName = basename(targetPath);
           setInputDialog({
-            title: '重命名',
-            label: '新名称',
+            title: translate('fileTree.renameTitle'),
+            label: translate('fileTree.newName'),
             value: oldName,
             onSubmit: async (newName) => {
               if (newName === oldName) return;
@@ -382,10 +389,10 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
               const newPath = joinPath(parentPath, newName);
               const ok = await desktopBridge.rename(targetPath, newPath);
               if (ok) {
-                showToast('已重命名为: ' + newName, { type: 'success' });
+                showToast(translate('fileTree.renamed', { name: newName }), { type: 'success' });
                 setTreeVersion((v) => v + 1);
               } else {
-                showToast('重命名失败(可能已存在或无权限)', { type: 'error' });
+                showToast(translate('fileTree.renameFailed'), { type: 'error' });
               }
             },
           });
@@ -393,17 +400,21 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
         }
         case 'delete': {
           setConfirmDialog({
-            title: '删除' + (isDir ? '文件夹' : '文件'),
-            message: `确认删除 <strong>${basename(targetPath)}</strong> 吗?`,
-            note: '此操作不可撤销,将永久删除。',
+            title:
+              translate('fileTree.deleteBtn') +
+              (isDir ? translate('fileTree.folder') : translate('fileTree.file')),
+            message: translate('fileTree.deleteConfirm', { name: basename(targetPath) }),
+            note: translate('fileTree.deleteFallbackNote'),
             onSubmit: async (confirmed) => {
               if (!confirmed) return;
               const ok = await desktopBridge.deleteFile(targetPath);
               if (ok) {
-                showToast('已删除: ' + basename(targetPath), { type: 'success' });
+                showToast(translate('fileTree.deleted', { name: basename(targetPath) }), {
+                  type: 'success',
+                });
                 setTreeVersion((v) => v + 1);
               } else {
-                showToast('删除失败', { type: 'error' });
+                showToast(translate('fileTree.deleteFailed'), { type: 'error' });
               }
             },
           });
@@ -466,18 +477,18 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
   // ── 渲染分支 ──────────────────────────────────────────────
   let body: ReactNode;
   if (!rootPath) {
-    body = <div className="file-tree-empty"><span>未设置工作区</span></div>;
+    body = <div className="file-tree-empty"><span>{t('fileTree.unsetWorkspace')}</span></div>;
   } else if (loading) {
-    body = <div className="file-tree-loading"><span>加载中…</span></div>;
+    body = <div className="file-tree-loading"><span>{t('fileTree.loading')}</span></div>;
   } else if (error) {
     body = (
       <div className="file-tree-error">
         <p>{error}</p>
-        <button type="button" onClick={handleRefresh}>重试</button>
+        <button type="button" onClick={handleRefresh}>{t('chatui.retry')}</button>
       </div>
     );
   } else if (!rootEntries || rootEntries.length === 0) {
-    body = <div className="file-tree-empty"><span>空目录</span></div>;
+    body = <div className="file-tree-empty"><span>{t('fileTree.emptyDir')}</span></div>;
   } else {
     body = (
       <ul className="file-tree-list" role="tree">
@@ -524,8 +535,8 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
             type="button"
             className="file-tree-refresh-btn"
             onClick={handleCollapseAll}
-            title="折叠全部"
-            aria-label="折叠全部"
+            title={t('fileTree.collapseAll')}
+            aria-label={t('fileTree.collapseAll')}
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3.5 5.5L8 1l4.5 4.5" />
@@ -536,8 +547,8 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
             type="button"
             className="file-tree-refresh-btn"
             onClick={handleRefresh}
-            title="刷新"
-            aria-label="刷新"
+            title={t('fileTree.refresh')}
+            aria-label={t('fileTree.refresh')}
           >
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 8a5 5 0 1 1-1.5-3.5" />
@@ -573,10 +584,13 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
       {pendingMove &&
         createPortal(
           <ConfirmDialog
-            title="移动"
-            message={`确认将 <strong>${escapeHtml(pendingMove.fileName)}</strong> 移动到 <strong>${escapeHtml(basename(parentOf(pendingMove.destPath)))}</strong> 吗?`}
-            note="移动后立即刷新文件树,此操作可撤销。"
-            confirmLabel="移动"
+            title={t('fileTree.moveTitle')}
+            message={t('fileTree.moveConfirm', {
+              name: escapeHtml(pendingMove.fileName),
+              dir: escapeHtml(basename(parentOf(pendingMove.destPath))),
+            })}
+            note={t('fileTree.moveNote')}
+            confirmLabel={t('fileTree.moveAction')}
             onSubmit={handleConfirmMove}
             onClose={() => setPendingMove(null)}
           />,
@@ -631,6 +645,7 @@ function FileTreeNode({
   onMoveTo,
   onContextMenu,
 }: FileTreeNodeProps) {
+  const { t } = useI18n();
   const fullPath = joinPath(rootPath, entry.name);
   const isDir = entry.isDirectory;
 
@@ -784,7 +799,7 @@ function FileTreeNode({
       {isDir && expanded && (
         <ul className="file-tree-list" role="group">
           {childrenLoading && children === null ? (
-            <li className="file-tree-node-loading">加载中…</li>
+            <li className="file-tree-node-loading">{t('fileTree.loading')}</li>
           ) : children && children.length > 0 ? (
             children.map((child) => (
               <FileTreeNode
@@ -820,9 +835,9 @@ function FileTreeNode({
 // 右键菜单 / 弹窗(FileTree 内部 UI,不导出)
 // ============================================================================
 
-interface CtxMenuItem {
+interface CtxItem {
   action?: string;
-  label?: string;
+  labelKey?: string;
   separator?: boolean;
 }
 
@@ -835,19 +850,20 @@ function ContextMenu({
   y: number;
   onAction: (action: string) => void;
 }) {
-  const items: CtxMenuItem[] = [
-    { action: 'new-file', label: '新建文件' },
-    { action: 'new-folder', label: '新建文件夹' },
+  const { t } = useI18n();
+  const items: CtxItem[] = [
+    { action: 'new-file', labelKey: 'fileTree.newFile' },
+    { action: 'new-folder', labelKey: 'fileTree.newFolder' },
     { separator: true },
-    { action: 'copy-absolute', label: '复制绝对路径' },
-    { action: 'copy-relative', label: '复制相对路径' },
+    { action: 'copy-absolute', labelKey: 'fileTree.copyAbsolutePath' },
+    { action: 'copy-relative', labelKey: 'fileTree.copyRelativePath' },
     { separator: true },
-    { action: 'rename', label: '重命名' },
-    { action: 'delete', label: '删除' },
+    { action: 'rename', labelKey: 'fileTree.renameTitle' },
+    { action: 'delete', labelKey: 'fileTree.deleteBtn' },
   ];
   if (desktopBridge.isDesktop) {
-    items.push({ separator: true }, { action: 'show-in-explorer', label: '在资源管理器中显示' });
-    items.push({ action: 'open-in-terminal', label: '在终端中打开' });
+    items.push({ separator: true }, { action: 'show-in-explorer', labelKey: 'fileTree.showInExplorer' });
+    items.push({ action: 'open-in-terminal', labelKey: 'fileTree.openInTerminal' });
   }
 
   return (
@@ -861,7 +877,7 @@ function ContextMenu({
             className="file-tree-context-item"
             onClick={() => item.action && onAction(item.action)}
           >
-            <span className="file-tree-context-label">{item.label}</span>
+            <span className="file-tree-context-label">{item.labelKey ? t(item.labelKey) : ''}</span>
           </div>
         ),
       )}
@@ -887,6 +903,7 @@ function InputDialog({
   onSubmit,
   onClose,
 }: InputDialogState & { onClose: () => void }) {
+  const { t } = useI18n();
   const [text, setText] = useState(value ?? '');
   const [error, setError] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -947,10 +964,10 @@ function InputDialog({
         </div>
         <div className="file-tree-modal-footer">
           <button type="button" className="file-tree-modal-btn" onClick={onClose}>
-            取消
+            {t('fileTree.cancelBtn')}
           </button>
           <button type="button" className="file-tree-modal-btn file-tree-modal-btn-primary" onClick={confirm}>
-            确定
+            {t('fileTree.confirmBtn')}
           </button>
         </div>
       </div>
@@ -971,10 +988,12 @@ function ConfirmDialog({
   title,
   message,
   note,
-  confirmLabel = '删除',
+  confirmLabel,
   onSubmit,
   onClose,
 }: ConfirmDialogState & { onClose: () => void }) {
+  const { t } = useI18n();
+  const resolveLabel = confirmLabel ?? t('fileTree.deleteBtn');
   const confirm = () => {
     onClose();
     void onSubmit(true);
@@ -1011,10 +1030,10 @@ function ConfirmDialog({
         </div>
         <div className="file-tree-modal-footer">
           <button type="button" className="file-tree-modal-btn" onClick={cancel}>
-            取消
+            {t('fileTree.cancelBtn')}
           </button>
           <button type="button" className="file-tree-modal-btn file-tree-modal-btn-danger" onClick={confirm}>
-            {confirmLabel}
+            {resolveLabel}
           </button>
         </div>
       </div>
@@ -1099,8 +1118,8 @@ async function copyToClipboard(text: string): Promise<void> {
       document.execCommand('copy');
       document.body.removeChild(textarea);
     }
-    showToast('已复制: ' + text, { type: 'success' });
+    showToast(translate('fileTree.copied', { text }), { type: 'success' });
   } catch {
-    showToast('复制失败', { type: 'error' });
+    showToast(translate('fileTree.copyFailed'), { type: 'error' });
   }
 }

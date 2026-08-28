@@ -28,6 +28,7 @@ import { createPortal } from 'react-dom';
 import { sessionApi } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useI18n } from '@/i18n';
 import type { SessionTokenStats } from '@/types';
 import { getTokenColor, mergeStats } from './tokenUtils';
 import type { MergedStats } from './tokenUtils';
@@ -41,6 +42,7 @@ interface TokenMonitorProps {
 }
 
 function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
+  const { t } = useI18n();
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const lastTokenUpdate = useChatStore((s) => s.lastTokenUpdate);
 
@@ -164,7 +166,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
 
     if (loading && !baseStats) {
       return (
-        <span className="token-monitor token-monitor-loading" title="加载中…">
+        <span className="token-monitor token-monitor-loading" title={t('tokenMonitor.loading')}>
           Token …
         </span>
       );
@@ -173,7 +175,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
     if (error && !baseStats) {
       return (
         <span className="token-monitor token-monitor-error" title={error}>
-          Token 不可用
+          {t('tokenMonitor.unavailable')}
         </span>
       );
     }
@@ -184,7 +186,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
         <span
           ref={statusBarRef}
           className="token-monitor token-monitor-statusbar"
-          title="Token 使用率"
+          title={t('tokenMonitor.usage')}
           role="status"
           aria-live="polite"
           onMouseEnter={showTooltip}
@@ -251,7 +253,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
               role="tooltip"
             >
               <div className="sbt-header">
-                <span>Token 使用率</span>
+                <span>{t('tokenMonitor.usage')}</span>
                 <span className="sbt-percent" style={{ color }}>
                   <TokenEmojiIcon percent={stats.usagePercent} />
                   {stats.usagePercent.toFixed(1)}%
@@ -264,7 +266,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
                 />
               </div>
               <div className="sbt-row">
-                <span>当前</span>
+                <span>{t('tokenMonitor.current')}</span>
                 <span>
                   {stats.currentTokens.toLocaleString()} / {stats.maxTokens.toLocaleString()}
                 </span>
@@ -273,7 +275,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
                 <>
                   <div className="sbt-divider" />
                   <div className="sbt-row">
-                    <span>缓存命中</span>
+                    <span>{t('tokenPanel.cacheHit')}</span>
                     <span>
                       {stats.cacheHitTokens.toLocaleString()} (
                       {stats.cacheHitRate.toFixed(1)}%)
@@ -283,7 +285,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
               )}
               <div className="sbt-divider" />
               <div className="sbt-row sbt-total">
-                <span>会话总计</span>
+                <span>{t('tokenMonitor.sessionTotal')}</span>
                 <span>{stats.sessionTotalTokens.toLocaleString()} tokens</span>
               </div>
             </div>,

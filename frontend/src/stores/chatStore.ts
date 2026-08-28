@@ -718,7 +718,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         useAppStore.getState().setSessionDisplayName(sid, translate('session.defaultName'));
       }
       void sessionApi
-        .generateTitle(sid, message || (images && images.length > 0 ? '[图片]' : ''))
+        .generateTitle(sid, message || (images && images.length > 0 ? translate('chat.imageTitle') : ''))
         .then((res) => {
           const title = res?.title;
           if (title) useAppStore.getState().updateSession(sid, { title });

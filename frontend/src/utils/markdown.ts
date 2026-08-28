@@ -276,7 +276,7 @@ function renderMath(html: string): string {
     },
   );
 
-  const copyBtn = `<button type="button" class="message-action-btn katex-copy-btn" title="复制 LaTeX" aria-label="复制 LaTeX">${KATEX_COPY_SVG}</button>`;
+  const copyBtn = `<button type="button" class="message-action-btn katex-copy-btn" title="${translate('chatui.copyLatex')}" aria-label="${translate('chatui.copyLatex')}">${KATEX_COPY_SVG}</button>`;
 
   // 行间公式 $$...$$(可跨行)
   html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_, expr) => {

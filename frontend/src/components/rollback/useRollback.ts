@@ -20,6 +20,7 @@ import { useCallback, useState } from 'react';
 import { api } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
+import { translate } from '@/i18n';
 import { emit } from '@/utils/eventBus';
 import { showToast } from '@/utils/toastStore';
 import type { RollbackPreviewFile } from '@/types';
@@ -53,7 +54,7 @@ export function useRollback(targetId: string) {
       setStatus('preview');
     } catch (e) {
       setStatus('idle');
-      showToast(`回滚检查失败:${errMsg(e)}`, { type: 'error', duration: 3000 });
+      showToast(translate('rollback.failed') + errMsg(e), { type: 'error', duration: 3000 });
     }
   }, [currentSessionId, status, targetId]);
 
@@ -80,7 +81,7 @@ export function useRollback(targetId: string) {
 
         if (!res.success) {
           setStatus('idle');
-          showToast(`回滚失败:${res.message || '未知错误'}`, { type: 'error', duration: 3000 });
+          showToast(translate('rollback.failed') + (res.message || translate('chatui.unknownError')), { type: 'error', duration: 3000 });
           return;
         }
 
@@ -97,7 +98,7 @@ export function useRollback(targetId: string) {
           // 仅回滚文件:保留会话,无需重载消息
           setStatus('idle');
           setPreviewFiles([]);
-          showToast('文件已回滚', { type: 'success', duration: 4000 });
+          showToast(translate('rollback.fileRolledBack'), { type: 'success', duration: 4000 });
           return;
         }
 
@@ -110,7 +111,7 @@ export function useRollback(targetId: string) {
             /* 删除失败不阻塞 UI */
           });
           removeSession(sid);
-          showToast('会话已清空', { type: 'info', duration: 4000 });
+          showToast(translate('rollback.sessionCleared'), { type: 'info', duration: 4000 });
         } else {
           // 绑定写回「发起回滚的会话」分区:即使期间切到其他会话,也不污染新会话视图
           setSessionMessages(sid, messages);
@@ -121,7 +122,7 @@ export function useRollback(targetId: string) {
               emit('rollback:restoreInput', res.lastUserMessage);
             }
           }
-          showToast('已回滚到指定轮次', { type: 'success', duration: 4000 });
+          showToast(translate('rollback.rolledBack'), { type: 'success', duration: 4000 });
         }
 
         setStatus('idle');
@@ -129,7 +130,7 @@ export function useRollback(targetId: string) {
       } catch (e) {
         // 失败保留面板,允许重试
         setStatus('preview');
-        showToast(`回滚失败:${errMsg(e)}`, { type: 'error', duration: 3000 });
+        showToast(translate('rollback.failed') + errMsg(e), { type: 'error', duration: 3000 });
       }
     },
     [currentSessionId, status, targetId, setSessionMessages, removeSession, previewFiles],

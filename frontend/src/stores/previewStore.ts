@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import type { FileTab } from '@/types';
 import { clearScrollPosition } from '@/utils/scroll-positions';
+import { translate } from '@/i18n';
 
 /** 预览面板收起状态持久化 key(与旧版 workspace-manager.js 同 key,新旧版共享) */
 const PREVIEW_COLLAPSED_KEY = 'hippo-preview-collapsed';
@@ -92,7 +93,7 @@ function guessWebName(url: string): string {
   } catch {
     /* 非完整 URL,回退 */
   }
-  return '浏览器';
+  return translate('browser.defaultName');
 }
 
 export const usePreviewStore = create<PreviewState>((set) => ({

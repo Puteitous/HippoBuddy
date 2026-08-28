@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { skillsApi } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { emit as emitEvent } from '@/utils/eventBus';
+import { useI18n } from '@/i18n';
 import type { SkillEntry } from '@/types/config';
 import {
   SKILL_SOURCES,
@@ -39,7 +40,23 @@ interface SkillMarketProps {
   onClose: () => void;
 }
 
+/** 来源标签(中文) → i18n key */
+const TAG_KEY: Record<string, string> = {
+  官方: 'skillMarket.tag.official',
+  社区: 'skillMarket.tag.community',
+  大厂: 'skillMarket.tag.vendor',
+  精选: 'skillMarket.tag.featured',
+};
+
+/** 技能名(kebab-case) → i18n key 后缀(camelCase) */
+const skillKey = (name: string): string =>
+  name
+    .split('-')
+    .map((p, i) => (i === 0 ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join('');
+
 export function SkillMarket({ onClose }: SkillMarketProps) {
+  const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>(DEFAULT_CATEGORY_LABEL);
   const [activeSource, setActiveSource] = useState<SkillSource | null>(null);
@@ -144,7 +161,7 @@ export function SkillMarket({ onClose }: SkillMarketProps) {
   /** 安装技能 */
   const handleInstall = useCallback(
     async (skill: FeaturedSkill) => {
-      if (!window.confirm(`确认安装技能「${skill.name}」?\n来源:${skill.source}`)) return;
+      if (!window.confirm(t('skillMarket.confirmInstall', { name: skill.name, source: skill.source }))) return;
       setInstalling((prev) => new Set(prev).add(skill.name));
       try {
         const resp = await fetch(skill.skillUrl);
@@ -157,16 +174,19 @@ export function SkillMarket({ onClose }: SkillMarketProps) {
           content,
         });
         if (result.success) {
-          showToast(`技能已安装:${skill.name}`, { type: 'success', duration: 2000 });
+          showToast(t('skillMarket.installSuccess', { name: skill.name }), { type: 'success', duration: 2000 });
           await reloadInstalled();
           // 通知 SkillsSettingsPage / ContextSelector 等刷新
           emitEvent('skills:changed', { name: skill.name, action: 'install' });
         } else {
-          showToast('安装失败:' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+          showToast(t('skillMarket.installFailed') + (result.message || t('settingsPage.skillsUnknownError')), {
+            type: 'error',
+            duration: 3000,
+          });
         }
       } catch (e) {
         console.warn('[SkillMarket] 安装失败:', e);
-        showToast('网络错误,无法获取技能内容', { type: 'error', duration: 3000 });
+        showToast(t('skillMarket.installNetworkError'), { type: 'error', duration: 3000 });
       } finally {
         setInstalling((prev) => {
           const next = new Set(prev);
@@ -175,47 +195,53 @@ export function SkillMarket({ onClose }: SkillMarketProps) {
         });
       }
     },
-    [reloadInstalled],
+    [reloadInstalled, t],
   );
 
   /** 卸载技能(来自已安装列表) */
   const handleUninstall = useCallback(
     async (skill: InstalledSkill) => {
       const name = skill.name || skill.fileName.replace(/\.md$/, '');
-      if (!window.confirm(`确认卸载技能「${name}」?`)) return;
+      if (!window.confirm(t('skillMarket.uninstallConfirm', { name }))) return;
       try {
         const result = await skillsApi.delete(skill.filePath);
         if (result.success) {
-          showToast(`技能已卸载:${name}`, { type: 'success', duration: 2000 });
+          showToast(t('skillMarket.uninstallSuccess', { name }), { type: 'success', duration: 2000 });
           await reloadInstalled();
           emitEvent('skills:changed', { name, action: 'uninstall' });
         } else {
-          showToast('卸载失败:' + (result.message || '未知错误'), { type: 'error', duration: 3000 });
+          showToast(t('skillMarket.uninstallFailed') + (result.message || t('settingsPage.skillsUnknownError')), {
+            type: 'error',
+            duration: 3000,
+          });
         }
       } catch (e) {
         console.warn('[SkillMarket] 卸载失败:', e);
-        showToast('卸载失败,请稍后重试', { type: 'error', duration: 3000 });
+        showToast(t('skillMarket.uninstallRetry'), { type: 'error', duration: 3000 });
       }
     },
-    [reloadInstalled],
+    [reloadInstalled, t],
   );
 
   /** 预览技能 */
-  const handlePreview = useCallback(async (skill: FeaturedSkill | { name: string; skillUrl: string }) => {
-    setPreviewing(skill);
-    setPreviewContent(null);
-    setPreviewError(null);
-    setPreviewLoading(true);
-    try {
-      const resp = await fetch(skill.skillUrl);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      setPreviewContent(await resp.text());
-    } catch (e) {
-      setPreviewError('加载失败,请检查网络或 skillUrl 是否可达');
-    } finally {
-      setPreviewLoading(false);
-    }
-  }, []);
+  const handlePreview = useCallback(
+    async (skill: FeaturedSkill | { name: string; skillUrl: string }) => {
+      setPreviewing(skill);
+      setPreviewContent(null);
+      setPreviewError(null);
+      setPreviewLoading(true);
+      try {
+        const resp = await fetch(skill.skillUrl);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        setPreviewContent(await resp.text());
+      } catch (e) {
+        setPreviewError(t('skillMarket.loadFailed'));
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [t],
+  );
 
   /** 点击分类:退出已安装模式 + 切换分类 */
   const handleCategoryClick = (label: string) => {
@@ -239,17 +265,17 @@ export function SkillMarket({ onClose }: SkillMarketProps) {
   };
 
   return (
-    <div className="skill-market-container" role="dialog" aria-label="技能市场">
+    <div className="skill-market-container" role="dialog" aria-label={t('skillMarket.title')}>
       {/* Header */}
       <header className="skill-market-header">
         <div>
-          <h2 className="skill-market-title">技能市场</h2>
-          <span className="skill-market-subtitle">浏览社区精选技能,一键安装到本地用户目录</span>
+          <h2 className="skill-market-title">{t('skillMarket.title')}</h2>
+          <span className="skill-market-subtitle">{t('skillMarket.subtitle')}</span>
         </div>
         <button
           type="button"
           className="skill-market-close"
-          title="关闭(Esc)"
+          title={t('skillMarket.closeEsc')}
           onClick={onClose}
         >
           ✕
@@ -337,6 +363,7 @@ interface SearchBarProps {
 }
 
 function SearchBar({ value, onChange }: SearchBarProps) {
+  const { t } = useI18n();
   return (
     <div className="skill-market-search">
       <svg
@@ -356,7 +383,7 @@ function SearchBar({ value, onChange }: SearchBarProps) {
       <input
         className="skill-market-search-input"
         type="text"
-        placeholder="搜索技能名称或描述"
+        placeholder={t('skillMarket.searchPlaceholder')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -364,7 +391,7 @@ function SearchBar({ value, onChange }: SearchBarProps) {
         <button
           type="button"
           className="skill-market-search-clear"
-          title="清除"
+          title={t('skillMarket.clearSearch')}
           onClick={() => onChange('')}
         >
           ✕
@@ -391,6 +418,7 @@ function CategoryTabs({
   onCategoryClick,
   onInstalledClick,
 }: CategoryTabsProps) {
+  const { t } = useI18n();
   return (
     <div className="skill-market-cats">
       <button
@@ -398,7 +426,7 @@ function CategoryTabs({
         className={`skill-market-cat-btn skill-market-installed-btn${showInstalled ? ' active' : ''}`}
         onClick={onInstalledClick}
       >
-        已安装
+        {t('skillMarket.installed')}
       </button>
       <span className="skill-market-cats-divider" />
       {SKILL_CATEGORIES.map((cat) => {
@@ -410,7 +438,7 @@ function CategoryTabs({
             className={`skill-market-cat-btn skill-market-cat-filter${active ? ' active' : ''}`}
             onClick={() => onCategoryClick(cat.label)}
           >
-            {cat.label}
+            {t(`skillMarket.${cat.key}`)}
           </button>
         );
       })}
@@ -427,28 +455,29 @@ interface SourcesSectionProps {
 }
 
 function SourcesSection({ sources }: SourcesSectionProps) {
+  const { t } = useI18n();
   return (
     <section className="skill-market-section">
-      <h3 className="skill-market-section-title">推荐来源</h3>
+      <h3 className="skill-market-section-title">{t('skillMarket.sources')}</h3>
       <div className="skill-market-sources">
         {sources.map((src) => (
           <div key={src.id} className="skill-market-source-card">
             <div className="skill-market-source-info">
               <div className="skill-market-source-name">
                 {src.name}
-                <span className={`skill-market-source-tag tag-${src.tag}`}>{src.tag}</span>
+                <span className={`skill-market-source-tag tag-${src.tag}`}>{t(TAG_KEY[src.tag] || 'skillMarket.tag.featured')}</span>
               </div>
               <a
                 className="skill-market-source-github"
                 href={src.url}
                 target="_blank"
                 rel="noreferrer"
-                title="在 GitHub 查看"
+                title={t('skillMarket.viewOnGithub')}
               >
                 ↗
               </a>
             </div>
-            <div className="skill-market-source-desc">{src.desc}</div>
+            <div className="skill-market-source-desc">{t(`skillMarket.source.${src.id}`)}</div>
             {src.stars !== '—' && (
               <div className="skill-market-source-stars">★ {src.stars}</div>
             )}
@@ -482,6 +511,7 @@ function SourceDetail({
   onInstall,
   onPreview,
 }: SourceDetailProps) {
+  const { t } = useI18n();
   return (
     <div className="skill-market-source-detail">
       <div className="skill-market-source-back">
@@ -490,12 +520,12 @@ function SourceDetail({
           className="skill-market-btn skill-market-btn-ghost"
           onClick={onBack}
         >
-          ← 返回列表
+          {t('skillMarket.backToList')}
         </button>
         <span className="skill-market-source-detail-title">{source.name}</span>
       </div>
       {skills.length === 0 ? (
-        <div className="skill-market-empty">该仓库下暂无匹配技能</div>
+        <div className="skill-market-empty">{t('skillMarket.noMatchSource')}</div>
       ) : (
         <SkillGrid
           skills={skills}
@@ -528,11 +558,12 @@ function FeaturedSection({
   onInstall,
   onPreview,
 }: FeaturedSectionProps) {
+  const { t } = useI18n();
   return (
     <section className="skill-market-section">
-      <h3 className="skill-market-section-title">精选技能</h3>
+      <h3 className="skill-market-section-title">{t('skillMarket.featured')}</h3>
       {skills.length === 0 ? (
-        <div className="skill-market-empty">无匹配的技能</div>
+        <div className="skill-market-empty">{t('skillMarket.noMatch')}</div>
       ) : (
         <SkillGrid
           skills={skills}
@@ -565,6 +596,7 @@ function SkillGrid({
   onInstall,
   onPreview,
 }: SkillGridProps) {
+  const { t } = useI18n();
   return (
     <div className="skill-market-grid">
       {skills.map((skill) => {
@@ -580,12 +612,12 @@ function SkillGrid({
             <div className="skill-market-skill-row">
               <div className="skill-market-skill-text">
                 <div className="skill-market-skill-name">{skill.name}</div>
-                <div className="skill-market-skill-desc">{skill.desc}</div>
+                <div className="skill-market-skill-desc">{t(`skillMarket.skill.${skillKey(skill.name)}`)}</div>
               </div>
               <button
                 type="button"
                 className={`skill-market-plus-btn${installed ? ' installed' : ''}`}
-                title={installed ? '已安装' : '安装'}
+                title={installed ? t('skillMarket.installed') : t('skillMarket.install')}
                 disabled={installingThis || installed}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -630,11 +662,12 @@ function InstalledSkillsList({
   onUninstall,
   onPreview,
 }: InstalledSkillsListProps) {
+  const { t } = useI18n();
   if (skills.length === 0) {
     return (
       <div className="skill-market-empty">
-        暂无已安装技能
-        <span className="skill-market-empty-hint">前往精选技能区安装</span>
+        {t('skillMarket.noSkills')}
+        <span className="skill-market-empty-hint">{t('skillMarket.goInstall')}</span>
       </div>
     );
   }
@@ -646,12 +679,19 @@ function InstalledSkillsList({
   return (
     <div className="skill-market-installed">
       <div className="skill-market-installed-summary">
-        共 {skills.length} 个已安装技能
-        {marketInstalled > 0 && `(其中 ${marketInstalled} 个来自市场)`}
+        <span
+          className="skill-market-installed-summary-count"
+          dangerouslySetInnerHTML={{ __html: t('skillMarket.installedCount', { count: skills.length }) }}
+        />
+        {marketInstalled > 0 && (
+          <span
+            dangerouslySetInnerHTML={{ __html: t('skillMarket.fromMarket', { count: marketInstalled }) }}
+          />
+        )}
       </div>
       {projectSkills.length > 0 && (
         <InstalledGroup
-          label="项目技能"
+          label={t('skillMarket.projectSkills')}
           skills={projectSkills}
           onUninstall={onUninstall}
           onPreview={onPreview}
@@ -659,7 +699,7 @@ function InstalledSkillsList({
       )}
       {userSkills.length > 0 && (
         <InstalledGroup
-          label="用户技能"
+          label={t('skillMarket.userSkills')}
           skills={userSkills}
           onUninstall={onUninstall}
           onPreview={onPreview}
@@ -677,6 +717,7 @@ interface InstalledGroupProps {
 }
 
 function InstalledGroup({ label, skills, onUninstall, onPreview }: InstalledGroupProps) {
+  const { t } = useI18n();
   return (
     <div className="skill-market-installed-group">
       <div className="skill-market-installed-group-header">
@@ -702,7 +743,7 @@ function InstalledGroup({ label, skills, onUninstall, onPreview }: InstalledGrou
               <button
                 type="button"
                 className="skill-market-btn skill-market-btn-ghost skill-market-btn-uninstall"
-                title="卸载"
+                title={t('skillMarket.uninstall')}
                 onClick={(e) => {
                   e.stopPropagation();
                   onUninstall(skill);
@@ -742,8 +783,9 @@ interface PreviewModalProps {
 }
 
 function PreviewModal({ name, content, loading, error, onClose }: PreviewModalProps) {
+  const { t } = useI18n();
   return (
-    <div className="skill-market-preview-modal" role="dialog" aria-label={`预览:${name}`}>
+    <div className="skill-market-preview-modal" role="dialog" aria-label={t('skillMarket.previewAria', { name })}>
       <div className="skill-market-preview-backdrop" onClick={onClose} />
       <div className="skill-market-preview-panel">
         <div className="skill-market-preview-header">
@@ -751,7 +793,7 @@ function PreviewModal({ name, content, loading, error, onClose }: PreviewModalPr
           <button
             type="button"
             className="skill-market-preview-close"
-            title="关闭"
+            title={t('skillMarket.previewClose')}
             onClick={onClose}
           >
             ✕
@@ -759,7 +801,7 @@ function PreviewModal({ name, content, loading, error, onClose }: PreviewModalPr
         </div>
         <div className="skill-market-preview-body">
           {loading ? (
-            <div className="skill-market-preview-loading">加载中…</div>
+            <div className="skill-market-preview-loading">{t('skillMarket.loading')}</div>
           ) : error ? (
             <div className="skill-market-preview-error">{error}</div>
           ) : (

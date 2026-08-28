@@ -112,7 +112,7 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
         emit('rollback:completed', { paths: [filePath], mode: 'files' });
         await load(filePath, toolCallId);
       } else {
-        showToast(translate('diff.rollbackFailed') + (res.error || '未知错误'), { type: 'error', duration: 3000 });
+        showToast(translate('diff.rollbackFailed') + (res.error || translate('chatui.unknownError')), { type: 'error', duration: 3000 });
       }
     } catch (e) {
       showToast(translate('diff.rollbackFailed') + String(e), { type: 'error', duration: 3000 });
@@ -210,7 +210,7 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
       {error && (
         <div className="file-diff-view-error">
           <p>{error}</p>
-          <button type="button" onClick={() => void load(filePath, toolCallId)}>重试</button>
+          <button type="button" onClick={() => void load(filePath, toolCallId)}>{translate('chatui.retry')}</button>
         </div>
       )}
 

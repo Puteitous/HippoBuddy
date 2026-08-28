@@ -11,6 +11,8 @@
  * 由浏览器在运行时发起请求。
  */
 
+import { translate } from '@/i18n';
+
 const VENDOR_BASE = '/js/vendor/ooxml';
 
 // ────────────────────────── minimal 类型 ──────────────────────────
@@ -89,7 +91,7 @@ function getPptxModule(): Promise<PptxModule> {
   if (!_pptxModule) {
     _pptxModule = import(/* @vite-ignore */ `${VENDOR_BASE}/pptx.mjs`).catch((err: Error) => {
       _pptxModule = null; // 清除缓存,允许重试
-      throw new Error(`加载 Silurus PPTX 模块失败: ${err.message}`);
+      throw new Error(translate('ooxml.loadModuleFailed', { module: 'PPTX', detail: err.message }));
     });
   }
   return _pptxModule;
@@ -99,7 +101,7 @@ function getDocxModule(): Promise<DocxModule> {
   if (!_docxModule) {
     _docxModule = import(/* @vite-ignore */ `${VENDOR_BASE}/docx.mjs`).catch((err: Error) => {
       _docxModule = null;
-      throw new Error(`加载 Silurus DOCX 模块失败: ${err.message}`);
+      throw new Error(translate('ooxml.loadModuleFailed', { module: 'DOCX', detail: err.message }));
     });
   }
   return _docxModule;
@@ -109,7 +111,7 @@ function getXlsxModule(): Promise<XlsxModule> {
   if (!_xlsxModule) {
     _xlsxModule = import(/* @vite-ignore */ `${VENDOR_BASE}/xlsx.mjs`).catch((err: Error) => {
       _xlsxModule = null;
-      throw new Error(`加载 Silurus XLSX 模块失败: ${err.message}`);
+      throw new Error(translate('ooxml.loadModuleFailed', { module: 'XLSX', detail: err.message }));
     });
   }
   return _xlsxModule;

@@ -12,6 +12,8 @@
  *    (绕过被 pptx-preview.js 覆盖的 FileReader)
  */
 
+import { translate } from '@/i18n';
+
 /** 文件大小上限:20MB(与旧版一致) */
 export const MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
 
@@ -137,7 +139,7 @@ export async function fileToDataUrl(file: Blob): Promise<string> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('图片加载失败'));
+      reject(new Error(translate('chat.imageLoadFailed')));
     };
     img.src = url;
   });

@@ -9,13 +9,14 @@
  * 流程:① 顶部状态栏 → ② 对话输入区 → ③ 消息区 → ④ 会话列表 → ⑤ 活动栏
  *
  * 与旧版(OnboardingTour.js)差异:
- *   - 欢迎面板简化为纯欢迎 + 开始按钮(新版无 i18n / data-theme 主题切换 /
+ *   - 欢迎面板简化为纯欢迎 + 开始按钮(新版无 data-theme 主题切换 /
  *     双布局概念,语言/主题/排版三组选择移除)
  *   - 步骤目标映射到新版 DOM class(.top-bar / .chat-panel-input-area / ...)
  *   - 样式改用 --hb 变量体系 + prefers-color-scheme
  *   - 调试入口:window.__resetOnboardingTour() 清除完成标记,可重新演示
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '@/i18n';
 import './OnboardingTour.css';
 
 const STORAGE_KEY = 'hippo-onboarding-done';
@@ -56,41 +57,41 @@ interface ArrowStyle extends PointStyle {
 }
 
 /** 新版 DOM 目标(与 AppShell / ChatPanel / Sidebar / ActivityBar 的 class 对齐) */
-function buildSteps(): TourStep[] {
+function buildSteps(t: (key: string) => string): TourStep[] {
   return [
     {
       id: 'topbar',
       target: () => document.querySelector('.top-bar') as HTMLElement | null,
-      title: '顶部状态栏',
-      desc: '在这里切换 Chat / Workspace / Settings 视图,并快速切换模型与思考强度。',
+      title: t('onboarding.tourTopbarTitle'),
+      desc: t('onboarding.tourTopbarDesc'),
       position: 'below',
     },
     {
       id: 'input',
       target: () => document.querySelector('.chat-panel-input-area') as HTMLElement | null,
-      title: '对话输入区',
-      desc: '输入消息开始对话;支持 @引用文件、选择上下文规则/技能、图片上传。',
+      title: t('onboarding.tourInputTitle'),
+      desc: t('onboarding.tourInputDesc'),
       position: 'above',
     },
     {
       id: 'messages',
       target: () => document.querySelector('.chat-panel-messages') as HTMLElement | null,
-      title: '消息区',
-      desc: '流式回复、工具调用卡片、确认弹窗与回滚操作都在这里呈现。',
+      title: t('onboarding.tourMessagesTitle'),
+      desc: t('onboarding.tourMessagesDesc'),
       position: 'right',
     },
     {
       id: 'sidebar',
       target: () => document.querySelector('.sidebar') as HTMLElement | null,
-      title: '会话列表',
-      desc: '管理多个会话,随时切换继续之前的对话。',
+      title: t('onboarding.tourSidebarTitle'),
+      desc: t('onboarding.tourSidebarDesc'),
       position: 'right',
     },
     {
       id: 'activity',
       target: () => document.querySelector('.activity-bar') as HTMLElement | null,
-      title: '活动栏',
-      desc: '快速访问技能市场、实时监控、Token 用量等面板。',
+      title: t('onboarding.tourActivityTitle'),
+      desc: t('onboarding.tourActivityDesc'),
       position: 'right',
     },
   ];
@@ -187,7 +188,8 @@ function calcPositions(
 }
 
 export function OnboardingTour() {
-  const stepsRef = useRef<TourStep[]>(buildSteps());
+  const { t } = useI18n();
+  const steps = useMemo(() => buildSteps(t), [t]);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   const [phase, setPhase] = useState<TourPhase>('idle');
@@ -210,7 +212,6 @@ export function OnboardingTour() {
   /** 定位当前步骤(测量 tooltip 尺寸后计算位置) */
   const reposition = useCallback(() => {
     if (phase !== 'tour') return;
-    const steps = stepsRef.current;
     const step = steps[stepIndex];
     if (!step) {
       finish();
@@ -232,7 +233,7 @@ export function OnboardingTour() {
     setTooltipStyle(pos.tooltip);
     setArrowStyle(pos.arrow);
     setTooltipReady(true);
-  }, [phase, stepIndex, finish]);
+  }, [phase, stepIndex, steps, finish]);
 
   // 步骤变化(进入 tour / 切换步骤)时定位
   useLayoutEffect(() => {
@@ -284,7 +285,6 @@ export function OnboardingTour() {
 
   if (phase === 'idle' || phase === 'done') return null;
 
-  const steps = stepsRef.current;
   const step = phase === 'tour' ? steps[stepIndex] : null;
 
   const startTour = () => {
@@ -300,10 +300,10 @@ export function OnboardingTour() {
       {phase === 'welcome' && (
         <div className="ob-welcome-overlay">
           <div className="ob-welcome-panel">
-            <div className="ob-welcome-title">欢迎使用 HippoBuddy</div>
-            <div className="ob-welcome-sub">让我带你快速了解核心功能区域</div>
+            <div className="ob-welcome-title">{t('onboarding.tourWelcomeTitle')}</div>
+            <div className="ob-welcome-sub">{t('onboarding.tourWelcomeSub')}</div>
             <button type="button" className="ob-welcome-start-btn" onClick={startTour}>
-              开始导览
+              {t('onboarding.tourStart')}
             </button>
           </div>
         </div>
@@ -353,11 +353,11 @@ export function OnboardingTour() {
               </span>
               <div className="ob-btn-group">
                 <button type="button" className="ob-btn ob-btn-skip" onClick={finish}>
-                  跳过
+                  {t('onboarding.tourSkip')}
                 </button>
                 {stepIndex > 0 && (
                   <button type="button" className="ob-btn ob-btn-prev" onClick={goPrev}>
-                    上一步
+                    {t('onboarding.tourPrev')}
                   </button>
                 )}
                 <button
@@ -365,7 +365,7 @@ export function OnboardingTour() {
                   className="ob-btn ob-btn-next"
                   onClick={stepIndex < steps.length - 1 ? goNext : finish}
                 >
-                  {stepIndex < steps.length - 1 ? '下一步' : '完成'}
+                  {stepIndex < steps.length - 1 ? t('onboarding.tourNext') : t('onboarding.tourDone')}
                 </button>
               </div>
             </div>

@@ -16,6 +16,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  /* 对齐工具时间线/消息气泡的 85% 宽度上限,避免摘要条撑满整行 */
+  max-width: 85%;
   padding: 4px 8px;
   cursor: pointer;
   border-radius: var(--radius-sm);

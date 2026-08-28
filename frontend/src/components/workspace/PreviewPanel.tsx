@@ -13,6 +13,7 @@ import { usePreviewStore } from '@/stores/previewStore';
 import { on as onEvent } from '@/utils/eventBus';
 import type { RollbackCompletedPayload } from '@/utils/eventBus';
 import type { FileTab } from '@/types';
+import { translate } from '@/i18n';
 import { FileTabs } from './FileTabs';
 import { FilePreview } from './FilePreview';
 import { FileDiffView } from './FileDiffView';
@@ -252,7 +253,7 @@ export function PreviewPanel() {
           kind={confirm.kind}
           name={confirm.kind === 'close' ? confirm.tab.name : confirm.kind === 'switch' ? confirm.from.name : ''}
           names={confirm.kind === 'batch' ? confirm.names : undefined}
-          action={confirm.kind === 'close' ? '关闭' : confirm.kind === 'switch' ? '切换' : '关闭'}
+          action={confirm.kind === 'close' ? translate('preview.actionClose') : confirm.kind === 'switch' ? translate('preview.actionSwitch') : translate('preview.actionClose')}
           onCancel={() => setConfirm(null)}
           onConfirm={confirmAction}
         />
@@ -289,25 +290,25 @@ function ConfirmDirtyClose({
     <div className="file-tree-modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="file-tree-modal">
         <div className="file-tree-modal-header">
-          <span className="file-tree-modal-title">未保存的更改</span>
+          <span className="file-tree-modal-title">{translate('modal.unsavedTitle')}</span>
         </div>
         <div className="file-tree-modal-body">
           {isBatch ? (
             <>
-              <p className="file-tree-modal-message">有 {count} 个文件包含未保存的改动,{action}将丢弃这些修改。确定{action}吗?</p>
+              <p className="file-tree-modal-message">{translate('preview.unsavedBatch', { count, action })}</p>
               <ul className="file-tree-modal-names">
                 {names?.map((n) => <li key={n}>{n}</li>)}
               </ul>
             </>
           ) : (
             <p className="file-tree-modal-message">
-              <strong>{name}</strong> 有未保存的改动,{action}将丢弃这些修改。确定{action}吗?
+              <strong>{name}</strong>{translate('preview.unsavedSingle', { action })}
             </p>
           )}
         </div>
         <div className="file-tree-modal-footer">
           <button type="button" className="file-tree-modal-btn" onClick={onCancel}>
-            取消
+            {translate('modal.cancel')}
           </button>
           <button type="button" className="file-tree-modal-btn file-tree-modal-btn-danger" onClick={onConfirm}>
             {action}
