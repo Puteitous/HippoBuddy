@@ -12,6 +12,7 @@
  *   i18nStore.getState().setLang('en')         → 非组件环境切语言
  *   translate('chat.placeholder')              → 非响应式场景（utils / 事件回调）
  */
+import { useCallback } from 'react';
 import { create } from 'zustand';
 import { useStore } from 'zustand';
 import { zh, en, type Lang } from './messages';
@@ -78,7 +79,9 @@ export function translate(key: string, params?: Record<string, string | number>)
 /** 绑定到当前语言的 t（订阅 store，语言变化触发重渲染） */
 export function useI18n() {
   const lang = useStore(i18nStore, (s) => s.lang);
-  const t = (key: string, params?: Record<string, string | number>) => {
+  // t 必须记忆化，否则每次渲染都会生成新函数引用，导致依赖它的
+  // useMemo/useCallback/useEffect 每帧重建，可能触发无限更新循环（React #185）
+  const t = useCallback((key: string, params?: Record<string, string | number>) => {
     const dict = lang === 'en' ? en : zh;
     let text = dict[key] ?? zh[key] ?? key;
     if (params) {
@@ -87,7 +90,7 @@ export function useI18n() {
       }
     }
     return text;
-  };
+  }, [lang]);
   return { t, lang };
 }
 

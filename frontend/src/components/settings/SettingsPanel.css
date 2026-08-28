@@ -431,7 +431,9 @@
   /* 固定两栏:左=预览(260px), 右=参数(占剩余). 用 grid 而非 flex-wrap,
      避免右栏内容因中英文宽度差异越过临界点而整列换行到图片下方 */
   display: grid;
-  grid-template-columns: 260px 1fr;
+  /* 右栏用 minmax(0, 1fr):默认 1fr 的隐含最小宽度是 auto,会被右栏内
+     nowrap 的 settings-toggle-group 内容最小宽度撑爆,导致整体溢出容器 */
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: var(--spacer-16, 16px);
   align-items: start;
   margin-top: 10px;
@@ -479,6 +481,15 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+  /* 占满右栏列宽:内部胶囊换行与滑块宽度都基于此解析,避免固定内容溢出 */
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 图片模式右栏空间有限:显示模式胶囊(cover/contain/scale)允许换行,
+   按钮按内容自适应宽度,避免 nowrap 撑破 minmax(0, 1fr) 列导致溢出 */
+.settings-bg-scale .settings-toggle-group {
+  flex-wrap: wrap;
 }
 
 /* 自定义背景编辑区纵向容器:settings-field-body 默认横向 flex + flex-end,
@@ -489,6 +500,9 @@
   align-items: flex-end;
   min-width: 0;
   max-width: 100%;
+  /* 铺满字段可用宽度:body 默认 justify-content: flex-end,若不铺满则整个
+     编辑区(含图片模式两栏)右对齐、左侧留大空位,右栏(1fr)被压缩显得窄 */
+  width: 100%;
 }
 
 /* 背景样式参数(模糊强度 / 面板遮罩浓度) */
@@ -523,10 +537,17 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* 占满可用宽度并限制上限:避免固定宽度(160px)在右栏被
+     minmax(0, 1fr) 压缩时向右溢出 */
+  width: 100%;
+  max-width: 220px;
 }
 
 .settings-bg-slider input[type="range"] {
-  width: 160px;
+  /* 弹性伸缩替代固定 160px,空间不足时收缩而非溢出 */
+  flex: 1;
+  min-width: 0;
+  width: auto;
   accent-color: var(--accent, #787c82);
   cursor: pointer;
 }
