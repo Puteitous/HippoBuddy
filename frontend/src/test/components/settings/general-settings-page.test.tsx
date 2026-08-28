@@ -45,6 +45,7 @@ vi.mock('@/stores/backgroundStore', () => ({
 vi.mock('@/i18n', () => ({
   useI18n: () => ({ t: i18n.t, lang: i18n.lang }),
   i18nStore: { getState: () => ({ setLang: i18n.setLang }) },
+  translate: (s: string) => s,
 }));
 
 /** 渲染出的两个文本输入:0=工作区,1=数据目录 */
@@ -205,7 +206,7 @@ describe('GeneralSettingsPage 默认展示模式 / 权限范围', () => {
     });
     await waitFor(() => expect(configApi.updateFull).toHaveBeenCalled());
     expect(lastUpdate()[0].tools).toMatchObject({ mode: 'relaxed' });
-    expect(toast.showToast).toHaveBeenCalledWith('已切换为全目录访问', {
+    expect(toast.showToast).toHaveBeenCalledWith('settingsPage.generalScopeRelaxedToast', {
       type: 'success',
       duration: 2000,
     });
@@ -217,7 +218,7 @@ describe('GeneralSettingsPage 默认展示模式 / 权限范围', () => {
     await screen.findByText(k('settingsPage.generalTitle'));
     fireEvent.click(screen.getByRole('button', { name: k('settingsPage.generalProcessViewResult') }));
     await waitFor(() => expect(toast.showToast).toHaveBeenCalled());
-    expect(String(toast.showToast.mock.calls[0][0])).toMatch(/^保存默认展示模式失败:Error: boom/);
+    expect(String(toast.showToast.mock.calls[0][0])).toMatch(/^settingsPage.generalProcessViewSaveFailedError: boom/);
   });
 });
 
@@ -230,7 +231,7 @@ describe('GeneralSettingsPage 工作区 / 数据目录', () => {
     fireEvent.blur(ws);
     await waitFor(() => expect(workspaceApi.setDefault).toHaveBeenCalledWith('/new-ws'));
     expect(ws.value).toBe('/ws2');
-    expect(toast.showToast).toHaveBeenCalledWith('默认工作区已保存', { type: 'success', duration: 2000 });
+    expect(toast.showToast).toHaveBeenCalledWith('settingsPage.generalWorkspaceSaved', { type: 'success', duration: 2000 });
   });
 
   it('工作区输入为空时保存静默跳过', async () => {
@@ -260,7 +261,7 @@ describe('GeneralSettingsPage 工作区 / 数据目录', () => {
     fireEvent.blur(dd);
     await waitFor(() => expect(dataDirApi.update).toHaveBeenCalledWith('/new-dd'));
     expect(screen.getByText(k('settingsPage.generalDataDirRestart'))).toBeInTheDocument();
-    expect(toast.showToast).toHaveBeenCalledWith('数据目录已更新,重启后生效', { type: 'success', duration: 2500 });
+    expect(toast.showToast).toHaveBeenCalledWith('settingsPage.generalDataDirUpdated', { type: 'success', duration: 2500 });
   });
 
   it('数据目录确认框被取消 → 不调用 update', async () => {

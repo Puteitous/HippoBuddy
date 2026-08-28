@@ -23,6 +23,17 @@ const { appState, chatState, apiMocks, ApiError, translateMock } = vi.hoisted(()
   const dict: Record<string, string> = {
     'blocker.rm': '危险命令 rm',
     'blocker.write': '写入非工作区文件',
+    'tool.confirm.title': '执行命令',
+    'tool.confirm.highRisk': '高风险',
+    'tool.confirm.mediumRisk': '中风险',
+    'tool.confirm.lowRisk': '低风险',
+    'tool.confirm.deny': '拒绝',
+    'tool.confirm.execute': '执行',
+    'tool.confirm.processing': '处理中…',
+    'tool.delete.keep': '保留',
+    'tool.delete.confirm': '删除',
+    'tool.delete.count': '个文件',
+    'modal.delete': '删除',
   };
   const translate = vi.fn((key: string, params?: Record<string, string | number>) => {
     const base = dict[key];
@@ -54,6 +65,7 @@ vi.mock('@/api/error', () => ({
 }));
 vi.mock('@/i18n', () => ({
   translate: translateMock,
+  useI18n: () => ({ t: translateMock }),
 }));
 vi.mock('@/components/FileIcon', () => ({
   FileIcon: () => <span data-testid="folder-icon" />,

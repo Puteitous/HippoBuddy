@@ -1,4 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/i18n', () => ({
+  translate: (s: string) => s,
+}));
+
 import {
   parseToolArgs,
   statusLabel,
@@ -30,10 +35,10 @@ describe('parseToolArgs', () => {
 });
 
 describe('statusLabel', () => {
-  it('映射常见状态到中文文案', () => {
-    expect(statusLabel('success')).toBe('成功');
-    expect(statusLabel('failed')).toBe('失败');
-    expect(statusLabel('running')).toBe('执行中');
+  it('映射常见状态到 i18n key', () => {
+    expect(statusLabel('success')).toBe('tool.default.success');
+    expect(statusLabel('failed')).toBe('tool.default.failed');
+    expect(statusLabel('running')).toBe('tool.default.running');
   });
 
   it('未知状态原样返回', () => {
@@ -160,7 +165,7 @@ describe('timelineSummary', () => {
   });
 
   it('list_directory 无 path 时用占位', () => {
-    expect(timelineSummary('list_directory', {})).toBe('(项目根目录)');
+    expect(timelineSummary('list_directory', {})).toBe('tool.common.projectRoot');
   });
 
   it('skill 用 name 前缀', () => {

@@ -79,7 +79,7 @@ describe('Sidebar 工具栏与折叠', () => {
   it('渲染折叠/新建按钮、视图胶囊、标题与会话计数', () => {
     useAppStore.setState({ sessions: [session('s1'), session('s2')] });
     render(<Sidebar />);
-    expect(screen.getByRole('button', { name: '折叠会话面板' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '收起会话面板' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '新建会话' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '会话列表' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '文件浏览' })).toBeInTheDocument();
@@ -89,7 +89,7 @@ describe('Sidebar 工具栏与折叠', () => {
 
   it('点击折叠按钮折叠侧栏并持久化', () => {
     render(<Sidebar />);
-    fireEvent.click(screen.getByRole('button', { name: '折叠会话面板' }));
+    fireEvent.click(screen.getByRole('button', { name: '收起会话面板' }));
     expect(useAppStore.getState().sidebarCollapsed).toBe(true);
     expect(localStorage.getItem('hippo-sidebar-collapsed')).toBe('true');
   });
@@ -110,9 +110,9 @@ describe('Sidebar 工具栏与折叠', () => {
 describe('Sidebar 分组模式', () => {
   it('分组按钮默认 Project,点击切换到 Time 并持久化', () => {
     render(<Sidebar />);
-    expect(screen.getByText('Project')).toBeInTheDocument();
+    expect(screen.getByText('项目')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '切换分组方式' }));
-    expect(screen.getByText('Time')).toBeInTheDocument();
+    expect(screen.getByText('时间')).toBeInTheDocument();
     expect(localStorage.getItem('hippo-session-group-mode')).toBe('time');
   });
 
@@ -120,16 +120,16 @@ describe('Sidebar 分组模式', () => {
     render(<Sidebar />);
     fireEvent.click(screen.getByRole('button', { name: '切换分组方式' }));
     fireEvent.click(screen.getByRole('button', { name: '切换分组方式' }));
-    expect(screen.getByText('Project')).toBeInTheDocument();
+    expect(screen.getByText('项目')).toBeInTheDocument();
     expect(localStorage.getItem('hippo-session-group-mode')).toBe('project');
   });
 });
 
 describe('Sidebar 列表四态', () => {
-  it('加载中显示「加载中…」', () => {
+  it('加载中显示「加载中...」', () => {
     useAppStore.setState({ isLoadingSessions: true });
     render(<Sidebar />);
-    expect(screen.getByText('加载中…')).toBeInTheDocument();
+    expect(screen.getByText('加载中...')).toBeInTheDocument();
   });
 
   it('加载失败显示错误文本', () => {
@@ -285,7 +285,7 @@ describe('Sidebar 删除会话', () => {
     useAppStore.setState({ sessions: [session('s1', { title: '甲' })] });
     render(<Sidebar />);
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
-    expect(screen.getByText('确认删除？')).toBeInTheDocument();
+    expect(screen.getByText('确定删除？')).toBeInTheDocument();
     fireEvent.click(screen.getByTitle('确认删除'));
     await waitFor(() => expect(sessionApi.delete).toHaveBeenCalledWith('s1'));
     expect(useAppStore.getState().sessions).toEqual([]);

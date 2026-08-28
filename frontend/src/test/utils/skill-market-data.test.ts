@@ -6,7 +6,7 @@ import {
   DEFAULT_CATEGORY_LABEL,
 } from '@/components/SkillMarketData';
 
-const VALID_TAGS = ['官方', '社区', '大厂', '精选'];
+const VALID_TAGS = ['official', 'community', 'vendor', 'featured'];
 
 describe('SKILL_SOURCES', () => {
   it('非空', () => {

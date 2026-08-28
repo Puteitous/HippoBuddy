@@ -121,7 +121,7 @@ describe('MessageFooter', () => {
     const onFork = vi.fn();
     render(<MessageFooter time="" onCopy={vi.fn()} onRetry={onRetry} onFork={onFork} />);
     fireEvent.click(screen.getByRole('button', { name: '重试' }));
-    fireEvent.click(screen.getByRole('button', { name: '分叉' }));
+    fireEvent.click(screen.getByRole('button', { name: /分叉/ }));
     expect(onRetry).toHaveBeenCalled();
     expect(onFork).toHaveBeenCalled();
   });

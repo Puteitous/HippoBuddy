@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useCompletedTaskNotification } from '@/hooks/useCompletedTaskNotification';
 
+vi.mock('@/i18n', () => ({
+  translate: (s: string) => s,
+}));
+
 const { chatStore, appState, toast } = vi.hoisted(() => ({
   chatStore: { subscribe: vi.fn() },
   appState: { currentSessionId: 'current', sessions: [{ id: 'back1', title: '后台任务' }] },
@@ -54,7 +58,7 @@ describe('useCompletedTaskNotification', () => {
       subHandlers[0](mkState({ back1: 'stop_hook' }), mkState({ back1: undefined }));
     });
     expect(toast.showToast).toHaveBeenCalledWith(
-      '后台会话「后台任务」已完成',
+      'chat.backgroundSessionCompleted',
       { type: 'success', duration: 4000 },
     );
   });
@@ -92,9 +96,9 @@ describe('useCompletedTaskNotification', () => {
     act(() => {
       subHandlers[0](mkState({ 'web-suffix123': 'done' }), mkState({ 'web-suffix123': undefined }));
     });
-    // replace(/^web-/,'') → suffix123,slice(-6) 截取结尾 6 位 → fix123
+    // replace(/^web-/, '') → suffix123,slice(-6) 截取结尾 6 位 → fix123
     expect(toast.showToast).toHaveBeenCalledWith(
-      '后台会话「fix123」已完成',
+      'chat.backgroundSessionCompleted',
       { type: 'success', duration: 4000 },
     );
   });

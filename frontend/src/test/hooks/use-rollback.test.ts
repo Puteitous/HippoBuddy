@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRollback } from '@/components/rollback/useRollback';
 
+vi.mock('@/i18n', () => ({
+  translate: (s: string) => s,
+}));
+
 const { appState, chatFns, apiMock, emitMock, toastMock } = vi.hoisted(() => ({
   appState: {
     currentSessionId: 's1' as string | null,
@@ -70,7 +74,7 @@ describe('useRollback', () => {
       await result.current.handleOpen();
     });
     expect(result.current.status).toBe('idle');
-    expect(toastMock.showToast).toHaveBeenCalledWith('回滚检查失败:check fail', {
+    expect(toastMock.showToast).toHaveBeenCalledWith('rollback.failedcheck fail', {
       type: 'error',
       duration: 3000,
     });
@@ -106,7 +110,7 @@ describe('useRollback', () => {
     });
     expect(apiMock.sessions.rewind).toHaveBeenCalledWith('s1', { messageId: 't1', mode: 'files' });
     expect(emitMock).toHaveBeenCalledWith('rollback:completed', { paths: ['/a.ts', '/b.go'], mode: 'files' });
-    expect(toastMock.showToast).toHaveBeenCalledWith('文件已回滚', { type: 'success', duration: 4000 });
+    expect(toastMock.showToast).toHaveBeenCalledWith('rollback.fileRolledBack', { type: 'success', duration: 4000 });
     expect(result.current.status).toBe('idle');
   });
 
@@ -124,7 +128,7 @@ describe('useRollback', () => {
     expect(chatFns.setSessionMessages).toHaveBeenCalledWith('s1', messages);
     expect(chatFns.setMessages).not.toHaveBeenCalled();
     expect(emitMock).toHaveBeenCalledWith('rollback:restoreInput', '原问题');
-    expect(toastMock.showToast).toHaveBeenCalledWith('已回滚到指定轮次', { type: 'success', duration: 4000 });
+    expect(toastMock.showToast).toHaveBeenCalledWith('rollback.rolledBack', { type: 'success', duration: 4000 });
     expect(result.current.status).toBe('idle');
   });
 
@@ -139,7 +143,7 @@ describe('useRollback', () => {
     });
     expect(apiMock.sessions.delete).toHaveBeenCalledWith('s1');
     expect(appState.removeSession).toHaveBeenCalledWith('s1');
-    expect(toastMock.showToast).toHaveBeenCalledWith('会话已清空', { type: 'info', duration: 4000 });
+    expect(toastMock.showToast).toHaveBeenCalledWith('rollback.sessionCleared', { type: 'info', duration: 4000 });
   });
 
   it('回滚期间切会话:消息写回发起会话，restoreInput 不串入新会话', async () => {
@@ -171,7 +175,7 @@ describe('useRollback', () => {
     // 输入框回填仅作用于当前视图：此时在 s2，不应 emit restoreInput
     expect(emitMock).not.toHaveBeenCalledWith('rollback:restoreInput', '原问题');
     // toast 仍正常提示成功
-    expect(toastMock.showToast).toHaveBeenCalledWith('已回滚到指定轮次', {
+    expect(toastMock.showToast).toHaveBeenCalledWith('rollback.rolledBack', {
       type: 'success',
       duration: 4000,
     });
@@ -186,7 +190,7 @@ describe('useRollback', () => {
     await act(async () => {
       await result.current.handleConfirm('files');
     });
-    expect(toastMock.showToast).toHaveBeenCalledWith('回滚失败:没有可回滚内容', {
+    expect(toastMock.showToast).toHaveBeenCalledWith('rollback.failed没有可回滚内容', {
       type: 'error',
       duration: 3000,
     });
@@ -203,7 +207,7 @@ describe('useRollback', () => {
       await result.current.handleConfirm('files');
     });
     expect(result.current.status).toBe('preview');
-    expect(toastMock.showToast).toHaveBeenCalledWith('回滚失败:rewind boom', { type: 'error', duration: 3000 });
+    expect(toastMock.showToast).toHaveBeenCalledWith('rollback.failedrewind boom', { type: 'error', duration: 3000 });
   });
 
   it('status 不为 preview 时 handleConfirm 不动作', async () => {
