@@ -56,7 +56,9 @@ try {
 Write-Host "[2/5] Building JAR..." -ForegroundColor Yellow
 Push-Location $ProjectRoot
 try {
-    mvn package -DskipTests -q
+    # 必须带 clean:前端产物(static-v2)文件名每次构建都带新 hash,
+    # 不带 clean 会让旧文件残留在 target/classes,几百轮构建后 JAR 膨胀到数百 MB。
+    mvn clean package -DskipTests -q
     if ($LASTEXITCODE -ne 0) { throw "Maven build failed" }
 } finally {
     Pop-Location
@@ -81,6 +83,11 @@ for ($retry = 1; $retry -le 5 -and -not $JarFile; $retry++) {
 if (-not $JarFile) { throw "No JAR found in target/ - run 'mvn package' first" }
 Copy-Item $JarFile.FullName "$ScriptDir\resources\hippo-agent.jar" -Force
 Write-Host "      Using JAR: $($JarFile.Name)" -ForegroundColor Gray
+
+# 清理 resources 下的 JAR 残留备份(extraResources filter 为 "**/*",历史 .bak 会被打进安装包)
+Get-ChildItem "$ScriptDir\resources" -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like '*.bak*' } |
+    Remove-Item -Force
 
 # ---- 3. jlink: trim minimal JRE ----
 if (-not $SkipJre) {

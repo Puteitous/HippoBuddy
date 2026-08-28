@@ -43,6 +43,7 @@ export default defineConfig({
     // Java 侧新增 /app context 映射该目录, 与旧 cockpit(/static)并存。
     outDir: '../src/main/resources/static-v2',
     emptyOutDir: true,
-    sourcemap: true,
+    // 生产不输出 sourcemap:map 文件 7~9MB/份且极易跨构建累积, 显著压大安装包
+    sourcemap: false,
   },
 });

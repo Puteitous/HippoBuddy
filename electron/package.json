@@ -43,6 +43,7 @@
         "filter": ["**/*"]
       }
     ],
+    "electronLanguages": ["zh-CN", "en-US"],
     "publish": {
       "provider": "github",
       "owner": "Puteitous",
