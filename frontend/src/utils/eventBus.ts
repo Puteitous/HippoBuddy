@@ -43,6 +43,12 @@ export type EventBusEvent =
    * ModelSelectorPanel 切换成功后广播,ImageUpload 等依赖当前模型能力的组件订阅后即时刷新。
    */
   | 'llm:changed'
+  // ── 文件树定位:面包屑目录段点击 ────────────────────
+  /**
+   * 预览面包屑点击目录段时发出,携带目标目录的绝对路径。
+   * Sidebar 订阅后切换到文件视图并让 FileTree 展开/高亮该目录(对齐旧版 revealDirectory)。
+   */
+  | 'workspace:reveal-dir'
   // ── 会话切换:历史消息加载完成 ──────────────────────
   /**
    * useSessionMessages 在切换会话、历史消息加载完成后发出,携带当前会话 id。

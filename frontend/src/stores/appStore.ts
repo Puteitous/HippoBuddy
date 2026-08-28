@@ -330,10 +330,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => {
       const sessions = state.sessions.filter((s) => s.id !== sessionId);
       persistSessionsCache(sessions);
+      const removingCurrent = state.currentSessionId === sessionId;
+      // 删除当前会话后回到 hero(currentSessionId=null):必须同步清除持久化的
+      // 当前会话 id,否则刷新页面 readCurrentSession 会读到已删除会话,AppShell 兜底
+      // 会把它当成失效会话并自动选中其它历史会话,导致回到 hero 的状态无法跨刷新保持。
+      if (removingCurrent) {
+        persistCurrentSession(null);
+      }
       return {
         sessions,
-        currentSessionId:
-          state.currentSessionId === sessionId ? null : state.currentSessionId,
+        currentSessionId: removingCurrent ? null : state.currentSessionId,
       };
     });
   },

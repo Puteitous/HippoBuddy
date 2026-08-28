@@ -8,7 +8,7 @@ const { sessionApi, workspaceApi, toast, chatStore, previewStore } = vi.hoisted(
   sessionApi: { rename: vi.fn(), delete: vi.fn(), pin: vi.fn() },
   workspaceApi: { getCurrent: vi.fn(), setCurrent: vi.fn() },
   toast: { showToast: vi.fn() },
-  chatStore: { sessionStreams: {} as Record<string, { isSending?: boolean; stream: unknown[]; toolCalls: unknown[] }> },
+  chatStore: { sessionStreams: {} as Record<string, { isSending?: boolean; completedUnread?: boolean; stream: unknown[]; toolCalls: unknown[] }>, dismissSessionCompleted: vi.fn() },
   previewStore: { openFile: vi.fn(), activePath: null as string | null },
 }));
 
@@ -190,6 +190,44 @@ describe('Sidebar 会话项与切换', () => {
     chatStore.sessionStreams = { s1: { isSending: true, stream: [], toolCalls: [] } };
     const { container } = render(<Sidebar />);
     expect(container.querySelector('[aria-label="streaming"]')).not.toBeNull();
+  });
+
+  it('存在待确认工具调用时显示 awaiting-confirm 而非 streaming spinner', () => {
+    useAppStore.setState({ sessions: [session('s1', { title: '甲' })] });
+    chatStore.sessionStreams = {
+      s1: {
+        isSending: true,
+        stream: [],
+        toolCalls: [{ id: 't1', name: 'bash', status: 'running', confirmationData: { confirmId: 'c1' } }],
+      },
+    };
+    const { container } = render(<Sidebar />);
+    expect(container.querySelector('[aria-label="awaiting-confirm"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="streaming"]')).toBeNull();
+  });
+
+  it('后台任务完成后显示小圆点,点击调用 dismissSessionCompleted 清除', () => {
+    useAppStore.setState({ sessions: [session('s1', { title: '甲' })] });
+    chatStore.sessionStreams = {
+      s1: { isSending: false, stream: [], toolCalls: [], completedUnread: true },
+    };
+    const { container } = render(<Sidebar />);
+    const dot = container.querySelector('[aria-label="completed"]');
+    expect(dot).not.toBeNull();
+    fireEvent.click(dot as HTMLElement);
+    expect(chatStore.dismissSessionCompleted).toHaveBeenCalledWith('s1');
+  });
+
+  it('当前正在查看的会话不显示「已完成」小圆点', () => {
+    useAppStore.setState({
+      sessions: [session('s1', { title: '甲' })],
+      currentSessionId: 's1',
+    });
+    chatStore.sessionStreams = {
+      s1: { isSending: false, stream: [], toolCalls: [], completedUnread: true },
+    };
+    const { container } = render(<Sidebar />);
+    expect(container.querySelector('[aria-label="completed"]')).toBeNull();
   });
 });
 

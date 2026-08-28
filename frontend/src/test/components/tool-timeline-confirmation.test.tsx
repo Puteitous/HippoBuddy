@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ToolTimelineConfirmation } from '@/components/tool-renderers/ToolTimelineConfirmation';
 import type { BashToolConfirmationPayload, DeleteFileToolConfirmationPayload } from '@/types/sse';
 
@@ -9,7 +9,8 @@ const { appState, chatState, apiMocks, ApiError, translateMock } = vi.hoisted(()
   const chat = {
     resolveToolConfirmation: vi.fn(),
     setIsSending: vi.fn(),
-    handleSseEvent: vi.fn(),
+    setSessionIsSending: vi.fn(),
+    routeSseEvent: vi.fn(),
   };
   const api = { confirmTool: vi.fn() };
   class ApiError extends Error {
@@ -161,13 +162,14 @@ describe('ToolTimelineConfirmation - 交互', () => {
     render(<ToolTimelineConfirmation confirmationData={bashPayload} />);
     fireEvent.click(screen.getByRole('button', { name: '执行' }));
     expect(chatState.resolveToolConfirmation).toHaveBeenCalledWith('cb1');
-    expect(chatState.setIsSending).toHaveBeenCalledWith(true);
+    expect(chatState.setSessionIsSending).toHaveBeenCalledWith('s1', true);
     expect(apiMocks.confirmTool).toHaveBeenCalledWith(
       { sessionId: 's1', confirmId: 'cb1', decision: 'allow' },
       expect.any(Function),
     );
     await screen.findByRole('button', { name: '执行' }); // 等待异步完成恢复文案
-    expect(chatState.setIsSending).toHaveBeenCalledWith(false);
+    expect(chatState.setSessionIsSending).toHaveBeenCalledWith('s1', false);
+    expect(chatState.setIsSending).not.toHaveBeenCalled();
   });
 
   it('点击 拒绝 → confirmTool deny', async () => {
@@ -195,6 +197,53 @@ describe('ToolTimelineConfirmation - 交互', () => {
     render(<ToolTimelineConfirmation confirmationData={bashPayload} />);
     fireEvent.click(screen.getByRole('button', { name: '执行' }));
     expect(apiMocks.confirmTool).not.toHaveBeenCalled();
+  });
+
+  it('确认流事件定向路由到发起确认的会话，而非切换后的新会话', async () => {
+    // render 时当前会话为 s1，确认请求绑定到 s1
+    render(<ToolTimelineConfirmation confirmationData={bashPayload} />);
+    // 捕获 confirmTool 收到的 SSE 回调
+    let sseCb: (event: unknown) => void | undefined;
+    apiMocks.confirmTool.mockImplementation(
+      (_req: unknown, cb: (event: unknown) => void) => {
+        sseCb = cb;
+        return Promise.resolve(undefined);
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: '执行' }));
+    // 确认流进行中，用户切换到新建会话 s2（hero/空会话场景）
+    appState.currentSessionId = 's2';
+    // 事件到达：必须写回 s1，而非当前选中的 s2
+    act(() => {
+      sseCb!({ event: 'content', data: { content: '旧对话的后续输出' } });
+    });
+    expect(chatState.routeSseEvent).toHaveBeenCalledWith('s1', {
+      event: 'content',
+      data: { content: '旧对话的后续输出' },
+    });
+  });
+
+  it('确认流 isSending 记账绑定发起会话：切换后不会误改新会话', async () => {
+    let resolveCb: (() => void) | undefined;
+    apiMocks.confirmTool.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCb = resolve;
+        }),
+    );
+    render(<ToolTimelineConfirmation confirmationData={bashPayload} />);
+    fireEvent.click(screen.getByRole('button', { name: '执行' }));
+    // 开始时正确置发起会话 s1 为 isSending=true
+    expect(chatState.setSessionIsSending).toHaveBeenCalledWith('s1', true);
+    // 确认流进行中，用户切换到新会话 s2（再切回 s1）——闭包仍是发起会话 s1
+    appState.currentSessionId = 's2';
+    appState.currentSessionId = 's1';
+    resolveCb!();
+    await act(async () => {});
+    // finally 恢复时也绑定 s1，绝不影响 s2
+    const s2Calls = chatState.setSessionIsSending.mock.calls.filter(([sid]) => sid === 's2');
+    expect(s2Calls).toHaveLength(0);
+    expect(chatState.setSessionIsSending).toHaveBeenLastCalledWith('s1', false);
   });
 
   it('提交期间按钮禁用并显示处理中', () => {

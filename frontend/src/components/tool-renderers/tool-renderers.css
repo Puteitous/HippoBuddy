@@ -101,7 +101,7 @@
   align-items: center;
   gap: 4px;
   color: #2563eb;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   word-break: break-all;
 }
@@ -130,7 +130,7 @@
 }
 
 .bash-command {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   background: var(--bg-code);
   color: var(--text-primary);
@@ -164,7 +164,7 @@
   margin: 0;
   padding: 8px 10px;
   color: #d1d5db;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -193,7 +193,7 @@
   margin: 0;
   padding: 8px 10px;
   color: #9ca3af;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -205,7 +205,7 @@
   background: #111827;
   border-radius: 4px;
   overflow-x: auto;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   max-height: 360px;
   overflow-y: auto;
@@ -252,7 +252,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
 }
 
@@ -530,7 +530,7 @@
   background: #111827;
   color: #d1d5db;
   border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;

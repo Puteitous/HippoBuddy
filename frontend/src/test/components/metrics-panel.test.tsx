@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { MetricsPanel } from '@/components/MetricsPanel';
+import { MetricsPanel, __resetMetricsPersistence } from '@/components/MetricsPanel';
 import type { LlmMetrics, MetricsResponse, ToolUsageDetail } from '@/types';
 
 const { metricsApiProps } = vi.hoisted(() => ({
@@ -31,6 +31,7 @@ function mkTools(total: number, failed: number, details: ToolUsageDetail[]): Non
 const noMetrics: MetricsResponse = {};
 
 beforeEach(() => {
+  __resetMetricsPersistence();
   metricsApiProps.get.mockResolvedValue({ llm: mkLlm(10, 10, 100, 150) });
 });
 

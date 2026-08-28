@@ -38,7 +38,7 @@
 .ref-chip-lines {
   font-size: 11px;
   color: #6b7280;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   flex-shrink: 0;
 }
 

@@ -205,6 +205,18 @@ export function Sidebar() {
     return unsubscribe;
   }, []);
 
+  // 预览面包屑点击目录段 → 切换到文件视图并让文件树展开/高亮该目录(对齐旧版 switchView('files') + revealDirectory)
+  const [revealDir, setRevealDir] = useState<string | null>(null);
+  useEffect(() => {
+    const unsubscribe = on<string>('workspace:reveal-dir', (dir) => {
+      if (!dir) return;
+      setRevealDir(dir);
+      if (sidebarView !== 'files') switchSidebarView('files');
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidebarView]);
+
   const switchSidebarView = (v: SidebarView) => {
     setSidebarViewState(v);
     try {
@@ -540,6 +552,7 @@ export function Sidebar() {
               rootPath={workspacePath}
               onFileSelect={previewOpenFile}
               activePath={previewActivePath}
+              revealDir={revealDir}
               refreshToken={fileTreeToken}
             />
           )}
@@ -725,6 +738,19 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
       (s.sessionStreams[session.id]?.toolCalls.length ?? 0) > 0),
   );
 
+  // 等待确认:该会话存在挂起待决策的工具确认卡(toolCalls 中带 confirmationData)——
+  // 此时 SSE 已暂停、需要用户回到该会话批准/拒绝,用独立图标与"流式中"的转圈区分。
+  const awaitingConfirm = useChatStore(
+    (s) => (s.sessionStreams[session.id]?.toolCalls ?? []).some((tc) => !!tc.confirmationData),
+  );
+
+  // 后台任务已完成、待用户查看:done 事件在非当前会话上置位,会话项亮小圆点提示,
+  // 点击小圆点或切回该会话后由 dismissSessionCompleted 清除。
+  const completedUnread = useChatStore(
+    (s) => s.sessionStreams[session.id]?.completedUnread === true,
+  );
+  const dismissSessionCompleted = useChatStore((s) => s.dismissSessionCompleted);
+
   const title = sessionDisplayName(session, sessionDisplayNames);
   const time = formatTime(session.lastActivityAt ?? session.createdAt);
 
@@ -814,12 +840,41 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
       onClick={(e) => {
         // 操作按钮 / 输入框 / 确认条内点击不触发会话切换(对齐旧版 closest('.session-actions') 判断)
         if ((e.target as HTMLElement).closest('.session-actions, .session-rename-input, .session-confirm-delete')) return;
+        // 切回该会话即视为已查看,清掉"后台已完成"提醒
+        dismissSessionCompleted(session.id);
         onSelect();
       }}
       title={renaming ? undefined : title}
     >
       <div className="session-item-title">
-        {streaming && <span className="session-streaming-spinner" aria-label="streaming" />}
+        {awaitingConfirm ? (
+          <svg
+            className="session-awaiting-confirm"
+            viewBox="0 0 16 16"
+            width="13"
+            height="13"
+            aria-label="awaiting-confirm"
+          >
+            <title>等待确认</title>
+            <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M6.3 6.1a1.8 1.8 0 1 1 3.1 1.3c-.7.7-1.4 1-1.4 2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            <circle cx="8" cy="11.6" r="0.9" fill="currentColor" />
+          </svg>
+        ) : (
+          streaming && <span className="session-streaming-spinner" aria-label="streaming" />
+        )}
+        {/* 后台任务已完成的小圆点提醒:优先级低于等待确认/流式中,点击仅清除提醒(不切换会话) */}
+        {!awaitingConfirm && !streaming && completedUnread && !active && (
+          <span
+            className="session-completed-dot"
+            aria-label="completed"
+            title="任务已完成,点击关闭提醒"
+            onClick={(e) => {
+              e.stopPropagation();
+              dismissSessionCompleted(session.id);
+            }}
+          />
+        )}
         {renaming ? (
           <input
             ref={renameInputRef}

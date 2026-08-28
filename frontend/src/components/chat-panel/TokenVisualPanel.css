@@ -6,7 +6,8 @@
 }
 
 [data-theme='dark'] .token-visual,
-[data-theme='midnight'] .token-visual {
+[data-theme='midnight'] .token-visual,
+[data-theme='glass'] .token-visual {
   --sbt-emoji-stroke: #fff; /* 表情轮廓色:暗色主题白 */
 }
 

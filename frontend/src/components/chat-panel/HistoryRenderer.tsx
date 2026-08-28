@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCall, ToolCallRecord } from '@/types';
 import { useSessionStream } from '@/hooks/useSessionStream';
 import { useChatStore } from '@/stores/chatStore';
+import { getDefaultProcessCollapsed } from '@/utils/process-view-config';
 import { MessageBubble, MessageFooter } from './MessageBubble';
 import { ProcessSection } from './ProcessSection';
 import { RollbackButton, RollbackPanel } from '../rollback/RollbackButton';
@@ -114,9 +115,9 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
     toolCalls,
     askUserData,
     waitingForUser,
-    processCollapsed,
+    collapsedRounds,
   } = useSessionStream();
-  const toggleProcessCollapsed = useChatStore((s) => s.toggleProcessCollapsed);
+  const toggleRoundCollapsed = useChatStore((s) => s.toggleRoundCollapsed);
   // 是否有工具正在等待确认(带 confirmationData)。确认阶段后端会发 complete 把
   // isSending 提前置 false(见 WebAgentOrchestrator 确认后 return false → finally 发
   // complete),但对话并未结束;若不额外兜底,旧回合 footer 会在确认期间浮现。
@@ -328,15 +329,17 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
       //    收起态隐藏思维链 + 工具卡,回合最终正文(content 气泡)不受影响。
       const anchor =
         round[0].kind === 'timeline' ? round[0].items[0].id : round[0].msg.id;
+      // 回合级稳定 key:与流式 tail(ChatPanel)一致,作为收起状态的独立维度
+      const roundKey = roundUserId ?? anchor;
       const wrapRound = processRows.length > 0 && (hasThinking || toolCount > 0);
       if (wrapRound) {
         // key 用回合级 user 消息 id,与流式 tail ChatPanel 的 key 一致,
         // 同一回合内多次 thinking 不改变 key,避免 DOM 卸载重挂导致摘要条闪现。
         rows.push(
           <ProcessSection
-            key={`process-${roundUserId ?? anchor}`}
-            collapsed={processCollapsed}
-            onToggle={toggleProcessCollapsed}
+            key={`process-${roundKey}`}
+            collapsed={collapsedRounds[roundKey] ?? getDefaultProcessCollapsed()}
+            onToggle={() => toggleRoundCollapsed(roundKey)}
             hasThinking={hasThinking}
             toolCount={toolCount}
             elapsedMs={computeRoundElapsed(round)}

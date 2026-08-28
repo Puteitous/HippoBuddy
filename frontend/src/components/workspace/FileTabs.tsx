@@ -97,6 +97,28 @@ export function FileTabs({
     return () => el.removeEventListener('wheel', onWheel);
   }, [hasTabs]);
 
+  // 点击标签 → 把激活标签滚到标签栏可视区中间(点谁谁居中)。
+  // 注意 distinction:文件树(FileTree)定位用 nearest 避免展开树时莫名滚动;标签栏是主动点击跳转,居中更醒目。
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !activePath) return;
+    requestAnimationFrame(() => {
+      if (!container.isConnected) return;
+      const tabEl = container.querySelector<HTMLElement>('.file-tab.active');
+      if (!tabEl) return;
+      const containerRect = container.getBoundingClientRect();
+      const tabRect = tabEl.getBoundingClientRect();
+      // 目标:激活标签中心对准标签栏可视区中心;并 clamp 到合法滚动范围边界
+      const tabLeftRel = tabRect.left - containerRect.left;
+      const targetLeft = container.scrollLeft + tabLeftRel - (containerRect.width - tabRect.width) / 2;
+      const maxScroll = container.scrollWidth - containerRect.width;
+      const clamped = Math.max(0, Math.min(maxScroll, targetLeft));
+      if (Math.abs(clamped - container.scrollLeft) > 1) {
+        container.scrollTo({ left: clamped, behavior: 'smooth' });
+      }
+    });
+  }, [activePath, tabs]);
+
   const handleContextMenu = useCallback((e: React.MouseEvent, path: string) => {
     e.preventDefault();
     e.stopPropagation();

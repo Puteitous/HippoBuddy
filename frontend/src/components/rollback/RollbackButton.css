@@ -95,7 +95,7 @@
   font-weight: 800;
   width: 16px;
   text-align: center;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
 }
 
 .rollback-inline-file .file-status-letter.action-delete { color: #c62828; }
@@ -109,7 +109,7 @@
 
 .rollback-inline-file .file-name {
   flex: 1;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: #1f2937;
   overflow: hidden;

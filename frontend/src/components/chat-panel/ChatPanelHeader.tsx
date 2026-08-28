@@ -253,6 +253,10 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
       (s.sessionStreams[session.id]?.stream.length ?? 0) > 0 ||
       (s.sessionStreams[session.id]?.toolCalls.length ?? 0) > 0),
   );
+  // 等待确认:存在挂起待决策的工具确认卡,用独立图标与"流式中"的转圈区分(与侧栏会话项一致)
+  const awaitingConfirm = useChatStore(
+    (s) => (s.sessionStreams[session.id]?.toolCalls ?? []).some((tc) => !!tc.confirmationData),
+  );
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -324,7 +328,22 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
       }}
       title={title}
     >
-      {streaming && <span className="chat-history-spinner" aria-label="streaming" />}
+      {awaitingConfirm ? (
+        <svg
+          className="chat-history-awaiting-confirm"
+          viewBox="0 0 16 16"
+          width="13"
+          height="13"
+          aria-label="awaiting-confirm"
+        >
+          <title>等待确认</title>
+          <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M6.3 6.1a1.8 1.8 0 1 1 3.1 1.3c-.7.7-1.4 1-1.4 2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          <circle cx="8" cy="11.6" r="0.9" fill="currentColor" />
+        </svg>
+      ) : (
+        streaming && <span className="chat-history-spinner" aria-label="streaming" />
+      )}
       {renaming ? (
         <input
           ref={renameInputRef}

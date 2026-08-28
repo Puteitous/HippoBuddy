@@ -326,6 +326,28 @@
   to { transform: rotate(360deg); }
 }
 
+/* 等待确认图标:琥珀色问号,与绿色转圈(执行中)形态区分 */
+.session-awaiting-confirm {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+/* 后台任务已完成的小圆点提醒:与执行中绿色转圈同色(转圈=进行中→实心点=已跑完),
+   点击可清除;优先级低于 waiting/streaming 状态图标 */
+.session-completed-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+  transition: transform 0.12s ease;
+}
+.session-completed-dot:hover {
+  transform: scale(1.2);
+}
+
 .session-item-name {
   font-size: var(--font-size-lg);
   font-weight: 400;

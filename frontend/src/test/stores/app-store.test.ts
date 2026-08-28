@@ -49,9 +49,12 @@ describe('appStore', () => {
 
   it('removeSession 清除 currentSessionId(当被删的是当前会话)', () => {
     useAppStore.getState().setCurrentSession('s1');
+    localStorage.setItem('hippo-current-session', 's1');
     useAppStore.getState().removeSession('s1');
     expect(useAppStore.getState().sessions).toEqual([]);
     expect(useAppStore.getState().currentSessionId).toBeNull();
+    // 持久化的当前会话 id 也须清除:刷新后应回到 hero,而非被 AppShell 兜底选中其它会话
+    expect(localStorage.getItem('hippo-current-session')).toBeNull();
   });
 
   it('removeSession 不清理其它会话的 currentSessionId', () => {

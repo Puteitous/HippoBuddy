@@ -163,7 +163,6 @@ body.window-maximized {
   white-space: nowrap;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  font-family: var(--font-mono);
 }
 
 .workspace-indicator .workspace-clear {

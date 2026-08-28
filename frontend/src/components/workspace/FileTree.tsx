@@ -29,6 +29,8 @@ interface FileTreeProps {
   onFileSelect: (filePath: string) => void;
   /** 当前激活的文件路径(高亮) */
   activePath?: string | null;
+  /** 外部请求在文件树中定位的目录路径(面包屑点击触发;变化时展开祖先并高亮/滚动该目录) */
+  revealDir?: string | null;
   /** 外部触发刷新(工作区变更等),自增即重载 */
   refreshToken?: number;
 }
@@ -124,7 +126,7 @@ interface GitStatus {
   files: Record<string, string>;
 }
 
-export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: FileTreeProps) {
+export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refreshToken }: FileTreeProps) {
   const [rootEntries, setRootEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -141,6 +143,8 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
   /** 待确认的移动(拖放落点后弹窗确认,防误触) */
   const [pendingMove, setPendingMove] = useState<PendingMoveState | null>(null);
+  /** 面包屑目录点击要定位到的目录路径(高亮目录节点,可同时保留当前文件高亮) */
+  const [activeDirPath, setActiveDirPath] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   /** 记录上次 rootPath,判断是否发生了路径切换(避免刷新时闪烁) */
@@ -232,6 +236,105 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
     },
     [rootPath],
   );
+
+  // 对齐旧版 revealFile:激活文件标签变化时,递归展开其在文件树中的祖先目录。
+  // 仅当 activePath 是工作区内的文件绝对路径才处理,排除 web(url:)等非文件标签与越界路径。
+  useEffect(() => {
+    if (!rootPath || !activePath) return;
+    const rootBase = rootPath.replace(/\\/g, '/').replace(/\/$/, '');
+    const norm = activePath.replace(/\\/g, '/').replace(/\/$/, '');
+    // 前缀带分隔符判断(大小写不敏感,兼容盘符大小写差异),避免 rootPath="/a" 误匹配 "/ab/..." 这类越界路径
+    if (!isUnderPath(rootBase, norm)) return;
+    const fileDir = parentOf(norm);
+    if (!fileDir || pathKey(fileDir) === pathKey(rootBase)) return;
+    // 逐层展开:相对段从 activePath 掐掉 root 长度得到,再以本组件 rootPath 的大小写拼出规范路径,
+    // 保证 expandedDirs 的 key 与渲染时 FileTreeNode 的 dirPath 完全一致
+    const dirsToAdd: string[] = [];
+    const relParts = fileDir.slice(rootBase.length).split('/').filter(Boolean);
+    let cur = rootBase;
+    for (const part of relParts) {
+      cur += '/' + part;
+      dirsToAdd.push(cur);
+    }
+    setExpandedDirs((prev) => {
+      const next = new Set(prev);
+      const missing = dirsToAdd.filter((d) => !next.has(d));
+      if (missing.length === 0) return prev; // 引用不变,避免驱动无谓重渲染
+      for (const d of missing) next.add(d);
+      persistExpanded(rootPath, next);
+      return next;
+    });
+  }, [rootPath, activePath]);
+
+  // 点击标签联动:把激活文件节点滚到文件树可视区中间(与标签栏居中保持一致);
+  // 目录递归展开是异步懒加载(子项 readDir 后才渲染),故仅在 activePath 变化时启动一次轮询,
+  // 去掉 expandedDirs 依赖,避免树逐层展开时反复触发滚动导致"突然滚动到中间"。
+  useEffect(() => {
+    if (!rootPath || !activePath) return;
+    // 与上方一致的工作区内文件路径判定(大小写不敏感),非文件标签不滚动
+    if (!isUnderPath(rootPath, activePath)) return;
+    let attempt = 0;
+    let timer: number | undefined;
+    const tryScroll = () => {
+      const el = containerRef.current?.querySelector('.file-tree-node.is-file.active');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (attempt < 80) {
+        attempt += 1;
+        timer = window.setTimeout(tryScroll, 60);
+      }
+    };
+    tryScroll();
+    return () => window.clearTimeout(timer);
+  }, [rootPath, activePath]);
+
+  // 对齐旧版 revealDirectory:面包屑点击目录段时,展开该目录及全部父目录,高亮目录节点并滚动定位。
+  useEffect(() => {
+    if (!rootPath || !revealDir) return;
+    const normTarget = revealDir.replace(/\\/g, '/').replace(/\/$/, '');
+    if (!isUnderPath(rootPath, normTarget)) return;
+    // 逐层展开:相对段从目标掐掉 root 长度得到,再以本组件 rootPath 的大小写拼出规范路径,
+    // 保证 expandedDirs 的 key 与渲染时 FileTreeNode 的 dirPath 一致;activeDirPath 同步用该规范形式
+    const rootBase = rootPath.replace(/\\/g, '/').replace(/\/$/, '');
+    const dirsToAdd: string[] = [];
+    const relParts = normTarget.slice(rootBase.length).split('/').filter(Boolean);
+    let cur = rootBase;
+    for (const part of relParts) {
+      cur += '/' + part;
+      dirsToAdd.push(cur);
+    }
+    setActiveDirPath(dirsToAdd[dirsToAdd.length - 1] ?? normTarget);
+    setExpandedDirs((prev) => {
+      const next = new Set(prev);
+      const missing = dirsToAdd.filter((d) => !next.has(d));
+      if (missing.length === 0) return prev;
+      for (const d of missing) next.add(d);
+      persistExpanded(rootPath, next);
+      return next;
+    });
+  }, [rootPath, revealDir]);
+
+  // 滚动定位到高亮目录节点(目录递归展开是异步懒加载,多帧重试直到渲染出来)。
+  useEffect(() => {
+    if (!activeDirPath) return;
+    let attempt = 0;
+    let timer: number | undefined;
+    const tryScroll = () => {
+      const el = containerRef.current?.querySelector('.file-tree-node.is-dir.active');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+      if (attempt < 50) {
+        attempt += 1;
+        timer = window.setTimeout(tryScroll, 60);
+      }
+    };
+    tryScroll();
+    return () => window.clearTimeout(timer);
+  }, [activeDirPath, expandedDirs]);
 
   // ── 右键菜单项处理 ─────────────────────────────────────────
   const handleContextAction = useCallback(
@@ -386,6 +489,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, refreshToken }: F
             expandedDirs={expandedDirs}
             onToggle={toggleDir}
             activePath={activePath}
+            activeDirPath={activeDirPath}
             onFileSelect={onFileSelect}
             gitFiles={gitStatus?.available ? gitStatus.files : undefined}
             treeVersion={treeVersion}
@@ -492,6 +596,8 @@ interface FileTreeNodeProps {
   expandedDirs: Set<string>;
   onToggle: (dirPath: string) => void;
   activePath?: string | null;
+  /** 面包屑点击定位到的目录路径(目录节点据此高亮) */
+  activeDirPath?: string | null;
   onFileSelect: (filePath: string) => void;
   gitFiles?: Record<string, string>;
   treeVersion: number;
@@ -515,6 +621,7 @@ function FileTreeNode({
   expandedDirs,
   onToggle,
   activePath,
+  activeDirPath,
   onFileSelect,
   gitFiles,
   treeVersion,
@@ -567,7 +674,7 @@ function FileTreeNode({
     };
   }, [isDir, expanded, dirPath, treeVersion]);
 
-  const isActive = activePath === dirPath;
+  const isActive = pathKey(activePath ?? '') === pathKey(dirPath) || (isDir && pathKey(activeDirPath ?? '') === pathKey(dirPath));
   const relativePath = rootPath && dirPath.startsWith(rootPath + '/')
     ? dirPath.slice(rootPath.length + 1)
     : dirPath;
@@ -687,6 +794,7 @@ function FileTreeNode({
                 expandedDirs={expandedDirs}
                 onToggle={onToggle}
                 activePath={activePath}
+                activeDirPath={activeDirPath}
                 onFileSelect={onFileSelect}
                 gitFiles={gitFiles}
                 treeVersion={treeVersion}
@@ -961,6 +1069,18 @@ function parentOf(path: string): string {
   const norm = path.replace(/\\/g, '/').replace(/\/$/, '');
   const idx = norm.lastIndexOf('/');
   return idx >= 0 ? norm.slice(0, idx) : norm;
+}
+
+/**
+ * Windows 下有无意义的大小写差异(盘符 E:/ vs e:/ 等),统一折叠用于路径比较/前缀判断,
+ * 避免 FilePreview(desktopBridge.getCurrentPath) 与 FileTree(rootPath) 因盘符大小写不一而误判越界。
+ */
+function pathKey(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase();
+}
+/** 判断 base 是否为主路径的规范化前缀(含目录分隔),用于工作区内路径校验 */
+function isUnderPath(base: string, target: string): boolean {
+  return pathKey(target).startsWith(pathKey(base).replace(/\/$/, '') + '/');
 }
 
 /** 复制文本到剪贴板(带降级) */

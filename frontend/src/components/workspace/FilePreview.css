@@ -43,6 +43,19 @@
   font-family: sans-serif;
 }
 
+/* 可点击目录段:点击在文件树中定位该目录(对齐旧版 .path-segment → revealDirectory) */
+.file-preview-path .path-segment {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 2px;
+  margin: 0 -1px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.file-preview-path .path-segment:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .file-preview-lines {
   color: var(--text-muted);
   font-size: var(--font-size-xs);
@@ -179,6 +192,18 @@
 .file-preview-editor .cm-editor .cm-gutters {
   background-color: var(--bg-chat);
   border-right: none;
+}
+
+/* 玻璃主题下行号条:
+   平时保留半透玻璃质感(同正文观感,无滑入正文时天然不漏码);
+   仅当横向滚动(scrollLeft>0)时切为不透明实底,彻底遮挡滑进行号条下方的代码。
+   不采用 backdrop-filter:本应用玻璃为"全屏 body::before frost 层",sticky 行号条的
+   backdrop 采样端受限,无法糊掉下层滑入代码(见 FilePreviewEditor.tsx 的 is-h-scrolled 切换)。 */
+[data-theme="glass"] .file-preview-editor .cm-editor .cm-gutters {
+  background-color: var(--bg-chat);
+}
+[data-theme="glass"] .file-preview-editor.is-h-scrolled .cm-editor .cm-gutters {
+  background-color: rgb(22, 24, 32);
 }
 
 /* ── 对齐全局滚动条观感 ──

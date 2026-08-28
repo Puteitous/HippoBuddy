@@ -10,7 +10,8 @@
  *
  * 说明:
  *  - 摘要条始终可见(既是摘要也是收起/展开开关),保证任何状态都能一键收起;
- *  - 收起状态与会话级 store(chatStore.processCollapsed)联动,流式→固化保持一致;
+ *  - 收起状态为回合级独有:按「回合 user 消息 id(roundKey)」存储于
+ *    chatStore.sessionStreams[].collapsedRounds,流式→固化保持一致;点哪回合只收哪回合。
  *  - 子节点 key 与两条渲染路径(流式 tail / HistoryRenderer)保持一致,实现 DOM 复用。
  */
 import { memo } from 'react';

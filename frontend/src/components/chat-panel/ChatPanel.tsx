@@ -18,7 +18,7 @@ import { useVisionSupport } from '@/hooks/useVisionSupport';
 import { api, configApi } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { translate } from '@/i18n';
-import { setDefaultProcessView } from '@/utils/process-view-config';
+import { setDefaultProcessView, getDefaultProcessCollapsed } from '@/utils/process-view-config';
 import type { Message, PendingImage, RefChip, ToolCallRecord } from '@/types';
 import { combineChipsToMessage } from '@/utils/ref-chips';
 import { on } from '@/utils/eventBus';
@@ -75,12 +75,12 @@ export function ChatPanel() {
     webSearching,
     todoList,
     isSending,
-    processCollapsed,
+    collapsedRounds,
     processStartedAt,
     processEndedAt,
   } = useSessionStream();
   const clearWarnings = useChatStore((s) => s.clearWarnings);
-  const toggleProcessCollapsed = useChatStore((s) => s.toggleProcessCollapsed);
+  const toggleRoundCollapsed = useChatStore((s) => s.toggleRoundCollapsed);
 
   // 挂载时同步一次默认展示模式(来源于后端 ui.default_process_view),供新建会话初始态使用。
   // 沿 PermissionBadge 模式:组件自读 configApi,避免引入全局 config store。
@@ -238,8 +238,8 @@ export function ChatPanel() {
       return [
         <ProcessSection
           key={`process-${roundKey}`}
-          collapsed={processCollapsed}
-          onToggle={toggleProcessCollapsed}
+          collapsed={collapsedRounds[roundKey] ?? getDefaultProcessCollapsed()}
+          onToggle={() => toggleRoundCollapsed(roundKey)}
           hasThinking={hasThinking}
           toolCount={toolCount}
           elapsedMs={elapsedMs}
@@ -259,10 +259,10 @@ export function ChatPanel() {
     webSearching,
     todoList,
     isSending,
-    processCollapsed,
+    collapsedRounds,
     processStartedAt,
     processEndedAt,
-    toggleProcessCollapsed,
+    toggleRoundCollapsed,
   ]);
 
   // 待确认工具记录:独立于流式 tail 持久渲染(对齐旧版回合级行内确认)。

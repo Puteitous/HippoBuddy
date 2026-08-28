@@ -151,6 +151,13 @@
   background: var(--bg-canvas);
 }
 
+/* 玻璃主题:悬浮改用半透明白 + blur 毛玻璃,透出背景 */
+[data-theme="glass"] .msg-reasoning-header:hover {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
 .msg-reasoning-icon {
   flex-shrink: 0;
   width: 18px;
@@ -917,6 +924,13 @@
 
 .web-search-row.completed .web-search-row-header.toggleable:hover {
   background: var(--bg-canvas);
+}
+
+/* 玻璃主题:悬浮改用半透明白 + blur 毛玻璃,透出背景 */
+[data-theme="glass"] .web-search-row.completed .web-search-row-header.toggleable:hover {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 /* 展开箭头(chevron):可展开时显示,展开后旋转 90° */

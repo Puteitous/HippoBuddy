@@ -86,7 +86,7 @@
   color: var(--hb-text-soft, #6b7280);
   font-size: 10px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   cursor: pointer;
   border-radius: 3px;
   transition: background 0.12s ease, color 0.12s ease;
@@ -105,7 +105,7 @@
 .search-match-count {
   font-size: 11px;
   color: var(--hb-text-soft, #6b7280);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   min-width: 40px;
   text-align: right;
   white-space: nowrap;

@@ -6,7 +6,7 @@
   gap: 6px;
   padding: 2px 8px;
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   border-radius: 4px;
   background: rgba(127, 127, 127, 0.06);
   cursor: help;
@@ -100,7 +100,8 @@
 }
 
 [data-theme='dark'] .status-bar-tooltip,
-[data-theme='midnight'] .status-bar-tooltip {
+[data-theme='midnight'] .status-bar-tooltip,
+[data-theme='glass'] .status-bar-tooltip {
   --sbt-emoji-stroke: #fff; /* 表情轮廓色:暗色主题白 */
   background: var(--bg-app);
   border-color: var(--border);

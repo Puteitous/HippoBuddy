@@ -705,6 +705,12 @@
   animation: hippo-spin 0.8s linear infinite;
 }
 
+/* 等待确认图标:琥珀色问号,与绿色转圈(执行中)形态区分(与侧栏会话项一致) */
+.chat-history-awaiting-confirm {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
 /* ===== 历史项 hover 操作按钮 / 内联重命名 / 删除二次确认(对齐侧栏会话项) ===== */
 .chat-history-actions {
   display: none;

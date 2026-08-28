@@ -34,7 +34,7 @@ function errMsg(e: unknown): string {
 
 export function useRollback(targetId: string) {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
-  const setMessages = useChatStore((s) => s.setMessages);
+  const setSessionMessages = useChatStore((s) => s.setSessionMessages);
   const removeSession = useAppStore((s) => s.removeSession);
 
   const [status, setStatus] = useState<RollbackStatus>('idle');
@@ -68,8 +68,12 @@ export function useRollback(targetId: string) {
     async (mode: 'all' | 'files') => {
       if (status !== 'preview' || !currentSessionId) return;
       setStatus('rolling');
+      // 捕获「发起回滚的会话」:回滚是一把一把的 REST 请求,期间用户可能切换到
+      // 其他会话。后续重载消息必须写回本会话分区,而非「当前选中会话」,
+      // 否则会把 A 的回滚结果串入 B(与确认流事件串会话同源的隐患)。
+      const sid = currentSessionId;
       try {
-        const res = await api.sessions.rewind(currentSessionId, {
+        const res = await api.sessions.rewind(sid, {
           messageId: targetId,
           mode,
         });
@@ -98,19 +102,24 @@ export function useRollback(targetId: string) {
         }
 
         // 全部回滚:重载会话消息
-        const messages = await api.sessions.getMessages(currentSessionId);
+        const messages = await api.sessions.getMessages(sid);
         if (messages.length === 0) {
           // 会话被清空 → 删除会话(removeSession 会把 currentSessionId 置 null)
-          await api.sessions.delete(currentSessionId).catch(() => {
+          // removeSession(sid) 用显式 id,无论当前选中谁都能正确移除目标会话。
+          await api.sessions.delete(sid).catch(() => {
             /* 删除失败不阻塞 UI */
           });
-          removeSession(currentSessionId);
+          removeSession(sid);
           showToast('会话已清空', { type: 'info', duration: 4000 });
         } else {
-          setMessages(messages);
+          // 绑定写回「发起回滚的会话」分区:即使期间切到其他会话,也不污染新会话视图
+          setSessionMessages(sid, messages);
           if (res.lastUserMessage) {
-            // 回填输入框,便于用户基于原提问继续
-            emit('rollback:restoreInput', res.lastUserMessage);
+            // 输入框回填只作用于「当前视图」:仅当仍停留在该会话时才回填,
+            // 切换后不把 A 的追问填入 B 的输入框。
+            if (useAppStore.getState().currentSessionId === sid) {
+              emit('rollback:restoreInput', res.lastUserMessage);
+            }
           }
           showToast('已回滚到指定轮次', { type: 'success', duration: 4000 });
         }
@@ -123,7 +132,7 @@ export function useRollback(targetId: string) {
         showToast(`回滚失败:${errMsg(e)}`, { type: 'error', duration: 3000 });
       }
     },
-    [currentSessionId, status, targetId, setMessages, removeSession, previewFiles],
+    [currentSessionId, status, targetId, setSessionMessages, removeSession, previewFiles],
   );
 
   return {

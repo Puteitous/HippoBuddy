@@ -53,6 +53,20 @@
   background: transparent;
 }
 
+/* 玻璃主题:悬浮改用半透明白 + blur 毛玻璃,透出背景,
+   与玻璃整体质感统一(默认/深色主题保持实底 --bg-canvas) */
+[data-theme="glass"] .tool-timeline-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+[data-theme="glass"] .tool-timeline-item.no-detail .tool-timeline-row:hover {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .tool-timeline-dot {
   flex-shrink: 0;
   width: 18px;

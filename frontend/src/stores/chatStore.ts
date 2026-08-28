@@ -177,14 +177,16 @@ export interface SessionStreamState {
   todoList: FlatTodo[];
   /** 最后一次会话结束原因(done 事件携带的 reason) */
   doneReason: string | null;
+  /** 后台任务已完成、待用户查看的标志(done 事件在非当前会话上触发时置 true,查看/点击后清除) */
+  completedUnread: boolean;
   /** 警告消息列表(warning 事件累积,展示后可清除) */
   warnings: string[];
   /** 错误信息(error 事件或网络错误,无错误时为 null) */
   error: string | null;
   /** 是否正在加载历史消息(GET /api/sessions/:id/messages) */
   isLoadingMessages: boolean;
-  /** 处理过程(思考+工具调用)是否整体收起(统一收起按钮,会话级) */
-  processCollapsed: boolean;
+  /** 各回合处理过程(思考+工具调用)是否收起:roundKey → collapsed(回合级独立收起) */
+  collapsedRounds: Record<string, boolean>;
   /** 当前回合处理过程开始时间(thinking 事件;无思考时取首个 tool_start) */
   processStartedAt?: number;
   /** 当前回合处理过程结束时间(最后一个 tool_result / reasoning_done / done) */
@@ -207,10 +209,11 @@ function emptySessionStream(): SessionStreamState {
     waitingForUser: false,
     todoList: [],
     doneReason: null,
+    completedUnread: false,
     warnings: [],
     error: null,
     isLoadingMessages: false,
-    processCollapsed: getDefaultProcessCollapsed(),
+    collapsedRounds: {},
     processStartedAt: undefined,
     processEndedAt: undefined,
   };
@@ -233,6 +236,8 @@ interface ChatState {
   // ── Actions:消息管理(作用于当前会话分区) ──────────────────
   /** 设置当前会话消息列表 */
   setMessages: (messages: Message[]) => void;
+  /** 设置指定会话消息列表(允许跨会话精确写入;回滚/后台重载时避免切会话后写错分区) */
+  setSessionMessages: (sessionId: string, messages: Message[]) => void;
   /** 追加消息到当前会话 */
   addMessage: (message: Message) => void;
   /** 更新当前会话指定 id 的消息 */
@@ -247,8 +252,10 @@ interface ChatState {
   // ── Actions:发送状态(作用于当前会话分区) ──────────────────
   /** 设置当前会话发送状态(开始/结束 Agent 循环) */
   setIsSending: (isSending: boolean) => void;
-  /** 切换当前会话处理过程(思考+工具)的整体收起状态 */
-  toggleProcessCollapsed: () => void;
+  /** 设置指定会话发送状态(允许跨会话精确控制,避免确认流等在切会话后误改当前会话) */
+  setSessionIsSending: (sessionId: string, isSending: boolean) => void;
+  /** 切换当前会话指定回合处理过程(思考+工具)的收起状态(回合级独立收起) */
+  toggleRoundCollapsed: (roundKey: string) => void;
 
   // ── Actions:会话分区管理 ──────────────────────────────────
   /** 删除指定会话的流式分区(切走无活跃流时清理,释放内存) */
@@ -257,6 +264,8 @@ interface ChatState {
   hasActiveStream: (sessionId: string) => boolean;
   /** 读取指定会话的流式分区(不存在返回 undefined) */
   getSessionStreamState: (sessionId: string) => SessionStreamState | undefined;
+  /** 清除指定会话的"后台任务已完成"提醒标记(点击会话项小圆点/切回该会话后调用) */
+  dismissSessionCompleted: (sessionId: string) => void;
 
   // ── Actions:工具调用(作用于当前会话分区) ──────────────────
   /** 添加工具调用记录(tool_start) */
@@ -328,14 +337,13 @@ interface ChatState {
   commitStreamingMessage: (sessionId: string) => void;
 
   // ── Actions:SSE 事件入口 ─────────────────────────────────
-  /**
-   * 定向 SSE 事件分发(按会话)。
+  /** 定向 SSE 事件分发(按会话)。
    * 发送方在请求发起时绑定 sessionId,事件只写入该会话分区,
    * 不污染其他会话的视图/消息列表。
+   * (历史缺陷:曾提供 session-agnostic 的 handleSseEvent 按「当前选中会话」路由,
+   * 确认流进行中一旦切换到新建会话,事件便串入新会话分区导致串扰,已移除。)
    */
   routeSseEvent: <K extends ChatSseEventName>(sessionId: string, event: SseEvent<K>) => void;
-  /** 面向当前会话的事件分发(兼容 confirmTool 等外部流的旧调用点) */
-  handleSseEvent: <K extends ChatSseEventName>(event: SseEvent<K>) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => {
@@ -363,6 +371,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       const sid = sidOf();
       if (!sid) return;
       updateSession(sid, (s) => {
+        s.messages = messages;
+      });
+    },
+    setSessionMessages: (sessionId, messages) => {
+      updateSession(sessionId, (s) => {
         s.messages = messages;
       });
     },
@@ -401,11 +414,18 @@ export const useChatStore = create<ChatState>((set, get) => {
         s.isSending = isSending;
       });
     },
-    toggleProcessCollapsed: () => {
+    setSessionIsSending: (sessionId, isSending) => {
+      updateSession(sessionId, (s) => {
+        s.isSending = isSending;
+      });
+    },
+    toggleRoundCollapsed: (roundKey) => {
       const sid = sidOf();
       if (!sid) return;
       updateSession(sid, (s) => {
-        s.processCollapsed = !s.processCollapsed;
+        // 未记录过则按默认值得出初始态后翻转,保证只翻转目标回合
+        const cur = s.collapsedRounds[roundKey] ?? getDefaultProcessCollapsed();
+        s.collapsedRounds = { ...s.collapsedRounds, [roundKey]: !cur };
       });
     },
 
@@ -422,6 +442,11 @@ export const useChatStore = create<ChatState>((set, get) => {
       return !!s && (s.isSending || s.stream.length > 0 || s.toolCalls.length > 0);
     },
     getSessionStreamState: (sessionId) => get().sessionStreams[sessionId],
+    dismissSessionCompleted: (sessionId) => {
+      updateSession(sessionId, (s) => {
+        s.completedUnread = false;
+      });
+    },
 
     // ── 工具调用(当前会话分区) ──────────────────────────────
     addToolCall: (record) => {
@@ -639,6 +664,8 @@ export const useChatStore = create<ChatState>((set, get) => {
         // 新一轮开始重置 doneReason:使「后台任务完成提醒」按每一轮触发,而非会话终生只提醒一次
         // (配合 done 事件的哨兵归一,清空后由空→非空即代表本回合刚完成)
         s.doneReason = null;
+        // 新一轮开始即代表用户回到该会话操作,清掉"后台已完成"提醒标记
+        s.completedUnread = false;
         // 新请求开始,重置处理过程计时(thinking/tool_start 事件会重新写入)
         s.processStartedAt = undefined;
         s.processEndedAt = undefined;
@@ -998,6 +1025,13 @@ export const useChatStore = create<ChatState>((set, get) => {
           const payload = data as ChatSseEventMap['done'];
           // 回合正常结束,提交最终 assistant 消息
           get().commitStreamingMessage(sid);
+          // 后台(非当前)会话完成:置"已完成待查看"标记,在会话列表项亮小圆点,
+          // 直到用户点击小圆点或切回该会话后才清除。
+          if (sid !== useAppStore.getState().currentSessionId) {
+            updateSession(sid, (s) => {
+              s.completedUnread = true;
+            });
+          }
           updateSession(sid, (s) => {
             // 正常完成时后端发 done {} (reason 为空)。若不兜底, doneReason 会一直是 null,
             // 后台任务完成提醒钩子按「doneReason 由空→非空」判定会永远不触发。
@@ -1025,12 +1059,6 @@ export const useChatStore = create<ChatState>((set, get) => {
         }
       }
     },
-    handleSseEvent: <K extends ChatSseEventName>(event: SseEvent<K>) => {
-      const sid = sidOf();
-      if (!sid) return;
-      get().routeSseEvent(sid, event);
-    },
-
     // ── 流式缓冲提交(指定会话) ──────────────────────────────
     commitStreamingMessage: (sid) => {
       const sess = get().sessionStreams[sid];

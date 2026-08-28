@@ -42,7 +42,7 @@
 }
 
 .msp-trigger-effort {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: #6b7280;
   background: rgba(127, 127, 127, 0.12);

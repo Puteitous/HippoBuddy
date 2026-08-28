@@ -224,6 +224,8 @@ export function FilePreviewEditor({
     });
 
     view = new EditorView({ state, parent: host });
+    // 重建编辑器时重置横向滚动态,避免上次文件残留的 is-h-scrolled(切文件后行号条误留实底)
+    host.classList.remove('is-h-scrolled');
 
     // 语言按需加载(扩展名 → 语言包),加载完成后 reconfigure
     const ext = getExt(filePath);
@@ -250,6 +252,9 @@ export function FilePreviewEditor({
     let scrollThrottleTimer: number | null = null;
     const onScroll = () => {
       userScrolledRef.current = true;
+      // 横向滚动时给 host 切 is-h-scrolled:行号条由半透玻璃转实底,遮挡滑入下方的代码。
+      // 必须放在节流提前返回之前,保证每次滚动都即时切换(而非等 1.5s 节流)。
+      view?.scrollDOM && host.classList.toggle('is-h-scrolled', view.scrollDOM.scrollLeft > 0);
       if (scrollThrottleTimer != null) return;
       scrollThrottleTimer = window.setTimeout(() => {
         scrollThrottleTimer = null;

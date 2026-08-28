@@ -124,7 +124,10 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
     // 流内 done 事件会置 isSending=false;finally 兜底覆盖"流无 done 即被截断"的情况
     // (再次触发确认弹窗 / 异常),避免 isSending 卡 true 阻塞后续发送。
     const chatStore = useChatStore.getState();
-    chatStore.setIsSending(true);
+    // isSending 记账必须绑定「发起确认的会话」而非当前选中会话:确认流进行中用户切换到
+    // 新建会话时,若用会话无关的 setIsSending(true/false),会把新会话的 isSending 误置,
+    // 干扰新会话自身的流式状态。这里统一按捕获的 currentSessionId 精确读写。
+    chatStore.setSessionIsSending(currentSessionId, true);
     try {
       await chatApi.confirmTool(
         {
@@ -133,8 +136,11 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
           decision,
         },
         (event) => {
-          // /api/tool/confirm 为 SSE 流,复用主对话事件分发更新工具状态与后续回复
-          useChatStore.getState().handleSseEvent(event);
+          // /api/tool/confirm 为 SSE 流。事件必须定向路由到「发出确认的会话」
+          // (currentSessionId,请求发起时捕获),而非「当前选中的会话」——
+          // 否则确认流进行中用户切换到新建会话时,事件会串入新会话分区,
+          // 导致 hero 消失并显示空会话 / 旧对话输出污染新会话。
+          useChatStore.getState().routeSseEvent(currentSessionId as string, event);
         },
       );
     } catch (e) {
@@ -143,7 +149,7 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
       setError(msg);
       console.warn('[ToolTimelineConfirmation] confirmTool 调用失败:', msg);
     } finally {
-      chatStore.setIsSending(false);
+      chatStore.setSessionIsSending(currentSessionId, false);
       setSubmitting(false);
     }
   };

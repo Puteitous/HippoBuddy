@@ -59,10 +59,18 @@ describe('chatStore', () => {
     expect(useChatStore.getState().sessionStreams.s1.messages.map((m) => m.id)).toEqual(['b']);
   });
 
-  it('toggleProcessCollapsed 翻转会话级收起', () => {
-    const before = useChatStore.getState().sessionStreams.s1?.processCollapsed ?? false;
-    useChatStore.getState().toggleProcessCollapsed();
-    expect(useChatStore.getState().sessionStreams.s1.processCollapsed).toBe(!before);
+  it('toggleRoundCollapsed 翻转指定回合收起', () => {
+    useChatStore.getState().toggleRoundCollapsed('r1');
+    expect(useChatStore.getState().sessionStreams.s1.collapsedRounds.r1).toBe(true);
+  });
+
+  it('toggleRoundCollapsed 仅翻转目标回合,不影响其他回合', () => {
+    useChatStore.getState().toggleRoundCollapsed('r1');
+    useChatStore.getState().toggleRoundCollapsed('r1');
+    useChatStore.getState().toggleRoundCollapsed('r2');
+    const c = useChatStore.getState().sessionStreams.s1.collapsedRounds;
+    expect(c.r1).toBe(false);
+    expect(c.r2).toBe(true);
   });
 
   it('resetSessionStream 删除分区,hasActiveStream 识别活跃流', () => {

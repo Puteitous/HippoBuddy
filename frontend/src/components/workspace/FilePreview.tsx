@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fileApi } from '@/api/client';
 import { ApiError } from '@/api/error';
+import { emit } from '@/utils/eventBus';
 import { desktopBridge, toRelativePath } from '@/utils/desktop-bridge';
 import { BinaryPreview } from '@/components/binary-preview/BinaryPreview';
 import type { EditorView } from '@codemirror/view';
@@ -71,6 +72,19 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
     const rel = toRelativePath(filePath) || filePath;
     return rel.replace(/\\/g, '/').split('/').filter(Boolean);
   }, [filePath]);
+
+  // 点击目录段 → 在文件树中定位该目录(对齐旧版 .path-segment 点击 → revealDirectory)。
+  // 目录段绝对路径:工作区内文件用「根路径 + 相对目录」;工作区外(面包屑即绝对路径)直接用段前缀。
+  const handleBreadcrumbDirClick = useCallback(
+    (dirRel: string) => {
+      const root = desktopBridge.getCurrentPath();
+      const normRoot = root ? root.replace(/\\/g, '/').replace(/\/$/, '') : null;
+      const normFile = filePath.replace(/\\/g, '/');
+      const abs = normRoot && normFile.startsWith(normRoot + '/') ? `${normRoot}/${dirRel}` : dirRel;
+      emit('workspace:reveal-dir', abs.replace(/\/+/g, '/'));
+    },
+    [filePath],
+  );
 
   // 阶段 3.8:CM6 编辑器实例 + 搜索浮层显隐
   const [editorView, setEditorView] = useState<EditorView | null>(null);
@@ -224,12 +238,27 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
       <div className="file-preview-header">
         {/* 面包屑路径:dir › dir › file(对齐旧版 .file-preview-path),行号后缀保留 */}
         <div className="file-preview-path" title={filePath}>
-          {crumbs.map((part, i) => (
-            <span key={i}>
-              {i > 0 && <span className="sep">{'>'}</span>}
-              {part}
-            </span>
-          ))}
+          {crumbs.map((part, i) => {
+            // 目录段可点击:在文件树中定位该目录(最后一段为文件名不可点,对齐旧版 .path-segment)
+            const isDirSegment = i < crumbs.length - 1;
+            return (
+              <span key={i}>
+                {i > 0 && <span className="sep">{'>'}</span>}
+                {isDirSegment ? (
+                  <span
+                    className="path-segment"
+                    data-path={crumbs.slice(0, i + 1).join('/')}
+                    title="在文件树中显示"
+                    onClick={() => handleBreadcrumbDirClick(crumbs.slice(0, i + 1).join('/'))}
+                  >
+                    {part}
+                  </span>
+                ) : (
+                  part
+                )}
+              </span>
+            );
+          })}
           {startLine != null && (
             <span className="file-preview-lines">
               :{startLine}{endLine && endLine !== startLine ? `-${endLine}` : ''}
@@ -274,22 +303,6 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="7" cy="7" r="3" />
                 <line x1="9.5" y1="9.5" x2="13" y2="13" />
-              </svg>
-            </button>
-          )}
-          {/* 保存:仅文本/md 编辑模式(对齐旧版 Mod-s;脏状态启用) */}
-          {isEditable && (
-            <button
-              type="button"
-              className="preview-btn"
-              onClick={() => { setSaveError(false); void handleSave(); }}
-              disabled={!dirty}
-              title={dirty ? '保存 (Ctrl+S)' : '已保存'}
-              aria-label="保存"
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" fill={dirty ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M3 2h7l3 3v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
-                <path d="M5 2v4h4V2" />
               </svg>
             </button>
           )}
@@ -362,19 +375,6 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
               </svg>
             </button>
           )}
-          <button
-            type="button"
-            className="preview-btn"
-            onClick={() => void desktopBridge.showItemInFolder(filePath)}
-            title="在资源管理器中显示"
-            aria-label="在资源管理器中显示"
-          >
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M10 2h4v4" />
-              <path d="M14 2L8 8" />
-              <path d="M11 10v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3" />
-            </svg>
-          </button>
           {/* 收起预览(对齐旧版 previewCollapseBtn,独立 panel-toggle-btn 样式,末尾固定) */}
           <button
             type="button"

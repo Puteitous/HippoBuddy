@@ -14,13 +14,22 @@
  * 集成位置:ActivityBar 的 'metrics' 浮动面板(320px 宽)。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
 import { metricsApi } from '@/api/client';
 import type { MetricsResponse, ToolUsageDetail } from '@/types';
 import './MetricsPanel.css';
 
 /** 趋势图最多保留的采样点数 */
 const MAX_TREND_POINTS = 30;
+
+// 模块级持久化:面板卸载后仍保留趋势历史与计数基准(对齐旧版单例行为)
+let persistentHistory: number[] = [];
+let persistentLastTotal = 0;
+
+/** 仅供测试:重置持久化状态,避免用例间相互污染 */
+export function __resetMetricsPersistence(): void {
+  persistentHistory = [];
+  persistentLastTotal = 0;
+}
 
 /** 趋势图 SVG 尺寸(与旧版一致) */
 const CHART_WIDTH = 260;
@@ -29,12 +38,10 @@ const CHART_PADDING = 2;
 
 export function MetricsPanel() {
   const [data, setData] = useState<MetricsResponse | null>(null);
-  /** 延迟采样历史(用于趋势图) */
-  const [latencyHistory, setLatencyHistory] = useState<number[]>([]);
+  /** 延迟采样历史(用于趋势图,初始值取自模块级持久化) */
+  const [latencyHistory, setLatencyHistory] = useState<number[]>(persistentHistory);
   const [updateTime, setUpdateTime] = useState('');
   const [error, setError] = useState<string | null>(null);
-  /** 上次已知的 totalRequests(用于判断新增请求) */
-  const lastKnownTotalRef = useRef(0);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -45,18 +52,15 @@ export function MetricsPanel() {
       setUpdateTime(formatTime(new Date()));
       setError(null);
 
-      // 延迟采样:仅在有新请求时追加(避免同一均值重复入列)
+      // 延迟采样:首次获取或新增请求时追加,avg>0 才记录(对齐旧版)
       const llm = d.llm;
       if (llm && llm.totalRequests > 0) {
         const currentTotal = llm.totalRequests;
-        const newCalls = currentTotal - lastKnownTotalRef.current;
-        if (newCalls > 0 && llm.avgLatencyMs > 0) {
-          lastKnownTotalRef.current = currentTotal;
-          pushLatencySample(setLatencyHistory, Math.round(llm.avgLatencyMs));
-        } else if (lastKnownTotalRef.current === 0) {
-          // 首次获取数据
-          lastKnownTotalRef.current = currentTotal;
-          pushLatencySample(setLatencyHistory, Math.round(llm.avgLatencyMs));
+        const newCalls = currentTotal - persistentLastTotal;
+        if (llm.avgLatencyMs > 0 && (newCalls > 0 || persistentLastTotal === 0)) {
+          persistentLastTotal = currentTotal;
+          persistentHistory = pushLatencySample(persistentHistory, Math.round(llm.avgLatencyMs));
+          setLatencyHistory(persistentHistory);
         }
       }
     } catch (e) {
@@ -257,12 +261,9 @@ function ToolBarChart({ details }: { details: ToolUsageDetail[] }) {
 // 工具函数
 // ============================================================================
 
-/** 追加延迟采样点(保留最近 MAX_TREND_POINTS 个) */
-function pushLatencySample(
-  setter: Dispatch<SetStateAction<number[]>>,
-  value: number,
-): void {
-  setter((prev) => [...prev.slice(-(MAX_TREND_POINTS - 1)), value]);
+/** 追加延迟采样点(保留最近 MAX_TREND_POINTS 个),返回新数组 */
+function pushLatencySample(prev: number[], value: number): number[] {
+  return [...prev.slice(-(MAX_TREND_POINTS - 1)), value];
 }
 
 /** 格式化为 HH:mm:ss */

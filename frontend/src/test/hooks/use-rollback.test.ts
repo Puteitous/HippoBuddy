@@ -7,7 +7,7 @@ const { appState, chatFns, apiMock, emitMock, toastMock } = vi.hoisted(() => ({
     currentSessionId: 's1' as string | null,
     removeSession: vi.fn<(id: string) => void>(),
   },
-  chatFns: { setMessages: vi.fn<(m: unknown[]) => void>() },
+  chatFns: { setMessages: vi.fn<(m: unknown[]) => void>(), setSessionMessages: vi.fn<(id: string, m: unknown[]) => void>() },
   apiMock: {
     sessions: {
       rewindCheck: vi.fn<(sid: string, body: unknown) => Promise<{ files: unknown[] }>>(),
@@ -23,7 +23,10 @@ const { appState, chatFns, apiMock, emitMock, toastMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/stores/appStore', () => ({
-  useAppStore: (sel: (s: typeof appState) => unknown) => sel(appState),
+  useAppStore: Object.assign(
+    (sel: (s: typeof appState) => unknown) => sel(appState),
+    { getState: () => appState },
+  ),
 }));
 vi.mock('@/stores/chatStore', () => ({
   useChatStore: (sel: (s: typeof chatFns) => unknown) => sel(chatFns),
@@ -118,7 +121,8 @@ describe('useRollback', () => {
     await act(async () => {
       await result.current.handleConfirm('all');
     });
-    expect(chatFns.setMessages).toHaveBeenCalledWith(messages);
+    expect(chatFns.setSessionMessages).toHaveBeenCalledWith('s1', messages);
+    expect(chatFns.setMessages).not.toHaveBeenCalled();
     expect(emitMock).toHaveBeenCalledWith('rollback:restoreInput', '原问题');
     expect(toastMock.showToast).toHaveBeenCalledWith('已回滚到指定轮次', { type: 'success', duration: 4000 });
     expect(result.current.status).toBe('idle');
@@ -136,6 +140,41 @@ describe('useRollback', () => {
     expect(apiMock.sessions.delete).toHaveBeenCalledWith('s1');
     expect(appState.removeSession).toHaveBeenCalledWith('s1');
     expect(toastMock.showToast).toHaveBeenCalledWith('会话已清空', { type: 'info', duration: 4000 });
+  });
+
+  it('回滚期间切会话:消息写回发起会话，restoreInput 不串入新会话', async () => {
+    const messages = [{ id: 'm1' }];
+    apiMock.sessions.getMessages.mockResolvedValue(messages);
+    apiMock.sessions.rewind.mockResolvedValue({ success: true, lastUserMessage: '原问题' });
+    // 让 rewind 挂起，模拟回滚进行中
+    let releaseRewind: (() => void) | undefined;
+    apiMock.sessions.rewind.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseRewind = () => resolve({ success: true, lastUserMessage: '原问题' });
+        }),
+    );
+    const { result } = renderHook(() => useRollback('t1'));
+    await act(async () => {
+      await result.current.handleOpen();
+    });
+    let confirmPromise: Promise<void> | undefined;
+    act(() => {
+      confirmPromise = result.current.handleConfirm('all');
+    });
+    // 回滚进行中，用户切换到新会话 s2
+    appState.currentSessionId = 's2';
+    releaseRewind!();
+    await act(async () => confirmPromise);
+    // 消息写回发起会话 s1，而非当前 s2
+    expect(chatFns.setSessionMessages).toHaveBeenCalledWith('s1', messages);
+    // 输入框回填仅作用于当前视图：此时在 s2，不应 emit restoreInput
+    expect(emitMock).not.toHaveBeenCalledWith('rollback:restoreInput', '原问题');
+    // toast 仍正常提示成功
+    expect(toastMock.showToast).toHaveBeenCalledWith('已回滚到指定轮次', {
+      type: 'success',
+      duration: 4000,
+    });
   });
 
   it('rewind 返回 success=false:回到 idle 并提示失败信息', async () => {

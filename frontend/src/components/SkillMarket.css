@@ -269,7 +269,7 @@
   margin-top: 6px;
   font-size: 11px;
   color: var(--hb-text-soft, #9ca3af);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ========== Source Detail ========== */
