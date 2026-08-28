@@ -327,7 +327,7 @@ export function McpSettingsPage() {
               >
                 {MAX_RECONNECT_ITEMS.map((it) => (
                   <option key={it.value} value={it.value}>
-                    {'labelKey' in it && it.labelKey ? t(it.labelKey) : (it as { label: string }).label}
+                    {'labelKey' in it ? t(it.labelKey as string) : it.label}
                   </option>
                 ))}
               </select>
@@ -348,7 +348,7 @@ export function McpSettingsPage() {
               >
                 {RECONNECT_DELAY_ITEMS.map((it) => (
                   <option key={it.value} value={it.value}>
-                    {'labelKey' in it && it.labelKey ? t(it.labelKey) : (it as { label: string }).label}
+                    {t(it.labelKey)}
                   </option>
                 ))}
               </select>
@@ -369,7 +369,7 @@ export function McpSettingsPage() {
               >
                 {REQ_TIMEOUT_ITEMS.map((it) => (
                   <option key={it.value} value={it.value}>
-                    {'labelKey' in it && it.labelKey ? t(it.labelKey) : (it as { label: string }).label}
+                    {t(it.labelKey)}
                   </option>
                 ))}
               </select>

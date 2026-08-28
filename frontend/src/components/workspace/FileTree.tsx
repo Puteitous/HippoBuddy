@@ -18,6 +18,7 @@ import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { getJson } from '@/api/http';
 import { showToast } from '@/utils/toastStore';
+import { translate, useI18n } from '@/i18n';
 import { FileIcon } from '../FileIcon';
 import { FileTypeIcon } from '../FileTypeIcon';
 import './FileTree.css';
@@ -171,7 +172,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
       const entries = await desktopBridge.readDir(rootPath);
       if (cancelled) return;
       if (entries === null) {
-        setError('无法读取目录(桌面端桥接未注入或路径不可访问)');
+        setError(translate('fileTree.loadDirFailed'));
         setRootEntries(null);
       } else {
         setRootEntries(sortEntries(entries));
@@ -214,10 +215,10 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
       if (!confirmed) return;
       const ok = await desktopBridge.rename(sourcePath, destPath);
       if (ok) {
-        showToast(`已移动: ${fileName}`, { type: 'success' });
+        showToast(translate('fileTree.moved', { name: fileName }), { type: 'success' });
         setTreeVersion((v) => v + 1);
       } else {
-        showToast('移动失败(目标目录可能已存在同名项或无权限)', { type: 'error' });
+        showToast(translate('fileTree.moveFailed'), { type: 'error' });
       }
     },
     [pendingMove],

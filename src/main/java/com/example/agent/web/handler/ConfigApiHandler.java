@@ -6,6 +6,7 @@ import com.example.agent.config.LlmConfig;
 import com.example.agent.config.ModelSnapshot;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.llm.client.LlmClientFactory;
+import com.example.agent.llm.client.LlmModelFetcher;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.tools.web.WebSearchConfig;
 import com.example.agent.tools.web.WebSearchTool;
@@ -89,6 +90,13 @@ public class ConfigApiHandler implements HttpHandler {
                         sendError(exchange, 404, "Not Found");
                     }
                     break;
+                case "POST":
+                    if ("/api/config/llm/models".equals(path)) {
+                        handleLlmModels(exchange);
+                    } else {
+                        sendError(exchange, 404, "Not Found");
+                    }
+                    break;
                 default:
                     sendError(exchange, 405, "Method Not Allowed");
             }
@@ -142,6 +150,80 @@ public class ConfigApiHandler implements HttpHandler {
             node.put(provider, LlmClientFactory.getDefaultBaseUrl(provider));
         }
         sendJson(exchange, 200, MAPPER.writeValueAsString(node));
+    }
+
+    /**
+     * POST /api/config/llm/models
+     * 从指定厂商的 OpenAI 兼容 /v1/models 端点拉取可用模型列表（最小范围）。
+     * 请求体: { "provider": "deepseek", "baseUrl": "?", "apiKey": "?" }
+     * - baseUrl 为空时回退到 LlmClientFactory 的该厂商默认地址
+     * - apiKey 为空或传导遮掩值时回退到已保存配置（当前 provider 或历史快照）
+     * 失败（厂商不支持 / 缺 Key / 网络错误）返回非 2xx，前端 toast 展示并保留手动输入。
+     */
+    private void handleLlmModels(HttpExchange exchange) throws IOException {
+        byte[] reqBytes = exchange.getRequestBody().readAllBytes();
+        JsonNode json = MAPPER.readTree(reqBytes);
+
+        String provider = json.has("provider") ? json.get("provider").asText() : "";
+        if (provider.isBlank()) {
+            sendError(exchange, 400, "provider 不能为空");
+            return;
+        }
+        if (!LlmModelFetcher.isSupported(provider)) {
+            sendError(exchange, 400, "该厂商不支持从 API 拉取模型");
+            return;
+        }
+
+        String baseUrl = json.has("baseUrl") && !json.get("baseUrl").asText("").isBlank()
+                ? json.get("baseUrl").asText() : LlmClientFactory.getDefaultBaseUrl(provider);
+        String apiKey = (json.has("apiKey") && !json.get("apiKey").asText("").isBlank())
+                ? json.get("apiKey").asText() : findStoredApiKey(provider);
+
+        try {
+            List<String> models = LlmModelFetcher.fetchModels(baseUrl, apiKey);
+            ObjectNode node = MAPPER.createObjectNode();
+            node.put("success", true);
+            node.put("provider", provider);
+            ArrayNode arr = MAPPER.createArrayNode();
+            for (String m : models) {
+                arr.add(m);
+            }
+            node.set("models", arr);
+            sendJson(exchange, 200, MAPPER.writeValueAsString(node));
+        } catch (UnsupportedOperationException | IllegalArgumentException e) {
+            sendError(exchange, 400, e.getMessage());
+        } catch (Exception e) {
+            logger.warn("拉取模型列表失败: provider={}, baseUrl={}, error={}",
+                    provider, baseUrl, e.getMessage());
+            sendError(exchange, 500, "拉取模型列表失败: "
+                    + (e.getMessage() == null ? String.valueOf(e) : e.getMessage()));
+        }
+    }
+
+    /**
+     * 回退取已保存的 API Key：优先当前 LlmConfig（若 provider 匹配），否则从历史快照中
+     * 该 provider 的第一条完整配置取值。未找到返回空串（由调用方报"缺 Key"）。
+     */
+    private String findStoredApiKey(String provider) {
+        Config config = Config.getInstance();
+        LlmConfig llm = config.getLlm();
+        if (provider.equalsIgnoreCase(llm.getProvider())) {
+            String key = llm.getApiKey();
+            if (key != null && !key.isBlank()) {
+                return key;
+            }
+        }
+        if (llm.getModelHistory() != null) {
+            for (ModelSnapshot snap : llm.getModelHistory()) {
+                if (snap.getProvider() != null && provider.equalsIgnoreCase(snap.getProvider())) {
+                    String key = snap.getApiKey();
+                    if (key != null && !key.isBlank()) {
+                        return key;
+                    }
+                }
+            }
+        }
+        return "";
     }
 
     /**

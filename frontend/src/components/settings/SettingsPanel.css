@@ -244,6 +244,13 @@
   justify-content: flex-end;
 }
 
+/* 表单行内横向组合（如 Model 输入 + 「从 API 拉取」按钮） */
+.settings-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ========== 输入框 ========== */
 .settings-input {
   width: 100%;
@@ -989,6 +996,31 @@
   text-align: center;
 }
 
+/* ========== 从 API 拉取到的模型下拉(方案A微美化) ========== */
+.settings-model-fetch-select {
+  min-height: auto;
+}
+
+.settings-model-fetch-select option {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--hb-text, #1f2937);
+}
+
+.settings-model-fetch-select option:disabled {
+  color: var(--hb-text-soft, #6b7280);
+}
+
+.settings-model-fetch-select option:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+  color: var(--hb-text, #1f2937);
+}
+
+.settings-model-fetch-select option:checked {
+  background: var(--hb-text, #1f2937);
+  color: var(--hb-bg, #ffffff);
+}
+
 .settings-model-header {
   display: flex;
   align-items: center;
@@ -1486,6 +1518,28 @@
 [data-theme="dark"] .settings-model-item-model,
 [data-theme="midnight"] .settings-model-item-model {
   color: var(--hb-text-dark, #e5e7eb);
+}
+
+[data-theme="dark"] .settings-model-fetch-select option,
+[data-theme="midnight"] .settings-model-fetch-select option {
+  color: var(--hb-text-dark, #e5e7eb);
+}
+
+[data-theme="dark"] .settings-model-fetch-select option:disabled,
+[data-theme="midnight"] .settings-model-fetch-select option:disabled {
+  color: var(--hb-text-soft-dark, #9ca3af);
+}
+
+[data-theme="dark"] .settings-model-fetch-select option:hover,
+[data-theme="midnight"] .settings-model-fetch-select option:hover {
+  background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
+  color: var(--hb-text-dark, #e5e7eb);
+}
+
+[data-theme="dark"] .settings-model-fetch-select option:checked,
+[data-theme="midnight"] .settings-model-fetch-select option:checked {
+  background: var(--hb-text-dark, #e5e7eb);
+  color: var(--hb-bg-dark, #1a1a1a);
 }
 
 [data-theme="dark"] .settings-loading,

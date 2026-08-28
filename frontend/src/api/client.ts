@@ -188,6 +188,18 @@ export const configApi = {
     putJson<{ success: boolean }>(`${API_BASE}/config/llm`, config),
 
   /**
+   * POST /api/config/llm/models - 从厂商的 OpenAI 兼容 /v1/models 端点拉取可用模型列表
+   * @param provider 厂商(如 deepseek / zhipu / moonshot ...)
+   * @param baseUrl 厂商 base URL(可为空,后端回退默认地址)
+   * @param apiKey API Key(为空或已遮掩时后端回退已保存配置)
+   */
+  fetchLlmModels: (provider: string, baseUrl: string, apiKey?: string) =>
+    postJson<{ success: boolean; provider: string; models: string[] }>(
+      `${API_BASE}/config/llm/models`,
+      { provider, baseUrl, apiKey },
+    ),
+
+  /**
    * DELETE /api/config/llm/history - 删除历史记录中的指定模型快照
    */
   deleteHistorySnapshot: (provider: string, model: string) =>

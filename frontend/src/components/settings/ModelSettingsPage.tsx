@@ -31,7 +31,6 @@ const PROVIDER_ITEMS: { labelKey: string; value: string }[] = [
   { labelKey: 'settingsPage.modelProviderXunfei', value: 'xunfei' },
   { labelKey: 'settingsPage.modelProviderAnthropic', value: 'anthropic' },
   { labelKey: 'settingsPage.modelProviderOllama', value: 'ollama' },
-  { labelKey: 'settingsPage.modelProviderLocal', value: 'local' },
 ];
 
 const MAX_TOKENS_ITEMS = [
@@ -139,6 +138,9 @@ export function ModelSettingsPage() {
   const [saving, setSaving] = useState(false);
   /** provider -> 默认 base URL，选择厂商时自动填充 */
   const [defaultsByProvider, setDefaultsByProvider] = useState<Record<string, string>>({});
+  /** 「从 API 拉取」返回的模型列表（成功时在 Model 输入下方展示可选项） */
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -267,6 +269,36 @@ export function ModelSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  /** 从当前厂商的 /v1/models 拉取可用模型列表并展示在 Model 下方 */
+  const handleFetchModels = async () => {
+    if (fetchingModels) return;
+    setFetchingModels(true);
+    setFetchedModels([]);
+    try {
+      const res = await configApi.fetchLlmModels(
+        editor.provider,
+        editor.baseUrl.trim(),
+        editor.apiKeyMasked ? undefined : editor.apiKey,
+      );
+      const list = res.models || [];
+      setFetchedModels(list);
+      if (list.length === 0) {
+        showToast(translate('settingsPage.modelFetchEmpty'), { type: 'warning', duration: 2500 });
+      }
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast(translate('settingsPage.modelFetchFailed') + msg, { type: 'error', duration: 3000 });
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
+  /** 选中拉取到的模型后填入 Model 并收起候选列表 */
+  const handleFetchedModelSelect = (model: string) => {
+    setEditor((prev) => ({ ...prev, model }));
+    setFetchedModels([]);
   };
 
   const handleDelete = async (m: ModelSnapshot) => {
@@ -401,14 +433,43 @@ export function ModelSettingsPage() {
           <div className="settings-field-horizontal">
             <label className="settings-field-label">Model</label>
             <div className="settings-field-body">
-              <input
-                className="settings-input"
-                type="text"
-                style={{ width: 240 }}
-                value={editor.model}
-                placeholder="deepseek-chat"
-                onChange={(e) => setEditor({ ...editor, model: e.target.value })}
-              />
+              <div className="settings-inline-row">
+                <input
+                  className="settings-input"
+                  type="text"
+                  style={{ width: 180 }}
+                  value={editor.model}
+                  placeholder="deepseek-chat"
+                  onChange={(e) => setEditor({ ...editor, model: e.target.value })}
+                />
+                <button
+                  type="button"
+                  className="settings-btn"
+                  title={t('settingsPage.modelFetchTitle')}
+                  onClick={handleFetchModels}
+                  disabled={fetchingModels || saving}
+                >
+                  {fetchingModels ? t('settingsPage.modelFetchLoading') : t('settingsPage.modelFetch')}
+                </button>
+              </div>
+              {fetchedModels.length > 0 && (
+                <select
+                  className="settings-select settings-model-fetch-select"
+                  style={{ marginTop: 8, width: 280 }}
+                  size={Math.min(fetchedModels.length, 6)}
+                  defaultValue=""
+                  onChange={(e) => handleFetchedModelSelect(e.target.value)}
+                >
+                  <option value="" disabled>
+                    {t('settingsPage.modelFetchPick')}
+                  </option>
+                  {fetchedModels.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
           <div className="settings-field-horizontal">
