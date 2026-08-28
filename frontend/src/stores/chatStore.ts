@@ -443,8 +443,20 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
     getSessionStreamState: (sessionId) => get().sessionStreams[sessionId],
     dismissSessionCompleted: (sessionId) => {
-      updateSession(sessionId, (s) => {
-        s.completedUnread = false;
+      // 仅当该会话已有内存分区时才清除提醒标记;分区不存在(会话从未在本端触发过
+      // done)时直接返回。绝不能像 updateSession 那样为不存在的分区新建空分区——
+      // Sidebar 点击会话项时会先调用本方法再切换 currentSessionId,若这里新建了
+      // 空分区,useSessionMessages 会命中「已有分区直接复用」而早退,导致历史消息
+      // 不加载、点击会话后停留在空对话而非跳转到对应历史面板。
+      set((state) => {
+        const cur = state.sessionStreams[sessionId];
+        if (!cur) return {};
+        return {
+          sessionStreams: {
+            ...state.sessionStreams,
+            [sessionId]: { ...cur, completedUnread: false },
+          },
+        };
       });
     },
 

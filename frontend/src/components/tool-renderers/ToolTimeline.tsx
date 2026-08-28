@@ -17,6 +17,7 @@
 import { memo, useMemo, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
+import { useI18n } from '@/i18n';
 import type { TimelineToolItem } from './tool-timeline-utils';
 import { ToolTimelineConfirmation } from './ToolTimelineConfirmation';
 import {
@@ -187,6 +188,7 @@ function diffStatsFor(item: TimelineToolItem): { insertions: number; deletions: 
 
 /** 行详情内容(按工具名分支,复用现有卡片/输出样式) */
 function TimelineDetail({ item }: { item: TimelineToolItem }) {
+  const { t } = useI18n();
   const { name, status, progress, result, error, content, confirmationData } = item;
 
   // 待确认:行内渲染允许/拒绝(自带确认摘要,对齐旧版内嵌确认卡片)
@@ -194,16 +196,16 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     return <ToolTimelineConfirmation confirmationData={confirmationData} />;
   }
   if (status === 'pending_confirmation') {
-    return <div className="timeline-detail-status pending">等待确认…</div>;
+    return <div className="timeline-detail-status pending">{t('tool.timeline.waitingConfirm')}</div>;
   }
   if (status === 'cancelled') {
-    return <div className="timeline-detail-status cancelled">已取消(未确认)</div>;
+    return <div className="timeline-detail-status cancelled">{t('tool.timeline.cancelledUnconfirmed')}</div>;
   }
   if (status === 'denied') {
     // 用户拒绝执行/删除:中性提示而非红色错误(对齐旧版 delete 被拒显示"已拒绝删除")
     return (
       <div className="timeline-detail-status denied">
-        {item.name === 'delete_file' ? '已拒绝删除' : '已拒绝执行'}
+        {item.name === 'delete_file' ? t('tool.timeline.deniedDelete') : t('tool.timeline.deniedRun')}
       </div>
     );
   }
@@ -219,7 +221,7 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
         </div>
       );
     }
-    return <div className="timeline-detail-status">执行中…</div>;
+    return <div className="timeline-detail-status">{t('tool.timeline.running')}</div>;
   }
 
   // 失败:展示错误
@@ -271,7 +273,7 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     if (!resultText.trim() || resultText.includes('未找到匹配的内容')) {
       return (
         <div className="timeline-detail-meta">
-          <span className="timeline-detail-grep-empty">未找到匹配</span>
+          <span className="timeline-detail-grep-empty">{t('tool.grep.noMatch')}</span>
         </div>
       );
     }
@@ -290,8 +292,8 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
         {args.file_pattern && <span className="timeline-detail-grep-filter">{args.file_pattern}</span>}
         {matchCount !== null && (
           <span className="timeline-detail-grep-count">
-            {fileCount !== null ? `${fileCount} 个文件, ` : ''}
-            {matchCount} 处匹配
+            {fileCount !== null ? `${fileCount} ${t('tool.grep.files')}, ` : ''}
+            {matchCount} {t('tool.grep.matches')}
           </span>
         )}
       </div>
@@ -302,7 +304,7 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     if (!resultText.trim() || resultText.includes('未找到匹配的文件')) {
       return (
         <div className="timeline-detail-meta">
-          <span className="timeline-detail-glob-empty">未找到匹配的文件</span>
+          <span className="timeline-detail-glob-empty">{t('tool.glob.noMatch')}</span>
         </div>
       );
     }
@@ -316,7 +318,7 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
       <div className="timeline-detail-meta">
         {fileCount !== null && (
           <span className="timeline-detail-glob-count">
-            {fileCount} 个文件{totalSize ? ` | ${totalSize}` : ''}
+            {fileCount} {t('tool.glob.files')}{totalSize ? ` | ${totalSize}` : ''}
           </span>
         )}
       </div>
@@ -327,7 +329,7 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     if (!resultText || resultText.includes('(空目录)')) {
       return (
         <div className="timeline-detail-meta">
-          <span className="timeline-detail-glob-empty">空目录</span>
+          <span className="timeline-detail-glob-empty">{t('tool.listDir.empty')}</span>
         </div>
       );
     }
@@ -342,7 +344,7 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     }
     const parts: string[] = [];
     if (dirCount !== null && fileCount !== null) {
-      parts.push(`${dirCount} 个目录, ${fileCount} 个文件`);
+      parts.push(`${dirCount} ${t('tool.listDir.dirs')}, ${fileCount} ${t('tool.listDir.files')}`);
     }
     if (totalSize) parts.push(totalSize);
     if (parts.length === 0) return null;
@@ -359,7 +361,7 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     if (!resultText.trim() || resultText.includes('未找到')) {
       return (
         <div className="timeline-detail-meta">
-          <span className="timeline-detail-empty">未找到相关结果</span>
+          <span className="timeline-detail-empty">{t('tool.web.resultNone')}</span>
         </div>
       );
     }
@@ -368,13 +370,13 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     if (resultCount === 0) {
       return (
         <div className="timeline-detail-meta">
-          <span className="timeline-detail-empty">未找到相关结果</span>
+          <span className="timeline-detail-empty">{t('tool.web.resultNone')}</span>
         </div>
       );
     }
     return (
       <div className="timeline-detail-meta">
-        <span className="timeline-detail-web-count">找到 {resultCount} 条结果</span>
+        <span className="timeline-detail-web-count">{t('tool.web.resultCount', { count: resultCount })}</span>
       </div>
     );
   }
@@ -383,7 +385,7 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     if (!resultText.trim()) {
       return (
         <div className="timeline-detail-meta">
-          <span className="timeline-detail-empty">无内容</span>
+          <span className="timeline-detail-empty">{t('tool.web.noContent')}</span>
         </div>
       );
     }
@@ -393,9 +395,9 @@ function TimelineDetail({ item }: { item: TimelineToolItem }) {
     return (
       <div className="timeline-detail-meta">
         <span className="timeline-detail-web-count">
-          {kb}KB ({charCount.toLocaleString()} 字符)
+          {t('tool.web.charCount', { kb, count: charCount.toLocaleString() })}
         </span>
-        {isTruncated && <span className="timeline-detail-web-truncated">内容过长，已截断</span>}
+        {isTruncated && <span className="timeline-detail-web-truncated">{t('tool.web.truncatedLong')}</span>}
       </div>
     );
   }
@@ -562,6 +564,7 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
 
 /** bash 命令复制按钮(悬浮行时显示) */
 function CopyCommandButton({ command }: { command: string }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -579,7 +582,7 @@ function CopyCommandButton({ command }: { command: string }) {
     <span
       className="tool-timeline-copy-btn"
       onClick={handleCopy}
-      title={copied ? '已复制' : '复制命令'}
+      title={copied ? t('chatui.copied') : t('tool.bash.copyCmd')}
       role="button"
       tabIndex={0}
     >
@@ -600,6 +603,7 @@ function CopyCommandButton({ command }: { command: string }) {
  * 对齐旧版「查看变更」:点击打开该文件 diff 标签页并聚焦本次工具调用的变更。
  */
 function ViewDiffButton({ filePath, toolCallId }: { filePath: string; toolCallId: string }) {
+  const { t } = useI18n();
   const openDiff = () => {
     usePreviewStore.getState().openDiff(filePath, toolCallId);
   };
@@ -611,7 +615,7 @@ function ViewDiffButton({ filePath, toolCallId }: { filePath: string; toolCallId
         e.stopPropagation();
         openDiff();
       }}
-      title="查看变更"
+      title={t('tool.write.viewChanges')}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -621,7 +625,7 @@ function ViewDiffButton({ filePath, toolCallId }: { filePath: string; toolCallId
         }
       }}
     >
-      查看变更
+      {t('tool.write.viewChanges')}
     </span>
   );
 }

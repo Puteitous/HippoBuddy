@@ -17,8 +17,9 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { ToolCallStatus } from '@/types';
 import { desktopBridge, toRelativePath } from '@/utils/desktop-bridge';
+import { useI18n } from '@/i18n';
 import type { DiffLine } from './shared-utils';
-import { statusLabel } from './shared-utils';
+import { statusKey } from './shared-utils';
 
 // ============================================================================
 // 状态图标与徽章
@@ -53,10 +54,11 @@ export function StatusIcon({ status }: { status: ToolCallStatus }) {
 
 /** 状态徽章(图标 + 文案) */
 export function StatusBadge({ status, children }: { status: ToolCallStatus; children?: ReactNode }) {
+  const { t } = useI18n();
   return (
     <span className={`tool-status-badge ${status}`}>
       <StatusIcon status={status} />
-      {children ?? statusLabel(status)}
+      {children ?? t(statusKey(status))}
     </span>
   );
 }

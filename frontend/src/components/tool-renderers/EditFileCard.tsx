@@ -9,6 +9,7 @@
  */
 import { FilePath, StatusBadge, ToolCardFrame, DiffView, DiffStatsBadge } from './shared';
 import { parseToolArgs, ToolCardProps, computeUnifiedDiff, countDiffStats } from './shared-utils';
+import { useI18n } from '@/i18n';
 
 interface EditFileArgs {
   path?: string;
@@ -17,6 +18,7 @@ interface EditFileArgs {
 }
 
 export function EditFileCard({ record }: ToolCardProps) {
+  const { t } = useI18n();
   const args = parseToolArgs<EditFileArgs>(record.args);
   const filePath = args.path ?? '';
   const oldText = args.old_text ?? '';
@@ -31,7 +33,7 @@ export function EditFileCard({ record }: ToolCardProps) {
     <ToolCardFrame
       className="editfile-card"
       icon={<EditIcon />}
-      title="编辑文件"
+      title={t('tool.edit.title')}
       statusBadge={
         isRunning ? (
           <StatusBadge status="running" />
@@ -45,7 +47,7 @@ export function EditFileCard({ record }: ToolCardProps) {
     >
       {filePath && <FilePath path={filePath} />}
 
-      {isRunning && <div className="tool-summary">正在编辑…</div>}
+      {isRunning && <div className="tool-summary">{t('tool.edit.runningShort')}</div>}
 
       {!isRunning && record.status === 'success' && diffLines.length > 0 && (
         <DiffView diffLines={diffLines} />

@@ -16,6 +16,7 @@ import { ApiError } from '@/api/error';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { showToast } from '@/utils/toastStore';
+import { translate, useI18n } from '@/i18n';
 import type { Session, SessionMode } from '@/types';
 
 /** 历史下拉最大条数(对齐旧版 MAX_ITEMS = 40) */
@@ -38,11 +39,15 @@ function categorize(timestamp: number): TimeCategory {
 }
 
 /** 会话显示名(对齐旧版:优先 sessionNames / title,兜底 "会话 + 短 id") */
-function sessionTitle(s: Session, displayNames: Record<string, string>): string {
+function sessionTitle(
+  s: Session,
+  displayNames: Record<string, string>,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
   if (s.title && s.title.trim()) return s.title;
   if (displayNames[s.id]) return displayNames[s.id];
   const shortId = s.id.replace(/^web-/, '').slice(-6);
-  return shortId ? `会话 ${shortId}` : '未命名会话';
+  return shortId ? t('chat.sessionPrefix', { id: shortId }) : t('chat.unnamedSession');
 }
 
 interface ChatPanelHeaderProps {
@@ -50,14 +55,24 @@ interface ChatPanelHeaderProps {
   onCollapse: () => void;
 }
 
-/** 模式友好名称(悬浮面板展示用) */
-const MODE_LABELS: Record<SessionMode, string> = {
-  chat: '对话',
-  coding: '编码',
-  office: '办公',
+/** 模式 i18n key(悬浮面板展示用) */
+const MODE_KEYS: Record<SessionMode, string> = {
+  chat: 'chat.mode.chat',
+  coding: 'chat.mode.code',
+  office: 'chat.mode.office',
+};
+
+/** 时间分组 → i18n key(分组值本身为内部中文常量,展示时翻译) */
+const CATEGORY_KEYS: Record<TimeCategory, string> = {
+  '今天': 'session.today',
+  '昨天': 'session.yesterday',
+  '7天内': 'chat.history7d',
+  '30天内': 'chat.history30d',
+  '更早': 'session.earlier',
 };
 
 export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
+  const { t } = useI18n();
   const sessions = useAppStore((s) => s.sessions);
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const workspacePath = useAppStore((s) => s.workspacePath);
@@ -104,7 +119,7 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
 
   // ── 标题 ────────────────────────────────────────────
   const currentSession = sessions.find((s) => s.id === currentSessionId);
-  const title = currentSession ? sessionTitle(currentSession, sessionDisplayNames) : 'Chat';
+  const title = currentSession ? sessionTitle(currentSession, sessionDisplayNames, t) : 'Chat';
 
   // ── 历史会话分组渲染 ──────────────────────────────────
   const grouped = useMemo(() => groupSessionsByTime(sessions), [sessions]);
@@ -132,13 +147,13 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
           <div className="chat-panel-title-popover">
             {workspacePath && (
               <div className="popover-row">
-                <span className="popover-label">项目路径</span>
+                <span className="popover-label">{t('chat.workspacePath')}</span>
                 <span className="popover-value">{workspacePath}</span>
               </div>
             )}
             <div className="popover-row">
-              <span className="popover-label">当前模式</span>
-              <span className="popover-value">{MODE_LABELS[mode] ?? mode}</span>
+              <span className="popover-label">{t('chat.currentMode')}</span>
+              <span className="popover-value">{t(MODE_KEYS[mode]) ?? mode}</span>
             </div>
           </div>
         )}
@@ -158,8 +173,8 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
           <button
             type="button"
             className="chat-header-btn"
-            title="历史会话"
-            aria-label="历史会话"
+            title={t('chat.history')}
+            aria-label={t('chat.history')}
             aria-expanded={open}
             onClick={() => {
               // 已钉住则点击关闭,否则点击钉住打开(hover 已展开时点击也会转为钉住)
@@ -180,11 +195,11 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
           {open && (
             <div className="chat-history-dropdown">
               {grouped.length === 0 ? (
-                <div className="chat-history-empty">暂无历史会话</div>
+                <div className="chat-history-empty">{t('chat.noHistory')}</div>
               ) : (
                 grouped.map((group) => (
                   <div key={group.category}>
-                    <div className="chat-history-category">{group.category}</div>
+                    <div className="chat-history-category">{t(CATEGORY_KEYS[group.category])}</div>
                     {group.sessions.map((s) => (
                       <HistoryItem
                         key={s.id}
@@ -205,8 +220,8 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
         <button
           type="button"
           className="chat-header-btn"
-          title="新建会话"
-          aria-label="新建会话"
+          title={t('chat.newSession')}
+          aria-label={t('chat.newSession')}
           onClick={handleNewSession}
         >
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -219,8 +234,8 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
         <button
           type="button"
           className="panel-toggle-btn"
-          title="收起聊天"
-          aria-label="收起聊天"
+          title={t('chat.collapse')}
+          aria-label={t('chat.collapse')}
           onClick={onCollapse}
         >
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -243,6 +258,7 @@ interface HistoryItemProps {
 /** 历史下拉中的单条会话项:订阅该会话前端活跃流,流式/工具进行中时显示旋转提示
  *  对齐侧栏会话项交互:悬浮显示重命名/删除,重命名内联编辑,删除内联二次确认 */
 function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryItemProps) {
+  const { t } = useI18n();
   const sessionDisplayNames = useAppStore((s) => s.sessionDisplayNames);
   const updateSession = useAppStore((s) => s.updateSession);
   const removeSession = useAppStore((s) => s.removeSession);
@@ -263,7 +279,7 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
   const [busy, setBusy] = useState(false);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
-  const title = sessionTitle(session, sessionDisplayNames);
+  const title = sessionTitle(session, sessionDisplayNames, t);
 
   // 编辑态(重命名/删除确认)变化时通知父级钉住面板,避免打字时鼠标移出误关
   useEffect(() => {
@@ -293,7 +309,7 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
       setRenaming(false);
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-      showToast(`重命名失败: ${msg}`, { type: 'error' });
+      showToast(translate('chat.renameFailed', { msg }), { type: 'error' });
       setRenaming(false);
     } finally {
       setBusy(false);
@@ -308,10 +324,10 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
       removeSession(session.id);
       // 对齐侧栏:删除当前会话后自动新建临时会话
       if (isCurrent) setCurrentSession(`web-${Date.now()}`);
-      showToast('会话已删除', { type: 'success' });
+      showToast(translate('chat.sessionDeleted'), { type: 'success' });
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-      showToast(`删除失败: ${msg}`, { type: 'error' });
+      showToast(translate('chat.deleteFailed', { msg }), { type: 'error' });
     } finally {
       setBusy(false);
       setConfirmDelete(false);
@@ -336,7 +352,7 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
           height="13"
           aria-label="awaiting-confirm"
         >
-          <title>等待确认</title>
+          <title>{t('chat.awaitingConfirm')}</title>
           <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
           <path d="M6.3 6.1a1.8 1.8 0 1 1 3.1 1.3c-.7.7-1.4 1-1.4 2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           <circle cx="8" cy="11.6" r="0.9" fill="currentColor" />
@@ -359,24 +375,24 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
         />
       ) : confirmDelete ? (
         <div className="chat-history-confirm" onClick={(e) => e.stopPropagation()}>
-          <span className="chat-history-confirm-text">确定删除？</span>
+          <span className="chat-history-confirm-text">{t('chat.confirmDelete')}</span>
           <button
             type="button"
             className="chat-history-confirm-btn confirm-yes"
             onClick={() => void doDelete()}
             disabled={busy}
-            title="确认删除"
+            title={t('chat.confirmDeleteTitle')}
           >
-            {busy ? '…' : '删除'}
+            {busy ? '…' : t('session.delete')}
           </button>
           <button
             type="button"
             className="chat-history-confirm-btn confirm-no"
             onClick={() => setConfirmDelete(false)}
             disabled={busy}
-            title="取消"
+            title={t('chat.cancel')}
           >
-            取消
+            {t('chat.cancel')}
           </button>
         </div>
       ) : (
@@ -387,8 +403,8 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
             <button
               type="button"
               className="chat-history-action-btn"
-              title="重命名"
-              aria-label="重命名"
+              title={t('session.rename')}
+              aria-label={t('session.rename')}
               onClick={(e) => {
                 e.stopPropagation();
                 setConfirmDelete(false);
@@ -403,8 +419,8 @@ function HistoryItem({ session, isCurrent, onSelect, onPinnedChange }: HistoryIt
             <button
               type="button"
               className="chat-history-action-btn"
-              title="删除"
-              aria-label="删除"
+              title={t('session.delete')}
+              aria-label={t('session.delete')}
               onClick={(e) => {
                 e.stopPropagation();
                 setRenaming(false);

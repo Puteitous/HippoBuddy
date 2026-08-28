@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { chatApi } from '@/api/client';
 import { ApiError } from '@/api/error';
-import { translate } from '@/i18n';
+import { translate, useI18n } from '@/i18n';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { FileIcon } from '@/components/FileIcon';
@@ -54,9 +54,9 @@ function isBashPayload(p: ToolConfirmationPayload): p is BashToolConfirmationPay
 
 /** 风险徽章文案(对齐旧版 i18n tool.confirm.*) */
 function riskLabel(level: string): string {
-  if (level === 'high') return '高风险';
-  if (level === 'low') return '低风险';
-  return '中风险';
+  if (level === 'high') return translate('tool.confirm.highRisk');
+  if (level === 'low') return translate('tool.confirm.lowRisk');
+  return translate('tool.confirm.mediumRisk');
 }
 
 /** 风险警告图标(圆圈感叹号,对齐旧版 confirmation.js) */
@@ -106,6 +106,7 @@ interface ToolTimelineConfirmationProps {
 }
 
 export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfirmationProps) {
+  const { t } = useI18n();
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const resolveToolConfirmation = useChatStore((s) => s.resolveToolConfirmation);
   const [submitting, setSubmitting] = useState(false);
@@ -171,7 +172,7 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
           <span className="confirmation-header-icon">
             <RiskIcon />
           </span>
-          <span className="confirmation-header-title">执行命令</span>
+          <span className="confirmation-header-title">{t('tool.confirm.title')}</span>
           <span className="risk-badge">{riskLabel(confirmationData.riskLevel || 'medium')}</span>
         </div>
       )}
@@ -194,7 +195,7 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
             <div className="delete-file-multi-header">
               <TrashIcon />
               <span>
-                删除 <strong>{deleteItems.length}</strong> 个文件
+                {t('modal.delete')} <strong>{deleteItems.length}</strong> {t('tool.delete.count')}
               </span>
             </div>
             <div className="delete-file-multi-list">
@@ -223,7 +224,7 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
               onClick={() => void handleDecision('deny')}
               disabled={submitting}
             >
-              {isDelete ? '保留' : '拒绝'}
+              {isDelete ? t('tool.delete.keep') : t('tool.confirm.deny')}
             </button>
             <button
               type="button"
@@ -231,7 +232,7 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
               onClick={() => void handleDecision('allow')}
               disabled={submitting}
             >
-              {submitting ? '处理中…' : isDelete ? '删除' : '执行'}
+              {submitting ? t('tool.confirm.processing') : isDelete ? t('tool.delete.confirm') : t('tool.confirm.execute')}
             </button>
           </div>
         </div>

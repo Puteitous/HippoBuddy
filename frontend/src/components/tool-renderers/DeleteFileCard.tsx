@@ -10,12 +10,14 @@
  */
 import { FilePath, StatusBadge, ToolCardFrame } from './shared';
 import { parseToolArgs, ToolCardProps } from './shared-utils';
+import { useI18n } from '@/i18n';
 
 interface DeleteFileArgs {
   paths?: string[];
 }
 
 export function DeleteFileCard({ record }: ToolCardProps) {
+  const { t } = useI18n();
   const args = parseToolArgs<DeleteFileArgs>(record.args);
   const paths = Array.isArray(args.paths) ? args.paths : [];
   const isRunning = record.status === 'running';
@@ -25,7 +27,7 @@ export function DeleteFileCard({ record }: ToolCardProps) {
     <ToolCardFrame
       className="deletefile-card"
       icon={<TrashIcon />}
-      title="删除文件"
+      title={t('tool.delete.title')}
       statusBadge={<StatusBadge status={record.status} />}
       defaultExpanded={true}
     >
@@ -35,7 +37,7 @@ export function DeleteFileCard({ record }: ToolCardProps) {
             <FilePath path={paths[0]} />
           ) : (
             <div>
-              <div>共 {paths.length} 项:</div>
+              <div>{t('tool.delete.summary', { count: paths.length })}</div>
               {paths.map((p, i) => (
                 <FilePath key={i} path={p} />
               ))}
@@ -44,7 +46,7 @@ export function DeleteFileCard({ record }: ToolCardProps) {
         </div>
       )}
 
-      {isRunning && <div className="tool-summary">正在删除…</div>}
+      {isRunning && <div className="tool-summary">{t('tool.delete.running')}</div>}
 
       {!isRunning && record.result && (
         <div className="tool-result">

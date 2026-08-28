@@ -10,6 +10,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { fileApi } from '@/api/client';
+import { useI18n } from '@/i18n';
 import { createPptxScrollViewer } from './ooxml-bridge';
 import type { PptxScrollViewerLike } from './ooxml-bridge';
 import './OoxmlViewer.css';
@@ -26,6 +27,7 @@ const MIN_SCALE = 0.25;
 const MAX_SCALE = 4;
 
 export function PptxViewer({ filePath }: PptxViewerProps) {
+  const { t } = useI18n();
   const hostRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<PptxScrollViewerLike | null>(null);
   const [status, setStatus] = useState<ViewerStatus>('loading');
@@ -98,27 +100,27 @@ export function PptxViewer({ filePath }: PptxViewerProps) {
     <div className="ooxml-viewer">
       {status === 'ready' && (
         <div className="ooxml-toolbar">
-          <button type="button" className="ooxml-toolbar-btn" onClick={() => applyZoom(-1)} title="缩小">
+          <button type="button" className="ooxml-toolbar-btn" onClick={() => applyZoom(-1)} title={t('ooxml.zoomOut')}>
             −
           </button>
-          <button type="button" className="ooxml-toolbar-btn" onClick={() => applyZoom(1)} title="放大">
+          <button type="button" className="ooxml-toolbar-btn" onClick={() => applyZoom(1)} title={t('ooxml.zoomIn')}>
             +
           </button>
-          <button type="button" className="ooxml-toolbar-btn" onClick={fitWidth} title="适应宽度">
+          <button type="button" className="ooxml-toolbar-btn" onClick={fitWidth} title={t('ooxml.fitWidth')}>
             ⟲
           </button>
           <span className="ooxml-toolbar-level">{Math.round(zoom * 100)}%</span>
         </div>
       )}
       {status === 'loading' && (
-        <div className="ooxml-viewer-state">加载 PPTX 文件中…</div>
+        <div className="ooxml-viewer-state">{t('ooxml.loadingPptx')}</div>
       )}
       {status === 'error' && (
         <div className="ooxml-viewer-state ooxml-viewer-error">
-          <p className="ooxml-viewer-error-title">PPTX 预览失败</p>
+          <p className="ooxml-viewer-error-title">{t('ooxml.failedPptx')}</p>
           <p className="ooxml-viewer-error-detail">{error}</p>
           <a className="ooxml-viewer-download" href={fileApi.rawUrl(filePath)} target="_blank" rel="noreferrer">
-            下载查看
+            {t('ooxml.download')}
           </a>
         </div>
       )}

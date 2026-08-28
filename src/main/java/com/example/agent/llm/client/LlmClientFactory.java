@@ -200,7 +200,8 @@ public class LlmClientFactory {
             case MOONSHOT:
                 return "https://api.moonshot.cn/v1";
             case MINIMAX:
-                return "https://api.minimaxi.chat/v1";
+                // 国内 OpenAI 兼容地址（海外用户可用 api.minimaxi.chat）
+                return "https://api.minimaxi.com/v1";
             case STEPFUN:
                 return "https://api.stepfun.com/v1";
             case LINGYI:

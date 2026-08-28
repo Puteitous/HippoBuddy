@@ -12,6 +12,7 @@
 import { memo, useRef, useState } from 'react';
 import type { SessionMode } from '@/types';
 import { useAppStore } from '@/stores/appStore';
+import { translate } from '@/i18n';
 import { MODE_ORDER, MODE_PRESETS, SLOGAN_MAP } from './modePresetsData';
 import './ChatEmptyHero.css';
 
@@ -231,24 +232,24 @@ function spawnBubbles(el: HTMLDivElement | null) {
   }
 }
 
-/** 河马点击时吐对话框气泡(对齐旧版 _spawnHippoSpeech 文案) */
+/** 河马点击时吐对话框气泡(对齐旧版 _spawnHippoSpeech 文案;值为 i18n key) */
 const HIPPO_SPEECHES = [
-  '代码写得不错嘛 👍',
-  '好热🫠',
-  '想泡水💧',
-  '饿了吗🍉',
-  '今天吃什么 🍗',
-  '又在写 bug 了？',
-  '你好呀 👋',
-  '让我看看… 👀',
-  '这个我熟！',
-  '要帮忙吗？',
-  '💤 有点困…',
-  '该下班了 🕐',
-  '正在思考中… 🤔',
-  '快夸我快夸我',
-  '👿 哼！',
-  '好一个屁屁哦，😯',
+  'chat.heroSpeech1',
+  'chat.heroSpeech2',
+  'chat.heroSpeech3',
+  'chat.heroSpeech4',
+  'chat.heroSpeech5',
+  'chat.heroSpeech6',
+  'chat.heroSpeech7',
+  'chat.heroSpeech8',
+  'chat.heroSpeech9',
+  'chat.heroSpeech10',
+  'chat.heroSpeech11',
+  'chat.heroSpeech12',
+  'chat.heroSpeech13',
+  'chat.heroSpeech14',
+  'chat.heroSpeech15',
+  'chat.heroSpeech16',
 ];
 
 function spawnHippoSpeech(el: HTMLDivElement | null) {
@@ -256,7 +257,7 @@ function spawnHippoSpeech(el: HTMLDivElement | null) {
   const existing = el.querySelector('.hippo-speech');
   if (existing) existing.remove();
 
-  const text = HIPPO_SPEECHES[Math.floor(Math.random() * HIPPO_SPEECHES.length)];
+  const text = translate(HIPPO_SPEECHES[Math.floor(Math.random() * HIPPO_SPEECHES.length)]);
   const speech = document.createElement('div');
   speech.className = 'hippo-speech';
   speech.textContent = text;

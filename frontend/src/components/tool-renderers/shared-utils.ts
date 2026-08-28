@@ -5,6 +5,7 @@
  * 组件(StatusIcon / StatusBadge / ToolCardFrame / FilePath / DiffView 等)仍由 `shared.tsx` 导出。
  */
 import type { ToolCallRecord, ToolCallStatus } from '@/types';
+import { translate } from '@/i18n';
 
 // ============================================================================
 // Props 与工具名常量
@@ -59,14 +60,19 @@ export function parseToolArgs<T = Record<string, unknown>>(args: unknown): T {
 // 状态文案(供 StatusBadge 使用)
 // ============================================================================
 
-/** 状态文案 */
-export function statusLabel(status: ToolCallStatus): string {
+/** 状态文案 key(供 StatusBadge / statusLabel 使用) */
+export function statusKey(status: ToolCallStatus): string {
   switch (status) {
-    case 'success': return '成功';
-    case 'failed': return '失败';
-    case 'running': return '执行中';
+    case 'success': return 'tool.default.success';
+    case 'failed': return 'tool.default.failed';
+    case 'running': return 'tool.default.running';
     default: return status;
   }
+}
+
+/** 状态文案(非响应式,调用时读当前语言) */
+export function statusLabel(status: ToolCallStatus): string {
+  return translate(statusKey(status));
 }
 
 // ============================================================================
@@ -244,7 +250,7 @@ export function timelineSummary(name: string, args: unknown): string {
     case 'delete_file':
       return Array.isArray(a.paths) ? (a.paths as unknown[]).join(', ') : '';
     case 'list_directory':
-      return typeof a.path === 'string' ? a.path : '(项目根目录)';
+      return typeof a.path === 'string' ? a.path : translate('tool.common.projectRoot');
     case 'skill':
       return typeof a.name === 'string' ? `skill: ${a.name}` : '';
     default:

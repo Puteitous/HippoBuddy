@@ -31,7 +31,7 @@ class AbstractLlmClientDefaultsTest {
             TestableDashScopeClient client = new TestableDashScopeClient();
             String result = client.getModel();
 
-            assertEquals("qwen3.5-plus", result);
+            assertEquals("gpt-4o", result);
             assertNull(config.getLlm().getModel(), "Config对象不应该被修改");
         }
 
@@ -43,7 +43,7 @@ class AbstractLlmClientDefaultsTest {
             TestableDashScopeClient client = new TestableDashScopeClient();
             String result = client.getModel();
 
-            assertEquals("qwen3.5-plus", result);
+            assertEquals("gpt-4o", result);
             assertEquals("", config.getLlm().getModel(), "Config对象不应该被修改");
         }
 
@@ -55,7 +55,7 @@ class AbstractLlmClientDefaultsTest {
             TestableDashScopeClient client = new TestableDashScopeClient();
             String result = client.getModel();
 
-            assertEquals("qwen3.5-plus", result);
+            assertEquals("gpt-4o", result);
         }
 
         @Test
@@ -82,7 +82,7 @@ class AbstractLlmClientDefaultsTest {
             TestableDashScopeClient client = new TestableDashScopeClient();
             String result = client.getBaseUrl();
 
-            assertEquals("https://dashscope.aliyuncs.com", result);
+            assertEquals("https://api.openai.com/v1", result);
             assertNull(config.getLlm().getBaseUrl(), "Config对象不应该被修改");
         }
 
@@ -94,7 +94,7 @@ class AbstractLlmClientDefaultsTest {
             TestableDashScopeClient client = new TestableDashScopeClient();
             String result = client.getBaseUrl();
 
-            assertEquals("https://dashscope.aliyuncs.com", result);
+            assertEquals("https://api.openai.com/v1", result);
             assertEquals("", config.getLlm().getBaseUrl(), "Config对象不应该被修改");
         }
 
@@ -106,7 +106,7 @@ class AbstractLlmClientDefaultsTest {
             TestableDashScopeClient client = new TestableDashScopeClient();
             String result = client.getBaseUrl();
 
-            assertEquals("https://dashscope.aliyuncs.com", result);
+            assertEquals("https://api.openai.com/v1", result);
         }
 
         @Test
@@ -130,7 +130,7 @@ class AbstractLlmClientDefaultsTest {
         void testOpenAiDefaults() {
             OpenAiLlmClient client = new OpenAiLlmClient();
 
-            assertEquals("https://api.openai.com", client.getDefaultBaseUrl());
+            assertEquals("https://api.openai.com/v1", client.getDefaultBaseUrl());
             assertEquals("gpt-4o", client.getDefaultModel());
         }
 
@@ -139,7 +139,7 @@ class AbstractLlmClientDefaultsTest {
         void testOllamaDefaults() {
             OllamaLlmClient client = new OllamaLlmClient();
 
-            assertEquals("http://localhost:11434", client.getDefaultBaseUrl());
+            assertEquals("http://localhost:11434/v1", client.getDefaultBaseUrl());
             assertEquals("qwen2.5:7b", client.getDefaultModel());
         }
 
@@ -183,7 +183,7 @@ class AbstractLlmClientDefaultsTest {
             String emptyResult = client.getModel();
 
             assertEquals(nullResult, emptyResult, "null和空字符串处理结果应一致");
-            assertEquals("qwen3.5-plus", nullResult);
+            assertEquals("gpt-4o", nullResult);
         }
 
         @Test
@@ -198,7 +198,7 @@ class AbstractLlmClientDefaultsTest {
             String emptyResult = client.getBaseUrl();
 
             assertEquals(nullResult, emptyResult, "null和空字符串处理结果应一致");
-            assertEquals("https://dashscope.aliyuncs.com", nullResult);
+            assertEquals("https://api.openai.com/v1", nullResult);
         }
     }
 

@@ -14,6 +14,7 @@
  */
 import { StatusBadge, ToolCardFrame } from './shared';
 import { parseToolArgs, ToolCardProps } from './shared-utils';
+import { useI18n } from '@/i18n';
 
 interface BashArgs {
   command?: string;
@@ -31,6 +32,7 @@ function TerminalIcon() {
 }
 
 export function BashToolCard({ record }: ToolCardProps) {
+  const { t } = useI18n();
   const args = parseToolArgs<BashArgs>(record.args);
   const command = args.command ?? '';
   const workingDir = args.working_dir ?? '';
@@ -41,7 +43,7 @@ export function BashToolCard({ record }: ToolCardProps) {
     <ToolCardFrame
       className="bash-card"
       icon={<TerminalIcon />}
-      title="运行命令"
+      title={t('tool.bash.runTitle')}
       statusBadge={<StatusBadge status={record.status} />}
       defaultExpanded={true}
     >

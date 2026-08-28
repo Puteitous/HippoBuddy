@@ -19,6 +19,7 @@
  */
 import { FilePath, StatusBadge, ToolCardFrame } from './shared';
 import { parseToolArgs, ToolCardProps } from './shared-utils';
+import { translate, useI18n } from '@/i18n';
 
 interface FileSearchArgs {
   path?: string;
@@ -40,7 +41,7 @@ function extractSummary(name: string, args: FileSearchArgs): string {
     return args.pattern ?? '';
   }
   if (name === 'list_directory') {
-    return args.path ?? '(项目根目录)';
+    return args.path ?? translate('tool.common.projectRoot');
   }
   if (name === 'SearchCodebase') {
     return args.information_request ?? '';
@@ -54,21 +55,21 @@ function extractSummary(name: string, args: FileSearchArgs): string {
   return '';
 }
 
-/** 按工具名取中文标题 */
-function titleFor(name: string): string {
-  const titles: Record<string, string> = {
-    read_file: '读取文件',
-    read_office_file: '读取 Office 文件',
-    write_office_file: '写入 Office 文件',
-    grep: 'Grep 搜索',
-    glob: 'Glob 匹配',
-    list_directory: '列出目录',
-    SearchCodebase: '语义搜索',
-    lint_diagnostics: 'Lint 检查',
-    undo_file: '撤销文件',
-    skill: '技能调用',
+/** 按工具名取标题 i18n key */
+function titleKeyFor(name: string): string {
+  const keys: Record<string, string> = {
+    read_file: 'tool.search.readFile',
+    read_office_file: 'tool.search.readOffice',
+    write_office_file: 'tool.search.writeOffice',
+    grep: 'tool.search.grep',
+    glob: 'tool.search.glob',
+    list_directory: 'tool.search.listDirectory',
+    SearchCodebase: 'tool.search.codebase',
+    lint_diagnostics: 'tool.search.lint',
+    undo_file: 'tool.search.undoFile',
+    skill: 'tool.search.skill',
   };
-  return titles[name] ?? name;
+  return keys[name] ?? name;
 }
 
 /** 按工具名取图标 */
@@ -117,6 +118,7 @@ function IconFor({ name }: { name: string }) {
 }
 
 export function FileSearchCard({ record }: ToolCardProps) {
+  const { t } = useI18n();
   const args = parseToolArgs<FileSearchArgs>(record.args);
   const summary = extractSummary(record.name, args);
   const isPathTool = ['read_file', 'read_office_file', 'write_office_file', 'undo_file', 'list_directory'].includes(record.name);
@@ -127,7 +129,7 @@ export function FileSearchCard({ record }: ToolCardProps) {
     <ToolCardFrame
       className={`filesearch-card ${record.name}`}
       icon={<IconFor name={record.name} />}
-      title={titleFor(record.name)}
+      title={t(titleKeyFor(record.name))}
       statusBadge={<StatusBadge status={record.status} />}
       defaultExpanded={true}
     >
@@ -135,7 +137,7 @@ export function FileSearchCard({ record }: ToolCardProps) {
       {summary && isPathTool && <FilePath path={summary} />}
       {summary && !isPathTool && <div className="tool-summary">{summary}</div>}
 
-      {isRunning && <div className="tool-summary">执行中…</div>}
+      {isRunning && <div className="tool-summary">{t('tool.timeline.running')}</div>}
 
       {!isRunning && record.result && (
         <div className="tool-result">

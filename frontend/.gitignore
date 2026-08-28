@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.local
 .DS_Store
+
+# TypeScript 编译产物(与 .ts/.tsx 成对,非源码,由 tsc 就地生成)
+frontend/src/**/*.js

@@ -23,6 +23,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useSessionStream } from '@/hooks/useSessionStream';
 import { ToolCardFrame, StatusBadge } from './shared';
 import { parseToolArgs } from './shared-utils';
+import { useI18n } from '@/i18n';
 import type { ToolCallRecord } from '@/types';
 
 interface AskUserCardProps {
@@ -30,6 +31,7 @@ interface AskUserCardProps {
 }
 
 export function AskUserCard({ record }: AskUserCardProps = {}) {
+  const { t } = useI18n();
   const { askUserData, waitingForUser } = useSessionStream();
   const commitAskUser = useChatStore((s) => s.commitAskUser);
   const setError = useChatStore((s) => s.setError);
@@ -102,11 +104,11 @@ export function AskUserCard({ record }: AskUserCardProps = {}) {
           <path d="M6.5 6.5c0-1 1-1.5 1.5-1.5s1.5.5 1.5 1.5c0 1-1.5 1.5-1.5 2.5" />
         </svg>
       }
-      title="需要确认"
+      title={t('tool.askUser.title')}
       // 已回复的只读卡在头部显示「已回复」徽章,收起时也能看出该 ask 已被答复
       statusBadge={
         !interactive && answered != null ? (
-          <StatusBadge status="success">已回复</StatusBadge>
+          <StatusBadge status="success">{t('tool.askUser.replied')}</StatusBadge>
         ) : undefined
       }
       // 实时等待态默认展开、不可折(保证选项可见可作答);
@@ -118,7 +120,7 @@ export function AskUserCard({ record }: AskUserCardProps = {}) {
 
       {answered != null ? (
         <div className="ask-user-answer">
-          <span className="ask-user-answer-label">已回复</span>
+          <span className="ask-user-answer-label">{t('tool.askUser.replied')}</span>
           <span className="ask-user-answer-text">{displayAnswer}</span>
         </div>
       ) : (

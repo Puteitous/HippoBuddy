@@ -167,17 +167,17 @@ class LlmClientFactoryImmutabilityTest {
         @Test
         @DisplayName("getDefaultBaseUrl正确映射")
         void testGetDefaultBaseUrlMapping() {
-            assertEquals("https://dashscope.aliyuncs.com",
+            assertEquals("https://dashscope.aliyuncs.com/compatible-mode/v1",
                 LlmClientFactory.getDefaultBaseUrl("dashscope"));
-            assertEquals("https://api.openai.com",
+            assertEquals("https://api.openai.com/v1",
                 LlmClientFactory.getDefaultBaseUrl("openai"));
-            assertEquals("http://localhost:11434",
+            assertEquals("http://localhost:11434/v1",
                 LlmClientFactory.getDefaultBaseUrl("ollama"));
-            assertEquals("https://dashscope.aliyuncs.com",
+            assertEquals("https://dashscope.aliyuncs.com/compatible-mode/v1",
                 LlmClientFactory.getDefaultBaseUrl(null));
-            assertEquals("https://dashscope.aliyuncs.com",
+            assertEquals("https://dashscope.aliyuncs.com/compatible-mode/v1",
                 LlmClientFactory.getDefaultBaseUrl(""));
-            assertEquals("https://dashscope.aliyuncs.com",
+            assertEquals("https://dashscope.aliyuncs.com/compatible-mode/v1",
                 LlmClientFactory.getDefaultBaseUrl("unknown"));
         }
 

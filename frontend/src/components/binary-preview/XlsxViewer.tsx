@@ -11,6 +11,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { fileApi } from '@/api/client';
+import { useI18n } from '@/i18n';
 import { createXlsxViewer } from './ooxml-bridge';
 import type { XlsxViewerLike } from './ooxml-bridge';
 import './OoxmlViewer.css';
@@ -23,6 +24,7 @@ interface XlsxViewerProps {
 type ViewerStatus = 'loading' | 'ready' | 'error';
 
 export function XlsxViewer({ filePath }: XlsxViewerProps) {
+  const { t } = useI18n();
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<ViewerStatus>('loading');
   const [error, setError] = useState('');
@@ -69,14 +71,14 @@ export function XlsxViewer({ filePath }: XlsxViewerProps) {
   return (
     <div className="ooxml-viewer">
       {status === 'loading' && (
-        <div className="ooxml-viewer-state">加载 XLSX 文件中…</div>
+        <div className="ooxml-viewer-state">{t('ooxml.loadingXlsx')}</div>
       )}
       {status === 'error' && (
         <div className="ooxml-viewer-state ooxml-viewer-error">
-          <p className="ooxml-viewer-error-title">XLSX 预览失败</p>
+          <p className="ooxml-viewer-error-title">{t('ooxml.failedXlsx')}</p>
           <p className="ooxml-viewer-error-detail">{error}</p>
           <a className="ooxml-viewer-download" href={fileApi.rawUrl(filePath)} target="_blank" rel="noreferrer">
-            下载查看
+            {t('ooxml.download')}
           </a>
         </div>
       )}

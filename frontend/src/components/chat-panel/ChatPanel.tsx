@@ -17,7 +17,7 @@ import { useSessionStream } from '@/hooks/useSessionStream';
 import { useVisionSupport } from '@/hooks/useVisionSupport';
 import { api, configApi } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
-import { translate } from '@/i18n';
+import { translate, useI18n } from '@/i18n';
 import { setDefaultProcessView, getDefaultProcessCollapsed } from '@/utils/process-view-config';
 import type { Message, PendingImage, RefChip, ToolCallRecord } from '@/types';
 import { combineChipsToMessage } from '@/utils/ref-chips';
@@ -56,6 +56,7 @@ import '../tool-renderers/tool-renderers.css';
 import './ChatPanel.css';
 
 export function ChatPanel() {
+  const { t } = useI18n();
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const setSessions = useAppStore((s) => s.setSessions);
@@ -452,11 +453,11 @@ export function ChatPanel() {
       if (isStreamSending) return;
       // 模型不支持视觉时拦截粘贴图片(对齐旧版 ImageUpload 粘贴校验)
       if (!visionSupported) {
-        pushWarning('当前模型不支持图片上传');
+        pushWarning(translate('chat.noVisionSupport'));
         return;
       }
       if (blob.size > MAX_IMAGE_SIZE_BYTES) {
-        pushWarning(`图片 ${name} 超过 20MB 限制`);
+        pushWarning(translate('chat.imageTooLarge', { name }));
         return;
       }
       void fileToDataUrl(blob)
@@ -464,7 +465,7 @@ export function ChatPanel() {
           addImage({ id: generateImageId(), dataUrl, name, size: blob.size });
         })
         .catch((err) => {
-          pushWarning(`读取图片失败${err instanceof Error ? `: ${err.message}` : ''}`);
+          pushWarning(`${translate('chat.readImageFailed')}${err instanceof Error ? `: ${err.message}` : ''}`);
         });
     },
     [isStreamSending, visionSupported, addImage, pushWarning],
@@ -625,8 +626,8 @@ export function ChatPanel() {
           type="button"
           className="chat-show-btn"
           onClick={() => setCollapsed(false)}
-          title="展开聊天"
-          aria-label="展开聊天"
+          title={t('chat.expand')}
+          aria-label={t('chat.expand')}
         >
           <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="4 4 12 8 4 12" />
@@ -694,7 +695,7 @@ export function ChatPanel() {
         {/* 错误提示 */}
         {error && (
           <div className="chat-panel-error">
-            <strong>错误:</strong> {error}
+            <strong>{t('chat.error')}:</strong> {error}
           </div>
         )}
 
@@ -705,7 +706,7 @@ export function ChatPanel() {
               type="button"
               className="chat-panel-warnings-close"
               onClick={clearWarnings}
-              aria-label="清除警告"
+              aria-label={t('chat.clearWarnings')}
             >
               ×
             </button>
@@ -732,8 +733,8 @@ export function ChatPanel() {
             type="button"
             className="new-msg-hint"
             onClick={handleScrollToBottom}
-            title="滚动到底部"
-            aria-label="滚动到底部"
+            title={t('chat.scrollToBottom')}
+            aria-label={t('chat.scrollToBottom')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9" />
@@ -758,15 +759,15 @@ export function ChatPanel() {
                         type="button"
                         className="image-upload-remove"
                         onClick={() => removeImage(img.id)}
-                        aria-label={`移除 ${img.name}`}
-                        title={`移除 ${img.name}`}
+                        aria-label={t('chat.removeImage', { name: img.name })}
+                        title={t('chat.removeImage', { name: img.name })}
                       >
                         ×
                       </button>
                     </div>
                   ))}
                   {pendingImages.length > 5 && (
-                    <span className="image-upload-overflow" title={`还有 ${pendingImages.length - 5} 张图片`}>
+                    <span className="image-upload-overflow" title={t('chat.moreImages', { count: pendingImages.length - 5 })}>
                       +{pendingImages.length - 5}
                     </span>
                   )}
@@ -779,7 +780,7 @@ export function ChatPanel() {
           <div className="chat-panel-input-row">
             <InlineInput
               ref={inlineInputRef}
-              placeholder="输入消息,Enter 发送,Shift+Enter 换行;输入 @path/To/file 触发引用芯片"
+              placeholder={t('chat.inputPlaceholder')}
               onSend={handleSend}
               onPasteImage={handlePasteImage}
               onContentChange={handleInlineContentChange}
@@ -826,8 +827,8 @@ export function ChatPanel() {
                   type="button"
                   className="chat-panel-abort-btn"
                   onClick={abort}
-                  title="停止生成"
-                  aria-label="停止生成"
+                  title={t('chat.stop')}
+                  aria-label={t('chat.stop')}
                 >
                   <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden>
                     <rect x="6" y="6" width="12" height="12" rx="2" />
@@ -839,8 +840,8 @@ export function ChatPanel() {
                   className="chat-panel-send-btn"
                   onClick={handleSend}
                   disabled={!hasInputContent && pendingImages.length === 0}
-                  title="发送消息"
-                  aria-label="发送消息"
+                  title={t('chat.sendMessage')}
+                  aria-label={t('chat.sendMessage')}
                 >
                   <svg
                     viewBox="0 0 16 16"

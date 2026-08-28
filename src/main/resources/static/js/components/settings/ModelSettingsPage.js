@@ -91,6 +91,8 @@ export class ModelSettingsPage {
     this._providerDropdown = null;
     this._maxTokensDropdown = null;
     this._editingIndex = -1; // -1 = 列表视图, >=0 = 编辑索引, -2 = 新建
+    /** provider -> 默认 base URL，选择厂商时自动填充 */
+    this._llmDefaults = {};
   }
 
   render(container) {
@@ -183,6 +185,19 @@ export class ModelSettingsPage {
     return false;
   }
 
+  /** 切换厂商时自动填充 Base URL（为空或仍是上一个厂商默认地址时替换，用户手动输入则保留） */
+  _maybeAutofillBaseUrl(newProvider) {
+    const baseUrlInput = document.getElementById('modelEditBaseUrl');
+    if (!baseUrlInput || !this._llmDefaults) return;
+    const oldProvider = this._providerDropdown?.getSelectedItem()?.value;
+    const oldDefault = this._llmDefaults[oldProvider] || '';
+    const newDefault = this._llmDefaults[newProvider] || '';
+    const cur = baseUrlInput.value.trim();
+    if (newDefault && (!cur || cur === oldDefault)) {
+      baseUrlInput.value = newDefault;
+    }
+  }
+
   // ==================== 加载列表 ====================
 
   async _loadModelConfig() {
@@ -195,6 +210,8 @@ export class ModelSettingsPage {
     if (errorEl) errorEl.style.display = 'none';
 
     try {
+      // 拉取各厂商默认 base URL（选择厂商时自动填充，失败静默降级）
+      apiGet('/api/config/llm/defaults').then(d => { this._llmDefaults = d || {}; }).catch(() => {});
       const data = await apiGet('/api/config/llm');
       this._renderModelHistoryList(data);
     } catch (e) {
@@ -338,7 +355,8 @@ export class ModelSettingsPage {
     const saveText = isNew ? _t('settingsPage.modelCreateAction') : _t('settingsPage.modelSaveAction');
     const provider = model?.provider || 'deepseek';
     const modelName = model?.model || model?.name || '';
-    const baseUrl = model?.baseUrl || '';
+    // 新建时预填默认厂商(deepseek)的 base URL
+    const baseUrl = model?.baseUrl || (isNew ? (this._llmDefaults?.['deepseek'] || '') : '');
     const maxTokens = model?.maxTokens ?? 0;
     const hasApiKey = model?.hasApiKey;
     const apiKeyValue = model?.apiKeyMasked || '';
@@ -451,6 +469,8 @@ export class ModelSettingsPage {
         items: PROVIDER_ITEMS,
         placement: 'bottom-left',
         onSelect: (item) => {
+          // 切换厂商时，若 Base URL 为空或仍是上一个厂商的默认地址，则自动填充新厂商默认地址
+          this._maybeAutofillBaseUrl(item.value);
           // Provider 变更时：显示/隐藏思考模式配置区，并按 Provider 更新档位选项
           const thinkingSupported = this._isThinkingSupported(item.value);
           const reasoningSupported = this._supportsReasoningEffort(item.value);

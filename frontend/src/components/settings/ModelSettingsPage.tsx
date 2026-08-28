@@ -135,12 +135,19 @@ export function ModelSettingsPage() {
   const [editor, setEditor] = useState<EditorState>(emptyEditor());
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** provider -> 默认 base URL，选择厂商时自动填充 */
+  const [defaultsByProvider, setDefaultsByProvider] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
     setLoadError(null);
     try {
       const data = await configApi.getLlm();
+      // 拉取各厂商默认 base URL（失败时静默降级，不影响模型列表加载）
+      configApi
+        .getLlmDefaults()
+        .then((d) => setDefaultsByProvider(d || {}))
+        .catch(() => {});
       setLlm(data);
       const list = data.modelHistory || [];
       let idx = list.findIndex(
@@ -175,7 +182,8 @@ export function ModelSettingsPage() {
   };
 
   const openCreate = () => {
-    setEditor(emptyEditor());
+    // 新建时预填当前默认厂商(deepseek)的 base URL
+    setEditor({ ...emptyEditor(), baseUrl: defaultsByProvider['deepseek'] || '' });
     setApiKeyVisible(false);
     setPageMode('create');
   };
@@ -188,13 +196,21 @@ export function ModelSettingsPage() {
 
   const handleProviderChange = (provider: string) => {
     const effortItems = getReasoningItems(provider);
-    setEditor((prev) => ({
-      ...prev,
-      provider,
-      reasoningEffort: effortItems.some((i) => i.value === prev.reasoningEffort)
-        ? prev.reasoningEffort
-        : '',
-    }));
+    setEditor((prev) => {
+      const oldDefault = defaultsByProvider[prev.provider] || '';
+      const newDefault = defaultsByProvider[provider] || '';
+      // 仅当用户尚未手动填写（为空或仍是上一个厂商的默认地址）时自动填充
+      const baseUrl =
+        !prev.baseUrl || prev.baseUrl === oldDefault ? newDefault : prev.baseUrl;
+      return {
+        ...prev,
+        provider,
+        baseUrl,
+        reasoningEffort: effortItems.some((i) => i.value === prev.reasoningEffort)
+          ? prev.reasoningEffort
+          : '',
+      };
+    });
   };
 
   const handleSave = async () => {

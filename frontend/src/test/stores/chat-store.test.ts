@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useChatStore, type AskUserData } from '@/stores/chatStore';
+import { useChatStore, EMPTY_SESSION_STREAM, type AskUserData } from '@/stores/chatStore';
 import { useAppStore } from '@/stores/appStore';
 import type { Message, ToolCallRecord, WebSearchAction } from '@/types';
 import type { FlatTodo } from '@/components/tool-renderers/shared-utils';
@@ -79,6 +79,24 @@ describe('chatStore', () => {
     useChatStore.getState().resetSessionStream('s1');
     expect(useChatStore.getState().sessionStreams.s1).toBeUndefined();
     expect(useChatStore.getState().hasActiveStream('s1')).toBe(false);
+  });
+
+  it('dismissSessionCompleted 对无分区的会话不新建分区(回归防护:侧边栏点击会话)', () => {
+    // 回归防护:Sidebar 点击会话项会先调用 dismissSessionCompleted 再切换 currentSessionId。
+    // 若此处为无分区会话新建空分区,useSessionMessages 会命中「已有分区直接复用」早退,
+    // 导致历史消息不加载、点击会话后停留在空对话而非跳转到对应历史面板(1b61b78 回归)。
+    expect(useChatStore.getState().sessionStreams.s1).toBeUndefined();
+    useChatStore.getState().dismissSessionCompleted('s1');
+    expect(useChatStore.getState().sessionStreams.s1).toBeUndefined();
+  });
+
+  it('dismissSessionCompleted 仅清除已存在分区的 completedUnread', () => {
+    useChatStore.setState({
+      sessionStreams: { s1: { ...EMPTY_SESSION_STREAM, completedUnread: true } },
+    });
+    expect(useChatStore.getState().sessionStreams.s1.completedUnread).toBe(true);
+    useChatStore.getState().dismissSessionCompleted('s1');
+    expect(useChatStore.getState().sessionStreams.s1.completedUnread).toBe(false);
   });
 
   it('addToolCall 新增记录', () => {

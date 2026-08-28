@@ -12,6 +12,7 @@
  */
 import { StatusBadge, ToolCardFrame } from './shared';
 import { parseToolArgs, ToolCardProps } from './shared-utils';
+import { useI18n } from '@/i18n';
 
 interface WebArgs {
   query?: string;
@@ -19,6 +20,7 @@ interface WebArgs {
 }
 
 export function WebToolCard({ record }: ToolCardProps) {
+  const { t } = useI18n();
   const args = parseToolArgs<WebArgs>(record.args);
   const isSearch = record.name === 'web_search';
   const isFetch = record.name === 'web_fetch';
@@ -33,13 +35,13 @@ export function WebToolCard({ record }: ToolCardProps) {
     <ToolCardFrame
       className={`web-card ${record.name}`}
       icon={<WebIcon isSearch={isSearch} />}
-      title={isSearch ? '联网搜索' : isFetch ? '网页抓取' : 'Web 工具'}
+      title={isSearch ? t('tool.web.searchTitle') : isFetch ? t('tool.web.fetchTitle') : t('tool.web.fallbackTitle')}
       statusBadge={<StatusBadge status={record.status} />}
       defaultExpanded={true}
     >
       {summary && <div className="tool-summary">{summary}</div>}
 
-      {isRunning && <div className="tool-summary">执行中…</div>}
+      {isRunning && <div className="tool-summary">{t('tool.timeline.running')}</div>}
 
       {!isRunning && record.result && (
         <div className="tool-result">

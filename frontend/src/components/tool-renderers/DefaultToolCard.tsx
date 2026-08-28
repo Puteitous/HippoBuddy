@@ -11,8 +11,10 @@
  */
 import { StatusBadge, ToolCardFrame } from './shared';
 import { parseToolArgs, ToolCardProps } from './shared-utils';
+import { useI18n } from '@/i18n';
 
 export function DefaultToolCard({ record }: ToolCardProps) {
+  const { t } = useI18n();
   const args = parseToolArgs(record.args);
   const isFailed = record.status === 'failed';
   const isRunning = record.status === 'running';
@@ -38,12 +40,12 @@ export function DefaultToolCard({ record }: ToolCardProps) {
       statusBadge={<StatusBadge status={record.status} />}
       defaultExpanded={false}
     >
-      {isRunning && <div className="tool-summary">执行中…</div>}
+      {isRunning && <div className="tool-summary">{t('tool.timeline.running')}</div>}
 
       {Object.keys(args).length > 0 && (
         <div className="tool-args">
           <div className="tool-detail-row">
-            <span className="tool-detail-label">参数</span>
+            <span className="tool-detail-label">{t('tool.default.parameters')}</span>
             <pre>{argsJson}</pre>
           </div>
         </div>
@@ -52,7 +54,7 @@ export function DefaultToolCard({ record }: ToolCardProps) {
       {!isRunning && record.result && (
         <div className="tool-result">
           <div className="tool-detail-row">
-            <span className="tool-detail-label">结果</span>
+            <span className="tool-detail-label">{t('tool.default.result')}</span>
             <pre>{record.result}</pre>
           </div>
         </div>

@@ -18,6 +18,7 @@
  */
 import { useMemo } from 'react';
 import { fileApi } from '@/api/client';
+import { useI18n } from '@/i18n';
 import { isDocxFile, isPptxFile, isXlsxFile, isXlsFile } from './shared';
 import { DocxViewer } from './DocxViewer';
 import { PptxViewer } from './PptxViewer';
@@ -40,6 +41,7 @@ function detectBinaryKind(filePath: string): BinaryKind {
 }
 
 export function BinaryPreview({ filePath }: BinaryPreviewProps) {
+  const { t } = useI18n();
   const kind = useMemo(() => detectBinaryKind(filePath), [filePath]);
 
   if (kind === 'docx') return <DocxViewer filePath={filePath} />;
@@ -49,10 +51,10 @@ export function BinaryPreview({ filePath }: BinaryPreviewProps) {
     return (
       <div className="ooxml-viewer">
         <div className="ooxml-viewer-state ooxml-viewer-error">
-          <p className="ooxml-viewer-error-title">暂不支持 .xls 预览</p>
-          <p className="ooxml-viewer-error-detail">旧版 Excel 格式,请将文件另存为 .xlsx 后查看</p>
+          <p className="ooxml-viewer-error-title">{t('ooxml.xlsNotSupported')}</p>
+          <p className="ooxml-viewer-error-detail">{t('ooxml.xlsNotSupportedDetail')}</p>
           <a className="ooxml-viewer-download" href={fileApi.rawUrl(filePath)} target="_blank" rel="noreferrer">
-            下载查看
+            {t('ooxml.download')}
           </a>
         </div>
       </div>
@@ -61,8 +63,8 @@ export function BinaryPreview({ filePath }: BinaryPreviewProps) {
   return (
     <div className="ooxml-viewer">
       <div className="ooxml-viewer-state ooxml-viewer-error">
-        <p className="ooxml-viewer-error-title">未知文件类型</p>
-        <p className="ooxml-viewer-error-detail">该文件无法通过二进制预览组件渲染</p>
+        <p className="ooxml-viewer-error-title">{t('ooxml.unknownType')}</p>
+        <p className="ooxml-viewer-error-detail">{t('ooxml.unknownTypeDetail')}</p>
       </div>
     </div>
   );

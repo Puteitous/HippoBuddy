@@ -176,6 +176,9 @@ export const configApi = {
   /** GET /api/config/llm - 读取 LLM 配置(含历史快照,apiKey 已遮掩) */
   getLlm: () => getJson<LlmConfig>(`${API_BASE}/config/llm`),
 
+  /** GET /api/config/llm/defaults - 各 Provider 默认 base URL({provider: url}) */
+  getLlmDefaults: () => getJson<Record<string, string>>(`${API_BASE}/config/llm/defaults`),
+
   /**
    * PUT /api/config/llm - 更新 LLM 配置
    * - 完整保存:来自配置弹窗(含 baseUrl/apiKey/maxTokens 等)

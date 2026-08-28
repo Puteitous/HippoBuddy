@@ -9,6 +9,7 @@
  */
 import { FilePath, StatusBadge, ToolCardFrame, DiffView, DiffStatsBadge } from './shared';
 import { parseToolArgs, ToolCardProps, computeUnifiedDiff } from './shared-utils';
+import { useI18n } from '@/i18n';
 
 interface WriteFileArgs {
   path?: string;
@@ -16,6 +17,7 @@ interface WriteFileArgs {
 }
 
 export function WriteFileCard({ record }: ToolCardProps) {
+  const { t } = useI18n();
   const args = parseToolArgs<WriteFileArgs>(record.args);
   const filePath = args.path ?? '';
   const content = args.content ?? '';
@@ -29,7 +31,7 @@ export function WriteFileCard({ record }: ToolCardProps) {
     <ToolCardFrame
       className="writefile-card"
       icon={<FileIcon />}
-      title="写入文件"
+      title={t('tool.write.title')}
       statusBadge={
         isRunning ? (
           <StatusBadge status="running" />
@@ -43,7 +45,7 @@ export function WriteFileCard({ record }: ToolCardProps) {
     >
       {filePath && <FilePath path={filePath} />}
 
-      {isRunning && <div className="tool-summary">正在写入…</div>}
+      {isRunning && <div className="tool-summary">{t('tool.write.runningShort')}</div>}
 
       {!isRunning && record.status === 'success' && diffLines.length > 0 && (
         <DiffView diffLines={diffLines} />

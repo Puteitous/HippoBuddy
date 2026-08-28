@@ -7,6 +7,7 @@
 import { ReactNode, useState } from 'react';
 import { ToolCardFrame } from './shared';
 import { parseToolArgs, ToolCardProps } from './shared-utils';
+import { useI18n } from '@/i18n';
 
 interface TodoNode {
   id: string;
@@ -60,6 +61,7 @@ function countStats(nodes: TodoNode[]): { completed: number; total: number } {
 
 /** 递归渲染树节点 */
 function TreeNode({ node, depth }: { node: TodoNode; depth: number }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(true);
   const hasChildren = !!node.children && node.children.length > 0;
   const statusClass =
@@ -94,9 +96,9 @@ function TreeNode({ node, depth }: { node: TodoNode; depth: number }) {
             </svg>
           )}
         </span>
-        <span className="todo-content">{node.content || '未命名任务'}</span>
+        <span className="todo-content">{node.content || t('tool.todo.unnamed')}</span>
         {node.sessionId && (
-          <span className="todo-session-link" title="跳转到关联会话">
+          <span className="todo-session-link" title={t('tool.todo.jumpToSession')}>
             🔗
           </span>
         )}
@@ -113,6 +115,7 @@ function TreeNode({ node, depth }: { node: TodoNode; depth: number }) {
 }
 
 export function TodoWriteCard({ record }: ToolCardProps) {
+  const { t } = useI18n();
   const args = parseToolArgs<TodoWriteArgs>(record.args);
   const flatList = Array.isArray(args.todos) ? args.todos : [];
   const tree = buildTree(flatList);
@@ -134,7 +137,7 @@ export function TodoWriteCard({ record }: ToolCardProps) {
           <polyline points="5 7 7 9 11 5" />
         </svg>
       }
-      title="任务清单"
+      title={t('tool.todo.title')}
       statusBadge={summary}
       defaultExpanded={total > 0}
     >

@@ -5,6 +5,7 @@ import com.example.agent.config.ConfigLoader;
 import com.example.agent.config.LlmConfig;
 import com.example.agent.config.ModelSnapshot;
 import com.example.agent.core.di.ServiceLocator;
+import com.example.agent.llm.client.LlmClientFactory;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.tools.web.WebSearchConfig;
 import com.example.agent.tools.web.WebSearchTool;
@@ -40,6 +41,13 @@ public class ConfigApiHandler implements HttpHandler {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
+    /** 前端可选 Provider 值，用于返回各厂商默认 base URL（与 LlmClientFactory 保持单一数据源） */
+    private static final String[] DEFAULT_PROVIDERS = {
+            "deepseek", "deepseek-responses", "dashscope", "openai", "zhipu",
+            "moonshot", "minimax", "stepfun", "lingyi", "doubao", "siliconflow",
+            "xunfei", "anthropic", "ollama", "local"
+    };
+
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
@@ -57,6 +65,8 @@ public class ConfigApiHandler implements HttpHandler {
                 case "GET":
                     if ("/api/config/llm".equals(path)) {
                         handleGet(exchange);
+                    } else if ("/api/config/llm/defaults".equals(path)) {
+                        handleDefaults(exchange);
                     } else if ("/api/config".equals(path) || "/api/config/".equals(path)) {
                         handleGetFull(exchange);
                     } else {
@@ -119,6 +129,19 @@ public class ConfigApiHandler implements HttpHandler {
 
         String body = MAPPER.writeValueAsString(node);
         sendJson(exchange, 200, body);
+    }
+
+    /**
+     * GET /api/config/llm/defaults
+     * 返回各 Provider 的默认 base URL（{provider: url}），供前端「选厂商时自动填充 Base URL」。
+     * 数据源复用 LlmClientFactory.getDefaultBaseUrl()，与后端实际请求地址保持一致。
+     */
+    private void handleDefaults(HttpExchange exchange) throws IOException {
+        ObjectNode node = MAPPER.createObjectNode();
+        for (String provider : DEFAULT_PROVIDERS) {
+            node.put(provider, LlmClientFactory.getDefaultBaseUrl(provider));
+        }
+        sendJson(exchange, 200, MAPPER.writeValueAsString(node));
     }
 
     /**
