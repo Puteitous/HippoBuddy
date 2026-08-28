@@ -135,7 +135,8 @@ function startBackend() {
     // 优先查找已运行的进程（用户手动启动的情况）
     const http = require('http');
     const req = http.get(`http://localhost:${PORT}/`, (res) => {
-      if (res.statusCode === 200) {
+      // 根路径现在会是 200 或 302(重定向到 /app),两者都说明后端可响应
+      if (res.statusCode >= 200 && res.statusCode < 400) {
         console.log('[backend] Backend already running');
         resolve();
       } else {
@@ -325,7 +326,7 @@ function waitForHttpReady(resolve, reject) {
     attempts++;
     const req = http.get(`http://localhost:${PORT}/`, (res) => {
       res.resume();
-      if (res.statusCode === 200) {
+      if (res.statusCode >= 200 && res.statusCode < 400) {
         console.log('[backend] HTTP endpoint ready');
         resolve();
       } else if (attempts < MAX_ATTEMPTS) {

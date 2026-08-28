@@ -39,6 +39,12 @@ jobs:
       - name: Build frontend vendor (CodeMirror + OOXML)
         run: npm run build:vendor
 
+      - name: Build React frontend (vite → static-v2)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Build backend JAR
         run: mvn package -DskipTests --batch-mode
 

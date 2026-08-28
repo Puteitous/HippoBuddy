@@ -38,7 +38,22 @@ $env:ELECTRON_BUILDER_CACHE = "$ScriptDir\.builder-cache"
 $env:ELECTRON_BUILDER_BINARIES_MIRROR = "https://npmmirror.com/mirrors/electron-builder-binaries/"
 $env:NODE_OPTIONS = "--max-old-space-size=4096"
 
-Write-Host "[1/4] Building JAR..." -ForegroundColor Yellow
+# ---- 1. Build React frontend ----
+# 新版前端(React)由 frontend 经 vite 构建,产物输出到
+# ../src/main/resources/static-v2,再由 mvn package 打进 JAR。
+# 必须先 build,否则安装包里的 /app(新版 UI)会停留在旧产物。
+Write-Host "[1/5] Building React frontend..." -ForegroundColor Yellow
+Push-Location "$ProjectRoot\frontend"
+try {
+    if (-not (Test-Path "node_modules")) { npm ci }
+    npm run build
+    if ($LASTEXITCODE -ne 0) { throw "Frontend build failed" }
+} finally {
+    Pop-Location
+}
+
+# ---- 2. Build JAR ----
+Write-Host "[2/5] Building JAR..." -ForegroundColor Yellow
 Push-Location $ProjectRoot
 try {
     mvn package -DskipTests -q
@@ -47,7 +62,8 @@ try {
     Pop-Location
 }
 
-Write-Host "[2/4] Copying JAR to resources..." -ForegroundColor Yellow
+# ---- 3. Copy JAR to resources ----
+Write-Host "[3/5] Copying JAR to resources..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path "$ScriptDir\resources" | Out-Null
 
 # 动态查找最新构建的 JAR（排除 maven-shade 的 original-* 副本）
@@ -68,7 +84,7 @@ Write-Host "      Using JAR: $($JarFile.Name)" -ForegroundColor Gray
 
 # ---- 3. jlink: trim minimal JRE ----
 if (-not $SkipJre) {
-    Write-Host "[3/4] Trimming JRE (jlink)..." -ForegroundColor Yellow
+    Write-Host "[4/5] Trimming JRE (jlink)..." -ForegroundColor Yellow
 
     $JreOut = "$ScriptDir\resources\jre"
     if (Test-Path $JreOut) {
@@ -136,11 +152,11 @@ if (-not $SkipJre) {
     $jreSize = (Get-ChildItem -Recurse $JreOut | Measure-Object -Property Length -Sum).Sum
     Write-Host "      Done! JRE size: $('{0:N1} MB' -f ($jreSize / 1MB))" -ForegroundColor Green
 } else {
-    Write-Host "[3/4] Skipping jlink (-SkipJre)" -ForegroundColor DarkYellow
+    Write-Host "[3/5] Skipping jlink (-SkipJre)" -ForegroundColor DarkYellow
 }
 
-# ---- 4. Electron build ----
-Write-Host "[4/4] Building Electron package..." -ForegroundColor Yellow
+# ---- 5. Electron build ----
+Write-Host "[5/5] Building Electron package..." -ForegroundColor Yellow
 Push-Location $ScriptDir
 try {
     if ($All) {
