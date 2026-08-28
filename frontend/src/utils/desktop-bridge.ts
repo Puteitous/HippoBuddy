@@ -370,6 +370,113 @@ export const desktopBridge = {
     }
   },
 
+  // ────────────────────────── 自动更新 ──────────────────────────
+
+  /** 手动检查更新(仅桌面端有效;非桌面端返回 { success: false }) */
+  async checkForUpdates(): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (window.electronAPI?.checkForUpdates) {
+        const r = await window.electronAPI.checkForUpdates();
+        if (r?.success) return { success: true };
+        return { success: false, error: r?.error };
+      }
+      return { success: false };
+    } catch (e) {
+      console.warn('[desktopBridge] checkForUpdates 失败:', e);
+      return { success: false, error: String(e) };
+    }
+  },
+
+  /** 开始下载更新(仅桌面端有效) */
+  async downloadUpdate(): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (window.electronAPI?.downloadUpdate) {
+        const r = await window.electronAPI.downloadUpdate();
+        if (r?.success) return { success: true };
+        return { success: false, error: r?.error };
+      }
+      return { success: false };
+    } catch (e) {
+      console.warn('[desktopBridge] downloadUpdate 失败:', e);
+      return { success: false, error: String(e) };
+    }
+  },
+
+  /** 取消下载中更新(仅桌面端有效) */
+  async cancelUpdate(): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (window.electronAPI?.cancelUpdate) {
+        const r = await window.electronAPI.cancelUpdate();
+        if (r?.success) return { success: true };
+        return { success: false, error: r?.error };
+      }
+      return { success: false };
+    } catch (e) {
+      console.warn('[desktopBridge] cancelUpdate 失败:', e);
+      return { success: false, error: String(e) };
+    }
+  },
+
+  /** 退出并安装更新(仅桌面端有效) */
+  async quitAndInstall(): Promise<{ success: boolean }> {
+    try {
+      const r = await window.electronAPI?.quitAndInstall?.();
+      return { success: r?.success ?? true };
+    } catch (e) {
+      console.warn('[desktopBridge] quitAndInstall 失败:', e);
+      return { success: false };
+    }
+  },
+
+  /**
+   * 注册自动更新事件监听回调(每个事件一次,重复调用会覆盖上一个回调)。
+   * 返回取消订阅函数,便于组件卸载时清理。
+   */
+  onUpdateEvents(handlers: {
+    onChecking?: () => void;
+    onAvailable?: (info: UpdateInfo) => void;
+    onNotAvailable?: (info?: UpdateInfo) => void;
+    onError?: (msg: string) => void;
+    onDownloadProgress?: (progress: UpdateProgress) => void;
+    onDownloaded?: (info: UpdateInfo) => void;
+  }): () => void {
+    const api = window.electronAPI;
+    if (!api) return () => {};
+    try {
+      if (handlers.onChecking) api.onUpdateChecking?.(handlers.onChecking);
+      if (handlers.onAvailable) api.onUpdateAvailable?.(handlers.onAvailable);
+      if (handlers.onNotAvailable) api.onUpdateNotAvailable?.(handlers.onNotAvailable);
+      if (handlers.onError) api.onUpdateError?.(handlers.onError);
+      if (handlers.onDownloadProgress) api.onUpdateDownloadProgress?.(handlers.onDownloadProgress);
+      if (handlers.onDownloaded) api.onUpdateDownloaded?.(handlers.onDownloaded);
+    } catch (e) {
+      console.warn('[desktopBridge] onUpdateEvents 失败:', e);
+    }
+    return () => {
+      try {
+        api.removeAllUpdateListeners?.();
+      } catch (e) {
+        console.warn('[desktopBridge] removeAllUpdateListeners 失败:', e);
+      }
+    };
+  },
+
+  // ────────────────────────── 原生通知 ──────────────────────────
+
+  /** 发送系统原生通知(仅桌面端有效;非桌面端返回 { success: false }) */
+  async showNotification(title: string, body: string, icon?: string): Promise<{ success: boolean; reason?: string }> {
+    try {
+      if (window.electronAPI?.showNotification) {
+        const r = await window.electronAPI.showNotification(title, body, icon);
+        return { success: r?.success ?? false, reason: r?.reason };
+      }
+      return { success: false };
+    } catch (e) {
+      console.warn('[desktopBridge] showNotification 失败:', e);
+      return { success: false, reason: String(e) };
+    }
+  },
+
   // ────────────────────────── 主题同步 ──────────────────────────
 
   /** 读取桌面端主题(Electron 侧 splash 与主窗口保持一致) */

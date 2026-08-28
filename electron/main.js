@@ -4,10 +4,10 @@
  * 加载 Java 后端 DashboardServer 提供的 Web UI，替代 JCEF 成为桌面壳。
  *
  * 启动方式：
- *   npm run dev           旧桌面端(dev,/cockpit)
- *   npm run dev:react      React 重构版(dev,/app)
- *   npm start             旧桌面端(/cockpit)
- *   npm run start:react    React 重构版(/app)
+ *   npm run dev           React 重构版(dev,/app)
+ *   npm run dev:cockpit   旧桌面端(dev,/cockpit)
+ *   npm start             React 重构版(/app)
+ *   npm run start:cockpit 旧桌面端(/cockpit)
  *
  * 环境变量：
  *   HIPPO_PORT  — Java 后端端口（默认 9090）
@@ -47,11 +47,12 @@ if (!gotTheLock) {
 const PORT = parseInt(process.env.HIPPO_PORT || '9090', 10);
 const DEV = process.argv.includes('--dev');
 
-// UI 入口选择：默认加载旧 cockpit；带 --react-ui（或 HIPPO_UI=react）时加载 React 重构后的 /app。
-// 用途：start:react / dev:react 命令打开新 UI，start / dev 走旧桌面端，二者互不影响。
-const USE_REACT_UI =
-  process.argv.includes('--react-ui') || (process.env.HIPPO_UI || '').toLowerCase() === 'react';
-const UI_PATH = USE_REACT_UI ? '/app' : '/cockpit';
+// UI 入口选择：默认加载 React 重构后的 /app；
+// 带 --cockpit（或 HIPPO_UI=cockpit）时回退旧桌面端 /cockpit。
+// 用途：start / dev 默认打开新 UI；start:cockpit / dev:cockpit 走旧桌面端，二者互不影响。
+const USE_COCKPIT_UI =
+  process.argv.includes('--cockpit') || (process.env.HIPPO_UI || '').toLowerCase() === 'cockpit';
+const UI_PATH = USE_COCKPIT_UI ? '/cockpit' : '/app';
 
 function mainWindowHomeUrl() {
   return `http://localhost:${PORT}${UI_PATH}`;
@@ -286,7 +287,7 @@ function attachBackendHandlers(proc, resolve, reject) {
   proc.stdout.on('data', (data) => {
     const text = data.toString();
     process.stdout.write(`[backend:out] ${text}`);
-    if (!resolved && (text.includes('[READY]') || text.includes('DashboardServer') || text.includes('Hippo Cockpit'))) {
+    if (!resolved && (text.includes('[READY]') || text.includes('DashboardServer'))) {
       resolved = true;
       console.log('[backend] Process ready signal detected, verifying HTTP...');
       // 不要立即 resolve，改为轮询 HTTP 端点确认服务实际可响应
@@ -427,7 +428,7 @@ function createWindow() {
   }
 
   if (DEV) {
-    // 开发模式：直接加载后端 URL（HIPPO_UI=react 时加载 /app）
+    // 开发模式：直接加载后端 URL（默认 /app，带 --cockpit 时加载 /cockpit）
     const url = mainWindowHomeUrl();
     console.log(`[main] Loading: ${url}`);
     mainWindow.loadURL(url);
@@ -542,7 +543,7 @@ function setupSplashCommunication() {
 
     startBackend()
       .then(() => {
-        console.log('[main] Backend ready after retry, loading cockpit...');
+        console.log('[main] Backend ready after retry, loading UI...');
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.executeJavaScript(
             `__updateStatus('Ready ✓')`
@@ -551,7 +552,7 @@ function setupSplashCommunication() {
             mainWindow.webContents.executeJavaScript(
               `__hideWaves()`
             ).catch(() => {});
-            // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载 cockpit
+            // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载主界面
             setTimeout(() => {
               mainWindow.loadURL(`${mainWindowHomeUrl()}?skipSplash=true`);
               mainWindow.setTitle('HippoBuddy');
@@ -1261,15 +1262,15 @@ function setupAutoUpdater() {
   });
 
   // ----- 启动后自动检查 -----
-  // 关键：必须等 cockpit 页面加载完成后再检查（而不是固定的 5 秒）。
+  // 关键：必须等 UI 页面加载完成后再检查（而不是固定的 5 秒）。
   // 后端 Java 启动需要 10~30 秒，期间窗口停留在 splash 页面；
   // 若此时触发检查，update:* 事件会发给 splash 而丢失（splash 无监听器）。
-  // 监听 did-finish-load 并确认 URL 是 cockpit 后，再延迟 1 秒执行，
+  // 监听 did-finish-load 并确认 URL 是主界面（/app 或 /cockpit）后，再延迟 1 秒执行，
   // 确保前端 initAutoUpdater() 已注册所有监听器。
   let _autoCheckDone = false;
-  const _onCockpitLoaded = () => {
+  const _onMainUILoaded = () => {
     const url = mainWindow?.webContents.getURL() || '';
-    if (!url.includes('/cockpit') || _autoCheckDone) return;
+    if (!(url.includes('/app') || url.includes('/cockpit')) || _autoCheckDone) return;
     _autoCheckDone = true;
 
     // ① 上次有已下载但未安装的更新？先提示重启安装（更新文件仍在本机缓存）
@@ -1292,7 +1293,7 @@ function setupAutoUpdater() {
       });
     }, 1000); // 等前端监听器注册完成（did-finish-load 时 ES module 已执行，再加 1s 保险）
   };
-  mainWindow?.webContents.on('did-finish-load', _onCockpitLoaded);
+  mainWindow?.webContents.on('did-finish-load', _onMainUILoaded);
 }
 
 // ---------- IPC: 更新控制 ----------
@@ -1349,7 +1350,7 @@ app.whenReady().then(() => {
 
     startBackend()
       .then(() => {
-        console.log('[main] Backend ready, loading cockpit...');
+        console.log('[main] Backend ready, loading UI...');
         if (mainWindow && !mainWindow.isDestroyed()) {
           // 先更新状态文字，给用户一个"准备就绪"的完成感
           mainWindow.webContents.executeJavaScript(
@@ -1360,7 +1361,7 @@ app.whenReady().then(() => {
             mainWindow.webContents.executeJavaScript(
               `__hideWaves()`
             ).catch(() => {});
-            // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载 cockpit
+            // 等待波浪动画完全结束（0.8s 过渡 + 0.2s 延迟）后再加载主界面
             setTimeout(() => {
               mainWindow.loadURL(`${mainWindowHomeUrl()}?skipSplash=true`);
               mainWindow.setTitle('HippoBuddy');

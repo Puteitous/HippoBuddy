@@ -33,7 +33,16 @@ public class StaticFileHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
 
-        if ("/".equals(path) || "/cockpit".equals(path)) {
+        // 根路径与 cockpit 入口:按 basePath 分流。
+        //  - static-v2(React 新前端):/ 与 /app 都重定向到 /app/(相对资源需带尾斜杠)
+        //  - static(旧 cockpit):/ 与 /cockpit 都加载 cockpit.html
+        if ("/".equals(path) && "/static-v2".equals(basePath)) {
+            String rawQuery = exchange.getRequestURI().getRawQuery();
+            redirect(exchange, rawQuery != null && !rawQuery.isEmpty()
+                ? "/app/?" + rawQuery
+                : "/app/");
+            return;
+        } else if ("/".equals(path) || "/cockpit".equals(path)) {
             path = "/cockpit.html";
         } else if ("/app".equals(path)) {
             // 新前端(React + TS)入口。必须先重定向到 /app/(带尾部斜杠),

@@ -22,6 +22,7 @@ import { api } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { useAppStore, readSessionsCache } from '@/stores/appStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { useUpdateStore } from '@/stores/updateStore';
 import { useSessionMessages } from '@/hooks/useSessionMessages';
 import { useCompletedTaskNotification } from '@/hooks/useCompletedTaskNotification';
 import { Sidebar } from './Sidebar';
@@ -35,6 +36,7 @@ import { ActivityBar } from './ActivityBar';
 import { SkillMarket } from './SkillMarket';
 import { SelectionActions } from './SelectionActions';
 import { OnboardingTour } from './OnboardingTour';
+import { UpdateCard } from './UpdateCard';
 import { ToastViewport } from '@/utils/toast';
 import './AppShell.css';
 
@@ -58,6 +60,12 @@ export function AppShell() {
   // 启动时初始化主题(localStorage + 桌面端 Electron 校正)
   useEffect(() => {
     void useThemeStore.getState().initTheme();
+  }, []);
+
+  // 注册 Electron 自动更新事件监听(仅桌面端有效;浏览器端 onUpdateEvents 返回 noop)
+  useEffect(() => {
+    const unsubscribe = useUpdateStore.getState().registerListeners();
+    return unsubscribe;
   }, []);
 
   // 启动时加载会话列表:先展示 localStorage 缓存(若有),再后台请求刷新对齐最新数据
@@ -140,6 +148,8 @@ export function AppShell() {
       <ToastViewport />
       {/* 新手指引(首次启动 3s 后展示欢迎面板 + 5 步聚光灯导览) */}
       <OnboardingTour />
+      {/* 自动更新卡片(仅桌面端 available/downloading/downloaded 时渲染) */}
+      <UpdateCard />
     </div>
   );
 }

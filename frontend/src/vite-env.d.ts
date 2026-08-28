@@ -56,6 +56,22 @@ interface Window {
     // ── DevTools ──
     openDevTools?: () => void;
 
+    // ── 自动更新(对齐 electron/preload.js 的 update:* IPC) ──
+    checkForUpdates?: () => Promise<{ success?: boolean; error?: string }>;
+    downloadUpdate?: () => Promise<{ success?: boolean; error?: string }>;
+    cancelUpdate?: () => Promise<{ success?: boolean; error?: string }>;
+    quitAndInstall?: () => Promise<{ success?: boolean }>;
+    onUpdateChecking?: (cb: () => void) => void;
+    onUpdateAvailable?: (cb: (info: UpdateInfo) => void) => void;
+    onUpdateNotAvailable?: (cb: (info?: UpdateInfo) => void) => void;
+    onUpdateError?: (cb: (msg: string) => void) => void;
+    onUpdateDownloadProgress?: (cb: (progress: UpdateProgress) => void) => void;
+    onUpdateDownloaded?: (cb: (info: UpdateInfo) => void) => void;
+    removeAllUpdateListeners?: () => void;
+
+    // ── 原生通知(对齐 electron/preload.js 的 notification:* IPC) ──
+    showNotification?: (title: string, body: string, icon?: string) => Promise<{ success?: boolean; reason?: string }>;
+
     // ── 主题同步(Electron 侧 splash 保持一致) ──
     getTheme?: () => Promise<'dark' | 'light' | 'midnight'>;
     setTheme?: (theme: string) => Promise<void>;
@@ -97,4 +113,19 @@ interface DirEntry {
   isDirectory: boolean;
   /** 文件大小(字节);目录可能不返回 */
   size?: number;
+}
+
+/** 自动更新信息(对齐 electron-updater 的 UpdateInfo) */
+interface UpdateInfo {
+  version: string;
+  releaseDate?: string;
+  releaseNotes?: string | { version: string; note: string }[] | null;
+}
+
+/** 下载进度(对齐 electron-updater 的 ProgressInfo) */
+interface UpdateProgress {
+  bytesPerSecond?: number;
+  percent?: number;
+  total?: number;
+  transferred?: number;
 }

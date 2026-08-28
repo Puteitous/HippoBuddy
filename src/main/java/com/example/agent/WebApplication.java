@@ -87,7 +87,7 @@ public final class WebApplication {
         try {
             DashboardServer.start(port)
                     .thenRun(() -> {
-                        logger.info("Web 服务已就绪: http://localhost:{}/cockpit", port);
+                        logger.info("Web 服务已就绪: http://localhost:{}/app", port);
                     })
                     .exceptionally(throwable -> {
                         logger.error("HTTP Server 启动失败", throwable);

@@ -58,7 +58,7 @@ public final class DesktopApplication {
         logger.info("正在启动 HTTP Server（端口 {}）...", port);
         DashboardServer.start(port)
                 .thenRun(() -> {
-                    logger.info("HTTP Server 已就绪: http://localhost:{}/cockpit", port);
+                    logger.info("HTTP Server 已就绪: http://localhost:{}/app", port);
                     logger.info("Electron 壳连接后自动加载此地址");
                 })
                 .exceptionally(throwable -> {

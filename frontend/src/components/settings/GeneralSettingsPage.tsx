@@ -14,6 +14,7 @@ import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { useAppStore } from '@/stores/appStore';
 import { useBackgroundStore, type BackgroundType } from '@/stores/backgroundStore';
 import { useAccentStore } from '@/stores/accentStore';
+import { useUpdateStore } from '@/stores/updateStore';
 import { showToast } from './toastStore';
 import { i18nStore, useI18n, translate } from '@/i18n';
 import { setDefaultProcessView } from '@/utils/process-view-config';
@@ -101,6 +102,7 @@ export function GeneralSettingsPage() {
   const panelLayout = useAppStore((s) => s.panelLayout);
   const setPanelLayout = useAppStore((s) => s.setPanelLayout);
   const { t, lang } = useI18n();
+  const checkForUpdates = useUpdateStore((s) => s.checkForUpdates);
   const [workspacePath, setWorkspacePath] = useState('');
   const [dataDir, setDataDir] = useState('');
   const [dataDirRestartMsg, setDataDirRestartMsg] = useState(false);
@@ -724,6 +726,24 @@ export function GeneralSettingsPage() {
               )}
             </div>
           </div>
+
+          {desktopBridge.isDesktop && (
+            <div className="settings-field-horizontal">
+              <div className="settings-field-label">
+                <div>{t('settingsPage.generalUpdate')}</div>
+                <div className="settings-field-hint">{t('settingsPage.generalUpdateHint')}</div>
+              </div>
+              <div className="settings-field-body">
+                <button
+                  type="button"
+                  className="settings-toggle-btn"
+                  onClick={() => void checkForUpdates()}
+                >
+                  {t('settingsPage.generalCheckUpdate')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

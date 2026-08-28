@@ -84,8 +84,9 @@ public class MemoryModule {
         try {
             DashboardServer.start(port);
             logger.info("✅ Dashboard 服务器已启动，端口：{}", port);
-            logger.info("   Hippo Cockpit: http://localhost:{}/cockpit", port);
-            logger.info("   Web Chat:      http://localhost:{}/chat", port);
+            logger.info("   Hippo Cockpit (React): http://localhost:{}/app", port);
+            logger.info("   Hippo Cockpit (Legacy): http://localhost:{}/cockpit", port);
+            logger.info("   Web Chat:              http://localhost:{}/chat", port);
         } catch (Exception e) {
             logger.warn("Dashboard 服务器启动失败（不影响核心功能）：{}", e.getMessage(), e);
         }
