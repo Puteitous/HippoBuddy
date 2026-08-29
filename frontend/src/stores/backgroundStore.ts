@@ -120,7 +120,7 @@ function readGlassStyle(): GlassStyle {
         ? parsed.blur : DEFAULT_GLASS.blur;
       const panelAlpha = typeof parsed.panelAlpha === 'number' && Number.isFinite(parsed.panelAlpha)
         ? parsed.panelAlpha : DEFAULT_GLASS.panelAlpha;
-      return { blur: clamp(blur, 0, 60), panelAlpha: clamp(panelAlpha, 0.3, 1) };
+      return { blur: clamp(blur, 0, 60), panelAlpha: clamp(panelAlpha, 0, 1) };
     }
   } catch {
     /* 忽略 */

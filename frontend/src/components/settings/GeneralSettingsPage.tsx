@@ -313,7 +313,7 @@ export function GeneralSettingsPage() {
         </span>
         <input
           type="range"
-          min={0.4}
+          min={0}
           max={0.95}
           step={0.05}
           value={glassStyle.panelAlpha}
