@@ -4,9 +4,11 @@
  * 功能：
  *   1. 复制所有文件（.mjs / .js / .wasm / .d.ts）到静态资源目录
  *   2. 为 .wasm 文件创建内容 hash 命名的副本，用于强缓存
- *   3. 生成 wasm-manifest.mjs，供桥接层传入 wasmUrl
+ *   - 生成 wasm-manifest.mjs，供桥接层传入 wasmUrl
  *
- * 输出到: src/main/resources/static/js/vendor/ooxml/
+ * 输出到: frontend/public/js/vendor/ooxml/
+ *   (vite 构建时随 public 复制进 src/main/resources/static-v2/js/vendor/ooxml,
+ *    为新版 React 前端自带的 /js/vendor/ooxml 静态资源，不再依赖旧版 /static)
  *
  * 用法: node scripts/build-ooxml.mjs
  */
@@ -20,7 +22,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 
 const SRC = path.join(root, 'node_modules/@silurus/ooxml/dist')
-const DST = path.join(root, 'src/main/resources/static/js/vendor/ooxml')
+const DST = path.join(root, 'frontend/public/js/vendor/ooxml')
 
 // 确保目标目录存在
 fs.mkdirSync(DST, { recursive: true })

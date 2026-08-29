@@ -27,11 +27,6 @@ export default defineConfig({
                 changeOrigin: true,
                 ws: true,
             },
-            // 后端静态 vendor 资源(3.7-2 BinaryPreview 运行时加载 /js/vendor/ooxml/*)
-            '/js': {
-                target: API_TARGET,
-                changeOrigin: true,
-            },
         },
     },
     // 相对 base: 生产部署在 /app 子路径下, 绝对路径 /assets 会落到根 context 404;

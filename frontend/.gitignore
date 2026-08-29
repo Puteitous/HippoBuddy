@@ -5,3 +5,7 @@ dist/
 
 # TypeScript 编译产物(与 .ts/.tsx 成对,非源码,由 tsc 就地生成)
 frontend/src/**/*.js
+
+# tsc -b 增量编译缓存(非源码,每次构建都会变,不入库)
+frontend/tsconfig.node.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
