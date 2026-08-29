@@ -77,6 +77,7 @@ export function DocxViewer({ filePath }: DocxViewerProps) {
     setError('');
     setZoom(1);
     zoomApiRef.current = null;
+    host.removeAttribute('data-mode');
     const url = fileApi.rawUrl(filePath);
 
     void (async () => {
@@ -106,6 +107,8 @@ export function DocxViewer({ filePath }: DocxViewerProps) {
             host.innerHTML = '';
             return;
           }
+          // docx-preview DOM 渲染:host 作为滚动宿主(overflow-y:auto)
+          host.setAttribute('data-mode', 'dom');
           // docx-preview 缩放:CSS zoom 作用于 .docx-wrapper
           const wrap = (host.querySelector('.docx-wrapper') as HTMLElement | null) ?? host;
           zoomApiRef.current = {
@@ -133,6 +136,7 @@ export function DocxViewer({ filePath }: DocxViewerProps) {
 
         // 3. Silurus 降级
         host.innerHTML = '';
+        host.setAttribute('data-mode', 'silurus');
         silurusViewer = await createDocxScrollViewer(host, url, {
           zoomMin: MIN_SCALE,
           zoomMax: MAX_SCALE,
