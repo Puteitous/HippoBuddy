@@ -6,6 +6,7 @@ import com.example.agent.config.LlmConfig;
 import com.example.agent.config.ModelSnapshot;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.llm.client.LlmClientFactory;
+import com.example.agent.llm.client.LlmConnectionTester;
 import com.example.agent.llm.client.LlmModelFetcher;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.tools.web.WebSearchConfig;
@@ -93,6 +94,8 @@ public class ConfigApiHandler implements HttpHandler {
                 case "POST":
                     if ("/api/config/llm/models".equals(path)) {
                         handleLlmModels(exchange);
+                    } else if ("/api/config/llm/test".equals(path)) {
+                        handleLlmTest(exchange);
                     } else {
                         sendError(exchange, 404, "Not Found");
                     }
@@ -198,6 +201,43 @@ public class ConfigApiHandler implements HttpHandler {
             sendError(exchange, 500, "拉取模型列表失败: "
                     + (e.getMessage() == null ? String.valueOf(e) : e.getMessage()));
         }
+    }
+
+    /**
+     * POST /api/config/llm/test
+     * 用前端填入的 provider/baseUrl/apiKey/model 发起一次最小 chat 请求测试连通。
+     * 请求体: { "provider": "deepseek", "baseUrl": "?", "apiKey": "?", "model": "?" }
+     * - baseUrl 为空时回退到 LlmClientFactory 的该厂商默认地址
+     * - apiKey 为空或已遮掩时回退到已保存配置
+     * 恒返回 200：成功 { success:true, latencyMs }，失败 { success:false, message }，
+     * 前端据此 toast，无需解析 HTTP 状态。
+     */
+    private void handleLlmTest(HttpExchange exchange) throws IOException {
+        byte[] reqBytes = exchange.getRequestBody().readAllBytes();
+        JsonNode json = MAPPER.readTree(reqBytes);
+
+        String provider = json.has("provider") ? json.get("provider").asText() : "";
+        String baseUrl = json.has("baseUrl") && !json.get("baseUrl").asText("").isBlank()
+                ? json.get("baseUrl").asText() : "";
+        String apiKey = (json.has("apiKey") && !json.get("apiKey").asText("").isBlank())
+                ? json.get("apiKey").asText() : "";
+        if (apiKey.isBlank() && !provider.isBlank()) {
+            apiKey = findStoredApiKey(provider);
+        }
+        String model = json.has("model") ? json.get("model").asText() : "";
+
+        LlmConnectionTester.Result result = LlmConnectionTester.test(provider, baseUrl, apiKey, model);
+
+        ObjectNode node = MAPPER.createObjectNode();
+        node.put("success", result.success);
+        node.put("message", result.message == null ? "" : result.message);
+        if (result.success) {
+            node.put("latencyMs", result.latencyMs);
+        }
+        if (!result.success) {
+            logger.info("连接测试失败: provider={}, model={}, reason={}", provider, model, result.message);
+        }
+        sendJson(exchange, 200, MAPPER.writeValueAsString(node));
     }
 
     /**

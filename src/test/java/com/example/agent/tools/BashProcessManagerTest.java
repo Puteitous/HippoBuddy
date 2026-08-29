@@ -190,6 +190,54 @@ class BashProcessManagerTest {
         assertFalse(manager.isTerminateAttemptDone(null));
     }
 
+    // ===== 后台进程托管（run_in_background）=====
+
+    @Test
+    void testBackgroundAppendsAndFinalizes() throws Exception {
+        String id = "bg-" + System.nanoTime();
+        Process process = startLongRunningProcess();
+
+        BashProcessManager.BackgroundRecord record =
+            manager.registerBackground(id, process, "npm run dev", ".");
+        assertNotNull(record, "后台进程应成功登记");
+        assertTrue(record.isAlive(), "后台进程应处于存活状态");
+        assertEquals(id, record.getToolCallId());
+        assertEquals("npm run dev", record.getCommand());
+        assertEquals(process.pid(), record.pid());
+
+        // 追加输出应累积到快照
+        manager.appendBackgroundOutput(id, "ready: listening on 8080");
+        manager.appendBackgroundOutput(id, "compiled ok");
+        String snapshot = record.getOutputSnapshot();
+        assertTrue(snapshot.contains("listening on 8080"), "应包含追加的第一行，实际: " + snapshot);
+        assertTrue(snapshot.contains("compiled ok"), "应包含追加的第二行，实际: " + snapshot);
+        assertFalse(record.isTruncated(), "未超限时不应标记截断");
+
+        // 输出超限后应标记截断，且不再累积后续内容
+        String huge = "x".repeat(BashProcessManager.MAX_BACKGROUND_OUTPUT_CHARS);
+        manager.appendBackgroundOutput(id, huge);
+        assertTrue(record.isTruncated(), "超限后应标记截断");
+
+        // 结束托管：背景表与终止表均应清理
+        manager.finalizeBackground(id);
+        assertNull(manager.getBackground(id), "结束后不应再查询到后台记录");
+        assertFalse(manager.isBackground(id), "结束后不应再视为后台进程");
+        manager.consumeTerminateAttemptDone(id);
+
+        manager.terminateTree(process, false);
+        assertTrue(process.waitFor(5, TimeUnit.SECONDS), "清理应在 5 秒内完成");
+    }
+
+    @Test
+    void testBackgroundNullSafeCalls() {
+        // 空 toolCallId：登记返回 null，其余调用不抛异常、静默跳过
+        assertNull(manager.registerBackground(null, null, "cmd", "."));
+        assertNull(manager.getBackground(null));
+        assertFalse(manager.isBackground(null));
+        manager.appendBackgroundOutput(null, "x");
+        manager.finalizeBackground(null);
+    }
+
     private void awaitCondition(BooleanSupplier condition, long timeoutMs, String message) throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {

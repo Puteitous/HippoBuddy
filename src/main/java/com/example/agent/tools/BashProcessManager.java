@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +49,109 @@ public class BashProcessManager {
      *  <p>由 {@link #cancel(String, long)} 在 finally 中标记，供 {@link BashTool} 确认窗口查询：
      *  一旦终止操作已完成但进程仍存活，即可立即判定"终止失败"，无需再盲等固定窗口。 */
     private final Set<String> terminateAttemptDoneToolCallIds = ConcurrentHashMap.newKeySet();
+
+    // ===== 后台进程（run_in_background）托管 =====
+
+    /** 后台进程输出缓冲上限（字符）：达到上限后丢弃中间，仅保留开头与结尾，防止长驻进程日志撑爆内存 */
+    public static final int MAX_BACKGROUND_OUTPUT_CHARS = 100_000;
+
+    /** 已托管的后台进程：toolCallId -> 后台进程记录 */
+    private final Map<String, BackgroundRecord> backgroundProcesses = new ConcurrentHashMap<>();
+
+    /**
+     * 后台进程记录：持有进程引用与已累积输出（带上限截断），并由行程结束时清理。
+     * <p>
+     * 与 {@link #processes} 的区别：{@code processes} 只记录"进程对象"用于取消/终止；
+     * 后台记录额外累积输出快照，供外层（如 BashTool）在返回结果时展示启动日志开头。
+     */
+    public static final class BackgroundRecord {
+        private final String toolCallId;
+        private final String command;
+        private final String workingDir;
+        private final Process process;
+        private final long startTime;
+        private final StringBuilder output = new StringBuilder();
+        private boolean truncated;
+
+        public BackgroundRecord(String toolCallId, String command, String workingDir, Process process) {
+            this.toolCallId = toolCallId;
+            this.command = command;
+            this.workingDir = workingDir;
+            this.process = process;
+            this.startTime = System.currentTimeMillis();
+        }
+
+        public String getToolCallId() { return toolCallId; }
+        public String getCommand() { return command; }
+        public String getWorkingDir() { return workingDir; }
+        public Process getProcess() { return process; }
+        public long getStartTime() { return startTime; }
+        public int pid() { return (int) process.pid(); }
+        public boolean isAlive() { return process.isAlive(); }
+        public boolean isTruncated() { synchronized (this) { return truncated; } }
+
+        public synchronized void append(String line) {
+            if (output.length() + line.length() + 1 > MAX_BACKGROUND_OUTPUT_CHARS) {
+                truncated = true;
+                return;
+            }
+            output.append(line).append('\n');
+        }
+
+        public synchronized String getOutputSnapshot() { return output.toString(); }
+    }
+
+    /**
+     * 登记一个后台进程并返回其记录，供 {@link BashTool} 累积输出。
+     */
+    public BackgroundRecord registerBackground(String toolCallId, Process process, String command, String workingDir) {
+        if (toolCallId == null || process == null) {
+            return null;
+        }
+        BackgroundRecord record = new BackgroundRecord(toolCallId, command, workingDir, process);
+        backgroundProcesses.put(toolCallId, record);
+        return record;
+    }
+
+    /**
+     * 向指定后台进程追加一行输出（reader 线程调用）。
+     */
+    public void appendBackgroundOutput(String toolCallId, String line) {
+        if (toolCallId == null) {
+            return;
+        }
+        BackgroundRecord record = backgroundProcesses.get(toolCallId);
+        if (record != null) {
+            record.append(line);
+        }
+    }
+
+    /**
+     * 查询指定后台进程记录；不存在时返回 null（可能未登记，或已结束被清理）。
+     */
+    public BackgroundRecord getBackground(String toolCallId) {
+        return toolCallId == null ? null : backgroundProcesses.get(toolCallId);
+    }
+
+    /**
+     * 判断指定 toolCallId 是否仍为被托管的后台进程。
+     */
+    public boolean isBackground(String toolCallId) {
+        return toolCallId != null && backgroundProcesses.containsKey(toolCallId);
+    }
+
+    /**
+     * 结束一个后台进程的托管：从后台表移除并注销终止表引用，清理内存。
+     * <p>由后台监控 reader 线程在流 EOF（进程已退出/崩溃）时调用；幂等。
+     */
+    public void finalizeBackground(String toolCallId) {
+        if (toolCallId == null) {
+            return;
+        }
+        backgroundProcesses.remove(toolCallId);
+        processes.remove(toolCallId);
+        terminateAttemptDoneToolCallIds.remove(toolCallId);
+    }
 
     private BashProcessManager() {
     }

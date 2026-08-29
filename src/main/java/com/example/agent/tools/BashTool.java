@@ -42,6 +42,11 @@ public class BashTool implements ToolExecutor {
      *  readLine() 上 join 必等满超时，缩短该值避免"终止失败"场景白白多等 3s 而迟迟不释放会话锁 */
     private static final long CANCELLATION_JOIN_TIMEOUT_MS = 300;
 
+    // ===== 后台模式（run_in_background）=====
+    /** 后台模式下的启动观察期：等待该时长确认进程没有"秒崩"（端口占用/配置错误/依赖缺失）。
+     *  观察期内进程存活则判定"后台启动成功"并立即返回 PID；观察期内退出则判定"启动失败"。 */
+    private static final long STARTUP_GRACE_MS = 4000;
+
     // ===== 输出策略（output_mode + max_lines）=====
     private static final String OUTPUT_MODE_ALL = "all";
     private static final Set<String> VALID_OUTPUT_MODES = Set.of("all", "head", "tail", "errors");
@@ -84,7 +89,7 @@ public class BashTool implements ToolExecutor {
                "支持管道（|）和重定向（>）操作。" +
                "Windows 环境使用 cmd：用 dir/type/findstr 代替 ls/cat/grep（Unix 命令不保证可用）。" +
                "自动适配系统编码以解决中文乱码问题。" +
-               "⚠️ 严禁执行系统级破坏性命令（format/fdisk/diskpart/dd/shutdown/reboot/halt/poweroff/mkfs）、" +
+               "严禁执行系统级破坏性命令（format/fdisk/diskpart/dd/shutdown/reboot/halt/poweroff/mkfs）、" +
                "递归删除系统/根/家目录（rm -rf /、rm -rf ~、del /s 系统盘）、命令替换注入（`、$()）、" +
                "磁盘擦除（cipher /w、shred、sdelete）、清空防火墙（iptables -F、ufw disable）、" +
                "管道下载执行（curl/wget | bash|sh）——这些操作会被安全机制直接拦截，不要尝试。" +
@@ -103,10 +108,15 @@ public class BashTool implements ToolExecutor {
                     },
                     "timeout": {
                         "type": "integer",
-                        "description": "超时时间（秒，默认 30，最大 300）",
+                        "description": "超时时间（秒，默认 30，最大 300）。仅对普通（前台）命令生效；后台模式忽略该参数",
                         "default": 30,
                         "minimum": 1,
                         "maximum": 300
+                    },
+                    "run_in_background": {
+                        "type": "boolean",
+                        "description": "是否将命令以后台方式运行（默认 false）。仅对需长时间持续运行的命令（如 npm run dev、启动后端）设为 true：后台运行会立即返回 PID、不计超时、不会自动终止。普通一次性命令保持默认 false 即可",
+                        "default": false
                     },
                     "working_dir": {
                         "type": "string",
@@ -159,6 +169,11 @@ public class BashTool implements ToolExecutor {
             throw new ToolExecutionException("command 参数不能为空");
         }
         command = command.trim();
+
+        boolean runInBackground = false;
+        if (arguments.has("run_in_background") && arguments.get("run_in_background").isBoolean()) {
+            runInBackground = arguments.get("run_in_background").asBoolean(false);
+        }
         
         int timeout = DEFAULT_TIMEOUT;
         if (arguments.has("timeout") && !arguments.get("timeout").isNull()) {
@@ -211,7 +226,7 @@ public class BashTool implements ToolExecutor {
         }
 
         try {
-            return executeCommand(effectiveCommand, workPath, timeout, progressCallback, outputMode, maxLines);
+            return executeCommand(effectiveCommand, workPath, timeout, progressCallback, outputMode, maxLines, runInBackground);
         } catch (IOException e) {
             throw new ToolExecutionException("命令执行失败: " + e.getMessage(), e);
         } catch (InterruptedException e) {
@@ -268,10 +283,168 @@ public class BashTool implements ToolExecutor {
         return DEFAULT_MAX_LINES_FOR_MODE.getOrDefault(outputMode, DEFAULT_OUTPUT_LINES);
     }
 
+    /**
+     * 后台模式（run_in_background）执行。
+     * <p>
+     * 面向需长时间保持运行的服务/开发服务器命令：进程常驻、不受超时控制；
+     * 经过短暂的启动观察期后立即返回进程 PID，释放回合锁，进程由守护线程持续托管输出。
+     * 用户仍可通过界面"终止"按钮（BashProcessManager.cancel）随时杀掉进程树。
+     */
+    private String executeInBackground(String command, Path workPath, Consumer<String> progressCallback,
+                                       String outputMode, int maxLines) throws IOException {
+        long startTime = System.currentTimeMillis();
+
+        ProcessBuilder processBuilder;
+        if (isWindows()) {
+            processBuilder = new ProcessBuilder("cmd.exe", "/c", command);
+        } else {
+            processBuilder = new ProcessBuilder("bash", "-c", command);
+        }
+        processBuilder.directory(workPath.toFile());
+        processBuilder.redirectErrorStream(true);
+        processBuilder.environment().put("PAGER", "cat");
+        processBuilder.environment().put("GIT_PAGER", "cat");
+
+        Process process = processBuilder.start();
+        process.getOutputStream().close(); // 关闭 stdin，防止进程卡在交互式输入等待
+
+        String toolCallId = currentToolCallId.get();
+        BashProcessManager manager = BashProcessManager.getInstance();
+        if (toolCallId != null) {
+            manager.register(toolCallId, process); // 供外部取消/终止时定位并杀进程树
+        }
+        BashProcessManager.BackgroundRecord record =
+            manager.registerBackground(toolCallId, process, command, workPath.toString());
+        logger.debug("bash 后台进程启动: toolCallId={}, pid={}, command={}",
+            toolCallId, process.pid(), truncateForLog(command));
+
+        // 守护线程持续读取输出到后台缓冲；流 EOF（进程退出/崩溃）时结束托管并清理
+        Thread monitor = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), getPipeCharset()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (toolCallId != null) {
+                        manager.appendBackgroundOutput(toolCallId, line);
+                    }
+                    if (progressCallback != null) {
+                        progressCallback.accept(line);
+                    }
+                }
+            } catch (IOException e) {
+                // 进程销毁时流关闭，忽略
+            } finally {
+                if (toolCallId != null) {
+                    manager.finalizeBackground(toolCallId);
+                }
+            }
+        });
+        monitor.setDaemon(true);
+        monitor.start();
+
+        // 启动观察期：等待确认进程没有"秒崩"（端口占用/配置错误/依赖缺失）
+        boolean survived = awaitBackgroundStartup(process, toolCallId, manager);
+        long duration = System.currentTimeMillis() - startTime;
+
+        if (survived) {
+            // 后台启动成功：进程继续运行，立即返回 PID
+            String output = truncateOutput(record != null ? record.getOutputSnapshot() : "");
+            return formatBackgroundResult(command, output, workPath, process.pid(), -1,
+                true, false, duration, outputMode, maxLines);
+        }
+
+        // 观察期内进程退出或被取消：判定启动失败
+        boolean cancelled = toolCallId != null && manager.isCancelledRequested(toolCallId);
+        int exitCode;
+        try {
+            exitCode = process.exitValue();
+        } catch (IllegalThreadStateException e) {
+            exitCode = -1;
+        }
+        String output = truncateOutput(record != null ? record.getOutputSnapshot() : "");
+        return formatBackgroundResult(command, output, workPath, process.pid(), exitCode,
+            false, cancelled, duration, outputMode, maxLines);
+    }
+
+    /**
+     * 后台启动观察期等待：观察期内进程存活到结束则判定"启动成功"返回 true；
+     * 观察期内进程自行退出（秒崩）或被外部取消（用户点终止）则返回 false。
+     * 通过步长轮询感知外部取消，避免长期等待。
+     */
+    private boolean awaitBackgroundStartup(Process process, String toolCallId, BashProcessManager manager) {
+        long deadline = System.currentTimeMillis() + STARTUP_GRACE_MS;
+        while (true) {
+            if (!process.isAlive()) {
+                return false; // 观察期内崩溃
+            }
+            if (System.currentTimeMillis() >= deadline) {
+                return true; // 撑过观察期，判定后台启动成功
+            }
+            if (toolCallId != null && manager.isCancelledRequested(toolCallId)) {
+                manager.cancel(toolCallId); // 用户终止：杀进程树
+                return false;
+            }
+            try {
+                Thread.sleep(Math.min(CANCELLATION_POLL_INTERVAL_MS, deadline - System.currentTimeMillis()));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return process.isAlive() && System.currentTimeMillis() >= deadline;
+            }
+        }
+    }
+
+    /**
+     * 格式化后台模式执行结果。
+     */
+    private String formatBackgroundResult(String command, String output, Path workPath, long pid, int exitCode,
+                                          boolean started, boolean cancelled, long duration,
+                                          String outputMode, int maxLines) {
+        StringBuilder result = new StringBuilder();
+        result.append("命令执行结果（后台模式）\n");
+        result.append("命令: ").append(command).append("\n");
+        result.append("工作目录: ").append(PathSecurityUtils.getRelativePath(workPath)).append("\n");
+
+        if (started) {
+            result.append("状态: 后台启动成功，进程持续运行\n");
+            result.append("进程 PID: ").append(pid).append("\n");
+            result.append("该进程不受超时控制，不会被自动终止。\n");
+            result.append("如需强制终止: Windows 执行 taskkill /F /T /PID ").append(pid)
+                  .append("，或 Unix 执行 kill -9 ").append(pid).append("，也可通过界面终止按钮。\n");
+        } else if (cancelled) {
+            result.append("状态: 后台启动被用户取消/终止\n");
+        } else {
+            result.append("状态: 后台启动失败（进程在启动观察期内退出，可能端口占用/配置错误/依赖缺失）\n");
+            result.append("退出码: ").append(exitCode).append("\n");
+        }
+        result.append("执行时间: ").append(duration).append(" ms\n");
+
+        if (!OUTPUT_MODE_ALL.equals(outputMode)) {
+            int lines = resolveMaxLines(outputMode, maxLines);
+            result.append("输出策略: ").append(outputMode)
+                  .append("（仅保留最多 ").append(lines).append(" 行）\n");
+        }
+
+        if (output.isEmpty()) {
+            result.append("(启动过程无输出)\n");
+        } else {
+            result.append("启动输出:\n");
+            result.append(output);
+            if (!output.endsWith("\n")) {
+                result.append("\n");
+            }
+        }
+        return result.toString();
+    }
+
     private String executeCommand(String command, Path workPath, int timeout, Consumer<String> progressCallback,
-                                  String outputMode, int maxLines) 
+                                  String outputMode, int maxLines, boolean runInBackground) 
             throws IOException, InterruptedException, ToolExecutionException {
-        
+
+        // 后台模式：立即返回 PID、进程持续运行，不走前台同步等待/超时终止逻辑
+        if (runInBackground) {
+            return executeInBackground(command, workPath, progressCallback, outputMode, maxLines);
+        }
+
         ProcessBuilder processBuilder;
         
         if (isWindows()) {

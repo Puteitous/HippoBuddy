@@ -200,6 +200,19 @@ export const configApi = {
     ),
 
   /**
+   * POST /api/config/llm/test - 用填入的 provider/baseUrl/apiKey/model 发一次最小 chat 请求测试连通
+   * @param provider 厂商标识
+   * @param baseUrl 厂商 base URL(可为空,后端回退默认地址)
+   * @param apiKey API Key(为空或已遮掩时后端回退已保存配置)
+   * @param model 模型名
+   */
+  testLlmConnection: (provider: string, baseUrl: string, apiKey: string | undefined, model: string) =>
+    postJson<{ success: boolean; message?: string; latencyMs?: number }>(
+      `${API_BASE}/config/llm/test`,
+      { provider, baseUrl, apiKey, model },
+    ),
+
+  /**
    * DELETE /api/config/llm/history - 删除历史记录中的指定模型快照
    */
   deleteHistorySnapshot: (provider: string, model: string) =>

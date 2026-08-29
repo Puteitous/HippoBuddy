@@ -141,6 +141,8 @@ export function ModelSettingsPage() {
   /** 「从 API 拉取」返回的模型列表（成功时在 Model 输入下方展示可选项） */
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
+  /** 「测试连通」请求进行中标记 */
+  const [testing, setTesting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -301,6 +303,31 @@ export function ModelSettingsPage() {
     setFetchedModels([]);
   };
 
+  /** 用当前表单填写的 provider/baseUrl/apiKey/model 测试连通 */
+  const handleTestConnection = async () => {
+    if (testing) return;
+    setTesting(true);
+    try {
+      const res = await configApi.testLlmConnection(
+        editor.provider,
+        editor.baseUrl.trim(),
+        editor.apiKeyMasked ? undefined : editor.apiKey,
+        editor.model,
+      );
+      if (res.success) {
+        const suffix = typeof res.latencyMs === 'number' ? `（${res.latencyMs}ms）` : '';
+        showToast(translate('settingsPage.modelTestSuccess') + suffix, { type: 'success', duration: 2500 });
+      } else {
+        showToast(translate('settingsPage.modelTestFailed') + (res.message || ''), { type: 'error', duration: 3500 });
+      }
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast(translate('settingsPage.modelTestFailed') + msg, { type: 'error', duration: 3500 });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const handleDelete = async (m: ModelSnapshot) => {
     if (!m.provider || !m.model) return;
     if (!window.confirm(translate('settingsPage.modelDeleteSnapshot') + m.provider + ':' + m.model + translate('settingsPage.deleteConfirmEnd'))) return;
@@ -383,7 +410,7 @@ export function ModelSettingsPage() {
     const isNew = pageMode === 'create';
     const title = isNew
       ? translate('settingsPage.modelNewTitle')
-      : translate('settingsPage.modelEditTitle') + getProviderLabel(editor.provider) + ' · ' + editor.model;
+      : getProviderLabel(editor.provider) + ' · ' + editor.model;
     const thinkingSupported = isThinkingSupported(editor.provider);
     const reasoningSupported = supportsReasoningEffort(editor.provider);
     const effortItems = getReasoningItems(editor.provider);
@@ -401,6 +428,15 @@ export function ModelSettingsPage() {
               disabled={saving}
             >
               {t('settingsPage.modelBackToListPlain')}
+            </button>
+            <button
+              type="button"
+              className="settings-editor-btn"
+              onClick={handleTestConnection}
+              disabled={testing || saving}
+              title={t('settingsPage.modelTestHint')}
+            >
+              {testing ? t('settingsPage.modelTestLoading') : t('settingsPage.modelTestBtn')}
             </button>
             <button
               type="button"

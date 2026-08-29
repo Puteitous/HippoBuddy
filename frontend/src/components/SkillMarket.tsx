@@ -95,6 +95,11 @@ export function SkillMarket({ onClose }: SkillMarketProps) {
     }
   }, []);
 
+  // 打开技能市场时加载已安装列表，确保已装技能立即显示"已安装"状态，避免重复安装报"已存在"
+  useEffect(() => {
+    void reloadInstalled();
+  }, [reloadInstalled]);
+
   // 切换为"已安装"模式时刷新
   useEffect(() => {
     if (showInstalled) {

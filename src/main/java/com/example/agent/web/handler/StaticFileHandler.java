@@ -81,6 +81,15 @@ public class StaticFileHandler implements HttpHandler {
             if (filePath.startsWith(devStaticDir) && Files.isRegularFile(filePath)) {
                 content = Files.readAllBytes(filePath);
             }
+            // /skills/featured/*.md 为两版(static/static-v2)共享的内置资源，仅存放在 static 目录，
+            // 新版(static-v2)在自身目录未命中时回退到 static 读取。
+            if (content == null && path.startsWith("/skills/")) {
+                Path sharedDir = Paths.get("src", "main", "resources", "static").toAbsolutePath().normalize();
+                Path sharedFile = sharedDir.resolve(path.substring(1)).normalize();
+                if (sharedFile.startsWith(sharedDir) && Files.isRegularFile(sharedFile)) {
+                    content = Files.readAllBytes(sharedFile);
+                }
+            }
         }
 
         // 2) 回退到 classpath（生产 JAR 模式）
@@ -89,6 +98,13 @@ public class StaticFileHandler implements HttpHandler {
             var resource = getClass().getResource(resourcePath);
             if (resource != null) {
                 content = resource.openStream().readAllBytes();
+            }
+            // 同上：/skills/ 前缀共享资源在生产 JAR 中回退到 /static 读取。
+            if (content == null && path.startsWith("/skills/")) {
+                var sharedResource = getClass().getResource("/static" + path);
+                if (sharedResource != null) {
+                    content = sharedResource.openStream().readAllBytes();
+                }
             }
         }
 

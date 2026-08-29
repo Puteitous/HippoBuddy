@@ -574,6 +574,59 @@ class BashToolTest {
             workPath, isTimeout, outputMode, maxLines, externallyCancelled, cancelFailed, pid);
     }
 
+    // ===== 后台模式（run_in_background）=====
+
+    @Test
+    void testParametersSchemaContainsRunInBackground() {
+        String schema = tool.getParametersSchema();
+        assertTrue(schema.contains("run_in_background"), "schema 应包含 run_in_background");
+    }
+
+    @Test
+    void testBackgroundModeReturnsPidAndStaysAlive() throws Exception {
+        String id = "test-bg-" + System.nanoTime();
+        BashTool.setCurrentToolCallId(id);
+        try {
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("command", longRunningCommand());
+            args.put("run_in_background", true);
+
+            long start = System.currentTimeMillis();
+            String result = tool.execute(args);
+            long elapsed = System.currentTimeMillis() - start;
+
+            assertTrue(result.contains("后台启动成功"), "应标注后台启动成功，实际: " + result);
+            assertTrue(result.contains("进程 PID"), "应包含进程 PID，实际: " + result);
+            // 后台模式应快速返回（观察期 ~4s 内），不得等满普通超时 30s
+            assertTrue(elapsed < 20_000, "后台模式应在观察期内返回（实际 " + elapsed + "ms）");
+
+            // 进程仍被托管存活，未被超时终止
+            BashProcessManager.BackgroundRecord record = BashProcessManager.getInstance().getBackground(id);
+            assertNotNull(record, "后台模式进程应被托管");
+            assertTrue(record.isAlive(), "后台进程应仍在运行");
+        } finally {
+            BashProcessManager.getInstance().cancel(id, 200); // 清理进程树，避免测试残留
+            BashTool.clearCurrentToolCallId();
+        }
+    }
+
+    @Test
+    void testBackgroundModeReportsFailureWhenProcessDiesDuringStartup() throws Exception {
+        String id = "test-bg-fail-" + System.nanoTime();
+        BashTool.setCurrentToolCallId(id);
+        try {
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("command", "echo quick exit");
+            args.put("run_in_background", true);
+
+            String result = tool.execute(args);
+            assertTrue(result.contains("后台启动失败"),
+                "观察期内进程退出应标注启动失败，实际: " + result);
+        } finally {
+            BashTool.clearCurrentToolCallId();
+        }
+    }
+
     private static String longRunningCommand() {
         return System.getProperty("os.name").toLowerCase().contains("win")
             ? "ping 127.0.0.1 -n 100 > nul"
