@@ -63,13 +63,6 @@ jobs:
           path: target/${{ steps.locate_jar.outputs.jar_name }}
           retention-days: 3
 
-      - name: Upload frontend artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: src/main/resources/static/
-          retention-days: 3
-
       - name: Extract version from tag
         id: get_version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
@@ -104,12 +97,6 @@ jobs:
         with:
           name: hippo-agent-jar
           path: target/
-
-      - name: Download frontend dist
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: src/main/resources/static/
 
       - name: Cache Electron binaries
         uses: actions/cache@v4
@@ -202,12 +189,6 @@ jobs:
           name: hippo-agent-jar
           path: target/
 
-      - name: Download frontend dist
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: src/main/resources/static/
-
       - name: Cache Electron binaries
         uses: actions/cache@v4
         with:
@@ -244,7 +225,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       # 冒烟测试：在 macOS runner 上真实启动打包后的 .app，
-      # 验证「内置 JRE + hippo-agent.jar → 后端启动 → /cockpit 可访问」整条链路。
+      # 验证「内置 JRE + hippo-agent.jar → 后端启动 → /app 新前端可访问」整条链路。
       # 任何一步失败都会输出主进程日志并让本 job 报错。
       - name: Smoke test macOS app
         shell: bash
@@ -284,12 +265,14 @@ jobs:
           echo "Launched main process PID=$APP_PID"
 
           # 5. 轮询后端就绪（最多 120s）
+          # /app 生产下会 302 → /app/(静态资源相对路径需带尾斜杠), 用 -L 跟随,
+          # 最终以新版 index.html 返回 200 判定新前端可访问。
           READY=0
           for i in $(seq 1 120); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:9090/cockpit" || echo 000)
+            code=$(curl -s -L -o /dev/null -w "%{http_code}" "http://localhost:9090/app" || echo 000)
             if [ "$code" = "200" ]; then
               READY=1
-              echo "SMOKE OK: /cockpit HTTP 200（第 $i 次探测）"
+              echo "SMOKE OK: /app HTTP 200（第 $i 次探测）"
               break
             fi
             if ! kill -0 $APP_PID 2>/dev/null; then
@@ -305,7 +288,7 @@ jobs:
             cat "$LOG" || true
             exit 1
           fi
-          echo "PASS: macOS app 启动成功，后端就绪，/cockpit 可访问"
+          echo "PASS: macOS app 启动成功，后端就绪，/app 新前端可访问"
 
           # 6. 清理：关闭应用与后端
           kill -9 $APP_PID 2>/dev/null || true
@@ -353,12 +336,6 @@ jobs:
         with:
           name: hippo-agent-jar
           path: target/
-
-      - name: Download frontend dist
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: src/main/resources/static/
 
       - name: Cache Electron binaries
         uses: actions/cache@v4
