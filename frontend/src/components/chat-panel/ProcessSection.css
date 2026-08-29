@@ -16,8 +16,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  /* 对齐工具时间线/消息气泡的 85% 宽度上限,避免摘要条撑满整行 */
-  max-width: 85%;
+  /* 对齐工具时间线/消息气泡的 90% 宽度上限,避免摘要条撑满整行 */
+  max-width: 90%;
   padding: 4px 8px;
   cursor: pointer;
   border-radius: var(--radius-sm);
@@ -60,20 +60,6 @@
   font-weight: 600;
   color: var(--text-primary);
   font-size: var(--font-size-xs);
-}
-
-.process-summary-arrow {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
-}
-
-/* 展开态箭头朝上,收起态朝下 */
-.process-summary-arrow.expanded {
-  transform: rotate(180deg);
 }
 
 /* ── 收起态:隐藏思维链 + 工具时间线/卡片 + 中途过渡正文,只保留最终正文 ──

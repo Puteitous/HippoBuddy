@@ -230,7 +230,14 @@
   background-color: transparent;
 }
 [data-theme="glass"] .file-preview-editor.is-h-scrolled .cm-editor .cm-gutters {
-  background-color: rgb(22, 24, 32);
+  /* 滚动时"颜色完全不动 + 糊化下层代码":
+     背景保持 transparent,颜色不加深,与平时玻璃质感完全一致;
+     糊化纯靠 backdrop-filter,把滑入行号条下方的代码拍成磨砂玻璃后透。
+     注:依赖 sticky 行号条能采样到滚动内容;若 Electron 内 blur 不生效(采样受限),
+         需加回背景浓度做遮挡兜底。 */
+  background-color: transparent;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 /* ── 对齐全局滚动条观感 ──
@@ -286,6 +293,14 @@
 [data-theme="dark"] .file-preview-editor .cm-activeLineGutter,
 [data-theme="midnight"] .file-preview-editor .cm-activeLineGutter {
   color: var(--text-primary) !important;
+}
+
+/* 玻璃模式当前行行号跟随正文弱盖:用与正文 .cm-activeLine 相同的
+   --bg-hover(rgba(255,255,255,0.06)) 而非 oneDark 的不透明 #2c313a,
+   保持毛玻璃通透、不显孤立实色块；滚动糊化时配合 backdrop-filter 观感统一 */
+[data-theme="glass"] .file-preview-editor .cm-activeLineGutter {
+  color: var(--text-primary) !important;
+  background: var(--bg-hover) !important;
 }
 
 .file-preview-editor .cm-scroller {

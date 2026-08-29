@@ -449,10 +449,30 @@ function dedupeFiles(files: MessageFileProduct[]): MessageFileProduct[] {
 }
 
 /**
- * 回合处理过程总耗时:取回合内所有消息 timestamp 的首尾差值(近似值)。
- * 消息无 timestamp(极少数历史)时返回 null,摘要条自动省略耗时。
+ * 回合处理过程总耗时:优先读回合内消息携带的 roundElapsedMs(前端固化时由
+ * processStartedAt → 固化时刻精确计算,含末段输出耗时);
+ * 读不到(后端历史加载/旧数据)时回退到各消息 timestamp 首尾差(近似值,可能偏小)。
+ * 无有效值(0/非法)时返回 null,摘要条自动省略耗时。
  */
 function computeRoundElapsed(round: RoundEntry[]): number | null {
+  // 前端固化写入的精确耗时:回合内任一消息携带即可(挂在回合最后一条消息上)。
+  // 过滤 0/非法值,避免无意义的"0ms"显示。
+  for (const e of round) {
+    if (e.kind === 'assistant') {
+      const v = e.msg.roundElapsedMs;
+      if (v != null && Number.isFinite(v) && v > 0) return v;
+    } else if (e.kind === 'timeline') {
+      for (const m of e.items) {
+        const v = m.roundElapsedMs;
+        if (v != null && Number.isFinite(v) && v > 0) return v;
+      }
+    } else {
+      const v = e.msg.roundElapsedMs;
+      if (v != null && Number.isFinite(v) && v > 0) return v;
+    }
+  }
+
+  // 回退:timestamp 首尾差(旧数据/后端加载)
   let min = Infinity;
   let max = 0;
   const consider = (ts?: number) => {

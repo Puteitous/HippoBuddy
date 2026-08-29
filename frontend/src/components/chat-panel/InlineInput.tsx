@@ -599,6 +599,7 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
         className="inline-input-editor"
         contentEditable={!disabled}
         suppressContentEditableWarning
+        spellCheck={false}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}

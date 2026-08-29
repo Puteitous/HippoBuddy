@@ -4,6 +4,7 @@ import com.example.agent.config.Config;
 import com.example.agent.config.ConfigLoader;
 import com.example.agent.config.LlmConfig;
 import com.example.agent.config.ModelSnapshot;
+import com.example.agent.config.VisionModelRegistry;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.llm.client.LlmClientFactory;
 import com.example.agent.llm.client.LlmConnectionTester;
@@ -120,6 +121,9 @@ public class ConfigApiHandler implements HttpHandler {
         node.put("apiKeyMasked", llm.maskApiKey());
         node.put("hasApiKey", llm.getApiKey() != null && !llm.getApiKey().isEmpty()
                 && !"your-api-key-here".equals(llm.getApiKey()));
+        node.put("visionSupported", llm.getVisionSupported() != null ? llm.getVisionSupported() : "");
+        // 权威的有效视觉能力结果(用户覆盖值优先,否则走 VisionModelRegistry 自动判断)
+        node.put("supportsVision", VisionModelRegistry.supportsVision(llm));
 
         // 返回模型历史快照列表（每个快照包含完整配置，apiKey 已遮掩）
         ArrayNode history = MAPPER.createArrayNode();
@@ -133,6 +137,7 @@ public class ConfigApiHandler implements HttpHandler {
                 snapNode.put("maxTokens", snap.getMaxTokens());
                 snapNode.put("thinkingEnabled", snap.isThinkingEnabled());
                 snapNode.put("reasoningEffort", snap.getReasoningEffort() != null ? snap.getReasoningEffort() : "");
+                snapNode.put("visionSupported", snap.getVisionSupported() != null ? snap.getVisionSupported() : "");
                 history.add(snapNode);
             }
         }
@@ -277,7 +282,7 @@ public class ConfigApiHandler implements HttpHandler {
                 && json.has("provider") && json.has("model")
                 && !json.has("baseUrl") && !json.has("apiKey")
                 && !json.has("maxTokens") && !json.has("thinkingEnabled")
-                && !json.has("reasoningEffort");
+                && !json.has("reasoningEffort") && !json.has("visionSupported");
     }
 
     private void handlePut(HttpExchange exchange) throws IOException {
@@ -351,6 +356,10 @@ public class ConfigApiHandler implements HttpHandler {
             }
             if (json.has("reasoningEffort")) {
                 llm.setReasoningEffort(json.get("reasoningEffort").asText());
+            }
+            if (json.has("visionSupported")) {
+                // 空串/auto/true/false：空串或 auto 回退到自动判断
+                llm.setVisionSupported(json.get("visionSupported").isNull() ? "" : json.get("visionSupported").asText());
             }
 
             // 快照当前配置到历史（新模型的配置也保存）
@@ -540,6 +549,7 @@ public class ConfigApiHandler implements HttpHandler {
                         llmObj.put("max_tokens", llm.getMaxTokens());
                         llmObj.put("thinking_enabled", llm.isThinkingEnabled());
                         llmObj.put("reasoning_effort", llm.getReasoningEffort());
+                        llmObj.put("vision_supported", llm.getVisionSupported());
 
                         // 持久化模型历史快照
                         ArrayNode historyArr = YAML_MAPPER.createArrayNode();
@@ -553,6 +563,7 @@ public class ConfigApiHandler implements HttpHandler {
                                 snapNode.put("max_tokens", snap.getMaxTokens());
                                 snapNode.put("thinking_enabled", snap.isThinkingEnabled());
                                 snapNode.put("reasoning_effort", snap.getReasoningEffort() != null ? snap.getReasoningEffort() : "");
+                                snapNode.put("vision_supported", snap.getVisionSupported());
                                 historyArr.add(snapNode);
                             }
                         }

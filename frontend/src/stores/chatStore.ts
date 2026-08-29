@@ -1154,6 +1154,20 @@ export const useChatStore = create<ChatState>((set, get) => {
           last.web_search_actions = webActions;
         }
       }
+
+      // 回合级处理过程总耗时:挂到回合最后一条新增消息,让 HistoryRenderer 直接读它展示
+      // 摘要条耗时。若用各段 timestamp 首尾差会漏掉"最后一段输出耗时",导致固化后
+      // 数字突然变小。这里用 Date.now() 作终点——commitStreamingMessage 的调用时机
+      // (done/abort/waiting_user)本身即"回合过程终点的最新快照",比依赖可能被
+      // reasoning_done/tool_result 提前定格的 processEndedAt 更准确(后者会漏算最终
+      // 输出段,因 done 事件是先 commitStreamingMessage 再定格 processEndedAt)。
+      // 注意:webActions 可能已把 web_searched 挂到最后一条,这里叠加字段不冲突。
+      if (additions.length > 0 && sess.processStartedAt != null) {
+        const roundElapsedMs = Math.max(0, Date.now() - sess.processStartedAt);
+        const last = additions[additions.length - 1];
+        last.roundElapsedMs = roundElapsedMs;
+      }
+
       updateSession(sid, (s) => {
         s.messages = [...s.messages, ...additions];
         s.stream = [];

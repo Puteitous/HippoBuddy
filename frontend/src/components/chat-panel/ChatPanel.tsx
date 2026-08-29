@@ -83,6 +83,23 @@ export function ChatPanel() {
   const clearWarnings = useChatStore((s) => s.clearWarnings);
   const toggleRoundCollapsed = useChatStore((s) => s.toggleRoundCollapsed);
 
+  // ── 处理过程计时实时刷新 tick ──────────────────────────────
+  // 摘要条耗时在「无 SSE 事件」窗口(工具长运行/思考无增量)会停滞,
+  // 因为现有计时只在事件驱动重渲染时才用 Date.now() 求值。这里在运行态
+  // (发送中 / 思考中 / 有工具 running)挂一个 1s 定时器驱动 processTick,
+  // 使 elapsedMs 在无事件时也平滑前跳;静止回合/历史消息不挂表,零开销。
+  const [processTick, setProcessTick] = useState(0);
+  // 运行态:任一异步过程仍在推进即认为"计时中",驱动周期重渲染
+  const processRunning =
+    isSending ||
+    isReasoning ||
+    toolCalls.some((tc) => tc.status === 'running');
+  useEffect(() => {
+    if (!processRunning) return;
+    const timer = window.setInterval(() => setProcessTick((t) => t + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [processRunning]);
+
   // 挂载时同步一次默认展示模式(来源于后端 ui.default_process_view),供新建会话初始态使用。
   // 沿 PermissionBadge 模式:组件自读 configApi,避免引入全局 config store。
   useEffect(() => {
@@ -263,6 +280,7 @@ export function ChatPanel() {
     collapsedRounds,
     processStartedAt,
     processEndedAt,
+    processTick,
     toggleRoundCollapsed,
   ]);
 

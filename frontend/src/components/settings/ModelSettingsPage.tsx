@@ -88,6 +88,8 @@ interface EditorState {
   maxTokens: string;
   thinkingEnabled: boolean;
   reasoningEffort: string;
+  /** 视觉能力覆盖:''=自动判断,true=强制支持,false=强制不支持 */
+  visionSupported: string;
 }
 
 function emptyEditor(): EditorState {
@@ -102,6 +104,7 @@ function emptyEditor(): EditorState {
     maxTokens: '0',
     thinkingEnabled: true,
     reasoningEffort: '',
+    visionSupported: '',
   };
 }
 
@@ -120,6 +123,7 @@ function modelToEditor(m: ModelSnapshot): EditorState {
     reasoningEffort: effortItems.some((i) => i.value === (m.reasoningEffort || ''))
       ? m.reasoningEffort || ''
       : '',
+    visionSupported: m.visionSupported || '',
   };
 }
 
@@ -233,6 +237,7 @@ export function ModelSettingsPage() {
       baseUrl: editor.baseUrl.trim(),
       maxTokens: parseInt(editor.maxTokens, 10),
       apiKey: editor.apiKey,
+      visionSupported: editor.visionSupported,
     };
     // 编辑已有:携带 editingKey 让后端移除旧快照
     if (!isNew && editor.editingModel) {
@@ -631,20 +636,31 @@ export function ModelSettingsPage() {
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
               <div>{t('settingsPage.modelVisionLabel')}</div>
-              <div className="settings-field-hint">{t('settingsPage.modelVisionHint')}</div>
             </div>
             <div className="settings-field-body">
-              <span className="settings-item-badge" style={{ fontSize: 13, padding: '3px 10px' }}>
-                {visionSupported ? (
-                  <>
-                    <span style={{ color: '#22c55e' }}>●</span> {t('settingsPage.modelVisionSupported')}
-                  </>
-                ) : (
-                  <>
-                    <span style={{ color: '#9ca3af' }}>●</span> {t('settingsPage.modelVisionNotSupported')}
-                  </>
+              <select
+                className="settings-select"
+                style={{ maxWidth: 260 }}
+                value={editor.visionSupported}
+                onChange={(e) => setEditor({ ...editor, visionSupported: e.target.value })}
+                disabled={saving}
+              >
+                <option value="">{t('settingsPage.modelVisionModeAuto')}</option>
+                <option value="true">{t('settingsPage.modelVisionModeForce')}</option>
+                <option value="false">{t('settingsPage.modelVisionModeForceNot')}</option>
+              </select>
+              <div className="settings-field-hint" style={{ marginTop: 6 }}>
+                {t('settingsPage.modelVisionOverrideHint')}
+                {editor.visionSupported === '' && (
+                  <span>
+                    {' · '}
+                    {t('settingsPage.modelVisionModeAuto')}：
+                    {visionSupported
+                      ? t('settingsPage.modelVisionSupported')
+                      : t('settingsPage.modelVisionNotSupported')}
+                  </span>
                 )}
-              </span>
+              </div>
             </div>
           </div>
         </div>

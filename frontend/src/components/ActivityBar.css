@@ -69,7 +69,7 @@
   top: 0;
   /* 定位基准为 .app-shell-body(padding-left:10px),活动栏宽 44px,
      故贴活动栏右缘需左移 = 10 + 44 = 54px */
-  left: 54px;
+  left: 47px;
   z-index: 50;
   width: 320px;
   max-height: calc(100vh - 80px);

@@ -40,18 +40,28 @@ describe('useVisionSupport', () => {
     expect(result.current).toBe(false);
   });
 
-  it('llm:changed 事件即时切换视觉支持状态', async () => {
+  it('后端权威 supportsVision 优先于前端启发式', async () => {
+    configApi.getLlm.mockResolvedValue({ provider: 'x', model: 'y', supportsVision: true });
+    visionCheck.mockReturnValue(false);
+    const { result } = renderHook(() => useVisionSupport());
+    await waitFor(() => expect(result.current).toBe(true));
+    // 走权威结果,不调用前端启发式
+    expect(visionCheck).not.toHaveBeenCalled();
+  });
+
+  it('llm:changed 事件重新拉取并切换视觉支持状态', async () => {
     configApi.getLlm.mockResolvedValue({ provider: 'a', model: 'no-vision' });
     visionCheck.mockReturnValue(false);
     const { result } = renderHook(() => useVisionSupport());
     await waitFor(() => expect(result.current).toBe(false));
 
+    // 切到新模型:重新拉取得到支持视觉的结果
+    configApi.getLlm.mockResolvedValue({ provider: 'q', model: 'vision' });
     visionCheck.mockReturnValue(true);
     act(() => {
       emit('llm:changed', { provider: 'q', model: 'vision' });
     });
-    expect(result.current).toBe(true);
-    expect(visionCheck).toHaveBeenCalledWith('q', 'vision');
+    await waitFor(() => expect(result.current).toBe(true));
   });
 
   it('卸载后迟到的拉取结果不再更新状态(disposed 保护)', async () => {

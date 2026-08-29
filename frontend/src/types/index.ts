@@ -117,6 +117,14 @@ export interface Message {
   /** role === 'tool' 时:前端流式固化的工具参数(如 todo_write 的完整累计树)。
    *  后端历史加载走 tool_calls,故仅前端固化路径使用。 */
   args?: unknown;
+  /**
+   * 回合级处理过程总耗时(ms):
+   * 固化时由前端把该回合的 processStartedAt → processEndedAt 差值写入,挂到回合
+   * 最后一条消息上。HistoryRenderer 据此显示摘要条耗时,避免用各段 timestamp 首尾
+   * 差导致"输出段未计入"而偏小;刷新后随缓存持久化,保持与流式态一致。
+   * 仅前端固化路径写入,后端历史加载(JSONL)无此字段。
+   */
+  roundElapsedMs?: number;
 }
 
 // ============================================================================
@@ -132,6 +140,8 @@ export interface ModelSnapshot {
   maxTokens: number;
   thinkingEnabled: boolean;
   reasoningEffort: string;
+  /** 视觉能力覆盖:空/auto=自动判断,true=强制支持,false=强制不支持 */
+  visionSupported?: string;
 }
 
 /** LLM 配置 - GET /api/config/llm */
@@ -151,6 +161,10 @@ export interface LlmConfig {
   thinkingEnabled?: boolean;
   /** 思考强度(low/medium/high) */
   reasoningEffort?: string;
+  /** 视觉能力覆盖:空/auto=自动判断,true=强制支持,false=强制不支持 */
+  visionSupported?: string;
+  /** 后端权威判定的有效视觉能力结果(覆盖值优先,否则走 VisionModelRegistry 自动判断) */
+  supportsVision?: boolean;
 }
 
 /** PUT /api/config/llm 请求体 */
@@ -163,6 +177,8 @@ export interface UpdateLlmConfigRequest {
   maxTokens?: number;
   thinkingEnabled?: boolean;
   reasoningEffort?: string;
+  /** 视觉能力覆盖:空/auto=自动判断,true=强制支持,false=强制不支持 */
+  visionSupported?: string;
   /** 编辑历史记录时携带的旧 key(provider:model) */
   editingKey?: string;
 }

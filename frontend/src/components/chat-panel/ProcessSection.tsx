@@ -28,13 +28,6 @@ const PROCESS_SVG = (
   </svg>
 );
 
-/** 箭头图标(展开朝上、收起朝下) */
-const CHEVRON_SVG = (
-  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m18 15-6-6-6 6" />
-  </svg>
-);
-
 export interface ProcessSectionProps {
   /** 是否整体收起(思考+工具折叠为一行摘要) */
   collapsed: boolean;
@@ -80,7 +73,6 @@ function ProcessSectionComponent({
       >
         <span className="process-summary-icon">{PROCESS_SVG}</span>
         <span className="process-summary-text">{buildSummary(streaming, hasThinking, toolCount, elapsedMs, lang)}</span>
-        <span className={`process-summary-arrow${collapsed ? '' : ' expanded'}`}>{CHEVRON_SVG}</span>
       </div>
       <div className="process-body">{children}</div>
     </div>

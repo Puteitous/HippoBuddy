@@ -29,6 +29,10 @@ public class ModelSnapshot {
     @JsonProperty("reasoning_effort")
     private String reasoningEffort = "high";
 
+    /** 视觉能力覆盖：空/auto=自动判断，true=强制支持，false=强制不支持 */
+    @JsonProperty("vision_supported")
+    private String visionSupported;
+
     /** 是否在下拉框中显示，默认 true */
     private boolean enabled = true;
 
@@ -45,6 +49,7 @@ public class ModelSnapshot {
         snap.maxTokens = config.getMaxTokens();
         snap.thinkingEnabled = config.isThinkingEnabled();
         snap.reasoningEffort = config.getReasoningEffort();
+        snap.visionSupported = config.getVisionSupported();
         snap.enabled = true;
         return snap;
     }
@@ -58,6 +63,7 @@ public class ModelSnapshot {
         config.setMaxTokens(this.maxTokens);
         config.setThinkingEnabled(this.thinkingEnabled);
         config.setReasoningEffort(this.reasoningEffort);
+        config.setVisionSupported(this.visionSupported);
     }
 
     /** 快照唯一标识 provider:model */
@@ -86,6 +92,9 @@ public class ModelSnapshot {
 
     public String getReasoningEffort() { return reasoningEffort; }
     public void setReasoningEffort(String reasoningEffort) { this.reasoningEffort = reasoningEffort; }
+
+    public String getVisionSupported() { return visionSupported; }
+    public void setVisionSupported(String visionSupported) { this.visionSupported = visionSupported; }
 
     /** 遮掩 API Key 中间部分（同 LlmConfig.maskApiKey） */
     public String maskApiKey() {

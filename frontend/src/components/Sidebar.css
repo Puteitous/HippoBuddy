@@ -130,6 +130,16 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+/* 玻璃主题:胶囊底改用半透玻璃色(--bg-canvas 在 glass 下是深色渐变,显黑且与周围面板脱节);
+   active 按钮用更亮的白半透浮起,突出当前视图,避免深陷 */
+[data-theme="glass"] .sidebar-view-capsule {
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+}
+[data-theme="glass"] .sidebar-view-capsule .capsule-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
 .sidebar-view-capsule .capsule-btn svg {
   transition: transform 0.15s ease;
 }
@@ -503,6 +513,16 @@
 
 [data-theme="dark"] .group-mode-toggle:hover,
 [data-theme="midnight"] .group-mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 玻璃主题:sidebar-count / group-mode-toggle 小徽章底改用与面板一致的半透玻璃色
+   (--bg-code 在 glass 下是 rgba(16,18,25,0.55) 偏黑半透,视觉未融合) */
+[data-theme="glass"] .sidebar-count,
+[data-theme="glass"] .group-mode-toggle {
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+}
+[data-theme="glass"] .group-mode-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
