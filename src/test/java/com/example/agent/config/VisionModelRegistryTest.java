@@ -184,7 +184,8 @@ class VisionModelRegistryTest {
             assertTrue(VisionModelRegistry.supportsVision("ollama", "glm-4v", null));
             assertTrue(VisionModelRegistry.supportsVision("ollama", "internvl", null));
             assertTrue(VisionModelRegistry.supportsVision("ollama", "deepseek-vl", null));
-            assertTrue(VisionModelRegistry.supportsVision("ollama", "minicpm", null));
+            assertTrue(VisionModelRegistry.supportsVision("deepseek", "deepseek-v4-flash-vision-exp", null));
+            assertTrue(VisionModelRegistry.supportsVision("minicpm", "minicpm", null));
         }
     }
 

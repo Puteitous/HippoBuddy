@@ -126,6 +126,8 @@ public class VisionModelRegistry {
         Pattern.compile("internvl", Pattern.CASE_INSENSITIVE),
         // DeepSeek VL
         Pattern.compile("deepseek.*vl", Pattern.CASE_INSENSITIVE),
+        // DeepSeek 视觉系列(vl / vision),如 deepseek-v4-flash-vision-exp
+        Pattern.compile("deepseek.*vision", Pattern.CASE_INSENSITIVE),
         // MiniCPM
         Pattern.compile("minicpm", Pattern.CASE_INSENSITIVE),
         // Kimi (月之暗面) — k2.5+ 原生多模态
