@@ -636,6 +636,17 @@ export function ModelSettingsPage() {
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
               <div>{t('settingsPage.modelVisionLabel')}</div>
+              {t('settingsPage.modelVisionOverrideHint') && (
+                <div className="settings-field-hint">{t('settingsPage.modelVisionOverrideHint')}</div>
+              )}
+              {editor.visionSupported === '' && (
+                <div className="settings-field-hint">
+                  {t('settingsPage.modelVisionModeAuto')}：
+                  {visionSupported
+                    ? t('settingsPage.modelVisionSupported')
+                    : t('settingsPage.modelVisionNotSupported')}
+                </div>
+              )}
             </div>
             <div className="settings-field-body">
               <select
@@ -649,18 +660,6 @@ export function ModelSettingsPage() {
                 <option value="true">{t('settingsPage.modelVisionModeForce')}</option>
                 <option value="false">{t('settingsPage.modelVisionModeForceNot')}</option>
               </select>
-              <div className="settings-field-hint" style={{ marginTop: 6 }}>
-                {t('settingsPage.modelVisionOverrideHint')}
-                {editor.visionSupported === '' && (
-                  <span>
-                    {' · '}
-                    {t('settingsPage.modelVisionModeAuto')}：
-                    {visionSupported
-                      ? t('settingsPage.modelVisionSupported')
-                      : t('settingsPage.modelVisionNotSupported')}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
         </div>

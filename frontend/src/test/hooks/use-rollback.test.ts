@@ -10,8 +10,9 @@ const { appState, chatFns, apiMock, emitMock, toastMock } = vi.hoisted(() => ({
   appState: {
     currentSessionId: 's1' as string | null,
     removeSession: vi.fn<(id: string) => void>(),
+    saveHeroPendingDraft: vi.fn<(draft: string) => void>(),
   },
-  chatFns: { setMessages: vi.fn<(m: unknown[]) => void>(), setSessionMessages: vi.fn<(id: string, m: unknown[]) => void>() },
+  chatFns: { setMessages: vi.fn<(m: unknown[]) => void>(), setSessionMessages: vi.fn<(id: string, m: unknown[]) => void>(), clearSessionToolCalls: vi.fn<(id: string) => void>() },
   apiMock: {
     sessions: {
       rewindCheck: vi.fn<(sid: string, body: unknown) => Promise<{ files: unknown[] }>>(),
@@ -33,7 +34,10 @@ vi.mock('@/stores/appStore', () => ({
   ),
 }));
 vi.mock('@/stores/chatStore', () => ({
-  useChatStore: (sel: (s: typeof chatFns) => unknown) => sel(chatFns),
+  useChatStore: Object.assign(
+    (sel: (s: typeof chatFns) => unknown) => sel(chatFns),
+    { getState: () => chatFns },
+  ),
 }));
 vi.mock('@/api/client', () => ({ api: apiMock }));
 vi.mock('@/utils/eventBus', () => ({ emit: emitMock }));
@@ -109,6 +113,7 @@ describe('useRollback', () => {
       await result.current.handleConfirm('files');
     });
     expect(apiMock.sessions.rewind).toHaveBeenCalledWith('s1', { messageId: 't1', mode: 'files' });
+    expect(chatFns.clearSessionToolCalls).not.toHaveBeenCalled();
     expect(emitMock).toHaveBeenCalledWith('rollback:completed', { paths: ['/a.ts', '/b.go'], mode: 'files' });
     expect(toastMock.showToast).toHaveBeenCalledWith('rollback.fileRolledBack', { type: 'success', duration: 4000 });
     expect(result.current.status).toBe('idle');
@@ -127,6 +132,7 @@ describe('useRollback', () => {
     });
     expect(chatFns.setSessionMessages).toHaveBeenCalledWith('s1', messages);
     expect(chatFns.setMessages).not.toHaveBeenCalled();
+    expect(chatFns.clearSessionToolCalls).toHaveBeenCalledWith('s1');
     expect(emitMock).toHaveBeenCalledWith('rollback:restoreInput', '原问题');
     expect(toastMock.showToast).toHaveBeenCalledWith('rollback.rolledBack', { type: 'success', duration: 4000 });
     expect(result.current.status).toBe('idle');
@@ -143,7 +149,62 @@ describe('useRollback', () => {
     });
     expect(apiMock.sessions.delete).toHaveBeenCalledWith('s1');
     expect(appState.removeSession).toHaveBeenCalledWith('s1');
+    expect(chatFns.clearSessionToolCalls).toHaveBeenCalledWith('s1');
     expect(toastMock.showToast).toHaveBeenCalledWith('rollback.sessionCleared', { type: 'info', duration: 4000 });
+  });
+
+  it('handleConfirm mode=all 会话被清空且带 lastUserMessage:回填 hero 草稿并 emit restoreInput', async () => {
+    apiMock.sessions.getMessages.mockResolvedValue([]);
+    apiMock.sessions.rewind.mockResolvedValue({ success: true, lastUserMessage: '原问题' });
+    const { result } = renderHook(() => useRollback('t1'));
+    await act(async () => {
+      await result.current.handleOpen();
+    });
+    await act(async () => {
+      await result.current.handleConfirm('all');
+    });
+    expect(apiMock.sessions.delete).toHaveBeenCalledWith('s1');
+    expect(appState.removeSession).toHaveBeenCalledWith('s1');
+    expect(chatFns.clearSessionToolCalls).toHaveBeenCalledWith('s1');
+    // 第一轮回滚后回填:保存 hero 待定草稿(供切回 hero 的草稿恢复 effect 使用)
+    expect(appState.saveHeroPendingDraft).toHaveBeenCalledWith(
+      JSON.stringify({ text: '原问题', chips: [] }),
+    );
+    // 仍停留在发起会话时,同步 emit 即时回填输入框
+    expect(emitMock).toHaveBeenCalledWith('rollback:restoreInput', '原问题');
+    expect(toastMock.showToast).toHaveBeenCalledWith('rollback.sessionCleared', { type: 'info', duration: 4000 });
+  });
+
+  it('handleConfirm mode=all 会话被清空但已切走:仅保存 hero 草稿,不 emit restoreInput', async () => {
+    apiMock.sessions.getMessages.mockResolvedValue([]);
+    // 让 rewind 挂起,模拟回滚进行中
+    let releaseRewind: (() => void) | undefined;
+    apiMock.sessions.rewind.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseRewind = () => resolve({ success: true, lastUserMessage: '原问题' });
+        }),
+    );
+    const { result } = renderHook(() => useRollback('t1'));
+    await act(async () => {
+      await result.current.handleOpen();
+    });
+    let confirmPromise: Promise<void> | undefined;
+    act(() => {
+      confirmPromise = result.current.handleConfirm('all');
+    });
+    // 回滚进行中,用户切换到新会话 s2
+    appState.currentSessionId = 's2';
+    releaseRewind!();
+    await act(async () => confirmPromise);
+    // hero 草稿会话无关,照常保存
+    expect(appState.saveHeroPendingDraft).toHaveBeenCalledWith(
+      JSON.stringify({ text: '原问题', chips: [] }),
+    );
+    // 工具记录按发起会话清空,与当前视图无关
+    expect(chatFns.clearSessionToolCalls).toHaveBeenCalledWith('s1');
+    // 已切走,不把 A 的追问填入当前输入框
+    expect(emitMock).not.toHaveBeenCalledWith('rollback:restoreInput', '原问题');
   });
 
   it('回滚期间切会话:消息写回发起会话，restoreInput 不串入新会话', async () => {
@@ -172,6 +233,8 @@ describe('useRollback', () => {
     await act(async () => confirmPromise);
     // 消息写回发起会话 s1，而非当前 s2
     expect(chatFns.setSessionMessages).toHaveBeenCalledWith('s1', messages);
+    // 工具记录按发起会话 s1 清空(与当前视图无关)
+    expect(chatFns.clearSessionToolCalls).toHaveBeenCalledWith('s1');
     // 输入框回填仅作用于当前视图：此时在 s2，不应 emit restoreInput
     expect(emitMock).not.toHaveBeenCalledWith('rollback:restoreInput', '原问题');
     // toast 仍正常提示成功

@@ -1,8 +1,23 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useChatStore, EMPTY_SESSION_STREAM, type AskUserData } from '@/stores/chatStore';
 import { useAppStore } from '@/stores/appStore';
 import type { Message, ToolCallRecord, WebSearchAction } from '@/types';
 import type { FlatTodo } from '@/components/tool-renderers/shared-utils';
+
+// 为 sendUserMessage 的 hero 直发路径准备 API mock(流/标题/配置/会话列表)
+const apiMocks = vi.hoisted(() => ({
+  stream: vi.fn(() => Promise.resolve()),
+  generateTitle: vi.fn(() => Promise.resolve({ title: '新会话' })),
+  getFull: vi.fn(() => Promise.resolve({ ui: { system_prompts: {} } })),
+  getSessions: vi.fn(() => Promise.resolve([])),
+}));
+
+vi.mock('@/api/client', () => ({
+  chatApi: { stream: apiMocks.stream, abortTool: vi.fn(() => Promise.resolve()) },
+  sessionApi: { generateTitle: apiMocks.generateTitle },
+  configApi: { getFull: apiMocks.getFull },
+  api: { getSessions: apiMocks.getSessions },
+}));
 
 function msg(id: string, content = ''): Message {
   return { id, role: 'user', content } as Message;
@@ -36,6 +51,25 @@ describe('chatStore', () => {
     useAppStore.setState({ currentSessionId: null });
     useChatStore.getState().addMessage(msg('m1'));
     expect(useChatStore.getState().sessionStreams).toEqual({});
+  });
+
+  it('hero 空态(无 currentSessionId)发送:自动新建 web-* 会话并成功发起请求', async () => {
+    useAppStore.setState({ currentSessionId: null, sessions: [] });
+    const ret = await useChatStore.getState().sendUserMessage('你好');
+    const sid = useAppStore.getState().currentSessionId;
+    // 自动新建了 web-* 虚拟会话并选中
+    expect(sid).toBeTruthy();
+    expect(sid!.startsWith('web-')).toBe(true);
+    // 乐观用户消息写入新建会话分区
+    const sess = useChatStore.getState().sessionStreams[sid!];
+    expect(sess?.messages.some((m) => m.role === 'user' && m.content === '你好')).toBe(true);
+    expect(ret).toBe(true);
+    // 流式请求携带新建会话 id
+    expect(apiMocks.stream).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: sid, message: '你好' }),
+      expect.any(Function),
+      expect.any(AbortSignal),
+    );
   });
 
   it('addMessage 追加到当前会话分区,且各会话相互隔离', () => {
@@ -158,6 +192,17 @@ describe('chatStore', () => {
     useChatStore.getState().addToolCall(toolCall('t1'));
     useChatStore.getState().clearToolCalls();
     expect(useChatStore.getState().sessionStreams.s1.toolCalls).toEqual([]);
+  });
+
+  it('clearSessionToolCalls 按指定会话清空,不影响当前会话(回滚清理场景)', () => {
+    useAppStore.setState({ currentSessionId: 's2' });
+    useChatStore.getState().addToolCall(toolCall('t1'));
+    useAppStore.setState({ currentSessionId: 's1' });
+    useChatStore.getState().addToolCall(toolCall('t2'));
+    // 回滚 s2 时只清 s2,不清当前 s1
+    useChatStore.getState().clearSessionToolCalls('s2');
+    expect(useChatStore.getState().sessionStreams.s2.toolCalls).toEqual([]);
+    expect(useChatStore.getState().sessionStreams.s1.toolCalls.map((t) => t.id)).toEqual(['t2']);
   });
 
   it('联网搜索态与 webSearchActions 累积', () => {

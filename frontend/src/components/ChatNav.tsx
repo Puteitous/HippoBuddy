@@ -17,7 +17,7 @@
  * 对齐旧版 DOM 语义:chatNavStrip 常驻 .chat-panel 顶层(不随会话/消息有无卸载),
  * 无 user 消息时由 CSS data-empty 隐藏;消息容器实例由 ChatPanel 以 state 传入。
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSessionStream } from '@/hooks/useSessionStream';
 import type { Message } from '@/types';
 import { useI18n } from '@/i18n';
@@ -66,13 +66,19 @@ export function ChatNav({ container }: ChatNavProps) {
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
   const rafIdRef = useRef<number | null>(null);
 
-  /** 当前会话所有用户消息(按 messages 顺序) */
-  const items: NavItem[] = messages
-    .filter((m) => m.role === 'user')
-    .map((m) => ({
-      messageId: m.id,
-      preview: truncatePreview(extractUserText(m)),
-    }));
+  /** 当前会话所有用户消息(按 messages 顺序)。
+   *  useMemo 缓存:否则每次渲染都生成新数组 → syncActive/handleScroll 引用随之变化,
+   *  滚动监听 effect 每次渲染都解绑重绑(流式输出时高频触发,消息多时反复遍历 DOM)。 */
+  const items: NavItem[] = useMemo(
+    () =>
+      messages
+        .filter((m) => m.role === 'user')
+        .map((m) => ({
+          messageId: m.id,
+          preview: truncatePreview(extractUserText(m)),
+        })),
+    [messages],
+  );
 
   /** 滚动到指定用户消息 */
   const scrollToMessage = useCallback((messageId: string) => {

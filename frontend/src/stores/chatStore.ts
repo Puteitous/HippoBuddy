@@ -282,6 +282,8 @@ interface ChatState {
   resolveToolConfirmation: (confirmId: string) => void;
   /** 清空当前会话工具调用列表 */
   clearToolCalls: () => void;
+  /** 清空指定会话的工具调用记录(回滚后清理被截断回合残留的待确认卡片等;跨会话安全,避免误清当前会话) */
+  clearSessionToolCalls: (sessionId: string) => void;
 
   // ── Actions:确认 / 联网搜索(作用于当前会话分区) ───────────
   /** 追加联网搜索动作(web_search_done) */
@@ -551,6 +553,11 @@ export const useChatStore = create<ChatState>((set, get) => {
         s.toolCalls = [];
       });
     },
+    clearSessionToolCalls: (sessionId) => {
+      updateSession(sessionId, (s) => {
+        s.toolCalls = [];
+      });
+    },
 
     // ── 确认 / 联网搜索(当前会话分区) ───────────────────────
     addWebSearchAction: (action) => {
@@ -650,8 +657,14 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     // ── 发送 / 中断(当前会话) ───────────────────────────────
     sendUserMessage: async (message, options) => {
-      const { currentSessionId: sid, mode } = useAppStore.getState();
-      if (!sid) return false;
+      let { currentSessionId: sid, mode } = useAppStore.getState();
+      // hero 空态(无选中会话)发送:自动新建 web-* 虚拟会话(对齐旧版 currentSessionId
+      // 恒非空的语义)。回滚清空唯一会话回到 hero 后若不兜底,发送会因 sid=null 静默
+      // 失效(点发送没反应)。
+      if (!sid) {
+        sid = useAppStore.getState().createNewSession();
+        mode = useAppStore.getState().mode;
+      }
       const sess = get().sessionStreams[sid];
       if (sess?.isSending) return false;
       // 纯图片消息(无文字)也允许发送:仅当既无文本又无图片时才拦截

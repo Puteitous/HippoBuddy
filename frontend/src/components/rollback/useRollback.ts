@@ -102,10 +102,27 @@ export function useRollback(targetId: string) {
           return;
         }
 
+        // 全部回滚:先清空该会话的工具调用记录(含残留的待确认卡片)。回滚截断后
+        // 对应回合的 bash/delete_file 确认卡已无意义,若不清除会残留在确认区,
+        // 用户仍能对已回滚的回合点「允许/拒绝」。用显式 sessionId 而非当前会话,
+        // 避免回滚期间切会话时误清其他会话。
+        useChatStore.getState().clearSessionToolCalls(sid);
+
         // 全部回滚:重载会话消息
         const messages = await api.sessions.getMessages(sid);
         if (messages.length === 0) {
-          // 会话被清空 → 删除会话(removeSession 会把 currentSessionId 置 null)
+          // 会话被清空 → 删除会话(removeSession 会把 currentSessionId 置 null)回到 hero。
+          // 第一轮回滚时把该轮用户消息回填输入框:hero 空态下 ChatPanel 的「按会话恢复草稿」
+          // effect 读取 heroPendingDraft 回填(与手动在 hero 输入保存草稿走同一恢复路径,
+          // 避免仅 emit 事件与 currentSessionId 变化 effect 竞态清空),并同步 emit 即时回填。
+          if (res.lastUserMessage) {
+            useAppStore
+              .getState()
+              .saveHeroPendingDraft(JSON.stringify({ text: res.lastUserMessage, chips: [] }));
+            if (useAppStore.getState().currentSessionId === sid) {
+              emit('rollback:restoreInput', res.lastUserMessage);
+            }
+          }
           // removeSession(sid) 用显式 id,无论当前选中谁都能正确移除目标会话。
           await api.sessions.delete(sid).catch(() => {
             /* 删除失败不阻塞 UI */

@@ -37,15 +37,21 @@ function session(id: string, partial: Partial<Session> = {}): Session {
   };
 }
 
-/** jsdom 缺少 ResizeObserver/IntersectionObserver,stub 为空实现;raf 不回调保证无限滚动批次可控 */
+/** jsdom 缺少 ResizeObserver/IntersectionObserver,stub 为空实现;raf 不回调保证无限滚动批次可控。
+ *  记录所有 IntersectionObserver 实例,便于断言"视图切换后 observer 被重建"。 */
+let ioInstances: MockObserver[] = [];
 class MockObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+  constructor() {
+    ioInstances.push(this);
+  }
 }
 
 beforeEach(() => {
   localStorage.clear();
+  ioInstances = [];
   vi.stubGlobal('ResizeObserver', MockObserver);
   vi.stubGlobal('IntersectionObserver', MockObserver);
   vi.stubGlobal('requestAnimationFrame', () => 0);
@@ -472,5 +478,25 @@ describe('Sidebar 无限滚动', () => {
     expect(container.querySelectorAll('.session-item')).toHaveLength(19);
     expect(container.querySelectorAll('.session-project-header')).toHaveLength(1);
     expect(container.querySelector('.session-list-sentinel')).not.toBeNull();
+  });
+
+  it('文件树→会话列表切换后重建 IntersectionObserver(回归:修复只显示一页、滚不动)', () => {
+    const sessions = Array.from({ length: 25 }, (_, i) => session(`s${i}`, { title: `会话${i}` }));
+    useAppStore.setState({ sessions, workspacePath: '/ws' });
+    const { container } = render(<Sidebar />);
+    // 首批渲染 + sentinel 已挂载,observer 已创建并观察
+    expect(container.querySelector('.session-list-sentinel')).not.toBeNull();
+    const createdBefore = ioInstances.length;
+    expect(createdBefore).toBeGreaterThan(0);
+
+    // 切到文件树:会话列表分支(.sidebar-body 及 sentinel)被卸载
+    fireEvent.click(screen.getByRole('button', { name: '文件浏览' }));
+    expect(container.querySelector('.session-list-sentinel')).toBeNull();
+
+    // 切回会话列表:observer 必须重建并观察新的 sentinel,否则滚到底无法加载更多
+    fireEvent.click(screen.getByRole('button', { name: '会话列表' }));
+    expect(container.querySelector('.session-list-sentinel')).not.toBeNull();
+    expect(ioInstances.length).toBeGreaterThan(createdBefore);
+    expect(ioInstances[ioInstances.length - 1].observe).toHaveBeenCalled();
   });
 });

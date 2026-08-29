@@ -520,16 +520,19 @@ export function ChatPanel() {
     // 对齐旧版虚拟会话机制:新建会话(当前 id 尚不在列表中)发送消息后,后台刷新会话列表,
     // 让新会话实时进入侧边栏列表与历史下拉,不必等刷新页面。
     // 稍作延迟以等待请求到达后端、用户消息已落盘到 JSONL。
-    const knownSessions = useAppStore.getState().sessions;
-    if (currentSessionId && !knownSessions.some((s) => s.id === currentSessionId)) {
-      window.setTimeout(() => {
+    // 注意必须读 store 当前值而非闭包 currentSessionId:hero 直发时会话是在
+    // sendUserMessage 内部新建的,闭包值仍是 null,直接判断会漏掉刷新。
+    window.setTimeout(() => {
+      const sid = useAppStore.getState().currentSessionId;
+      const knownSessions = useAppStore.getState().sessions;
+      if (sid && !knownSessions.some((s) => s.id === sid)) {
         api.getSessions().then(setSessions).catch(() => {});
-      }, 300);
-    }
+      }
+    }, 300);
 
     // 发送后聚焦输入框,便于继续输入
     requestAnimationFrame(() => inlineInputRef.current?.focus());
-  }, [isStreamSending, send, clearWarnings, pendingImages, selectedRuleIds, currentSessionId, clearSessionInputDraft, clearHeroPendingDraft]);
+  }, [isStreamSending, send, clearWarnings, pendingImages, selectedRuleIds, currentSessionId, clearSessionInputDraft, clearHeroPendingDraft, setSessions]);
 
   // ── 重试(assistant footer 按钮,对齐旧版 retryBtn) ───────
   // 重发指定用户消息文本,不经过输入框
