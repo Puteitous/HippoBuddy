@@ -8,18 +8,10 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Stream;
 
 public class ClasspathPromptLoader implements PromptLoader {
 
@@ -93,23 +85,12 @@ public class ClasspathPromptLoader implements PromptLoader {
     }
 
     private String loadContentFromFile(String resourcePath) {
-        try {
-            URL resourceUrl = getClass().getClassLoader().getResource(resourcePath);
-            if (resourceUrl == null) {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+            if (is == null) {
                 logger.warn("Prompt file not found: {}", resourcePath);
                 return "";
             }
-
-            URI uri = resourceUrl.toURI();
-            Path path;
-            if (uri.getScheme().equals("jar")) {
-                FileSystem fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
-                path = fileSystem.getPath(resourcePath);
-            } else {
-                path = Paths.get(uri);
-            }
-
-            return Files.readString(path, StandardCharsets.UTF_8);
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
         } catch (Exception e) {
             logger.warn("Failed to read prompt file {}: {}", resourcePath, e.getMessage());
             return "";

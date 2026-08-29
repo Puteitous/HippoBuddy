@@ -1,4 +1,4 @@
-# build.ps1 — HippoBuddy 一键打包脚本
+﻿# build.ps1 — HippoBuddy 一键打包脚本
 #
 # 用法：
 #   PowerShell (管理员):
@@ -58,8 +58,12 @@ Push-Location $ProjectRoot
 try {
     # 必须带 clean:前端产物(static-v2)文件名每次构建都带新 hash,
     # 不带 clean 会让旧文件残留在 target/classes,几百轮构建后 JAR 膨胀到数百 MB。
-    mvn clean package -DskipTests -q
-    if ($LASTEXITCODE -ne 0) { throw "Maven build failed" }
+    # 用 --batch-mode 显式执行;mvn 若不可用/失败会以非零码退出,由下面的判定抛出,避免静默沿用旧 jar。
+    $buildStarted = Get-Date
+    & mvn --batch-mode clean package -DskipTests
+    if ($LASTEXITCODE -ne 0) {
+        throw "Maven build failed (exit code=$LASTEXITCODE)"
+    }
 } finally {
     Pop-Location
 }
@@ -81,8 +85,14 @@ for ($retry = 1; $retry -le 5 -and -not $JarFile; $retry++) {
         Where-Object { $_.Name -notlike 'original-*' } | Select-Object -First 1
 }
 if (-not $JarFile) { throw "No JAR found in target/ - run 'mvn package' first" }
+
+# 新鲜度校验:jar 必须是本次 [2/5] 刚构建出来的。若 mvn 因故未真正重建(命令不可用/
+# 被杀软锁住/失败却被静默通过),这里会命中旧 jar 并终止打包,避免把旧后端打进安装包。
+if ($JarFile.LastWriteTime -lt $buildStarted) {
+    throw "JAR 不是本次构建产物 (mtime=$($JarFile.LastWriteTime), buildStarted=$buildStarted)。终止打包避免遗留旧后端;请检查 Maven 是否正常执行。"
+}
+Write-Host "      Using JAR: $($JarFile.Name) (mtime=$($JarFile.LastWriteTime))" -ForegroundColor Gray
 Copy-Item $JarFile.FullName "$ScriptDir\resources\hippo-agent.jar" -Force
-Write-Host "      Using JAR: $($JarFile.Name)" -ForegroundColor Gray
 
 # 清理 resources 下的 JAR 残留备份(extraResources filter 为 "**/*",历史 .bak 会被打进安装包)
 Get-ChildItem "$ScriptDir\resources" -File -ErrorAction SilentlyContinue |
