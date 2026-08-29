@@ -151,6 +151,17 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
   const containerRef = useRef<HTMLDivElement | null>(null);
   /** 记录上次 rootPath,判断是否发生了路径切换(避免刷新时闪烁) */
   const prevRootRef = useRef<string | null>(null);
+  /** 树内点击选中的文件路径:用于跳过「点击后滚动居中」,避免点击的节点本就在可视区内还弹跳 */
+  const treeClickPathRef = useRef<string | null>(null);
+
+  /** 树内点击选中文件:记录路径供滚动 effect 判断跳过(点击的节点已在可视区内,无需居中) */
+  const handleFileSelect = useCallback(
+    (filePath: string) => {
+      treeClickPathRef.current = filePath;
+      onFileSelect(filePath);
+    },
+    [onFileSelect],
+  );
 
   // ── 根目录加载(路径变化 / 内部刷新 / 外部 refreshToken 变化时) ──
   useEffect(() => {
@@ -271,10 +282,14 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
   // 点击标签联动:把激活文件节点滚到文件树可视区中间(与标签栏居中保持一致);
   // 目录递归展开是异步懒加载(子项 readDir 后才渲染),故仅在 activePath 变化时启动一次轮询,
   // 去掉 expandedDirs 依赖,避免树逐层展开时反复触发滚动导致"突然滚动到中间"。
+  // 树内点击选中的节点本就在可视区内,滚动居中反而弹跳,故跳过;仅标签切换等外部变化才定位。
   useEffect(() => {
     if (!rootPath || !activePath) return;
     // 与上方一致的工作区内文件路径判定(大小写不敏感),非文件标签不滚动
     if (!isUnderPath(rootPath, activePath)) return;
+    const clicked = treeClickPathRef.current;
+    treeClickPathRef.current = null; // 每次消费后清空,避免残留误判
+    if (clicked === activePath) return;
     let attempt = 0;
     let timer: number | undefined;
     const tryScroll = () => {
@@ -502,7 +517,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
             onToggle={toggleDir}
             activePath={activePath}
             activeDirPath={activeDirPath}
-            onFileSelect={onFileSelect}
+            onFileSelect={handleFileSelect}
             gitFiles={gitStatus?.available ? gitStatus.files : undefined}
             treeVersion={treeVersion}
             dragOverPath={dragOverPath}

@@ -421,6 +421,13 @@
   background: var(--bg-overlay);
 }
 
+/* 活动栏悬浮面板单独做实底:--bg-overlay 仍有 0.92 透明度会轻微透底,
+   这里用其不透明底色 rgb(26,28,36),与玻璃暗色底一致,保证完全可读。
+   后写于上方覆盖组之上,优先级相同但按源顺序生效。 */
+[data-theme="glass"] .activity-floating-panel {
+  background: rgb(26, 28, 36);
+}
+
 /* 未显式指定 data-theme 时,跟随系统深浅色(默认浅色) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {

@@ -34,6 +34,12 @@
   background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
 }
 
+/* 玻璃主题:Markdown 预览区同款减叠深(70%),与头部/代码编辑器一致,
+   避免其满层 0.4 比相邻区更深一块 */
+[data-theme="glass"] .file-md-preview {
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+}
+
 [data-theme="glass"] .file-preview-editor {
   background: transparent;
 }

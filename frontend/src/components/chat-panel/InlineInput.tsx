@@ -240,6 +240,12 @@ function serializeContent(editor: HTMLElement | null): { text: string; chips: Re
   const chips: RefChip[] = [];
   const textParts: string[] = [];
 
+  // 换行结构：<br> 或块级元素（div/p/li 等）代表一次换行，否则多行会拼成一行
+  const isBreakTag = (el: HTMLElement) => el.tagName === 'BR';
+
+  const isBlockElement = (el: HTMLElement) =>
+    ['DIV', 'P', 'LI', 'UL', 'OL', 'TR', 'TD', 'TABLE', 'PRE', 'BLOCKQUOTE', 'SECTION', 'ARTICLE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HEADER', 'FOOTER', 'HR'].includes(el.tagName);
+
   function walk(node: Node) {
     if (node.nodeType === Node.TEXT_NODE) {
       const t = (node.textContent || '').replace(/\u200B/g, '');
@@ -252,6 +258,13 @@ function serializeContent(editor: HTMLElement | null): { text: string; chips: Re
         } catch {
           // 解析失败，跳过
         }
+      } else if (isBreakTag(node)) {
+        // <br> 触发换行
+        textParts.push('\n');
+      } else if (isBlockElement(node)) {
+        // 块级元素：先遍历内容，再补一个换行表示块结束
+        node.childNodes.forEach(walk);
+        textParts.push('\n');
       } else {
         node.childNodes.forEach(walk);
       }

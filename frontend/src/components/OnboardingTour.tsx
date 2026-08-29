@@ -2,21 +2,24 @@
  * OnboardingTour — 新手指引聚光灯导览(React 版)
  *
  * 功能:
- *   - 首次启动时展示简化欢迎面板 + 5 步聚光灯引导
+ *   - 首次启动时展示欢迎设置面板(语言/主题/面板布局) + 5 步聚光灯引导
  *   - 高亮核心功能区域 + 气泡说明
  *   - 可随时跳过,localStorage 记录完成状态
  *
  * 流程:① 顶部状态栏 → ② 对话输入区 → ③ 消息区 → ④ 会话列表 → ⑤ 活动栏
  *
  * 与旧版(OnboardingTour.js)差异:
- *   - 欢迎面板简化为纯欢迎 + 开始按钮(新版无 data-theme 主题切换 /
- *     双布局概念,语言/主题/排版三组选择移除)
+ *   - 欢迎面板提供语言/主题/布局三组选择,复用 i18n store / themeStore / appStore,
+ *     与设置面板共享同一状态源(主题按新版仅展示 light/dark/midnight 基础三档)
  *   - 步骤目标映射到新版 DOM class(.top-bar / .chat-panel-input-area / ...)
  *   - 样式改用 --hb 变量体系 + prefers-color-scheme
  *   - 调试入口:window.__resetOnboardingTour() 清除完成标记,可重新演示
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useI18n } from '@/i18n';
+import { useI18n, i18nStore } from '@/i18n';
+import type { Lang } from '@/i18n/messages';
+import { useThemeStore, type Theme } from '@/stores/themeStore';
+import { useAppStore, type PanelLayout } from '@/stores/appStore';
 import './OnboardingTour.css';
 
 const STORAGE_KEY = 'hippo-onboarding-done';
@@ -75,7 +78,11 @@ function buildSteps(t: (key: string) => string): TourStep[] {
     },
     {
       id: 'messages',
-      target: () => document.querySelector('.chat-panel-messages') as HTMLElement | null,
+      target: () =>
+        // 消息态定位到消息区;hero 空态(无会话/无消息)下消息容器不存在,
+        // 回退定位到欢迎屏 Hero,避免该步被跳过
+        (document.querySelector('.chat-panel-messages') as HTMLElement | null) ||
+        (document.querySelector('.chat-empty-hero') as HTMLElement | null),
       title: t('onboarding.tourMessagesTitle'),
       desc: t('onboarding.tourMessagesDesc'),
       position: 'right',
@@ -188,12 +195,36 @@ function calcPositions(
 }
 
 export function OnboardingTour() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const appTheme = useThemeStore((s) => s.theme);
+  const applyTheme = useThemeStore((s) => s.applyTheme);
+  const appPanelLayout = useAppStore((s) => s.panelLayout);
+  const setPanelLayout = useAppStore((s) => s.setPanelLayout);
   const steps = useMemo(() => buildSteps(t), [t]);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   const [phase, setPhase] = useState<TourPhase>('idle');
   const [stepIndex, setStepIndex] = useState(0);
+
+  /** 欢迎面板上的待选偏好(初值取自当前 store,点开始时统一应用) */
+  const [selLang, setSelLang] = useState<Lang>(lang);
+  const [selTheme, setSelTheme] = useState<Theme>(appTheme);
+  const [selLayout, setSelLayout] = useState<PanelLayout>(appPanelLayout);
+
+  /** 主题选择:即时生效并持久化 */
+  const pickTheme = useCallback((th: Theme) => {
+    setSelTheme(th);
+    applyTheme(th);
+  }, [applyTheme]);
+
+  /** 语言选择:即时生效并持久化 */
+  const pickLang = useCallback((l: Lang) => {
+    setSelLang(l);
+    i18nStore.getState().setLang(l);
+  }, []);
+
+  /** 布局选择:仅记录,进入导览时统一应用 */
+  const pickLayout = useCallback((l: PanelLayout) => setSelLayout(l), []);
   const [spotRect, setSpotRect] = useState<PointStyle & { width: number; height: number } | null>(null);
   const [tooltipStyle, setTooltipStyle] = useState<PointStyle | null>(null);
   const [arrowStyle, setArrowStyle] = useState<ArrowStyle | null>(null);
@@ -288,6 +319,7 @@ export function OnboardingTour() {
   const step = phase === 'tour' ? steps[stepIndex] : null;
 
   const startTour = () => {
+    setPanelLayout(selLayout);
     setStepIndex(0);
     setPhase('tour');
   };
@@ -300,10 +332,114 @@ export function OnboardingTour() {
       {phase === 'welcome' && (
         <div className="ob-welcome-overlay">
           <div className="ob-welcome-panel">
-            <div className="ob-welcome-title">{t('onboarding.tourWelcomeTitle')}</div>
-            <div className="ob-welcome-sub">{t('onboarding.tourWelcomeSub')}</div>
+            <div className="ob-welcome-title">{t('onboarding.welcome')}</div>
+            <div className="ob-welcome-sub">{t('onboarding.welcomeSub')}</div>
+
+            {/* 语言选择 */}
+            <div className="ob-welcome-section">
+              <div className="ob-welcome-section-label">{t('onboarding.welcomeLang')}</div>
+              <div className="ob-welcome-toggle-group">
+                <button
+                  type="button"
+                  className={`ob-welcome-toggle-btn${selLang === 'zh' ? ' active' : ''}`}
+                  onClick={() => pickLang('zh')}
+                >
+                  中文
+                </button>
+                <button
+                  type="button"
+                  className={`ob-welcome-toggle-btn${selLang === 'en' ? ' active' : ''}`}
+                  onClick={() => pickLang('en')}
+                >
+                  English
+                </button>
+              </div>
+            </div>
+
+            {/* 主题选择 */}
+            <div className="ob-welcome-section">
+              <div className="ob-welcome-section-label">
+                {t('onboarding.welcomeTheme')}
+                <span className="ob-welcome-theme-hint">{t('onboarding.welcomeThemeHint')}</span>
+              </div>
+              <div className="ob-welcome-toggle-group">
+                <button
+                  type="button"
+                  className={`ob-welcome-toggle-btn${selTheme === 'light' ? ' active' : ''}`}
+                  onClick={() => pickTheme('light')}
+                >
+                  {t('onboarding.themeLight')}
+                </button>
+                <button
+                  type="button"
+                  className={`ob-welcome-toggle-btn${selTheme === 'dark' ? ' active' : ''}`}
+                  onClick={() => pickTheme('dark')}
+                >
+                  {t('onboarding.themeDark')}
+                </button>
+                <button
+                  type="button"
+                  className={`ob-welcome-toggle-btn${selTheme === 'midnight' ? ' active' : ''}`}
+                  onClick={() => pickTheme('midnight')}
+                >
+                  {t('onboarding.themeMidnight')}
+                </button>
+              </div>
+            </div>
+
+            {/* 布局选择 + 动画预览 */}
+            <div className="ob-welcome-section">
+              <div className="ob-welcome-section-label">{t('onboarding.welcomeLayout')}</div>
+              <div className="ob-welcome-toggle-group">
+                <button
+                  type="button"
+                  className={`ob-welcome-toggle-btn${selLayout === 'preview-left' ? ' active' : ''}`}
+                  onClick={() => pickLayout('preview-left')}
+                >
+                  {t('onboarding.layoutPreviewLeft')}
+                </button>
+                <button
+                  type="button"
+                  className={`ob-welcome-toggle-btn${selLayout === 'chat-left' ? ' active' : ''}`}
+                  onClick={() => pickLayout('chat-left')}
+                >
+                  {t('onboarding.layoutChatLeft')}
+                </button>
+              </div>
+              <div
+                className={`ob-layout-preview${selLayout === 'preview-left' ? ' has-preview-left' : ' has-chat-left'}`}
+                id="obLayoutPreview"
+              >
+                <div className="ob-preview-left">
+                  <div className="preview-header">
+                    <span className="dot" />
+                    <span className="dot" />
+                    <span className="dot" />
+                    <span className="title-tag">EDITOR</span>
+                  </div>
+                  <div className="code-line" />
+                  <div className="code-line highlight" />
+                  <div className="code-line" />
+                  <div className="code-line" />
+                </div>
+                <div className="ob-preview-right">
+                  <div className="chat-bubble incoming">✨ {t('onboarding.previewIncoming')}</div>
+                  <div className="chat-bubble outgoing">{t('onboarding.previewOutgoing')}</div>
+                  <div className="chat-label">{t('onboarding.layoutPreviewLeft')}</div>
+                </div>
+              </div>
+              <div className="ob-layout-hint" id="obLayoutHint">
+                <span className="hint-icon">💡</span>
+                <span className="hint-text">
+                  {selLayout === 'preview-left'
+                    ? t('onboarding.layoutHintPreviewLeft')
+                    : t('onboarding.layoutHintChatLeft')}
+                </span>
+              </div>
+            </div>
+
             <button type="button" className="ob-welcome-start-btn" onClick={startTour}>
-              {t('onboarding.tourStart')}
+              {t('onboarding.start')}
             </button>
           </div>
         </div>

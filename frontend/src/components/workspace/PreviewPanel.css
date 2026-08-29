@@ -10,6 +10,8 @@
   background: var(--bg-app);
   color: var(--text-primary);
   overflow: hidden;
+  /* 与相邻聊天面板一致的内缝圆角,使交界处四个角保持一致 */
+  border-radius: var(--radius-lg);
 }
 
 /* 聊天面板收起时,预览面板铺满剩余空间(对齐旧版 chat-panel.collapsed 后 preview flex:1) */
@@ -22,14 +24,6 @@
 /* 聊天面板收起时,分隔条无意义,隐藏(对齐旧版 workspace-manager 隐藏 resizer) */
 .chat-layout:has(.chat-panel-collapsed) .preview-resizer {
   display: none;
-}
-
-/* 边框随左右排布切换(对齐旧版):默认 preview-left 预览靠左 → 右边框;chat-left 预览靠右 → 左边框 */
-.chat-layout .preview-panel {
-  border-right: 1px solid var(--border);
-}
-.chat-layout.layout-chat-first .preview-panel {
-  border-left: 1px solid var(--border);
 }
 
 .preview-panel-content {
@@ -60,7 +54,7 @@
   flex-shrink: 0;
   position: relative;
   z-index: 10;
-  margin: 0 2px;
+  margin: 0;
   background: transparent;
   transition: background 0.15s;
   border-radius: 2px;

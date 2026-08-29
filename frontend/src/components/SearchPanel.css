@@ -241,3 +241,11 @@
     color: var(--hb-text-dark, #e5e7eb);
   }
 }
+
+/* ========== Glass 查找/替换浮层实底覆盖 ==========
+   glass 下 --bg-app 为半透明 --glass-panel(rgba 0.4),浮层会透出底层影响阅读。
+   改用 --bg-overlay 近实底保证可读性。 */
+[data-theme="glass"] .search-panel {
+  background: var(--bg-overlay);
+  border-color: var(--border);
+}

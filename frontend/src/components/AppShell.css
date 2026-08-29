@@ -15,7 +15,7 @@
   position: relative;
   /* 方案A:画布留白 + 面板间距,让白色圆角卡片浮在画布底上 */
   gap: 0;
-  padding: 0 10px 10px;
+  padding: 0 10px 8px 0;
 }
 
 .app-shell-main {
@@ -68,11 +68,10 @@
   }
 }
 
-/* 玻璃主题:消除 app-shell-main 与 chat/preview 面板的半透明双叠层,
-   主容器遮罩取 --glass-panel 的 70%(默认 0.4 → 约 0.28)提升通透度,
-   仍随用户的面板遮罩参数(--glass-panel)成比例联动 */
+/* 玻璃主题:app-shell-main 仅作透明画布,让 chat / preview 两张独立圆角卡片
+   各自浮在背景遮罩上(卡片底色由各自组件提供) */
 [data-theme="glass"] .app-shell-main {
-  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+  background: transparent;
 }
 
 /* ========== Glass 玻璃主题:毛玻璃效果 ==========
@@ -91,10 +90,16 @@
   /* 模糊强度由 backgroundStore 按「毛玻璃/清晰」样式控制(--glass-blur) */
   backdrop-filter: blur(var(--glass-blur, 26px)) saturate(140%);
   -webkit-backdrop-filter: blur(var(--glass-blur, 26px)) saturate(140%);
+  /* 图片/纯色背景全局遮罩:与 top-bar / 面板同一层 --glass-panel,
+     避免面板空隙透出原图造成明暗割裂,让整体观感更协调 */
+  background: var(--glass-panel, rgba(22, 24, 32, 0.4));
 }
 
-/* 顶栏与全屏一致:不单独铺清晰背景,用半透明底色透出 frost 模糊后的背景,
-   与面板保持相同质感与可读性(遮罩浓度随 --glass-panel 联动) */
-[data-theme="glass"] .top-bar {
-  background: var(--glass-panel, rgba(22, 24, 32, 0.4));
+/* ===== 玻璃主题:侧栏 / 顶栏 / 活动栏底色透明 =====
+   chat-panel 与 preview-panel 不在此列:作为两张独立圆角卡片,各自带
+   --bg-chat / --bg-app 卡片底色浮在背景遮罩上。 */
+[data-theme="glass"] .top-bar,
+[data-theme="glass"] .sidebar,
+[data-theme="glass"] .activity-bar {
+  background: transparent;
 }
