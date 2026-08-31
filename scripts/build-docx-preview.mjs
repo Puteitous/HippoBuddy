@@ -5,7 +5,7 @@
  * ESM 无法解析，因此用 esbuild 将 jszip 一并打包（照 build-codemirror.mjs 模式）。
  *
  * 输出到: frontend/public/js/vendor/docx-preview.js（自包含，可直接 import）
- *   (vite 构建时随 public 复制进 src/main/resources/static-v2/js/vendor/docx-preview.js，
+ *   (vite 构建时随 public 复制进 src/main/resources/static/js/vendor/docx-preview.js，
  *    为新版 React 前端自带的 /js/vendor/docx-preview.js 静态资源，不再依赖旧版 /static)
  *
  * 用法: node scripts/build-docx-preview.mjs

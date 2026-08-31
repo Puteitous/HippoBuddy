@@ -27,9 +27,9 @@ export default defineConfig({
     // 项目无 History 路由(视图切换为状态切换), 相对路径无副作用。
     base: './',
     build: {
-        // 产物直接输出到 Java 后端 static-v2 目录(3.8-1 部署链路),
+        // 产物直接输出到 Java 后端 static 目录(3.8-1 部署链路),
         // Java 侧新增 /app context 映射该目录。
-        outDir: '../src/main/resources/static-v2',
+        outDir: '../src/main/resources/static',
         emptyOutDir: true,
         // 生产不输出 sourcemap:map 文件 7~9MB/份且极易跨构建累积, 显著压大安装包
         sourcemap: false,

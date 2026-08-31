@@ -105,9 +105,9 @@ public class DashboardServer {
             server.createContext("/api/config", new ConfigApiHandler());
             server.createContext("/api/settings/data-dir", new DataDirApiHandler());
             server.createContext("/api/workspace", new WorkspaceApiHandler());
-            server.createContext("/app", new StaticFileHandler("/static-v2"));
+            server.createContext("/app", new StaticFileHandler("/static"));
             // 根路径默认指向 React 新前端(v2)
-            server.createContext("/", new StaticFileHandler("/static-v2"));
+            server.createContext("/", new StaticFileHandler("/static"));
 
             executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("dashboard-http-", 1).factory());
             server.setExecutor(executor);

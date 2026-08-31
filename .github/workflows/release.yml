@@ -39,7 +39,7 @@ jobs:
       - name: Build frontend vendor (CodeMirror + OOXML)
         run: npm run build:vendor
 
-      - name: Build React frontend (vite → static-v2)
+      - name: Build React frontend (vite → static)
         working-directory: frontend
         run: |
           npm ci

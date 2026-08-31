@@ -40,7 +40,7 @@ $env:NODE_OPTIONS = "--max-old-space-size=4096"
 
 # ---- 1. Build React frontend ----
 # 新版前端(React)由 frontend 经 vite 构建,产物输出到
-# ../src/main/resources/static-v2,再由 mvn package 打进 JAR。
+# ../src/main/resources/static,再由 mvn package 打进 JAR。
 # 必须先 build,否则安装包里的 /app(新版 UI)会停留在旧产物。
 Write-Host "[1/5] Building React frontend..." -ForegroundColor Yellow
 Push-Location "$ProjectRoot\frontend"
@@ -56,7 +56,7 @@ try {
 Write-Host "[2/5] Building JAR..." -ForegroundColor Yellow
 Push-Location $ProjectRoot
 try {
-    # 必须带 clean:前端产物(static-v2)文件名每次构建都带新 hash,
+    # 必须带 clean:前端产物(static)文件名每次构建都带新 hash,
     # 不带 clean 会让旧文件残留在 target/classes,几百轮构建后 JAR 膨胀到数百 MB。
     # 用 --batch-mode 显式执行;mvn 若不可用/失败会以非零码退出,由下面的判定抛出,避免静默沿用旧 jar。
     $buildStarted = Get-Date

@@ -20,8 +20,8 @@ public class StaticFileHandler implements HttpHandler {
 
     /** 开发模式下优先从源文件系统加载，实时反映修改 */
     private static Path findDevStaticDir(String basePath) {
-        if (!"/static".equals(basePath) && !"/static-v2".equals(basePath)) return null;
-        String rel = basePath.substring(1); // "static" / "static-v2"
+        if (!"/static".equals(basePath)) return null;
+        String rel = basePath.substring(1); // "static"
         Path candidate = Paths.get("src", "main", "resources", rel).toAbsolutePath().normalize();
         if (Files.isDirectory(candidate)) {
             return candidate;
@@ -34,8 +34,8 @@ public class StaticFileHandler implements HttpHandler {
         String path = exchange.getRequestURI().getPath();
 
         // 入口分流:按 basePath 分流。
-        //  - static-v2(React 新前端):/ 重定向到 /app/(相对资源需带尾斜杠)
-        if ("/".equals(path) && "/static-v2".equals(basePath)) {
+        //  - static(React 新前端):/ 重定向到 /app/(相对资源需带尾斜杠)
+        if ("/".equals(path) && "/static".equals(basePath)) {
             String rawQuery = exchange.getRequestURI().getRawQuery();
             redirect(exchange, rawQuery != null && !rawQuery.isEmpty()
                 ? "/app/?" + rawQuery
@@ -57,7 +57,7 @@ public class StaticFileHandler implements HttpHandler {
 
         // 剥离 context 前缀:HttpServer 将请求路由到 /app context 后,
         // getRequestURI().getPath() 仍是完整路径(如 /app/assets/index.js),
-        // 需去掉 /app 再按 static-v2 目录 resolve, 否则会 404。
+        // 需去掉 /app 再按 static 目录 resolve, 否则会 404。
         // 按路径段匹配(equals(context) 或 startsWith(context + "/")),
         // 避免误伤同前缀但不同段的路径。
         String contextPath = exchange.getHttpContext() != null

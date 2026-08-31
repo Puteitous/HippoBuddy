@@ -7,7 +7,7 @@
  *   - 生成 wasm-manifest.mjs，供桥接层传入 wasmUrl
  *
  * 输出到: frontend/public/js/vendor/ooxml/
- *   (vite 构建时随 public 复制进 src/main/resources/static-v2/js/vendor/ooxml,
+ *   (vite 构建时随 public 复制进 src/main/resources/static/js/vendor/ooxml,
  *    为新版 React 前端自带的 /js/vendor/ooxml 静态资源，不再依赖旧版 /static)
  *
  * 用法: node scripts/build-ooxml.mjs

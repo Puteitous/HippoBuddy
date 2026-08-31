@@ -10,7 +10,7 @@ target/
 *.class
 
 # 新前端构建产物(源码在 frontend/, 产物由 npm run build 生成, 不入库)
-src/main/resources/static-v2/
+src/main/resources/static/
 
 # TypeScript 增量编译缓存(tsc -b 生成, 非源码, 每次构建都会变, 不入库)
 *.tsbuildinfo
