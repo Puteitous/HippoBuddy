@@ -6,9 +6,7 @@
     "build:cm": "node scripts/build-codemirror.mjs",
     "build:ooxml": "node scripts/build-ooxml.mjs",
     "build:docx-preview": "node scripts/build-docx-preview.mjs",
-    "build:vendor": "node scripts/build-codemirror.mjs && node scripts/build-ooxml.mjs && node scripts/build-docx-preview.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "build:vendor": "node scripts/build-codemirror.mjs && node scripts/build-ooxml.mjs && node scripts/build-docx-preview.mjs"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -34,9 +32,7 @@
     "@codemirror/view": "^6.37.0",
     "codemirror": "^6.0.1",
     "esbuild": "^0.28.1",
-    "jsdom": "^29.1.1",
-    "material-icon-theme": "^5.35.0",
-    "vitest": "^3.1.1"
+    "material-icon-theme": "^5.35.0"
   },
   "overrides": {
     "@codemirror/state": "$@codemirror/state",
