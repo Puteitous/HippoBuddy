@@ -8,9 +8,7 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "start:cockpit": "electron . --cockpit",
     "dev": "electron . --dev",
-    "dev:cockpit": "electron . --dev --cockpit",
     "build:jar": "cd .. && mvn package -DskipTests",
     "pack": "electron-builder --win --x64",
     "pack:all": "electron-builder"

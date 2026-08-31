@@ -19,7 +19,7 @@ import java.util.concurrent.CountDownLatch;
  * <p>
  * 适用于：
  * <ul>
- *   <li>只通过浏览器访问 Hippo Cockpit / Web Chat 的场景</li>
+ *   <li>只通过浏览器访问 Hippo Cockpit（/app）的场景</li>
  *   <li>部署为后台服务（配合 --port 参数）</li>
  *   <li>前端开发调试（配合 Chrome 调试配置）</li>
  * </ul>

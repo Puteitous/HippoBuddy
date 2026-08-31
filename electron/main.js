@@ -4,10 +4,8 @@
  * 加载 Java 后端 DashboardServer 提供的 Web UI，替代 JCEF 成为桌面壳。
  *
  * 启动方式：
- *   npm run dev           React 重构版(dev,/app)
- *   npm run dev:cockpit   旧桌面端(dev,/cockpit)
- *   npm start             React 重构版(/app)
- *   npm run start:cockpit 旧桌面端(/cockpit)
+ *   npm run dev   React 重构版(dev,/app)
+ *   npm start     React 重构版(/app)
  *
  * 环境变量：
  *   HIPPO_PORT  — Java 后端端口（默认 9090）
@@ -47,15 +45,9 @@ if (!gotTheLock) {
 const PORT = parseInt(process.env.HIPPO_PORT || '9090', 10);
 const DEV = process.argv.includes('--dev');
 
-// UI 入口选择：默认加载 React 重构后的 /app；
-// 带 --cockpit（或 HIPPO_UI=cockpit）时回退旧桌面端 /cockpit。
-// 用途：start / dev 默认打开新 UI；start:cockpit / dev:cockpit 走旧桌面端，二者互不影响。
-const USE_COCKPIT_UI =
-  process.argv.includes('--cockpit') || (process.env.HIPPO_UI || '').toLowerCase() === 'cockpit';
-const UI_PATH = USE_COCKPIT_UI ? '/cockpit' : '/app';
-
+// UI 入口：新版 React 前端固定加载 /app
 function mainWindowHomeUrl() {
-  return `http://localhost:${PORT}${UI_PATH}`;
+  return `http://localhost:${PORT}/app`;
 }
 
 let mainWindow = null;
@@ -429,7 +421,7 @@ function createWindow() {
   }
 
   if (DEV) {
-    // 开发模式：直接加载后端 URL（默认 /app，带 --cockpit 时加载 /cockpit）
+    // 开发模式：直接加载后端 URL（/app）
     const url = mainWindowHomeUrl();
     console.log(`[main] Loading: ${url}`);
     mainWindow.loadURL(url);
@@ -1266,12 +1258,12 @@ function setupAutoUpdater() {
   // 关键：必须等 UI 页面加载完成后再检查（而不是固定的 5 秒）。
   // 后端 Java 启动需要 10~30 秒，期间窗口停留在 splash 页面；
   // 若此时触发检查，update:* 事件会发给 splash 而丢失（splash 无监听器）。
-  // 监听 did-finish-load 并确认 URL 是主界面（/app 或 /cockpit）后，再延迟 1 秒执行，
+  // 监听 did-finish-load 并确认 URL 是主界面（/app）后，再延迟 1 秒执行，
   // 确保前端 initAutoUpdater() 已注册所有监听器。
   let _autoCheckDone = false;
   const _onMainUILoaded = () => {
     const url = mainWindow?.webContents.getURL() || '';
-    if (!(url.includes('/app') || url.includes('/cockpit')) || _autoCheckDone) return;
+    if (!url.includes('/app') || _autoCheckDone) return;
     _autoCheckDone = true;
 
     // ① 上次有已下载但未安装的更新？先提示重启安装（更新文件仍在本机缓存）

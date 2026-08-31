@@ -21,12 +21,6 @@ export default defineConfig({
                 changeOrigin: true,
                 ws: true,
             },
-            // 旧前端的会话流接口(若后续阶段需要兼容)
-            '/sse': {
-                target: API_TARGET,
-                changeOrigin: true,
-                ws: true,
-            },
         },
     },
     // 相对 base: 生产部署在 /app 子路径下, 绝对路径 /assets 会落到根 context 404;
@@ -34,7 +28,7 @@ export default defineConfig({
     base: './',
     build: {
         // 产物直接输出到 Java 后端 static-v2 目录(3.8-1 部署链路),
-        // Java 侧新增 /app context 映射该目录, 与旧 cockpit(/static)并存。
+        // Java 侧新增 /app context 映射该目录。
         outDir: '../src/main/resources/static-v2',
         emptyOutDir: true,
         // 生产不输出 sourcemap:map 文件 7~9MB/份且极易跨构建累积, 显著压大安装包

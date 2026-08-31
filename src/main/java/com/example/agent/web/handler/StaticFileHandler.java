@@ -33,17 +33,14 @@ public class StaticFileHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
 
-        // 根路径与 cockpit 入口:按 basePath 分流。
-        //  - static-v2(React 新前端):/ 与 /app 都重定向到 /app/(相对资源需带尾斜杠)
-        //  - static(旧 cockpit):/ 与 /cockpit 都加载 cockpit.html
+        // 入口分流:按 basePath 分流。
+        //  - static-v2(React 新前端):/ 重定向到 /app/(相对资源需带尾斜杠)
         if ("/".equals(path) && "/static-v2".equals(basePath)) {
             String rawQuery = exchange.getRequestURI().getRawQuery();
             redirect(exchange, rawQuery != null && !rawQuery.isEmpty()
                 ? "/app/?" + rawQuery
                 : "/app/");
             return;
-        } else if ("/".equals(path) || "/cockpit".equals(path)) {
-            path = "/cockpit.html";
         } else if ("/app".equals(path)) {
             // 新前端(React + TS)入口。必须先重定向到 /app/(带尾部斜杠),
             // 否则 HTML 内的相对资源 ./assets/* 会被浏览器解析到根路径 /assets/*,
@@ -62,7 +59,7 @@ public class StaticFileHandler implements HttpHandler {
         // getRequestURI().getPath() 仍是完整路径(如 /app/assets/index.js),
         // 需去掉 /app 再按 static-v2 目录 resolve, 否则会 404。
         // 按路径段匹配(equals(context) 或 startsWith(context + "/")),
-        // 避免误伤 /cockpit.html 这类同前缀但不同段的路径。
+        // 避免误伤同前缀但不同段的路径。
         String contextPath = exchange.getHttpContext() != null
             ? exchange.getHttpContext().getPath()
             : "";
@@ -81,8 +78,7 @@ public class StaticFileHandler implements HttpHandler {
             if (filePath.startsWith(devStaticDir) && Files.isRegularFile(filePath)) {
                 content = Files.readAllBytes(filePath);
             }
-            // /skills/featured/*.md 为两版(static/static-v2)共享的内置资源，仅存放在 static 目录，
-            // 新版(static-v2)在自身目录未命中时回退到 static 读取。
+            // /skills/featured/*.md 为共享的内置资源，仅存放在 static 目录，新版(static-v2)在自身目录未命中时回退读取。
             if (content == null && path.startsWith("/skills/")) {
                 Path sharedDir = Paths.get("src", "main", "resources", "static").toAbsolutePath().normalize();
                 Path sharedFile = sharedDir.resolve(path.substring(1)).normalize();

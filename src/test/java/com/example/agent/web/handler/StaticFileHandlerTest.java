@@ -34,40 +34,14 @@ class StaticFileHandlerTest {
     class RouteMappingTests {
 
         @Test
-        @DisplayName("根路径 / 映射到 /cockpit.html")
-        void rootPathMapsToCockpitHtml() throws IOException {
-            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/");
-
-            handler.handle(exchange);
-
-            assertEquals(200, exchange.getResponseCode());
-            String body = exchange.getResponseBodyAsString();
-            assertTrue(body.contains("Cockpit"));
-        }
-
-        @Test
-        @DisplayName("/cockpit 映射到 /cockpit.html")
-        void cockpitPathMapsToCockpitHtml() throws IOException {
-            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/cockpit");
-
-            handler.handle(exchange);
-
-            assertEquals(200, exchange.getResponseCode());
-            String body = exchange.getResponseBodyAsString();
-            assertTrue(body.contains("Cockpit"));
-        }
-
-        @Test
-        @DisplayName("/app 映射到 /index.html(新前端入口)")
-        void appPathMapsToIndexHtml() throws IOException {
+        @DisplayName("/app 重定向到 /app/(相对资源需带尾斜杠)")
+        void appPathRedirectsToTrailingSlash() throws IOException {
             FakeHttpExchange exchange = new FakeHttpExchange("GET", "/app");
 
             handler.handle(exchange);
 
-            assertEquals(200, exchange.getResponseCode());
-            String body = exchange.getResponseBodyAsString();
-            assertTrue(body.contains("HippoBuddy React"));
-            assertTrue(body.contains("root"));
+            assertEquals(302, exchange.getResponseCode());
+            assertEquals("/app/", exchange.getResponseHeaders().getFirst("Location"));
         }
 
         @Test
@@ -105,14 +79,14 @@ class StaticFileHandlerTest {
         @Test
         @DisplayName("请求存在的 HTML 文件返回 200 并携带正确内容")
         void servesExistingHtmlFile() throws IOException {
-            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/cockpit.html");
+            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/index.html");
 
             handler.handle(exchange);
 
             assertEquals(200, exchange.getResponseCode());
             String body = exchange.getResponseBodyAsString();
-            assertTrue(body.contains("Cockpit"));
-            assertTrue(body.contains("Hello"));
+            assertTrue(body.contains("HippoBuddy React"));
+            assertTrue(body.contains("root"));
         }
 
         @Test
@@ -186,7 +160,7 @@ class StaticFileHandlerTest {
         @Test
         @DisplayName("HTML 文件设置正确的 Content-Type")
         void htmlContentType() throws IOException {
-            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/cockpit.html");
+            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/index.html");
 
             handler.handle(exchange);
 
@@ -226,7 +200,7 @@ class StaticFileHandlerTest {
         @Test
         @DisplayName("设置 CORS 头")
         void setsCorsHeader() throws IOException {
-            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/cockpit.html");
+            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/index.html");
 
             handler.handle(exchange);
 
@@ -236,7 +210,7 @@ class StaticFileHandlerTest {
         @Test
         @DisplayName("设置禁用缓存头")
         void setsNoCacheHeaders() throws IOException {
-            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/cockpit.html");
+            FakeHttpExchange exchange = new FakeHttpExchange("GET", "/index.html");
 
             handler.handle(exchange);
 
