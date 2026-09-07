@@ -11,6 +11,7 @@
 import { create } from 'zustand';
 import type { Session, SessionMode } from '@/types';
 import { configApi } from '@/api/client';
+import { useChatStore } from '@/stores/chatStore';
 
 
 /** 主视图类型 */
@@ -327,6 +328,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   removeSession: (sessionId) => {
+    // 同步清理该会话在 chatStore 中的 Token 用量分区,避免删除后仍残留内存
+    useChatStore.getState().removeSessionData(sessionId);
     set((state) => {
       const sessions = state.sessions.filter((s) => s.id !== sessionId);
       persistSessionsCache(sessions);

@@ -228,8 +228,8 @@ interface ChatState {
   /** 按 sessionId 缓存的历史消息(localStorage 持久化,刷新后复用) */
   messageCache: Record<string, Message[]>;
 
-  /** 最近一次 Token 用量更新(token_update 事件;全局累积,驱动趋势图) */
-  lastTokenUpdate: TokenUpdatePayload | null;
+  /** 按会话分区的最近一次 Token 用量更新(token_update 事件;key=sessionId) */
+  tokenUpdates: Record<string, TokenUpdatePayload>;
   /** Token 用量历史快照记录(全局累积,驱动趋势图,对齐旧版 appState.tokenHistory) */
   tokenHistory: TokenRecord[];
 
@@ -292,8 +292,10 @@ interface ChatState {
   setWebSearching: (searching: boolean) => void;
 
   // ── Actions:Token / 状态 / 错误 ───────────────────────────
-  /** 更新 Token 用量(token_update;全局) */
-  setLastTokenUpdate: (payload: TokenUpdatePayload) => void;
+  /** 更新指定会话的 Token 用量(token_update;按会话分区) */
+  setSessionTokenUpdate: (sessionId: string, payload: TokenUpdatePayload) => void;
+  /** 删除会话时清理其 Token 用量分区(避免分区随会话堆积) */
+  removeSessionData: (sessionId: string) => void;
   /** 追加一条 Token 用量历史记录(全局,去重,超出上限截断) */
   addTokenRecord: (record: TokenRecord) => void;
   /** 设置当前会话错误信息 */
@@ -365,7 +367,7 @@ export const useChatStore = create<ChatState>((set, get) => {
   return {
     sessionStreams: {},
     messageCache: loadMessageCache(),
-    lastTokenUpdate: null,
+    tokenUpdates: {},
     tokenHistory: [],
 
     // ── 消息管理(当前会话分区) ──────────────────────────────
@@ -575,8 +577,16 @@ export const useChatStore = create<ChatState>((set, get) => {
       });
     },
 
-    // ── Token(全局) ─────────────────────────────────────────
-    setLastTokenUpdate: (payload) => set({ lastTokenUpdate: payload }),
+    // ── Token(按会话分区)───────────────────────────────────
+    setSessionTokenUpdate: (sessionId, payload) =>
+      set((state) => ({ tokenUpdates: { ...state.tokenUpdates, [sessionId]: payload } })),
+    removeSessionData: (sessionId) =>
+      set((state) => {
+        if (!state.tokenUpdates[sessionId]) return state;
+        const updates = { ...state.tokenUpdates };
+        delete updates[sessionId];
+        return { tokenUpdates: updates };
+      }),
     addTokenRecord: (record) =>
       set((state) => {
         const last = state.tokenHistory[state.tokenHistory.length - 1];
@@ -1017,10 +1027,10 @@ export const useChatStore = create<ChatState>((set, get) => {
           break;
         }
 
-        // ── Token 用量(全局) ────────────────────────────────
+        // ── Token 用量(按会话分区) ──────────────────────────
         case 'token_update': {
           const payload = data as ChatSseEventMap['token_update'];
-          get().setLastTokenUpdate(payload);
+          get().setSessionTokenUpdate(sid, payload);
           break;
         }
 

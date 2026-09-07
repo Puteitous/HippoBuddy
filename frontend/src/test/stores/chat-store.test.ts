@@ -44,7 +44,7 @@ describe('chatStore', () => {
   beforeEach(() => {
     localStorage.clear();
     useAppStore.setState({ currentSessionId: 's1' });
-    useChatStore.setState({ sessionStreams: {}, messageCache: {}, lastTokenUpdate: null, tokenHistory: [] });
+    useChatStore.setState({ sessionStreams: {}, messageCache: {}, tokenUpdates: {}, tokenHistory: [] });
     // 重置 API mock 调用记录,避免测试间串扰(getSessions/generateTitle 计数)
     apiMocks.getSessions.mockClear();
     apiMocks.generateTitle.mockClear();
@@ -79,7 +79,12 @@ describe('chatStore', () => {
   it('generateTitle 返回后,若会话已在列表则 updateSession 更新标题', async () => {
     // 预置会话已在列表,但尚无 title;直接指定为当前会话,避免 createNewSession 生成新 id
     const sid = 'web-1000';
-    useAppStore.setState({ currentSessionId: sid, sessions: [{ id: sid, title: '' }] });
+    useAppStore.setState({
+      currentSessionId: sid,
+      sessions: [
+        { id: sid, title: '', messageCount: 0, createdAt: '0', active: false, running: false },
+      ],
+    });
     apiMocks.generateTitle.mockResolvedValueOnce({ title: 'LLM生成的标题' });
     await useChatStore.getState().sendUserMessage('优化代码');
     // 等待 generateTitle promise 回调执行
@@ -270,6 +275,34 @@ describe('chatStore', () => {
     s.addTokenRecord(rec);
     s.addTokenRecord(rec);
     expect(useChatStore.getState().tokenHistory).toHaveLength(1);
+  });
+
+  it('setSessionTokenUpdate 按会话分区写入,并行会话互不覆盖', () => {
+    const s = useChatStore.getState();
+    s.setSessionTokenUpdate('session-a', { live: true, hasKnownUsage: true, promptTokens: 10, completionTokens: 5, totalTokens: 15, cacheHitTokens: 0, cacheHitRate: 0 });
+    s.setSessionTokenUpdate('session-b', { live: true, hasKnownUsage: true, promptTokens: 30, completionTokens: 20, totalTokens: 50, cacheHitTokens: 0, cacheHitRate: 0 });
+    s.setSessionTokenUpdate('session-a', { live: true, hasKnownUsage: true, promptTokens: 12, completionTokens: 6, totalTokens: 18, cacheHitTokens: 0, cacheHitRate: 0 });
+    const t = useChatStore.getState().tokenUpdates;
+    // A 再次更新不污染 B;B 保留自己的实时值
+    expect(t['session-a']?.totalTokens).toBe(18);
+    expect(t['session-b']?.totalTokens).toBe(50);
+  });
+
+  it('routeSseEvent token_update 按 sid 写入对应分区(不落地到全局/其他会话)', () => {
+    const st = useChatStore.getState();
+    st.routeSseEvent('session-x', { event: 'token_update', data: { live: true, hasKnownUsage: true, promptTokens: 2, completionTokens: 3, totalTokens: 5, cacheHitTokens: 0, cacheHitRate: 0 } } as never);
+    // 写入的是 sid 对应分区,currentSessionId 等其他会话分区不受影响
+    expect(useChatStore.getState().tokenUpdates['session-x']?.totalTokens).toBe(5);
+    expect(useChatStore.getState().tokenUpdates['s1']).toBeUndefined();
+  });
+
+  it('removeSessionData 删除对应会话的 Token 用量分区,不影响其他会话', () => {
+    const s = useChatStore.getState();
+    s.setSessionTokenUpdate('keep', { live: true, hasKnownUsage: true, promptTokens: 1, completionTokens: 1, totalTokens: 2, cacheHitTokens: 0, cacheHitRate: 0 });
+    s.setSessionTokenUpdate('drop', { live: true, hasKnownUsage: true, promptTokens: 9, completionTokens: 9, totalTokens: 18, cacheHitTokens: 0, cacheHitRate: 0 });
+    s.removeSessionData('drop');
+    expect(useChatStore.getState().tokenUpdates).not.toHaveProperty('drop');
+    expect(useChatStore.getState().tokenUpdates['keep']?.totalTokens).toBe(2);
   });
 
   it('routeSseEvent: message_id 把真实 uuid 写到乐观 user 消息的 serverId(不改渲染 key)', () => {

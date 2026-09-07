@@ -5,7 +5,7 @@
  *
  * 数据来源:
  *  - 基准:GET /api/sessions/:id/tokens(切会话时拉取一次,提供 maxTokens + 会话累计字段)
- *  - 实时:chatStore.lastTokenUpdate(由 SSE token_update 事件驱动,覆盖 prompt/completion 等)
+ *  - 实时:chatStore.tokenUpdates[当前会话](由 SSE token_update 事件按会话驱动,覆盖 prompt/completion 等)
  *
  * 与旧版 TokenMonitor.js 的差异:
  *  - 不再轮询 30s(改为切会话 + SSE 驱动,降低后端压力)
@@ -44,7 +44,9 @@ interface TokenMonitorProps {
 function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
   const { t } = useI18n();
   const currentSessionId = useAppStore((s) => s.currentSessionId);
-  const lastTokenUpdate = useChatStore((s) => s.lastTokenUpdate);
+  const lastTokenUpdate = useChatStore((s) =>
+    currentSessionId ? (s.tokenUpdates[currentSessionId] ?? null) : null,
+  );
 
   const [baseStats, setBaseStats] = useState<SessionTokenStats | null>(null);
   const [loading, setLoading] = useState(false);
