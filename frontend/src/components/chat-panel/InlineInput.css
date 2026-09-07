@@ -11,6 +11,9 @@
 .inline-input-wrapper {
   position: relative;
   flex: 1;
+  /* 允许收缩到内容可换行宽度:overflow-wrap:break-word 不影响 min-content 计算,
+     不加 min-width:0 时超长无空格文本会把输入框撑宽并向右侧溢出 */
+  min-width: 0;
   /* 对齐旧版 .input-row textarea min-height:56px,避免空态时状态栏下方留白偏大 */
   min-height: 56px;
   display: flex;

@@ -277,11 +277,28 @@ describe('chatStore', () => {
     expect(t).toMatchObject({ status: 'success', progress: ['out'], result: 'done' });
   });
 
-  it('routeSseEvent: error 事件写出错并停发送', () => {
+  it('routeSseEvent: error 事件写出错并停发送,且清理运行态', () => {
     useChatStore.getState().setIsSending(true);
+    // 先用 thinking 事件设置 reasoning 态,确保 error 能正确清零
+    useChatStore.getState().routeSseEvent('s1', { event: 'thinking', data: { turn: 1 } } as never);
+    expect(useChatStore.getState().sessionStreams.s1.isReasoning).toBe(true);
     useChatStore.getState().routeSseEvent('s1', { event: 'error', data: { message: 'boom' } } as never);
     const s = useChatStore.getState().sessionStreams.s1;
     expect(s.error).toBe('boom');
     expect(s.isSending).toBe(false);
+    expect(s.isReasoning).toBe(false);
+    // processEndedAt 应被定格为有效时间戳
+    expect(s.processEndedAt).toBeGreaterThan(0);
+  });
+
+  it('routeSseEvent: complete 兜底清理运行态', () => {
+    useChatStore.getState().setIsSending(true);
+    useChatStore.getState().routeSseEvent('s1', { event: 'thinking', data: { turn: 1 } } as never);
+    expect(useChatStore.getState().sessionStreams.s1.isReasoning).toBe(true);
+    useChatStore.getState().routeSseEvent('s1', { event: 'complete', data: {} } as never);
+    const s = useChatStore.getState().sessionStreams.s1;
+    expect(s.isSending).toBe(false);
+    expect(s.isReasoning).toBe(false);
+    expect(s.processEndedAt).toBeGreaterThan(0);
   });
 });

@@ -750,13 +750,18 @@ export const useChatStore = create<ChatState>((set, get) => {
           get().commitStreamingMessage(sid);
           updateSession(sid, (s) => {
             s.isSending = false;
+            s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
           });
           return false;
         }
+        // 网络异常:先提交半成品内容,再清理运行态标记
+        get().commitStreamingMessage(sid);
         const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
         updateSession(sid, (s) => {
           s.error = msg;
           s.isSending = false;
+          s.isReasoning = false;
+          s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
         });
         return false;
       } finally {
@@ -778,6 +783,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       get().commitStreamingMessage(sid);
       updateSession(sid, (s) => {
         s.isSending = false;
+        s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
       });
     },
 
@@ -1040,9 +1046,15 @@ export const useChatStore = create<ChatState>((set, get) => {
         }
         case 'error': {
           const payload = data as ChatSseEventMap['error'];
+          // 先提交已累积的流式内容到 messages,再清理运行态标记,
+          // 防止 process-summary 耗时持续跳动 & sidebar 会话项一直转圈
+          get().commitStreamingMessage(sid);
           updateSession(sid, (s) => {
             s.error = payload.message;
             s.isSending = false;
+            s.isReasoning = false;
+            // 定格处理过程耗时,避免 error 后 process-summary 仍用 Date.now() 不断前跳
+            s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
           });
           break;
         }
@@ -1070,9 +1082,13 @@ export const useChatStore = create<ChatState>((set, get) => {
           break;
         }
         case 'complete': {
-          // 流结束标记(data 固定为 "[DONE]")
+          // 流结束标记(data 固定为 "[DONE]"):正常跟在 done/waiting_user 之后,
+          // 兜底清理运行态,防止后端异常顺序导致计时/转圈不消失。
+          get().commitStreamingMessage(sid);
           updateSession(sid, (s) => {
             s.isSending = false;
+            s.isReasoning = false;
+            s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
           });
           break;
         }

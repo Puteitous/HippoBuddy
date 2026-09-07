@@ -55,6 +55,23 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<PanelLevel>('menu');
   const rootRef = useRef<HTMLDivElement | null>(null);
+  // 面板实际宽度:默认 320px;当左侧可用空间不足时收缩,避免向左溢出/遮挡。
+  const [panelWidth, setPanelWidth] = useState<number | null>(null);
+  const PANEL_DEFAULT_WIDTH = 320;
+
+  /** 测量面板可用的最大宽度 = 触发器右缘到最近 .chat-panel 左缘的距离。
+   *  面板 absolute 定位以触发器为基准(right: 0),恰好用这段宽度可保证
+   *  面板左边界不越过聊天面板左缘(左侧是会话列表 Sidebar)。 */
+  const measureAvailableWidth = useCallback((): number | null => {
+    const rootEl = rootRef.current;
+    if (!rootEl) return null;
+    const rootRect = rootEl.getBoundingClientRect();
+    const panel = rootEl.closest('.chat-panel');
+    const left = panel ? panel.getBoundingClientRect().left : 0;
+    const avail = Math.floor(rootRect.right - left);
+    if (Number.isNaN(avail) || avail <= 0) return null;
+    return Math.min(PANEL_DEFAULT_WIDTH, avail);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +95,19 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
       void load();
     }
   }, [open, load]);
+
+  // 面板宽度:打开时测量可用空间,窗口/侧边栏变化时重测,
+  // 收缩不超过聊天面板左边界,避免遮挡左侧会话列表。
+  useEffect(() => {
+    if (!open) {
+      setPanelWidth(null);
+      return;
+    }
+    const update = () => setPanelWidth(measureAvailableWidth());
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [open, measureAvailableWidth]);
 
   // 点击外部 / Escape 关闭
   useEffect(() => {
@@ -245,9 +275,13 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
         </svg>
       </button>
 
-      {/* 面板(向下弹出,right 对齐) */}
+      {/* 面板(向下弹出,right 对齐,防右侧溢出) */}
       {open && (
-        <div className="msp-panel" role="menu">
+        <div
+          className="msp-panel"
+          role="menu"
+          style={panelWidth ? { width: panelWidth } : undefined}
+        >
           {level === 'menu' && (
             <>
               <button
