@@ -87,6 +87,30 @@ public class Usage {
     }
     
     /**
+     * 获取未命中缓存的 Token 数（兼容 DeepSeek 和 DashScope/OpenAI 格式）
+     * <p>
+     * DeepSeek 明确返回 {@code prompt_cache_miss_tokens}，优先使用。
+     * 其他 API（OpenAI / GLM / DashScope 等）不返回 miss 字段，
+     * 从 {@code prompt_tokens - cacheReadInputTokens} 推算：
+     * {@code prompt_tokens = cached_tokens + non_cached_tokens}。
+     *
+     * @return 未命中缓存的 Token 数
+     */
+    public int getCacheMissInputTokens() {
+        // DeepSeek 格式：prompt_cache_miss_tokens 是 API 明确返回的，优先使用
+        if (promptCacheMissTokens > 0) {
+            return promptCacheMissTokens;
+        }
+        // 非 DeepSeek 格式（OpenAI/GLM/DashScope）：从 total prompt 减去 hit 推算 miss
+        // 理论上 prompt_tokens = cached_tokens + non_cached_tokens
+        int cacheRead = getCacheReadInputTokens();
+        if (promptTokens > 0) {
+            return Math.max(0, promptTokens - cacheRead);
+        }
+        return 0;
+    }
+
+    /**
      * 计算缓存命中率（同时兼容 DeepSeek 和 DashScope/OpenAI 格式）
      * prompt_tokens = cache_hit + cache_miss（DeepSeek 官方 API）
      * @return 缓存命中率百分比 (0-100)

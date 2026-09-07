@@ -1046,7 +1046,7 @@ public class ResponsesLlmClient extends AbstractLlmClient {
                 .append(", usage=").append(usage != null
                     ? ("prompt=" + usage.getPromptTokens() + ",completion=" + usage.getCompletionTokens()
                         + ",cacheHit=" + usage.getCacheReadInputTokens()
-                        + ",cacheMiss=" + usage.getPromptCacheMissTokens()
+                        + ",cacheMiss=" + usage.getCacheMissInputTokens()
                         + ",cacheHitRate=" + String.format("%.1f", usage.getCacheHitRate()) + "%")
                     : "null");
             for (int i = 0; i < toolCalls.size(); i++) {

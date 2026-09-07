@@ -416,7 +416,7 @@ public class WebAgentOrchestrator {
                     usage.getCompletionTokens(),
                     usage.getTotalTokens(),
                     usage.getCacheReadInputTokens(),
-                    usage.getPromptCacheMissTokens()
+                    usage.getCacheMissInputTokens()
                 );
                 warnIfCacheHitRateLow(sessionId, usage, turn + 1);
             }
@@ -541,7 +541,10 @@ public class WebAgentOrchestrator {
     static boolean shouldWarnOnCacheHitRate(Usage usage, double thresholdPercent,
                                             double lastRatePercent, double dropThresholdPp) {
         if (usage == null) return false;
-        if (usage.getCacheReadInputTokens() <= 0) return false;
+        // 无历史记录（上次命中率 ≤ 0）且本次无缓存可命中 → 新会话首轮属正常，跳过告警。
+        if (lastRatePercent <= 0.0 && usage.getCacheReadInputTokens() <= 0) {
+            return false;
+        }
         double rate = usage.getCacheHitRate();
         if (rate < thresholdPercent) {
             return true;
@@ -554,22 +557,48 @@ public class WebAgentOrchestrator {
     }
 
     /**
+     * 将会话的缓存命中率历史传播到新会话（fork 专用）。
+     * <p>
+     * 分叉后的新 sessionId 在内存中无 {@link #lastCacheHitRates} 记录，
+     * 若 fork 后首轮缓存意外击穿（命中率 0%），会被 "无历史 + cacheRead=0" 过滤，
+     * 导致本该触发的相对突降告警被静默跳过。此方法从源会话继承上次命中率，
+     * 使分叉会话首轮就能正确感知"之前正常，突然归零"的异常。
+     * </p>
+     *
+     * @param sourceSessionId 源会话 ID
+     * @param targetSessionId 新分叉会话 ID
+     */
+    public void propagateCacheHitRate(String sourceSessionId, String targetSessionId) {
+        Double sourceRate = lastCacheHitRates.get(sourceSessionId);
+        if (sourceRate != null) {
+            lastCacheHitRates.put(targetSessionId, sourceRate);
+            logger.debug("继承缓存命中率: source={}({}%), target={}", sourceSessionId,
+                String.format("%.1f", sourceRate), targetSessionId);
+        }
+    }
+
+    /**
      * 缓存命中率异常时 WARN 提醒（带同会话冷却去抖，避免低值期间每轮刷屏）。
      * 每次响应都会更新该会话的历史命中率（相对突降判定依据）；冷却期内不重复
      * 告警，冷却期后若仍异常会再次提醒。
      */
     private void warnIfCacheHitRateLow(String sessionId, Usage usage, int turn) {
-        if (usage == null || usage.getCacheReadInputTokens() <= 0) {
-            return;
-        }
-        double rate = usage.getCacheHitRate();
+        if (usage == null) return;
+
         Double last = lastCacheHitRates.get(sessionId);
         double lastRate = last != null ? last : 0.0;
+        double rate = usage.getCacheHitRate();
         // 先更新历史命中率，保证每次响应都记录（无论是否告警）
         lastCacheHitRates.put(sessionId, rate);
+        int cacheRead = usage.getCacheReadInputTokens();
 
         if (!shouldWarnOnCacheHitRate(usage, CACHE_HIT_RATE_WARN_THRESHOLD,
                 lastRate, CACHE_HIT_RATE_DROP_THRESHOLD_PP)) {
+            // 未触发 WARN，但若从第 3 轮起持续为 0%（有历史记录 + cacheRead=0），
+            // 说明该会话可能完全不支持前缀缓存或配置未生效，INFO 提示一次以便排查。
+            if (cacheRead == 0 && turn >= 3 && lastRate == 0.0) {
+                logger.info("💡 缓存命中率持续为 0%（turn={}），当前模型/会话可能不支持前缀缓存或配置未生效", turn);
+            }
             return;
         }
         long now = System.currentTimeMillis();
@@ -587,7 +616,7 @@ public class WebAgentOrchestrator {
                 + "异常跌落通常是 prompt/tools 动态变化、切换工作区、重启恢复或 mode 变更，"
                 + "请排查，详见 .hippo/doc/fix 三不变式文档）",
             sessionId, turn, String.format("%.1f", rate),
-            usage.getCacheReadInputTokens(), usage.getPromptCacheMissTokens(), usage.getPromptTokens(),
+            usage.getCacheReadInputTokens(), usage.getCacheMissInputTokens(), usage.getPromptTokens(),
             reason);
     }
 

@@ -6,6 +6,7 @@ import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
+import com.example.agent.web.orchestrator.WebAgentOrchestrator;
 import com.example.agent.web.util.ConversationJsonlReader;
 import com.example.agent.web.util.DiffComputer;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -249,6 +250,9 @@ public class SessionRewindHandler {
             // 剥离 _fork_ 链找到根 sessionId，新分叉始终使用 rootId + _fork_ + timestamp
             String rootSessionId = sessionId.indexOf("_fork_") > 0 ? sessionId.substring(0, sessionId.indexOf("_fork_")) : sessionId;
             String newSessionId = rootSessionId + "_fork_" + System.currentTimeMillis();
+
+            // 继承源会话的缓存命中率历史，使分叉首轮能感知"上次正常→突降"的异常
+            WebAgentOrchestrator.getInstance().propagateCacheHitRate(sessionId, newSessionId);
 
             // 创建新会话目录
             Path newSessionDir = getSessionDir(newSessionId);

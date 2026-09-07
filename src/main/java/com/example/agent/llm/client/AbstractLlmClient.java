@@ -592,7 +592,7 @@ public abstract class AbstractLlmClient implements LlmClient {
         if (usage != null) {
             logger.debug("📊 LLM 响应 Usage: prompt={}, completion={}, total={}, cacheHit={}, cacheMiss={}", 
                 usage.getPromptTokens(), usage.getCompletionTokens(), usage.getTotalTokens(),
-                usage.getPromptCacheHitTokens(), usage.getPromptCacheMissTokens());
+                usage.getPromptCacheHitTokens(), usage.getCacheMissInputTokens());
         } else {
             logger.warn("⚠️ LLM 响应未返回 usage 字段，缓存命中数据不可用");
         }

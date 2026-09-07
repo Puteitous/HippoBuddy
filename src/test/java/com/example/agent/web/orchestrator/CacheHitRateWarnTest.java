@@ -67,10 +67,17 @@ class CacheHitRateWarnTest {
     }
 
     @Test
-    @DisplayName("cacheRead==0（新会话首轮无前缀可命中）不告警")
-    void zeroCacheRead_neverWarns() {
-        // 命中率本身是 0，但无缓存可命中属正常，不告警
-        assertFalse(warn(5000, 0, 96.0));
+    @DisplayName("cacheRead==0 且有历史高点（96%→0% 突降）告警")
+    void zeroCacheRead_withHistory_warns() {
+        // 上次 96%，本次 cacheRead=0（命中率 0%），下跌 96pp >> 40pp，应告警
+        assertTrue(warn(5000, 0, 96.0));
+    }
+
+    @Test
+    @DisplayName("cacheRead==0 且无历史记录（新会话首轮）不告警")
+    void zeroCacheRead_noHistory_neverWarns() {
+        // 新会话首轮，无历史前缀可命中，命中率 0% 属正常，不告警
+        assertFalse(warn(5000, 0, 0.0));
     }
 
     // ---------- 绝对低值判定 ----------
