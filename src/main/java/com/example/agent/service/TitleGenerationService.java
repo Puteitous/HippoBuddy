@@ -5,6 +5,7 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
+import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.web.session.WebSessionManager;
 import com.example.agent.web.util.ConversationJsonlReader;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -52,20 +53,16 @@ public class TitleGenerationService {
      * @return 生成的标题，失败时返回 null
      */
     public String generateTitle(String sessionId, String frontendMessage) {
-        Path jsonl = null;
         String firstUserMessage = null;
 
         // ── 首选：前端消息（无 IO 开销，解决竞态） ──
+        // 注意：不在此处提前确定写入路径。generateTitle 请求几乎总比 chat 请求先到达
+        // 后端，此时 conversation.jsonl 尚未创建，findJsonlFile 必然返回 null；若在
+        // 生成标题前就把 jsonl 判空，custom-title 将永远无法落盘（后续 getSessions 会
+        // 用"第一条用户消息"覆盖标题）。因此统一在 LLM 生成标题之后，通过强制刷盘
+        // + 目标路径兜底来确保落盘。
         if (frontendMessage != null && !frontendMessage.isBlank()) {
             firstUserMessage = frontendMessage;
-            // 检查 JSONL 是否已有 custom-title（用户手动重命名过则不覆盖）
-            jsonl = jsonlReader.findJsonlFile(sessionId);
-            if (jsonl != null && Files.exists(jsonl)) {
-                String existingTitle = readExistingTitle(jsonl);
-                if (existingTitle != null) {
-                    return existingTitle;
-                }
-            }
         }
 
         // ── 兜底：前端未传消息时，走内存 → JSONL ──
@@ -73,7 +70,7 @@ public class TitleGenerationService {
             firstUserMessage = getFirstUserMessageFromMemory(sessionId);
             if (firstUserMessage == null) {
                 forceFlushTranscript(sessionId);
-                jsonl = jsonlReader.findJsonlFile(sessionId);
+                Path jsonl = jsonlReader.findJsonlFile(sessionId);
                 if (jsonl != null && Files.exists(jsonl)) {
                     firstUserMessage = jsonlReader.extractFirstUserMessage(jsonl);
                 }
@@ -86,23 +83,66 @@ public class TitleGenerationService {
             return null;
         }
 
-        // 兜底路径下检查 custom-title
-        if (frontendMessage == null && jsonl != null) {
-            String existingTitle = readExistingTitle(jsonl);
-            if (existingTitle != null) {
-                return existingTitle;
-            }
+        // 已有 custom-title（用户手动重命名过，或并发会话已写入）则不覆盖，直接返回。
+        String existingTitle = readExistingTitleOrNull(sessionId);
+        if (existingTitle != null) {
+            return existingTitle;
         }
 
         // 调 LLM 生成标题
         String title = generateTitleFromLlm(firstUserMessage);
 
-        // JSONL 存在则写入
-        if (jsonl != null && Files.exists(jsonl)) {
-            writeTitleToJsonl(jsonl, sessionId, title);
-        }
+        // 生成标题后再落盘：此刻 chat 请求大概率已完成会话创建与刷盘，能拿到真实路径；
+        // 若仍不可得（文件尚未创建），由目标路径兜底确保 custom-title 写入。
+        persistTitle(sessionId, title);
 
         return title;
+    }
+
+    /**
+     * 读取会话已有标题（custom-title）。优先从内存/磁盘 transcript 读取。
+     * 因竞态下 JSONL 可能尚未落盘，此方法尝试强制刷新文件缓存后重读。
+     *
+     * @return 已有标题；无则返回 null
+     */
+    private String readExistingTitleOrNull(String sessionId) {
+        // 先刷新会话缓存，避免新写入的 custom-title 读取不到
+        Path jsonl = jsonlReader.findJsonlFile(sessionId);
+        if (jsonl != null && Files.exists(jsonl)) {
+            String title = readExistingTitle(jsonl);
+            if (title != null) {
+                return title;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 将 LLM 生成的标题写入会话 JSONL 头部（custom-title）。
+     * <p>
+     * 兼容 generateTitle 先于 chat 落盘的竞态：即时当前 JSONL 尚不存在，
+     * 也会通过强制刷盘 / 目标路径兜底来确保标题真正落盘，从而避免后续
+     * getSessions 因读不到 custom-title 而把标题打回"用户消息"。
+     * </p>
+     */
+    private void persistTitle(String sessionId, String title) {
+        // 1) 强制刷盘 transcript：会话已创建时能拿到真实文件路径，并确保目录存在
+        Path target = forceFlushTranscript(sessionId);
+        if (target == null) {
+            // 2) 会话尚未创建（chat 请求还没到）：直接按约定路径构造，Create 兜底
+            target = WorkspaceManager.getSessionMessagesFile(sessionId);
+        }
+
+        // 写盘前二次检查：并发场景下可能已有 custom-title，避免覆盖用户手动重命名
+        if (Files.exists(target)) {
+            String existingTitle = readExistingTitle(target);
+            if (existingTitle != null) {
+                logger.info("已有 custom-title，跳过写入: sessionId={}", sessionId);
+                return;
+            }
+        }
+
+        writeTitleToJsonl(target, sessionId, title);
     }
 
     /**
@@ -152,13 +192,16 @@ public class TitleGenerationService {
 
     /**
      * 强制刷盘 Transcript 的异步写入队列，确保第一条消息已写入 JSONL 文件。
+     *
+     * @return transcript 文件路径；会话尚未创建或刷盘失败时返回 null
      */
-    private void forceFlushTranscript(String sessionId) {
+    private Path forceFlushTranscript(String sessionId) {
         try {
             ConversationService conversationService = ServiceLocator.get(ConversationService.class);
-            conversationService.flushTranscript(sessionId);
+            return conversationService.flushTranscript(sessionId);
         } catch (Exception e) {
             logger.debug("强制刷盘 Transcript 失败: sessionId={}", sessionId, e);
+            return null;
         }
     }
 
@@ -222,7 +265,12 @@ public class TitleGenerationService {
      */
     private void writeTitleToJsonl(Path jsonl, String sessionId, String title) {
         try {
-            List<String> lines = Files.readAllLines(jsonl, StandardCharsets.UTF_8);
+            // 兼容竞态下文件尚未创建的场景：目标文件可能不存在，先创建父目录再处理
+            Files.createDirectories(jsonl.getParent());
+
+            List<String> lines = Files.exists(jsonl)
+                ? Files.readAllLines(jsonl, StandardCharsets.UTF_8)
+                : new java.util.ArrayList<>();
 
             ObjectNode titleEntry = objectMapper.createObjectNode();
             titleEntry.put("type", "custom-title");

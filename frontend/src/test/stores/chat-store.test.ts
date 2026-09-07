@@ -45,6 +45,10 @@ describe('chatStore', () => {
     localStorage.clear();
     useAppStore.setState({ currentSessionId: 's1' });
     useChatStore.setState({ sessionStreams: {}, messageCache: {}, lastTokenUpdate: null, tokenHistory: [] });
+    // 重置 API mock 调用记录,避免测试间串扰(getSessions/generateTitle 计数)
+    apiMocks.getSessions.mockClear();
+    apiMocks.generateTitle.mockClear();
+    apiMocks.stream.mockClear();
   });
 
   it('无 currentSessionId 时消息操作不生效', () => {
@@ -70,6 +74,33 @@ describe('chatStore', () => {
       expect.any(Function),
       expect.any(AbortSignal),
     );
+  });
+
+  it('generateTitle 返回后,若会话已在列表则 updateSession 更新标题', async () => {
+    // 预置会话已在列表,但尚无 title;直接指定为当前会话,避免 createNewSession 生成新 id
+    const sid = 'web-1000';
+    useAppStore.setState({ currentSessionId: sid, sessions: [{ id: sid, title: '' }] });
+    apiMocks.generateTitle.mockResolvedValueOnce({ title: 'LLM生成的标题' });
+    await useChatStore.getState().sendUserMessage('优化代码');
+    // 等待 generateTitle promise 回调执行
+    await Promise.resolve();
+    await Promise.resolve();
+    const sessions = useAppStore.getState().sessions;
+    expect(sessions.some((s) => s.id === sid && s.title === 'LLM生成的标题')).toBe(true);
+    // 已入列表 → 不应走 getSessions 兜底
+    expect(apiMocks.getSessions).not.toHaveBeenCalled();
+  });
+
+  it('generateTitle 返回后,若会话尚未入列表则 getSessions 兜底刷新', async () => {
+    // 当前会话尚未出现在 sessions 中(模拟 300ms 列表刷新未完成)
+    const sid = 'web-2000';
+    useAppStore.setState({ currentSessionId: sid, sessions: [] });
+    apiMocks.generateTitle.mockResolvedValueOnce({ title: '兜底标题' });
+    await useChatStore.getState().sendUserMessage('写个demo');
+    await Promise.resolve();
+    await Promise.resolve();
+    // 会话未入列表 → 触发 getSessions 兜底,让 LLM 标题能进入侧边栏
+    expect(apiMocks.getSessions).toHaveBeenCalled();
   });
 
   it('addMessage 追加到当前会话分区,且各会话相互隔离', () => {

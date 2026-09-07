@@ -15,7 +15,7 @@
 import { create } from 'zustand';
 import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { useAppStore } from '@/stores/appStore';
-import { chatApi, sessionApi } from '@/api/client';
+import { api, chatApi, sessionApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { translate } from '@/i18n';
 import type { ChatRequest } from '@/types';
@@ -734,7 +734,17 @@ export const useChatStore = create<ChatState>((set, get) => {
         .generateTitle(sid, message || (images && images.length > 0 ? translate('chat.imageTitle') : ''))
         .then((res) => {
           const title = res?.title;
-          if (title) useAppStore.getState().updateSession(sid, { title });
+          if (!title) return;
+          const { updateSession, setSessions, sessions } = useAppStore.getState();
+          // 标题优先更新到已入列表的会话(s.title 优先于临时名)。
+          // 若 generateTitle 返回时该会话尚未进入 sessions(300ms 后台刷新尚未完成),
+          // updateSession 会因 map 不到目标而落空,此时主动拉一次列表兜底,
+          // 让 LLM 生成的标题能通过新的列表数据进入侧边栏。
+          if (sessions.some((s) => s.id === sid)) {
+            updateSession(sid, { title });
+          } else {
+            api.getSessions().then(setSessions).catch(() => {});
+          }
         })
         .catch(() => {
           // 静默失败,保留现有标题

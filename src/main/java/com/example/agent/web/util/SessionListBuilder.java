@@ -31,6 +31,12 @@ public class SessionListBuilder {
         Set<String> seenIds = new HashSet<>();
         List<Map<String, Object>> sessionList = new ArrayList<>();
 
+        // 在遍历 active 会话前先刷新文件缓存:generateTitle 兜底写入的新会话 jsonl
+        // 可能尚未入缓存,若不刷新,resolveTitle 的 findJsonlFile 会读不到刚落盘的
+        // custom-title,标题列表首刷打回用户消息原文(需二次刷新才变正确)。
+        // refreshFileCache 后 findJsonlFile 对已入缓存会话直接命中,不重复扫描。
+        jsonlReader.refreshFileCache();
+
         for (Map.Entry<String, Conversation> entry : activeSessions.entrySet()) {
             Map<String, Object> sessionInfo = new HashMap<>();
             sessionInfo.put("id", entry.getKey());
@@ -77,7 +83,6 @@ public class SessionListBuilder {
             seenIds.add(entry.getKey());
         }
 
-        jsonlReader.refreshFileCache();
         for (Map.Entry<String, Path> entry : jsonlReader.getFileCache().entrySet()) {
             String sessionId = entry.getKey();
             if (seenIds.contains(sessionId)) continue;
@@ -279,7 +284,11 @@ public class SessionListBuilder {
     }
 
     private String resolveTitle(String sessionId, Conversation conversation) {
-        Path jsonl = jsonlReader.getFileCache().get(sessionId);
+        // 用 findJsonlFile 而非 getFileCache:前者会刷新文件缓存,从而能读到刚刚
+        // 由 generateTitle 兜底写入的 custom-title。若用 getFileCache 拿到的可能是
+        // 陈旧缓存(新会话 jsonl 尚未入缓存 → 返回 null → 回落内存用户消息),
+        // 导致标题在列表首刷时打回消息原文、需再次刷新才变正确。
+        Path jsonl = jsonlReader.findJsonlFile(sessionId);
         String title = null;
         if (jsonl != null && Files.exists(jsonl)) {
             title = jsonlReader.extractFirstUserMessage(jsonl);
