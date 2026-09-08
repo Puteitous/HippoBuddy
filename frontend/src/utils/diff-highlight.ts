@@ -119,3 +119,35 @@ export function highlightDiffLines(
   // hljs 输出末尾保留换行时可能多出空行,截断到 changes 长度
   return lines.slice(0, changes.length);
 }
+
+/**
+ * 对单个词级 token 的内容做语法着色,返回转义安全的 HTML。
+ *
+ * 供 FilePreviewDiff 在词级(行内)高亮路径上叠加语法着色:词级插入/删除
+ * 词按 token 独立交给 hljs 着色后包 <ins>/<del>,其余词直接输出来着色 HTML,
+ * 从而在绿/红行内保留代码语法高亮。
+ *
+ * @param value 单个 token 的文本片段
+ * @param language 按文件扩展名推断出的 hljs 语言;null/未找到时回退纯文本转义
+ * @returns 转义安全、可注入 .diff-line(dangerouslySetInnerHTML) 的 HTML
+ */
+export function highlightWordToken(value: string, language: string | null | undefined): string {
+  if (!value) return '';
+  if (language && hljs.getLanguage(language)) {
+    try {
+      return hljs.highlight(value, { language }).value;
+    } catch {
+      // 单 token 高亮失败时回退纯文本转义,避免整行空白
+    }
+  }
+  return escapeHtmlToken(value);
+}
+
+/** HTML 实体转义(用于 hljs 不可用时的纯文本回退,保证无 XSS 注入) */
+function escapeHtmlToken(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}

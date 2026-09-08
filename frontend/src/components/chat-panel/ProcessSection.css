@@ -112,3 +112,17 @@
 .history-list > .process-section + .ask-user-card {
   margin-top: -16px;
 }
+
+/* ── 确认流(continueAfterConfirmation)裸渲染行间距 ──
+   决策后回合已固化、tail 裸渲染流式行(roundCommitted=true),新内容以
+   history-list 直接子元素出现在已固化回合(process-section)之后。
+   受 gap:16px + 气泡 margin 影响,与上方回合及裸行之间拉出 ~22px 空行;
+   负 margin 抵消 gap,使间距回到 process-body 内的 6px 视觉
+   (done 固化后该批内容收进 process-body,间距即 6px,此处对齐过渡态)。
+   tool-timeline 裸行由 HistoryRenderer.css 的 -16px 通用规则处理,不在此列。 */
+.history-list > .process-section + .msg-bubble-assistant,
+.history-list > .process-section + .tool-card,
+.history-list > .msg-bubble-assistant + .msg-bubble-assistant,
+.history-list > .msg-bubble-assistant + .tool-card {
+  margin-top: -16px;
+}

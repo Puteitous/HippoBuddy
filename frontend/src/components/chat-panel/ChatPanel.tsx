@@ -55,6 +55,54 @@ import { PermissionBadge } from './PermissionBadge';
 import '../tool-renderers/tool-renderers.css';
 import './ChatPanel.css';
 
+/**
+ * 判断指定 user 消息之后是否已存在固化的 assistant/tool 消息(回合内容已固化)。
+ *
+ * 确认流(continueAfterConfirmation)决策后回合先由 complete 固化到 messages,
+ * confirmTool 的 SSE 再继续追加 thinking/文本且没有新 user 消息(roundKey 不变);
+ * 此时回合级摘要条已由 HistoryRenderer 渲染,tail 若再包 ProcessSection 会与
+ * 固化回合的 process-{roundKey} 重 key 并存(双摘要条)。
+ * 正常流式(新 user 消息)当前回合未固化,slice 后无 assistant/tool,返回 false。
+ */
+export function hasCommittedRoundContent(
+  messages: Message[],
+  lastUser: Message | undefined,
+): boolean {
+  if (!lastUser) return false;
+  const idx = messages.lastIndexOf(lastUser);
+  if (idx < 0) return false;
+  return messages.slice(idx + 1).some((m) => m.role === 'assistant' || m.role === 'tool');
+}
+
+/** 流式 tail 是否包 ProcessSection(回合级折叠容器)的判定。 */
+export interface ProcessWrapInput {
+  /** 本回合是否有思考过程(含流式进行中) */
+  hasThinking: boolean;
+  /** 本回合工具调用数量(流式期间 toolCalls 即整个回合的工具数) */
+  toolCount: number;
+  /** 流式缓冲长度(complete/done/abort 后为 0) */
+  streamLength: number;
+  /** 回合内容是否已固化(确认流场景) */
+  roundCommitted: boolean;
+}
+
+/**
+ * wrap 不依赖 rows 内容:thinking 追加新空段、该段尚无 reasoning/text 时也要保持
+ * 摘要条,否则工具调用后重新思考的瞬间摘要条短暂消失又出现(闪现)。但必须满足:
+ *  - streamLength > 0:complete(确认阶段)已清空 stream 并把回合固化到 messages,
+ *    tail 若仍因 toolCalls 保留待确认记录而 wrap,会与固化回合重 key 双摘要条;
+ *  - !roundCommitted:确认流(continueAfterConfirmation)期间回合已固化,摘要条
+ *    已由 HistoryRenderer 渲染,tail 裸渲染流式行,避免再次包出第二个摘要条。
+ */
+export function shouldWrapProcessSection({
+  hasThinking,
+  toolCount,
+  streamLength,
+  roundCommitted,
+}: ProcessWrapInput): boolean {
+  return (hasThinking || toolCount > 0) && streamLength > 0 && !roundCommitted;
+}
+
 export function ChatPanel() {
   const { t } = useI18n();
   const currentSessionId = useAppStore((s) => s.currentSessionId);
@@ -229,12 +277,6 @@ export function ChatPanel() {
     // 回合的工具数(无需再累加已固化到 messages 的部分)。done/complete 后 toolCalls
     // 仅保留待确认记录,由 HistoryRenderer 固化渲染接管,此处不再包空 ProcessSection。
     const toolCount = toolCalls.length;
-    // wrap 不依赖 rows.length:thinking 追加新空段、该段尚无 reasoning/text 时也要保持
-    // 摘要条,否则工具调用后重新思考的瞬间摘要条短暂消失又出现(闪现)。
-    // 但必须叠加 stream.length > 0:complete(确认阶段)已清空 stream 并把回合固化到
-    // messages,tail 若仍因 toolCalls 保留待确认记录而 wrap,会与固化回合的
-    // process-{roundKey} 重 key 并存,出现两个 process-summary(摘要条重复)。
-    const wrap = (hasThinking || toolCount > 0) && stream.length > 0;
     // 回合级稳定 key:取当前 user 消息 id(而非首行 key),使同一回合内多次 thinking
     // 不改变 ProcessSection key,避免 DOM 卸载重挂导致摘要条闪现。
     // 必须与 HistoryRenderer 固化侧一致用 serverId ?? id:user 消息乐观追加时 id 为
@@ -243,6 +285,16 @@ export function ChatPanel() {
     // 整回合被判定为新节点卸载重挂,重放进场动画(闪烁回归,由 4407e85 引入)。
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
     const roundKey = lastUser ? (lastUser.serverId ?? lastUser.id) : 'tail';
+    // 当前回合内容是否已固化到 messages(确认流场景 → true),判定逻辑见纯函数注释。
+    const roundCommitted = hasCommittedRoundContent(messages, lastUser);
+    // wrap 不依赖 rows.length(thinking 追加新空段时也要保持摘要条,避免闪现),
+    // 具体判定见 shouldWrapProcessSection。
+    const wrap = shouldWrapProcessSection({
+      hasThinking,
+      toolCount,
+      streamLength: stream.length,
+      roundCommitted,
+    });
     if (wrap) {
       // 处理过程总耗时:起点 = 思考/首个工具开始;终点 = 已定格结束时间,
       // 仍在运行(isSending / 思考中 / 工具 running)时取当前时间实时跳动。

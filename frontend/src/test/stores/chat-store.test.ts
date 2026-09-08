@@ -341,6 +341,55 @@ describe('chatStore', () => {
     expect(t).toMatchObject({ status: 'success', progress: ['out'], result: 'done' });
   });
 
+  it('routeSseEvent: 确认决策后的 tool_result 回写已固化工具消息(success/content)', () => {
+    const st = useChatStore.getState();
+    // 模拟确认阶段:thinking + tool_start → tool_confirmation → complete 固化回合
+    st.routeSseEvent('s1', { event: 'thinking', data: { turn: 1 } } as never);
+    st.routeSseEvent('s1', { event: 'tool_start', data: { id: 'bash-1', name: 'bash', args: '{}' } } as never);
+    st.routeSseEvent('s1', {
+      event: 'tool_confirmation',
+      data: { confirmId: 'c1', toolType: 'bash', title: '执行', risk: '中', reason: '', command: 'ls' },
+    } as never);
+    st.routeSseEvent('s1', { event: 'complete', data: {} } as never);
+    // 确认阶段固化:工具按「未完成」记为失败
+    const before = useChatStore.getState().sessionStreams.s1.messages.find(
+      (m) => m.role === 'tool' && m.toolName === 'bash',
+    );
+    expect(before).toBeTruthy();
+    expect(before!.success).toBe(false);
+    // 决策(执行)后确认流 tool_result(success=true) 回写该固化消息
+    st.routeSseEvent('s1', {
+      event: 'tool_result',
+      data: { id: 'bash-1', name: 'bash', success: true, result: 'done', args: '{}' },
+    } as never);
+    const after = useChatStore.getState().sessionStreams.s1.messages.find(
+      (m) => m.role === 'tool' && m.toolName === 'bash',
+    );
+    expect(after!.success).toBe(true);
+    expect(after!.content).toBe('done');
+    // toolCalls 同 id 记录同步更新为成功
+    expect(useChatStore.getState().sessionStreams.s1.toolCalls[0]).toMatchObject({
+      id: 'bash-1',
+      status: 'success',
+      result: 'done',
+    });
+  });
+
+  it('routeSseEvent: 正常流式 tool_result 不触碰未固化的 messages', () => {
+    const st = useChatStore.getState();
+    // 流式期间(尚未 done/complete)工具消息不在 messages 中
+    st.routeSseEvent('s1', { event: 'thinking', data: { turn: 1 } } as never);
+    st.routeSseEvent('s1', { event: 'tool_start', data: { id: 'bash-1', name: 'bash', args: '{}' } } as never);
+    st.routeSseEvent('s1', {
+      event: 'tool_result',
+      data: { id: 'bash-1', name: 'bash', success: true, result: 'ok', args: '{}' },
+    } as never);
+    const s = useChatStore.getState().sessionStreams.s1;
+    // messages 不受回写影响(无对应 tool 消息),toolCalls 正常更新
+    expect(s.messages.some((m) => m.role === 'tool')).toBe(false);
+    expect(s.toolCalls[0]).toMatchObject({ id: 'bash-1', status: 'success', result: 'ok' });
+  });
+
   it('routeSseEvent: error 事件写出错并停发送,且清理运行态', () => {
     useChatStore.getState().setIsSending(true);
     // 先用 thinking 事件设置 reasoning 态,确保 error 能正确清零

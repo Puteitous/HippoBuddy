@@ -19,7 +19,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { DiffLine, WordDiffMap, WordDiffToken } from '@/types';
 import { buildHunkSequence, HUNK_EXPAND_MAX_LINES } from '@/utils/diff-hunks';
-import { highlightDiffLines } from '@/utils/diff-highlight';
+import { detectHljsLanguage, highlightDiffLines, highlightWordToken } from '@/utils/diff-highlight';
 import { useI18n } from '@/i18n';
 import { showToast } from '@/utils/toastStore';
 import './FilePreviewDiff.css';
@@ -50,6 +50,9 @@ export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: F
     () => highlightDiffLines(lines, filePath ?? ''),
     [lines, filePath],
   );
+
+  // 词级(行内)路径叠加语法着色时使用的语言(按扩展名推断;无匹配时词级仅着色增删词色)
+  const hljsLang = useMemo(() => detectHljsLanguage(filePath ?? ''), [filePath]);
 
   const hunks = useMemo(
     () => displaySeq.filter((it) => it.type === 'hunk') as Array<Extract<(typeof displaySeq)[number], { type: 'hunk' }>>,
@@ -160,7 +163,7 @@ export function FilePreviewDiff({ lines, wordDiff, filePath, focusStartLine }: F
                 </td>
                 <td className="diff-content">
                   {(() => {
-                    const rendered = renderLineContent(item.idx, line, wordDiff, numMaps, highlightedLines);
+                    const rendered = renderLineContent(item.idx, line, wordDiff, numMaps, highlightedLines, hljsLang);
                     return rendered.kind === 'html' ? (
                       <pre className="diff-line" dangerouslySetInnerHTML={{ __html: rendered.value as string }} />
                     ) : (
@@ -243,13 +246,14 @@ function HunkRow({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-/** 渲染单行内容:词级 token → 语法高亮 HTML → 纯文本(优先级递减) */
+/** 渲染单行内容:词级 token(带语法着色)→ 语法高亮 HTML → 纯文本(优先级递减) */
 function renderLineContent(
   idx: number,
   line: DiffLine,
   wordDiff: WordDiffMap | undefined,
   numMaps: NumMaps,
   highlightedLines: string[] | null,
+  hljsLang: string | null,
 ): { kind: 'react' | 'html'; value: ReactNode } {
   if (wordDiff && (line.type === 'removed' || line.type === 'added')) {
     const lineNo =
@@ -259,7 +263,7 @@ function renderLineContent(
       const linesArr = line.type === 'removed' ? wordDiff.old : wordDiff.new;
       const tokens = linesArr && Array.isArray(linesArr) ? linesArr[lineNo - 1] : null;
       if (tokens && tokens.some((t) => (line.type === 'removed' ? t.type === 'delete' : t.type === 'insert'))) {
-        return { kind: 'react', value: renderWordTokens(tokens, line.type) };
+        return { kind: 'html', value: renderWordTokensHtml(tokens, line.type, hljsLang) };
       }
     }
   }
@@ -271,27 +275,28 @@ function renderLineContent(
 }
 
 /**
- * 词级 token 渲染:removed 行 delete 词包 <del>,added 行 insert 词包 <ins>,
- * 其余原样输出(React 自动转义,无 XSS 风险)。
+ * 词级(行内)diff 渲染 + 语法着色叠加:
+ * 每个 token 独立交给 hljs 着色(hljsLang 为空时回退纯文本转义),removed 行
+ * delete 词包 <del>、added 行 insert 词包 <ins>,其余词直接输出来着色 HTML。
+ * 所有输出均由 hljs/转义保证安全,可注入 dangerouslySetInnerHTML。
  */
-function renderWordTokens(tokens: WordDiffToken[], lineType: 'removed' | 'added'): ReactNode {
-  return tokens.map((t, i) => {
-    if (lineType === 'removed' && t.type === 'delete') {
-      return (
-        <del key={i} className="diff-word-del">
-          {t.value}
-        </del>
-      );
-    }
-    if (lineType === 'added' && t.type === 'insert') {
-      return (
-        <ins key={i} className="diff-word-ins">
-          {t.value}
-        </ins>
-      );
-    }
-    return <span key={i}>{t.value}</span>;
-  });
+function renderWordTokensHtml(
+  tokens: WordDiffToken[],
+  lineType: 'removed' | 'added',
+  hljsLang: string | null,
+): string {
+  return tokens
+    .map((t) => {
+      const inner = highlightWordToken(t.value, hljsLang);
+      if (lineType === 'removed' && t.type === 'delete') {
+        return `<del class="diff-word-del">${inner}</del>`;
+      }
+      if (lineType === 'added' && t.type === 'insert') {
+        return `<ins class="diff-word-ins">${inner}</ins>`;
+      }
+      return inner;
+    })
+    .join('');
 }
 
 /** 行号映射表 */

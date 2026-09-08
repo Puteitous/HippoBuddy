@@ -3,6 +3,7 @@ import {
   detectHljsLanguage,
   splitHighlightedLines,
   highlightDiffLines,
+  highlightWordToken,
 } from '@/utils/diff-highlight';
 
 describe('detectHljsLanguage', () => {
@@ -101,5 +102,38 @@ describe('highlightDiffLines', () => {
     const lines = highlightDiffLines(changes, 'a.ts');
     expect(lines).not.toBeNull();
     expect(lines!.length).toBe(2);
+  });
+});
+
+describe('highlightWordToken', () => {
+  it('空 token 值返回空字符串', () => {
+    expect(highlightWordToken('', 'typescript')).toBe('');
+  });
+
+  it('有可用语言时返回带 hljs 类的着色 HTML', () => {
+    const out = highlightWordToken('const', 'typescript');
+    expect(out).toContain('hljs-keyword');
+    expect(out).toContain('>const</span>');
+  });
+
+  it('无语言时回退纯文本(不经 hljs 处理)', () => {
+    expect(highlightWordToken('const', null)).toBe('const');
+    // 未知扩展名 → detectHljsLanguage 返回 null → 同回退
+    expect(highlightWordToken('const', detectHljsLanguage('a.unknownext'))).toBe('const');
+  });
+
+  it('有语言时特殊字符仍被转义(无 XSS)', () => {
+    const out = highlightWordToken('<script>alert(1)</script>', 'javascript');
+    expect(out).not.toContain('<script>');
+    expect(out).toContain('&lt;script&gt;');
+  });
+
+  it('无语言时特殊字符被转义(无 XSS)', () => {
+    const out = highlightWordToken('<>&"', null);
+    expect(out).toBe('&lt;&gt;&amp;&quot;');
+  });
+
+  it('非可用语言名回退纯文本', () => {
+    expect(highlightWordToken('x', 'no_such_lang')).toBe('x');
   });
 });
