@@ -30,6 +30,8 @@ interface MessageBubbleProps {
   isReasoning?: boolean;
   /** 可选:挂载到根元素的 data-message-id,供 ChatNav 定位用 */
   dataMessageId?: string;
+  /** 附加到 user 消息 footer 操作行的额外节点(如消息级撤回按钮) */
+  footerExtra?: ReactNode;
   /** 附加到 assistant 根元素的额外 class(如回合最终正文标记 round-final-text) */
   className?: string;
 }
@@ -44,6 +46,7 @@ function MessageBubbleComponent({
   isReasoning = false,
   dataMessageId,
   className,
+  footerExtra,
 }: MessageBubbleProps) {
   const { t } = useI18n();
   const [showReasoning, setShowReasoning] = useState(false);
@@ -78,6 +81,7 @@ function MessageBubbleComponent({
         <MessageFooter
           time={formatMsgTime(message.timestamp)}
           onCopy={() => copyText(extractText(message.content))}
+          extra={footerExtra}
         />
       </div>
     );
@@ -536,6 +540,8 @@ function formatMsgTime(timestamp?: number): string {
 interface MessageFooterProps {
   /** 可选时间文本(旧版仅 user 消息显示) */
   time?: string;
+  /** 额外操作节点(插入操作行最前,如 user 消息撤回按钮) */
+  extra?: ReactNode;
   /** 复制回调(由调用方决定复制内容) */
   onCopy: () => void;
   /** 重试回调(assistant,可选;对齐旧版 retryBtn) */
@@ -549,7 +555,7 @@ interface MessageFooterProps {
 }
 
 /** 消息底部操作条:时间 + 操作按钮(复制/重试/回滚/分叉/文件产物),对齐旧版交互 */
-export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }: MessageFooterProps) {
+export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files, extra }: MessageFooterProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
@@ -562,6 +568,7 @@ export function MessageFooter({ time, onCopy, onRetry, onFork, rollback, files }
   return (
     <div className="message-footer">
       <div className="message-actions">
+        {extra}
         {onRetry && (
           <button
             type="button"

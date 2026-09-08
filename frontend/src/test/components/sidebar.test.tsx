@@ -8,14 +8,16 @@ const { sessionApi, workspaceApi, toast, chatStore, previewStore } = vi.hoisted(
   sessionApi: { rename: vi.fn(), delete: vi.fn(), pin: vi.fn() },
   workspaceApi: { getCurrent: vi.fn(), setCurrent: vi.fn() },
   toast: { showToast: vi.fn() },
-  chatStore: { sessionStreams: {} as Record<string, { isSending?: boolean; completedUnread?: boolean; stream: unknown[]; toolCalls: unknown[] }>, dismissSessionCompleted: vi.fn() },
+  chatStore: { sessionStreams: {} as Record<string, { isSending?: boolean; completedUnread?: boolean; stream: unknown[]; toolCalls: unknown[] }>, dismissSessionCompleted: vi.fn(), removeSessionData: vi.fn() },
   previewStore: { openFile: vi.fn(), activePath: null as string | null },
 }));
 
 vi.mock('@/api/client', () => ({ sessionApi, workspaceApi }));
 vi.mock('@/utils/toastStore', () => ({ showToast: toast.showToast }));
 vi.mock('@/stores/chatStore', () => ({
-  useChatStore: (sel: (s: unknown) => unknown) => sel(chatStore),
+  useChatStore: Object.assign((sel: (s: unknown) => unknown) => sel(chatStore), {
+    getState: () => chatStore,
+  }),
 }));
 vi.mock('@/stores/previewStore', () => ({
   usePreviewStore: (sel: (s: unknown) => unknown) => sel(previewStore),

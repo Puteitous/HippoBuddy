@@ -105,6 +105,42 @@ function RoundRollback({ targetId, roundText, onRetry, onFork, files }: RoundRol
   );
 }
 
+/**
+ * 消息级撤回(user 消息):当该消息为会话最后一条且其后无任何产出时,
+ * 在 user footer 提供撤回按钮,复用回滚状态机(rewind 截断 → 回填输入框)。
+ * 与回合级回滚互斥触发:有产出的回合走回合级回滚,本组件仅覆盖无产出的缺口场景。
+ */
+function WithdrawableUserMessage({
+  message,
+  dataMessageId,
+}: {
+  message: Message;
+  dataMessageId?: string;
+}): ReactNode {
+  const targetId = message.serverId ?? message.id;
+  const { status, previewFiles, currentSessionId, handleOpen, handleCancel, handleConfirm } =
+    useRollback(targetId);
+  return (
+    <>
+      <MessageBubble
+        message={message}
+        dataMessageId={dataMessageId}
+        footerExtra={
+          <RollbackButton status={status} disabled={!currentSessionId} onOpen={handleOpen} />
+        }
+      />
+      {status !== 'idle' && (
+        <RollbackPanel
+          status={status}
+          previewFiles={previewFiles}
+          onCancel={handleCancel}
+          onConfirm={handleConfirm}
+        />
+      )}
+    </>
+  );
+}
+
 export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps) {
   // 当前会话的流式分区(权威数据源;含 messages/isLoadingMessages/error/isSending 等)
   const {
@@ -384,6 +420,22 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
       roundUserContent = null;
     };
 
+    // ── 消息级撤回范围:仅当「最后一条 user 消息」且「其后的消息无任何有效产出」时,
+    //    才允许该消息撤回。有效产出 = 正文文本 / 工具调用(thinking 属过程不算产出)。
+    //    正常已有回复的回合由回合级回滚接管,不显示消息级撤回,避免两类回撤按钮重复。
+    const lastUser = [...messages].reverse().find((mm) => mm.role === 'user');
+    const lastUserTailProduced = (() => {
+      if (!lastUser) return false;
+      const idx = messages.lastIndexOf(lastUser);
+      if (idx < 0) return false;
+      return messages.slice(idx + 1).some(
+        (mm) =>
+          mm.role === 'tool' ||
+          (mm.role === 'assistant' &&
+            (extractText(mm.content).trim().length > 0 || (mm.tool_calls?.length ?? 0) > 0)),
+      );
+    })();
+
     for (const m of messages) {
       if (m.role === 'user') {
         // 上一条 user 之后的回合结束。
@@ -397,7 +449,15 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
         // 必须用后端真实 uuid(serverId)才能在后端 JSONL 定位,故优先取 serverId。
         roundUserId = m.serverId ?? m.id;
         roundUserContent = extractText(m.content);
-        rows.push(<MessageBubble key={m.id} message={m} dataMessageId={m.id} />);
+        // 仅当非发送中(isSending)且该消息为最后一条 user 且其后无产出时,显示消息级撤回按钮
+        const withdrawable = !isSending && m === lastUser && !lastUserTailProduced;
+        rows.push(
+          withdrawable ? (
+            <WithdrawableUserMessage key={m.id} message={m} dataMessageId={m.id} />
+          ) : (
+            <MessageBubble key={m.id} message={m} dataMessageId={m.id} />
+          ),
+        );
         continue;
       }
       if (m.role === 'assistant') {

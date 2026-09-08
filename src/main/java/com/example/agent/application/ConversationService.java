@@ -1,6 +1,7 @@
 package com.example.agent.application;
 
 import com.example.agent.config.Config;
+import com.example.agent.config.LlmConfig;
 import com.example.agent.config.MemoryConfig;
 import com.example.agent.context.BudgetWarningInjector;
 import com.example.agent.context.ContextWindow;
@@ -12,6 +13,7 @@ import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.truncation.TruncationService;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
+import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.Usage;
 import com.example.agent.memory.MemoryRetriever;
 import com.example.agent.memory.MemoryStore;
@@ -541,7 +543,90 @@ public class ConversationService {
             effectiveMessages = components.memoryRetriever.prepareContextHeader(effectiveMessages);
         }
         
+        // 投递前统一清洗：协议无关地去除「残缺工具调用」，避免带 tool_calls 但无结果的
+        // assistant 在下一轮结构非法触发 400（此前 cleanupInterruptedToolCalls 未接线）。
+        sanitizeInterruptedToolCalls(effectiveMessages);
+        
         return effectiveMessages;
+    }
+
+    /**
+     * 投递前清洗（协议无关）：
+     * <pre>
+     * 1. 去残缺工具：若最后一条 assistant 携带 tool_calls、但紧随其后无任何 tool 结果
+     *    （工具未被实际执行/被中断），则清除 tool_calls 并改写为正文说明。
+     *    这是从根上规避「带 tool_calls 却无结果 → 后续轮结构非法」的通用兜底。
+     * 2. 补 reasoning：若当前模型走 OpenAI 兼容系（thinking 模式下带 tool_calls 的
+     *    assistant 必须回传 reasoning_content，否则 DeepSeek 返回 400），对这类
+     *    assistant 缺失的 reasoning_content 回填占位。
+     * 仅就地修正待投递的 List；不对持久化 transcript/占用 token 计费做任何改动。
+     * </pre>
+     */
+    private void sanitizeInterruptedToolCalls(List<Message> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
+
+        List<Message> mutable = messages instanceof java.util.ArrayList
+                ? messages : new java.util.ArrayList<>(messages);
+
+        // ── 第 1 层：去残缺工具（协议无关） ──
+        int last = mutable.size() - 1;
+        Message lastMsg = mutable.get(last);
+        boolean needsReasoning = needsPortedReasoning();
+        if (lastMsg.isAssistant() && lastMsg.getToolCalls() != null && !lastMsg.getToolCalls().isEmpty()) {
+            boolean hasToolResult = false;
+            for (int i = last - 1; i >= Math.max(0, last - 5); i--) {
+                if (mutable.get(i).isTool()) {
+                    hasToolResult = true;
+                    break;
+                }
+            }
+            if (!hasToolResult) {
+                StringBuilder fix = new StringBuilder();
+                String existingContent = lastMsg.getContent() != null ? lastMsg.getContent() : "";
+                if (!existingContent.isEmpty()) {
+                    fix.append(existingContent).append("\n\n");
+                }
+                fix.append("[会话中断] 检测到未完成的工具调用：");
+                for (ToolCall call : lastMsg.getToolCalls()) {
+                    fix.append("\n  - 待执行的操作: ").append(call.getFunction().getName());
+                }
+                lastMsg.setContent(fix.toString());
+                lastMsg.setToolCalls(null);
+                // 已无工具、转成普通正文，同步清掉思考痕迹，避免后续轮携带无效 reasoning
+                lastMsg.setReasoningContent(null);
+            }
+        }
+
+        // ── 第 2 层：OpenAI 兼容系需回传 reasoning_content（协议分支） ──
+        if (needsReasoning) {
+            for (Message msg : mutable) {
+                if (msg.isAssistant()
+                        && msg.getToolCalls() != null
+                        && !msg.getToolCalls().isEmpty()
+                        && (msg.getReasoningContent() == null || msg.getReasoningContent().isBlank())) {
+                    msg.setReasoningContent("(思考过程未完整记录)");
+                }
+            }
+        }
+    }
+
+    /**
+     * 是否需要对「带 tool_calls 的 assistant 缺失 reasoning_content」补占位。
+     * 仅 OpenAI 兼容系（thinking 模式回传 reasoning_content）需要；provider 取当前配置：
+     *  - deepseek / openai 兼容系 → true
+     *  - anthropic / responses（Anthropic 格式、Responses 格式）→ false
+     */
+    private boolean needsPortedReasoning() {
+        LlmConfig llm = Config.getInstance().getLlm();
+        String provider = llm != null ? llm.getProvider() : null;
+        if (provider == null || provider.isBlank()) {
+            return false;
+        }
+        String p = provider.toLowerCase();
+        return p.contains("deepseek") || p.equals("openai")
+                || p.equals("openai-compat") || p.equals("openai-compatible");
     }
 
     public List<Message> getMessagesForUI(Conversation conversation) {

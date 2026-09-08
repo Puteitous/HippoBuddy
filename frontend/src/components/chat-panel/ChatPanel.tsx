@@ -226,12 +226,15 @@ export function ChatPanel() {
     const hasThinking =
       isReasoning || stream.some((a) => a.kind === 'assistant' && !!a.reasoning);
     // 工具数为回合级累计:thinking 不再中途清空 toolCalls,流式期间 toolCalls 即整个
-    // 回合的工具数(无需再累加已固化到 messages 的部分)。done 后 toolCalls 清空
-    // (仅留待确认),wrap 随之失效,避免 stream 清空后仍因已固化工具数渲染出空 ProcessSection。
+    // 回合的工具数(无需再累加已固化到 messages 的部分)。done/complete 后 toolCalls
+    // 仅保留待确认记录,由 HistoryRenderer 固化渲染接管,此处不再包空 ProcessSection。
     const toolCount = toolCalls.length;
     // wrap 不依赖 rows.length:thinking 追加新空段、该段尚无 reasoning/text 时也要保持
     // 摘要条,否则工具调用后重新思考的瞬间摘要条短暂消失又出现(闪现)。
-    const wrap = hasThinking || toolCount > 0;
+    // 但必须叠加 stream.length > 0:complete(确认阶段)已清空 stream 并把回合固化到
+    // messages,tail 若仍因 toolCalls 保留待确认记录而 wrap,会与固化回合的
+    // process-{roundKey} 重 key 并存,出现两个 process-summary(摘要条重复)。
+    const wrap = (hasThinking || toolCount > 0) && stream.length > 0;
     // 回合级稳定 key:取当前 user 消息 id(而非首行 key),使同一回合内多次 thinking
     // 不改变 ProcessSection key,避免 DOM 卸载重挂导致摘要条闪现。
     // 必须与 HistoryRenderer 固化侧一致用 serverId ?? id:user 消息乐观追加时 id 为

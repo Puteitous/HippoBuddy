@@ -982,6 +982,22 @@ export const useChatStore = create<ChatState>((set, get) => {
             );
             // 处理过程结束时间随最后一个工具结果更新(时间只前进)
             s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
+            // 已固化的待确认工具(确认阶段 complete 固化时按"未完成"记为失败)在决策后
+            // 收到最终 tool_result,回写 success/content,避免未刷新会话中确认执行成功的
+            // bash/delete_file 一直显示失败(刷新后走后端历史则无此问题)。
+            // 正常流式路径工具消息尚未固化(messages 中无对应记录),findIndex 为 -1 不命中。
+            const msgIdx = s.messages.findIndex(
+              (m) => m.role === 'tool' && (m.id === payload.id || m.toolCallId === payload.id),
+            );
+            if (msgIdx !== -1) {
+              const next = [...s.messages];
+              next[msgIdx] = {
+                ...next[msgIdx],
+                content: payload.result ?? payload.error ?? '',
+                success: payload.success,
+              };
+              s.messages = next;
+            }
           });
           // AI 写/编辑/删除文件后,通知预览面板重载命中文件
           emitFilePreviewReload(payload);
