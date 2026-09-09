@@ -17,6 +17,7 @@ import com.example.agent.web.handler.RulesApiHandler;
 import com.example.agent.web.handler.SessionApiHandler;
 import com.example.agent.web.handler.SkillsApiHandler;
 import com.example.agent.web.handler.StaticFileHandler;
+import com.example.agent.web.handler.SuggestionsApiHandler;
 import com.example.agent.web.handler.SystemPromptApiHandler;
 import com.example.agent.web.handler.ToolAbortHandler;
 import com.example.agent.web.handler.ToolConfirmHandler;
@@ -105,6 +106,7 @@ public class DashboardServer {
             server.createContext("/api/config", new ConfigApiHandler());
             server.createContext("/api/settings/data-dir", new DataDirApiHandler());
             server.createContext("/api/workspace", new WorkspaceApiHandler());
+            server.createContext("/api/suggestions", new SuggestionsApiHandler());
             server.createContext("/app", new StaticFileHandler("/static"));
             // 根路径默认指向 React 新前端(v2)
             server.createContext("/", new StaticFileHandler("/static"));

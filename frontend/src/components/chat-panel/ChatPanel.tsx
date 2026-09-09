@@ -622,6 +622,30 @@ export function ChatPanel() {
     [currentSessionId, setCurrentSession, setSessions],
   );
 
+  // ── 推荐问答回调 ─────────────────────────────────────────
+  // 点击推荐问题主体 → 直接发送(与 handleRetry 同路径,不经输入框)
+  const handleSendQuestion = useCallback(
+    (q: string) => {
+      if (!q.trim() || isStreamSending) return;
+      stickToBottomRef.current = true;
+      clearWarnings();
+      void send(q);
+    },
+    [send, isStreamSending, clearWarnings],
+  );
+
+  // 点击推荐问题右侧按钮 → 填入输入框（覆盖当前内容，可编辑后再发送）。
+  // 不清除推荐卡片，方便用户连续把多个推荐填入输入框对比选择。
+  const handleFillInput = useCallback(
+    (q: string) => {
+      const input = inlineInputRef.current;
+      if (!input) return;
+      input.setContent(q);
+      requestAnimationFrame(() => input.focus());
+    },
+    [],
+  );
+
   // ── 回滚事件订阅(阶段 3.7-2) ───────────────────────────
   // rollback:prepare → 中断当前生成;rollback:restoreInput → 回填输入框
   useEffect(() => {
@@ -745,6 +769,8 @@ export function ChatPanel() {
             <HistoryRenderer
               onRetry={handleRetry}
               onFork={handleFork}
+              onSendQuestion={handleSendQuestion}
+              onFillInput={handleFillInput}
               // tail 不依赖 isStreamSending:确认阶段(tool_confirmation 后 complete 置
               // isSending=false)stream 尚未固化,若切断 tail 会导致已输出的思考/工具
               // 从屏幕消失只剩确认卡。改为仅看是否有流式内容;done/ask/abort 都会清空

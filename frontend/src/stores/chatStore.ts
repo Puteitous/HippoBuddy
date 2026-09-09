@@ -191,6 +191,13 @@ export interface SessionStreamState {
   processStartedAt?: number;
   /** 当前回合处理过程结束时间(最后一个 tool_result / reasoning_done / done) */
   processEndedAt?: number;
+  /**
+   * 推荐问题(回合 done 后异步生成,见 /api/suggestions)。
+   * 空数组表示无推荐或已被用户消费;新回合开始时重置。
+   */
+  suggestions: string[];
+  /** 推荐问题是否正在异步加载(加载中渲染占位) */
+  suggestionsLoading: boolean;
 }
 
 function emptySessionStream(): SessionStreamState {
@@ -216,6 +223,8 @@ function emptySessionStream(): SessionStreamState {
     collapsedRounds: {},
     processStartedAt: undefined,
     processEndedAt: undefined,
+    suggestions: [],
+    suggestionsLoading: false,
   };
 }
 
@@ -256,6 +265,8 @@ interface ChatState {
   setSessionIsSending: (sessionId: string, isSending: boolean) => void;
   /** 切换当前会话指定回合处理过程(思考+工具)的收起状态(回合级独立收起) */
   toggleRoundCollapsed: (roundKey: string) => void;
+  /** 清除当前会话的推荐问题（用户点击「填入输入框」等消费行为后调用） */
+  clearSuggestions: () => void;
 
   // ── Actions:会话分区管理 ──────────────────────────────────
   /** 删除指定会话的流式分区(切走无活跃流时清理,释放内存) */
@@ -364,6 +375,29 @@ export const useChatStore = create<ChatState>((set, get) => {
     });
   }
 
+  /**
+   * 回合结束后异步拉取推荐问题(POST /api/suggestions)。
+   * 不阻塞 SSE 流;失败静默(保持空列表,前端不渲染);
+   * 新回合开始(loading 被重置为 false)或分区被清理时丢弃过期结果。
+   */
+  async function fetchSuggestions(sid: string): Promise<void> {
+    try {
+      const res = await chatApi.getSuggestions(sid);
+      const sess = get().sessionStreams[sid];
+      if (!sess || !sess.suggestionsLoading) return;
+      updateSession(sid, (s) => {
+        s.suggestions = res.questions ?? [];
+        s.suggestionsLoading = false;
+      });
+    } catch {
+      const sess = get().sessionStreams[sid];
+      if (!sess || !sess.suggestionsLoading) return;
+      updateSession(sid, (s) => {
+        s.suggestionsLoading = false;
+      });
+    }
+  }
+
   return {
     sessionStreams: {},
     messageCache: loadMessageCache(),
@@ -430,6 +464,14 @@ export const useChatStore = create<ChatState>((set, get) => {
         // 未记录过则按默认值得出初始态后翻转,保证只翻转目标回合
         const cur = s.collapsedRounds[roundKey] ?? getDefaultProcessCollapsed();
         s.collapsedRounds = { ...s.collapsedRounds, [roundKey]: !cur };
+      });
+    },
+    clearSuggestions: () => {
+      const sid = sidOf();
+      if (!sid) return;
+      updateSession(sid, (s) => {
+        s.suggestions = [];
+        s.suggestionsLoading = false;
       });
     },
 
@@ -704,6 +746,9 @@ export const useChatStore = create<ChatState>((set, get) => {
         // 新请求开始,重置处理过程计时(thinking/tool_start 事件会重新写入)
         s.processStartedAt = undefined;
         s.processEndedAt = undefined;
+        // 新回合开始,清除上一回合的推荐问题(异步拉取结果也随即作废)
+        s.suggestions = [];
+        s.suggestionsLoading = false;
         // 预分配唯一回合序号:保证某些没有任何 thinking 事件(仅 content)的请求,
         // appendStreamingContent 创建 assistant 段时 currentTurn 也已全局唯一。
         s.maxTurn = s.maxTurn + 1;
@@ -1114,7 +1159,11 @@ export const useChatStore = create<ChatState>((set, get) => {
             s.isReasoning = false;
             // 回合结束,处理过程计时定格
             s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
+            // 回合正常结束 → 异步生成推荐问题(先结束回合、推荐稍后加载出现)
+            s.suggestionsLoading = true;
           });
+          // 异步拉取推荐问题:不阻塞 SSE 流,失败静默;新回合开始后结果作废
+          void fetchSuggestions(sid);
           break;
         }
         case 'complete': {

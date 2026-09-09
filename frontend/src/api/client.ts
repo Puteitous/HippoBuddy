@@ -21,6 +21,7 @@ import type {
   Session,
   SessionStatus,
   SessionTokenStats,
+  SuggestionsResponse,
   ToolAbortRequest,
   ToolConfirmRequest,
   UpdateLlmConfigRequest,
@@ -166,6 +167,10 @@ export const chatApi = {
   /** POST /api/tool/abort - 中止当前会话的 Agent 循环 */
   abortTool: (request: ToolAbortRequest) =>
     postJson<{ success: boolean; message: string }>(`${API_BASE}/tool/abort`, request),
+
+  /** POST /api/suggestions - 基于会话最近历史生成推荐问题(回合结束后异步调用) */
+  getSuggestions: (sessionId: string) =>
+    postJson<SuggestionsResponse>(`${API_BASE}/suggestions`, { sessionId }),
 };
 
 // ============================================================================

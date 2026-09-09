@@ -541,3 +541,13 @@ export interface ForkResponse {
   messageCount: number;
 }
 
+// ============================================================================
+// 推荐问答 (对应后端 SuggestionsApiHandler)
+// ============================================================================
+
+/** POST /api/suggestions 响应 - 基于会话最近历史生成的可点击后续问题 */
+export interface SuggestionsResponse {
+  /** 推荐问题列表(生成失败时为空数组) */
+  questions: string[];
+}
+

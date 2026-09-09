@@ -27,6 +27,7 @@ import {
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import { AskUserCard } from '../tool-renderers/AskUserCard';
+import { SuggestedQuestions } from './SuggestedQuestions';
 import {
   fromToolMessage,
   TIMELINE_STANDALONE_TOOLS,
@@ -44,6 +45,10 @@ interface HistoryRendererProps {
   onRetry?: (content: string) => void;
   /** 分叉:从指定用户消息 id 分叉新会话(对齐旧版 forkBtn) */
   onFork?: (messageId: string) => void;
+  /** 推荐问题:点击问题主体 → 直接发送 */
+  onSendQuestion?: (q: string) => void;
+  /** 推荐问题:点击右侧按钮 → 填入输入框 */
+  onFillInput?: (q: string) => void;
   /**
    * 实时流式 rows(尚未固化到 messages 的内容)。
    * 与历史 rows 渲染在同一 `.history-list` 容器、同一 key 体系,
@@ -141,7 +146,7 @@ function WithdrawableUserMessage({
   );
 }
 
-export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps) {
+export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, tail }: HistoryRendererProps) {
   // 当前会话的流式分区(权威数据源;含 messages/isLoadingMessages/error/isSending 等)
   const {
     messages,
@@ -152,6 +157,8 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
     askUserData,
     waitingForUser,
     collapsedRounds,
+    suggestions,
+    suggestionsLoading,
   } = useSessionStream();
   const toggleRoundCollapsed = useChatStore((s) => s.toggleRoundCollapsed);
   // 是否有工具正在等待确认(带 confirmationData)。确认阶段后端会发 complete 把
@@ -190,6 +197,18 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
   const liveAsk =
     askUserData && waitingForUser ? <AskUserCard key="ask-user-live" /> : null;
   const baseRows = tail ? [...listRows, ...tail] : listRows;
+  // 推荐问答:回合 done 后异步生成,渲染在历史/流式/ask 卡之后。
+  // 新回合开始(isSending=true)或推荐被消费后(suggestions 清空)自动隐藏。
+  const suggestedBlock =
+    !isSending && (suggestionsLoading || suggestions.length > 0) ? (
+      <SuggestedQuestions
+        key="suggested-questions"
+        questions={suggestions}
+        loading={suggestionsLoading}
+        onSend={onSendQuestion ?? noop}
+        onFillInput={onFillInput ?? noop}
+      />
+    ) : null;
   return (
     <div className="history-list">
       {/* 关键:必须把流式 tail 并进同一个 rows 数组(单一子数组)渲染。
@@ -197,7 +216,7 @@ export function HistoryRenderer({ onRetry, onFork, tail }: HistoryRendererProps)
           tail 与 renderMessageRows 各自独立做 diff——done 固化时
           s-{turn}-{idx} 从 tail 数组移入 rows 数组,React 视为"移除旧节点+
           追加新节点"而重新挂载,进入动画重放的根因即在此。 */}
-      {liveAsk ? [...baseRows, liveAsk] : baseRows}
+      {liveAsk ? [...baseRows, liveAsk, suggestedBlock] : [...baseRows, suggestedBlock]}
     </div>
   );
 
@@ -500,6 +519,9 @@ function extractText(content: string | ContentPart[]): string {
     .map((p) => p.text ?? '')
     .join('\n');
 }
+
+/** 空操作回调(推荐卡片未传处理函数时兜底) */
+const noop = () => {};
 
 /** 回合内多文件列表去重(同一文件保留最后一次,对齐旧版 seen Map) */
 function dedupeFiles(files: MessageFileProduct[]): MessageFileProduct[] {

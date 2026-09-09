@@ -1,0 +1,112 @@
+/* SuggestedQuestions 推荐问答卡片样式 */
+
+.suggested-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 对齐 assistant 气泡文本起始位置(气泡 padding-left 14px) */
+  margin-left: 14px;
+  margin-top: 2px;
+  max-width: 85%;
+}
+
+.suggested-questions-header {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* ── 加载占位:三点省略号呼吸动画 ── */
+.suggested-questions-loading {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+}
+
+.suggested-questions-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.suggested-questions-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: suggested-dots-pulse 1.2s ease-in-out infinite;
+}
+
+.suggested-questions-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.suggested-questions-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes suggested-dots-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ── 问题卡片列表 ── */
+.suggested-questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggested-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.suggested-question:hover {
+  background: var(--bg-active);
+  border-color: var(--text-muted);
+}
+
+.suggested-question-text {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ── 右侧「填入输入框」按钮 ── */
+.suggested-question-fill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.suggested-question-fill:hover {
+  background: var(--bg-app);
+  color: var(--active-project);
+}
