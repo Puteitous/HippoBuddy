@@ -161,6 +161,7 @@ export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, 
     suggestionsLoading,
   } = useSessionStream();
   const toggleRoundCollapsed = useChatStore((s) => s.toggleRoundCollapsed);
+  const reloadSuggestions = useChatStore((s) => s.reloadSuggestions);
   // 是否有工具正在等待确认(带 confirmationData)。确认阶段后端会发 complete 把
   // isSending 提前置 false(见 WebAgentOrchestrator 确认后 return false → finally 发
   // complete),但对话并未结束;若不额外兜底,旧回合 footer 会在确认期间浮现。
@@ -207,6 +208,7 @@ export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, 
         loading={suggestionsLoading}
         onSend={onSendQuestion ?? noop}
         onFillInput={onFillInput ?? noop}
+        onReload={reloadSuggestions}
       />
     ) : null;
   return (

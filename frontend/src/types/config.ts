@@ -90,6 +90,8 @@ export interface UiConfigSection {
   show_token_usage: boolean;
   show_timestamp: boolean;
   color_output: boolean;
+  /** 推荐问答开关:回合结束后是否用 LLM 生成推荐问题 */
+  suggestions_enabled?: boolean;
   /** 回合默认展示模式:full=完整展示处理过程;result=只展示最终结果(默认收起) */
   default_process_view: string;
 }

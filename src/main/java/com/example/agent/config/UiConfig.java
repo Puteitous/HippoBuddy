@@ -41,6 +41,13 @@ public class UiConfig {
     @JsonProperty("color_output")
     private boolean colorOutput = true;
 
+    /**
+     * 推荐问答开关:回合结束后是否用 LLM 生成推荐问题。
+     * 关闭后 POST /api/suggestions 直接返回空列表,不产生额外 LLM 调用。
+     */
+    @JsonProperty("suggestions_enabled")
+    private boolean suggestionsEnabled = true;
+
     public UiConfig() {
     }
 
@@ -108,6 +115,14 @@ public class UiConfig {
         this.colorOutput = colorOutput;
     }
 
+    public boolean isSuggestionsEnabled() {
+        return suggestionsEnabled;
+    }
+
+    public void setSuggestionsEnabled(boolean suggestionsEnabled) {
+        this.suggestionsEnabled = suggestionsEnabled;
+    }
+
     @Override
     public String toString() {
         return "UiConfig{" +
@@ -118,6 +133,7 @@ public class UiConfig {
                 ", showTokenUsage=" + showTokenUsage +
                 ", showTimestamp=" + showTimestamp +
                 ", colorOutput=" + colorOutput +
+                ", suggestionsEnabled=" + suggestionsEnabled +
                 '}';
     }
 }

@@ -103,6 +103,7 @@ export function GeneralSettingsPage() {
   const setPanelLayout = useAppStore((s) => s.setPanelLayout);
   const { t, lang } = useI18n();
   const checkForUpdates = useUpdateStore((s) => s.checkForUpdates);
+  const updateStatus = useUpdateStore((s) => s.status);
   const [workspacePath, setWorkspacePath] = useState('');
   const [dataDir, setDataDir] = useState('');
   const [dataDirRestartMsg, setDataDirRestartMsg] = useState(false);
@@ -112,6 +113,8 @@ export function GeneralSettingsPage() {
   const [processView, setProcessView] = useState<'full' | 'result'>('full');
   /** 权限范围:strict=仅工作区;relaxed=放开整机访问 */
   const [scopeMode, setScopeMode] = useState<'strict' | 'relaxed'>('strict');
+  /** 推荐问答开关:回合结束后是否用 LLM 生成推荐问题 */
+  const [suggestionsEnabled, setSuggestionsEnabled] = useState(true);
   /** 自定义背景(类型 + 值) */
   const background = useBackgroundStore((s) => s.background);
   const setBackground = useBackgroundStore((s) => s.setBackground);
@@ -152,6 +155,7 @@ export function GeneralSettingsPage() {
           setProcessView(v);
           setDefaultProcessView(v);
           setScopeMode(cfg.value.tools?.mode === 'relaxed' ? 'relaxed' : 'strict');
+          setSuggestionsEnabled(cfg.value.ui?.suggestions_enabled !== false);
         }
       } catch (e) {
         if (cancelled) return;
@@ -213,6 +217,32 @@ export function GeneralSettingsPage() {
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
       showToast(translate('settingsPage.generalScopeSaveFailed') + msg, { type: 'error', duration: 3000 });
+    }
+  };
+
+  /** 保存推荐问答开关:读取当前 ui 再合并,避免覆盖其他 ui 配置 */
+  const handleSuggestionsToggle = async (enabled: boolean) => {
+    if (enabled === suggestionsEnabled) return;
+    setSuggestionsEnabled(enabled);
+    try {
+      const config = await configApi.getFull();
+      const ui: UiConfigSection = {
+        ...((config.ui ?? {}) as UiConfigSection),
+        suggestions_enabled: enabled,
+      };
+      await configApi.updateFull({ ui });
+      // 同步内存值,使 chatStore 在 done 后立即感知开关(避免关闭后仍置 loading 闪一下)
+      useAppStore.getState().setSuggestionsEnabled(enabled);
+      showToast(
+        enabled
+          ? translate('settingsPage.generalSuggestionsEnabled')
+          : translate('settingsPage.generalSuggestionsDisabled'),
+        { type: 'success', duration: 2000 },
+      );
+    } catch (e) {
+      setSuggestionsEnabled(!enabled);
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast(translate('settingsPage.generalSuggestionsSaveFailed') + msg, { type: 'error', duration: 3000 });
     }
   };
 
@@ -658,6 +688,23 @@ export function GeneralSettingsPage() {
 
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
+              <div>{t('settingsPage.generalSuggestions')}</div>
+              <div className="settings-field-hint">{t('settingsPage.generalSuggestionsHint')}</div>
+            </div>
+            <div className="settings-field-body">
+              <label className="settings-switch">
+                <input
+                  type="checkbox"
+                  checked={suggestionsEnabled}
+                  onChange={(e) => handleSuggestionsToggle(e.target.checked)}
+                />
+                <span className="settings-switch-slider" />
+              </label>
+            </div>
+          </div>
+
+          <div className="settings-field-horizontal">
+            <div className="settings-field-label">
               <div>{t('settingsPage.generalWorkspace')}</div>
               <div className="settings-field-hint">{t('settingsPage.generalWorkspaceHint')}</div>
             </div>
@@ -737,9 +784,17 @@ export function GeneralSettingsPage() {
                 <button
                   type="button"
                   className="settings-toggle-btn"
+                  disabled={updateStatus === 'checking'}
                   onClick={() => void checkForUpdates()}
                 >
-                  {t('settingsPage.generalCheckUpdate')}
+                  {updateStatus === 'checking' ? (
+                    <>
+                      <span className="settings-toggle-btn-spinner" aria-hidden="true" />
+                      {t('updater.checking')}
+                    </>
+                  ) : (
+                    t('settingsPage.generalCheckUpdate')
+                  )}
                 </button>
               </div>
             </div>

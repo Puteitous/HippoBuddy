@@ -377,6 +377,32 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+.settings-toggle-btn:disabled,
+.settings-toggle-btn:disabled:hover {
+  color: var(--hb-text-soft, #6b7280);
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: transparent;
+}
+
+.settings-toggle-btn-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  border: 2px solid var(--hb-text-soft, #6b7280);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: settings-toggle-btn-spin 0.8s linear infinite;
+}
+
+@keyframes settings-toggle-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ========== 自定义背景设置 ========== */
 .settings-bg-editor {
   display: flex;

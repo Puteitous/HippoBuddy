@@ -63,6 +63,8 @@ ui:
   show_token_usage: true
   show_timestamp: false
   color_output: true
+  # 推荐问答:回复结束后自动生成可点击的后续问题(每次回复额外调用一次 LLM)
+  suggestions_enabled: true
 
 web:
   port: 9090

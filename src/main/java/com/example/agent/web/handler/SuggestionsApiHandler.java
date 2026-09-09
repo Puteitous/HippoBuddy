@@ -78,6 +78,12 @@ public class SuggestionsApiHandler implements HttpHandler {
         Map<String, Object> response = new HashMap<>();
         response.put("questions", List.of());
 
+        // 推荐问答开关关闭时直接返回空列表,不产生额外 LLM 调用
+        if (!com.example.agent.config.Config.getInstance().getUi().isSuggestionsEnabled()) {
+            sendJson(exchange, response);
+            return;
+        }
+
         if (sessionId != null && !sessionId.isBlank()) {
             try {
                 Conversation conversation = WebSessionManager.getInstance().getSessions().get(sessionId);

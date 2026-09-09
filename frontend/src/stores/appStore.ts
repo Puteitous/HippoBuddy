@@ -167,6 +167,14 @@ interface AppState {
   systemPrompts: Record<string, string>;
   /** 是否已从后端加载过 systemPrompts(避免每次发送都请求) */
   systemPromptLoaded: boolean;
+  /**
+   * 推荐问答开关(来自后端 ui.suggestions_enabled,默认 true)。
+   * 关闭时 chatStore 在 done 后不再置 loading/发起拉取,避免「闪一下又消失」。
+   * 由 loadSystemPrompt 启动加载 + 设置页保存后同步更新。
+   */
+  suggestionsEnabled: boolean;
+  /** 更新推荐问答开关内存值(设置页保存成功后调用,与后端配置保持同步) */
+  setSuggestionsEnabled: (enabled: boolean) => void;
   /** 当前工作区路径 */
   workspacePath: string;
   /** 当前主视图(中间工作区显示 chat 还是 settings) */
@@ -257,6 +265,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   mode: readGlobalMode(),
   systemPrompts: {},
   systemPromptLoaded: false,
+  suggestionsEnabled: true,
+  setSuggestionsEnabled: (enabled) => set({ suggestionsEnabled: enabled }),
   workspacePath: '',
   view: 'chat',
   isLoadingSessions: false,
@@ -306,7 +316,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().systemPromptLoaded) return;
     try {
       const cfg = await configApi.getFull();
-      set({ systemPrompts: cfg.ui?.system_prompts ?? {}, systemPromptLoaded: true });
+      set({
+        systemPrompts: cfg.ui?.system_prompts ?? {},
+        systemPromptLoaded: true,
+        suggestionsEnabled: cfg.ui?.suggestions_enabled !== false,
+      });
     } catch {
       // 加载失败时不阻塞发送,回退为未自定义(使用内置默认提示词)
       set({ systemPromptLoaded: true });

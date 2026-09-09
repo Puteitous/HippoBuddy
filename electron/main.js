@@ -1332,6 +1332,22 @@ ipcMain.handle('update:quitAndInstall', async () => {
 // 应用生命周期
 // ============================================================================
 
+/** 终端 Ctrl+C 或 kill 收到 SIGINT/SIGTERM 时，统一走与托盘「退出」一致的后端清理逻辑。
+ * 否则 Windows 上硬退出不会触发 will-quit，Java 后端会变成孤儿进程持续占用端口。 */
+function registerShutdownSignals() {
+  for (const sig of ['SIGINT', 'SIGTERM']) {
+    process.on(sig, async () => {
+      console.log(`[main] Received ${sig}, cleaning up backend...`);
+      // 尽力中断正在执行的任务（复用托盘退出逻辑，先落盘当前状态再退出）
+      try {
+        const ids = await getRunningSessionIds();
+        if (ids.length) await abortSessions(ids);
+      } catch { /* 后端不可达也不阻塞退出 */ }
+      doQuit();
+    });
+  }
+}
+
 app.whenReady().then(() => {
   // 1. 先创建窗口，立即加载本地 splash（河马出水动画）
   createWindow();
@@ -1382,6 +1398,9 @@ app.whenReady().then(() => {
 
   // 3. 创建系统托盘
   createTray();
+
+  // 4. 注册终端终止信号（Ctrl+C / kill）的后端清理
+  registerShutdownSignals();
 });
 
 app.on('window-all-closed', () => {

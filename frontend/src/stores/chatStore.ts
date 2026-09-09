@@ -267,6 +267,8 @@ interface ChatState {
   toggleRoundCollapsed: (roundKey: string) => void;
   /** 清除当前会话的推荐问题（用户点击「填入输入框」等消费行为后调用） */
   clearSuggestions: () => void;
+  /** 重新生成当前会话的推荐问题（换一批；加载中重复点击忽略） */
+  reloadSuggestions: () => void;
 
   // ── Actions:会话分区管理 ──────────────────────────────────
   /** 删除指定会话的流式分区(切走无活跃流时清理,释放内存) */
@@ -473,6 +475,18 @@ export const useChatStore = create<ChatState>((set, get) => {
         s.suggestions = [];
         s.suggestionsLoading = false;
       });
+    },
+    reloadSuggestions: () => {
+      const sid = sidOf();
+      if (!sid) return;
+      const sess = get().sessionStreams[sid];
+      // 正在加载中忽略重复点击,避免并发拉取互相覆盖
+      if (!sess || sess.suggestionsLoading) return;
+      updateSession(sid, (s) => {
+        s.suggestions = [];
+        s.suggestionsLoading = true;
+      });
+      void fetchSuggestions(sid);
     },
 
     // ── 会话分区管理 ────────────────────────────────────────
@@ -1159,11 +1173,16 @@ export const useChatStore = create<ChatState>((set, get) => {
             s.isReasoning = false;
             // 回合结束,处理过程计时定格
             s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
-            // 回合正常结束 → 异步生成推荐问题(先结束回合、推荐稍后加载出现)
-            s.suggestionsLoading = true;
+            // 推荐问答开关开启时:置 loading 异步生成(先结束回合、推荐稍后加载出现);
+            // 关闭时保持空状态,不渲染加载占位,避免「闪一下又消失」。
+            if (useAppStore.getState().suggestionsEnabled) {
+              s.suggestionsLoading = true;
+            }
           });
           // 异步拉取推荐问题:不阻塞 SSE 流,失败静默;新回合开始后结果作废
-          void fetchSuggestions(sid);
+          if (useAppStore.getState().suggestionsEnabled) {
+            void fetchSuggestions(sid);
+          }
           break;
         }
         case 'complete': {

@@ -11,10 +11,41 @@
 }
 
 .suggested-questions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 12px;
   line-height: 18px;
   color: var(--text-muted);
   user-select: none;
+}
+
+/* ── 头部「换一批」刷新按钮 ── */
+.suggested-questions-refresh {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.suggested-questions-refresh:hover:not(:disabled) {
+  background: var(--bg-active);
+  color: var(--active-project);
+}
+
+.suggested-questions-refresh:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* ── 加载占位:三点省略号呼吸动画 ── */

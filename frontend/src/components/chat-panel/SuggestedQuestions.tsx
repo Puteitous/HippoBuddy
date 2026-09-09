@@ -18,6 +18,8 @@ interface SuggestedQuestionsProps {
   onSend: (q: string) => void;
   /** 点击右侧按钮 → 填入输入框 */
   onFillInput: (q: string) => void;
+  /** 点击头部刷新按钮 → 换一批重新生成 */
+  onReload?: () => void;
 }
 
 export function SuggestedQuestions({
@@ -25,6 +27,7 @@ export function SuggestedQuestions({
   loading,
   onSend,
   onFillInput,
+  onReload,
 }: SuggestedQuestionsProps) {
   const { t } = useI18n();
 
@@ -32,7 +35,33 @@ export function SuggestedQuestions({
 
   return (
     <div className="suggested-questions">
-      <div className="suggested-questions-header">{t('chat.suggestedQuestions')}</div>
+      <div className="suggested-questions-header">
+        <span className="suggested-questions-title">{t('chat.suggestedQuestions')}</span>
+        {onReload && (
+          <button
+            type="button"
+            className="suggested-questions-refresh"
+            title={t('chat.suggestedRefresh')}
+            aria-label={t('chat.suggestedRefresh')}
+            disabled={loading}
+            onClick={onReload}
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
+              <path d="M13.5 1.5v3h-3" />
+            </svg>
+          </button>
+        )}
+      </div>
       {loading ? (
         <div className="suggested-questions-loading" aria-label={t('chat.suggestedLoading')}>
           <span className="suggested-questions-dots">
