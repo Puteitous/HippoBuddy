@@ -719,11 +719,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: none;
+  padding: 0; /* 清零按钮默认左右 6px/上下 1px padding,避免挤占图标空间 */
   background: transparent;
-  color: var(--text-muted);
+  color: inherit; /* 与 project-icon-open 同色(继承项目头文字色,激活时--active-project) */
   cursor: pointer;
   border-radius: 4px;
   flex-shrink: 0;
@@ -738,7 +739,39 @@
 .session-project-header .project-open-btn:hover {
   opacity: 1;
   background: var(--bg-code);
-  color: var(--text-primary);
+}
+
+/* 折叠项目头上的"新建对话"按钮(仅折叠态显示;hover 显示) */
+.session-project-header .project-newchat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  padding: 0; /* 清零按钮默认左右 6px/上下 1px padding,避免挤占图标空间 */
+  background: transparent;
+  color: inherit; /* 与 project-icon-open 同色(继承项目头文字色,激活时--active-project) */
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.session-project-header:hover .project-newchat-btn {
+  opacity: 0.6;
+}
+
+.session-project-header .project-newchat-btn:hover {
+  opacity: 1;
+  background: var(--bg-code);
+}
+
+/* 激活项目:按钮图标跟随 project-icon-open 使用强调色 */
+.session-project-header.has-active .project-open-btn,
+.session-project-header.has-active .project-newchat-btn {
+  color: var(--active-project);
 }
 
 /* 含活跃会话的项目:展开图标与项目名高亮为强调色(折叠态不生效) */

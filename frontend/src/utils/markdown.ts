@@ -374,6 +374,27 @@ function copyLatexBlock(btn: HTMLButtonElement): void {
   window.setTimeout(() => btn.classList.remove('copied'), 2000);
 }
 
+/**
+ * 定点放行模型输出的内联 SVG 图:允许 `img[src^="data:image/svg+xml"]`。
+ *
+ * DOMPurify 默认的 data: URI 白名单不含 `image/svg+xml`,会剥掉 src 导致图片
+ * 渲染不出来。这里仅对该一种标签+协议放行,其余 URI 维持默认收紧。
+ * 风险面小:作为 `<img src>` 加载的 SVG 处于隔离上下文,内嵌 script 不会执行,
+ * 且不会放行 `data:text/html` 或 `<use>`/`<object>` 等危险场景。
+ * 钩子注册到模块级 DOMPurify 实例,一次即可,不影响其它净化调用。
+ */
+DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+  if (
+    node.nodeName === 'IMG' &&
+    data.attrName === 'src' &&
+    typeof data.attrValue === 'string' &&
+    /^data:image\/svg\+xml[;,]/.test(data.attrValue.trim())
+  ) {
+    data.keepAttr = true;
+  }
+  return data;
+});
+
 if (typeof document !== 'undefined') {
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;

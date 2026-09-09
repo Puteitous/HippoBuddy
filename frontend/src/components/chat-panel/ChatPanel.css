@@ -604,10 +604,10 @@
 
 .chat-header-btn,
 .panel-toggle-btn {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   color: var(--accent);
   cursor: pointer;

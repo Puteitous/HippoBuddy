@@ -260,6 +260,12 @@ export function Sidebar() {
     createNewSession();
   };
 
+  /** 折叠项目头上的"新建对话":新建会话并切换到对应项目工作区 */
+  const handleNewChatInProject = (path: string) => {
+    handleNewSession();
+    void openProjectWorkspace(path);
+  };
+
   /** 切换 Project/Time 分组(持久化,key 与旧版一致) */
   const toggleGroupMode = () => {
     setGroupMode((m) => {
@@ -296,8 +302,10 @@ export function Sidebar() {
   /** 打开项目工作区(对齐旧版 HippoWorkspace.openWorkspace,走新版 workspaceApi) */
   const openProjectWorkspace = async (path: string) => {
     try {
-      await workspaceApi.setCurrent(path);
-      showToast(translate('workspace.switched') + path, { type: 'success' });
+      const state = await workspaceApi.setCurrent(path);
+      // 同步顶部工作区指示器(与 TopBar handleOpenFolder 的 applyWorkspace 一致)
+      setWorkspacePath(state.path || path);
+      showToast(translate('workspace.switched') + (state.path || path), { type: 'success' });
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
       showToast(translate('topbar.switchWorkspaceFailed', { err: msg }), { type: 'error' });
@@ -518,9 +526,10 @@ export function Sidebar() {
           aria-label={t('chat.newSession')}
           onClick={handleNewSession}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.5 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h13.5a2 2 0 0 1 2 2z" />
+            <line x1="8" y1="10" x2="16" y2="10" />
+            <line x1="12" y1="6" x2="12" y2="14" />
           </svg>
         </button>
 
@@ -646,6 +655,7 @@ export function Sidebar() {
                     active={row.projectKey === activeProjectKey}
                     onToggle={() => toggleProject(row.projectKey)}
                     onOpen={() => void openProjectWorkspace(row.fullPath)}
+                    onNewChat={() => handleNewChatInProject(row.fullPath)}
                   />
                 );
               }
@@ -688,9 +698,10 @@ interface ProjectHeaderProps {
   active: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  onNewChat: (path: string) => void;
 }
 
-function ProjectHeader({ name, fullPath, collapsed, active, onToggle, onOpen }: ProjectHeaderProps) {
+function ProjectHeader({ name, fullPath, collapsed, active, onToggle, onOpen, onNewChat }: ProjectHeaderProps) {
   const { t } = useI18n();
   return (
     <div
@@ -715,6 +726,24 @@ function ProjectHeader({ name, fullPath, collapsed, active, onToggle, onOpen }: 
         </span>
       </span>
       <span className="project-name">{name}</span>
+      {collapsed && fullPath && (
+        <button
+          type="button"
+          className="project-newchat-btn"
+          title={t('sidebar.newChatInProject')}
+          aria-label={t('sidebar.newChatInProject')}
+          onClick={(e) => {
+            e.stopPropagation();
+            onNewChat(fullPath);
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.5 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h13.5a2 2 0 0 1 2 2z" />
+            <line x1="8" y1="10" x2="16" y2="10" />
+            <line x1="12" y1="6" x2="12" y2="14" />
+          </svg>
+        </button>
+      )}
       {fullPath && (
         <button
           type="button"
@@ -726,9 +755,9 @@ function ProjectHeader({ name, fullPath, collapsed, active, onToggle, onOpen }: 
             onOpen();
           }}
         >
-          <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 11l6-6" />
-            <path d="M5 5h6v6" />
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 14l12-12" />
+            <path d="M2 2h12v12" />
           </svg>
         </button>
       )}
