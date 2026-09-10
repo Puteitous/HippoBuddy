@@ -11,7 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white" alt="Java 21">
-  <img src="https://img.shields.io/badge/Electron-32-47848F?logo=electron&logoColor=white" alt="Electron">
+  <img src="https://img.shields.io/badge/Electron-35-47848F?logo=electron&logoColor=white" alt="Electron">
   <img src="https://img.shields.io/github/v/release/Puteitous/HippoBuddy?logo=github" alt="Release">
   <img src="https://img.shields.io/github/stars/Puteitous/HippoBuddy?style=flat&logo=github" alt="Stars">
   <img src="https://img.shields.io/badge/license-Apache%202.0-555555" alt="License">
@@ -70,7 +70,7 @@ Compared to other AI agent tools (Codex, Claude Code, Copilot, Kimi, Trae Work, 
 | **Office Documents** | Built-in viewer for PDF, Word, Excel, PPT, and more |
 | **File Change System** | Track changes at file and session level, rollback anytime |
 | **Context & Token Monitor** | Real-time token stats, context usage, LLM monitoring |
-| **Built-in Tools** | 10+ tools: terminal, browser, search, file ops, code analysis, etc. |
+| **Built-in Tools** | 16+ built-in tools: terminal, browser, search, code analysis, etc., extensible via MCP |
 | **Performance** | Lightweight desktop app, Java virtual-thread concurrency |
 | **UI Design** | Minimalist and clean |
 | **Platform** | Desktop (Windows / macOS / Linux) |
@@ -114,13 +114,16 @@ Download [installer](https://github.com/Puteitous/HippoBuddy/releases/latest) ->
 ### Option 2: From Source
 
 ```bash
-# 1. Build Java backend
+# 1. Build the frontend (Vite output goes to src/main/resources/static)
+cd frontend && npm install && npm run build && cd ..
+
+# 2. Compile and package the Java backend (includes the static assets above)
 mvn package -DskipTests
 
-# 2a. Launch desktop (Electron)
+# 3a. Launch desktop (Electron)
 cd electron && npm install && npm start
 
-# 2b. Or run web-only (no Electron)
+# 3b. Or run web-only (no Electron)
 mvn exec:java -Dexec.mainClass="com.example.agent.WebApplication"
 ```
 
@@ -141,12 +144,14 @@ mvn exec:java -Dexec.mainClass="com.example.agent.WebApplication"
 
 | Layer | Technology |
 |---|---|
-| Desktop Shell | **Electron 32** |
-| Frontend | Vanilla JS + CSS |
+| Desktop Shell | **Electron 35** |
+| Frontend | **React 18** + TypeScript + Vite 5 |
+| State Management | Zustand 4 |
+| Code Editor | CodeMirror 6 |
 | Backend | **Java 21** + Virtual Threads |
-| Build | Maven 3.9 |
-| AI Protocol | OpenAI SDK / Ollama / DashScope |
-| Testing | JUnit 5 + Playwright |
+| Build | Maven 3.9 + npm |
+| AI Protocol | OpenAI / Claude / Ollama |
+| Testing | JUnit 5 + Vitest + Testing Library |
 
 ---
 
@@ -158,14 +163,21 @@ src/main/java/com/example/agent/
 ├── DesktopApplication.java       Desktop entry
 ├── core/                         DI, event bus, security blockers
 ├── llm/                          LLM clients (OpenAI, Claude, Ollama...)
-├── tools/                        Built-in tools (20+)
+├── tools/                        Built-in tools (16, MCP-extensible)
 ├── execute/                      Agent conversation loop
-├── orchestrator/                 Task orchestration (DAG)
 ├── subagent/                     Multi-agent system
 ├── mcp/                          MCP protocol
 ├── memory/                       Long-term memory
+├── context/                      Context budget & compaction
 ├── session/                      Session storage & transcripts
 ├── web/                          HTTP handlers & SSE streaming
+│   └── orchestrator/             Task orchestration (DAG)
+├── application/                  Conversation application service
+├── service/                      Token estimation, title generation
+├── desktop/                      Desktop workspace context
+├── console/                      Console interaction
+├── progress/                     Progress & diff preview
+├── logging/                      Logging & metrics collection
 ├── prompt/                       Prompt library & management
 ├── domain/                       Rules, skills, content truncation
 └── config/                       Configuration models

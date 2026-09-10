@@ -14,13 +14,16 @@
 ## 方式二：源码启动
 
 ```bash
-# 1. 编译 Java 后端
+# 1. 构建前端（Vite 产物直接输出到 src/main/resources/static）
+cd frontend && npm install && npm run build && cd ..
+
+# 2. 编译并打包 Java 后端（自动包含上一步的前端静态资源）
 mvn package -DskipTests
 
-# 2a. 启动桌面端（Electron）
+# 3a. 启动桌面端（Electron）
 cd electron && npm install && npm start
 
-# 2b. 或仅启动 Web 端（不带 Electron）
+# 3b. 或仅启动 Web 端（不带 Electron）
 mvn exec:java -Dexec.mainClass="com.example.agent.WebApplication"
 ```
 
@@ -45,14 +48,21 @@ src/main/java/com/example/agent/
 ├── DesktopApplication.java       桌面端入口
 ├── core/                         DI、事件总线、安全拦截
 ├── llm/                          LLM 客户端（OpenAI、Claude、Ollama...）
-├── tools/                        内置工具集（20+）
+├── tools/                        内置工具集（16 个，MCP 可扩展）
 ├── execute/                      Agent 对话循环
-├── orchestrator/                 任务编排（DAG）
 ├── subagent/                     多代理系统
 ├── mcp/                          MCP 协议集成
 ├── memory/                       长期记忆
+├── context/                      上下文预算与压缩
 ├── session/                      会话存储与转录
 ├── web/                          HTTP 处理器与 SSE 流式
+│   └── orchestrator/             任务编排（DAG）
+├── application/                  会话应用服务
+├── service/                      Token 估算、标题生成
+├── desktop/                      桌面端工作区上下文
+├── console/                      控制台交互
+├── progress/                     进度与 diff 预览
+├── logging/                      日志与指标采集
 ├── prompt/                       Prompt 库与管理
 ├── domain/                       规则、技能、内容截断
 └── config/                       配置中心

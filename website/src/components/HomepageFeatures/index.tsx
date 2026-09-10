@@ -100,7 +100,7 @@ const FeatureList: FeatureItem[] = [
     icon: <WrenchIcon />,
     tag: '05 / TOOLS',
     titleKey: '内置工具集',
-    descKey: '20+ 种内置工具：终端、浏览器、搜索、代码分析等，覆盖日常开发全场景。',
+    descKey: '16+ 种内置工具：终端、浏览器、搜索、代码分析等，覆盖日常开发全场景。',
   },
   {
     icon: <ActivityIcon />,

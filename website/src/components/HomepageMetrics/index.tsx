@@ -79,7 +79,7 @@ const MetricList: MetricItem[] = [
     icon: <WrenchIcon />,
     labelKey: '内置工具',
     subKey: '终端 / 搜索 / 文件 / Office / 审查…',
-    num: '20',
+    num: '16',
     unitKey: '+Tools',
   },
   {
@@ -100,7 +100,7 @@ const MetricList: MetricItem[] = [
     icon: <LayersIcon />,
     labelKey: '核心模块',
     subKey: 'LLM / 工具 / 编排 / 记忆 / 会话 分层解耦',
-    num: '15',
+    num: '19',
     unitKey: 'Modules',
   },
   {

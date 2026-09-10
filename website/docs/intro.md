@@ -29,7 +29,7 @@ AI-powered desktop assistant for chat, coding, and office productivity.
 | **Office 文档** | 内置 PDF / Word / Excel / PPT 等格式浏览 |
 | **文件变更系统** | 文件级与会话级变更追踪，随时回滚 |
 | **上下文与 Token 监控** | 实时 Token 统计、上下文用量、LLM 监控 |
-| **内置工具** | 10+ 种工具：终端、浏览器、搜索、代码分析等 |
+| **内置工具** | 16+ 种内置工具：终端、浏览器、搜索、代码分析等，支持 MCP 动态扩展 |
 | **性能** | 轻量桌面应用，Java 虚拟线程高并发 |
 | **UI 设计** | 极简精美，专注内容 |
 | **平台** | 桌面端（Windows / macOS / Linux） |
@@ -50,12 +50,14 @@ HippoBuddy 正在积极开发中，目前存在以下局限：
 
 | 层 | 技术 |
 |---|---|
-| 桌面壳 | **Electron 32** |
-| 前端 | 原生 JS + CSS |
+| 桌面壳 | **Electron 35** |
+| 前端 | **React 18** + TypeScript + Vite 5 |
+| 状态管理 | Zustand 4 |
+| 代码编辑器 | CodeMirror 6 |
 | 后端 | **Java 21** + 虚拟线程 |
-| 构建 | Maven 3.9 |
-| AI 协议 | OpenAI SDK / Ollama / DashScope |
-| 测试 | JUnit 5 + Playwright |
+| 构建 | Maven 3.9 + npm |
+| AI 协议 | OpenAI / Claude / Ollama |
+| 测试 | JUnit 5 + Vitest + Testing Library |
 
 ## 功能概览
 

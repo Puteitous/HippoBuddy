@@ -44,8 +44,8 @@
   "内置工具集": {
     "message": "Built-in Toolset"
   },
-  "20+ 种内置工具：终端、浏览器、搜索、代码分析等，覆盖日常开发全场景。": {
-    "message": "20+ built-in tools: terminal, browser, search, code analysis, covering all daily development scenarios."
+  "16+ 种内置工具：终端、浏览器、搜索、代码分析等，覆盖日常开发全场景。": {
+    "message": "16+ built-in tools: terminal, browser, search, code analysis, covering all daily development scenarios."
   },
   "实时监控": {
     "message": "Real-time Monitoring"

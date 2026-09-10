@@ -29,7 +29,7 @@ Compared to other AI Agent products (Codex, Claude Code, Copilot, Kimi, Trae Wor
 | **Office Documents** | Built-in PDF / Word / Excel / PPT viewers |
 | **File Change System** | File-level and session-level change tracking with rollback |
 | **Context & Token Monitoring** | Real-time token stats, context usage, LLM monitoring |
-| **Built-in Tools** | 10+ tools: terminal, browser, search, code analysis, etc. |
+| **Built-in Tools** | 16+ built-in tools: terminal, browser, search, code analysis, etc., extensible via MCP |
 | **Performance** | Lightweight desktop app with Java virtual threads |
 | **UI Design** | Minimalist, elegant, content-focused |
 | **Platform** | Desktop (Windows / macOS / Linux) |
@@ -50,12 +50,14 @@ HippoBuddy is under active development. Current limitations include:
 
 | Layer | Technology |
 |---|---|
-| Desktop Shell | **Electron 32** |
-| Frontend | Vanilla JS + CSS |
+| Desktop Shell | **Electron 35** |
+| Frontend | **React 18** + TypeScript + Vite 5 |
+| State Management | Zustand 4 |
+| Code Editor | CodeMirror 6 |
 | Backend | **Java 21** + Virtual Threads |
-| Build | Maven 3.9 |
-| AI Protocol | OpenAI SDK / Ollama / DashScope |
-| Testing | JUnit 5 + Playwright |
+| Build | Maven 3.9 + npm |
+| AI Protocol | OpenAI / Claude / Ollama |
+| Testing | JUnit 5 + Vitest + Testing Library |
 
 ## Feature Overview
 

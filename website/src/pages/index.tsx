@@ -578,7 +578,7 @@ function HomepageHeader() {
             </div>
 
             <div className={styles.heroMeta}>
-              <span>Java 21 × Electron 32 · Apache 2.0</span>
+              <span>Java 21 × Electron 35 · Apache 2.0</span>
               <span>Open Source</span>
             </div>
           </div>
