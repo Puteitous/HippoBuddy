@@ -8,10 +8,12 @@
  * 合并规则(对齐旧版 RefChips.getCombinedInput):
  *  - file/rule chip:`@${filePath}` 或 `@${filePath}:${startLine}-${endLine}`
  *    带选中文字时,追加 ``` 代码块包裹的 selectedText
- *  - text chip:整段用 ``` 代码块包裹
+ *  - text/paste chip:整段用 ``` 代码块包裹(优先 selectedText,paste 芯片的正文即存于此)
  *  - 多个 chip 用 \n 连接;chip 段与 typed 文本之间用 \n\n 分隔
  */
 import type { RefChip } from '@/types';
+import { parseUserContent } from './user-content';
+import { createPastedTextChip } from './paste-attachment';
 
 /**
  * 把 chips 列表与用户键入文本合并为最终发送给后端的消息体。
@@ -30,9 +32,10 @@ export function combineChipsToMessage(chips: RefChip[], typed: string): string {
 
 /** 单个 chip → 消息文本段 */
 function chipToMessageText(chip: RefChip): string {
-  // 纯文本 chip:整体包裹为代码块
-  if (chip.kind === 'text') {
-    return wrapInCodeBlock(chip.text);
+  // 纯文本 chip / 超长粘贴 chip:整体包裹为代码块
+  // (paste 芯片的正文在 selectedText,text 只是展示标签;text 芯片沿用原行为)
+  if (chip.kind === 'text' || chip.kind === 'paste') {
+    return wrapInCodeBlock(chip.selectedText ?? chip.text);
   }
 
   // file / rule chip:以 @path[:line-line] 形式发出,可选追加 selectedText 代码块
@@ -54,4 +57,33 @@ function chipToMessageText(chip: RefChip): string {
 function wrapInCodeBlock(text: string): string {
   if (text.includes('```')) return text;
   return `\`\`\`\n${text}\n\`\`\``;
+}
+
+/**
+ * message → 输入框草稿的逆转换(与 combineChipsToMessage 互逆)。
+ *
+ * 场景:回滚(rewind)成功后把该轮用户消息回填输入框。后端存的是已拍平的消息字符串
+ * (芯片正文被包裹为裸 ``` 围栏)。若原样塞回输入框,刚做的「长文本折叠为芯片」会被
+ * 原地撤销——输入框又变回长文本墙,且夹杂字面反引号。
+ * 故此处把围栏段落还原为芯片,使回填后的输入框与发送前的形态一致。
+ *
+ * 无损性:围栏内容 → paste 芯片 → 再次 combineChipsToMessage 可还原原字符串。
+ *
+ * 两点已知取舍(均不丢内容):
+ *  - 短文本/选区芯片在消息里同为围栏形态,回填后统一为 paste 芯片
+ *    (展示标签按字数生成,种类信息不再区分);
+ *  - 草稿格式 { text, chips } 不记录两者的穿插顺序,而 combineChipsToMessage
+ *    固定「芯片在前、文本在后」,故「文本在前」的消息回填后顺序会规整为芯片在前。
+ */
+export function messageToDraft(content: string): { text: string; chips: RefChip[] } {
+  const chips: RefChip[] = [];
+  const textParts: string[] = [];
+  for (const seg of parseUserContent(content)) {
+    if (seg.kind === 'attachment') {
+      chips.push(createPastedTextChip(seg.content));
+    } else {
+      textParts.push(seg.text);
+    }
+  }
+  return { text: textParts.join('\n\n'), chips };
 }

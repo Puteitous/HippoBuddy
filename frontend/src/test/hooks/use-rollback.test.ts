@@ -175,6 +175,31 @@ describe('useRollback', () => {
     expect(toastMock.showToast).toHaveBeenCalledWith('rollback.sessionCleared', { type: 'info', duration: 4000 });
   });
 
+  it('回滚回填带围栏消息时,hero 草稿还原为芯片而非裸文本', async () => {
+    // 后端存的是已拍平的消息(粘贴芯片正文被包裹为裸 ``` 围栏)
+    const raw = '```\nlog body\n```\n\n分析下';
+    apiMock.sessions.getMessages.mockResolvedValue([]);
+    apiMock.sessions.rewind.mockResolvedValue({ success: true, lastUserMessage: raw });
+    const { result } = renderHook(() => useRollback('t1'));
+    await act(async () => {
+      await result.current.handleOpen();
+    });
+    await act(async () => {
+      await result.current.handleConfirm('all');
+    });
+
+    // 草稿中的围栏段落被还原为 paste 芯片,避免长文本以裸文本形态倒回输入框
+    const draftArg = appState.saveHeroPendingDraft.mock.calls[0][0] as string;
+    const draft = JSON.parse(draftArg) as { text: string; chips: Array<{ kind: string; selectedText?: string }> };
+    expect(draft.text).toBe('分析下');
+    expect(draft.chips).toHaveLength(1);
+    expect(draft.chips[0].kind).toBe('paste');
+    expect(draft.chips[0].selectedText).toBe('log body');
+
+    // emit 仍传原始消息字符串,由 ChatPanel 侧统一转换
+    expect(emitMock).toHaveBeenCalledWith('rollback:restoreInput', raw);
+  });
+
   it('handleConfirm mode=all 会话被清空但已切走:仅保存 hero 草稿,不 emit restoreInput', async () => {
     apiMock.sessions.getMessages.mockResolvedValue([]);
     // 让 rewind 挂起,模拟回滚进行中

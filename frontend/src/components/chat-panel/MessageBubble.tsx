@@ -16,6 +16,8 @@ import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
 import { emit } from '@/utils/eventBus';
+import { parseUserContent, userContentToCopyText } from '@/utils/user-content';
+import { formatCharCount } from '@/utils/paste-attachment';
 import { useI18n, translate } from '@/i18n';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
@@ -80,7 +82,7 @@ function MessageBubbleComponent({
             独立于气泡外的下一行,时间 + 复制按钮同一行) */}
         <MessageFooter
           time={formatMsgTime(message.timestamp)}
-          onCopy={() => copyText(extractText(message.content))}
+          onCopy={() => copyText(userContentToCopyText(message.content))}
           extra={footerExtra}
         />
       </div>
@@ -341,6 +343,42 @@ function buildWebUrlLink(url: string): ReactNode {
   );
 }
 
+/**
+ * 用户消息内的附件卡片(超长粘贴文本 / 引用文本)。
+ *
+ * 数据来源:combineChipsToMessage 把芯片正文包裹成裸 ``` 围栏段落,
+ * parseUserContent 解析出来后交给本组件渲染。
+ * 折叠态只显示字数,展开后才展示原文——避免几千字直接铺满气泡。
+ * 内容以文本节点渲染(React 自动转义),不解析 Markdown/HTML。
+ */
+function UserAttachmentCard({ content }: { content: string }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const label = t('chat.pastedTextChipLabel', { count: formatCharCount(content.length) });
+
+  return (
+    <div className={`msg-user-attach${open ? ' open' : ''}`}>
+      <button
+        type="button"
+        className="msg-user-attach-head"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={open ? t('chat.collapseContent') : t('chat.expandFullText')}
+        title={open ? t('chat.collapseContent') : t('chat.expandFullText')}
+      >
+        <span className="msg-user-attach-icon" aria-hidden>
+          📄
+        </span>
+        <span className="msg-user-attach-label">{label}</span>
+        <span className="msg-user-attach-caret" aria-hidden>
+          {open ? '▴' : '▾'}
+        </span>
+      </button>
+      {open && <div className="msg-user-attach-body">{content}</div>}
+    </div>
+  );
+}
+
 /** 用户消息内容(纯文本或多模态)，支持长内容折叠 */
 const COLLAPSE_THRESHOLD = 200; // px，超过此高度自动折叠
 
@@ -350,25 +388,35 @@ function UserContent({ content }: { content: string | ContentPart[] }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [collapsible, setCollapsible] = useState(false);
 
+  // 字符串内容:解析裸 ``` 围栏,围栏段落渲染为附件卡片,其余为正文
+  const segments = useMemo(
+    () => (typeof content === 'string' ? parseUserContent(content) : null),
+    [content],
+  );
+
   useEffect(() => {
     if (contentRef.current) {
       setCollapsible(contentRef.current.scrollHeight > COLLAPSE_THRESHOLD);
     }
   }, [content]);
 
-  const inner = (
-    <div className="msg-user-text">{typeof content === 'string' ? content : extractText(content)}</div>
-  );
-
   return (
     <>
       {/* 内容容器：折叠态 max-height + 渐隐遮罩，按钮保持在容器外确保始终可见可点 */}
       <div ref={contentRef} className={`msg-user-collapsible${collapsible ? ' collapsible' : ''}${expanded ? ' expanded' : ''}`}>
-        {typeof content === 'string' ? (
-          inner
+        {segments ? (
+          segments.map((seg, i) =>
+            seg.kind === 'attachment' ? (
+              <UserAttachmentCard key={i} content={seg.content} />
+            ) : (
+              <div key={i} className="msg-user-text">
+                {seg.text}
+              </div>
+            ),
+          )
         ) : (
           <div className="msg-user-multimodal">
-            {content.map((part, i) => {
+            {(content as ContentPart[]).map((part, i) => {
               if (part.type === 'text' && part.text) {
                 return <div key={i} className="msg-user-text">{part.text}</div>;
               }

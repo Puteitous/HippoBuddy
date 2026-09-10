@@ -16,11 +16,30 @@ import { useCallback, useEffect, useImperativeHandle, useRef, forwardRef, useSta
 import type { RefChip } from '@/types';
 import { usePreviewStore } from '@/stores/previewStore';
 import { getFileIconUrl } from '@/utils/file-icons';
+import {
+  buildPastedPreview,
+  createPastedTextChip,
+  shouldConvertPasteToChip,
+} from '@/utils/paste-attachment';
+import { translate } from '@/i18n';
 import './InlineInput.css';
+
+/**
+ * paste 芯片正文的旁路存储(芯片元素 → 完整原文)。
+ *
+ * 为什么不写进 dataset:
+ *  - serializeContent 在每次输入时都会执行,若把几千字塞进 dataset.chip,
+ *    等于每次按键都 JSON.parse 一份大字符串,与「转芯片为了流畅」的初衷相悖;
+ *  - 超长字符串作为 DOM 属性也会白占内存。
+ * 以元素为 WeakMap 键:芯片被移除/替换后随元素被 GC 回收,无需手动清理。
+ */
+const chipContentStore = new WeakMap<HTMLElement, string>();
+
 
 /** 从 chip 提取文件名(用于扩展名图标解析);无路径时返回 null → 回落通用图标 */
 function getChipFileName(chip: RefChip): string | null {
-  if (chip.kind === 'text') return null;
+  // text/paste 芯片的 text 是展示标签而非路径,不能据此解析扩展名
+  if (chip.kind === 'text' || chip.kind === 'paste') return null;
   const path = chip.filePath || chip.text;
   if (!path) return null;
   const norm = path.replace(/\\/g, '/').replace(/\/$/, '');
@@ -61,9 +80,16 @@ function createChipElement(chip: RefChip): HTMLSpanElement {
   const wrapper = document.createElement('span');
   wrapper.contentEditable = 'false';
   wrapper.className = 'inline-chip';
-  wrapper.dataset.chip = JSON.stringify(chip);
+  if (chip.kind === 'paste' && chip.selectedText != null) {
+    // 超长粘贴文本:正文存旁路,dataset 只留元数据(selectedText 置 undefined 后
+    // 被 JSON.stringify 丢弃),避免长文本进 DOM 属性并在每次序列化时被重新解析
+    chipContentStore.set(wrapper, chip.selectedText);
+    wrapper.dataset.chip = JSON.stringify({ ...chip, selectedText: undefined });
+  } else {
+    wrapper.dataset.chip = JSON.stringify(chip);
+  }
 
-  // 文件引用:按扩展名显示与文件树一致的彩色图标;rule/text 回落 emoji
+  // 文件引用:按扩展名显示与文件树一致的彩色图标;rule/paste/text 回落 emoji
   const fileName = getChipFileName(chip);
   const icon =
     chip.kind === 'file' && fileName
@@ -79,7 +105,7 @@ function createChipElement(chip: RefChip): HTMLSpanElement {
       : (() => {
           const span = document.createElement('span');
           span.className = 'inline-chip-icon';
-          span.textContent = chip.kind === 'rule' ? '📋' : '💬';
+          span.textContent = chip.kind === 'rule' ? '📋' : chip.kind === 'paste' ? '📄' : '💬';
           return span;
         })();
 
@@ -92,6 +118,13 @@ function createChipElement(chip: RefChip): HTMLSpanElement {
   closeBtn.innerHTML = '&times;';
   closeBtn.dataset.action = 'remove-chip';
   closeBtn.tabIndex = -1;
+
+  // paste 芯片:title 给出摘要预览 + 展开提示,便于确认粘贴内容
+  if (chip.kind === 'paste') {
+    wrapper.title = `${translate('chat.pastedTextChipHint')}\n\n${buildPastedPreview(
+      chip.selectedText ?? '',
+    )}`;
+  }
 
   // 文件引用:统一标记可点击跳转(对齐旧版 input-ref-chip-navigable),
   // 带行号时在文件名后显示 start-end 行号徽标(对齐旧版 input-ref-chip-lines);
@@ -254,7 +287,15 @@ function serializeContent(editor: HTMLElement | null): { text: string; chips: Re
       if (node.classList.contains('inline-chip')) {
         try {
           const chip = JSON.parse(node.dataset.chip || '{}') as RefChip;
-          if (chip.id) chips.push(chip);
+          if (chip.id) {
+            // paste 芯片正文不在 dataset 中,从旁路存储回填,
+            // 保证草稿保存与发送组装拿到的是完整原文
+            if (chip.kind === 'paste') {
+              const content = chipContentStore.get(node);
+              if (content != null) chip.selectedText = content;
+            }
+            chips.push(chip);
+          }
         } catch {
           // 解析失败，跳过
         }
@@ -525,18 +566,72 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
     // 非图片粘贴：转纯文本，剥离富文本样式，避免 DOM 被样式节点污染
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
-    if (text) {
-      document.execCommand('insertText', false, text);
-      // execCommand 插入后光标在末尾,直接把滚动条滚到底部(粘贴长文本浏览器不自动跟随)
+    if (!text) return;
+
+    // 超长文本折叠为 paste 芯片:不让几千字直接进入 contentEditable DOM
+    // (否则输入框被撑高、每次输入重排卡顿、无法单独删除、token 计数失真)
+    if (shouldConvertPasteToChip(text)) {
       const editor = editorRef.current;
       if (editor) {
-        // 延到下一帧,确保内容已撑开并出现滚动条后再滚动
-        requestAnimationFrame(() => {
-          editor.scrollTop = editor.scrollHeight;
-        });
+        const chip = createPastedTextChip(text);
+        if (insertChipAtDom(editor, chip)) {
+          updatePlaceholder();
+          onChipAdd?.(chip);
+          notifyDraftChange();
+          return;
+        }
       }
+      // 插入失败(极端情况,如选区不可用) → 回落为原样插入,保证内容不丢
     }
-  }, [onPasteImage]);
+
+    document.execCommand('insertText', false, text);
+    // execCommand 插入后光标在末尾,直接把滚动条滚到底部(粘贴长文本浏览器不自动跟随)
+    const editor = editorRef.current;
+    if (editor) {
+      // 延到下一帧,确保内容已撑开并出现滚动条后再滚动
+      requestAnimationFrame(() => {
+        editor.scrollTop = editor.scrollHeight;
+      });
+    }
+  }, [onPasteImage, updatePlaceholder, onChipAdd, notifyDraftChange]);
+
+  // 双击 paste 芯片 → 就地展开为纯文本
+  // 逃生口:需要直接编辑粘贴内容时使用(芯片本身是折叠态,不便修改)
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // 点在关闭按钮上不展开(交给 click 处理为删除)
+    if (target.dataset.action === 'remove-chip') return;
+    const chipEl = target.closest('.inline-chip') as HTMLElement | null;
+    if (!chipEl) return;
+    try {
+      const data = JSON.parse(chipEl.dataset.chip || '{}') as RefChip;
+      if (data.kind !== 'paste') return;
+      const content = chipContentStore.get(chipEl);
+      if (content == null) return;
+
+      // 换行需还原为 <br>,与 serializeContent 的换行识别保持一致(裸 \n 在 DOM 中会塌陷)
+      const frag = document.createDocumentFragment();
+      content.split('\n').forEach((line, i) => {
+        if (i > 0) frag.appendChild(document.createElement('br'));
+        if (line) frag.appendChild(document.createTextNode(line));
+      });
+      const lastNode = frag.lastChild;
+      chipEl.replaceWith(frag);
+      updatePlaceholder();
+      notifyDraftChange();
+
+      if (lastNode) {
+        const range = document.createRange();
+        range.setStartAfter(lastNode);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+    } catch {
+      // 忽略损坏的 chip 数据
+    }
+  }, [updatePlaceholder, notifyDraftChange]);
 
   // 拖拽
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -604,6 +699,7 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
         onPaste={handlePaste}
+        onDoubleClick={handleDoubleClick}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onCompositionStart={handleCompositionStart}

@@ -37,7 +37,7 @@ function RefChipsComponent({ chips, onRemove }: RefChipsProps) {
       {chips.map((chip) => (
         <span key={chip.id} className="ref-chip" role="listitem" title={buildTitle(chip, lang)}>
           <span className="ref-chip-icon" aria-hidden>
-            {chip.kind === 'text' ? (
+            {chip.kind === 'text' || chip.kind === 'paste' ? (
               <FileIcon kind="text" size={13} />
             ) : getChipFileName(chip) ? (
               <FileTypeIcon fileName={getChipFileName(chip)!} size={13} />
@@ -65,9 +65,10 @@ function RefChipsComponent({ chips, onRemove }: RefChipsProps) {
   );
 }
 
-/** 从 chip 提取文件名(用于扩展名图标解析);text/无路径时返回 null → 回落通用图标 */
+/** 从 chip 提取文件名(用于扩展名图标解析);text/paste/无路径时返回 null → 回落通用图标 */
 function getChipFileName(chip: RefChip): string | null {
-  if (chip.kind === 'text') return null;
+  // text/paste 芯片的 text 是展示标签而非路径,不能据此解析扩展名
+  if (chip.kind === 'text' || chip.kind === 'paste') return null;
   // file / rule 均按路径末段解析扩展名(规则展示规则文件路径,与 file 同形)
   const path = chip.filePath || chip.text;
   if (!path) return null;
@@ -78,6 +79,13 @@ function getChipFileName(chip: RefChip): string | null {
 
 /** 构建 hover title:展示完整路径 / 完整文本 / 规则 id */
 function buildTitle(chip: RefChip, _lang: string): string {
+  // paste 芯片:text 只是「粘贴文本 · N 字」标签,预览应展示正文摘要
+  if (chip.kind === 'paste') {
+    const preview = chip.selectedText
+      ? `${chip.selectedText.slice(0, 200)}${chip.selectedText.length > 200 ? '…' : ''}`
+      : chip.text;
+    return `${chip.text}\n${translate('chat.refChipSelection', { selection: preview })}`;
+  }
   if (chip.kind === 'text') return chip.text;
   const parts: string[] = [];
   if (chip.filePath) {

@@ -51,6 +51,66 @@
   white-space: pre-wrap;
 }
 
+/* ── 用户消息内的附件卡片(超长粘贴文本 / 引用文本) ──────
+   发送时芯片正文被包裹为裸 ``` 围栏,这里折叠为卡片展示,
+   避免几千字直接铺满气泡。 */
+.msg-user-attach {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  overflow: hidden;
+}
+
+/* 卡片与相邻正文之间留出间距(相邻兄弟选择器,首尾不产生多余外边距) */
+.msg-user-attach + .msg-user-text,
+.msg-user-text + .msg-user-attach {
+  margin-top: 6px;
+}
+
+.msg-user-attach-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.msg-user-attach-head:hover {
+  background: var(--bg-hover);
+}
+
+.msg-user-attach-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msg-user-attach-caret {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* 展开态:限高滚动,避免超长内容撑爆气泡与页面 */
+.msg-user-attach-body {
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-color);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ── 用户消息长内容折叠 ─────────────────────────────── */
 .msg-user-collapsible {
   position: relative;

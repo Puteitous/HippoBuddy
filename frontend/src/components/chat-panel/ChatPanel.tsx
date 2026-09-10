@@ -20,7 +20,7 @@ import { showToast } from '@/utils/toastStore';
 import { translate, useI18n } from '@/i18n';
 import { setDefaultProcessView, getDefaultProcessCollapsed } from '@/utils/process-view-config';
 import type { Message, PendingImage, RefChip, ToolCallRecord } from '@/types';
-import { combineChipsToMessage } from '@/utils/ref-chips';
+import { combineChipsToMessage, messageToDraft } from '@/utils/ref-chips';
 import { on } from '@/utils/eventBus';
 import type { SelectionAddToInputPayload } from '@/utils/eventBus';
 import {
@@ -656,7 +656,9 @@ export function ChatPanel() {
       requestAnimationFrame(() => {
         const input = inlineInputRef.current;
         if (!input) return;
-        input.setContent(text);
+        // 回填时把消息里的围栏段落还原为芯片:后端存的是已拍平的消息字符串,
+        // 原样塞回会让长文本以裸文本形态倒回输入框(撤销「长文本折叠」的成果)
+        input.restore(messageToDraft(text));
         input.focus();
       });
     });

@@ -22,6 +22,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { translate } from '@/i18n';
 import { emit } from '@/utils/eventBus';
+import { messageToDraft } from '@/utils/ref-chips';
 import { showToast } from '@/utils/toastStore';
 import type { RollbackPreviewFile } from '@/types';
 
@@ -116,9 +117,11 @@ export function useRollback(targetId: string) {
           // effect 读取 heroPendingDraft 回填(与手动在 hero 输入保存草稿走同一恢复路径,
           // 避免仅 emit 事件与 currentSessionId 变化 effect 竞态清空),并同步 emit 即时回填。
           if (res.lastUserMessage) {
+            // 回填草稿同样要还原芯片形态(与 ChatPanel 的 rollback:restoreInput 处理保持一致),
+            // 否则 hero 空态下的输入框又会变成长文本墙
             useAppStore
               .getState()
-              .saveHeroPendingDraft(JSON.stringify({ text: res.lastUserMessage, chips: [] }));
+              .saveHeroPendingDraft(JSON.stringify(messageToDraft(res.lastUserMessage)));
             if (useAppStore.getState().currentSessionId === sid) {
               emit('rollback:restoreInput', res.lastUserMessage);
             }

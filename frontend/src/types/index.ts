@@ -314,8 +314,14 @@ export interface ModePreset {
   prompt: string;
 }
 
-/** 引用芯片类型 */
-export type RefChipKind = 'file' | 'text' | 'rule';
+/**
+ * 引用芯片类型
+ *  - file: 文件/代码选区引用(@path)
+ *  - text: 选中文字引用(短文本)
+ *  - rule: 规则文件引用
+ *  - paste: 超长粘贴文本(折叠为芯片,完整内容见 selectedText)
+ */
+export type RefChipKind = 'file' | 'text' | 'rule' | 'paste';
 
 /** 输入框下方的引用芯片(@path / 选中文本 / 规则) */
 export interface RefChip {
@@ -332,7 +338,13 @@ export interface RefChip {
   endLine?: number;
   /** kind === 'rule' 时:规则 id */
   ruleId?: string;
-  /** 选中文字(代码片段或二进制预览) */
+  /**
+   * 芯片携带的正文内容。
+   *  - file:代码选区文本(随 @path 追加为代码块)
+   *  - paste:超长粘贴文本全文(text 字段仅作展示标签)
+   * 注意:paste 芯片的完整内容不写入 DOM dataset(见 InlineInput 的旁路存储),
+   * 仅在内存中随芯片对象流转,避免超长文本撑爆 DOM 属性。
+   */
   selectedText?: string;
 }
 
