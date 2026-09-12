@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { ActivityBar } from '@/components/ActivityBar';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { ActivityBar, HOVER_OPEN_DELAY } from '@/components/ActivityBar';
 import { useAppStore } from '@/stores/appStore';
 
 const { previewStore, desktopBridge, toast } = vi.hoisted(() => ({
@@ -87,11 +87,45 @@ describe('ActivityBar', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('hover 面板按钮:非固定展开(不 pinned)', () => {
+  it('hover 面板按钮:延迟一拍后非固定展开(不 pinned)', () => {
+    vi.useFakeTimers();
+    try {
+      render(<ActivityBar />);
+      fireEvent.mouseEnter(btn('panel', 'metrics'));
+      // 延迟未到不展开:鼠标只是路过时不应挂载面板(否则会白拉一轮数据)
+      expect(useAppStore.getState().activityPanel).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(HOVER_OPEN_DELAY);
+      });
+      expect(useAppStore.getState().activityPanel).toBe('metrics');
+      expect(useAppStore.getState().activityPanelPinned).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('鼠标划过活动栏(未到延迟即移出)不展开面板', () => {
+    vi.useFakeTimers();
+    try {
+      render(<ActivityBar />);
+      const bar = document.querySelector('#activityBar') as HTMLElement;
+      fireEvent.mouseEnter(btn('panel', 'metrics'));
+      fireEvent.mouseLeave(bar);
+      act(() => {
+        vi.advanceTimersByTime(HOVER_OPEN_DELAY * 3);
+      });
+      expect(useAppStore.getState().activityPanel).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('面板已展开时 hover 其它按钮:立即切换(不延迟)', () => {
     render(<ActivityBar />);
+    fireEvent.click(btn('panel', 'token'));
+    expect(useAppStore.getState().activityPanel).toBe('token');
     fireEvent.mouseEnter(btn('panel', 'metrics'));
     expect(useAppStore.getState().activityPanel).toBe('metrics');
-    expect(useAppStore.getState().activityPanelPinned).toBe(false);
   });
 
   it('关闭按钮点击关闭面板', () => {

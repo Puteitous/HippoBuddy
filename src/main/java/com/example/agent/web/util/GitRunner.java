@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -45,17 +46,43 @@ public final class GitRunner {
         pb.environment().put("PAGER", "cat");
         try {
             Process process = pb.start();
+            // 必须在 waitFor 之前异步消费 stdout/stderr:管道缓冲填满时子进程会阻塞
+            // 写入,若先 waitFor 会与子进程互相等待导致死锁(大输出命令如 git show 必超时)。
+            CompletableFuture<String> stdoutF = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return readAll(process.getInputStream());
+                } catch (IOException e) {
+                    return "";
+                }
+            });
+            CompletableFuture<String> stderrF = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return readAll(process.getErrorStream());
+                } catch (IOException e) {
+                    return "";
+                }
+            });
+
             boolean completed = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!completed) {
                 process.destroyForcibly();
                 return new Result(-1, "", "git 命令执行超时");
             }
-            String stdout = readAll(process.getInputStream());
-            String stderr = readAll(process.getErrorStream());
+            String stdout = await(stdoutF);
+            String stderr = await(stderrF);
             return new Result(process.exitValue(), stdout, stderr);
         } catch (IOException | InterruptedException e) {
             Thread.currentThread().interrupt();
             return new Result(-1, "", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+        }
+    }
+
+    /** 等待异步读取结果;进程已退出但读取仍异常时返回空串兜底 */
+    private static String await(CompletableFuture<String> f) {
+        try {
+            return f.get(5, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return "";
         }
     }
 

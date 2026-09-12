@@ -1,13 +1,12 @@
 package com.example.agent.web.handler;
 
+import com.example.agent.web.util.GitRunner;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -75,48 +74,13 @@ public class GitStatusHandler implements HttpHandler {
             return result;
         }
 
-        ProcessBuilder pb = new ProcessBuilder("git", "status", "--porcelain", "-u");
-        pb.directory(path.toFile());
-        pb.redirectErrorStream(false);
-        // 禁止分页器
-        pb.environment().put("GIT_PAGER", "cat");
-        pb.environment().put("PAGER", "cat");
-
-        Process process = pb.start();
-        boolean completed = process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
-
-        if (!completed) {
-            process.destroyForcibly();
+        // 复用 GitRunner 执行 git status(内部已异步消费 stdout/stderr,避免大输出时管道死锁)
+        GitRunner.Result r = GitRunner.run(path, "status", "--porcelain", "-u");
+        if (!r.ok()) {
             result.put("available", false);
-            result.put("error", "git status 超时");
-            return result;
-        }
-
-        // 读取标准输出
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (output.length() > 0) output.append("\n");
-                output.append(line);
-            }
-        }
-
-        // 读取标准错误
-        StringBuilder errorOutput = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (errorOutput.length() > 0) errorOutput.append("\n");
-                errorOutput.append(line);
-            }
-        }
-
-        if (process.exitValue() != 0) {
-            result.put("available", false);
-            result.put("error", "git status 执行失败: " + errorOutput);
+            String err = r.stderr();
+            if (err == null || err.isBlank()) err = r.stdout();
+            result.put("error", "git status 执行失败: " + (err == null || err.isBlank() ? String.valueOf(r.exitCode()) : err));
             return result;
         }
 
@@ -124,7 +88,7 @@ public class GitStatusHandler implements HttpHandler {
         // 格式: XY filepath 或 XY filepath -> filepath (重命名)
         // 结构化条目:保留原始 XY 状态段,供源码管理面板与文件树徽章共用以区分已暂存/未暂存
         List<Map<String, Object>> entries = new ArrayList<>();
-        String[] lines = output.toString().split("\n");
+        String[] lines = r.stdout().split("\n");
         for (String line : lines) {
             if (line.trim().isEmpty()) continue;
 

@@ -329,20 +329,21 @@
   font-weight: 700;
 }
 
-.git-panel-badge.add,
+/* 状态徽章配色:类别由 utils/git-status 的 gitBadgeKind 给出(与文件树同一套语义、同一套色值) */
+.git-panel-badge.add {
+  color: #2ea043;
+  background: rgba(46, 160, 67, 0.12);
+}
+
 .git-panel-badge.mod {
-  color: #b45309;
-  background: rgba(180, 83, 9, 0.12);
+  color: #d49433;
+  background: rgba(212, 148, 51, 0.12);
 }
 
-.git-panel-badge.del {
-  color: #dc2626;
-  background: rgba(220, 38, 38, 0.12);
-}
-
-.git-panel-badge.new {
-  color: #16a34a;
-  background: rgba(22, 163, 74, 0.12);
+.git-panel-badge.del,
+.git-panel-badge.conflict {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.12);
 }
 
 .git-panel-file-icon {
@@ -395,7 +396,8 @@
   border: 1px solid var(--hb-border, #e5e7eb);
   border-radius: 6px;
   resize: none;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-height: 30px;
   max-height: 200px;
   box-sizing: border-box;
@@ -413,6 +415,11 @@
 }
 
 .git-panel-ai-spin {
+  animation: git-ai-spin 0.8s linear infinite;
+}
+
+/* 刷新按钮进行中:图标旋转。刷新已改为后台静默,不再用整面板"加载中"作反馈 */
+.git-panel-spin {
   animation: git-ai-spin 0.8s linear infinite;
 }
 
@@ -603,5 +610,19 @@
 
   .git-panel-log-meta {
     color: var(--hb-text-soft-dark, #9ca3af);
+  }
+
+  /* 徽章配色对齐 FileTree 暗色色值(亮色色值在深底上对比度不足) */
+  .git-panel-badge.add {
+    color: #3fb950;
+  }
+
+  .git-panel-badge.mod {
+    color: #d29922;
+  }
+
+  .git-panel-badge.del,
+  .git-panel-badge.conflict {
+    color: #f85149;
   }
 }

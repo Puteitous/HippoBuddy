@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FileTree } from '@/components/workspace/FileTree';
 
-const { readDir } = vi.hoisted(() => ({ readDir: vi.fn() }));
+const { readDir, getJson } = vi.hoisted(() => ({ readDir: vi.fn(), getJson: vi.fn() }));
 
 vi.mock('@/utils/desktop-bridge', () => ({
   desktopBridge: { readDir },
 }));
-vi.mock('@/api/http', () => ({ getJson: vi.fn() }));
+vi.mock('@/api/http', () => ({ getJson }));
 vi.mock('@/utils/toastStore', () => ({ showToast: vi.fn() }));
 vi.mock('@/components/FileIcon', () => ({ FileIcon: () => <span data-testid="file-icon" /> }));
 vi.mock('@/components/FileTypeIcon', () => ({ FileTypeIcon: () => <img data-testid="file-type-icon" alt="" /> }));
@@ -218,5 +218,90 @@ describe('FileTree 点击回调', () => {
     await waitFor(() => expect(screen.getByText('index.ts')).toBeInTheDocument());
     fireEvent.click(screen.getByText('index.ts'));
     expect(onSelect).toHaveBeenCalledWith(ROOT + '/index.ts');
+  });
+});
+
+describe('FileTree git 徽章', () => {
+  /** 取文件节点内的 git 徽章元素 */
+  function badgeOf(text: string): HTMLElement | null {
+    return nodeOf(text).querySelector('.file-tree-status-badge');
+  }
+
+  /** 断言某文件徽章的字母与配色类别 */
+  async function expectBadge(name: string, letter: string, kind: string): Promise<void> {
+    await waitFor(() => expect(badgeOf(name)?.textContent).toBe(letter));
+    expect(badgeOf(name)!.classList.contains(`status-${kind}`)).toBe(true);
+  }
+
+  /** 注入 git status 条目(按 porcelain 语义补齐 staged/unstaged/untracked) */
+  function mockGit(files: Array<{ path: string; xy: string }>): void {
+    getJson.mockResolvedValue({
+      available: true,
+      entries: files.map((f) => ({
+        path: f.path,
+        xy: f.xy,
+        staged: f.xy[0] !== ' ' && f.xy[0] !== '?',
+        unstaged: f.xy[1] !== ' ' || f.xy === '??',
+        untracked: f.xy === '??',
+      })),
+    });
+  }
+
+  it('未跟踪显示 U(绿),不再与文件树原有的 A 混用', async () => {
+    mockTree({ [ROOT]: [file('new.txt')] });
+    mockGit([{ path: 'new.txt', xy: '??' }]);
+    render(<FileTree rootPath={ROOT} activePath={null} onFileSelect={vi.fn()} />);
+    await expectBadge('new.txt', 'U', 'add');
+  });
+
+  it('已暂存新增显示 A(绿),与未跟踪同为新增色但字母可区分', async () => {
+    mockTree({ [ROOT]: [file('added.txt')] });
+    mockGit([{ path: 'added.txt', xy: 'A ' }]);
+    render(<FileTree rootPath={ROOT} activePath={null} onFileSelect={vi.fn()} />);
+    await expectBadge('added.txt', 'A', 'add');
+  });
+
+  it('修改显示 M(琥珀)', async () => {
+    mockTree({ [ROOT]: [file('mod.txt')] });
+    mockGit([{ path: 'mod.txt', xy: ' M' }]);
+    render(<FileTree rootPath={ROOT} activePath={null} onFileSelect={vi.fn()} />);
+    await expectBadge('mod.txt', 'M', 'mod');
+  });
+
+  it('删除显示 D(红)', async () => {
+    mockTree({ [ROOT]: [file('del.txt')] });
+    mockGit([{ path: 'del.txt', xy: 'D ' }]);
+    render(<FileTree rootPath={ROOT} activePath={null} onFileSelect={vi.fn()} />);
+    await expectBadge('del.txt', 'D', 'del');
+  });
+
+  it('重命名显示 R(琥珀),信息比原先并入 M 更准', async () => {
+    mockTree({ [ROOT]: [file('new-name.ts')] });
+    mockGit([{ path: 'new-name.ts', xy: 'R ' }]);
+    render(<FileTree rootPath={ROOT} activePath={null} onFileSelect={vi.fn()} />);
+    await expectBadge('new-name.ts', 'R', 'mod');
+  });
+
+  it('冲突显示 !(红),不会被误当成未跟踪的 U', async () => {
+    mockTree({ [ROOT]: [file('conflict.txt')] });
+    mockGit([{ path: 'conflict.txt', xy: 'UU' }]);
+    render(<FileTree rootPath={ROOT} activePath={null} onFileSelect={vi.fn()} />);
+    await expectBadge('conflict.txt', '!', 'conflict');
+  });
+
+  it('节点 class 同步带上配色类别,供文件名染色', async () => {
+    mockTree({ [ROOT]: [file('mod.txt')] });
+    mockGit([{ path: 'mod.txt', xy: ' M' }]);
+    render(<FileTree rootPath={ROOT} activePath={null} onFileSelect={vi.fn()} />);
+    await waitFor(() => expect(badgeOf('mod.txt')?.textContent).toBe('M'));
+    expect(nodeOf('mod.txt').classList.contains('status-mod')).toBe(true);
+  });
+
+  it('git 不可用时不渲染徽章', async () => {
+    mockTree({ [ROOT]: [file('plain.txt')] });
+    getJson.mockResolvedValue({ available: false, entries: [] });
+    render(<FileTree rootPath={ROOT} activePath={null} onFileSelect={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('plain.txt')).toBeInTheDocument());
+    expect(badgeOf('plain.txt')).toBeNull();
   });
 });

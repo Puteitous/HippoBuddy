@@ -192,23 +192,26 @@
   pointer-events: none;
 }
 
-.file-tree-status-badge.status-m {
-  color: #d49433;
-}
-.file-tree-status-badge.status-a {
+/* 徽章配色:class 后缀为 kind(语义名),由 utils/git-status 的 gitBadgeKind 给出 */
+.file-tree-status-badge.status-add {
   color: #2ea043;
 }
-.file-tree-status-badge.status-d {
+.file-tree-status-badge.status-mod {
+  color: #d49433;
+}
+.file-tree-status-badge.status-del,
+.file-tree-status-badge.status-conflict {
   color: #f85149;
 }
 
-.file-tree-node.status-m .file-tree-name {
-  color: #d49433;
-}
-.file-tree-node.status-a .file-tree-name {
+.file-tree-node.status-add .file-tree-name {
   color: #2ea043;
 }
-.file-tree-node.status-d .file-tree-name {
+.file-tree-node.status-mod .file-tree-name {
+  color: #d49433;
+}
+.file-tree-node.status-del .file-tree-name,
+.file-tree-node.status-conflict .file-tree-name {
   color: #f85149;
 }
 
@@ -431,22 +434,24 @@
   .file-tree-error button:hover {
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.06));
   }
-  .file-tree-status-badge.status-m {
-    color: #d29922;
-  }
-  .file-tree-status-badge.status-a {
+  .file-tree-status-badge.status-add {
     color: #3fb950;
   }
-  .file-tree-status-badge.status-d {
+  .file-tree-status-badge.status-mod {
+    color: #d29922;
+  }
+  .file-tree-status-badge.status-del,
+  .file-tree-status-badge.status-conflict {
     color: #f85149;
   }
-  .file-tree-node.status-m .file-tree-name {
-    color: #d29922;
-  }
-  .file-tree-node.status-a .file-tree-name {
+  .file-tree-node.status-add .file-tree-name {
     color: #3fb950;
   }
-  .file-tree-node.status-d .file-tree-name {
+  .file-tree-node.status-mod .file-tree-name {
+    color: #d29922;
+  }
+  .file-tree-node.status-del .file-tree-name,
+  .file-tree-node.status-conflict .file-tree-name {
     color: #f85149;
   }
   .file-tree-context-menu {

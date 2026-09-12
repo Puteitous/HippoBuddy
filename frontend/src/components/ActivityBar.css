@@ -81,6 +81,13 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   animation: activity-panel-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.16s ease;
+}
+
+/* git 面板信息密度高(变更行/历史行均为多段文本),比 token/metrics 更宽;
+   同时用 min() 兜底,避免窄视口下面板溢出屏幕 */
+.activity-floating-panel[data-active-panel="git"] {
+  width: min(420px, calc(100vw - 90px));
 }
 
 @keyframes activity-panel-in {

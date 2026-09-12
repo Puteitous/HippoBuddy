@@ -34,6 +34,13 @@ import { MetricsPanel } from './MetricsPanel';
 import { GitPanel } from './GitPanel';
 import './ActivityBar.css';
 
+/**
+ * 悬停展开浮动面板的延迟(ms)。
+ * mouseEnter 立即展开会让鼠标"路过"活动栏时反复挂载/卸载面板(每次挂载都会拉一轮数据),
+ * 延迟一拍即可让纯路过不触发;面板已展开时仍立即切换,不影响操作手感。
+ */
+export const HOVER_OPEN_DELAY = 180;
+
 /** 动作 id */
 export type ActivityActionId =
   | 'skillMarket'
@@ -152,6 +159,8 @@ export function ActivityBar() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   /** 延迟关闭定时器(hover 移出后留出移动到面板的时间) */
   const closeTimerRef = useRef<number | null>(null);
+  /** 延迟展开定时器(hover 进入按钮后等一拍再展开,过滤掉"只是路过") */
+  const openTimerRef = useRef<number | null>(null);
   /** 标记本次打开是否要忽略一次外部点击(由按钮点击冒泡触发) */
   const ignoreNextOutsideClickRef = useRef(false);
 
@@ -159,6 +168,14 @@ export function ActivityBar() {
     if (closeTimerRef.current != null) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
+    }
+  }, []);
+
+  /** 取消待触发的悬停展开(鼠标移出活动栏 / 点到按钮 / 悬停到动作按钮时调用) */
+  const clearOpenTimer = useCallback(() => {
+    if (openTimerRef.current != null) {
+      window.clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
     }
   }, []);
 
@@ -184,6 +201,7 @@ export function ActivityBar() {
           return;
         }
         clearCloseTimer();
+        clearOpenTimer();
         ignoreNextOutsideClickRef.current = true;
         setActivityPanel(btn.panel, true);
         // 下一帧清除忽略标记,避免误伤后续点击
@@ -223,23 +241,36 @@ export function ActivityBar() {
         }
       }
     },
-    [activePanel, activePanelPinned, clearCloseTimer, closePanel, setActivityPanel, setSkillMarketOpen, toggleActivityBar],
+    [activePanel, activePanelPinned, clearCloseTimer, clearOpenTimer, closePanel, setActivityPanel, setSkillMarketOpen, toggleActivityBar],
   );
 
   /** 悬停预览:鼠标移入面板按钮 → 展开对应面板(不影响点击固定状态) */
   const handleBtnHover = useCallback(
     (btn: ActivityButton) => {
+      // 移入动作按钮(非面板)时,取消刚从面板按钮排队的展开
+      clearOpenTimer();
       if (!btn.panel) return;
       clearCloseTimer();
-      setActivityPanel(btn.panel, false);
+      // 面板已展开(悬停或已固定)时立即切换,避免在按钮间移动时出现延迟感
+      if (activePanel) {
+        setActivityPanel(btn.panel, false);
+        return;
+      }
+      // 仅"从无到有"时延迟:鼠标只是路过活动栏不会真的展开面板、也不会打接口
+      const targetPanel = btn.panel;
+      openTimerRef.current = window.setTimeout(() => {
+        openTimerRef.current = null;
+        setActivityPanel(targetPanel, false);
+      }, HOVER_OPEN_DELAY);
     },
-    [clearCloseTimer, setActivityPanel],
+    [activePanel, clearCloseTimer, clearOpenTimer, setActivityPanel],
   );
 
-  // 组件卸载时清理延迟关闭定时器
+  // 组件卸载时清理延迟关闭/展开定时器
   useEffect(() => {
     return () => {
       if (closeTimerRef.current != null) window.clearTimeout(closeTimerRef.current);
+      if (openTimerRef.current != null) window.clearTimeout(openTimerRef.current);
     };
   }, []);
 
@@ -288,7 +319,11 @@ export function ActivityBar() {
         id="activityBar"
         ref={barRef}
         onMouseEnter={clearCloseTimer}
-        onMouseLeave={scheduleClose}
+        onMouseLeave={() => {
+          // 离开活动栏:取消待展开(鼠标只是路过),并按原逻辑延迟关闭已展开的面板
+          clearOpenTimer();
+          scheduleClose();
+        }}
       >
         {BUTTONS.map((btn) => {
           const isActive = btn.panel != null && activePanel === btn.panel;
@@ -327,6 +362,7 @@ export function ActivityBar() {
       {activePanel && (
         <div
           className="activity-floating-panel"
+          data-active-panel={activePanel}
           ref={panelRef}
           role="dialog"
           aria-label={t('activity.panelLabel')}

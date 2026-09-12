@@ -20,6 +20,7 @@ import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
 import { useI18n } from '@/i18n';
 import { on } from '@/utils/eventBus';
+import { gitBadgeKindOf, gitBadgeLetter } from '@/utils/git-status';
 import { FileTypeIcon } from './FileTypeIcon';
 import './GitPanel.css';
 
@@ -29,6 +30,31 @@ const LOG_BATCH = 20;
 /** 提交信息草稿(模块级):面板随 ActivityBar 关闭/切换而卸载时保留已写内容,重开恢复 */
 let commitDraft = '';
 
+/**
+ * 面板数据快照(模块级):GitPanel 随 ActivityBar 面板关闭而整体卸载,状态归零,
+ * 重开后 effect 里的 refresh() 会先置 loading 导致整面板闪一下"加载中"。
+ * 这里把已拉取的数据存在模块级,重开时作首帧数据,刷新改为后台静默替换。
+ */
+interface GitPanelSnapshot {
+  /** 快照归属的工作区;与当前工作区不一致时整份作废(避免串仓库数据) */
+  workspacePath: string;
+  status: GitStatusEntry[] | null;
+  available: boolean;
+  branchNames: string[];
+  remoteBranchNames: string[];
+  currentBranch: string;
+  log: GitLogEntry[];
+  logEnded: boolean;
+}
+
+let panelSnapshot: GitPanelSnapshot | null = null;
+
+/** 仅供测试:重置面板快照与提交草稿,避免用例间相互污染(对齐 MetricsPanel 的 __reset 惯例) */
+export function __resetGitPanelSnapshot(): void {
+  panelSnapshot = null;
+  commitDraft = '';
+}
+
 /** 按 XY 状态段判断某条目应归入已暂存分组 */
 function isStaged(e: GitStatusEntry): boolean {
   return e.staged;
@@ -37,17 +63,6 @@ function isStaged(e: GitStatusEntry): boolean {
 /** 归入未暂存分组(含未跟踪 ?? 文件) */
 function isUnstaged(e: GitStatusEntry): boolean {
   return e.unstaged || e.untracked;
-}
-
-/** 状态 Badge 字母:优先展示已暂存(X)位,否则未暂存(Y)位,未跟踪显示 ? */
-function badgeOf(e: GitStatusEntry): string {
-  // 真正未跟踪(??) → ?;已跟踪且有改动 → 优先暂存位字母,否则取工作区位字母
-  if (e.untracked) return '?';
-  if (e.xy.length >= 2) {
-    if (e.xy[0] !== ' ') return e.xy[0];
-    if (e.xy[1] !== ' ') return e.xy[1];
-  }
-  return '?';
 }
 
 /** 拼接工作区根路径 + 相对路径 */
@@ -75,13 +90,17 @@ export function GitPanel() {
   const workspacePath = useAppStore((s) => s.workspacePath);
   const openGitDiff = usePreviewStore((s) => s.openGitDiff);
 
-  const [status, setStatus] = useState<GitStatusEntry[] | null>(null);
-  const [available, setAvailable] = useState(true);
-  const [branchNames, setBranchNames] = useState<string[]>([]);
-  const [remoteBranchNames, setRemoteBranchNames] = useState<string[]>([]);
-  const [currentBranch, setCurrentBranch] = useState('');
-  const [log, setLog] = useState<GitLogEntry[]>([]);
-  const [logEnded, setLogEnded] = useState(false);
+  // 重开面板时以同一工作区的快照作首帧数据:有数据就直接渲染,刷新在后台静默替换,
+  // 避免先闪一下"加载中"。快照缺失(首次打开/换了项目)时才走占位。
+  const cached = panelSnapshot && panelSnapshot.workspacePath === workspacePath ? panelSnapshot : null;
+
+  const [status, setStatus] = useState<GitStatusEntry[] | null>(cached?.status ?? null);
+  const [available, setAvailable] = useState(cached?.available ?? true);
+  const [branchNames, setBranchNames] = useState<string[]>(cached?.branchNames ?? []);
+  const [remoteBranchNames, setRemoteBranchNames] = useState<string[]>(cached?.remoteBranchNames ?? []);
+  const [currentBranch, setCurrentBranch] = useState(cached?.currentBranch ?? '');
+  const [log, setLog] = useState<GitLogEntry[]>(cached?.log ?? []);
+  const [logEnded, setLogEnded] = useState(cached?.logEnded ?? false);
   const [logLoadingMore, setLogLoadingMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -119,6 +138,15 @@ export function GitPanel() {
   const syncTriggerRef = useRef<HTMLButtonElement | null>(null);
   /** 远端操作菜单是否展开 */
   const [syncOpen, setSyncOpen] = useState(false);
+
+  /**
+   * 是否需要整面板加载占位:仅"没有可渲染数据且非错误态"时显示。
+   *  - 重开面板:快照已回填 status(非 null),刷新在后台静默替换,不再闪"加载中";
+   *  - 首次打开:status 为 null,首帧即进入占位,不会先闪一个空面板;
+   *  - 加载失败:交给下方 error 渲染,不占用位。
+   */
+  const showLoading = status === null && !error;
+
   /** 关闭右键菜单(点击外部) */
   const closeMenus = useCallback(() => {
     setCtxMenu(null);
@@ -135,18 +163,59 @@ export function GitPanel() {
     };
   }, []);
 
+  /** 上一次的工作区路径:用于识别"切换了项目"这一变化(首帧不算) */
+  const prevPathRef = useRef(workspacePath);
+
+  // 切换工作区:旧仓库数据立即失效。面板此时可能并未卸载(固定在 ActivityBar 上),
+  // 若不清理会短暂展示上一个仓库的变更;清空后由下方的 refresh 重新拉取。
+  useEffect(() => {
+    if (prevPathRef.current === workspacePath) return;
+    prevPathRef.current = workspacePath;
+    setStatus(null);
+    setAvailable(true);
+    setBranchNames([]);
+    setRemoteBranchNames([]);
+    setCurrentBranch('');
+    setLog([]);
+    setLogEnded(false);
+    setError(null);
+  }, [workspacePath]);
+
   // 提交信息 textarea 随内容自动增高(流式填充时也能实时变高)
+  // 依赖 showLoading:首帧无数据时提交区不渲染,数据返回后提交区才挂载,
+  // 需在挂载那一帧重新测量高度,否则草稿多行却显示成一行。
   useEffect(() => {
     const el = commitMsgRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-  }, [commitMsg]);
+  }, [commitMsg, showLoading]);
 
   // 提交信息同步到模块级草稿,面板卸载后重开仍保留
   useEffect(() => {
     commitDraft = commitMsg;
   }, [commitMsg]);
+
+  /**
+   * 写回模块级快照:面板卸载后重开时作首帧数据。
+   * 只传入本次真正变化的字段(其余沿用同一工作区的旧快照),避免额外状态搬运。
+   */
+  const saveSnapshot = useCallback(
+    (patch: Partial<Omit<GitPanelSnapshot, 'workspacePath'>>) => {
+      const base = panelSnapshot && panelSnapshot.workspacePath === workspacePath ? panelSnapshot : null;
+      panelSnapshot = {
+        workspacePath,
+        status: patch.status ?? base?.status ?? null,
+        available: patch.available ?? base?.available ?? true,
+        branchNames: patch.branchNames ?? base?.branchNames ?? [],
+        remoteBranchNames: patch.remoteBranchNames ?? base?.remoteBranchNames ?? [],
+        currentBranch: patch.currentBranch ?? base?.currentBranch ?? '',
+        log: patch.log ?? base?.log ?? [],
+        logEnded: patch.logEnded ?? base?.logEnded ?? false,
+      };
+    },
+    [workspacePath],
+  );
 
   const refresh = useCallback(async () => {
       if (!workspacePath) {
@@ -162,21 +231,33 @@ export function GitPanel() {
           gitApi.branch(workspacePath).catch(() => ({ current: '', names: [] as string[], remotes: [] as string[] })),
           gitApi.log(workspacePath, LOG_BATCH, 0).catch(() => ({ entries: [] as GitLogEntry[] })),
         ]);
+        const nextLog = logResult.entries ?? [];
+        const nextLogEnded = nextLog.length < LOG_BATCH;
+        // 先写快照:即便请求返回时面板已被关闭,数据也不丢,下次打开可直接复用
+        saveSnapshot({
+          status: statusResult.entries ?? [],
+          available: statusResult.available,
+          branchNames: branchResult.names,
+          remoteBranchNames: branchResult.remotes ?? [],
+          currentBranch: branchResult.current,
+          log: nextLog,
+          logEnded: nextLogEnded,
+        });
         if (!mountedRef.current) return;
         setAvailable(statusResult.available);
         setStatus(statusResult.entries ?? []);
         setCurrentBranch(branchResult.current);
         setBranchNames(branchResult.names);
         setRemoteBranchNames(branchResult.remotes ?? []);
-        setLog(logResult.entries ?? []);
-        setLogEnded((logResult.entries ?? []).length < LOG_BATCH);
+        setLog(nextLog);
+        setLogEnded(nextLogEnded);
       } catch (e) {
         if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
       } finally {
         if (mountedRef.current) setLoading(false);
       }
     },
-    [workspacePath],
+    [workspacePath, saveSnapshot],
   );
 
   /** 仅刷新 git 状态(静默,不触发 loading 占位):供暂存/暂存批操作等不影响分支与历史的场景 */
@@ -184,6 +265,8 @@ export function GitPanel() {
       if (!workspacePath) return;
       try {
         const statusResult = await gitApi.status(workspacePath);
+        // 同样先写快照(AI 自动刷新期间面板可能已被关闭)
+        saveSnapshot({ status: statusResult.entries ?? [], available: statusResult.available });
         if (!mountedRef.current) return;
         setAvailable(statusResult.available);
         setStatus(statusResult.entries ?? []);
@@ -192,7 +275,7 @@ export function GitPanel() {
         if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
       }
     },
-    [workspacePath],
+    [workspacePath, saveSnapshot],
   );
 
   useEffect(() => {
@@ -222,9 +305,14 @@ export function GitPanel() {
     setLogLoadingMore(true);
     try {
       const next = await gitApi.log(workspacePath, LOG_BATCH, log.length);
+      const nextEntries = next.entries ?? [];
+      const merged = [...log, ...nextEntries];
+      const ended = logEnded || nextEntries.length < LOG_BATCH;
+      // 先写快照,面板若已关闭也不会丢这批数据
+      saveSnapshot({ log: merged, logEnded: ended });
       if (!mountedRef.current) return;
-      setLog((prev) => [...prev, ...(next.entries ?? [])]);
-      if ((next.entries ?? []).length < LOG_BATCH) setLogEnded(true);
+      setLog(merged);
+      if (ended) setLogEnded(true);
     } catch (e) {
       if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -455,9 +543,10 @@ export function GitPanel() {
           className="git-panel-icon-btn"
           title={t('git.refresh')}
           aria-label={t('git.refresh')}
+          disabled={loading}
           onClick={() => void refresh()}
         >
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg className={loading ? 'git-panel-spin' : undefined} viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2" />
             <polyline points="14 2 14 5 11 5" />
             <polyline points="2 14 2 11 5 11" />
@@ -481,7 +570,7 @@ export function GitPanel() {
       </div>
 
       {/* 提交信息区(置于面板顶部,贴近 IDE 习惯) */}
-      {!loading && available && (
+      {!showLoading && available && (
         <div className="git-panel-commit">
           <div className="git-panel-commit-field">
             <textarea
@@ -526,11 +615,11 @@ export function GitPanel() {
         </div>
       )}
 
-      {loading && <div className="git-panel-placeholder">{t('git.loading')}</div>}
-      {!loading && !available && <div className="git-panel-placeholder">{t('git.notRepo')}</div>}
-      {!loading && error && <div className="git-panel-error">{error}</div>}
+      {showLoading && <div className="git-panel-placeholder">{t('git.loading')}</div>}
+      {!showLoading && !available && <div className="git-panel-placeholder">{t('git.notRepo')}</div>}
+      {!showLoading && error && <div className="git-panel-error">{error}</div>}
 
-      {!loading && available && (
+      {!showLoading && available && (
         <>
           {stagedCount > 0 && (
             <GitSection
@@ -797,9 +886,9 @@ function GitStatusRow({
   toggleLabel: string;
 }) {
   const { t } = useI18n();
-  const badge = badgeOf(entry);
-  const badgeClass =
-    badge === '+' ? 'add' : badge === 'D' ? 'del' : badge === '?' ? 'new' : 'mod';
+  // 字母与配色统一由 utils/git-status 给出(与文件树共用同一套规则)
+  const badge = gitBadgeLetter(entry);
+  const badgeKind = gitBadgeKindOf(entry);
   // 文件路径拆为「文件名」+「目录前缀」,文件名为主视觉,目录弱化显示在后
   const slash = entry.path.lastIndexOf('/');
   const fileName = slash >= 0 ? entry.path.slice(slash + 1) : entry.path;
@@ -851,7 +940,7 @@ function GitStatusRow({
           )}
         </button>
       </span>
-      <span className={`git-panel-badge ${badgeClass}`}>{badge}</span>
+      <span className={`git-panel-badge ${badgeKind}`}>{badge}</span>
     </div>
   );
 }

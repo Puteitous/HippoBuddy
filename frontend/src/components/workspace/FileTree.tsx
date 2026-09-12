@@ -19,6 +19,8 @@ import { desktopBridge } from '@/utils/desktop-bridge';
 import { getJson } from '@/api/http';
 import type { GitStatusEntry } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
+import { gitBadgeKindOf, gitBadgeLetter } from '@/utils/git-status';
+import type { GitBadgeKind, GitBadgeLetter } from '@/utils/git-status';
 import { translate, useI18n } from '@/i18n';
 import { FileIcon } from '../FileIcon';
 import { FileTypeIcon } from '../FileTypeIcon';
@@ -54,17 +56,13 @@ function clearCompactCache(): void {
 }
 
 /**
- * 由 git 结构化条目推导文件树徽章字母(对齐旧版后端 files map 的拍平映射):
- *   未跟踪/新增 → A,删除 → D,修改 → M,重命名视作修改。
+ * 由 git 结构化条目推导文件树徽章。
+ * 字母与配色统一来自 utils/git-status(与源码管理面板共用同一套规则):
+ *   U 未跟踪 / A 新增 / M 修改 / D 删除 / R 重命名 / ! 冲突
+ * 配色类别 kind 直接用作 class 后缀(kind 为语义名,避免字母 '!' 拼出非法选择器)。
  */
-function gitBadgeOf(e: GitStatusEntry): string {
-  if (e.untracked) return 'A';
-  const chars = e.xy.replace(/ /g, '');
-  if (chars.includes('D')) return 'D';
-  if (chars.includes('M')) return 'M';
-  if (chars.includes('A')) return 'A';
-  if (chars.includes('R')) return 'M';
-  return chars.charAt(0) || '?';
+function gitBadgeOf(e: GitStatusEntry): { letter: GitBadgeLetter; kind: GitBadgeKind } {
+  return { letter: gitBadgeLetter(e), kind: gitBadgeKindOf(e) };
 }
 
 /** 带缓存的 readDir(供 resolveCompactChain 使用) */
@@ -222,10 +220,10 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
     };
   }, [rootPath, treeVersion, refreshToken]);
 
-  // 由结构化 entries 构造 相对路径→徽章字母(M/A/D)映射,供文件节点渲染灰度徽章
+  // 由结构化 entries 构造 相对路径→徽章(字母 + 配色类别)映射,供文件节点渲染彩色徽章
   const gitFilesMap = useMemo(() => {
     if (!gitStatus?.available) return undefined;
-    const m: Record<string, string> = {};
+    const m: Record<string, { letter: GitBadgeLetter; kind: GitBadgeKind }> = {};
     for (const e of gitStatus.entries) m[e.path] = gitBadgeOf(e);
     return m;
   }, [gitStatus]);
@@ -652,7 +650,7 @@ interface FileTreeNodeProps {
   /** 面包屑点击定位到的目录路径(目录节点据此高亮) */
   activeDirPath?: string | null;
   onFileSelect: (filePath: string) => void;
-  gitFiles?: Record<string, string>;
+  gitFiles?: Record<string, { letter: GitBadgeLetter; kind: GitBadgeKind }>;
   treeVersion: number;
   /** 当前高亮的目标目录路径(树内拖放) */
   dragOverPath: string | null;
@@ -804,7 +802,7 @@ function FileTreeNode({
           expanded ? 'expanded' : '',
           isDragOver ? 'drag-over' : '',
           compact ? 'is-compact' : '',
-          status ? `status-${status.toLowerCase()}` : '',
+          status ? `status-${status.kind}` : '',
         ].join(' ').trim()}
         style={indentStyle}
         draggable
@@ -832,7 +830,9 @@ function FileTreeNode({
         <span className={compact ? 'file-tree-name file-tree-name-compact' : 'file-tree-name'} title={displayName}>
           {displayName}
         </span>
-        {status && <span className={`file-tree-status-badge status-${status.toLowerCase()}`}>{status}</span>}
+        {status && (
+          <span className={`file-tree-status-badge status-${status.kind}`}>{status.letter}</span>
+        )}
       </div>
       {isDir && expanded && (
         <ul className="file-tree-list" role="group">
