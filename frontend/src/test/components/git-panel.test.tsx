@@ -188,3 +188,140 @@ describe('GitPanel 状态徽章', () => {
     expect(badge.classList.contains('mod')).toBe(false);
   });
 });
+
+describe('GitPanel 提交信息草稿', () => {
+  /** 已暂存:提交按钮可用 */
+  function stagedEntry(path: string): GitStatusEntry {
+    return { path, xy: 'M ', staged: true, unstaged: false, untracked: false };
+  }
+
+  function commitInput(): HTMLTextAreaElement {
+    return document.querySelector('.git-panel-commit-input') as HTMLTextAreaElement;
+  }
+
+  async function renderStaged(): Promise<void> {
+    gitApiMock.status.mockResolvedValue({ available: true, entries: [stagedEntry('file.txt')] });
+    render(<GitPanel />);
+    await screen.findByText('file.txt');
+  }
+
+  it('提交框关闭浏览器拼写检查(避免术语/中英混排被划红线)', async () => {
+    await renderStaged();
+    // jsdom 未实现 spellcheck 属性反射,直接断言渲染出的 attribute
+    expect(commitInput().getAttribute('spellcheck')).toBe('false');
+  });
+
+  it('提交成功:输入框即清空(不等刷新完成)', async () => {
+    gitApiMock.operate.mockResolvedValue({ success: true });
+    await renderStaged();
+
+    fireEvent.change(commitInput(), { target: { value: 'feat: hello' } });
+    expect(commitInput().value).toBe('feat: hello');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'git.commit' }));
+    });
+
+    expect(commitInput().value).toBe('');
+  });
+
+  it('提交失败:回填原文案,避免用户重打', async () => {
+    gitApiMock.operate.mockResolvedValue({ success: false, error: 'hook failed' });
+    await renderStaged();
+
+    fireEvent.change(commitInput(), { target: { value: 'feat: hello' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'git.commit' }));
+    });
+
+    expect(commitInput().value).toBe('feat: hello');
+  });
+
+  it('提交在途时面板被卸载,成功后重开不复现旧文案(草稿已写穿)', async () => {
+    let resolveOperate: (v: { success: boolean }) => void = () => {};
+    gitApiMock.operate.mockImplementation(
+      () => new Promise<{ success: boolean }>((res) => { resolveOperate = res; }),
+    );
+    // 需为已暂存,提交按钮才可用(否则 commit() 直接 return,测不到写穿)
+    gitApiMock.status.mockResolvedValue({ available: true, entries: [stagedEntry('file.txt')] });
+    const { unmount } = render(<GitPanel />);
+    await screen.findByText('file.txt');
+
+    fireEvent.change(commitInput(), { target: { value: 'feat: hello' } });
+    fireEvent.click(screen.getByRole('button', { name: 'git.commit' }));
+
+    // 请求在途:面板关闭(组件卸载),之后提交才成功
+    unmount();
+    await act(async () => {
+      resolveOperate({ success: true });
+    });
+
+    // 重开:已提交的文案不应残留在输入框里
+    render(<GitPanel />);
+    await screen.findByText('file.txt');
+    expect(commitInput().value).toBe('');
+    await act(async () => {});
+  });
+});
+
+describe('GitPanel 基于起始点新建分支', () => {
+  /** 打开分支下拉(提供含 dev 的分支列表) */
+  async function openBranchDropdown(): Promise<void> {
+    gitApiMock.branch.mockResolvedValue({ current: 'main', names: ['main', 'dev'], remotes: [] });
+    gitApiMock.status.mockResolvedValue({ available: true, entries: [unstagedEntry('file.txt')] });
+    render(<GitPanel />);
+    await screen.findByText('file.txt');
+    fireEvent.click(screen.getByTitle('git.manageBranch'));
+  }
+
+  /** 在分支名上右键,弹出分支操作菜单 */
+  function rightClickBranch(name: string): void {
+    fireEvent.contextMenu(screen.getByText(name));
+  }
+
+  function branchDialogInput(): HTMLInputElement {
+    return document.querySelector('.git-panel-input') as HTMLInputElement;
+  }
+
+  /** 填名字并确认 */
+  async function submitDialog(name: string): Promise<void> {
+    fireEvent.change(branchDialogInput(), { target: { value: name } });
+    await act(async () => {
+      fireEvent.click(screen.getByText('git.createBtn'));
+    });
+  }
+
+  it('分支右键菜单含「基于此新建分支…」,弹窗提示起始点,提交带该起始点', async () => {
+    await openBranchDropdown();
+    rightClickBranch('dev');
+    expect(screen.getByText('git.newBranchFrom')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('git.newBranchFrom'));
+    // 弹窗出现并展示起始点提示
+    expect(document.querySelector('.git-panel-input-hint')).not.toBeNull();
+
+    await submitDialog('feature/x');
+    expect(gitApiMock.operate).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'createBranch', newName: 'feature/x', branch: 'dev' }),
+    );
+  });
+
+  it('底部「新建分支…」缺省基于当前 HEAD(不传起始点)', async () => {
+    await openBranchDropdown();
+    fireEvent.click(screen.getByText('git.newBranch'));
+    expect(document.querySelector('.git-panel-input-hint')).not.toBeNull();
+
+    await submitDialog('hotfix');
+    expect(gitApiMock.operate).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'createBranch', newName: 'hotfix', branch: undefined }),
+    );
+  });
+
+  it('重命名弹窗不显示起始点提示', async () => {
+    await openBranchDropdown();
+    rightClickBranch('dev');
+    fireEvent.click(screen.getByText('git.renameBranch'));
+    // 重命名与起始点无关,不应出现该提示行
+    expect(document.querySelector('.git-panel-input-hint')).toBeNull();
+  });
+});

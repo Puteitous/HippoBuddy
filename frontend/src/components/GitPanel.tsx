@@ -114,8 +114,12 @@ export function GitPanel() {
   const [branchOpen, setBranchOpen] = useState(false);
   /** 分支下拉中任一项的右键菜单(重命名/删除) */
   const [branchCtx, setBranchCtx] = useState<{ x: number; y: number; branch: string } | null>(null);
-  /** 新建/重命名分支输入弹窗 */
-  const [branchInput, setBranchInput] = useState<{ mode: 'create' | 'rename'; branch?: string } | null>(null);
+  /** 新建/重命名分支输入弹窗;startPoint 仅新建时使用(缺省基于当前 HEAD) */
+  const [branchInput, setBranchInput] = useState<{
+    mode: 'create' | 'rename';
+    branch?: string;
+    startPoint?: string;
+  } | null>(null);
   /** 变更行右键菜单 */
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; entry: GitStatusEntry } | null>(null);
   /** 历史行右键菜单 */
@@ -134,6 +138,8 @@ export function GitPanel() {
   const branchTriggerRef = useRef<HTMLButtonElement | null>(null);
   /** 提交信息 textarea 引用,用于自动增高 */
   const commitMsgRef = useRef<HTMLTextAreaElement | null>(null);
+  /** AI 流式生成提交信息的中止控制器:面板卸载时中止,避免卸载后继续写入 */
+  const aiAbortRef = useRef<AbortController | null>(null);
   /** 同步(远端操作)按钮引用,用于菜单定位 */
   const syncTriggerRef = useRef<HTMLButtonElement | null>(null);
   /** 远端操作菜单是否展开 */
@@ -160,6 +166,10 @@ export function GitPanel() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      // 卸载时中止在途的 AI 流:否则增量回来会对已卸载组件 setState(落空),
+      // 且请求继续占用连接直到流结束
+      aiAbortRef.current?.abort();
+      aiAbortRef.current = null;
     };
   }, []);
 
@@ -352,11 +362,23 @@ export function GitPanel() {
     void runOperate(op);
   };
 
+  /**
+   * 写入提交信息:同步写穿模块级草稿。
+   * 草稿只跟随"用户/流程的显式意图",不靠 effect 兜底 —— effect 在组件卸载后不再执行,
+   * 若清空只走 setState(如提交成功回调),面板已关闭时就会落空,旧文案残留在草稿里重开复活。
+   */
+  const writeCommitMsg = (value: string): void => {
+    commitDraft = value;
+    setCommitMsg(value);
+  };
+
   const commit = (): void => {
     const msg = commitMsg.trim();
     if (busy || msg === '' || stagedCount === 0) return;
+    // 乐观清空:不等 runOperate 内部那轮 status/branch/log 刷新回来(仓库大时会明显迟滞)
+    writeCommitMsg('');
     void runOperate({ action: 'commit', path: workspacePath, message: msg }).then((ok) => {
-      if (ok) setCommitMsg('');
+      if (!ok) writeCommitMsg(msg); // 失败(hook 拒绝/无变更等)回填,避免用户重打
     });
   };
 
@@ -365,15 +387,23 @@ export function GitPanel() {
     if (aiMsgLoading || !workspacePath || (stagedCount === 0 && unstagedEntries.length === 0)) return;
     setAiMsgLoading(true);
     setError(null);
-    setCommitMsg('');
+    writeCommitMsg('');
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
     try {
-      await gitApi.commitMessage(workspacePath, (delta) => {
-        setCommitMsg((prev) => prev + delta);
-      });
+      await gitApi.commitMessage(
+        workspacePath,
+        (delta) => setCommitMsg((prev) => prev + delta),
+        controller.signal,
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      // 面板卸载引发的中止不是错误,不弹提示;已生成的片段保留在草稿里
+      if (!controller.signal.aborted && mountedRef.current) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
     } finally {
-      setAiMsgLoading(false);
+      if (aiAbortRef.current === controller) aiAbortRef.current = null;
+      if (mountedRef.current) setAiMsgLoading(false);
     }
   };
 
@@ -401,12 +431,14 @@ export function GitPanel() {
     setBranchCtx({ x: e.clientX, y: e.clientY, branch });
   };
 
-  /** 分支右键菜单:重命名 / 删除(当前分支禁删) */
+  /** 分支右键菜单:基于此新建 / 重命名 / 删除(当前分支禁删) */
   const handleBranchMenu = (action: string): void => {
     const target = branchCtx;
     setBranchCtx(null);
     if (!target) return;
-    if (action === 'rename') {
+    if (action === 'createFrom') {
+      setBranchInput({ mode: 'create', startPoint: target.branch });
+    } else if (action === 'rename') {
       setBranchInput({ mode: 'rename', branch: target.branch });
     } else if (action === 'delete') {
       setConfirm({
@@ -430,7 +462,13 @@ export function GitPanel() {
     setBranchInput(null);
     if (!target || !name.trim()) return;
     if (target.mode === 'create') {
-      void runOperate({ action: 'createBranch', path: workspacePath, newName: name.trim() });
+      // 带 startPoint 时以该分支/远端分支为起点(后端 createBranch 支持可选起始点)
+      void runOperate({
+        action: 'createBranch',
+        path: workspacePath,
+        newName: name.trim(),
+        branch: target.startPoint,
+      });
     } else {
       void runOperate({ action: 'renameBranch', path: workspacePath, branch: target.branch, newName: name.trim() });
     }
@@ -580,6 +618,9 @@ export function GitPanel() {
               placeholder={t('git.commitPlaceholder')}
               value={commitMsg}
               disabled={busy}
+              // 关闭浏览器原生拼写/语法检查(默认开启):提交信息常含术语/缩写/中英混排,
+              // 红线纯属噪音,与项目其它输入框(设置页/搜索框等)保持一致
+              spellCheck={false}
               onChange={(e) => { setCommitMsg(e.target.value); setError(null); }}
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
@@ -758,12 +799,13 @@ export function GitPanel() {
           onClose={() => setSyncOpen(false)}
         />
       )}
-      {/* 分支项右键菜单:重命名 / 删除(当前分支禁删) */}
+      {/* 分支项右键菜单:基于此新建 / 重命名 / 删除(当前分支禁删) */}
       {branchCtx && createPortal(
         <GitContextMenu
           x={branchCtx.x}
           y={branchCtx.y}
           items={[
+            { label: t('git.newBranchFrom'), action: 'createFrom', danger: false },
             { label: t('git.renameBranch'), action: 'rename', danger: false },
             ...(branchCtx.branch !== currentBranch
               ? [{ label: t('git.deleteBranch'), action: 'delete', danger: true }]
@@ -781,6 +823,14 @@ export function GitPanel() {
           placeholder={t('git.branchPlaceholder')}
           initialValue={branchInput.mode === 'rename' ? branchInput.branch ?? '' : ''}
           submitLabel={branchInput.mode === 'create' ? t('git.createBtn') : t('git.renameBtn')}
+          // 新建时提示起始点:显式选择的分支,否则当前 HEAD(git branch <name> 的默认语义)
+          hint={
+            branchInput.mode === 'create'
+              ? t('git.branchFromHint', {
+                  branch: branchInput.startPoint || t('git.branchFromHead'),
+                })
+              : undefined
+          }
           onCancel={() => setBranchInput(null)}
           onSubmit={submitBranchInput}
         />
@@ -1114,6 +1164,8 @@ function BranchDropdown({
         className="git-panel-branch-filter"
         placeholder={t('git.branchFilter')}
         value={filter}
+        // 分支名非自然语言,关闭浏览器原生拼写检查避免误划红线(与项目其它输入框一致)
+        spellCheck={false}
         onChange={(e) => setFilter(e.target.value)}
       />
       {localFiltered.length === 0 && !showRemoteGroup ? (
@@ -1226,6 +1278,7 @@ function InputDialog({
   placeholder,
   initialValue,
   submitLabel,
+  hint,
   onCancel,
   onSubmit,
 }: {
@@ -1233,6 +1286,8 @@ function InputDialog({
   placeholder: string;
   initialValue: string;
   submitLabel: string;
+  /** 可选说明文字(如新建分支的起始点) */
+  hint?: string;
   onCancel: () => void;
   onSubmit: (value: string) => void;
 }) {
@@ -1265,8 +1320,11 @@ function InputDialog({
             className="git-panel-input"
             value={val}
             placeholder={placeholder}
+            // 分支名非自然语言,关闭浏览器原生拼写检查避免误划红线(与项目其它输入框一致)
+            spellCheck={false}
             onChange={(e) => setVal(e.target.value)}
           />
+          {hint && <div className="git-panel-input-hint">{hint}</div>}
         </div>
         <div className="file-tree-modal-footer">
           <button type="button" className="file-tree-modal-btn" onClick={onCancel}>

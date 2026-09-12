@@ -143,6 +143,14 @@
   border-color: var(--hb-accent, #2563eb);
 }
 
+/* 输入弹窗的说明行(如新建分支的起始点),弱化显示在输入框下方 */
+.git-panel-input-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--hb-text-soft, #6b7280);
+  word-break: break-all;
+}
+
 .git-panel-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -317,6 +325,12 @@
   cursor: pointer;
 }
 
+/*
+ * 状态徽章:纯字母,无底色/无圆角 —— 与文件树 .file-tree-status-badge 视觉形态统一。
+ * 此前带 border-radius + 淡底色(12% 透明度),16px 方块里塞 11px 字母显得局促,
+ * 且颜色本身已编码状态,底色不提供额外信息(浅色主题下仅是一层灰雾)。
+ * 保留固定宽高是为了让行尾多行徽章纵向对齐(面板行为「文件名+目录+hover 按钮+徽章」四段)。
+ */
 .git-panel-badge {
   flex-shrink: 0;
   display: inline-flex;
@@ -324,7 +338,6 @@
   justify-content: center;
   width: 16px;
   height: 16px;
-  border-radius: 4px;
   font-size: 11px;
   font-weight: 700;
 }
@@ -332,18 +345,15 @@
 /* 状态徽章配色:类别由 utils/git-status 的 gitBadgeKind 给出(与文件树同一套语义、同一套色值) */
 .git-panel-badge.add {
   color: #2ea043;
-  background: rgba(46, 160, 67, 0.12);
 }
 
 .git-panel-badge.mod {
   color: #d49433;
-  background: rgba(212, 148, 51, 0.12);
 }
 
 .git-panel-badge.del,
 .git-panel-badge.conflict {
   color: #f85149;
-  background: rgba(248, 81, 73, 0.12);
 }
 
 .git-panel-file-icon {
@@ -592,6 +602,10 @@
   }
 
   .git-panel-dir {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+
+  .git-panel-input-hint {
     color: var(--hb-text-soft-dark, #9ca3af);
   }
 
