@@ -13,7 +13,7 @@
  *   - 点击历史提交 → Preview 区打开该提交的全量 diff
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
+import type { MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { gitApi, type GitLogEntry, type GitStatusEntry } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
@@ -78,6 +78,14 @@ export function GitPanel() {
   const [busy, setBusy] = useState(false);
   const [commitMsg, setCommitMsg] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /** 当前正在执行的远端操作(fetch/pull/push),用于按钮 loading 并禁用其它操作 */
+  const [remoteOp, setRemoteOp] = useState<'fetch' | 'pull' | 'push' | null>(null);
+  /** 分支下拉是否展开 */
+  const [branchOpen, setBranchOpen] = useState(false);
+  /** 分支下拉中任一项的右键菜单(重命名/删除) */
+  const [branchCtx, setBranchCtx] = useState<{ x: number; y: number; branch: string } | null>(null);
+  /** 新建/重命名分支输入弹窗 */
+  const [branchInput, setBranchInput] = useState<{ mode: 'create' | 'rename'; branch?: string } | null>(null);
   /** 变更行右键菜单 */
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; entry: GitStatusEntry } | null>(null);
   /** 历史行右键菜单 */
@@ -92,10 +100,14 @@ export function GitPanel() {
   const mountedRef = useRef(true);
   /** 自动刷新去抖定时器(AI 连续写文件时避免频繁打 git status) */
   const autoDebounceRef = useRef<number | null>(null);
+  /** 分支切换按钮引用,用于下拉定位 */
+  const branchTriggerRef = useRef<HTMLButtonElement | null>(null);
   /** 关闭右键菜单(点击外部) */
   const closeMenus = useCallback(() => {
     setCtxMenu(null);
     setLogMenu(null);
+    setBranchOpen(false);
+    setBranchCtx(null);
   }, []);
 
   useEffect(() => {
@@ -216,6 +228,59 @@ export function GitPanel() {
     void runOperate({ action: 'checkout', path: workspacePath, branch });
   };
 
+  /** 远端操作 fetch/pull/push;push 需当前分支,dangling HEAD 时禁用 */
+  const runRemote = (action: 'fetch' | 'pull' | 'push'): void => {
+    if (busy || (action === 'push' && !currentBranch)) return;
+    setRemoteOp(action);
+    void runOperate({
+      action,
+      path: workspacePath,
+      branch: action === 'push' ? currentBranch : undefined,
+    }).finally(() => setRemoteOp(null));
+  };
+
+  /** 分支下拉项:左键切换,右键弹分支操作菜单 */
+  const openBranchCtx = (e: ReactMouseEvent, branch: string): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBranchCtx({ x: e.clientX, y: e.clientY, branch });
+  };
+
+  /** 分支右键菜单:重命名 / 删除(当前分支禁删) */
+  const handleBranchMenu = (action: string): void => {
+    const target = branchCtx;
+    setBranchCtx(null);
+    if (!target) return;
+    if (action === 'rename') {
+      setBranchInput({ mode: 'rename', branch: target.branch });
+    } else if (action === 'delete') {
+      setConfirm({
+        title: t('git.deleteBranchTitle'),
+        message: t('git.deleteBranchDesc', { branch: target.branch }),
+        confirmLabel: t('git.deleteBranch'),
+        onConfirm: () => void runOperate({ action: 'deleteBranch', path: workspacePath, branch: target.branch }),
+      });
+    }
+  };
+
+  /** 打开新建分支输入弹窗 */
+  const openCreateBranchDialog = (): void => {
+    setBranchOpen(false);
+    setBranchInput({ mode: 'create' });
+  };
+
+  /** 新建/重命名分支输入弹窗提交 */
+  const submitBranchInput = (name: string): void => {
+    const target = branchInput;
+    setBranchInput(null);
+    if (!target || !name.trim()) return;
+    if (target.mode === 'create') {
+      void runOperate({ action: 'createBranch', path: workspacePath, newName: name.trim() });
+    } else {
+      void runOperate({ action: 'renameBranch', path: workspacePath, branch: target.branch, newName: name.trim() });
+    }
+  };
+
   const entries = status ?? [];
   const stagedEntries = useMemo(() => entries.filter(isStaged), [entries]);
   const unstagedEntries = useMemo(() => entries.filter(isUnstaged), [entries]);
@@ -292,17 +357,19 @@ export function GitPanel() {
   return (
     <div className="git-panel">
       <div className="git-panel-header">
-        <select
-          className="git-panel-branch"
-          value={currentBranch}
-          onChange={(e) => checkout(e.target.value)}
+        <button
+          type="button"
+          className="git-panel-branch-trigger"
+          ref={branchTriggerRef}
+          title={t('git.manageBranch')}
           disabled={busy || !available}
+          onClick={() => setBranchOpen((v) => !v)}
         >
-          {currentBranch !== '' && <option value={currentBranch}>{currentBranch}</option>}
-          {branchNames.filter((b) => b !== currentBranch).map((b) => (
-            <option key={b} value={b}>{b}</option>
-          ))}
-        </select>
+          <span className="git-panel-branch-current">{currentBranch || t('git.noBranch')}</span>
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M4 6l4 4 4-4" />
+          </svg>
+        </button>
         <button
           type="button"
           className="git-panel-icon-btn"
@@ -317,6 +384,23 @@ export function GitPanel() {
           </svg>
         </button>
       </div>
+
+      {/* 远端操作:拉取 / 拉取合并 / 推送 */}
+      {available && (
+        <div className="git-panel-remote">
+          {(['pull', 'fetch', 'push'] as const).map((op) => (
+            <button
+              key={op}
+              type="button"
+              className="git-panel-remote-btn"
+              disabled={busy || (op === 'push' && !currentBranch)}
+              onClick={() => runRemote(op)}
+            >
+              {remoteOp === op ? `${t('git.loading')}…` : t(`git.${op}`)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading && <div className="git-panel-placeholder">{t('git.loading')}</div>}
       {!loading && !available && <div className="git-panel-placeholder">{t('git.notRepo')}</div>}
@@ -459,6 +543,46 @@ export function GitPanel() {
           onClose={closeMenus}
         />,
         document.body,
+      )}
+
+      {/* 分支下拉(portal 到 body,避免面板 overflow 裁剪) */}
+      {branchOpen && available && (
+        <BranchDropdown
+          triggerRef={branchTriggerRef}
+          currentBranch={currentBranch}
+          names={branchNames}
+          onCheckout={checkout}
+          onOpenBranchCtx={openBranchCtx}
+          onCreate={openCreateBranchDialog}
+          onClose={() => setBranchOpen(false)}
+        />
+      )}
+      {/* 分支项右键菜单:重命名 / 删除(当前分支禁删) */}
+      {branchCtx && createPortal(
+        <GitContextMenu
+          x={branchCtx.x}
+          y={branchCtx.y}
+          items={[
+            { label: t('git.renameBranch'), action: 'rename', danger: false },
+            ...(branchCtx.branch !== currentBranch
+              ? [{ label: t('git.deleteBranch'), action: 'delete', danger: true }]
+              : []),
+          ]}
+          onSelect={handleBranchMenu}
+          onClose={() => setBranchCtx(null)}
+        />,
+        document.body,
+      )}
+      {/* 分支新建/重命名输入弹窗 */}
+      {branchInput && (
+        <InputDialog
+          title={branchInput.mode === 'create' ? t('git.newBranchTitle') : t('git.renameBranchTitle')}
+          placeholder={t('git.branchPlaceholder')}
+          initialValue={branchInput.mode === 'rename' ? branchInput.branch ?? '' : ''}
+          submitLabel={branchInput.mode === 'create' ? t('git.createBtn') : t('git.renameBtn')}
+          onCancel={() => setBranchInput(null)}
+          onSubmit={submitBranchInput}
+        />
       )}
 
       {/* 危险操作确认弹窗(复用 file-tree-modal-* 样式) */}
@@ -661,6 +785,143 @@ function ConfirmDialog({
             onClick={onConfirm}
           >
             {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 分支下拉列表(portal 到 body,定位在分支触发器下方;左键切换、右键弹项菜单、底部新建) */
+function BranchDropdown({
+  triggerRef,
+  currentBranch,
+  names,
+  onCheckout,
+  onOpenBranchCtx,
+  onCreate,
+  onClose,
+}: {
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  currentBranch: string;
+  names: string[];
+  onCheckout: (branch: string) => void;
+  onOpenBranchCtx: (e: ReactMouseEvent, branch: string) => void;
+  onCreate: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
+  useEffect(() => {
+    const el = triggerRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setPos({ left: r.left, top: r.bottom + 4, width: el.offsetWidth });
+    }
+  }, [triggerRef]);
+
+  useEffect(() => {
+    const onDown = (ev: PointerEvent) => {
+      // 左键/触屏关闭;右键(button=2)保留以弹分支项菜单
+      if (ev.button !== 2) onClose();
+    };
+    const id = window.setTimeout(() => document.addEventListener('pointerdown', onDown), 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [onClose]);
+
+  if (!pos) return null;
+  const all = names.includes(currentBranch) ? names : [currentBranch, ...names];
+  return createPortal(
+    <div
+      className="file-tree-context-menu git-panel-branch-list"
+      style={{ left: pos.left, top: pos.top, minWidth: pos.width }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="git-panel-branch-list-title">{t('git.branchList')}</div>
+      {all.map((b) => (
+        <div
+          key={b}
+          className={`git-panel-branch-list-item${b === currentBranch ? ' current' : ''}`}
+          title={b}
+          onClick={() => {
+            if (b !== currentBranch) onCheckout(b);
+          }}
+          onContextMenu={(e) => onOpenBranchCtx(e, b)}
+        >
+          <span className="git-panel-branch-list-name">{b}</span>
+          {b === currentBranch && <span className="git-panel-branch-list-check">✓</span>}
+        </div>
+      ))}
+      <div className="git-panel-branch-list-new" onClick={onCreate}>
+        <span>{t('git.newBranch')}</span>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** 新建/重命名分支输入弹窗(复用 file-tree-modal-* 样式) */
+function InputDialog({
+  title,
+  placeholder,
+  initialValue,
+  submitLabel,
+  onCancel,
+  onSubmit,
+}: {
+  title: string;
+  placeholder: string;
+  initialValue: string;
+  submitLabel: string;
+  onCancel: () => void;
+  onSubmit: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  const [val, setVal] = useState(initialValue);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') onSubmit(val);
+      else if (e.key === 'Escape') onCancel();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      className="file-tree-modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div className="file-tree-modal">
+        <div className="file-tree-modal-header">
+          <span className="file-tree-modal-title">{title}</span>
+        </div>
+        <div className="file-tree-modal-body">
+          <input
+            autoFocus
+            className="git-panel-input"
+            value={val}
+            placeholder={placeholder}
+            onChange={(e) => setVal(e.target.value)}
+          />
+        </div>
+        <div className="file-tree-modal-footer">
+          <button type="button" className="file-tree-modal-btn" onClick={onCancel}>
+            {t('fileTree.cancelBtn')}
+          </button>
+          <button
+            type="button"
+            className="file-tree-modal-btn file-tree-modal-btn-danger"
+            disabled={!val.trim()}
+            onClick={() => onSubmit(val.trim())}
+          >
+            {submitLabel}
           </button>
         </div>
       </div>

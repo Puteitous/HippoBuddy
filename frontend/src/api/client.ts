@@ -434,13 +434,27 @@ export const gitApi = {
     }>(`${API_BASE}/git/diff?${params.toString()}`);
   },
 
-  /** POST /api/git/operate - git 写操作(add/reset/commit/checkout/discard/revert/cherryPick) */
+  /** POST /api/git/operate - git 写操作(add/reset/commit/checkout/危险操作/远端/分支管理) */
   operate: (op: {
-    action: 'add' | 'reset' | 'commit' | 'checkout' | 'discard' | 'revert' | 'cherryPick';
+    action:
+      | 'add'
+      | 'reset'
+      | 'commit'
+      | 'checkout'
+      | 'discard'
+      | 'revert'
+      | 'cherryPick'
+      | 'fetch'
+      | 'pull'
+      | 'push'
+      | 'createBranch'
+      | 'renameBranch'
+      | 'deleteBranch';
     path: string;
     file?: string;
     message?: string;
     branch?: string;
+    newName?: string;
     hash?: string;
   }) =>
     postJson<{ success: boolean; error?: string }>(`${API_BASE}/git/operate`, op),

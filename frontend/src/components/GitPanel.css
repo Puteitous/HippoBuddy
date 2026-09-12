@@ -14,15 +14,111 @@
   margin-bottom: 6px;
 }
 
-.git-panel-branch {
+.git-panel-branch-trigger {
   flex: 1;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 8px;
   font-size: 13px;
   color: var(--hb-text, #1f2937);
   background: var(--hb-bg, #ffffff);
   border: 1px solid var(--hb-border, #e5e7eb);
   border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.git-panel-branch-trigger:hover:not(:disabled) {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+  border-color: var(--hb-text-soft, #6b7280);
+}
+
+.git-panel-branch-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.git-panel-branch-current {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.git-panel-branch-list-title {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hb-text-soft, #9ca3af);
+  border-bottom: 1px solid var(--hb-border, #e5e7eb);
+}
+
+.git-panel-branch-list-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.git-panel-branch-list-item:hover,
+.git-panel-branch-list-item.current {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+}
+
+.git-panel-branch-list-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--hb-text, #1f2937);
+}
+
+.git-panel-branch-list-item.current .git-panel-branch-list-name {
+  font-weight: 600;
+}
+
+.git-panel-branch-list-check {
+  flex: none;
+  color: var(--hb-accent, #2563eb);
+  font-size: 12px;
+}
+
+.git-panel-branch-list-new {
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--hb-text, #1f2937);
+  border-top: 1px solid var(--hb-border, #e5e7eb);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.git-panel-branch-list-new:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+}
+
+.git-panel-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: var(--hb-font, inherit);
+  color: var(--hb-text, #1f2937);
+  background: var(--hb-bg, #ffffff);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 6px;
+  outline: none;
+}
+
+.git-panel-input:focus {
+  border-color: var(--hb-accent, #2563eb);
 }
 
 .git-panel-icon-btn {
@@ -47,6 +143,36 @@
 
 .git-panel-icon-btn:disabled {
   opacity: 0.4;
+  cursor: default;
+}
+
+/* 远端操作按钮排(fetch/pull/push) */
+.git-panel-remote {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.git-panel-remote-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--hb-text, #1f2937);
+  background: var(--hb-bg, #ffffff);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.git-panel-remote-btn:hover:not(:disabled) {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+  border-color: var(--hb-text-soft, #6b7280);
+}
+
+.git-panel-remote-btn:disabled {
+  opacity: 0.5;
   cursor: default;
 }
 

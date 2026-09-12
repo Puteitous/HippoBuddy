@@ -26,6 +26,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *   <li>reset:    {@code git reset [file]}(取消暂存)</li>
  *   <li>commit:   {@code git commit -m message}</li>
  *   <li>checkout: {@code git checkout branch}</li>
+ *   <li>fetch:    {@code git fetch --all --prune}</li>
+ *   <li>pull:     {@code git pull}</li>
+ *   <li>push:     {@code git push -u origin branch}(无 branch 时 {@code git push})</li>
+ *   <li>createBranch: {@code git branch newName [branch]}(branch 为可选起始点)</li>
+ *   <li>renameBranch: {@code git branch -m branch newName}</li>
+ *   <li>deleteBranch: {@code git branch -d branch}(仅删已合并分支)</li>
  * </ul>
  * 成功后返回 {@code {success:true}},失败 {@code {success:false, error:...}}。
  */
@@ -44,7 +50,8 @@ public class GitOperateHandler implements HttpHandler {
         String file = GitRunner.normalizeRelPath(body.path("file").asText("").isEmpty() ? null : body.path("file").asText());
         String message = body.path("message").asText("");
         String branch = body.path("branch").asText("");
-        String hash = body.path("hash").asText("");
+        String newName = body.path("newName").asText("");
+        String hash = body.path("hash").asText();
 
         if (action.isEmpty() || workspacePath.isEmpty()) {
             sendJson(exchange, 400, objectMapper.writeValueAsString(Map.of("success", false, "error", "Missing action/path")));
@@ -107,6 +114,39 @@ public class GitOperateHandler implements HttpHandler {
                     return;
                 }
                 r = GitRunner.run(workDir, "cherry-pick", hash);
+            }
+            case "fetch" -> {
+                r = GitRunner.run(workDir, "fetch", "--all", "--prune");
+            }
+            case "pull" -> {
+                r = GitRunner.run(workDir, "pull");
+            }
+            case "push" -> {
+                // 用 -u 自动设置/确认上游分支,避免无上游时 git push 报错
+                r = branch.isEmpty() ? GitRunner.run(workDir, "push") : GitRunner.run(workDir, "push", "-u", "origin", branch);
+            }
+            case "createBranch" -> {
+                if (newName.isEmpty()) {
+                    sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", false, "error", "Empty branch name")));
+                    return;
+                }
+                // 可选 start-point(branch 字段):默认基于当前 HEAD
+                r = branch.isEmpty() ? GitRunner.run(workDir, "branch", newName) : GitRunner.run(workDir, "branch", newName, branch);
+            }
+            case "renameBranch" -> {
+                if (branch.isEmpty() || newName.isEmpty()) {
+                    sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", false, "error", "Empty branch/newName")));
+                    return;
+                }
+                r = GitRunner.run(workDir, "branch", "-m", branch, newName);
+            }
+            case "deleteBranch" -> {
+                if (branch.isEmpty()) {
+                    sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", false, "error", "Empty branch")));
+                    return;
+                }
+                // -d 仅删已合并分支;未合并会报错并给出提示
+                r = GitRunner.run(workDir, "branch", "-d", branch);
             }
             default -> {
                 sendJson(exchange, 400, objectMapper.writeValueAsString(Map.of("success", false, "error", "Unknown action: " + action)));
