@@ -17,6 +17,7 @@ import { translate } from '@/i18n';
 import { FileTabs } from './FileTabs';
 import { FilePreview } from './FilePreview';
 import { FileDiffView } from './FileDiffView';
+import { GitDiffView } from './GitDiffView';
 import { WebPreviewBrowser } from './WebPreviewBrowser';
 import './PreviewPanel.css';
 
@@ -230,6 +231,13 @@ export function PreviewPanel() {
             key={`diff-${activePath}-${activeTab.toolCallId ?? ''}`}
             filePath={activePath}
             toolCallId={activeTab.toolCallId}
+          />
+        ) : activeTab.mode === 'gitDiff' ? (
+          <GitDiffView
+            key={`gitdiff-${activePath}-${activeTab.gitDiff?.side ?? ''}-${activeTab.gitDiff?.hash ?? ''}`}
+            filePath={activePath}
+            side={activeTab.gitDiff?.side}
+            hash={activeTab.gitDiff?.hash}
           />
         ) : activeTab.mode === 'web' ? (
           <WebPreviewBrowser

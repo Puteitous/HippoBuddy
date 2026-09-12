@@ -31,6 +31,7 @@ import { showToast } from '@/utils/toastStore';
 import { useI18n, translate } from '@/i18n';
 import { TokenMonitor } from './chat-panel/TokenMonitor';
 import { MetricsPanel } from './MetricsPanel';
+import { GitPanel } from './GitPanel';
 import './ActivityBar.css';
 
 /** 动作 id */
@@ -79,6 +80,19 @@ const BUTTONS: ActivityButton[] = [
     panel: 'metrics',
   },
   {
+    id: 'abGit',
+    titleKey: 'activity.git',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="6" cy="6" r="3" />
+        <circle cx="6" cy="18" r="3" />
+        <line x1="6" y1="9" x2="6" y2="15" />
+        <path d="M9 6h5a3 3 0 0 1 3 3v6" />
+      </svg>
+    ),
+    panel: 'git',
+  },
+  {
     id: 'abSkillMarket',
     titleKey: 'activity.skillMarket',
     icon: (
@@ -120,6 +134,8 @@ function panelTitleKey(id: ActivityPanelId): string {
       return 'activity.token';
     case 'metrics':
       return 'activity.monitor';
+    case 'git':
+      return 'activity.git';
   }
 }
 
@@ -343,5 +359,7 @@ function renderPanel(id: ActivityPanelId) {
       return <TokenMonitor />;
     case 'metrics':
       return <MetricsPanel />;
+    case 'git':
+      return <GitPanel />;
   }
 }

@@ -24,7 +24,7 @@ export type PanelLayout = 'preview-left' | 'chat-left';
 const PANEL_LAYOUT_KEY = 'hippo-layout';
 
 /** ActivityBar 浮动面板 id */
-export type ActivityPanelId = 'token' | 'metrics';
+export type ActivityPanelId = 'token' | 'metrics' | 'git';
 
 /** 从 localStorage 读取面板布局(非法/缺失时回退默认 preview-left,对齐旧版默认) */
 function readPanelLayout(): PanelLayout {

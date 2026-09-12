@@ -1,0 +1,90 @@
+/* GitDiffView - git diff 预览容器样式
+   渲染主体复用 FilePreviewDiff;此处仅布局容器 + 头部 + 消息态 */
+
+.git-diff-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-size: 13px;
+}
+
+.git-diff-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px 8px;
+}
+
+.git-diff-view-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hb-text, #1f2937);
+}
+
+.git-diff-view-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--hb-text-soft, #6b7280);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.git-diff-view-refresh:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+  color: var(--hb-text, #1f2937);
+}
+
+.git-diff-view-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 32px 16px;
+  color: var(--hb-text-soft, #9ca3af);
+  font-size: 13px;
+  text-align: center;
+}
+
+.git-diff-view-message.error {
+  color: var(--error, #dc2626);
+}
+
+.git-diff-view-message button {
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--accent, #2563eb);
+  background: transparent;
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+[data-theme="dark"],
+[data-theme="midnight"],
+[data-theme="glass"] {
+  .git-diff-view-title {
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+
+  .git-diff-view-refresh {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+
+  .git-diff-view-refresh:hover {
+    background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
+    color: var(--hb-text-dark, #e5e7eb);
+  }
+
+  .git-diff-view-message {
+    color: var(--hb-text-soft-dark, #9ca3af);
+  }
+}

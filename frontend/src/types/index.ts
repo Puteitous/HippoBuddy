@@ -365,7 +365,7 @@ export interface PendingImage {
 // ============================================================================
 
 /** FilePreview 的渲染模式 */
-export type FileViewMode = 'preview' | 'diff' | 'web';
+export type FileViewMode = 'preview' | 'diff' | 'web' | 'gitDiff';
 
 /**
  * 工作区打开的文件标签
@@ -373,6 +373,7 @@ export type FileViewMode = 'preview' | 'diff' | 'web';
  * - 默认 mode = 'preview'(只读文本/图片/PDF)
  * - 触发"查看 diff"操作时切换为 'diff'(对接 /api/files/diff)
  * - mode = 'web':内嵌浏览器标签(openWeb 打开,path 存 url 作为唯一 key)
+ * - mode = 'gitDiff':git 源码管理面板打开的单文件 git diff(对接 /api/git/diff)
  */
 export interface FileTab {
   /** 对应文件绝对路径或 web 标签的 url(唯一键) */
@@ -389,6 +390,8 @@ export interface FileTab {
   endLine?: number;
   /** 可选:diff 模式下匹配的工具调用 id(定位历史变更) */
   toolCallId?: string;
+  /** 可选:gitDiff 模式的对比目标(仅 mode === 'gitDiff' 存在) */
+  gitDiff?: { side: 'worktree' | 'staged' | 'commit'; hash?: string };
   /** 可选:是否有未保存的改动(标签右侧显示脏标记圆点,对齐旧版 file-tab.dirty) */
   dirty?: boolean;
   /** 可选:md 渲染/编辑模式(仅 markdown;默认预览,切走切回保留工作上下文,首次打开才是预览) */

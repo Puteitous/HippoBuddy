@@ -51,6 +51,8 @@ interface PreviewState {
   updateWebUrl: (path: string, url: string) => void;
   /** 打开文件为 diff 模式(已有同路径 diff tab 则更新 toolCallId) */
   openDiff: (filePath: string, toolCallId?: string) => void;
+  /** 打开 git 源码管理面板的单文件 diff(已有同路径 gitDiff tab 则更新对比目标) */
+  openGitDiff: (filePath: string, gitDiff: { side: 'worktree' | 'staged' | 'commit'; hash?: string }) => void;
   /** 激活指定标签 */
   setActivePath: (path: string | null) => void;
   /** 关闭标签(激活相邻标签) */
@@ -168,6 +170,23 @@ export const usePreviewStore = create<PreviewState>((set) => ({
         };
       }
       const tab: FileTab = { path: filePath, name: basename(filePath), mode: 'diff', toolCallId };
+      return { tabs: [...state.tabs, tab], activePath: filePath, collapsed: false };
+    });
+  },
+
+  openGitDiff: (filePath, gitDiff) => {
+    persistPreviewCollapsed(false);
+    set((state) => {
+      // 已存在同路径 gitDiff 标签:更新对比目标并激活;与 openDiff 语义一致,
+      // path 作为 key 时若该文件已有其他模式标签(如 preview),则以 gitDiff 替换激活
+      const existing = state.tabs.find((t) => t.path === filePath);
+      if (existing) {
+        const tabs = state.tabs.map((t) =>
+          t.path === filePath ? { ...t, mode: 'gitDiff' as const, gitDiff } : t,
+        );
+        return { tabs, activePath: filePath, collapsed: false };
+      }
+      const tab: FileTab = { path: filePath, name: basename(filePath), mode: 'gitDiff', gitDiff };
       return { tabs: [...state.tabs, tab], activePath: filePath, collapsed: false };
     });
   },

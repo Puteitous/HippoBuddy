@@ -25,6 +25,7 @@ import type {
   ToolAbortRequest,
   ToolConfirmRequest,
   UpdateLlmConfigRequest,
+  WordDiffToken,
   WorkspaceState,
 } from '@/types';
 import type { ChatSseEventName } from '@/types/sse';
@@ -366,6 +367,81 @@ export const fileApi = {
    */
   rawUrl: (filePath: string) =>
     `${API_BASE}/file/raw?path=${encodeURIComponent(filePath)}`,
+};
+
+// ============================================================================
+// Git API (对应后端 GitStatusHandler / GitLogHandler / GitBranchHandler /
+// GitDiffHandler / GitOperateHandler)
+// ============================================================================
+
+/** git 报告中单个文件的结构化状态(保留原始 XY 两字母) */
+export interface GitStatusEntry {
+  path: string;
+  xy: string;
+  staged: boolean;
+  unstaged: boolean;
+  untracked: boolean;
+}
+
+export interface GitLogEntry {
+  hash: string;
+  hashFull: string;
+  subject: string;
+  author: string;
+  date: string;
+  refs: string;
+}
+
+export const gitApi = {
+  /** GET /api/git/status - git 状态(扁平 files + 结构化 entries) */
+  status: (path: string) =>
+    getJson<{
+      available: boolean;
+      error?: string;
+      files: Record<string, string>;
+      entries: GitStatusEntry[];
+    }>(`${API_BASE}/git/status?path=${encodeURIComponent(path)}`),
+
+  /** GET /api/git/log - 提交历史(分页) */
+  log: (path: string, limit = 20, offset = 0) =>
+    getJson<{ entries: GitLogEntry[]; error?: string }>(
+      `${API_BASE}/git/log?path=${encodeURIComponent(path)}&limit=${limit}&offset=${offset}`,
+    ),
+
+  /** GET /api/git/branch - 分支列表与当前分支 */
+  branch: (path: string) =>
+    getJson<{ current: string; names: string[] }>(
+      `${API_BASE}/git/branch?path=${encodeURIComponent(path)}`,
+    ),
+
+  /** GET /api/git/diff - 单文件 git diff(worktree/staged);commit 时 file 可省略表示全量 diff */
+  diff: (
+    path: string,
+    side: 'worktree' | 'staged' | 'commit',
+    file?: string,
+    hash?: string,
+  ) => {
+    const params = new URLSearchParams({ path, side });
+    if (file) params.set('file', file);
+    if (hash) params.set('hash', hash);
+    return getJson<{
+      filePath: string;
+      side: string;
+      binary: boolean;
+      changes: DiffLine[];
+      wordDiff: { old: WordDiffToken[][]; new: WordDiffToken[][] };
+    }>(`${API_BASE}/git/diff?${params.toString()}`);
+  },
+
+  /** POST /api/git/operate - git 写操作(add/reset/commit/checkout) */
+  operate: (op: {
+    action: 'add' | 'reset' | 'commit' | 'checkout';
+    path: string;
+    file?: string;
+    message?: string;
+    branch?: string;
+  }) =>
+    postJson<{ success: boolean; error?: string }>(`${API_BASE}/git/operate`, op),
 };
 
 // ============================================================================
