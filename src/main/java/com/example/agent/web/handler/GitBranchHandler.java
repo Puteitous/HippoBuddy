@@ -19,8 +19,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * GitBranchHandler - 分支列表与当前分支
  *
  * <p>GET /api/git/branch?path=<br>
- * 基于 {@code git branch --format='%(HEAD)\x1f%(refname:short)'},HEAD 标记的行
- * 为当前分支(带 <code>*</code>),其余为分支名列表。
+ * 本地分支基于 {@code git branch --format='%(HEAD)\x1f%(refname:short)'}(HEAD 标记为当前分支),
+ * 远端分支基于 {@code git branch -r --format='%(refname:short)'}(过滤 origin/HEAD 符号引用)。
+ * 返回 {@code {current, names, remotes}}。
  */
 public class GitBranchHandler implements HttpHandler {
 
@@ -38,28 +39,42 @@ public class GitBranchHandler implements HttpHandler {
         }
 
         Path workDir = Paths.get(workspacePath).normalize();
-        GitRunner.Result r = GitRunner.run(workDir, "branch", "--format=%(HEAD)%x1f%(refname:short)");
-        if (!r.ok()) {
-            sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("current", "", "names", List.of())));
-            return;
-        }
 
+        // 本地分支
+        GitRunner.Result local = GitRunner.run(workDir, "branch", "--format=%(HEAD)%x1f%(refname:short)");
         String current = "";
         List<String> names = new ArrayList<>();
-        for (String line : r.stdout().split("\n")) {
-            if (line.trim().isEmpty()) continue;
-            int sep = line.indexOf('\u001f');
-            String head = sep >= 0 ? line.substring(0, sep).trim() : "";
-            String name = sep >= 0 ? line.substring(sep + 1).trim() : line.trim();
-            if (name.isEmpty()) continue;
-            if ("*".equals(head)) {
-                current = name;
-            } else {
-                names.add(name);
+        if (local.ok()) {
+            for (String line : local.stdout().split("\n")) {
+                if (line.trim().isEmpty()) continue;
+                int sep = line.indexOf('\u001f');
+                String head = sep >= 0 ? line.substring(0, sep).trim() : "";
+                String name = sep >= 0 ? line.substring(sep + 1).trim() : line.trim();
+                if (name.isEmpty()) continue;
+                if ("*".equals(head)) {
+                    current = name;
+                } else {
+                    names.add(name);
+                }
             }
         }
 
-        sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("current", current, "names", names)));
+        // 远端分支(origin/* 等),过滤 origin/HEAD 符号引用与已存在同名本地分支
+        List<String> remotes = new ArrayList<>();
+        GitRunner.Result rr = GitRunner.run(workDir, "branch", "-r", "--format=%(refname:short)");
+        if (rr.ok()) {
+            for (String line : rr.stdout().split("\n")) {
+                String name = line.trim();
+                if (name.isEmpty()) continue;
+                String shortName = name;
+                int slash = name.indexOf('/');
+                if (slash > 0) shortName = name.substring(slash + 1);
+                if (name.contains("HEAD") || names.contains(shortName)) continue;
+                remotes.add(name);
+            }
+        }
+
+        sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("current", current, "names", names, "remotes", remotes)));
     }
 
     private void sendJson(HttpExchange exchange, int status, String json) throws IOException {

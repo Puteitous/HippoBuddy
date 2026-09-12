@@ -407,9 +407,9 @@ export const gitApi = {
       `${API_BASE}/git/log?path=${encodeURIComponent(path)}&limit=${limit}&offset=${offset}`,
     ),
 
-  /** GET /api/git/branch - 分支列表与当前分支 */
+  /** GET /api/git/branch - 本地分支列表 + 当前分支 + 远端分支 */
   branch: (path: string) =>
-    getJson<{ current: string; names: string[] }>(
+    getJson<{ current: string; names: string[]; remotes: string[] }>(
       `${API_BASE}/git/branch?path=${encodeURIComponent(path)}`,
     ),
 
@@ -433,6 +433,10 @@ export const gitApi = {
       wordDiff: { old: WordDiffToken[][]; new: WordDiffToken[][] };
     }>(`${API_BASE}/git/diff?${params.toString()}`);
   },
+
+  /** 流式获取 AI 生成的提交信息;onDelta 收到增量文本,完成或出错则 resolve/reject */
+  commitMessage: (path: string, onDelta: (delta: string) => void, signal?: AbortSignal) =>
+    streamCommitMessage(path, onDelta, signal),
 
   /** POST /api/git/operate - git 写操作(add/reset/commit/checkout/危险操作/远端/分支管理) */
   operate: (op: {
@@ -582,3 +586,98 @@ export const api = {
 // 重新导出类型,方便外部引用
 export type { ChatRequest, SessionMode, Session, Message, LlmConfig } from '@/types';
 export type { ChatSseEventName } from '@/types/sse';
+
+// ============================================================================
+// 流式读取 AI 提交信息(GitCommitMessageHandler 的 SSE: delta/complete/error)
+// ============================================================================
+
+/**
+ * 流式调用 /api/git/commit-message 并获取增量文本。
+ *
+ * 事件协议:delta 的事件体为 JSON {@code {"d":<增量文本>}},文本在服务端 JSON 转义,
+ * 因此换行/特殊字符可安全传输;complete 事件结束;error 事件抛错。
+ */
+async function streamCommitMessage(
+  path: string,
+  onDelta: (delta: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/git/commit-message`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify({ path }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const errBody = await response.json();
+      message = errBody?.error ?? message;
+    } catch {
+      // 忽略
+    }
+    throw new Error(message);
+  }
+
+  // 非流式(返回 JSON error,如"没有可提交的变更")直接抛出
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('text/event-stream')) {
+    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(errBody?.error || '生成提交信息失败');
+  }
+
+  if (!response.body) throw new Error('Response body is null');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let separatorIndex: number;
+      while ((separatorIndex = buffer.indexOf('\n\n')) !== -1) {
+        const chunk = buffer.slice(0, separatorIndex);
+        buffer = buffer.slice(separatorIndex + 2);
+        handleEvent(chunk);
+      }
+    }
+    const trimmed = buffer.trim();
+    if (trimmed.length > 0) handleEvent(trimmed);
+  } finally {
+    reader.releaseLock();
+  }
+
+  function handleEvent(chunk: string): void {
+    let name: string | null = null;
+    const dataLines: string[] = [];
+    for (const line of chunk.split('\n')) {
+      if (line.startsWith('event:')) name = line.slice(6).trim();
+      else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart());
+    }
+    const dataStr = dataLines.join('\n');
+    if (name === 'delta') {
+      try {
+        const parsed = JSON.parse(dataStr) as { d?: string };
+        if (typeof parsed.d === 'string') onDelta(parsed.d);
+      } catch {
+        // 忽略无法解析的增量
+      }
+    } else if (name === 'error') {
+      let message = '生成提交信息失败';
+      try {
+        const parsed = JSON.parse(dataStr) as { error?: string };
+        if (parsed?.error) message = parsed.error;
+      } catch {
+        // 保留默认
+      }
+      throw new Error(message);
+    }
+    // complete 事件:正常结束,忽略
+  }
+}

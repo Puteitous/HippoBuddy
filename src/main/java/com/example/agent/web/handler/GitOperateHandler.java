@@ -25,7 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *   <li>add:      {@code git add [file]}(无 file 全部)</li>
  *   <li>reset:    {@code git reset [file]}(取消暂存)</li>
  *   <li>commit:   {@code git commit -m message}</li>
- *   <li>checkout: {@code git checkout branch}</li>
+ *   <li>checkout: {@code git checkout branch}(remote 分支本地化为跟踪分支)</li>
  *   <li>fetch:    {@code git fetch --all --prune}</li>
  *   <li>pull:     {@code git pull}</li>
  *   <li>push:     {@code git push -u origin branch}(无 branch 时 {@code git push})</li>
@@ -80,7 +80,14 @@ public class GitOperateHandler implements HttpHandler {
                     sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", false, "error", "Empty branch")));
                     return;
                 }
-                r = GitRunner.run(workDir, "checkout", branch);
+                // 远端分支(origin/xxx)切换到本地跟踪分支: git checkout -b <local> --track <remote>
+                if (branch.startsWith("origin/") || branch.contains("/")) {
+                    int slash = branch.indexOf('/');
+                    String local = branch.substring(slash + 1);
+                    r = GitRunner.run(workDir, "checkout", "-b", local, "--track", branch);
+                } else {
+                    r = GitRunner.run(workDir, "checkout", branch);
+                }
             }
             case "discard" -> {
                 if (file == null) {
