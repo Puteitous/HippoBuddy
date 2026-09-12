@@ -132,7 +132,7 @@ function startBackend() {
         console.log('[backend] Backend already running');
         resolve();
       } else {
-        reject(new Error('后端异常'));
+        reject(new Error('backend unhealthy'));
       }
     });
     req.on('error', () => {
@@ -149,7 +149,7 @@ function startBackend() {
       const timeoutPromise = new Promise((_, rej) => {
         timeoutId = setTimeout(() => {
           stopBackend();
-          rej(new Error(`后端启动超时（已等待 ${LAUNCH_TIMEOUT / 1000} 秒）`));
+          rej(new Error(`Backend launch timed out (waited ${LAUNCH_TIMEOUT / 1000}s)`));
         }, LAUNCH_TIMEOUT);
       });
 
@@ -159,7 +159,7 @@ function startBackend() {
         resolve();
       }).catch(reject);
     });
-    req.setTimeout(2000, () => { req.destroy(); reject(new Error('超时')); });
+    req.setTimeout(2000, () => { req.destroy(); reject(new Error('timeout')); });
   });
 }
 
@@ -197,7 +197,7 @@ function launchPackagedBackend(resolve, reject) {
   const mainClass = 'com.example.agent.DesktopApplication';
 
   if (!fs.existsSync(jarPath)) {
-    reject(new Error(`JAR 文件不存在: ${jarPath}`));
+    reject(new Error(`JAR file not found: ${jarPath}`));
     return;
   }
 
@@ -220,13 +220,13 @@ function launchPackagedBackend(resolve, reject) {
       version = m ? parseInt(m[1], 10) : 0;
     } catch {
       reject(new Error(
-        '未找到系统 Java（java.exe），请安装 JDK 21+，或重新打包以内置 JRE。'
+        'System Java (java.exe) not found. Install JDK 21+ or repackage with a bundled JRE.'
       ));
       return;
     }
     if (version < 21) {
       reject(new Error(
-        `系统 Java 版本过低（${version}），需要 JDK 21+。请升级 Java 或重新打包以内置 JRE。`
+        `System Java version too low (${version}), JDK 21+ required. Upgrade Java or repackage with a bundled JRE.`
       ));
       return;
     }
@@ -245,7 +245,7 @@ function launchPackagedBackend(resolve, reject) {
     if (customPath && fs.existsSync(customPath)) {
       hippoDataDir = customPath;
     } else {
-      console.error(`[backend] data-dir.conf 中的路径无效，回退到默认: ${customPath}`);
+      console.error(`[backend] Invalid path in data-dir.conf, falling back to default: ${customPath}`);
       hippoDataDir = path.join(userDataRoot, '.hippo');
     }
   } else {
@@ -300,7 +300,7 @@ function attachBackendHandlers(proc, resolve, reject) {
   proc.on('exit', (code) => {
     console.log(`[backend] Process exited (code=${code})`);
     backendProcess = null;
-    if (!resolved) { resolved = true; reject(new Error(`后端进程异常退出 code=${code}`)); }
+    if (!resolved) { resolved = true; reject(new Error(`Backend process exited unexpectedly with code=${code}`)); }
   });
 }
 
@@ -324,14 +324,14 @@ function waitForHttpReady(resolve, reject) {
       } else if (attempts < MAX_ATTEMPTS) {
         setTimeout(poll, 500);
       } else {
-        reject(new Error('后端进程已输出就绪信号，但 HTTP 端点未正常响应'));
+        reject(new Error('Backend printed ready signal but HTTP endpoint did not respond'));
       }
     });
     req.on('error', () => {
       if (attempts < MAX_ATTEMPTS) {
         setTimeout(poll, 500);
       } else {
-        reject(new Error('等待 HTTP 就绪超时（15 秒）'));
+        reject(new Error('Timed out waiting for HTTP readiness (15s)'));
       }
     });
     req.setTimeout(2000, () => { req.destroy(); });
@@ -340,11 +340,126 @@ function waitForHttpReady(resolve, reject) {
   poll();
 }
 
+/** Cached stopBackend promise: multiple triggers (SIGINT then will-quit) only run cleanup once */
+let _stopBackendPromise = null;
+
+/**
+ * Stop the backend: first request a graceful shutdown via /api/shutdown
+ * (flush state / close SSE / drain thread pools), and fall back to a force
+ * kill when the backend is unreachable or fails to exit in time.
+ * Returns a Promise so the quit flow can wait for cleanup to finish.
+ */
 function stopBackend() {
+  if (_stopBackendPromise) return _stopBackendPromise;
+  _stopBackendPromise = new Promise((resolve) => {
+    // 1) Graceful shutdown first
+    requestGracefulShutdown()
+      .then(() => {
+        console.log('[backend] Graceful shutdown requested, waiting for exit...');
+        waitForBackendExit(10000)
+          .then(() => resolve())
+          .catch(() => {
+            console.warn('[backend] Backend did not exit in time, force killing');
+            forceKillBackend();
+            resolve();
+          });
+      })
+      .catch((err) => {
+        console.warn('[backend] Graceful shutdown unavailable, force killing:', err.message);
+        forceKillBackend();
+        resolve();
+      });
+  });
+  return _stopBackendPromise;
+}
+
+/** Request graceful shutdown (POST /api/shutdown, 2s timeout; non-2xx counts as unavailable) */
+function requestGracefulShutdown() {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    const payload = JSON.stringify({});
+    const req = http.request({
+      host: 'localhost',
+      port: PORT,
+      path: '/api/shutdown',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, (res) => {
+      res.resume();
+      if (res.statusCode >= 200 && res.statusCode < 400) {
+        resolve();
+      } else {
+        reject(new Error(`shutdown endpoint returned ${res.statusCode}`));
+      }
+    });
+    req.on('error', reject);
+    req.setTimeout(2000, () => { req.destroy(); reject(new Error('request timeout')); });
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * Wait until the backend has fully exited.
+ * Prefers the child process 'exit' event so the JVM shutdown-hook logs are
+ * fully printed to the terminal before Electron quits; falls back to polling
+ * the port when the child process handle is unavailable (backend started
+ * externally).
+ */
+function waitForBackendExit(timeoutMs) {
+  return new Promise((resolve, reject) => {
+    // Child process handle available and still running → wait for its exit
+    if (backendProcess && backendProcess.exitCode === null) {
+      const timer = setTimeout(() => {
+        console.warn('[backend] Timed out waiting for backend process to exit');
+        reject(new Error('timed out waiting for backend process to exit'));
+      }, timeoutMs);
+      backendProcess.once('exit', (code) => {
+        clearTimeout(timer);
+        console.log(`[backend] Backend process exited (code=${code})`);
+        resolve();
+      });
+      return;
+    }
+    // No child handle → poll the port until it stops listening
+    waitForPortClosed(timeoutMs).then(resolve, reject);
+  });
+}
+
+/** Poll the backend port until it is no longer listening */
+function waitForPortClosed(timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    const deadline = Date.now() + timeoutMs;
+    const poll = () => {
+      if (Date.now() >= deadline) {
+        reject(new Error('timed out waiting for backend port to close'));
+        return;
+      }
+      const req = http.get(`http://localhost:${PORT}/`, (res) => {
+        res.resume();
+        setTimeout(poll, 500); // still responding → not exited yet, keep polling
+      });
+      req.on('error', () => {
+        // Connection refused → backend has exited
+        console.log('[backend] Backend port closed, exit confirmed');
+        resolve();
+      });
+      req.setTimeout(1000, () => { req.destroy(); setTimeout(poll, 500); });
+    };
+    poll();
+  });
+}
+
+/** 兜底：按已知 PID 强杀进程树 + 按端口查杀残留 */
+function forceKillBackend() {
   // 1) 优先通过已知 PID 杀进程树
   if (backendProcess) {
     const pid = backendProcess.pid;
-    console.log(`[backend] Stopping Java backend (PID=${pid})`);
+    console.log(`[backend] Force killing backend (PID=${pid})`);
 
     if (process.platform === 'win32') {
       require('child_process').spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
@@ -352,6 +467,7 @@ function stopBackend() {
         windowsHide: true,
       });
     } else {
+      // POSIX 用 SIGTERM（允许 JVM shutdown hooks 运行），/api/shutdown 失败时这是最后的优雅尝试
       try { backendProcess.kill('SIGTERM'); } catch { /* 忽略 */ }
     }
 
@@ -557,7 +673,7 @@ function setupSplashCommunication() {
       .catch(err => {
         console.error('[main] Backend launch failed after retry:', err.message);
         if (mainWindow && !mainWindow.isDestroyed()) {
-          const safeMsg = (err.message || '未知错误').replace(/['\\]/g, '');
+          const safeMsg = (err.message || 'Unknown error').replace(/['\\]/g, '');
           mainWindow.webContents.executeJavaScript(
             `__showError('${safeMsg}')`
           ).catch(() => {});
@@ -929,12 +1045,12 @@ function backendGetJson(path) {
         try {
           resolve(JSON.parse(body));
         } catch {
-          reject(new Error('后端响应解析失败'));
+          reject(new Error('failed to parse backend response'));
         }
       });
     });
     req.on('error', reject);
-    req.setTimeout(2000, () => { req.destroy(); reject(new Error('请求超时')); });
+    req.setTimeout(2000, () => { req.destroy(); reject(new Error('request timeout')); });
   });
 }
 
@@ -960,7 +1076,7 @@ function backendPostJson(path, bodyObj) {
       });
     });
     req.on('error', reject);
-    req.setTimeout(2000, () => { req.destroy(); reject(new Error('请求超时')); });
+    req.setTimeout(2000, () => { req.destroy(); reject(new Error('request timeout')); });
     req.write(payload);
     req.end();
   });
@@ -979,7 +1095,7 @@ async function getRunningSessionIds() {
       .map(s => s.id)
       .filter(Boolean);
   } catch (err) {
-    console.warn('[main] 查询运行中会话失败:', err.message);
+    console.warn('[main] Failed to query running sessions:', err.message);
     return [];
   }
 }
@@ -989,9 +1105,9 @@ async function abortSessions(sessionIds) {
   for (const id of sessionIds) {
     try {
       await backendPostJson('/api/tool/abort', { sessionId: id });
-      console.log(`[main] 已发送中断请求: sessionId=${id}`);
+      console.log(`[main] Abort request sent: sessionId=${id}`);
     } catch (err) {
-      console.warn(`[main] 中断会话失败: sessionId=${id}, error=${err.message}`);
+      console.warn(`[main] Failed to abort session: sessionId=${id}, error=${err.message}`);
     }
   }
 }
@@ -1383,7 +1499,7 @@ app.whenReady().then(() => {
         console.error('[main] Backend launch failed:', err.message);
         // 通知 splash 显示错误（允许用户重试）
         if (mainWindow && !mainWindow.isDestroyed()) {
-          const safeMsg = (err.message || '未知错误').replace(/['\\]/g, '');
+          const safeMsg = (err.message || 'Unknown error').replace(/['\\]/g, '');
           mainWindow.webContents.executeJavaScript(
             `__showError('${safeMsg}')`
           ).catch(() => {});
@@ -1414,12 +1530,17 @@ app.on('before-quit', () => {
   app.isQuitting = true;
 });
 
-app.on('will-quit', () => {
-  stopBackend();
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
+app.on('will-quit', (event) => {
+  // 先优雅关闭后端（可能耗时数秒），完成后才真正退出。
+  // 若在此同步退出，/api/shutdown 请求来不及发出，后端会残留为孤儿进程持续占用端口。
+  event.preventDefault();
+  stopBackend().finally(() => {
+    if (tray) {
+      tray.destroy();
+      tray = null;
+    }
+    app.exit(0);
+  });
 });
 
 app.on('activate', () => {

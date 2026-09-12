@@ -218,8 +218,27 @@ public class Message {
     /**
      * 设置纯文本内容。
      * 如果消息之前包含多模态内容（如图片），调用此方法会清除它们。
+     * <p>
+     * 标注 {@code @JsonIgnore}，避免 Jackson 将 content 属性类型推断为 String，
+     * 导致含图片（数组 content）的多模态消息在 reload 时反序列化失败被整行跳过。
+     * 反序列化走 {@link #setContentRaw(Object)}。
+     * </p>
      */
+    @JsonIgnore
     public void setContent(String content) {
+        this.content = content != null ? content : "";
+    }
+
+    /**
+     * Jackson 反序列化专用 setter。
+     * <p>
+     * content 同时兼容两种形态：纯文本（String）与多模态（List&lt;ContentPart&gt;）。
+     * 数组内容在反序列化时先以 List&lt;Map&gt; 形式落入 {@code content} 字段，
+     * 由 {@link #getContentParts()} 惰性转换为 ContentPart。
+     * </p>
+     */
+    @JsonProperty("content")
+    public void setContentRaw(Object content) {
         this.content = content != null ? content : "";
     }
 

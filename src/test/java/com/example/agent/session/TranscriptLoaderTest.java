@@ -115,6 +115,31 @@ class TranscriptLoaderTest {
     }
 
     @Test
+    void testLoadMultimodalImageMessage() throws IOException {
+        // 模拟真实场景：用户发送含图片的消息，content 为数组（多模态）
+        String imageLine = "{\"type\":\"user\",\"uuid\":\"img-1\",\"sessionId\":\"" + sessionId
+            + "\",\"timestamp\":\"2026-09-12T00:00:00Z\",\"version\":\"1.0.0\",\"cwd\":\"E:\\\\Test\""
+            + ",\"message\":{\"id\":\"img-1\",\"role\":\"user\",\"multimodal\":true,"
+            + "\"content\":[{\"type\":\"image_url\",\"url\":\"file://images/potato.jpeg\","
+            + "\"image_url\":{\"url\":\"file://images/potato.jpeg\"}}]},\"typeEnum\":\"USER\"}";
+        Files.createDirectories(transcriptFile.getParent());
+        Files.writeString(transcriptFile, imageLine + "\n");
+
+        TranscriptLoader.LoadResult result = TranscriptLoader.load(transcriptFile);
+
+        assertEquals(1, result.getMessages().size());
+        assertEquals(0, result.getTruncatedLines());
+        assertFalse(result.isRecoveredFromCrash());
+
+        Message msg = result.getMessages().get(0);
+        assertEquals("user", msg.getRole());
+        assertTrue(msg.isMultimodal());
+        assertEquals(1, msg.getContentParts().size());
+        assertEquals("file://images/potato.jpeg",
+            ((com.example.agent.llm.model.ImagePart) msg.getContentParts().get(0)).getUrl());
+    }
+
+    @Test
     void testExists() {
         assertTrue(TranscriptLoader.exists(sessionId));
         assertFalse(TranscriptLoader.exists("non-existent-session"));

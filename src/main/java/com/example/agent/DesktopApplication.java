@@ -1,6 +1,7 @@
 package com.example.agent;
 
 import com.example.agent.config.Config;
+import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.CoreModule;
 import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.logging.WorkspaceManager;
@@ -68,8 +69,19 @@ public final class DesktopApplication {
                 });
 
         // 5. 保持 JVM 运行（由 Electron 管理窗口生命周期）
+        // 注册优雅关闭 hook：收到 SIGTERM 或 /api/shutdown 触发 System.exit 时，
+        // 先停止 HTTP Server、回收线程池，再放行主线程退出，避免进程被直接强杀
         CountDownLatch latch = new CountDownLatch(1);
-        Runtime.getRuntime().addShutdownHook(new Thread(latch::countDown));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            logger.info("JVM 关闭中，正在优雅停止后端服务...");
+            try {
+                DashboardServer.stop();
+                GracefulShutdown.shutdownAll();
+            } catch (Exception e) {
+                logger.warn("优雅关闭过程中出现异常: {}", e.getMessage());
+            }
+            latch.countDown();
+        }, "desktop-shutdown-hook"));
         try {
             latch.await();
         } catch (InterruptedException e) {
