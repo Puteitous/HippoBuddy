@@ -122,8 +122,7 @@ public class GitStatusHandler implements HttpHandler {
 
         // 解析 git status --porcelain 输出
         // 格式: XY filepath 或 XY filepath -> filepath (重命名)
-        Map<String, String> files = new HashMap<>();
-        // 结构化条目:保留原始 XY 状态段,供源码管理面板区分已暂存/未暂存
+        // 结构化条目:保留原始 XY 状态段,供源码管理面板与文件树徽章共用以区分已暂存/未暂存
         List<Map<String, Object>> entries = new ArrayList<>();
         String[] lines = output.toString().split("\n");
         for (String line : lines) {
@@ -134,7 +133,6 @@ public class GitStatusHandler implements HttpHandler {
             char x = rawXy.charAt(0);
             char y = rawXy.charAt(1);
 
-            String status = rawXy.trim();
             String filePath = line.substring(2).trim();
 
             // 处理重命名: "R  oldname -> newname"
@@ -145,25 +143,6 @@ public class GitStatusHandler implements HttpHandler {
             // 转换成使用正斜杠
             filePath = filePath.replace('\\', '/');
 
-            // 映射为简洁的状态值(文件树徽章沿用)
-            String mappedStatus;
-            if (status.equals("??")) {
-                mappedStatus = "A"; // 新增/未跟踪
-            } else if (status.contains("M")) {
-                mappedStatus = "M"; // 修改
-            } else if (status.contains("D")) {
-                mappedStatus = "D"; // 删除
-            } else if (status.contains("A")) {
-                mappedStatus = "A"; // 新增（已暂存）
-            } else if (status.contains("R")) {
-                mappedStatus = "M"; // 重命名视为修改
-            } else {
-                mappedStatus = status;
-            }
-
-            files.put(filePath, mappedStatus);
-
-            // 结构化条目:staged 看 X 位,unstaged 看 Y 位,?=?= 未跟踪
             Map<String, Object> entry = new HashMap<>();
             entry.put("path", filePath);
             entry.put("xy", rawXy);
@@ -174,7 +153,6 @@ public class GitStatusHandler implements HttpHandler {
         }
 
         result.put("available", true);
-        result.put("files", files);
         result.put("entries", entries);
         return result;
     }

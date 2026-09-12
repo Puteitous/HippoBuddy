@@ -68,6 +68,49 @@
   cursor: pointer;
 }
 
+/* 提交变更文件列表 */
+.git-diff-files {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.git-diff-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--hb-text, #1f2937);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.git-diff-file-row:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.06));
+}
+
+.git-diff-file-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.git-diff-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--hb-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+}
+
 [data-theme="dark"],
 [data-theme="midnight"],
 [data-theme="glass"] {

@@ -1,10 +1,11 @@
 /**
- * GitDiffView - git 源码管理面板打开的单文件/单提交 diff 预览
+ * GitDiffView - git 源码管理面板打开的文件 diff 预览
  *
  * 数据源:GET /api/git/diff(gitApi.diff),渲染复用 FilePreviewDiff(unified + 词级高亮)。
  *
- * - worktree/staged:对比某个文件,传递其仓库内相对路径
- * - commit(file 缺省):解析 git show 的全量 diff,展示该提交完整改动
+ * - worktree/staged:对比某个文件,自动由 workspace 前缀计算仓库内相对路径
+ * - commit:先请求该提交的变更文件列表({@code files}),渲染列表;点击某个文件后再请求
+ *   该文件的单文件 commit diff(父版本 vs 提交版本)。列表仅一个文件时自动进入 diff。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { gitApi } from '@/api/client';
@@ -13,10 +14,11 @@ import { useAppStore } from '@/stores/appStore';
 import { useI18n } from '@/i18n';
 import type { DiffLine, WordDiffToken } from '@/types';
 import { FilePreviewDiff } from './FilePreviewDiff';
+import { FileTypeIcon } from '../FileTypeIcon';
 import './GitDiffView.css';
 
 interface GitDiffViewProps {
-  /** 标签 path:文件级 = 文件绝对路径;commit 全量 = commit hash */
+  /** 标签 path:文件级 = 文件绝对路径;commit = commit hash */
   filePath: string;
   side?: 'worktree' | 'staged' | 'commit';
   hash?: string;
@@ -32,10 +34,14 @@ export function GitDiffView({ filePath, side = 'worktree', hash }: GitDiffViewPr
   const { t } = useI18n();
   const workspace = useAppStore((s) => s.workspacePath);
   const [data, setData] = useState<GitDiffData | null>(null);
+  const [commitFiles, setCommitFiles] = useState<string[] | null>(null);
+  const [selFile, setSelFile] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** 计算仓库内相对路径;workspace 前缀之外的 path(如 commit hash)视为全量 diff(不传 file) */
+  const isCommit = side === 'commit';
+
+  /** 文件级:由 workspace 前缀计算仓库内相对路径 */
   const relative = useMemo(() => {
     if (!workspace) return filePath;
     const prefix = workspace.replace(/[/\\]+$/, '');
@@ -48,22 +54,66 @@ export function GitDiffView({ filePath, side = 'worktree', hash }: GitDiffViewPr
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (!isCommit) {
+      // worktree / staged: 直接取单文件 diff
+      setData(null);
+      try {
+        const resp = await gitApi.diff(workspace, side, relative, hash);
+        setData({
+          changes: resp.changes ?? [],
+          wordDiff: resp.wordDiff ?? null,
+          binary: resp.binary,
+        });
+        setCommitFiles(null);
+      } catch (e) {
+        setError(e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // commit: 未选文件 → 取文件列表;已选文件 → 取单文件 commit diff
+    const targetFile = selFile;
     setData(null);
+    if (!targetFile) {
+      try {
+        const resp = await gitApi.diff(workspace, 'commit', undefined, hash);
+        const files = resp.files ?? [];
+        setCommitFiles(files);
+        // 仅一个文件:自动进入单文件 diff
+        if (files.length === 1) {
+          setSelFile(files[0]);
+        }
+      } catch (e) {
+        setError(e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
-      const sideVal = side === 'commit' && !relative ? 'commit' : side;
-      const resp = await gitApi.diff(workspace, sideVal, relative || undefined, hash);
+      const resp = await gitApi.diff(workspace, 'commit', targetFile, hash);
       setData({
         changes: resp.changes ?? [],
         wordDiff: resp.wordDiff ?? null,
         binary: resp.binary,
       });
     } catch (e) {
-      const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
-      setError(msg);
+      setError(e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e));
     } finally {
       setLoading(false);
     }
-  }, [workspace, relative, side, hash]);
+  }, [workspace, side, isCommit, relative, hash, selFile, t]);
+
+  // 切换对比目标(hash/side/文件)时复位选择
+  useEffect(() => {
+    setSelFile(null);
+    setCommitFiles(null);
+    setData(null);
+    setError(null);
+  }, [hash, side, filePath, workspace]);
 
   useEffect(() => {
     if (!workspace) {
@@ -73,10 +123,17 @@ export function GitDiffView({ filePath, side = 'worktree', hash }: GitDiffViewPr
     void load();
   }, [workspace, load, t]);
 
+  const headerTitle =
+    side === 'staged'
+      ? t('git.diffStaged')
+      : side === 'commit'
+        ? (selFile ?? t('git.diffCommit'))
+        : t('git.diffWorktree');
+
   return (
     <div className="git-diff-view">
       <div className="git-diff-view-header">
-        <span className="git-diff-view-title">{t(`git.diff${side === 'staged' ? 'Staged' : side === 'commit' ? 'Commit' : 'Worktree'}`)}</span>
+        <span className="git-diff-view-title" title={selFile ?? undefined}>{headerTitle}</span>
         <button
           type="button"
           className="git-diff-view-refresh"
@@ -99,7 +156,44 @@ export function GitDiffView({ filePath, side = 'worktree', hash }: GitDiffViewPr
           <button type="button" onClick={() => void load()}>{t('chatui.retry')}</button>
         </div>
       )}
-      {!loading && !error && data && (
+
+      {/* 提交文件列表 */}
+      {!loading && !error && isCommit && !selFile && commitFiles !== null && (
+        commitFiles.length === 0 ? (
+          <div className="git-diff-view-message">{t('git.noChanges')}</div>
+        ) : (
+          <div className="git-diff-files">
+            {commitFiles.map((f) => (
+              <button
+                key={f}
+                type="button"
+                className="git-diff-file-row"
+                title={f}
+                onClick={() => setSelFile(f)}
+              >
+                <span className="git-diff-file-icon" aria-hidden>
+                  <FileTypeIcon fileName={f} size={14} />
+                </span>
+                <span className="git-diff-file-name">{f}</span>
+              </button>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* diff 内容 */}
+      {!loading && !error && isCommit && selFile && data && (
+        data.binary ? (
+          <div className="git-diff-view-message">{t('git.binary')}</div>
+        ) : data.changes.length === 0 ? (
+          <div className="git-diff-view-message">{t('git.noChanges')}</div>
+        ) : (
+          <FilePreviewDiff lines={data.changes} wordDiff={data.wordDiff ?? undefined} filePath={selFile} />
+        )
+      )}
+
+      {/* worktree / staged 文件 diff */}
+      {!loading && !error && !isCommit && data && (
         data.binary ? (
           <div className="git-diff-view-message">{t('git.binary')}</div>
         ) : data.changes.length === 0 ? (

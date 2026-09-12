@@ -17,6 +17,8 @@ import { gitApi, type GitLogEntry, type GitStatusEntry } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
 import { useI18n } from '@/i18n';
+import { on } from '@/utils/eventBus';
+import { FileTypeIcon } from './FileTypeIcon';
 import './GitPanel.css';
 
 /** git 历史分批加载数量(懒加载分页) */
@@ -75,6 +77,8 @@ export function GitPanel() {
   const [commitMsg, setCommitMsg] = useState('');
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  /** 自动刷新去抖定时器(AI 连续写文件时避免频繁打 git status) */
+  const autoDebounceRef = useRef<number | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -115,6 +119,24 @@ export function GitPanel() {
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  // AI 写文件(write/edit/delete)或回滚完成后自动刷新 git 状态。
+  // 面板关闭时组件卸载、订阅自动解除;开启时匹配文件变更频率,去抖合并连续事件。
+  useEffect(() => {
+    const schedule = () => {
+      if (autoDebounceRef.current != null) window.clearTimeout(autoDebounceRef.current);
+      autoDebounceRef.current = window.setTimeout(() => {
+        void refresh();
+      }, 300);
+    };
+    const offPreview = on('file:preview-reload', schedule);
+    const offRollback = on('rollback:completed', schedule);
+    return () => {
+      if (autoDebounceRef.current != null) window.clearTimeout(autoDebounceRef.current);
+      offPreview();
+      offRollback();
+    };
   }, [refresh]);
 
   const loadMoreLog = async (): Promise<void> => {
@@ -393,6 +415,7 @@ function GitStatusRow({
         onClick={onOpen}
       >
         <span className={`git-panel-badge ${badgeClass}`}>{badge}</span>
+        <FileTypeIcon fileName={entry.path} size={14} className="git-panel-file-icon" />
         <span className="git-panel-name">{entry.path}</span>
       </button>
       <button

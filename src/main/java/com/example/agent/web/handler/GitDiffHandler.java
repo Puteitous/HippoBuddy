@@ -61,23 +61,21 @@ public class GitDiffHandler implements HttpHandler {
 
         Path workDir = Paths.get(workspacePath).normalize();
 
-        // 提交全量 diff:无 file 时解析 git show 的统一 diff
+        // 提交全量:无 file 时返回该提交涉及的变更文件列表(前端点选后再取单文件 diff)
         if ("commit".equals(side) && file == null) {
-            GitRunner.Result shown = GitRunner.run(workDir, "show", "--pretty=", "--no-color", "--unified=3", hash);
-            Map<String, Object> wide = new HashMap<>();
-            if (shown.stdout().contains("Binary files")) {
-                wide.put("filePath", "");
-                wide.put("side", side);
-                wide.put("binary", true);
-                wide.put("changes", List.of());
-                wide.put("wordDiff", Map.of("old", List.of(), "new", List.of()));
-            } else {
-                wide.put("filePath", "");
-                wide.put("side", side);
-                wide.put("binary", false);
-                wide.put("changes", parseUnified(shown.stdout()));
-                wide.put("wordDiff", Map.of("old", List.of(), "new", List.of()));
+            GitRunner.Result nameOnly = GitRunner.run(workDir, "show", "--pretty=", "--name-only", hash);
+            List<String> files = new ArrayList<>();
+            for (String line : nameOnly.stdout().split("\n")) {
+                String p = line.trim();
+                if (!p.isEmpty()) files.add(p);
             }
+            Map<String, Object> wide = new HashMap<>();
+            wide.put("filePath", "");
+            wide.put("side", side);
+            wide.put("binary", false);
+            wide.put("files", files);
+            wide.put("changes", List.of());
+            wide.put("wordDiff", Map.of("old", List.of(), "new", List.of()));
             sendJson(exchange, 200, objectMapper.writeValueAsString(wide));
             return;
         }
@@ -140,45 +138,6 @@ public class GitDiffHandler implements HttpHandler {
         }
 
         sendJson(exchange, 200, objectMapper.writeValueAsString(response));
-    }
-
-    /**
-     * 解析 git unified diff 输出为 DiffLine({type, content})。
-     * 跳过 diff/index/---/+++/new file 等文件头;@@ 与上下文归为 same,+/- 归为 added/removed。
-     * 注意:置于独立的文件头行以 +++++ 等 '+'/'-' 开头,已在 skip 中排除,避免误判。
-     */
-    static List<Map<String, String>> parseUnified(String out) {
-        List<Map<String, String>> changes = new ArrayList<>();
-        if (out == null || out.isEmpty()) return changes;
-        for (String line : out.split("\n")) {
-            if (line.startsWith("diff ") || line.startsWith("index ") || line.startsWith("new file mode")
-                    || line.startsWith("deleted file mode") || line.startsWith("--- ") || line.startsWith("+++ ")
-                    || line.startsWith("similarity index") || line.startsWith("rename from") || line.startsWith("rename to")
-                    || line.startsWith("old mode") || line.startsWith("new mode")) {
-                continue;
-            }
-            String type;
-            String content;
-            if (line.startsWith("@@")) {
-                type = "same";
-                content = line;
-            } else if (line.startsWith("+")) {
-                type = "added";
-                content = line.substring(1);
-            } else if (line.startsWith("-")) {
-                type = "removed";
-                content = line.substring(1);
-            } else {
-                type = "same";
-                content = line;
-            }
-            // 上下文行统一去前缀空格(与 readLine 一致的无头上下文)
-            if ("same".equals(type) && content.startsWith(" ")) {
-                content = content.substring(1);
-            }
-            changes.add(Map.of("type", type, "content", content));
-        }
-        return changes;
     }
 
     private void sendJson(HttpExchange exchange, int status, String json) throws IOException {

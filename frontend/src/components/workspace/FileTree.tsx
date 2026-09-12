@@ -17,6 +17,7 @@ import { createPortal } from 'react-dom';
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { getJson } from '@/api/http';
+import type { GitStatusEntry } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { translate, useI18n } from '@/i18n';
 import { FileIcon } from '../FileIcon';
@@ -50,6 +51,20 @@ const compactReadDirCache = new Map<string, DirEntry[] | null>();
 
 function clearCompactCache(): void {
   compactReadDirCache.clear();
+}
+
+/**
+ * 由 git 结构化条目推导文件树徽章字母(对齐旧版后端 files map 的拍平映射):
+ *   未跟踪/新增 → A,删除 → D,修改 → M,重命名视作修改。
+ */
+function gitBadgeOf(e: GitStatusEntry): string {
+  if (e.untracked) return 'A';
+  const chars = e.xy.replace(/ /g, '');
+  if (chars.includes('D')) return 'D';
+  if (chars.includes('M')) return 'M';
+  if (chars.includes('A')) return 'A';
+  if (chars.includes('R')) return 'M';
+  return chars.charAt(0) || '?';
 }
 
 /** 带缓存的 readDir(供 resolveCompactChain 使用) */
@@ -121,10 +136,10 @@ function persistExpanded(rootPath: string, dirs: Set<string>): void {
   }
 }
 
-/** Git 状态数据(相对路径 → 状态) */
+/** Git 状态数据(结构化条目,来自 /api/git/status 的 entries) */
 interface GitStatus {
   available: boolean;
-  files: Record<string, string>;
+  entries: GitStatusEntry[];
 }
 
 export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refreshToken }: FileTreeProps) {
@@ -199,13 +214,21 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
         );
         if (!cancelled) setGitStatus(data);
       } catch {
-        if (!cancelled) setGitStatus({ available: false, files: {} });
+        if (!cancelled) setGitStatus({ available: false, entries: [] });
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [rootPath, treeVersion, refreshToken]);
+
+  // 由结构化 entries 构造 相对路径→徽章字母(M/A/D)映射,供文件节点渲染灰度徽章
+  const gitFilesMap = useMemo(() => {
+    if (!gitStatus?.available) return undefined;
+    const m: Record<string, string> = {};
+    for (const e of gitStatus.entries) m[e.path] = gitBadgeOf(e);
+    return m;
+  }, [gitStatus]);
 
   const handleRefresh = useCallback(() => {
     setTreeVersion((v) => v + 1);
@@ -518,7 +541,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
             activePath={activePath}
             activeDirPath={activeDirPath}
             onFileSelect={handleFileSelect}
-            gitFiles={gitStatus?.available ? gitStatus.files : undefined}
+            gitFiles={gitFilesMap}
             treeVersion={treeVersion}
             dragOverPath={dragOverPath}
             onDragOverChange={setDragOverPath}

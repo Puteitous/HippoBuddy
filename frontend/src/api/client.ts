@@ -393,12 +393,11 @@ export interface GitLogEntry {
 }
 
 export const gitApi = {
-  /** GET /api/git/status - git 状态(扁平 files + 结构化 entries) */
+  /** GET /api/git/status - git 状态(结构化 entries,供面板分组与文件树徽章共用) */
   status: (path: string) =>
     getJson<{
       available: boolean;
       error?: string;
-      files: Record<string, string>;
       entries: GitStatusEntry[];
     }>(`${API_BASE}/git/status?path=${encodeURIComponent(path)}`),
 
@@ -428,6 +427,8 @@ export const gitApi = {
       filePath: string;
       side: string;
       binary: boolean;
+      /** commit 且未指定 file 时的变更文件列表 */
+      files?: string[];
       changes: DiffLine[];
       wordDiff: { old: WordDiffToken[][]; new: WordDiffToken[][] };
     }>(`${API_BASE}/git/diff?${params.toString()}`);
