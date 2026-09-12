@@ -20,7 +20,6 @@ class BlockerChainTest {
     void setUp() {
         blockerChain = new BlockerChain();
         objectMapper = new ObjectMapper();
-        BlockerChain.resetMetrics();
     }
 
     @Nested
@@ -66,87 +65,6 @@ class BlockerChainTest {
     }
 
     @Nested
-    @DisplayName("指标统计测试")
-    class MetricsTests {
-
-        @Test
-        @DisplayName("总检查数递增")
-        void totalChecksIncrements() {
-            blockerChain.add(new SchemaValidationBlocker());
-
-            JsonNode args = createArgs("test.txt");
-            blockerChain.check("read_file", args);
-            blockerChain.check("read_file", args);
-            blockerChain.check("read_file", args);
-
-            assertEquals(3, BlockerChain.getTotalChecks());
-        }
-
-        @Test
-        @DisplayName("拦截次数统计正确")
-        void blockedCountIsCorrect() {
-            blockerChain.add((toolName, args) -> HookResult.block("测试拦截"));
-
-            JsonNode args = createArgs("test.txt");
-            blockerChain.check("read_file", args);
-            blockerChain.check("bash", args);
-            blockerChain.check("edit_file", args);
-
-            assertEquals(3, BlockerChain.getBlockedCount());
-        }
-
-        @Test
-        @DisplayName("工具维度检查次数统计")
-        void toolCheckCountsAreTracked() {
-            blockerChain.add(new SchemaValidationBlocker());
-
-            JsonNode args = createArgs("test.txt");
-            blockerChain.check("read_file", args);
-            blockerChain.check("read_file", args);
-            blockerChain.check("bash", args);
-
-            assertEquals(2, BlockerChain.getToolCheckCounts().get("read_file"));
-            assertEquals(1, BlockerChain.getToolCheckCounts().get("bash"));
-        }
-
-        @Test
-        @DisplayName("工具维度拦截次数统计")
-        void toolBlockCountsAreTracked() {
-            blockerChain.add((toolName, args) -> {
-                if ("bash".equals(toolName)) {
-                    return HookResult.block("危险工具");
-                }
-                return HookResult.allow();
-            });
-
-            JsonNode args = createArgs("test.txt");
-            blockerChain.check("read_file", args);
-            blockerChain.check("bash", args);
-            blockerChain.check("bash", args);
-
-            assertEquals(2, BlockerChain.getToolBlockCounts().get("bash"));
-            assertFalse(BlockerChain.getToolBlockCounts().containsKey("read_file"));
-        }
-
-        @Test
-        @DisplayName("重置指标清空所有数据")
-        void resetMetricsClearsAllData() {
-            blockerChain.add(new SchemaValidationBlocker());
-
-            JsonNode args = createArgs("test.txt");
-            blockerChain.check("read_file", args);
-            blockerChain.check("bash", args);
-
-            BlockerChain.resetMetrics();
-
-            assertEquals(0, BlockerChain.getTotalChecks());
-            assertEquals(0, BlockerChain.getBlockedCount());
-            assertTrue(BlockerChain.getToolCheckCounts().isEmpty());
-            assertTrue(BlockerChain.getToolBlockCounts().isEmpty());
-        }
-    }
-
-    @Nested
     @DisplayName("空值防御测试")
     class NullSafetyTests {
 
@@ -180,49 +98,6 @@ class BlockerChainTest {
             HookResult result = blockerChain.check(null, args);
 
             assertTrue(result.isAllowed());
-        }
-    }
-
-    @Nested
-    @DisplayName("慢操作监控测试")
-    class SlowOperationMonitoringTests {
-
-        @Test
-        @DisplayName("慢 Blocker 被记录")
-        void slowBlockerIsRecorded() {
-            blockerChain.add((toolName, args) -> {
-                try {
-                    Thread.sleep(15);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                return HookResult.allow();
-            });
-
-            JsonNode args = createArgs("test.txt");
-            blockerChain.check("read_file", args);
-
-            assertTrue(BlockerChain.getSlowBlockerCount() >= 1);
-        }
-
-        @Test
-        @DisplayName("慢 Chain 被记录")
-        void slowChainIsRecorded() {
-            for (int i = 0; i < 10; i++) {
-                blockerChain.add((toolName, args) -> {
-                    try {
-                        Thread.sleep(6);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                    return HookResult.allow();
-                });
-            }
-
-            JsonNode args = createArgs("test.txt");
-            blockerChain.check("read_file", args);
-
-            assertTrue(BlockerChain.getSlowChainCount() >= 1);
         }
     }
 

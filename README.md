@@ -37,9 +37,11 @@
 
 > 📖 官网（含技术文档）：[https://www.hippobuddy.cn/](https://www.hippobuddy.cn/)
 >
-> 💬  交流群（QQ：1102524202）— 问题反馈、功能建议、使用求助、摸鱼心得，欢迎大家交流
+> 🪞 Gitee 镜像仓库：https://gitee.com/putetou/HippoBuddy
 >
 > 🔗 网盘链接：https://pan.baidu.com/s/1L78e0I7N4zaz_yZsVTeW7A?pwd=pfga
+>
+> 💬  交流群（QQ：1102524202）— 问题反馈、功能建议、使用求助、摸鱼心得，欢迎大家交流
 
 ---
 

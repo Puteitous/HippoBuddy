@@ -35,6 +35,12 @@
 | Linux (AppImage) | [HippoBuddy.AppImage](https://github.com/Puteitous/HippoBuddy/releases/latest) |
 
 > 📖 Online documentation: [https://www.hippobuddy.cn/](https://www.hippobuddy.cn/)
+>
+> 🪞 Gitee mirror repository: https://gitee.com/putetou/HippoBuddy
+>
+> 🔗 Baidu Netdisk: https://pan.baidu.com/s/1L78e0I7N4zaz_yZsVTeW7A?pwd=pfga
+>
+> 💬 QQ Group (1102524202) — feedback, feature requests, help, and casual chat
 
 ---
 

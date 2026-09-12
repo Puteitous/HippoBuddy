@@ -465,8 +465,6 @@ public class WebAgentOrchestrator {
             logger.info("[AgentLoop] 工具执行完毕: sessionId={}, turn={}, toolCount={}, allCompleted={}, hasContent={}, contentChars={}",
                 sessionId, turn + 1, toolCalls.size(), allToolsCompleted, hasContent, contentBuilder.length());
 
-            toolRegistry.getBlockerChain().onTurnComplete();
-
             List<Message> history = getConversationService().getHistory(conversation);
             StopHook.StopHookContext hookCtx = new StopHook.StopHookContext(
                 conversation, history, turn + 1, AgentTurnResult.DONE
