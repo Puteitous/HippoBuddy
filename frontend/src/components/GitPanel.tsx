@@ -13,6 +13,8 @@
  *   - 点击历史提交 → Preview 区打开该提交的全量 diff
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { gitApi, type GitLogEntry, type GitStatusEntry } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
@@ -76,9 +78,25 @@ export function GitPanel() {
   const [busy, setBusy] = useState(false);
   const [commitMsg, setCommitMsg] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /** 变更行右键菜单 */
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; entry: GitStatusEntry } | null>(null);
+  /** 历史行右键菜单 */
+  const [logMenu, setLogMenu] = useState<{ x: number; y: number; entry: GitLogEntry } | null>(null);
+  /** 待确认危险操作(discard/revert/cherry-pick) */
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
   const mountedRef = useRef(true);
   /** 自动刷新去抖定时器(AI 连续写文件时避免频繁打 git status) */
   const autoDebounceRef = useRef<number | null>(null);
+  /** 关闭右键菜单(点击外部) */
+  const closeMenus = useCallback(() => {
+    setCtxMenu(null);
+    setLogMenu(null);
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -211,6 +229,62 @@ export function GitPanel() {
     openGitDiff(entry.hashFull || entry.hash, { side: 'commit', hash: entry.hashFull || entry.hash });
   };
 
+  const openCtxMenu = (e: ReactMouseEvent, entry: GitStatusEntry): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLogMenu(null);
+    setCtxMenu({ x: e.clientX, y: e.clientY, entry });
+  };
+
+  const openLogMenu = (e: ReactMouseEvent, entry: GitLogEntry): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu(null);
+    setLogMenu({ x: e.clientX, y: e.clientY, entry });
+  };
+
+  /** 变更行菜单:未跟踪文件 → 删除;否则 → 丢弃工作区改动 */
+  const handleStatusMenu = (action: string): void => {
+    const target = ctxMenu;
+    setCtxMenu(null);
+    if (!target) return;
+    if (action === 'discard') {
+      setConfirm({
+        title: target.entry.untracked ? t('git.discardDelTitle') : t('git.discardTitle'),
+        message: target.entry.untracked
+          ? t('git.discardDelDesc', { path: target.entry.path })
+          : t('git.discardDesc', { path: target.entry.path }),
+        confirmLabel: target.entry.untracked ? t('git.discardDelConfirm') : t('git.discard'),
+        onConfirm: () => void runOperate({ action: 'discard', path: workspacePath, file: target.entry.path }),
+      });
+    }
+  };
+
+  /** 历史行菜单:revert / cherry-pick */
+  const handleLogMenu = (action: string): void => {
+    const target = logMenu;
+    setLogMenu(null);
+    if (!target) return;
+    const hash = target.entry.hashFull || target.entry.hash;
+    if (action === 'revert') {
+      setConfirm({
+        title: t('git.revertTitle'),
+        message: t('git.revertDesc', { subject: target.entry.subject }),
+        confirmLabel: t('git.revert'),
+        onConfirm: () => void runOperate({ action: 'revert', path: workspacePath, hash }),
+      });
+    } else if (action === 'cherryPick') {
+      setConfirm({
+        title: t('git.cherryPickTitle'),
+        message: t('git.cherryPickDesc', { subject: target.entry.subject }),
+        confirmLabel: t('git.cherryPick'),
+        onConfirm: () => void runOperate({ action: 'cherryPick', path: workspacePath, hash }),
+      });
+    }
+  };
+
+  const confirmMessage = confirm?.message ?? '';
+
   if (!workspacePath) {
     return <div className="git-panel-empty">{t('git.notRepo')}</div>;
   }
@@ -266,6 +340,7 @@ export function GitPanel() {
                   busy={busy}
                   onOpen={() => openWorktreeDiff(e)}
                   onToggle={() => stageEntry(e)}
+                  onContextMenu={(ev) => openCtxMenu(ev, e)}
                     toggleLabel={t('git.unstage')}
                 />
               ))
@@ -288,6 +363,7 @@ export function GitPanel() {
                   busy={busy}
                   onOpen={() => openWorktreeDiff(e)}
                   onToggle={() => stageEntry(e)}
+                  onContextMenu={(ev) => openCtxMenu(ev, e)}
                     toggleLabel={t('git.stage')}
                 />
               ))
@@ -324,6 +400,7 @@ export function GitPanel() {
                 className="git-panel-log-row"
                 title={`${entry.author} · ${entry.hashFull}${entry.refs ? ` (${entry.refs})` : ''}`}
                 onClick={() => openCommitDiff(entry)}
+                onContextMenu={(e) => openLogMenu(e, entry)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -356,6 +433,48 @@ export function GitPanel() {
           </GitSection>
         </>
       )}
+
+      {/* 右键菜单(portal 到 body,避免面板 overflow 裁剪) */}
+      {ctxMenu && createPortal(
+        <GitContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={[
+            { label: ctxMenu.entry.untracked ? t('git.discardDelLabel') : t('git.discard'), action: 'discard', danger: true },
+          ]}
+          onSelect={handleStatusMenu}
+          onClose={closeMenus}
+        />,
+        document.body,
+      )}
+      {logMenu && createPortal(
+        <GitContextMenu
+          x={logMenu.x}
+          y={logMenu.y}
+          items={[
+            { label: t('git.revert'), action: 'revert', danger: true },
+            { label: t('git.cherryPick'), action: 'cherryPick', danger: true },
+          ]}
+          onSelect={handleLogMenu}
+          onClose={closeMenus}
+        />,
+        document.body,
+      )}
+
+      {/* 危险操作确认弹窗(复用 file-tree-modal-* 样式) */}
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.title}
+          message={confirmMessage}
+          confirmLabel={confirm.confirmLabel}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            const pending = confirm;
+            setConfirm(null);
+            pending.onConfirm();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -372,7 +491,7 @@ function GitSection({
   actionLabel?: string;
   onAction?: () => void;
   disabled?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="git-panel-section">
@@ -389,18 +508,20 @@ function GitSection({
   );
 }
 
-/** 单条变更行:状态徽章 + 路径,点击开 diff,右侧暂存/取消按钮 */
+/** 单条变更行:状态徽章 + 路径,点击开 diff,右侧暂存/取消按钮,右键弹出 discard 菜单 */
 function GitStatusRow({
   entry,
   busy,
   onOpen,
   onToggle,
+  onContextMenu,
   toggleLabel,
 }: {
   entry: GitStatusEntry;
   busy: boolean;
   onOpen: () => void;
   onToggle: () => void;
+  onContextMenu: (e: ReactMouseEvent) => void;
   toggleLabel: string;
 }) {
   const badge = badgeOf(entry);
@@ -413,6 +534,7 @@ function GitStatusRow({
         className="git-panel-row-main"
         title={entry.path}
         onClick={onOpen}
+        onContextMenu={onContextMenu}
       >
         <span className={`git-panel-badge ${badgeClass}`}>{badge}</span>
         <FileTypeIcon fileName={entry.path} size={14} className="git-panel-file-icon" />
@@ -436,6 +558,112 @@ function GitStatusRow({
           </svg>
         )}
       </button>
+    </div>
+  );
+}
+
+/** 右键菜单项 */
+interface CtxItem {
+  label: string;
+  action: string;
+  danger?: boolean;
+}
+
+/** 右键菜单(复用 file-tree-context-* 样式,portal 渲染;点击外部关闭) */
+function GitContextMenu({
+  x,
+  y,
+  items,
+  onSelect,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  items: CtxItem[];
+  onSelect: (action: string) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onDown = () => onClose();
+    // 延迟一帧绑定,避免本次右键冒泡立即关闭
+    const id = window.setTimeout(() => document.addEventListener('pointerdown', onDown), 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="file-tree-context-menu"
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {items.map((item) => (
+        <div
+          key={item.action}
+          className={`file-tree-context-item${item.danger ? ' danger' : ''}`}
+          onClick={() => onSelect(item.action)}
+        >
+          <span className="file-tree-context-label">{item.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 危险操作确认弹窗(复用 file-tree-modal-* 样式) */
+function ConfirmDialog({
+  title,
+  message,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useI18n();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') onConfirm();
+      else if (e.key === 'Escape') onCancel();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      className="file-tree-modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div className="file-tree-modal">
+        <div className="file-tree-modal-header">
+          <span className="file-tree-modal-title">{title}</span>
+        </div>
+        <div className="file-tree-modal-body">
+          <p className="file-tree-modal-message">{message}</p>
+        </div>
+        <div className="file-tree-modal-footer">
+          <button type="button" className="file-tree-modal-btn" onClick={onCancel}>
+            {t('fileTree.cancelBtn')}
+          </button>
+          <button
+            type="button"
+            className="file-tree-modal-btn file-tree-modal-btn-danger"
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

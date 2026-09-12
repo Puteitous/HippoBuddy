@@ -271,6 +271,11 @@
   cursor: default;
 }
 
+/* 危险操作菜单项红色文字 */
+.file-tree-context-item.danger .file-tree-context-label {
+  color: var(--error, #dc2626);
+}
+
 /* ========== 暗色主题 ========== */
 [data-theme="dark"],
 [data-theme="midnight"],

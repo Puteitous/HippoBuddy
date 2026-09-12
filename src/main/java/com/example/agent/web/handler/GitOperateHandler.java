@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ public class GitOperateHandler implements HttpHandler {
         String file = GitRunner.normalizeRelPath(body.path("file").asText("").isEmpty() ? null : body.path("file").asText());
         String message = body.path("message").asText("");
         String branch = body.path("branch").asText("");
+        String hash = body.path("hash").asText("");
 
         if (action.isEmpty() || workspacePath.isEmpty()) {
             sendJson(exchange, 400, objectMapper.writeValueAsString(Map.of("success", false, "error", "Missing action/path")));
@@ -72,6 +74,39 @@ public class GitOperateHandler implements HttpHandler {
                     return;
                 }
                 r = GitRunner.run(workDir, "checkout", branch);
+            }
+            case "discard" -> {
+                if (file == null) {
+                    r = GitRunner.run(workDir, "restore", ".");
+                } else {
+                    // 已跟踪文件 → git restore 丢弃工作区改动;未跟踪文件 restore 会失败,回退直接删除
+                    GitRunner.Result tracked = GitRunner.run(workDir, "ls-files", "--error-unmatch", "--", file);
+                    if (tracked.ok()) {
+                        r = GitRunner.run(workDir, "restore", "--", file);
+                    } else {
+                        Path target = workDir.resolve(file).normalize();
+                        if (Files.exists(target)) {
+                            Files.delete(target);
+                            r = new GitRunner.Result(0, "", "");
+                        } else {
+                            r = new GitRunner.Result(1, "", "该文件不存在");
+                        }
+                    }
+                }
+            }
+            case "revert" -> {
+                if (hash.isEmpty()) {
+                    sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", false, "error", "Empty hash")));
+                    return;
+                }
+                r = GitRunner.run(workDir, "revert", "--no-edit", hash);
+            }
+            case "cherryPick" -> {
+                if (hash.isEmpty()) {
+                    sendJson(exchange, 200, objectMapper.writeValueAsString(Map.of("success", false, "error", "Empty hash")));
+                    return;
+                }
+                r = GitRunner.run(workDir, "cherry-pick", hash);
             }
             default -> {
                 sendJson(exchange, 400, objectMapper.writeValueAsString(Map.of("success", false, "error", "Unknown action: " + action)));
