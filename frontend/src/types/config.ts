@@ -86,6 +86,8 @@ export interface UiConfigSection {
   prompt: string;
   /** 用户自定义系统提示词,按任务模式(coding/chat/office)分存。某模式缺省或空串=未自定义,用该模式内置默认提示词 */
   system_prompts?: Record<string, string>;
+  /** Git 面板 AI 生成提交信息所用 system prompt;空=未自定义,用内置默认 */
+  git_commit_prompt?: string;
   syntax_highlight: boolean;
   show_token_usage: boolean;
   show_timestamp: boolean;

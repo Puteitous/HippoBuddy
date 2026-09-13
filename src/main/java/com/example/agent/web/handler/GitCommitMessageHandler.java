@@ -1,5 +1,7 @@
 package com.example.agent.web.handler;
 
+import com.example.agent.config.Config;
+import com.example.agent.config.UiConfig;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
@@ -38,7 +40,8 @@ public class GitCommitMessageHandler implements HttpHandler {
     /** 最多展示的变更文件数(超出折叠统计),避免 prompt 过长 */
     private static final int MAX_FILES = 50;
 
-    private static final String SYSTEM_PROMPT = """
+    /** 默认 system prompt;用户未通过配置覆盖时(ui.git_commit_prompt 为空)使用 */
+    private static final String DEFAULT_SYSTEM_PROMPT = """
         你是一位资深开发者的 git commit message 生成器。根据给定的代码变更，编写一条简洁、规范的中文提交信息。
         要求：
         1. 第一行为标题，格式「type(scope): 简述」，type 取自 feat/fix/refactor/style/docs/test/chore，scope 为该次改动的模块名（尽量短）
@@ -46,7 +49,8 @@ public class GitCommitMessageHandler implements HttpHandler {
         3. 只输出提交信息本身（含换行），不要任何解释或额外文字
         """;
 
-    private static final String PROMPT_TEMPLATE = """
+    /** 默认 user 模板;用户未通过配置覆盖时(ui.git_commit_template 为空)使用 */
+    private static final String DEFAULT_PROMPT_TEMPLATE = """
         以下是本次代码变更：
 
         %s
@@ -57,6 +61,17 @@ public class GitCommitMessageHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+
+        // GET /api/git/commit-message/defaults - 返回内置默认生成提示词(供设置页展示与恢复默认)
+        if ("GET".equals(exchange.getRequestMethod())) {
+            String path = exchange.getRequestURI().getPath();
+            if (path.equals("/api/git/commit-message/defaults")) {
+                sendJson(exchange, 200, Map.of("systemPrompt", DEFAULT_SYSTEM_PROMPT));
+                return;
+            }
+            sendJson(exchange, 404, Map.of("error", "Not Found"));
+            return;
+        }
 
         JsonNode body;
         try {
@@ -83,8 +98,11 @@ public class GitCommitMessageHandler implements HttpHandler {
         exchange.sendResponseHeaders(200, 0);
 
         List<Message> messages = new ArrayList<>();
-        messages.add(Message.system(SYSTEM_PROMPT));
-        messages.add(Message.user(PROMPT_TEMPLATE.formatted(changeSummary)));
+        UiConfig ui = Config.getInstance().getUi();
+        String systemPrompt = blankToDefault(ui.getGitCommitPrompt(), DEFAULT_SYSTEM_PROMPT);
+        messages.add(Message.system(systemPrompt));
+        // 用户模板固定使用内置默认,仅暴露 System 提示词供自定义
+        messages.add(Message.user(DEFAULT_PROMPT_TEMPLATE.formatted(changeSummary)));
 
         try (OutputStream out = exchange.getResponseBody()) {
             Consumer<StreamChunk> onChunk = chunk -> {
@@ -99,6 +117,11 @@ public class GitCommitMessageHandler implements HttpHandler {
         } catch (Exception e) {
             // 已进入流式阶段,错误通过 delta 携带一条文案兜底(尽力而为)
         }
+    }
+
+    /** 用户配置值为空白时回退到内置默认 */
+    private static String blankToDefault(String configured, String defaultVal) {
+        return (configured == null || configured.isBlank()) ? defaultVal : configured;
     }
 
     /** 把文本安全的 JSON 字符串转义后包裹引号 */

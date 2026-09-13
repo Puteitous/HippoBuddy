@@ -877,6 +877,19 @@ export const zh: Record<string, string> = {
   'settingsPage.promptSavedToast': '系统提示词已保存',
   'settingsPage.promptResetConfirm': '恢复「{mode}」模式为内置默认提示词?',
 
+  'settingsPage.gitCommitPageTitle': 'Git 提交信息',
+  'settingsPage.gitCommitPageDesc': '自定义 Git 面板「✨ 生成提交信息」使用的提示词。留空表示未自定义,使用内置默认。',
+  'settingsPage.gitCommitSection': '生成提示词',
+  'settingsPage.gitCommitSystemPh': '编辑生成器行为要求(标题格式、语言、风格...)',
+  'settingsPage.gitCommitPromptLabel': 'System 提示词',
+  'settingsPage.gitCommitHint': '编辑并保存后即生效为自定义;留空保存则回退内置默认。',
+  'settingsPage.gitCommitRemarkDefault': '当前为内置默认提示词,可直接编辑或恢复。',
+  'settingsPage.gitCommitRemarkCustom': '当前为自定义提示词。',
+  'settingsPage.gitCommitResetConfirm': '恢复 Git 提交信息提示词为内置默认?',
+  'settingsPage.gitCommitSavedToast': '提交信息提示词已保存',
+  'settingsPage.gitCommitSaveFailedToast': '保存失败:',
+  'settingsPage.gitCommitLoadFailedToast': '加载提示词失败:',
+
   /* ==================== Rules (补充) ==================== */
   'settingsPage.rulesPageTitle': '规则',
   'settingsPage.rulesPageDesc': '管理项目级与用户级规则(Markdown 文件),控制 Agent 行为边界。',
@@ -2420,6 +2433,19 @@ export const en: Record<string, string> = {
   'settingsPage.promptSaveFailedToast': 'Save failed: ',
   'settingsPage.promptSavedToast': 'System prompt saved',
   'settingsPage.promptResetConfirm': 'Reset the "{mode}" mode to its built-in default prompt?',
+
+  'settingsPage.gitCommitPageTitle': 'Git Commit Message',
+  'settingsPage.gitCommitPageDesc': 'Customize the prompts used by the "✨ Generate commit message" button in the Git panel. Leave empty to use the built-in defaults.',
+  'settingsPage.gitCommitSection': 'Generation Prompts',
+  'settingsPage.gitCommitSystemPh': 'Edit the generator behavior requirements (title format, language, style...)',
+  'settingsPage.gitCommitPromptLabel': 'System prompt',
+  'settingsPage.gitCommitHint': 'Edits take effect once saved; clearing it and saving reverts to the built-in default.',
+  'settingsPage.gitCommitRemarkDefault': 'Currently the built-in default; you can edit or reset it.',
+  'settingsPage.gitCommitRemarkCustom': 'Currently already customized.',
+  'settingsPage.gitCommitResetConfirm': 'Reset the Git commit message prompts to the built-in defaults?',
+  'settingsPage.gitCommitSavedToast': 'Commit message prompts saved',
+  'settingsPage.gitCommitSaveFailedToast': 'Save failed:',
+  'settingsPage.gitCommitLoadFailedToast': 'Failed to load prompts:',
 
   /* ==================== Rules (补充) ==================== */
   'settingsPage.rulesPageTitle': 'Rules',

@@ -438,6 +438,10 @@ export const gitApi = {
   commitMessage: (path: string, onDelta: (delta: string) => void, signal?: AbortSignal) =>
     streamCommitMessage(path, onDelta, signal),
 
+  /** GET /api/git/commit-message/defaults - 内置默认提交信息提示词(供设置页展示与恢复默认) */
+  commitMessageDefaults: () =>
+    getJson<{ systemPrompt: string }>(`${API_BASE}/git/commit-message/defaults`),
+
   /** GET /api/git/commit-body - 单个提交的标题 + 正文(历史悬浮卡片;log 列表只含标题) */
   commitBody: (path: string, hash: string) =>
     getJson<{ subject: string; body: string; error?: string }>(

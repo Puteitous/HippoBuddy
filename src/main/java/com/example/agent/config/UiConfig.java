@@ -29,6 +29,12 @@ public class UiConfig {
     @JsonProperty("system_prompts")
     private Map<String, String> systemPrompts = new HashMap<>();
 
+    /**
+     * Git 面板 AI 生成提交信息所用的 system prompt。空/null=未自定义,走内置默认。
+     */
+    @JsonProperty("git_commit_prompt")
+    private String gitCommitPrompt;
+
     @JsonProperty("syntax_highlight")
     private boolean syntaxHighlight = true;
     
@@ -81,6 +87,14 @@ public class UiConfig {
 
     public void setDefaultProcessView(String defaultProcessView) {
         this.defaultProcessView = defaultProcessView;
+    }
+
+    public String getGitCommitPrompt() {
+        return gitCommitPrompt;
+    }
+
+    public void setGitCommitPrompt(String gitCommitPrompt) {
+        this.gitCommitPrompt = gitCommitPrompt;
     }
 
     public boolean isSyntaxHighlight() {

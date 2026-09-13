@@ -1,7 +1,8 @@
 /**
  * SettingsPanel - 设置面板主壳
  *
- * 左侧 8 个导航项(general/model/rules/skills/context/session/tools/mcp)
+ * 左侧导航项(general/model/prompt/rules/skills/context/session/tools/mcp),
+ * prompt 页内含「模式系统提示词 / Git 提交信息」双 Tab。
  * 右侧根据 activePage 渲染对应子页面;切换页面时旧组件 unmount、新组件 mount,
  * 行为对齐旧 SettingsPanel._switchPage。
  *
@@ -16,7 +17,7 @@ import { useI18n } from '@/i18n';
 import { ToastViewport } from './toast';
 import { GeneralSettingsPage } from './GeneralSettingsPage';
 import { ModelSettingsPage } from './ModelSettingsPage';
-import { PromptSettingsPage } from './PromptSettingsPage';
+import { PromptsSettingsPage } from './PromptsSettingsPage';
 import { RulesSettingsPage } from './RulesSettingsPage';
 import { SkillsSettingsPage } from './SkillsSettingsPage';
 import { ContextSettingsPage } from './ContextSettingsPage';
@@ -100,7 +101,7 @@ function renderPage(page: SettingsPageId) {
     case 'model':
       return <ModelSettingsPage />;
     case 'prompt':
-      return <PromptSettingsPage />;
+      return <PromptsSettingsPage />;
     case 'rules':
       return <RulesSettingsPage />;
     case 'skills':
