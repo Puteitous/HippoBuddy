@@ -71,7 +71,7 @@
      故贴活动栏右缘需左移 = 10 + 44 = 54px */
   left: 47px;
   z-index: 50;
-  width: 320px;
+  width: 350px;
   max-height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
@@ -87,7 +87,7 @@
 /* git 面板信息密度高(变更行/历史行均为多段文本),比 token/metrics 更宽;
    同时用 min() 兜底,避免窄视口下面板溢出屏幕 */
 .activity-floating-panel[data-active-panel="git"] {
-  width: min(420px, calc(100vw - 90px));
+  width: min(400px, calc(100vw - 90px));
 }
 
 @keyframes activity-panel-in {

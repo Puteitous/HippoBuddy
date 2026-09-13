@@ -222,6 +222,13 @@
   flex-direction: column;
 }
 
+/* 带分隔线的分组(如历史):上方细分隔线+间距,与当前变更分组区隔;
+   border-top 与内容保持 12px 缓冲,线与标题间由 header 自带 padding 形成呼吸 */
+.git-panel-section--divider {
+  border-top: 1px solid var(--hb-border, #e5e7eb);
+  margin-top: 12px;
+}
+
 .git-panel-section-header {
   display: flex;
   align-items: center;

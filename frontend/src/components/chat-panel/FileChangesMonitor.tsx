@@ -92,6 +92,8 @@ function FileChangesMonitorComponent() {
   const [pinned, setPinned] = useState(false);
   /** popover 是否 hover 显示 */
   const [hovered, setHovered] = useState(false);
+  /** 溢出提示点击后是否展开显示全部文件变更 */
+  const [expanded, setExpanded] = useState(false);
   const rootRef = useRef<HTMLSpanElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   /** 智能居中:面板越出 .chat-panel 边界时用于水平平移回退的偏移量 */
@@ -280,7 +282,7 @@ function FileChangesMonitorComponent() {
               <div className="chat-panel-files-empty">{t('fileChanges.empty')}</div>
             ) : (
               <>
-                {groups.slice(0, MAX_VISIBLE).map((g) => {
+                {(expanded ? groups : groups.slice(0, MAX_VISIBLE)).map((g) => {
                   const st = statusOf(g.toolName);
                   const fileName = g.filePath.split(/[/\\]/).pop() || g.filePath;
                   const dir = displayPath(g.filePath);
@@ -316,8 +318,22 @@ function FileChangesMonitorComponent() {
                   );
                 })}
                 {groups.length > MAX_VISIBLE && (
-                  <div className="chat-panel-files-overflow">
-                    {t('fileChanges.overflow', { overflow: groups.length - MAX_VISIBLE })}
+                  <div
+                    className="chat-panel-files-overflow"
+                    role="button"
+                    tabIndex={0}
+                    title={t(expanded ? 'fileChanges.collapse' : 'fileChanges.expandAll')}
+                    onClick={() => setExpanded((v) => !v)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setExpanded((v) => !v);
+                      }
+                    }}
+                  >
+                    {expanded
+                      ? t('fileChanges.collapse')
+                      : t('fileChanges.overflow', { overflow: groups.length - MAX_VISIBLE })}
                   </div>
                 )}
               </>

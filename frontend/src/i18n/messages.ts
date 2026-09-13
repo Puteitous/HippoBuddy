@@ -369,6 +369,8 @@ export const zh: Record<string, string> = {
   'fileChanges.rollbackFailed': '回滚失败：',
   'fileChanges.rollbackSuccess': '文件已恢复：',
   'fileChanges.overflow': '{overflow} 个文件变更',
+  'fileChanges.expandAll': '展开全部',
+  'fileChanges.collapse': '收起',
 
   /* ==================== Preview Panel ==================== */
   'preview.mdToggle': '预览模式',
@@ -1932,6 +1934,8 @@ export const en: Record<string, string> = {
   'fileChanges.rollbackFailed': 'Rollback failed: ',
   'fileChanges.rollbackSuccess': 'File restored: ',
   'fileChanges.overflow': '{overflow} more file changes',
+  'fileChanges.expandAll': 'Show All',
+  'fileChanges.collapse': 'Collapse',
 
   'preview.mdToggle': 'Preview Mode',
   'preview.htmlToggle': 'Preview Page',

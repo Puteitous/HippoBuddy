@@ -924,7 +924,7 @@ export function GitPanel() {
             </GitSection>
           )}
 
-          <GitSection title={t('git.history')} collapsible defaultCollapsed storageKey="gitPanel.historyOpen">
+          <GitSection title={t('git.history')} collapsible defaultCollapsed storageKey="gitPanel.historyOpen" divider>
             {log.map((entry) => {
               const hashKey = entry.hashFull || entry.hash;
               return (
@@ -1117,6 +1117,7 @@ function GitSection({
   collapsible = false,
   defaultCollapsed = false,
   storageKey,
+  divider = false,
   children,
 }: {
   title: string;
@@ -1127,6 +1128,8 @@ function GitSection({
   defaultCollapsed?: boolean;
   /** 提供时折叠状态持久化到 localStorage,重开面板/刷新后保持一致;缺省仅当前会话生效 */
   storageKey?: string;
+  /** 分组上方加细分隔线+间距,用于与语义不同的区块(如历史 vs 当前变更)区隔 */
+  divider?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(() => {
@@ -1154,7 +1157,7 @@ function GitSection({
     });
   };
   return (
-    <div className="git-panel-section">
+    <div className={`git-panel-section${divider ? ' git-panel-section--divider' : ''}`}>
       <div
         className={`git-panel-section-header${collapsible ? ' collapsible' : ''}`}
         role={collapsible ? 'button' : undefined}

@@ -172,7 +172,7 @@
   color: var(--error-color);
 }
 
-/* 超出部分提示 */
+/* 超出部分提示(点击展开/收起全部) */
 .chat-panel-files-overflow {
   padding: 5px 10px;
   margin: 0 4px;
@@ -180,6 +180,8 @@
   font-size: 11px;
   color: var(--text-muted);
   text-align: center;
+  cursor: pointer;
+  user-select: none;
 }
 
 .chat-panel-files-overflow:hover {

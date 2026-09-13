@@ -204,9 +204,8 @@ public class Message {
         if (content instanceof String) {
             return (String) content;
         }
-        if (content instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<ContentPart> parts = (List<ContentPart>) content;
+        List<ContentPart> parts = getContentParts();
+        if (parts != null) {
             return parts.stream()
                 .filter(p -> p instanceof TextPart)
                 .map(p -> ((TextPart) p).getText())
@@ -346,10 +345,9 @@ public class Message {
     public void addImage(ImagePart imagePart) {
         if (imagePart == null) return;
 
+        List<ContentPart> existing = getContentParts();
         List<ContentPart> parts;
-        if (content instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<ContentPart> existing = (List<ContentPart>) content;
+        if (existing != null) {
             parts = new ArrayList<>(existing);
         } else {
             parts = new ArrayList<>();
@@ -388,9 +386,8 @@ public class Message {
         copy.id = this.id;
         copy.role = this.role;
         if (this.content instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<ContentPart> parts = (List<ContentPart>) this.content;
-            copy.content = new ArrayList<>(parts);
+            List<ContentPart> parts = getContentParts();
+            copy.content = parts != null ? new ArrayList<>(parts) : new ArrayList<>();
         } else {
             copy.content = this.content; // String 是不可变的，直接共享
         }
@@ -498,10 +495,9 @@ public class Message {
             String s = (String) content;
             contentStr = s.length() > 100 ? s.substring(0, 100) + "..." : s;
         } else if (content instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<ContentPart> parts = (List<ContentPart>) content;
-            long imageCount = parts.stream().filter(p -> p instanceof ImagePart).count();
-            long textCount = parts.stream().filter(p -> p instanceof TextPart).count();
+            List<ContentPart> parts = getContentParts();
+            long imageCount = parts != null ? parts.stream().filter(p -> p instanceof ImagePart).count() : 0;
+            long textCount = parts != null ? parts.stream().filter(p -> p instanceof TextPart).count() : 0;
             contentStr = "[multimodal: " + textCount + " text, " + imageCount + " image]";
         } else {
             contentStr = String.valueOf(content);

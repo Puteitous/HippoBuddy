@@ -733,10 +733,16 @@ ipcMain.handle('window:getState', () => {
 
 // ---------- 文件操作 ----------
 
-/** 读取目录内容，排序：目录在前，文件在后，按名称字母序 */
+/** 读取目录内容，排序：目录在前，文件在后，按名称字母序。目录不存在/不可读时返回空列表而非抛错 */
 ipcMain.handle('fs:readDir', async (_event, dirPath) => {
   const dir = path.resolve(dirPath);
-  const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await fs.promises.readdir(dir, { withFileTypes: true });
+  } catch (err) {
+    // 目录被删除/重命名/路径多拼了一层时,视为空目录,避免前端刷 ENOENT 报错
+    return { path: dirPath, entries: [], error: err.code || 'UNKNOWN' };
+  }
   const result = entries
     .map(e => ({
       name: e.name,
