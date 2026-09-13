@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { gitBadgeLetter, gitBadgeKind, gitBadgeKindOf } from '@/utils/git-status';
+import {
+  gitBadgeLetter,
+  gitBadgeKind,
+  gitBadgeKindOf,
+  gitCommitStatusLetter,
+  gitCommitStatusKind,
+} from '@/utils/git-status';
 import type { GitBadgeLetter } from '@/utils/git-status';
 
 /** 构造条目:xy 为 porcelain 原始两字母,untracked 由调用方显式给出 */
@@ -78,5 +84,30 @@ describe('gitBadgeKind / gitBadgeKindOf', () => {
     expect(gitBadgeKindOf(entry('M '))).toBe('mod');
     expect(gitBadgeKindOf(entry('D '))).toBe('del');
     expect(gitBadgeKindOf(entry('UU'))).toBe('conflict');
+  });
+});
+
+describe('gitCommitStatusLetter / gitCommitStatusKind', () => {
+  it('git name-status 字母映射到徽章字母', () => {
+    expect(gitCommitStatusLetter('A')).toBe('A');
+    expect(gitCommitStatusLetter('M')).toBe('M');
+    expect(gitCommitStatusLetter('D')).toBe('D');
+    expect(gitCommitStatusLetter('R')).toBe('R');
+    expect(gitCommitStatusLetter('C')).toBe('A'); // 复制视作新增
+    expect(gitCommitStatusLetter('T')).toBe('M'); // 类型变更按修改
+    expect(gitCommitStatusLetter('U')).toBe('!'); // 未合并
+    // 未知/二进制/空串一律按修改兜底
+    expect(gitCommitStatusLetter('X')).toBe('M');
+    expect(gitCommitStatusLetter('B')).toBe('M');
+    expect(gitCommitStatusLetter('')).toBe('M');
+    // 兼容真实 name-status 行可能带相似度后缀(如 R100),只取首字母已在前端完成,此处确保小写也可
+    expect(gitCommitStatusLetter('a')).toBe('A');
+  });
+
+  it('提交状态配色分类与工作区语义一致', () => {
+    expect(gitCommitStatusKind('A')).toBe('add');
+    expect(gitCommitStatusKind('M')).toBe('mod');
+    expect(gitCommitStatusKind('D')).toBe('del');
+    expect(gitCommitStatusKind('U')).toBe('conflict');
   });
 });

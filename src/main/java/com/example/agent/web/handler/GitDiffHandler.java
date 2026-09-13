@@ -61,13 +61,19 @@ public class GitDiffHandler implements HttpHandler {
 
         Path workDir = Paths.get(workspacePath).normalize();
 
-        // 提交全量:无 file 时返回该提交涉及的变更文件列表(前端点选后再取单文件 diff)
+        // 提交全量:无 file 时返回该提交涉及的变更文件列表(含增删改状态,供前端徽章;点选后取单文件 diff)
         if ("commit".equals(side) && file == null) {
-            GitRunner.Result nameOnly = GitRunner.run(workDir, "show", "--pretty=", "--name-only", hash);
-            List<String> files = new ArrayList<>();
-            for (String line : nameOnly.stdout().split("\n")) {
-                String p = line.trim();
-                if (!p.isEmpty()) files.add(p);
+            GitRunner.Result nameStatus = GitRunner.run(workDir, "show", "--pretty=", "--name-status", hash);
+            List<Map<String, Object>> files = new ArrayList<>();
+            for (String line : nameStatus.stdout().split("\n")) {
+                String l = line.trim();
+                if (l.isEmpty()) continue;
+                // 格式:X<TAB>path,重命名/复制为 X<相似度><TAB>old<TAB>new,取新路径
+                String[] parts = l.split("\t");
+                Map<String, Object> f = new HashMap<>();
+                f.put("path", parts[parts.length - 1].trim());
+                f.put("status", String.valueOf(parts[0].charAt(0)));
+                files.add(f);
             }
             Map<String, Object> wide = new HashMap<>();
             wide.put("filePath", "");

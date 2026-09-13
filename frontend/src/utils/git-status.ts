@@ -82,3 +82,32 @@ export function gitBadgeKind(letter: GitBadgeLetter): GitBadgeKind {
 export function gitBadgeKindOf(e: GitBadgeInput): GitBadgeKind {
   return KIND_BY_LETTER[gitBadgeLetter(e)];
 }
+
+/**
+ * 由「提交文件列表」的状态推导徽章字母。
+ * 输入是 {@code git show --name-status} 首列字母(A/M/D/R/C/T/U/X/B),与工作区条目语义不同:
+ * git 以单个大写字母表达该文件在本提交内的变更类型,直接映射到现有徽章字母与配色,
+ * 复用 gitBadgeKind 的 add/mod/del/conflict 分类,保证与变更行徽章视觉一致。
+ */
+export function gitCommitStatusLetter(status?: string): GitBadgeLetter {
+  switch ((status ?? '').trim().toUpperCase()) {
+    case 'A':
+    case 'C': // 复制视作新增
+      return 'A';
+    case 'D':
+      return 'D';
+    case 'R':
+      return 'R';
+    case 'T': // 类型变更按修改
+      return 'M';
+    case 'U': // 未合并
+      return '!';
+    default: // M / X / B(二进制)及其他一律按修改展示
+      return 'M';
+  }
+}
+
+/** 由提交文件状态取配色类别 */
+export function gitCommitStatusKind(status?: string): GitBadgeKind {
+  return KIND_BY_LETTER[gitCommitStatusLetter(status)];
+}

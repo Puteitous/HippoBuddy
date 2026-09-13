@@ -427,8 +427,8 @@ export const gitApi = {
       filePath: string;
       side: string;
       binary: boolean;
-      /** commit 且未指定 file 时的变更文件列表 */
-      files?: string[];
+      /** commit 且未指定 file 时的变更文件列表(status 为 git name-status 首字母 A/M/D/R/C…) */
+      files?: { path: string; status?: string }[];
       changes: DiffLine[];
       wordDiff: { old: WordDiffToken[][]; new: WordDiffToken[][] };
     }>(`${API_BASE}/git/diff?${params.toString()}`);
@@ -437,6 +437,12 @@ export const gitApi = {
   /** 流式获取 AI 生成的提交信息;onDelta 收到增量文本,完成或出错则 resolve/reject */
   commitMessage: (path: string, onDelta: (delta: string) => void, signal?: AbortSignal) =>
     streamCommitMessage(path, onDelta, signal),
+
+  /** GET /api/git/commit-body - 单个提交的标题 + 正文(历史悬浮卡片;log 列表只含标题) */
+  commitBody: (path: string, hash: string) =>
+    getJson<{ subject: string; body: string; error?: string }>(
+      `${API_BASE}/git/commit-body?path=${encodeURIComponent(path)}&hash=${encodeURIComponent(hash)}`,
+    ),
 
   /** POST /api/git/operate - git 写操作(add/reset/commit/checkout/危险操作/远端/分支管理) */
   operate: (op: {

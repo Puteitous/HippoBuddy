@@ -8,20 +8,22 @@
  *   - 分支下拉切换 + 刷新
  *   - 「已暂存」「未暂存」分组,支持单个与全部暂存/取消暂存
  *   - 提交信息框(Ctrl/Cmd+Enter 提交,无已暂存或空内容时禁用)
- *   - 提交历史懒加载分页,展示 hash + subject + 作者 + 相对时间
+ *   - 提交历史懒加载分页,行内展示 subject + refs + 相对时间;悬浮行显示完整详情卡片(短 hash/作者/相对+绝对时间/refs)
  *   - 点击变更文件 → Preview 区打开对应 git diff(worktree/staged)
  *   - 点击历史提交 → Preview 区打开该提交的全量 diff
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { gitApi, type GitLogEntry, type GitStatusEntry } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
 import { useI18n } from '@/i18n';
+import type { Lang } from '@/i18n/messages';
 import { on } from '@/utils/eventBus';
 import { gitBadgeKindOf, gitBadgeLetter } from '@/utils/git-status';
 import { FileTypeIcon } from './FileTypeIcon';
+import { GitDiffView } from './workspace/GitDiffView';
 import './GitPanel.css';
 
 /** git 历史分批加载数量(懒加载分页) */
@@ -71,7 +73,7 @@ function joinPath(root: string, file: string): string {
   return root.replace(/\\+$/, '') + '/' + file;
 }
 
-/** 相对时间(语言中性:s/m/h/d) */
+/** 相对时间(语言中性:s/m/h/d) —— 列表行内紧凑展示用 */
 function relativeTime(iso: string): string {
   if (!iso) return '';
   const t = new Date(iso).getTime();
@@ -85,8 +87,80 @@ function relativeTime(iso: string): string {
   return `${Math.floor(hour / 24)}d`;
 }
 
+/** 相对时间(本地化文本,如「12分钟前」/「12 minutes ago」)—— 悬浮卡片用 */
+function relativeTimeText(iso: string, lang: Lang): string {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return iso;
+  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  const rtf = new Intl.RelativeTimeFormat(lang === 'en' ? 'en-US' : 'zh-CN', { numeric: 'always' });
+  if (sec < 60) return rtf.format(-sec, 'second');
+  const min = Math.floor(sec / 60);
+  if (min < 60) return rtf.format(-min, 'minute');
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return rtf.format(-hour, 'hour');
+  const day = Math.floor(hour / 24);
+  if (day < 30) return rtf.format(-day, 'day');
+  const month = Math.floor(day / 30);
+  if (month < 12) return rtf.format(-month, 'month');
+  return rtf.format(-Math.floor(month / 12), 'year');
+}
+
+/** 绝对时间(本地化,如「2026年9月12日 23:52」)—— 悬浮卡片用 */
+function absoluteTimeText(iso: string, lang: Lang): string {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return iso;
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(t);
+}
+
+/** 历史行引用标记(由 git log %D 解析) */
+interface LogRef {
+  label: string;
+  /** head=本地分支/HEAD, remote=远端分支, tag=标签 */
+  kind: 'head' | 'remote' | 'tag';
+}
+
+/** 解析 git log %D,如「HEAD -> main, origin/main, tag: v1.0」 */
+function parseRefs(refs: string): LogRef[] {
+  if (!refs) return [];
+  const out: LogRef[] = [];
+  for (const raw of refs.split(',')) {
+    let s = raw.trim();
+    if (!s) continue;
+    let kind: LogRef['kind'] = 'head';
+    if (s.startsWith('HEAD -> ')) {
+      s = s.slice('HEAD -> '.length).trim();
+    } else if (s === 'HEAD') {
+      kind = 'head';
+    } else if (s.startsWith('tag: ')) {
+      s = s.slice('tag: '.length).trim();
+      kind = 'tag';
+    } else if (s.includes('/')) {
+      kind = 'remote';
+    }
+    if (s) out.push({ label: s, kind });
+  }
+  return out;
+}
+
+/** 悬浮卡片显示延迟(ms):快速划过列表时不闪烁 */
+const LOG_TIP_DELAY = 400;
+
+/** 悬浮卡片与列表行的间距(px) */
+const LOG_TIP_GAP = 8;
+
+/** 提交正文请求超时(ms):超时按"无正文"展示卡片,避免悬停后长时间无反馈 */
+const LOG_BODY_TIMEOUT = 1500;
+
 export function GitPanel() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const workspacePath = useAppStore((s) => s.workspacePath);
   const openGitDiff = usePreviewStore((s) => s.openGitDiff);
 
@@ -102,6 +176,8 @@ export function GitPanel() {
   const [log, setLog] = useState<GitLogEntry[]>(cached?.log ?? []);
   const [logEnded, setLogEnded] = useState(cached?.logEnded ?? false);
   const [logLoadingMore, setLogLoadingMore] = useState(false);
+  /** 当前在行内展开 diff 的提交 hash(null = 全部收起) */
+  const [expandedHash, setExpandedHash] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [commitMsg, setCommitMsg] = useState(commitDraft);
@@ -144,6 +220,27 @@ export function GitPanel() {
   const syncTriggerRef = useRef<HTMLButtonElement | null>(null);
   /** 远端操作菜单是否展开 */
   const [syncOpen, setSyncOpen] = useState(false);
+  /** 历史行悬浮详情卡片(portal 到 body,fixed 定位) */
+  const [logTip, setLogTip] = useState<{
+    entry: GitLogEntry;
+    /** 提交正文(多行,已 trim);取不到或超时为空串 */
+    body: string;
+    top: number;
+    left: number;
+    /** 行左边界:右侧空间不足时用于向左翻转 */
+    anchorLeft: number;
+  } | null>(null);
+  /** 悬浮卡片 DOM 引用,用于渲染后测量尺寸并校正溢出 */
+  const logTipRef = useRef<HTMLDivElement | null>(null);
+  /** 悬浮卡片延迟显示定时器 */
+  const logTipTimerRef = useRef<number | null>(null);
+  /**
+   * 提交正文缓存(hash → body)。提交不可变:同一 hash 内容永远相同,故缓存不会失效,
+   * 无需任何过期策略。空串表示"取过但无正文/失败",避免反复请求。
+   */
+  const logBodyCacheRef = useRef<Map<string, string>>(new Map());
+  /** 悬浮请求序号:仅最新一次悬停的结果可落地,避免快速划过时旧响应覆盖当前卡片 */
+  const logTipSeqRef = useRef(0);
 
   /**
    * 是否需要整面板加载占位:仅"没有可渲染数据且非错误态"时显示。
@@ -496,8 +593,13 @@ export function GitPanel() {
     });
   };
 
-  const openCommitDiff = (entry: GitLogEntry): void => {
-    openGitDiff(entry.hashFull || entry.hash, { side: 'commit', hash: entry.hashFull || entry.hash });
+  /**
+   * 点击历史行:在该行下方内联展开/收起该提交的 diff(IDE 源码管理面板常用交互),
+   * 不再跳转独立标签页。同一时刻仅展开一行,展开新行自动收起旧行。
+   */
+  const toggleCommitDiff = (entry: GitLogEntry): void => {
+    const key = entry.hashFull || entry.hash;
+    setExpandedHash((prev) => (prev === key ? null : key));
   };
 
   const openCtxMenu = (e: ReactMouseEvent, entry: GitStatusEntry): void => {
@@ -555,6 +657,122 @@ export function GitPanel() {
   };
 
   const confirmMessage = confirm?.message ?? '';
+
+  /** 取消待显示的悬浮卡片定时器 */
+  const clearLogTipTimer = useCallback(() => {
+    if (logTipTimerRef.current !== null) {
+      window.clearTimeout(logTipTimerRef.current);
+      logTipTimerRef.current = null;
+    }
+  }, []);
+
+  /** 隐藏历史行悬浮卡片 */
+  const hideLogTip = useCallback(() => {
+    clearLogTipTimer();
+    // 递增序号使在途请求作废:鼠标已移开,响应回来不应再弹出卡片
+    logTipSeqRef.current += 1;
+    setLogTip(null);
+  }, [clearLogTipTimer]);
+
+  /**
+   * 显示历史行悬浮卡片。
+   * 鼠标进入用延迟(LOG_TIP_DELAY)避免快速划过列表时闪烁;键盘 focus 传 0 立即显示。
+   * 位置取行右边缘外侧,超出视口时由下方 useLayoutEffect 校正。
+   *
+   * 正文与卡片同时出现(而非先弹卡片再撑高),避免高度突变造成跳动;
+   * 因此延迟到点后先查缓存,未命中则请求,拿到结果才渲染卡片。
+   * 请求异常/超时(LOG_BODY_TIMEOUT)按"无正文"展示并写入空串缓存,不阻塞卡片。
+   */
+  const showLogTip = useCallback(
+    (el: HTMLElement, entry: GitLogEntry, delay: number) => {
+      clearLogTipTimer();
+      const seq = ++logTipSeqRef.current;
+      const key = entry.hashFull || entry.hash;
+      logTipTimerRef.current = window.setTimeout(() => {
+        logTipTimerRef.current = null;
+        // 期间鼠标已移开或已移到别的行:丢弃本次
+        if (logTipSeqRef.current !== seq) return;
+        // 位置在真正落地时才测量:正文请求往返期间列表可能已滚动,旧 rect 会失准
+        const place = (body: string) => {
+          if (logTipSeqRef.current !== seq) return;
+          const rect = el.getBoundingClientRect();
+          setLogTip({
+            entry,
+            body,
+            top: rect.top,
+            left: rect.right + LOG_TIP_GAP,
+            anchorLeft: rect.left,
+          });
+        };
+
+        const cached = logBodyCacheRef.current.get(key);
+        if (cached !== undefined) {
+          place(cached);
+          return;
+        }
+
+        let settled = false;
+        const timeoutTimer = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          logBodyCacheRef.current.set(key, '');
+          place('');
+        }, LOG_BODY_TIMEOUT);
+        void gitApi
+          .commitBody(workspacePath, key)
+          .then((res) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeoutTimer);
+            const body = res.body ?? '';
+            logBodyCacheRef.current.set(key, body);
+            place(body);
+          })
+          .catch(() => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeoutTimer);
+            logBodyCacheRef.current.set(key, '');
+            place('');
+          });
+      }, delay);
+    },
+    [clearLogTipTimer, workspacePath],
+  );
+
+  /** 面板滚动/窗口缩放时关闭卡片:卡片是 fixed 定位,不随内容移动,留着会飘在错误位置 */
+  useEffect(() => {
+    if (!logTip) return;
+    const close = () => setLogTip(null);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [logTip]);
+
+  /** 卸载时清理未触发的延迟定时器 */
+  useEffect(() => () => clearLogTipTimer(), [clearLogTipTimer]);
+
+  /** 渲染后测量卡片尺寸:右侧空间不足则翻到行左侧,底部越界则上移,避免溢出视口 */
+  useLayoutEffect(() => {
+    const el = logTipRef.current;
+    if (!logTip || !el) return;
+    const { offsetWidth: w, offsetHeight: h } = el;
+    const maxLeft = window.innerWidth - w - LOG_TIP_GAP;
+    const nextLeft =
+      logTip.left > maxLeft
+        ? Math.max(LOG_TIP_GAP, logTip.anchorLeft - w - LOG_TIP_GAP)
+        : logTip.left;
+    const nextTop = Math.min(logTip.top, Math.max(LOG_TIP_GAP, window.innerHeight - h - LOG_TIP_GAP));
+    if (nextLeft !== logTip.left || nextTop !== logTip.top) {
+      setLogTip((prev) => (prev ? { ...prev, left: nextLeft, top: nextTop } : prev));
+    }
+  }, [logTip]);
+
+  /** 当前卡片引用的分支/标签标记(卡片未显示时为空数组) */
+  const logTipRefs = useMemo(() => (logTip ? parseRefs(logTip.entry.refs) : []), [logTip]);
 
   if (!workspacePath) {
     return <div className="git-panel-empty">{t('git.notRepo')}</div>;
@@ -706,35 +924,40 @@ export function GitPanel() {
             </GitSection>
           )}
 
-          <GitSection title={t('git.history')} collapsible defaultCollapsed>
-            {log.map((entry) => (
-              <div
-                key={entry.hashFull || entry.hash}
-                role="button"
-                tabIndex={0}
-                className="git-panel-log-row"
-                title={`${entry.author} · ${entry.hashFull}${entry.refs ? ` (${entry.refs})` : ''}`}
-                onClick={() => openCommitDiff(entry)}
-                onContextMenu={(e) => openLogMenu(e, entry)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    openCommitDiff(entry);
-                  }
-                }}
-              >
-                <span className="git-panel-log-line1">
-                  <span className="git-panel-log-hash">{entry.hash}</span>
-                  <span className="git-panel-log-subject">{entry.subject}</span>
-                </span>
-                <span className="git-panel-log-line2">
-                  {entry.refs && (
-                    <span className="git-panel-log-ref">{entry.refs}</span>
+          <GitSection title={t('git.history')} collapsible defaultCollapsed storageKey="gitPanel.historyOpen">
+            {log.map((entry) => {
+              const hashKey = entry.hashFull || entry.hash;
+              return (
+                <Fragment key={hashKey}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`git-panel-log-row${expandedHash === hashKey ? ' expanded' : ''}`}
+                    onClick={() => toggleCommitDiff(entry)}
+                    onContextMenu={(e) => openLogMenu(e, entry)}
+                    onMouseEnter={(e) => showLogTip(e.currentTarget, entry, LOG_TIP_DELAY)}
+                    onMouseLeave={hideLogTip}
+                    onFocus={(e) => showLogTip(e.currentTarget, entry, 0)}
+                    onBlur={hideLogTip}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleCommitDiff(entry);
+                      }
+                    }}
+                  >
+                    <span className="git-panel-log-subject">{entry.subject}</span>
+                    {entry.refs && <span className="git-panel-log-ref">{entry.refs}</span>}
+                    <span className="git-panel-log-time">{relativeTime(entry.date)}</span>
+                  </div>
+                  {expandedHash === hashKey && (
+                    <div className="git-panel-log-expand">
+                      <GitDiffView filePath={hashKey} side="commit" hash={hashKey} bare />
+                    </div>
                   )}
-                  <span className="git-panel-log-meta">{entry.author} · {relativeTime(entry.date)}</span>
-                </span>
-              </div>
-            ))}
+                </Fragment>
+              );
+            })}
             {!logEnded && (
               <button
                 type="button"
@@ -773,6 +996,37 @@ export function GitPanel() {
           onSelect={handleLogMenu}
           onClose={closeMenus}
         />,
+        document.body,
+      )}
+
+      {/* 历史行悬浮详情卡片(portal 到 body,避免面板 overflow 裁剪;纯展示不拦截事件) */}
+      {logTip && createPortal(
+        <div
+          ref={logTipRef}
+          className="git-panel-log-tip"
+          role="tooltip"
+          style={{ left: logTip.left, top: logTip.top }}
+        >
+          <div className="git-panel-log-tip-meta">
+            <span className="git-panel-log-tip-author">{logTip.entry.author}</span>
+            <span className="git-panel-log-tip-time">
+              {relativeTimeText(logTip.entry.date, lang)}
+              <span className="git-panel-log-tip-abs">{absoluteTimeText(logTip.entry.date, lang)}</span>
+            </span>
+            <span className="git-panel-log-tip-hash" title={logTip.entry.hashFull}>{logTip.entry.hash}</span>
+          </div>
+          <div className="git-panel-log-tip-subject">{logTip.entry.subject}</div>
+          {logTip.body && <div className="git-panel-log-tip-body">{logTip.body}</div>}
+          {logTipRefs.length > 0 && (
+            <div className="git-panel-log-tip-refs">
+              {logTipRefs.map((r) => (
+                <span key={r.label} className={`git-panel-log-tip-ref kind-${r.kind}`}>
+                  {r.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>,
         document.body,
       )}
 
@@ -862,6 +1116,7 @@ function GitSection({
   disabled,
   collapsible = false,
   defaultCollapsed = false,
+  storageKey,
   children,
 }: {
   title: string;
@@ -870,10 +1125,34 @@ function GitSection({
   disabled?: boolean;
   collapsible?: boolean;
   defaultCollapsed?: boolean;
+  /** 提供时折叠状态持久化到 localStorage,重开面板/刷新后保持一致;缺省仅当前会话生效 */
+  storageKey?: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(!defaultCollapsed);
-  const toggle = (): void => setOpen((v) => !v);
+  const [open, setOpen] = useState(() => {
+    if (storageKey) {
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored !== null) return stored === '1';
+      } catch {
+        /* localStorage 不可用(隐私模式等)时退回默认状态 */
+      }
+    }
+    return !defaultCollapsed;
+  });
+  const toggle = (): void => {
+    setOpen((v) => {
+      const next = !v;
+      if (storageKey) {
+        try {
+          localStorage.setItem(storageKey, next ? '1' : '0');
+        } catch {
+          /* 忽略写入失败 */
+        }
+      }
+      return next;
+    });
+  };
   return (
     <div className="git-panel-section">
       <div

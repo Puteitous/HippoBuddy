@@ -458,27 +458,76 @@
   cursor: default;
 }
 
+/* 提交历史单行:subject(占满剩余/省略) + refs + 相对时间;hash/作者/绝对时间见悬浮卡片 */
 .git-panel-log-row {
-  padding: 4px 6px;
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px 4px 20px; /* 左侧留出提交节点车道 */
   border-radius: 5px;
   cursor: pointer;
+}
+
+/* 提交轨道线:贯穿行高,相邻行紧邻连成整条竖线,串起各提交节点 */
+.git-panel-log-row::before {
+  content: '';
+  position: absolute;
+  left: 7px;                  /* 圆心 x,配合圆点对齐 */
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #2563eb;        /* 明确蓝,不依赖 --accent(项目内为灰色) */
+  opacity: 0.35;              /* 线比节点淡,主次分明;悬停提升 */
+  transition: opacity 0.12s ease;
+}
+
+/* 分布式提交轨道线槽口,让首条线从第一个节点起,不悬空 */
+.git-panel-log-row:first-of-type::before {
+  top: 50%;
+}
+
+/* 提交节点:实心蓝圆点,盖在轨道中间,线自上下进入节点后被打断 */
+.git-panel-log-row::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #2563eb;        /* 明确蓝与轨道统一 */
+  z-index: 1;
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* 鼠标悬停:轨道显亮、节点放大 + 柔和光晕,提供行级反馈 */
+.git-panel-log-row:hover::before {
+  opacity: 1;
+}
+
+.git-panel-log-row:hover::after {
+  transform: translate(-50%, -50%) scale(1.25);
+  background: #1d4ed8;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+}
+
+/* 展开态:节点放大并带光晕,标记"当前正在查看该提交",与行高亮选中区呼应 */
+.git-panel-log-row.expanded::after {
+  transform: translate(-50%, -50%) scale(1.2);
+  background: #1d4ed8;
+  box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.22);
 }
 
 .git-panel-log-row:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.06));
 }
 
-.git-panel-log-line1 {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.git-panel-log-hash {
-  flex-shrink: 0;
-  font-family: var(--hb-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 11px;
-  color: var(--hb-text-soft, #6b7280);
+/* 展开态行:与下方内联 diff 视觉连成一组(选中蓝弱化;暗色在下方 theme 块覆盖) */
+.git-panel-log-row.expanded {
+  background: rgba(37, 99, 235, 0.10);
 }
 
 .git-panel-log-subject {
@@ -488,30 +537,43 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+  line-height: 1.4;
   color: var(--hb-text, #1f2937);
-}
-
-.git-panel-log-line2 {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-top: 1px;
 }
 
 .git-panel-log-ref {
   flex-shrink: 0;
-  font-size: 11px;
-  color: var(--accent, #2563eb);
-}
-
-.git-panel-log-meta {
-  flex: 1;
-  min-width: 0;
+  max-width: 45%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11px;
+  color: var(--accent, #2563eb);
+}
+
+.git-panel-log-time {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
   color: var(--hb-text-soft, #9ca3af);
+}
+
+/* 点击历史行内联展开的 diff:不渲染卡片/头部,与展开行(选中蓝)连成一体,
+   仅用同族浅蓝 + 顶部细线区分选区;限高滚动,避免撑长面板 */
+.git-panel-log-expand {
+  margin: 0 0 6px;
+  padding: 6px 10px 8px;
+  max-height: 340px;
+  overflow-y: auto;
+  background: rgba(37, 99, 235, 0.04);
+  border-top: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+/* 精简模式下让 diff/文件列表内容背景融入展开区,而非各自的白底块 */
+.git-panel-log-expand .git-diff-view.bare .file-preview-diff,
+.git-panel-log-expand .git-diff-view.bare .git-diff-files,
+.git-panel-log-expand .git-diff-view.bare .git-diff-view-message {
+  background: transparent;
 }
 
 .git-panel-log-more {
@@ -529,6 +591,128 @@
 .git-panel-log-more:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* 历史行悬浮详情卡片(portal 到 body,fixed 坐标;纯展示,不拦截鼠标事件) */
+.git-panel-log-tip {
+  position: fixed;
+  z-index: 10000;
+  max-width: 340px;
+  padding: 9px 11px;
+  background: var(--bg-overlay, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  color: var(--text-primary, #111827);
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: none;
+  animation: git-log-tip-fade 0.12s ease;
+}
+
+@keyframes git-log-tip-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.git-panel-log-tip-subject {
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* 作者/时间信息置顶,下沿分隔线把"作者信息区"与"提交内容区"分开 */
+.git-panel-log-tip-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  font-size: 11px;
+  color: var(--text-secondary, #4b5563);
+}
+
+.git-panel-log-tip-author {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.git-panel-log-tip-time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.git-panel-log-tip-abs::before {
+  content: '(';
+}
+
+.git-panel-log-tip-abs::after {
+  content: ')';
+}
+
+/* 提交正文:保留原始换行(pre-wrap),最多 8 行后省略,避免长正文撑成整屏卡片 */
+.git-panel-log-tip-body {
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-secondary, #4b5563);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.git-panel-log-tip-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.git-panel-log-tip-ref {
+  padding: 0 7px;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+/* 本地分支 / HEAD */
+.git-panel-log-tip-ref.kind-head {
+  color: #fff;
+  background: #2563eb;
+}
+
+/* 远端分支 */
+.git-panel-log-tip-ref.kind-remote {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.12);
+}
+
+/* 标签 */
+.git-panel-log-tip-ref.kind-tag {
+  color: #b45309;
+  background: rgba(217, 119, 6, 0.14);
+}
+
+/* 提交短 hash:置于首行(author/time 行)右端,作为常规标识符收尾 */
+.git-panel-log-tip-hash {
+  flex-shrink: 0;
+  margin-left: auto; /* 推到行尾,与左侧 author/time 分居两端 */
+  font-family: var(--hb-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  color: var(--text-secondary, #4b5563);
+  overflow-wrap: anywhere;
 }
 
 /* 危险操作菜单项红色文字 */
@@ -614,16 +798,48 @@
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
   }
 
-  .git-panel-log-hash {
-    color: var(--hb-text-soft-dark, #9ca3af);
+  .git-panel-log-row.expanded {
+    background: rgba(59, 130, 246, 0.16);
+  }
+
+  /* 暗色下用更亮的蓝提升对比 */
+  .git-panel-log-row::before,
+  .git-panel-log-row::after {
+    background: #3b82f6;
+  }
+
+  .git-panel-log-row:hover::after {
+    background: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+  }
+
+  .git-panel-log-row.expanded::after {
+    background: #3b82f6;
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.3);
+  }
+
+  .git-panel-log-expand {
+    background: rgba(59, 130, 246, 0.08);
+    border-top-color: rgba(59, 130, 246, 0.18);
   }
 
   .git-panel-log-subject {
     color: var(--hb-text-dark, #e5e7eb);
   }
 
-  .git-panel-log-meta {
+  .git-panel-log-time {
     color: var(--hb-text-soft-dark, #9ca3af);
+  }
+
+  /* 悬浮卡片背景走 --bg-overlay(暗色主题已为深色实底),仅需提亮引用标记的浅色不透明色 */
+  .git-panel-log-tip-ref.kind-remote {
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.18);
+  }
+
+  .git-panel-log-tip-ref.kind-tag {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.18);
   }
 
   /* 徽章配色对齐 FileTree 暗色色值(亮色色值在深底上对比度不足) */

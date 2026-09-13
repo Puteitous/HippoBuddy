@@ -274,10 +274,13 @@ export function ActivityBar() {
     };
   }, []);
 
-  // 点击外部关闭面板
+  // 点击外部关闭面板:仅作用于"预览态"(未固定)。源码管理面板固定展开(点击打开)时点空白
+  // 不关闭(需点头部 ✕ 或再次点按钮收起),因其需专注操作;其余轻量面板仍点空白关闭。
   useEffect(() => {
     if (!activePanel) return;
     const onPointerDown = (e: MouseEvent) => {
+      // 仅源码管理面板享受固定优先:固定后点空白保持打开,避免误关
+      if (activePanelPinned && activePanel === 'git') return;
       if (ignoreNextOutsideClickRef.current) {
         ignoreNextOutsideClickRef.current = false;
         return;
@@ -295,7 +298,7 @@ export function ActivityBar() {
       window.clearTimeout(id);
       document.removeEventListener('pointerdown', onPointerDown, true);
     };
-  }, [activePanel, closePanel]);
+  }, [activePanel, activePanelPinned, closePanel]);
 
   if (hidden) {
     return (
