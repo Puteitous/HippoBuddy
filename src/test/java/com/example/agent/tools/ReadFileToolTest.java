@@ -98,7 +98,7 @@ class ReadFileToolTest {
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
             
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString())).thenReturn(mockPath);
             
             filesMock.when(() -> Files.exists(mockPath)).thenReturn(false);
             
@@ -114,7 +114,7 @@ class ReadFileToolTest {
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
             
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString())).thenReturn(mockPath);
             
             filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(false);
@@ -131,7 +131,7 @@ class ReadFileToolTest {
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
             
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString())).thenReturn(mockPath);
             
             filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);
@@ -149,7 +149,7 @@ class ReadFileToolTest {
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
             
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString())).thenReturn(mockPath);
             
             filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);
@@ -172,7 +172,7 @@ class ReadFileToolTest {
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
             
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString())).thenReturn(mockPath);
             securityUtilsMock.when(() -> PathSecurityUtils.getRelativePath(any())).thenReturn("test.txt");
             
             filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
@@ -202,7 +202,7 @@ class ReadFileToolTest {
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
             
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString())).thenReturn(mockPath);
             securityUtilsMock.when(() -> PathSecurityUtils.getRelativePath(any())).thenReturn("unicode.txt");
             
             filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
@@ -228,7 +228,7 @@ class ReadFileToolTest {
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
             
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString())).thenReturn(mockPath);
             securityUtilsMock.when(() -> PathSecurityUtils.getRelativePath(any())).thenReturn("empty.txt");
             
             filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
@@ -281,7 +281,7 @@ class ReadFileToolTest {
         try (MockedStatic<PathSecurityUtils> securityUtilsMock = mockStatic(PathSecurityUtils.class);
              MockedStatic<Files> filesMock = mockStatic(Files.class)) {
             
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString())).thenReturn(mockPath);
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString())).thenReturn(mockPath);
             
             filesMock.when(() -> Files.exists(mockPath)).thenReturn(true);
             filesMock.when(() -> Files.isRegularFile(mockPath)).thenReturn(true);

@@ -141,6 +141,8 @@ class TranscriptLoaderTest {
 
     @Test
     void testExists() {
+        // SessionTranscript 惰性初始化：不 append 不建文件。先 append 触发创建，否则单独跑本测试必失败（flaky）。
+        transcript.appendSystemMessage("init");
         assertTrue(TranscriptLoader.exists(sessionId));
         assertFalse(TranscriptLoader.exists("non-existent-session"));
     }

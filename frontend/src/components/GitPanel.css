@@ -280,23 +280,32 @@
 }
 
 .git-panel-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 2px 0;
+  margin: 2px 0; /* 行与行之间留出呼吸间隙(flex 容器中不折叠),避免过于紧凑 */
   border-radius: 5px;
+  overflow: hidden; /* 超长路径文字在面板右缘硬切,避免撑开/横向滚动 */
 }
 
 .git-panel-row:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.06));
 }
 
-/* 变更行悬浮操作组:默认隐藏,行 hover 时显示 */
+/* 变更行悬浮操作组:脱离普通流,绝对定位覆盖在行右端(状态徽章左侧),
+   默认隐藏,行 hover 时显示;自带实色背景遮挡下方透出的路径文字 */
 .git-panel-row-actions {
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 26px; /* 紧贴 flow 中 26px 宽的徽章(右缘对齐徽章左缘),无空隙 */
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  padding-left: 10px;
+  background: var(--hb-bg, #ffffff); /* 全实底,遮挡下方路径文字 */
   visibility: hidden;
   opacity: 0;
   transition: opacity 0.12s ease, visibility 0.12s ease;
@@ -333,20 +342,25 @@
 }
 
 /*
- * 状态徽章:纯字母,无底色/无圆角 —— 与文件树 .file-tree-status-badge 视觉形态统一。
- * 此前带 border-radius + 淡底色(12% 透明度),16px 方块里塞 11px 字母显得局促,
- * 且颜色本身已编码状态,底色不提供额外信息(浅色主题下仅是一层灰雾)。
+ * 状态徽章:字母标识 + 与面板背景同色的实底。
+ * 实底用于遮挡行尾溢出的长路径文字(路径现在允许完整显示、靠右侧元素遮挡)。
  * 保留固定宽高是为了让行尾多行徽章纵向对齐(面板行为「文件名+目录+hover 按钮+徽章」四段)。
  */
 .git-panel-badge {
-  flex-shrink: 0;
+  position: relative; /* 提升为定位元素,配合 z-index 稳定盖住溢出的路径文字(参考 .git-panel-row-actions 的层级机制) */
+  z-index: 1;
+  flex: 0 0 auto;
+  align-self: stretch; /* 背景拉伸填满整行,紧贴 row 上下 */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 26px; /* 与 .git-panel-icon-btn 对齐,背景块填满 */
+  height: auto;
+  margin: -2px 0; /* 抵消 .git-panel-row 的 padding:2px 0,让背景铺满 row 全高 */
+  line-height: 1;
   font-size: 11px;
   font-weight: 700;
+  background: var(--hb-bg, #ffffff); /* 与面板背景同色实底,遮挡右侧溢出的路径文字 */
 }
 
 /* 状态徽章配色:类别由 utils/git-status 的 gitBadgeKind 给出(与文件树同一套语义、同一套色值) */
@@ -369,19 +383,15 @@
 
 .git-panel-name {
   flex: 0 0 auto; /* 文件名永不收缩,保证完整展示 */
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--hb-text, #1f2937);
 }
 
 .git-panel-dir {
-  flex: 1 1 auto; /* 目录路径吸收剩余空间,优先被省略 */
+  flex: 1 1 auto; /* 目录路径吸收剩余空间,文字可自然溢出至右端,不再被省略 */
   min-width: 0;
   margin-left: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
   white-space: nowrap;
   font-size: 11px;
   color: var(--hb-text-soft, #9ca3af);
@@ -415,7 +425,7 @@
   resize: none;
   overflow-x: hidden;
   overflow-y: auto;
-  min-height: 30px;
+  min-height: 34px;
   max-height: 200px;
   box-sizing: border-box;
 }
@@ -805,6 +815,15 @@
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
   }
 
+  /* 暗色下操作组背景改用对应实底变量,保持遮挡无拼接感 */
+  .git-panel-row-actions {
+    background: var(--hb-bg-dark, #1a1a1a);
+  }
+
+  .git-panel-badge {
+    background: var(--hb-bg-dark, #1a1a1a);
+  }
+
   .git-panel-log-row.expanded {
     background: rgba(59, 130, 246, 0.16);
   }
@@ -861,5 +880,18 @@
   .git-panel-badge.del,
   .git-panel-badge.conflict {
     color: #f85149;
+  }
+}
+
+/* ========== 玻璃主题 ==========
+   --hb-bg/--hb-bg-dark 在玻璃下映射到半透明的 --glass-panel,
+   会导致徽章/操作组的背景透出路径文字;这里改为玻璃约定的实底 --bg-overlay 遮挡。 */
+[data-theme="glass"] {
+  .git-panel-row-actions {
+    background: var(--bg-overlay, rgba(26, 28, 36, 0.92));
+  }
+
+  .git-panel-badge {
+    background: var(--bg-overlay, rgba(26, 28, 36, 0.92));
   }
 }

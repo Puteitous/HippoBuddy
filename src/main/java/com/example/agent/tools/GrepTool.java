@@ -176,7 +176,7 @@ public class GrepTool implements ToolExecutor {
 
         int offset = arguments.has("offset") ? Math.max(0, arguments.get("offset").asInt()) : 0;
 
-        Path searchPath = PathSecurityUtils.validateAndResolve(searchPathStr);
+        Path searchPath = PathSecurityUtils.validateAndResolveRead(searchPathStr);
 
         return GrepOptions.builder()
                 .pattern(patternStr)

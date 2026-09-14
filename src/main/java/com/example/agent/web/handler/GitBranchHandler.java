@@ -19,7 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * GitBranchHandler - 分支列表与当前分支
  *
  * <p>GET /api/git/branch?path=<br>
- * 本地分支基于 {@code git branch --format='%(HEAD)\x1f%(refname:short)'}(HEAD 标记为当前分支),
+ * 本地分支基于 {@code git branch --format='%(HEAD)%1f%(refname:short)'}(HEAD 标记为当前分支),
  * 远端分支基于 {@code git branch -r --format='%(refname:short)'}(过滤 origin/HEAD 符号引用)。
  * 返回 {@code {current, names, remotes}}。
  */
@@ -41,7 +41,7 @@ public class GitBranchHandler implements HttpHandler {
         Path workDir = Paths.get(workspacePath).normalize();
 
         // 本地分支
-        GitRunner.Result local = GitRunner.run(workDir, "branch", "--format=%(HEAD)%x1f%(refname:short)");
+        GitRunner.Result local = GitRunner.run(workDir, "branch", "--format=%(HEAD)%1f%(refname:short)");
         String current = "";
         List<String> names = new ArrayList<>();
         if (local.ok()) {

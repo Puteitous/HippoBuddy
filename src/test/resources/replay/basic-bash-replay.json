@@ -1,0 +1,20 @@
+{
+  "name": "basic-bash",
+  "description": "最小回放夹具：用户请求运行 echo hello，LLM 先请求 bash 工具，工具结果回填后再总结。",
+  "userPrompt": "帮我运行命令 echo hello，看看输出是什么",
+  "responses": [
+    {
+      "content": "",
+      "toolCalls": [
+        {
+          "name": "bash",
+          "arguments": "{\"command\":\"echo hello\"}"
+        }
+      ]
+    },
+    {
+      "content": "已执行 echo hello，输出为 hello。",
+      "toolCalls": []
+    }
+  ]
+}

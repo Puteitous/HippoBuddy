@@ -346,6 +346,11 @@
   color: var(--warning-color, #e6a817);
 }
 
+.permission-badge-icon.balanced,
+.permission-badge-opt-icon.balanced {
+  color: var(--accent, #4b3fe3);
+}
+
 .permission-badge-text {
   line-height: 1;
 }

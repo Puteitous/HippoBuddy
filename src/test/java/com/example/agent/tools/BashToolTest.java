@@ -360,6 +360,63 @@ class BashToolTest {
     }
 
     @Test
+    void testStderrSeparatedIntoSection() throws Exception {
+        String command = System.getProperty("os.name").toLowerCase().contains("win")
+            ? "echo out & echo err 1>&2"
+            : "echo out; echo err 1>&2";
+        ObjectNode args = objectMapper.createObjectNode();
+        args.put("command", command);
+
+        String result = tool.execute(args);
+        assertTrue(result.contains("[stderr]"), "应含 [stderr] 区段标注，实际: " + result);
+        assertTrue(result.contains("out"), "stdout 内容应保留，实际: " + result);
+        assertTrue(result.contains("err"), "stderr 内容应保留，实际: " + result);
+        assertTrue(result.indexOf("[stderr]") > result.indexOf("out"),
+            "[stderr] 区段应在 stdout 之后，实际: " + result);
+    }
+
+    @Test
+    void testMergeOutputSectionRules() throws Exception {
+        java.lang.reflect.Method method = BashTool.class.getDeclaredMethod(
+            "mergeOutput", String.class, String.class);
+        method.setAccessible(true);
+        BashTool instance = new BashTool();
+
+        // 无 stderr：原样返回 stdout
+        assertEquals("hello\n", method.invoke(instance, "hello\n", ""));
+        // stderr 非空且 stdout 无换行结尾：补换行再拼接 [stderr] 区段
+        assertEquals("hello\n[stderr]\nbad", method.invoke(instance, "hello", "bad"));
+        // stdout 为空：仅输出 [stderr] 区段
+        assertEquals("[stderr]\nbad", method.invoke(instance, "", "bad"));
+        // stdout 以换行结尾：不补换行直接拼接
+        assertEquals("hello\n[stderr]\nbad", method.invoke(instance, "hello\n", "bad"));
+    }
+
+    @Test
+    void testResultDetailAvailableForTranscript() throws Exception {
+        String command = System.getProperty("os.name").toLowerCase().contains("win")
+            ? "echo out & echo err 1>&2"
+            : "echo out; echo err 1>&2";
+        String id = "test-detail-" + System.nanoTime();
+        BashTool.setCurrentToolCallId(id);
+        try {
+            ObjectNode args = objectMapper.createObjectNode();
+            args.put("command", command);
+
+            tool.execute(args);
+
+            var detail = BashTool.consumeResult(id);
+            assertNotNull(detail, "consumeResult 应能取到结构化结果");
+            assertEquals(0, detail.exitCode());
+            assertTrue(detail.output().contains("out"), "output 应含正常输出，实际: " + detail.output());
+            assertTrue(detail.stderr().contains("err"), "stderr 应含错误内容，实际: " + detail.stderr());
+            assertNull(BashTool.consumeResult(id), "消费后槽位应移除（幂等）");
+        } finally {
+            BashTool.clearCurrentToolCallId();
+        }
+    }
+
+    @Test
     void testTranslateCommandForUnixTail() throws Exception {
         String translated = invokeTranslateCommandForUnix("mvn test", "tail", 200);
         assertEquals("mvn test | tail -n 200", translated);
@@ -566,12 +623,11 @@ class BashToolTest {
                                              boolean externallyCancelled, boolean cancelFailed,
                                              long pid) throws Exception {
         java.lang.reflect.Method method = BashTool.class.getDeclaredMethod(
-            "formatResult", String.class, String.class, int.class, long.class,
-            java.nio.file.Path.class, boolean.class, String.class, int.class,
-            boolean.class, boolean.class, long.class);
+            "formatResult", String.class, java.nio.file.Path.class, BashResult.class);
         method.setAccessible(true);
-        return (String) method.invoke(new BashTool(), command, output, exitCode, duration,
-            workPath, isTimeout, outputMode, maxLines, externallyCancelled, cancelFailed, pid);
+        BashResult result = new BashResult(exitCode, isTimeout, externallyCancelled, cancelFailed, false,
+            duration, pid, "", output, outputMode, maxLines);
+        return (String) method.invoke(new BashTool(), command, workPath, result);
     }
 
     // ===== 后台模式（run_in_background）=====

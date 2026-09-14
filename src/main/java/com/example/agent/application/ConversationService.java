@@ -26,6 +26,7 @@ import com.example.agent.service.TokenEstimator;
 import java.nio.file.Path;
 import com.example.agent.session.SessionData;
 import com.example.agent.session.SessionTranscript;
+import com.example.agent.tools.BashTool;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -477,6 +478,13 @@ public class ConversationService {
         String truncated = truncationService.truncateToolOutput(toolName, content);
         Message message = Message.toolResult(toolCallId, toolName, truncated);
         message.setToolSuccess(success);
+        if ("bash".equals(toolName)) {
+            // 消费 BashTool 保留的结构化结果，随转录持久化（exitCode/stderr/output），供分析与回放
+            var detail = BashTool.consumeResult(toolCallId);
+            if (detail != null) {
+                message.setToolResultDetail(detail.toDetailMap());
+            }
+        }
         addMessage(conversation, message, success);
     }
 

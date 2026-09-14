@@ -118,7 +118,7 @@ public class GlobTool implements ToolExecutor {
             }
         }
 
-        Path basePath = PathSecurityUtils.validateAndResolve(effectiveSearchPath);
+        Path basePath = PathSecurityUtils.validateAndResolveRead(effectiveSearchPath);
 
         if (!Files.exists(basePath)) {
             throw new ToolExecutionException("搜索路径不存在: " + effectiveSearchPath);

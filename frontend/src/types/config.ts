@@ -67,8 +67,8 @@ export interface DeleteFileToolConfigSection {
 }
 
 export interface ToolsConfigSection {
-  /** 权限范围:strict=仅工作区;relaxed=全目录。确认卡片由 bash/delete_file 的 require_confirmation 独立控制 */
-  mode?: 'strict' | 'relaxed';
+  /** 权限范围:strict=仅工作区;balanced=写限工作区、读可出工作区;relaxed=全目录。确认卡片由 bash/delete_file 的 require_confirmation 独立控制 */
+  mode?: 'strict' | 'balanced' | 'relaxed';
   bash: BashToolConfigSection;
   /** FileToolConfig 当前为空对象,后端保留扩展位 */
   file: Record<string, unknown>;

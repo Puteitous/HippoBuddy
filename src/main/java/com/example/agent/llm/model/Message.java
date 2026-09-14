@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -70,6 +71,13 @@ public class Message {
      */
     @JsonProperty("web_search_actions")
     private List<WebSearchAction> webSearchActions;
+
+    /**
+     * 工具执行的结构化明细（当前仅 bash 工具：exitCode/stderr/output 等）。
+     * 仅供转录持久化与程序化分析，不发往 LLM API。
+     */
+    @JsonProperty("tool_result_detail")
+    private Map<String, Object> toolResultDetail;
 
     public Message() {
         this.id = java.util.UUID.randomUUID().toString();
@@ -402,6 +410,9 @@ public class Message {
         if (this.webSearchActions != null) {
             copy.webSearchActions = new ArrayList<>(this.webSearchActions);
         }
+        if (this.toolResultDetail != null) {
+            copy.toolResultDetail = new java.util.LinkedHashMap<>(this.toolResultDetail);
+        }
         return copy;
     }
 
@@ -481,6 +492,14 @@ public class Message {
 
     public void setWebSearchActions(List<WebSearchAction> webSearchActions) {
         this.webSearchActions = webSearchActions;
+    }
+
+    public Map<String, Object> getToolResultDetail() {
+        return toolResultDetail;
+    }
+
+    public void setToolResultDetail(Map<String, Object> toolResultDetail) {
+        this.toolResultDetail = toolResultDetail;
     }
 
     public Message withId(String id) {

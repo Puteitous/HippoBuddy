@@ -67,12 +67,40 @@ public class BashTool implements ToolExecutor {
 
     private static final ThreadLocal<String> currentToolCallId = new ThreadLocal<>();
 
+    /**
+     * 最近一次执行的分类结果槽（按 toolCallId），供编排层在构造转录时消费：
+     * BashResult 在 execute() 内部被格式化为文本后即丢失，此处保留结构化副本，
+     * 使 ConversationService 能将 {stdout, stderr, exitCode} 记录进会话转录。
+     * 消费方 {@link #consumeResult(String)} 读取后移除；槽位超上限时整体清空兜底。
+     */
+    private static final Map<String, BashResult> lastResultsByToolCall = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final int MAX_LAST_RESULTS = 512;
+
     public static void setCurrentToolCallId(String toolCallId) {
         currentToolCallId.set(toolCallId);
     }
 
     public static void clearCurrentToolCallId() {
         currentToolCallId.remove();
+    }
+
+    /** 记录本次执行的分类结果（execute 返回前调用）。 */
+    private static void rememberResult(String toolCallId, BashResult result) {
+        if (toolCallId == null || result == null) {
+            return;
+        }
+        if (lastResultsByToolCall.size() >= MAX_LAST_RESULTS) {
+            lastResultsByToolCall.clear(); // 兜底防泄漏；正常流程消费方会逐个移除
+        }
+        lastResultsByToolCall.put(toolCallId, result);
+    }
+
+    /** 消费指定 toolCallId 的分类结果（读取并移除）；无记录时返回 null。 */
+    public static BashResult consumeResult(String toolCallId) {
+        if (toolCallId == null) {
+            return null;
+        }
+        return lastResultsByToolCall.remove(toolCallId);
     }
 
     public BashTool() {
@@ -226,7 +254,11 @@ public class BashTool implements ToolExecutor {
         }
 
         try {
-            return executeCommand(effectiveCommand, workPath, timeout, progressCallback, outputMode, maxLines, runInBackground);
+            BashResult result = executeCommand(effectiveCommand, workPath, timeout, progressCallback, outputMode, maxLines, runInBackground);
+            rememberResult(currentToolCallId.get(), result); // 保留结构化副本供转录消费
+            return runInBackground
+                ? formatBackgroundResult(effectiveCommand, workPath, result)
+                : formatResult(effectiveCommand, workPath, result);
         } catch (IOException e) {
             throw new ToolExecutionException("命令执行失败: " + e.getMessage(), e);
         } catch (InterruptedException e) {
@@ -290,8 +322,8 @@ public class BashTool implements ToolExecutor {
      * 经过短暂的启动观察期后立即返回进程 PID，释放回合锁，进程由守护线程持续托管输出。
      * 用户仍可通过界面"终止"按钮（BashProcessManager.cancel）随时杀掉进程树。
      */
-    private String executeInBackground(String command, Path workPath, Consumer<String> progressCallback,
-                                       String outputMode, int maxLines) throws IOException {
+    private BashResult executeInBackground(String command, Path workPath, Consumer<String> progressCallback,
+                                           String outputMode, int maxLines) throws IOException {
         long startTime = System.currentTimeMillis();
 
         ProcessBuilder processBuilder;
@@ -301,7 +333,8 @@ public class BashTool implements ToolExecutor {
             processBuilder = new ProcessBuilder("bash", "-c", command);
         }
         processBuilder.directory(workPath.toFile());
-        processBuilder.redirectErrorStream(true);
+        // 不合并错误流：stderr 由独立 monitor 线程收集，最终以 [stderr] 区段标注
+        processBuilder.redirectErrorStream(false);
         processBuilder.environment().put("PAGER", "cat");
         processBuilder.environment().put("GIT_PAGER", "cat");
 
@@ -342,6 +375,27 @@ public class BashTool implements ToolExecutor {
         monitor.setDaemon(true);
         monitor.start();
 
+        // 独立 monitor 读取 stderr（两条流都必须被消费，否则管道缓冲填满会阻塞进程）
+        Thread stderrMonitor = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream(), getPipeCharset()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (toolCallId != null) {
+                        manager.appendBackgroundError(toolCallId, line);
+                    }
+                }
+            } catch (IOException e) {
+                // 进程销毁时流关闭，忽略
+            } finally {
+                if (toolCallId != null) {
+                    manager.finalizeBackground(toolCallId);
+                }
+            }
+        });
+        stderrMonitor.setDaemon(true);
+        stderrMonitor.start();
+
         // 启动观察期：等待确认进程没有"秒崩"（端口占用/配置错误/依赖缺失）
         boolean survived = awaitBackgroundStartup(process, toolCallId, manager);
         long duration = System.currentTimeMillis() - startTime;
@@ -349,8 +403,9 @@ public class BashTool implements ToolExecutor {
         if (survived) {
             // 后台启动成功：进程继续运行，立即返回 PID
             String output = truncateOutput(record != null ? record.getOutputSnapshot() : "");
-            return formatBackgroundResult(command, output, workPath, process.pid(), -1,
-                true, false, duration, outputMode, maxLines);
+            String stderr = truncateOutput(record != null ? record.getErrorSnapshot() : "");
+            return new BashResult(BashResult.NO_VALUE, false, false, false, true,
+                duration, process.pid(), stderr, output, outputMode, maxLines);
         }
 
         // 观察期内进程退出或被取消：判定启动失败
@@ -362,8 +417,9 @@ public class BashTool implements ToolExecutor {
             exitCode = -1;
         }
         String output = truncateOutput(record != null ? record.getOutputSnapshot() : "");
-        return formatBackgroundResult(command, output, workPath, process.pid(), exitCode,
-            false, cancelled, duration, outputMode, maxLines);
+        String stderr = truncateOutput(record != null ? record.getErrorSnapshot() : "");
+        return new BashResult(exitCode, false, cancelled, false, false,
+            duration, process.pid(), stderr, output, outputMode, maxLines);
     }
 
     /**
@@ -396,48 +452,47 @@ public class BashTool implements ToolExecutor {
     /**
      * 格式化后台模式执行结果。
      */
-    private String formatBackgroundResult(String command, String output, Path workPath, long pid, int exitCode,
-                                          boolean started, boolean cancelled, long duration,
-                                          String outputMode, int maxLines) {
+    private String formatBackgroundResult(String command, Path workPath, BashResult res) {
         StringBuilder result = new StringBuilder();
         result.append("命令执行结果（后台模式）\n");
         result.append("命令: ").append(command).append("\n");
         result.append("工作目录: ").append(PathSecurityUtils.getRelativePath(workPath)).append("\n");
 
-        if (started) {
+        if (res.backgroundStarted()) {
             result.append("状态: 后台启动成功，进程持续运行\n");
-            result.append("进程 PID: ").append(pid).append("\n");
+            result.append("进程 PID: ").append(res.pid()).append("\n");
             result.append("该进程不受超时控制，不会被自动终止。\n");
-            result.append("如需强制终止: Windows 执行 taskkill /F /T /PID ").append(pid)
-                  .append("，或 Unix 执行 kill -9 ").append(pid).append("，也可通过界面终止按钮。\n");
-        } else if (cancelled) {
+            result.append("如需强制终止: Windows 执行 taskkill /F /T /PID ").append(res.pid())
+                  .append("，或 Unix 执行 kill -9 ").append(res.pid()).append("，也可通过界面终止按钮。\n");
+        } else if (res.aborted()) {
             result.append("状态: 后台启动被用户取消/终止\n");
         } else {
             result.append("状态: 后台启动失败（进程在启动观察期内退出，可能端口占用/配置错误/依赖缺失）\n");
-            result.append("退出码: ").append(exitCode).append("\n");
+            result.append("退出码: ").append(res.exitCode()).append("\n");
         }
-        result.append("执行时间: ").append(duration).append(" ms\n");
+        result.append("执行时间: ").append(res.durationMs()).append(" ms\n");
 
-        if (!OUTPUT_MODE_ALL.equals(outputMode)) {
-            int lines = resolveMaxLines(outputMode, maxLines);
-            result.append("输出策略: ").append(outputMode)
+        if (!OUTPUT_MODE_ALL.equals(res.outputMode())) {
+            int lines = resolveMaxLines(res.outputMode(), res.maxLines());
+            result.append("输出策略: ").append(res.outputMode())
                   .append("（仅保留最多 ").append(lines).append(" 行）\n");
         }
 
-        if (output.isEmpty()) {
+        if (res.output().isEmpty()) {
             result.append("(启动过程无输出)\n");
         } else {
             result.append("启动输出:\n");
-            result.append(output);
-            if (!output.endsWith("\n")) {
+            String merged = mergeOutput(res.output(), res.stderr());
+            result.append(merged);
+            if (!merged.endsWith("\n")) {
                 result.append("\n");
             }
         }
         return result.toString();
     }
 
-    private String executeCommand(String command, Path workPath, int timeout, Consumer<String> progressCallback,
-                                  String outputMode, int maxLines, boolean runInBackground) 
+    private BashResult executeCommand(String command, Path workPath, int timeout, Consumer<String> progressCallback,
+                                      String outputMode, int maxLines, boolean runInBackground) 
             throws IOException, InterruptedException, ToolExecutionException {
 
         // 后台模式：立即返回 PID、进程持续运行，不走前台同步等待/超时终止逻辑
@@ -454,7 +509,8 @@ public class BashTool implements ToolExecutor {
         }
         
         processBuilder.directory(workPath.toFile());
-        processBuilder.redirectErrorStream(true);
+        // 不合并错误流：stdout/stderr 分开收集，最终以 [stderr] 区段标注（参考 DeepSeek Harness）
+        processBuilder.redirectErrorStream(false);
         
         // 禁止分页器 — 防止命令（如 git log、less 等）进入交互式分页模式导致进程挂起
         processBuilder.environment().put("PAGER", "cat");
@@ -472,8 +528,10 @@ public class BashTool implements ToolExecutor {
             toolCallId, process.pid(), truncateForLog(command));
         
         Thread readerThread = null;
+        Thread stderrReaderThread = null;
         try {
             StringBuilder output = new StringBuilder();
+            StringBuilder errorOutput = new StringBuilder();
             
             // 守护线程读取输出，主线程负责超时控制
             // 修复：将 process.waitFor 放在 readLine 之前，
@@ -499,6 +557,23 @@ public class BashTool implements ToolExecutor {
             });
             readerThread.setDaemon(true);
             readerThread.start();
+
+            // 独立读取 stderr（两条流都必须被消费，否则管道缓冲填满会阻塞进程）
+            stderrReaderThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getErrorStream(), getPipeCharset()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        synchronized (errorOutput) {
+                            errorOutput.append(line).append("\n");
+                        }
+                    }
+                } catch (IOException e) {
+                    // 进程销毁时流关闭，忽略异常
+                }
+            });
+            stderrReaderThread.setDaemon(true);
+            stderrReaderThread.start();
             
             // 主线程等待进程完成或超时（步长轮询，便于及时感知外部取消）。
             // 取消已发起后不再按命令自身 timeout 长等：进入短确认窗口，
@@ -562,6 +637,7 @@ public class BashTool implements ToolExecutor {
             // 缩短为 300ms 收尾，避免锁迟迟不释放（用户点终止后无法马上发新消息）。
             long joinTimeout = cancelFailed ? CANCELLATION_JOIN_TIMEOUT_MS : 3000;
             readerThread.join(joinTimeout);
+            stderrReaderThread.join(joinTimeout);
 
             // 清理取消标志（供标注使用；进程已自然结束时 consumeCancelled 返回 false）
             if (toolCallId != null) {
@@ -573,24 +649,29 @@ public class BashTool implements ToolExecutor {
             synchronized (output) {
                 rawOutput = output.toString();
             }
+            String rawError;
+            synchronized (errorOutput) {
+                rawError = errorOutput.toString();
+            }
             String processedOutput = truncateOutput(applyOutputMode(rawOutput, outputMode, maxLines));
+            String processedStderr = truncateOutput(applyOutputMode(rawError, outputMode, maxLines));
 
             int finalExitCode;
-            String result;
+            BashResult result;
             if (cancelFailed) {
                 // 终止失败：进程仍在后台运行，附 PID 与补救命令，不让用户干等
                 finalExitCode = -1;
-                result = formatResult(command, processedOutput, finalExitCode, duration, workPath,
-                    false, outputMode, maxLines, true, true, process.pid());
+                result = new BashResult(finalExitCode, false, false, true, false,
+                    duration, process.pid(), processedStderr, processedOutput, outputMode, maxLines);
             } else if (!finished) {
                 // 超时
                 finalExitCode = 124;
-                result = formatResult(command, processedOutput, finalExitCode, duration, workPath,
-                    true, outputMode, maxLines, externallyCancelled, false, -1);
+                result = new BashResult(finalExitCode, true, false, false, false,
+                    duration, BashResult.NO_VALUE, processedStderr, processedOutput, outputMode, maxLines);
             } else {
                 finalExitCode = process.exitValue();
-                result = formatResult(command, processedOutput, finalExitCode, duration, workPath,
-                    false, outputMode, maxLines, externallyCancelled, false, -1);
+                result = new BashResult(finalExitCode, false, externallyCancelled, false, false,
+                    duration, BashResult.NO_VALUE, processedStderr, processedOutput, outputMode, maxLines);
             }
             logger.debug("bash 执行结束: toolCallId={}, pid={}, durationMs={}, exitCode={}, externallyCancelled={}, cancelFailed={}",
                 toolCallId, process.pid(), duration, finalExitCode, externallyCancelled, cancelFailed);
@@ -598,6 +679,9 @@ public class BashTool implements ToolExecutor {
         } finally {
             if (readerThread != null && readerThread.isAlive()) {
                 readerThread.interrupt();
+            }
+            if (stderrReaderThread != null && stderrReaderThread.isAlive()) {
+                stderrReaderThread.interrupt();
             }
             if (toolCallId != null) {
                 BashProcessManager.getInstance().unregister(toolCallId);
@@ -731,6 +815,18 @@ public class BashTool implements ToolExecutor {
         return command.length() <= 120 ? command : command.substring(0, 120) + "...";
     }
 
+    /**
+     * 拼接 stdout 与 stderr：stderr 以 {@code [stderr]} 区段标注，供模型区分正常输出与错误输出
+     * （模型可见格式参考 DeepSeek Harness 的 bash 工具设计）。
+     */
+    private static String mergeOutput(String stdout, String stderr) {
+        if (stderr == null || stderr.isEmpty()) {
+            return stdout;
+        }
+        String sep = stdout == null || stdout.isEmpty() || stdout.endsWith("\n") ? "" : "\n";
+        return stdout + sep + "[stderr]\n" + stderr;
+    }
+
     private String truncateOutput(String output) {
         if (output == null || output.length() <= MAX_OUTPUT_CHARS) {
             return output;
@@ -844,54 +940,52 @@ public class BashTool implements ToolExecutor {
         return (lastSlash >= 0 ? firstToken.substring(lastSlash + 1) : firstToken).toLowerCase();
     }
 
-    private String formatResult(String command, String output, int exitCode, 
-                               long duration, Path workPath, boolean isTimeout,
-                               String outputMode, int maxLines, boolean externallyCancelled,
-                               boolean cancelFailed, long pid) {
+    private String formatResult(String command, Path workPath, BashResult res) {
         StringBuilder result = new StringBuilder();
         
         result.append("命令执行结果\n");
         result.append("命令: ").append(command).append("\n");
         result.append("工作目录: ").append(PathSecurityUtils.getRelativePath(workPath)).append("\n");
         
-        if (cancelFailed) {
+        if (res.cancelFailed()) {
             result.append("退出码: -1（终止失败：进程未能被终止，已转入后台继续运行）\n");
-            result.append("进程 PID: ").append(pid).append("\n");
-            result.append("补救: 如需强制清理，请在系统终端执行: taskkill /F /T /PID ").append(pid).append("\n");
-        } else if (externallyCancelled) {
-            result.append("退出码: ").append(exitCode).append("（已被用户终止）\n");
+            result.append("进程 PID: ").append(res.pid()).append("\n");
+            result.append("补救: 如需强制清理，请在系统终端执行: taskkill /F /T /PID ").append(res.pid()).append("\n");
+        } else if (res.aborted()) {
+            result.append("退出码: ").append(res.exitCode()).append("（已被用户终止）\n");
             result.append("终止方式: 已递归终止整棵进程树（含所有子进程）\n");
-        } else if (isTimeout) {
-            result.append("退出码: 124（执行超时，超过 ").append(duration / 1000).append(" 秒）\n");
+        } else if (res.timedOut()) {
+            result.append("退出码: 124（执行超时，超过 ").append(res.durationMs() / 1000).append(" 秒）\n");
         } else {
-            result.append("退出码: ").append(exitCode).append(" ");
-            result.append(isExpectedExitCode(command, exitCode) ? "成功" : "失败").append("\n");
+            result.append("退出码: ").append(res.exitCode()).append(" ");
+            result.append(isExpectedExitCode(command, res.exitCode()) ? "成功" : "失败").append("\n");
         }
         
-        result.append("执行时间: ").append(duration).append(" ms\n");
+        result.append("执行时间: ").append(res.durationMs()).append(" ms\n");
         
-        if (!OUTPUT_MODE_ALL.equals(outputMode)) {
-            int lines = resolveMaxLines(outputMode, maxLines);
-            result.append("输出策略: ").append(outputMode)
+        if (!OUTPUT_MODE_ALL.equals(res.outputMode())) {
+            int lines = resolveMaxLines(res.outputMode(), res.maxLines());
+            result.append("输出策略: ").append(res.outputMode())
                   .append("（仅保留最多 ").append(lines).append(" 行；如需完整输出请改用 output_mode=all）\n");
         }
         
-        if (output.isEmpty()) {
+        String merged = mergeOutput(res.output(), res.stderr());
+        if (merged.isEmpty()) {
             result.append("(无输出)\n");
         } else {
             result.append("输出:\n");
-            result.append(output);
-            if (!output.endsWith("\n")) {
+            result.append(merged);
+            if (!merged.endsWith("\n")) {
                 result.append("\n");
             }
         }
         
-        if (cancelFailed) {
+        if (res.cancelFailed()) {
             result.append("\n提示: 该命令未能被终止，正在后台继续运行。以上输出为终止时已产生的部分。\n");
-        } else if (externallyCancelled) {
+        } else if (res.aborted()) {
             result.append("\n提示: 该命令在完成前被用户终止，以上输出为终止时已产生的部分。\n");
-        } else if (isTimeout) {
-            result.append("\n提示: 该命令执行超过 ").append(duration / 1000).append(" 秒未完成，已被自动终止。\n");
+        } else if (res.timedOut()) {
+            result.append("\n提示: 该命令执行超过 ").append(res.durationMs() / 1000).append(" 秒未完成，已被自动终止。\n");
             result.append("建议你在终端手动执行该命令，将完整结果贴回来。\n");
         }
         

@@ -87,7 +87,7 @@ class ReadOfficeFileToolTest {
     void testReadNonExistentFile() throws Exception {
         Path testFile = tempDir.resolve("nonexistent.xlsx");
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(testFile);
 
             ObjectNode args = args("path", testFile.toString());
@@ -100,7 +100,7 @@ class ReadOfficeFileToolTest {
     void testReadDirectoryPath() throws Exception {
         Path dir = Files.createTempDirectory(tempDir, "testdir");
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(dir);
 
             ObjectNode args = args("path", dir.toString());
@@ -114,7 +114,7 @@ class ReadOfficeFileToolTest {
         Path testFile = tempDir.resolve("test.txt");
         Files.writeString(testFile, "hello");
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(testFile);
 
             ObjectNode args = args("path", testFile.toString());
@@ -128,7 +128,7 @@ class ReadOfficeFileToolTest {
         Path testFile = tempDir.resolve("test.pdf");
         Files.write(testFile, new byte[]{0x25, 0x50, 0x44, 0x46}); // %PDF header
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(testFile);
 
             ObjectNode args = args("path", testFile.toString());
@@ -159,7 +159,7 @@ class ReadOfficeFileToolTest {
         }
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(pptxFile);
 
             String result = tool.execute(args("path", pptxFile.toString()));
@@ -184,7 +184,7 @@ class ReadOfficeFileToolTest {
         }
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(pptxFile);
 
             String result = tool.execute(args("path", pptxFile.toString()));
@@ -203,7 +203,7 @@ class ReadOfficeFileToolTest {
         });
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(xlsxFile);
 
             String result = tool.execute(args("path", xlsxFile.toString()));
@@ -222,7 +222,7 @@ class ReadOfficeFileToolTest {
         Path xlsxFile = createMultiSheetXlsx();
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(xlsxFile);
 
             String result = tool.execute(args(
@@ -242,7 +242,7 @@ class ReadOfficeFileToolTest {
         Path xlsxFile = createMinimalXlsx(new String[][]{{"A", "B"}, {"1", "2"}});
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(xlsxFile);
 
             ObjectNode args = args("path", xlsxFile.toString(), "sheet_index", 999);
@@ -256,7 +256,7 @@ class ReadOfficeFileToolTest {
         Path xlsxFile = createMinimalXlsx(new String[][]{{"A", "B"}, {"1", "2"}});
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(xlsxFile);
 
             ObjectNode args = args("path", xlsxFile.toString(), "sheet_index", -2);
@@ -275,7 +275,7 @@ class ReadOfficeFileToolTest {
         Path xlsxFile = createMinimalXlsx(data);
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(xlsxFile);
 
             String result = tool.execute(args(
@@ -293,7 +293,7 @@ class ReadOfficeFileToolTest {
         Path xlsxFile = createMinimalXlsx(new String[][]{{"A", "B"}, {"1", "2"}});
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(xlsxFile);
 
             ObjectNode args = args("path", xlsxFile.toString(), "max_rows", 0);
@@ -312,7 +312,7 @@ class ReadOfficeFileToolTest {
         wb.close();
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(xlsxFile);
 
             String result = tool.execute(args("path", xlsxFile.toString()));
@@ -331,7 +331,7 @@ class ReadOfficeFileToolTest {
         wb.close();
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(xlsxFile);
 
             String result = tool.execute(args("path", xlsxFile.toString()));
@@ -356,7 +356,7 @@ class ReadOfficeFileToolTest {
             }
 
             try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-                securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+                securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                         .thenReturn(xlsxFile);
 
                 String result = tool.execute(args("path", xlsxFile.toString()));
@@ -376,7 +376,7 @@ class ReadOfficeFileToolTest {
         Path docxFile = createMinimalDocx("Hello World", "This is a paragraph.");
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(docxFile);
 
             String result = tool.execute(args("path", docxFile.toString()));
@@ -411,7 +411,7 @@ class ReadOfficeFileToolTest {
             }
 
             try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-                securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+                securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                         .thenReturn(docxFile);
 
                 String result = tool.execute(args("path", docxFile.toString()));
@@ -431,7 +431,7 @@ class ReadOfficeFileToolTest {
         Files.writeString(csvFile, "Name,Age,City\nAlice,30,Beijing\nBob,25,Shanghai");
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(csvFile);
 
             String result = tool.execute(args("path", csvFile.toString()));
@@ -456,7 +456,7 @@ class ReadOfficeFileToolTest {
         Files.write(csvFile, all);
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(csvFile);
 
             String result = tool.execute(args("path", csvFile.toString()));
@@ -473,7 +473,7 @@ class ReadOfficeFileToolTest {
         Files.writeString(csvFile, "");
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(csvFile);
 
             String result = tool.execute(args("path", csvFile.toString()));
@@ -492,7 +492,7 @@ class ReadOfficeFileToolTest {
         Files.writeString(csvFile, sb.toString());
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(csvFile);
 
             String result = tool.execute(args(
@@ -510,7 +510,7 @@ class ReadOfficeFileToolTest {
         Files.writeString(csvFile, "\"First Name\",\"Last Name\"\n\"Alice\",\"Smith\"\n\"Bob\",\"Johnson\"");
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(csvFile);
 
             String result = tool.execute(args("path", csvFile.toString()));
@@ -535,7 +535,7 @@ class ReadOfficeFileToolTest {
         }
 
         try (var securityUtilsMock = mockStatic(PathSecurityUtils.class)) {
-            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolve(anyString()))
+            securityUtilsMock.when(() -> PathSecurityUtils.validateAndResolveRead(anyString()))
                     .thenReturn(testFile);
 
             ObjectNode args = args("path", testFile.toString());

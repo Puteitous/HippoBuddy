@@ -112,7 +112,7 @@ export function GeneralSettingsPage() {
   /** 回合默认展示模式:full=完整展示处理过程;result=只展示最终结果 */
   const [processView, setProcessView] = useState<'full' | 'result'>('full');
   /** 权限范围:strict=仅工作区;relaxed=放开整机访问 */
-  const [scopeMode, setScopeMode] = useState<'strict' | 'relaxed'>('strict');
+  const [scopeMode, setScopeMode] = useState<'strict' | 'balanced' | 'relaxed'>('strict');
   /** 推荐问答开关:回合结束后是否用 LLM 生成推荐问题 */
   const [suggestionsEnabled, setSuggestionsEnabled] = useState(true);
   /** 自定义背景(类型 + 值) */
@@ -154,7 +154,8 @@ export function GeneralSettingsPage() {
           const v = (cfg.value.ui?.default_process_view === 'result' ? 'result' : 'full');
           setProcessView(v);
           setDefaultProcessView(v);
-          setScopeMode(cfg.value.tools?.mode === 'relaxed' ? 'relaxed' : 'strict');
+          const m = cfg.value.tools?.mode;
+          setScopeMode(m === 'relaxed' ? 'relaxed' : m === 'balanced' ? 'balanced' : 'strict');
           setSuggestionsEnabled(cfg.value.ui?.suggestions_enabled !== false);
         }
       } catch (e) {
@@ -195,7 +196,7 @@ export function GeneralSettingsPage() {
   };
 
   /** 保存权限范围:读取当前 tools 再合并 mode,避免覆盖其他工具配置 */
-  const handleScopeModeChange = async (value: 'strict' | 'relaxed') => {
+  const handleScopeModeChange = async (value: 'strict' | 'balanced' | 'relaxed') => {
     if (value === scopeMode) return;
     setScopeMode(value);
     try {
@@ -208,7 +209,9 @@ export function GeneralSettingsPage() {
       showToast(
         value === 'relaxed'
           ? translate('settingsPage.generalScopeRelaxedToast')
-          : translate('settingsPage.generalScopeStrictToast'),
+          : value === 'balanced'
+            ? translate('settingsPage.generalScopeBalancedToast')
+            : translate('settingsPage.generalScopeStrictToast'),
         {
           type: 'success',
           duration: 2000,
@@ -678,9 +681,10 @@ export function GeneralSettingsPage() {
               <select
                 className="settings-select"
                 value={scopeMode}
-                onChange={(e) => handleScopeModeChange(e.target.value as 'strict' | 'relaxed')}
+                onChange={(e) => handleScopeModeChange(e.target.value as 'strict' | 'balanced' | 'relaxed')}
               >
                 <option value="strict">{t('settingsPage.generalScopeStrict')}</option>
+                <option value="balanced">{t('settingsPage.generalScopeBalanced')}</option>
                 <option value="relaxed">{t('settingsPage.generalScopeRelaxed')}</option>
               </select>
             </div>

@@ -162,7 +162,7 @@ public class ReadFileTool implements ToolExecutor {
             throw new ToolExecutionException("path 参数不能为空");
         }
 
-        Path path = PathSecurityUtils.validateAndResolve(filePath);
+        Path path = PathSecurityUtils.validateAndResolveRead(filePath);
         String cacheKey = normalizeCacheKey(path.toString());
 
         if (!Files.exists(path)) {

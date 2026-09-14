@@ -71,6 +71,7 @@ public class BashProcessManager {
         private final Process process;
         private final long startTime;
         private final StringBuilder output = new StringBuilder();
+        private final StringBuilder errorOutput = new StringBuilder();
         private boolean truncated;
 
         public BackgroundRecord(String toolCallId, String command, String workingDir, Process process) {
@@ -98,7 +99,17 @@ public class BashProcessManager {
             output.append(line).append('\n');
         }
 
+        public synchronized void appendError(String line) {
+            if (errorOutput.length() + line.length() + 1 > MAX_BACKGROUND_OUTPUT_CHARS) {
+                truncated = true;
+                return;
+            }
+            errorOutput.append(line).append('\n');
+        }
+
         public synchronized String getOutputSnapshot() { return output.toString(); }
+
+        public synchronized String getErrorSnapshot() { return errorOutput.toString(); }
     }
 
     /**
@@ -123,6 +134,19 @@ public class BashProcessManager {
         BackgroundRecord record = backgroundProcesses.get(toolCallId);
         if (record != null) {
             record.append(line);
+        }
+    }
+
+    /**
+     * 向指定后台进程追加一行标准错误输出（stderr monitor 线程调用）。
+     */
+    public void appendBackgroundError(String toolCallId, String line) {
+        if (toolCallId == null) {
+            return;
+        }
+        BackgroundRecord record = backgroundProcesses.get(toolCallId);
+        if (record != null) {
+            record.appendError(line);
         }
     }
 

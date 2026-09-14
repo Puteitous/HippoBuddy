@@ -113,7 +113,7 @@ public class ListDirectoryTool implements ToolExecutor {
 
         maxDepth = Math.max(1, Math.min(5, maxDepth));
 
-        Path path = PathSecurityUtils.validateAndResolve(directoryPath);
+        Path path = PathSecurityUtils.validateAndResolveRead(directoryPath);
 
         if (!Files.exists(path)) {
             throw new ToolExecutionException("目录不存在: " + directoryPath);

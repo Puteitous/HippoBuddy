@@ -77,7 +77,7 @@ public class ReadOfficeFileTool implements ToolExecutor {
     @Override
     public String execute(JsonNode arguments) throws ToolExecutionException {
         String filePath = extractPath(arguments);
-        Path path = PathSecurityUtils.validateAndResolve(filePath);
+        Path path = PathSecurityUtils.validateAndResolveRead(filePath);
         validateFile(path, filePath);
 
         int maxRows = parseMaxRows(arguments);

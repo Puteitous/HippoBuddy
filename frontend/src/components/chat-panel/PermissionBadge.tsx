@@ -12,7 +12,7 @@ import { showToast } from '../settings/toastStore';
 import { useI18n } from '@/i18n';
 import type { ToolsConfigSection } from '@/types/config';
 
-type Mode = 'strict' | 'relaxed';
+type Mode = 'strict' | 'balanced' | 'relaxed';
 
 function defaultTools(mode: Mode): ToolsConfigSection {
   return { mode, bash: { enabled: true, require_confirmation: true }, file: {}, subagent: { enabled: false },
@@ -26,6 +26,17 @@ function ShieldIcon({ size = 14, className }: { size?: number; className?: strin
       strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
       <path d="M6 9.25564L24.0086 4L42 9.25564V20.0337C42 31.3622 34.7502 41.4194 24.0026 45.0005C13.2521 41.4195 6 31.36 6 20.0287V9.25564Z" />
       <path d="M15 23L22 30L34 18" />
+    </svg>
+  );
+}
+
+/** 读写分离:盾牌+只读横线(写限工作区、读可出工作区) */
+function BalancedIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="4"
+      strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M6 9.25564L24.0086 4L42 9.25564V20.0337C42 31.3622 34.7502 41.4194 24.0026 45.0005C13.2521 41.4195 6 31.36 6 20.0287V9.25564Z" />
+      <path d="M15 26h18M15 31.5h18" />
     </svg>
   );
 }
@@ -55,7 +66,7 @@ export function PermissionBadge() {
         const config = await configApi.getFull();
         if (cancelled) return;
         const m = config.tools?.mode;
-        setMode(m === 'relaxed' ? 'relaxed' : 'strict');
+        setMode(m === 'relaxed' ? 'relaxed' : m === 'balanced' ? 'balanced' : 'strict');
       } catch {
         // 读取失败保持默认 strict,不打扰
       }
@@ -95,21 +106,24 @@ export function PermissionBadge() {
     }
   };
 
-  const isRelaxed = mode === 'relaxed';
+  const titleKey = mode === 'relaxed' ? 'permission.relaxedTitle' : mode === 'balanced' ? 'permission.balancedTitle' : 'permission.strictTitle';
+  const labelKey = mode === 'relaxed' ? 'permission.relaxed' : mode === 'balanced' ? 'permission.balanced' : 'permission.strict';
   return (
     <div className="permission-badge" ref={rootRef}>
       <button
         type="button"
-        className={`permission-badge-btn ${isRelaxed ? 'relaxed' : 'strict'}`}
+        className={`permission-badge-btn ${mode}`}
         onClick={() => setOpen((v) => !v)}
-        title={isRelaxed ? t('permission.relaxedTitle') : t('permission.strictTitle')}
+        title={t(titleKey)}
         aria-label={t('permission.switchLabel')}
         aria-expanded={open}
       >
-        {isRelaxed
+        {mode === 'relaxed'
           ? <GlobeIcon className="permission-badge-icon relaxed" size={12} />
-          : <ShieldIcon className="permission-badge-icon strict" size={12} />}
-        <span className="permission-badge-text">{isRelaxed ? t('permission.relaxed') : t('permission.strict')}</span>
+          : mode === 'balanced'
+            ? <BalancedIcon className="permission-badge-icon balanced" size={12} />
+            : <ShieldIcon className="permission-badge-icon strict" size={12} />}
+        <span className="permission-badge-text">{t(labelKey)}</span>
         <svg
           viewBox="0 0 16 16"
           width="10"
@@ -129,7 +143,7 @@ export function PermissionBadge() {
         <div className="permission-badge-menu">
           <button
             type="button"
-            className={`permission-badge-opt ${!isRelaxed ? 'selected' : ''}`}
+            className={`permission-badge-opt ${mode === 'strict' ? 'selected' : ''}`}
             onClick={() => select('strict')}
           >
             <ShieldIcon className="permission-badge-opt-icon strict" size={18} />
@@ -140,7 +154,18 @@ export function PermissionBadge() {
           </button>
           <button
             type="button"
-            className={`permission-badge-opt ${isRelaxed ? 'selected' : ''}`}
+            className={`permission-badge-opt ${mode === 'balanced' ? 'selected' : ''}`}
+            onClick={() => select('balanced')}
+          >
+            <BalancedIcon className="permission-badge-opt-icon balanced" size={18} />
+            <span className="permission-badge-opt-text">
+              <span className="permission-badge-opt-title">{t('permission.balanced')}</span>
+              <span className="permission-badge-opt-desc">{t('permission.balancedDesc')}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`permission-badge-opt ${mode === 'relaxed' ? 'selected' : ''}`}
             onClick={() => select('relaxed')}
           >
             <GlobeIcon className="permission-badge-opt-icon relaxed" size={18} />
