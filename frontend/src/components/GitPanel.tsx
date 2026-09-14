@@ -831,15 +831,19 @@ export function GitPanel() {
           className="git-panel-icon-btn git-panel-sync-btn"
           ref={syncTriggerRef}
           title={t('git.more')}
-          aria-label={t('git.more')}
+          aria-label={remoteOp ? t('git.loading') : t('git.more')}
           disabled={busy || !available}
           onClick={() => { setSyncOpen((v) => !v); setBranchOpen(false); }}
         >
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-            <circle cx="3" cy="8" r="1.1" fill="currentColor" stroke="none" />
-            <circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none" />
-            <circle cx="13" cy="8" r="1.1" fill="currentColor" stroke="none" />
-          </svg>
+          {remoteOp ? (
+            <span className="git-panel-btn-spin" role="status" aria-label={t('git.loading')} />
+          ) : (
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+              <circle cx="3" cy="8" r="1.1" fill="currentColor" stroke="none" />
+              <circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none" />
+              <circle cx="13" cy="8" r="1.1" fill="currentColor" stroke="none" />
+            </svg>
+          )}
         </button>
       </div>
 
@@ -1535,7 +1539,12 @@ function SyncMenu({
   }, [triggerRef]);
 
   useEffect(() => {
-    const onDown = () => onClose();
+    // 点击菜单内部不关闭,避免 pointerdown 先关掉菜单导致 item 的 click 落空
+    const onDown = (e: PointerEvent) => {
+      const el = document.querySelector('.git-panel-sync-menu');
+      if (el && el.contains(e.target as Node)) return;
+      onClose();
+    };
     const id = window.setTimeout(() => document.addEventListener('pointerdown', onDown), 0);
     return () => {
       window.clearTimeout(id);

@@ -494,6 +494,12 @@
   animation: git-ai-spin 0.8s linear infinite;
 }
 
+/* 透明背景图标按钮(如同步按钮)内的转圈:用文字色,否则白圈不可见 */
+.git-panel-icon-btn .git-panel-btn-spin {
+  border-color: currentColor;
+  border-top-color: transparent;
+}
+
 /* 提交历史单行:subject(占满剩余/省略) + refs + 相对时间;hash/作者/绝对时间见悬浮卡片 */
 .git-panel-log-row {
   position: relative;

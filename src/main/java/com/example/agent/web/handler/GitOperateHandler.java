@@ -38,6 +38,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class GitOperateHandler implements HttpHandler {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    /** 远端网络操作(fetch/pull/push)超时:上传/认证/服务端处理较慢,放宽到 30s */
+    private static final long REMOTE_TIMEOUT_SECONDS = 30;
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -123,14 +125,14 @@ public class GitOperateHandler implements HttpHandler {
                 r = GitRunner.run(workDir, "cherry-pick", hash);
             }
             case "fetch" -> {
-                r = GitRunner.run(workDir, "fetch", "--all", "--prune");
+                r = GitRunner.run(workDir, REMOTE_TIMEOUT_SECONDS, "fetch", "--all", "--prune");
             }
             case "pull" -> {
-                r = GitRunner.run(workDir, "pull");
+                r = GitRunner.run(workDir, REMOTE_TIMEOUT_SECONDS, "pull");
             }
             case "push" -> {
                 // 用 -u 自动设置/确认上游分支,避免无上游时 git push 报错
-                r = branch.isEmpty() ? GitRunner.run(workDir, "push") : GitRunner.run(workDir, "push", "-u", "origin", branch);
+                r = branch.isEmpty() ? GitRunner.run(workDir, REMOTE_TIMEOUT_SECONDS, "push") : GitRunner.run(workDir, REMOTE_TIMEOUT_SECONDS, "push", "-u", "origin", branch);
             }
             case "createBranch" -> {
                 if (newName.isEmpty()) {

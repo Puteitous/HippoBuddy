@@ -35,6 +35,14 @@ public final class GitRunner {
 
     /** 在指定工作目录执行 git 命令并返回结果(不抛异常,错误在 Result 中体现) */
     public static Result run(Path workDir, String... args) {
+        return run(workDir, TIMEOUT_SECONDS, args);
+    }
+
+    /**
+     * 带自定义超时(秒)的 git 命令执行。默认 10s 覆盖绝大多数本地命令;
+     * 远端网络操作(fetch/pull/push)需上传/认证/服务端处理,调用方应放宽超时。
+     */
+    public static Result run(Path workDir, long timeoutSeconds, String... args) {
         List<String> cmd = new ArrayList<>();
         cmd.add("git");
         for (String a : args) cmd.add(a);
@@ -63,7 +71,7 @@ public final class GitRunner {
                 }
             });
 
-            boolean completed = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            boolean completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!completed) {
                 process.destroyForcibly();
                 return new Result(-1, "", "git 命令执行超时");
