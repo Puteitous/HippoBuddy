@@ -732,7 +732,7 @@ export function ChatPanel() {
           aria-label={t('chat.expand')}
         >
           <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="4 4 12 8 4 12" />
+            <polyline points="12 4 4 8 12 12" />
           </svg>
         </button>
       </div>

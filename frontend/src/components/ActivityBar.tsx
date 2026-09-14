@@ -353,10 +353,11 @@ export function ActivityBar() {
           title={t('activity.hide')}
           onClick={toggleActivityBar}
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <rect x="3" y="6" width="3" height="12" rx="0.5" />
-            <line x1="10" y1="12" x2="20" y2="12" strokeLinecap="round" />
-            <polyline points="17 9 20 12 17 15" strokeLinecap="round" strokeLinejoin="round" />
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 6H20" />
+            <path d="M4 12H20" />
+            <path d="M4 18H20" />
+            <path d="M7 15L4 12L7 9" />
           </svg>
         </button>
       </div>

@@ -30,13 +30,14 @@ function ShieldIcon({ size = 14, className }: { size?: number; className?: strin
   );
 }
 
-/** 读写分离:盾牌+只读横线(写限工作区、读可出工作区) */
+/** 读写分离:盾牌+书本(读可出工作区、写仍限工作区) */
 function BalancedIcon({ size = 14, className }: { size?: number; className?: string }) {
   return (
     <svg viewBox="0 0 48 48" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="4"
       strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
       <path d="M6 9.25564L24.0086 4L42 9.25564V20.0337C42 31.3622 34.7502 41.4194 24.0026 45.0005C13.2521 41.4195 6 31.36 6 20.0287V9.25564Z" />
-      <path d="M15 26h18M15 31.5h18" />
+      <path d="M15 19c2.6-1.7 5.4-1.7 8 0v13.5c-2.6-1.7-5.4-1.7-8 0Z" />
+      <path d="M33 19c-2.6-1.7-5.4-1.7-8 0v13.5c2.6-1.7 5.4-1.7 8 0Z" />
     </svg>
   );
 }

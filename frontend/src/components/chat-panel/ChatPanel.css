@@ -348,7 +348,7 @@
 
 .permission-badge-icon.balanced,
 .permission-badge-opt-icon.balanced {
-  color: var(--accent, #4b3fe3);
+  color: #3b82f6;
 }
 
 .permission-badge-text {

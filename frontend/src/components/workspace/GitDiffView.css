@@ -12,8 +12,12 @@
 .git-diff-view-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 6px 4px 8px;
+}
+
+/* 标题靠左,刷新+收起按钮整体靠右且内部紧贴(auto 推动) */
+.git-diff-view-header .git-diff-view-refresh {
+  margin-left: auto;
 }
 
 .git-diff-view-title {
@@ -40,6 +44,13 @@
 .git-diff-view-refresh:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.06));
   color: var(--hb-text, #1f2937);
+}
+
+/* 头部收起按钮:与 refresh 同尺寸对齐,紧凑排布 */
+.git-diff-view-header .panel-toggle-btn {
+  width: 24px;
+  height: 24px;
+  color: currentColor;
 }
 
 .git-diff-view-message {

@@ -45,6 +45,7 @@ export function GitDiffView({ filePath, side = 'worktree', hash, bare = false }:
   const { t } = useI18n();
   const workspace = useAppStore((s) => s.workspacePath);
   const openGitDiff = usePreviewStore((s) => s.openGitDiff);
+  const collapsePreview = usePreviewStore((s) => s.collapsePreview);
   const [data, setData] = useState<GitDiffData | null>(null);
   const [commitFiles, setCommitFiles] = useState<{ path: string; status?: string }[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -154,6 +155,18 @@ export function GitDiffView({ filePath, side = 'worktree', hash, bare = false }:
               <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2" />
               <polyline points="14 2 14 5 11 5" />
               <polyline points="2 14 2 11 5 11" />
+            </svg>
+          </button>
+          {/* 收起预览(对齐 FileDiffView 的 panel-toggle-btn,标签保留;箭头朝右) */}
+          <button
+            type="button"
+            className="panel-toggle-btn"
+            onClick={collapsePreview}
+            title={t('diff.collapse')}
+            aria-label={t('diff.collapse')}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="4 4 12 8 4 12" />
             </svg>
           </button>
         </div>
