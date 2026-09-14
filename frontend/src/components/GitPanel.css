@@ -217,6 +217,12 @@
   word-break: break-word;
 }
 
+.git-panel-success {
+  color: var(--success-text, #16a34a);
+  font-size: 12px;
+  padding: 4px 0;
+}
+
 .git-panel-section {
   display: flex;
   flex-direction: column;
@@ -468,11 +474,24 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.12s ease, opacity 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .git-panel-commit-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* 提交按钮进行中:小转圈 */
+.git-panel-btn-spin {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: git-ai-spin 0.8s linear infinite;
 }
 
 /* 提交历史单行:subject(占满剩余/省略) + refs + 相对时间;hash/作者/绝对时间见悬浮卡片 */
@@ -584,6 +603,12 @@
   overflow-y: auto;
   background: rgba(37, 99, 235, 0.04);
   border-top: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+/* 精简模式下让 badge 实底融入展开区,只显示状态字母+颜色。
+   选择器特意带 .git-diff-view.bare 提升特异度,以压过暗色主题块([data-theme] .git-panel-badge)的实底 */
+.git-panel-log-expand .git-diff-view.bare .git-panel-badge {
+  background: transparent;
 }
 
 /* 精简模式下让 diff/文件列表内容背景融入展开区,而非各自的白底块 */
@@ -891,7 +916,8 @@
     background: var(--bg-overlay, rgba(26, 28, 36, 0.92));
   }
 
-  .git-panel-badge {
+  /* 仅主文件列表行内的徽章需要实底遮挡路径文字;log-expand 内联区徽章保持透明 */
+  .git-panel-row .git-panel-badge {
     background: var(--bg-overlay, rgba(26, 28, 36, 0.92));
   }
 }

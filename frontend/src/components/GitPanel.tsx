@@ -184,6 +184,9 @@ export function GitPanel() {
   /** AI 生成提交信息进行中 */
   const [aiMsgLoading, setAiMsgLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 提交/远端操作成功的短暂提示(自动消失);与 error 共用同一信息槽 */
+  const [success, setSuccess] = useState<string | null>(null);
+  const successTimerRef = useRef<number | null>(null);
   /** 当前正在执行的远端操作(fetch/pull/push),用于按钮 loading 并禁用其它操作 */
   const [remoteOp, setRemoteOp] = useState<'fetch' | 'pull' | 'push' | null>(null);
   /** 分支下拉是否展开 */
@@ -267,6 +270,8 @@ export function GitPanel() {
       // 且请求继续占用连接直到流结束
       aiAbortRef.current?.abort();
       aiAbortRef.current = null;
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
     };
   }, []);
 
@@ -448,6 +453,14 @@ export function GitPanel() {
     }
   };
 
+  /** 展示成功提示:先清掉可能的错误提示,2.5s 后自动消失 */
+  const showSuccess = (msg: string): void => {
+    setError(null);
+    setSuccess(msg);
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    successTimerRef.current = window.setTimeout(() => setSuccess(null), 2500);
+  };
+
   const stageEntry = (e: GitStatusEntry): void => {
     if (busy) return;
     void runOperate({ action: isStaged(e) ? 'reset' : 'add', path: workspacePath, file: e.path });
@@ -476,6 +489,7 @@ export function GitPanel() {
     writeCommitMsg('');
     void runOperate({ action: 'commit', path: workspacePath, message: msg }).then((ok) => {
       if (!ok) writeCommitMsg(msg); // 失败(hook 拒绝/无变更等)回填,避免用户重打
+      if (ok) showSuccess(t('git.commitSuccess'));
     });
   };
 
@@ -518,7 +532,11 @@ export function GitPanel() {
       action,
       path: workspacePath,
       branch: action === 'push' ? currentBranch : undefined,
-    }).finally(() => setRemoteOp(null));
+    })
+      .then((ok) => {
+        if (ok) showSuccess({ fetch: t('git.fetchSuccess'), pull: t('git.pullSuccess'), push: t('git.pushSuccess') }[action]);
+      })
+      .finally(() => setRemoteOp(null));
   };
 
   /** 分支下拉项:左键切换,右键弹分支操作菜单 */
@@ -869,7 +887,7 @@ export function GitPanel() {
             disabled={busy || commitMsg.trim() === '' || stagedCount === 0}
             onClick={commit}
           >
-            {t('git.commit')}
+            {busy ? <span className="git-panel-btn-spin" role="status" aria-label={t('git.loading')} /> : t('git.commit')}
           </button>
         </div>
       )}
@@ -877,6 +895,7 @@ export function GitPanel() {
       {showLoading && <div className="git-panel-placeholder">{t('git.loading')}</div>}
       {!showLoading && !available && <div className="git-panel-placeholder">{t('git.notRepo')}</div>}
       {!showLoading && error && <div className="git-panel-error">{error}</div>}
+      {!showLoading && success && <div className="git-panel-success">{success}</div>}
 
       {!showLoading && available && (
         <>
