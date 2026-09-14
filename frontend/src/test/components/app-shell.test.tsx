@@ -23,7 +23,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 vi.mock('@/hooks/useSessionMessages', () => ({ useSessionMessages: () => {} }));
-vi.mock('@/hooks/useCompletedTaskNotification', () => ({ useCompletedTaskNotification: () => {} }));
+vi.mock('@/hooks/useSessionBackgroundNotification', () => ({ useSessionBackgroundNotification: () => {} }));
 vi.mock('@/components/TopBar', () => ({ TopBar: () => <div data-testid="top-bar" /> }));
 vi.mock('@/components/ActivityBar', () => ({ ActivityBar: () => <div data-testid="activity-bar" /> }));
 vi.mock('@/components/Sidebar', () => ({ Sidebar: () => <div data-testid="sidebar" /> }));

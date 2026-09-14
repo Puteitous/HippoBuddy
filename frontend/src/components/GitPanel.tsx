@@ -22,6 +22,7 @@ import { useI18n } from '@/i18n';
 import type { Lang } from '@/i18n/messages';
 import { on } from '@/utils/eventBus';
 import { gitBadgeKindOf, gitBadgeLetter } from '@/utils/git-status';
+import { showToast } from '@/utils/toastStore';
 import { FileTypeIcon } from './FileTypeIcon';
 import { GitDiffView } from './workspace/GitDiffView';
 import './GitPanel.css';
@@ -184,9 +185,6 @@ export function GitPanel() {
   /** AI 生成提交信息进行中 */
   const [aiMsgLoading, setAiMsgLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** 提交/远端操作成功的短暂提示(自动消失);与 error 共用同一信息槽 */
-  const [success, setSuccess] = useState<string | null>(null);
-  const successTimerRef = useRef<number | null>(null);
   /** 当前正在执行的远端操作(fetch/pull/push),用于按钮 loading 并禁用其它操作 */
   const [remoteOp, setRemoteOp] = useState<'fetch' | 'pull' | 'push' | null>(null);
   /** 分支下拉是否展开 */
@@ -270,8 +268,6 @@ export function GitPanel() {
       // 且请求继续占用连接直到流结束
       aiAbortRef.current?.abort();
       aiAbortRef.current = null;
-      if (successTimerRef.current) clearTimeout(successTimerRef.current);
-      successTimerRef.current = null;
     };
   }, []);
 
@@ -432,7 +428,7 @@ export function GitPanel() {
     }
   };
 
-  /** 执行写操作后刷新;失败写入 error。暂存类操作只刷新状态,其余操作全量刷新 */
+  /** 执行写操作后刷新;失败弹 toast(不自动关闭)。暂存类操作只刷新状态,其余操作全量刷新 */
   const runOperate = async (op: Parameters<typeof gitApi.operate>[0]): Promise<boolean> => {
     setBusy(true);
     setError(null);
@@ -443,22 +439,14 @@ export function GitPanel() {
         await (statusOnly ? refreshStatusOnly() : refresh());
         return true;
       }
-      setError(res.error || t('git.commitFailed'));
+      showToast(res.error || t('git.commitFailed'), { type: 'error', duration: 0 });
       return false;
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      showToast(e instanceof Error ? e.message : String(e), { type: 'error', duration: 0 });
       return false;
     } finally {
       setBusy(false);
     }
-  };
-
-  /** 展示成功提示:先清掉可能的错误提示,2.5s 后自动消失 */
-  const showSuccess = (msg: string): void => {
-    setError(null);
-    setSuccess(msg);
-    if (successTimerRef.current) clearTimeout(successTimerRef.current);
-    successTimerRef.current = window.setTimeout(() => setSuccess(null), 2500);
   };
 
   const stageEntry = (e: GitStatusEntry): void => {
@@ -489,7 +477,7 @@ export function GitPanel() {
     writeCommitMsg('');
     void runOperate({ action: 'commit', path: workspacePath, message: msg }).then((ok) => {
       if (!ok) writeCommitMsg(msg); // 失败(hook 拒绝/无变更等)回填,避免用户重打
-      if (ok) showSuccess(t('git.commitSuccess'));
+      if (ok) showToast(t('git.commitSuccess'), { type: 'success' });
     });
   };
 
@@ -534,7 +522,7 @@ export function GitPanel() {
       branch: action === 'push' ? currentBranch : undefined,
     })
       .then((ok) => {
-        if (ok) showSuccess({ fetch: t('git.fetchSuccess'), pull: t('git.pullSuccess'), push: t('git.pushSuccess') }[action]);
+        if (ok) showToast({ fetch: t('git.fetchSuccess'), pull: t('git.pullSuccess'), push: t('git.pushSuccess') }[action], { type: 'success' });
       })
       .finally(() => setRemoteOp(null));
   };
@@ -899,7 +887,6 @@ export function GitPanel() {
       {showLoading && <div className="git-panel-placeholder">{t('git.loading')}</div>}
       {!showLoading && !available && <div className="git-panel-placeholder">{t('git.notRepo')}</div>}
       {!showLoading && error && <div className="git-panel-error">{error}</div>}
-      {!showLoading && success && <div className="git-panel-success">{success}</div>}
 
       {!showLoading && available && (
         <>

@@ -70,7 +70,9 @@ interface Window {
     removeAllUpdateListeners?: () => void;
 
     // ── 原生通知(对齐 electron/preload.js 的 notification:* IPC) ──
-    showNotification?: (title: string, body: string, icon?: string) => Promise<{ success?: boolean; reason?: string }>;
+    showNotification?: (title: string, body: string, icon?: string, sessionId?: string) => Promise<{ success?: boolean; reason?: string }>;
+    onNotificationClicked?: (cb: (payload: { sessionId?: string }) => void) => void;
+    removeNotificationClickedListener?: () => void;
 
     // ── 主题同步(Electron 侧 splash 保持一致) ──
     getTheme?: () => Promise<'dark' | 'light' | 'midnight'>;

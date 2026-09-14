@@ -22,9 +22,12 @@ const { fileURLToPath } = require('url');
 const { spawn, exec } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
-// 设置 Windows AppUserModelID，让 Java 后端子进程归到同一任务栏分组下
+// 设置 Windows AppUserModelID，让 Java 后端子进程归到同一任务栏分组下。
+// 必须与 electron-builder 的 appId(com.example.hippobuddy)保持一致:
+// 安装时 electron-builder 会在开始菜单/桌面快捷方式的属性里写入该 AppUserModelID,
+// 通知左上角小图标/应用名正是从这里取;两者不一致会导致打包版通知读不到图标。
 if (process.platform === 'win32') {
-  app.setAppUserModelId('HippoBuddy');
+  app.setAppUserModelId('com.example.hippobuddy');
 }
 
 // 单实例锁：防止用户多次启动产生多个后端进程，导致端口冲突和启动卡死
@@ -1220,16 +1223,28 @@ function createTray() {
 // 原生通知
 // ============================================================================
 
-ipcMain.handle('notification:show', async (_event, { title, body, icon }) => {
+ipcMain.handle('notification:show', async (_event, { title, body, icon, sessionId }) => {
   if (!Notification.isSupported()) return { success: false, reason: '不支持通知' };
+  // Windows 上传入 icon 会被系统渲染成"左侧大方形应用标志图"(appLogoOverride),紧贴正文而
+  // 非想要的"左上角小图标";那个小图标来自已安装应用的快捷方式(AUMID)图标,开发模式本就空白。
+  // 因此仅在非 Windows 平台传入缩放后的图标(Linux 需要;macOS 会忽略 icon)。
+  let scaledIcon;
+  if (process.platform !== 'win32') {
+    const iconImg = nativeImage.createFromPath(icon || path.join(__dirname, 'assets', 'icon2.png'));
+    scaledIcon = iconImg.isEmpty() ? undefined : iconImg.resize({ width: 32, height: 32 });
+  }
   const notif = new Notification({
     title: title || 'HippoBuddy',
     body: body || '',
-    icon: icon || undefined,
+    icon: scaledIcon,
   });
   notif.on('click', () => {
     mainWindow?.show();
     mainWindow?.focus();
+    // 若通知携带所属会话 id(如"会话完成/需确认"提醒),点击后回传渲染进程跳转到该会话
+    if (sessionId) {
+      mainWindow?.webContents.send('notification:clicked', { sessionId });
+    }
   });
   notif.show();
   return { success: true };

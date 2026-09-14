@@ -210,17 +210,11 @@
 }
 
 .git-panel-error {
-  color: var(--error, #dc2626);
+  color: var(--danger-text, #dc2626);
   font-size: 12px;
   padding: 4px 0;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-.git-panel-success {
-  color: var(--success-text, #16a34a);
-  font-size: 12px;
-  padding: 4px 0;
 }
 
 .git-panel-section {

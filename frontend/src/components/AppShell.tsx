@@ -24,7 +24,7 @@ import { useAppStore, readSessionsCache } from '@/stores/appStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useUpdateStore } from '@/stores/updateStore';
 import { useSessionMessages } from '@/hooks/useSessionMessages';
-import { useCompletedTaskNotification } from '@/hooks/useCompletedTaskNotification';
+import { useSessionBackgroundNotification } from '@/hooks/useSessionBackgroundNotification';
 import { Sidebar } from './Sidebar';
 import { SidebarResizer } from './SidebarResizer';
 import { TopBar } from './TopBar';
@@ -54,8 +54,8 @@ export function AppShell() {
   // 切换会话时:reset chatStore + 加载历史消息(由 Hook 统一处理)
   useSessionMessages();
 
-  // 后台会话任务完成时弹 toast 提醒(仅监听 done 事件,不影响当前会话)
-  useCompletedTaskNotification();
+  // 会话完成/等待确认时提醒:窗口隐藏→系统通知,可见→应用内 toast
+  useSessionBackgroundNotification();
 
   // 启动时初始化主题(localStorage + 桌面端 Electron 校正)
   useEffect(() => {

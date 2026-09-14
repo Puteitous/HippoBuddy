@@ -463,11 +463,12 @@ export const desktopBridge = {
 
   // ────────────────────────── 原生通知 ──────────────────────────
 
-  /** 发送系统原生通知(仅桌面端有效;非桌面端返回 { success: false }) */
-  async showNotification(title: string, body: string, icon?: string): Promise<{ success: boolean; reason?: string }> {
+  /** 发送系统原生通知(仅桌面端有效;非桌面端返回 { success: false })
+   *  @param sessionId 可选,通知所属会话 id;点击通知聚焦窗口并跳转到该会话 */
+  async showNotification(title: string, body: string, icon?: string, sessionId?: string): Promise<{ success: boolean; reason?: string }> {
     try {
       if (window.electronAPI?.showNotification) {
-        const r = await window.electronAPI.showNotification(title, body, icon);
+        const r = await window.electronAPI.showNotification(title, body, icon, sessionId);
         return { success: r?.success ?? false, reason: r?.reason };
       }
       return { success: false };
@@ -475,6 +476,22 @@ export const desktopBridge = {
       console.warn('[desktopBridge] showNotification 失败:', e);
       return { success: false, reason: String(e) };
     }
+  },
+
+  /** 订阅原生通知点击事件(携带 sessionId 时可用于跳转会话)。返回取消订阅函数。 */
+  onNotificationClicked(callback: (payload: { sessionId?: string }) => void): () => void {
+    try {
+      window.electronAPI?.onNotificationClicked?.(callback);
+    } catch (e) {
+      console.warn('[desktopBridge] onNotificationClicked 失败:', e);
+    }
+    return () => {
+      try {
+        window.electronAPI?.removeNotificationClickedListener?.();
+      } catch {
+        /* 忽略 */
+      }
+    };
   },
 
   // ────────────────────────── 主题同步 ──────────────────────────

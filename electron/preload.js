@@ -22,6 +22,12 @@ ipcRenderer.on('window:maximized-changed', (_event, maximized) => {
   if (_maximizedCallback) _maximizedCallback(maximized);
 });
 
+/** 原生通知点击回调（缓存一个，避免累加监听器） */
+let _notificationClickedCallback = null;
+ipcRenderer.on('notification:clicked', (_event, payload) => {
+  if (_notificationClickedCallback) _notificationClickedCallback(payload || {});
+});
+
 /** 更新事件回调缓存 */
 let _updateCallbacks = {};
 
@@ -103,8 +109,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeAllUpdateListeners: () => { _updateCallbacks = {}; },
 
   // ===== 原生通知 =====
-  showNotification: (title, body, icon) =>
-    ipcRenderer.invoke('notification:show', { title, body, icon }),
+  showNotification: (title, body, icon, sessionId) =>
+    ipcRenderer.invoke('notification:show', { title, body, icon, sessionId }),
+  onNotificationClicked: (callback) => { _notificationClickedCallback = callback; },
+  removeNotificationClickedListener: () => { _notificationClickedCallback = null; },
 
   // ===== 主题同步 =====
   getTheme: () => ipcRenderer.invoke('theme:get'),
