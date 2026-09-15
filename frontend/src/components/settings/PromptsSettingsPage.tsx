@@ -31,17 +31,45 @@ export function PromptsSettingsPage({ initialTab }: { initialTab?: string }) {
       {ITEMS.map((it) => (
         <div key={it.id}>
           <div className="settings-field-group-title">{t(it.titleKey)}</div>
-          <button
-            type="button"
+          <div
             className="settings-prompt-row"
+            role="button"
+            tabIndex={0}
             onClick={() => setView(it.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setView(it.id);
+              }
+            }}
           >
-            <span className="settings-prompt-row-main">
-              <span className="settings-prompt-row-title">{t('settingsPage.promptEdit')}</span>
-              <span className="settings-prompt-row-desc">{t(it.descKey)}</span>
-            </span>
-            <span className="settings-prompt-row-chev">›</span>
-          </button>
+            <span className="settings-prompt-row-desc">{t(it.descKey)}</span>
+            <button
+              type="button"
+              className="settings-prompt-edit-btn"
+              aria-label={t('settingsPage.promptEdit')}
+              title={t('settingsPage.promptEdit')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setView(it.id);
+              }}
+            >
+              <svg
+                viewBox="0 0 16 16"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M10.5 2.5l3 3-6 6-3.5.5.5-3.5 6-6z" />
+                <path d="M4 13h9" />
+              </svg>
+            </button>
+          </div>
         </div>
       ))}
     </div>

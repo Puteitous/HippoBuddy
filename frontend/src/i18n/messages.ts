@@ -896,7 +896,7 @@ export const zh: Record<string, string> = {
   /* ==================== Prompt (补充) ==================== */
   'settingsPage.promptPageTitle': '提示词',
   'settingsPage.promptListDesc': '分类管理并自定义三处可编辑的提示词:模式系统提示词、Git 提交信息、AI 优化。',
-  'settingsPage.promptPageDesc': '查看并自定义各模式下模型使用的系统提示词。未自定义时显示该模式内置默认提示词。',
+  'settingsPage.promptPageDesc': '定义各模式下模型的行为与系统指令语气。',
   'settingsPage.promptEdit': '编辑',
   'settingsPage.promptSection': '模式系统提示词',
   'settingsPage.promptEditPh': '编辑「{mode}」模式的系统提示词...',
@@ -915,7 +915,7 @@ export const zh: Record<string, string> = {
   'settingsPage.promptResetConfirm': '恢复「{mode}」模式为内置默认提示词?',
 
   'settingsPage.gitCommitPageTitle': 'Git 提交信息',
-  'settingsPage.gitCommitPageDesc': '自定义 Git 面板「✨ 生成提交信息」使用的提示词。留空表示未自定义,使用内置默认。',
+  'settingsPage.gitCommitPageDesc': '控制生成提交信息的格式与语言。',
   'settingsPage.gitCommitSection': '生成提示词',
   'settingsPage.gitCommitSystemPh': '编辑生成器行为要求(标题格式、语言、风格...)',
   'settingsPage.gitCommitPromptLabel': 'System 提示词',
@@ -927,7 +927,7 @@ export const zh: Record<string, string> = {
   'settingsPage.gitCommitSaveFailedToast': '保存失败:',
   'settingsPage.gitCommitLoadFailedToast': '加载提示词失败:',
   'settingsPage.aiOptimizePageTitle': 'AI 优化',
-  'settingsPage.aiOptimizePageDesc': '自定义输入框「✨ 优化」使用的提示词。留空表示未自定义,使用内置默认。',
+  'settingsPage.aiOptimizePageDesc': '控制优化时内容的润色与表达。',
   'settingsPage.aiOptimizeSection': '优化提示词',
   'settingsPage.aiOptimizeSystemPh': '编辑优化行为要求(润色表达、保留意图、语言风格...)',
   'settingsPage.aiOptimizePromptLabel': 'System 提示词',
@@ -2502,7 +2502,7 @@ export const en: Record<string, string> = {
   /* ==================== Prompt (补充) ==================== */
   'settingsPage.promptPageTitle': 'Prompt',
   'settingsPage.promptListDesc': 'Manage and customize the three editable prompts: mode system prompts, Git commit message, and AI optimize.',
-  'settingsPage.promptPageDesc': 'View and customize the system prompt used by the model in each mode. Shows the built-in default when not customized.',
+  'settingsPage.promptPageDesc': 'Defines each mode\'s model behavior and system instruction tone.',
   'settingsPage.promptEdit': 'Edit',
   'settingsPage.promptSection': 'Mode System Prompts',
   'settingsPage.promptEditPh': 'Edit the system prompt for the "{mode}" mode...',
@@ -2521,7 +2521,7 @@ export const en: Record<string, string> = {
   'settingsPage.promptResetConfirm': 'Reset the "{mode}" mode to its built-in default prompt?',
 
   'settingsPage.gitCommitPageTitle': 'Git Commit Message',
-  'settingsPage.gitCommitPageDesc': 'Customize the prompts used by the "✨ Generate commit message" button in the Git panel. Leave empty to use the built-in defaults.',
+  'settingsPage.gitCommitPageDesc': 'Controls the format and language of the generated commit message.',
   'settingsPage.gitCommitSection': 'Generation Prompts',
   'settingsPage.gitCommitSystemPh': 'Edit the generator behavior requirements (title format, language, style...)',
   'settingsPage.gitCommitPromptLabel': 'System prompt',
@@ -2533,7 +2533,7 @@ export const en: Record<string, string> = {
   'settingsPage.gitCommitSaveFailedToast': 'Save failed:',
   'settingsPage.gitCommitLoadFailedToast': 'Failed to load prompts:',
   'settingsPage.aiOptimizePageTitle': 'AI Optimize',
-  'settingsPage.aiOptimizePageDesc': 'Customize the prompts used by the "✨ Optimize" button in the input box. Leave empty to use the built-in defaults.',
+  'settingsPage.aiOptimizePageDesc': 'Controls the polishing and expression of the content when optimizing.',
   'settingsPage.aiOptimizeSection': 'Optimize Prompts',
   'settingsPage.aiOptimizeSystemPh': 'Edit the optimization behavior requirements (polish, preserve intent, language style...)',
   'settingsPage.aiOptimizePromptLabel': 'System prompt',

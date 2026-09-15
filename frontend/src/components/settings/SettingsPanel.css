@@ -442,22 +442,9 @@
   background: var(--hb-bg, #ffffff);
 }
 
-.settings-prompt-row-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.settings-prompt-row-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--hb-text, #1f2937);
-  line-height: 1.4;
-}
-
 .settings-prompt-row-desc {
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
   color: var(--hb-text-soft, #6b7280);
   line-height: 1.4;
@@ -466,28 +453,31 @@
   text-overflow: ellipsis;
 }
 
-.settings-prompt-row-chev {
+.settings-prompt-edit-btn {
   flex: none;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--hb-accent, #2563eb);
-  opacity: 0;
-  transition: opacity 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--hb-text-soft, #6b7280);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.12s ease;
 }
 
-.settings-prompt-row:hover .settings-prompt-row-chev {
-  opacity: 1;
+.settings-prompt-edit-btn:hover {
+  background: var(--hb-bg, #ffffff);
+  color: var(--hb-text, #1f2937);
 }
 
 [data-theme="dark"] .settings-prompt-row,
 [data-theme="midnight"] .settings-prompt-row {
   background: var(--hb-bg-soft-dark, #2a2a2a);
   border-color: var(--hb-border-dark, #374151);
-}
-
-[data-theme="dark"] .settings-prompt-row-title,
-[data-theme="midnight"] .settings-prompt-row-title {
-  color: var(--hb-text-dark, #e5e7eb);
 }
 
 [data-theme="dark"] .settings-prompt-row-desc,
@@ -500,6 +490,11 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* 详情表单内 label(field-group 垂直 padding 为 0,label 会贴顶,补上下边距) */
+.settings-prompt-detail .settings-field-label {
+  margin: 14px 0 8px;
 }
 
 .settings-prompt-detail-header {
@@ -1176,6 +1171,7 @@
   min-height: 440px;
   padding: 16px;
   border: none;
+  border-radius: 8px;
   background: var(--hb-bg-soft, #fafafa);
   color: var(--hb-text, #1f2937);
   font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;

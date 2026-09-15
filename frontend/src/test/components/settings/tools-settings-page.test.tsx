@@ -11,9 +11,14 @@ vi.mock('@/api/client', () => ({ configApi }));
 // settings/toastStore re-export 自 utils/toastStore,mock 后两者同源
 vi.mock('@/utils/toastStore', () => ({ showToast: toast.showToast }));
 
-/** 按渲染顺序取 4 个开关:bash / web_search.enabled / subagent / delete_file */
+/** 按渲染顺序取 4 个开关:bash / delete_file / web_search.enabled / subagent */
 function checkboxes(container: HTMLElement): HTMLInputElement[] {
   return [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+}
+
+/** 点击「关闭需确认」二次确认弹窗里的确认(danger)按钮 */
+function confirmDisableModal(container: HTMLElement) {
+  fireEvent.click(container.querySelector('.file-tree-modal-btn-danger') as HTMLButtonElement);
 }
 
 /** 断言最近一次 updateFull 的 tools 节 */
@@ -51,9 +56,9 @@ describe('ToolsSettingsPage 加载', () => {
     expect(boxes).toHaveLength(4);
     // 默认:bash/delete_file 需要确认勾选,web_search/subagent 未启用
     expect(boxes[0].checked).toBe(true);
-    expect(boxes[1].checked).toBe(false);
+    expect(boxes[1].checked).toBe(true);
     expect(boxes[2].checked).toBe(false);
-    expect(boxes[3].checked).toBe(true);
+    expect(boxes[3].checked).toBe(false);
     expect((container.querySelector('select') as HTMLSelectElement).value).toBe('brave');
   });
 
@@ -70,10 +75,10 @@ describe('ToolsSettingsPage 加载', () => {
     const { container } = render(<ToolsSettingsPage />);
     await screen.findByText('Bash 命令');
     const boxes = checkboxes(container);
-    expect(boxes[0].checked).toBe(false);
-    expect(boxes[1].checked).toBe(true);
-    expect(boxes[2].checked).toBe(true);
-    expect(boxes[3].checked).toBe(false);
+    expect(boxes[0].checked).toBe(false); // bash.require_confirmation=false
+    expect(boxes[1].checked).toBe(false); // delete_file.require_confirmation=false
+    expect(boxes[2].checked).toBe(true); // web_search.enabled=true
+    expect(boxes[3].checked).toBe(true); // subagent.enabled=true
     expect((container.querySelector('select') as HTMLSelectElement).value).toBe('tavily');
     expect((container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe('sk-123');
   });
@@ -93,7 +98,8 @@ describe('ToolsSettingsPage 保存', () => {
   it('切换 bash「需要确认」开关 → updateFull 携带 require_confirmation=false', async () => {
     const { container } = render(<ToolsSettingsPage />);
     await screen.findByText('Bash 命令');
-    fireEvent.click(checkboxes(container)[0]);
+    fireEvent.click(checkboxes(container)[0]); // 关闭触发二次确认弹窗
+    confirmDisableModal(container);
     await waitFor(() => expect(configApi.updateFull).toHaveBeenCalled());
     expect(lastTools().bash).toMatchObject({ require_confirmation: false });
   });
@@ -101,7 +107,7 @@ describe('ToolsSettingsPage 保存', () => {
   it('切换 web_search「启用」开关 → updateFull 携带 enabled=true', async () => {
     const { container } = render(<ToolsSettingsPage />);
     await screen.findByText('Bash 命令');
-    fireEvent.click(checkboxes(container)[1]);
+    fireEvent.click(checkboxes(container)[2]);
     await waitFor(() => expect(configApi.updateFull).toHaveBeenCalled());
     expect(lastTools().web_search).toMatchObject({ enabled: true });
   });
@@ -140,7 +146,7 @@ describe('ToolsSettingsPage 保存', () => {
   it('切换 subagent「启用」开关 → updateFull 携带 enabled=true', async () => {
     const { container } = render(<ToolsSettingsPage />);
     await screen.findByText('Bash 命令');
-    fireEvent.click(checkboxes(container)[2]);
+    fireEvent.click(checkboxes(container)[3]);
     await waitFor(() => expect(configApi.updateFull).toHaveBeenCalled());
     expect(lastTools().subagent).toMatchObject({ enabled: true });
   });
@@ -148,7 +154,8 @@ describe('ToolsSettingsPage 保存', () => {
   it('切换 delete_file「需要确认」开关 → updateFull 携带 require_confirmation=false', async () => {
     const { container } = render(<ToolsSettingsPage />);
     await screen.findByText('Bash 命令');
-    fireEvent.click(checkboxes(container)[3]);
+    fireEvent.click(checkboxes(container)[1]); // 关闭触发二次确认弹窗
+    confirmDisableModal(container);
     await waitFor(() => expect(configApi.updateFull).toHaveBeenCalled());
     expect(lastTools().delete_file).toMatchObject({ require_confirmation: false });
   });
@@ -157,6 +164,7 @@ describe('ToolsSettingsPage 保存', () => {
     const { container } = render(<ToolsSettingsPage />);
     await screen.findByText('Bash 命令');
     fireEvent.click(checkboxes(container)[0]); // bash 关闭确认
+    confirmDisableModal(container);
     await waitFor(() => expect(configApi.updateFull).toHaveBeenCalledTimes(1));
     const first = lastTools() as {
       bash: Record<string, unknown>;
@@ -175,7 +183,8 @@ describe('ToolsSettingsPage 保存', () => {
     configApi.updateFull.mockRejectedValue(new Error('boom'));
     const { container } = render(<ToolsSettingsPage />);
     await screen.findByText('Bash 命令');
-    fireEvent.click(checkboxes(container)[0]);
+    fireEvent.click(checkboxes(container)[0]); // bash 关闭确认
+    confirmDisableModal(container);
     await waitFor(() => expect(toast.showToast).toHaveBeenCalled());
     expect(String(toast.showToast.mock.calls[0][0])).toMatch(/^保存工具配置失败:Error: boom/);
     expect(checkboxes(container)[0].checked).toBe(false);
