@@ -4,5 +4,8 @@
   },
   "item.label.GitHub": {
     "message": "GitHub"
+  },
+  "item.label.建议反馈": {
+    "message": "Feedback"
   }
 }

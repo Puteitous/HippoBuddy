@@ -166,5 +166,104 @@
   },
   "在 B 站打开观看": {
     "message": "Watch on Bilibili"
+  },
+  "建议反馈": {
+    "message": "Feedback"
+  },
+  "给 HippoBuddy 提建议、报 Bug 或催新特性": {
+    "message": "Suggest improvements, report bugs, or request new features for HippoBuddy"
+  },
+  "Feedback · 建议反馈": {
+    "message": "Feedback"
+  },
+  "让 HippoBuddy 更好用": {
+    "message": "Make HippoBuddy Better"
+  },
+  "遇到问题、想到改进，或期待某个新特性？告诉我们，每一条都会被认真看到。": {
+    "message": "Ran into an issue, have an idea, or want a new feature? Tell us — every piece of feedback gets read."
+  },
+  "反馈类型": {
+    "message": "Type"
+  },
+  "标题": {
+    "message": "Title"
+  },
+  "一句话概括你的问题或建议": {
+    "message": "Summarize your issue or suggestion in one line"
+  },
+  "详细描述": {
+    "message": "Description"
+  },
+  "越具体越好：触发场景、期望结果、复现步骤…": {
+    "message": "The more specific the better: trigger scenario, expected result, reproduction steps…"
+  },
+  "联系方式": {
+    "message": "Contact"
+  },
+  "（选填）": {
+    "message": "(optional)"
+  },
+  "邮箱 / QQ / 微信，方便我们回复你": {
+    "message": "Email / QQ / WeChat so we can get back to you"
+  },
+  "问题/Bug": {
+    "message": "Bug"
+  },
+  "功能建议": {
+    "message": "Suggestion"
+  },
+  "催更/新特性": {
+    "message": "Feature Request"
+  },
+  "其他": {
+    "message": "Other"
+  },
+  "提交成功，感谢反馈！": {
+    "message": "Feedback submitted. Thank you!"
+  },
+  "你的建议我们已收到，会认真评估。": {
+    "message": "We've received your feedback and will review it carefully."
+  },
+  "（新特性类的反馈会优先评估）": {
+    "message": "(Feature requests are prioritized)"
+  },
+  "再提交一条": {
+    "message": "Submit another"
+  },
+  "反馈服务尚未配置（缺少 Supabase 连接信息）。": {
+    "message": "The feedback service isn't configured yet (missing Supabase connection)."
+  },
+  "提交失败，请稍后重试，或提交到交流群反馈。": {
+    "message": "Submission failed. Please try again later, or share it in the community group."
+  },
+  "暂不可用": {
+    "message": "Not available"
+  },
+  "提交中…": {
+    "message": "Submitting…"
+  },
+  "提交反馈": {
+    "message": "Submit"
+  },
+  "截图": {
+    "message": "Screenshot"
+  },
+  "（选填，最多 2 张）": {
+    "message": "(optional, up to 2)"
+  },
+  "反馈截图预览": {
+    "message": "Feedback screenshot preview"
+  },
+  "移除截图": {
+    "message": "Remove screenshot"
+  },
+  "处理中…": {
+    "message": "Processing…"
+  },
+  "选择图片或拖拽到此处": {
+    "message": "Choose an image or drag it here"
+  },
+  "支持 jpg / png，最多 2 张": {
+    "message": "JPG / PNG, up to 2"
   }
 }

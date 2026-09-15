@@ -1,0 +1,35 @@
+.main {
+  padding: 3.5rem 0 5rem;
+}
+
+.head {
+  max-width: 640px;
+  margin: 0 auto 2.2rem;
+  text-align: center;
+}
+
+.kicker {
+  font-family: var(--ifm-font-family-monospace), 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary);
+  margin-bottom: 0.8rem;
+}
+
+.title {
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 0.8rem;
+}
+
+.desc {
+  font-size: 1rem;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0;
+}
+
+[data-theme='dark'] .desc {
+  color: rgba(255, 255, 255, 0.6);
+}

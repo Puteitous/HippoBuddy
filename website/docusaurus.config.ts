@@ -1,6 +1,9 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import {loadEnv} from './env';
+
+loadEnv();
 
 const config: Config = {
   title: 'HippoBuddy',
@@ -21,6 +24,17 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
+
+  customFields: {
+    /* Supabase 连接配置 · 供前端直连 PostgREST 使用。
+       anon key 对浏览器公开, 数据安全性靠表的 RLS(仅 INSERT)保证。
+       构建时注入环境变量, 如:
+         SUPABASE_URL=https://xxxxxxxx.supabase.co
+         SUPABASE_ANON_KEY=eyJhbGciOi...
+       未配置时反馈表单会显示"暂不可用"。 */
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  },
 
   i18n: {
     defaultLocale: 'zh-Hans',
@@ -76,6 +90,11 @@ const config: Config = {
           sidebarId: 'docsSidebar',
           position: 'left',
           label: '文档',
+        },
+        {
+          label: '建议反馈',
+          to: '/feedback',
+          position: 'right',
         },
         {
           label: '交流群',
