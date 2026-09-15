@@ -26,7 +26,7 @@ describe('backgroundStore', () => {
     expect(localStorage.getItem('hippo-background')).toBe(JSON.stringify(cfg));
   });
 
-  it('setBackground(image) 生成 background-size 组合值', () => {
+  it('setBackground(image) 应用整图铺满整屏(CSS cover)', () => {
     useBackgroundStore.getState().setBackground({ type: 'image', value: 'data:image/png;base64,xxx' });
     const applied = rootCss('--app-bg');
     expect(applied).toBe('url("data:image/png;base64,xxx") center / cover no-repeat fixed');

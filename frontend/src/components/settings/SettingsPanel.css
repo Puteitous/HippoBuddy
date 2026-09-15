@@ -531,6 +531,13 @@
   width: 100%;
 }
 
+/* 背景编辑区顶部的提示(非玻璃主题):整宽左对齐,不占标签列、不挤预览 */
+.settings-bg-top-hint {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 2px;
+}
+
 /* 背景样式参数(模糊强度 / 面板遮罩浓度) */
 .settings-bg-style {
   display: flex;
@@ -586,6 +593,7 @@
 }
 
 .settings-bg-pick {
+  margin: 20px 0 0 150px; /* 垂直居中微调;水平与预览框对齐偏右 */
   padding: 6px 14px;
   border: 1px solid var(--hb-border, #d1d5db);
   border-radius: var(--radius-md, 8px);
@@ -615,6 +623,48 @@
 
 .settings-bg-remove:hover {
   background: var(--error-bg, #ffebee);
+}
+
+/* ========== 图片背景预览窗口上的悬浮操作按钮 ========== */
+.settings-bg-window-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.settings-bg-window:hover .settings-bg-window-actions,
+.settings-bg-window:focus-within .settings-bg-window-actions {
+  opacity: 1;
+}
+
+.settings-bg-window-btn {
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-family: inherit;
+  line-height: 1.6;
+  white-space: nowrap;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: background 0.12s ease, filter 0.12s ease;
+}
+.settings-bg-window-btn:hover {
+  background: rgba(0, 0, 0, 0.75);
+  filter: brightness(1.1);
+}
+.settings-bg-window-btn.danger {
+  border-color: rgba(255, 132, 132, 0.4);
+}
+.settings-bg-window-btn.danger:hover {
+  background: rgba(150, 40, 40, 0.75);
 }
 
 /* ========== 胶囊开关 ========== */

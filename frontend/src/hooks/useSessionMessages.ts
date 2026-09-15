@@ -71,6 +71,20 @@ export function useSessionMessages(): void {
       try {
         const data = await api.sessions.getMessages(currentSessionId);
         if (cancelled) return;
+        // 后端 JSONL 不含前端固化的 roundElapsedMs,用本地缓存按消息 id 回填,
+        // 保住重启后回看历史的精确耗时;匹配不到(缓存被清/rewind·fork 重写)
+        // 时保留后端原值,HistoryRenderer 回退 timestamp 首尾差近似值。
+        if (cached && cached.length > 0) {
+          const cachedById = new Map(cached.map((m) => [m.id, m]));
+          for (const m of data) {
+            if (m.roundElapsedMs == null) {
+              const cm = cachedById.get(m.id);
+              if (cm?.roundElapsedMs != null && Number.isFinite(cm.roundElapsedMs) && cm.roundElapsedMs > 0) {
+                m.roundElapsedMs = cm.roundElapsedMs;
+              }
+            }
+          }
+        }
         setMessages(data);
         // 后端 getMessages 已在返回前同步执行 loadSessionChanges(sessionId),
         // 此时该会话的变更数据已加载进内存。发出信号让依赖该数据的组件

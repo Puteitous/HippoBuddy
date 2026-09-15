@@ -42,6 +42,8 @@ export function ToolsSettingsPage() {
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** 待二次确认的开关: 'bash' 或 'delete' */
+  const [pendingConfirm, setPendingConfirm] = useState<'bash' | 'delete' | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +85,16 @@ export function ToolsSettingsPage() {
     }
   };
 
+  /** 自定义确认弹窗点「关闭」后,真正写入 require_confirmation=false */
+  const confirmDisable = () => {
+    if (pendingConfirm === 'bash') {
+      save({ bash: { ...tools.bash, require_confirmation: false } });
+    } else if (pendingConfirm === 'delete') {
+      save({ delete_file: { ...tools.delete_file, require_confirmation: false } });
+    }
+    setPendingConfirm(null);
+  };
+
   if (loading) {
     return <div className="settings-loading">{t('settingsPage.rulesLoading')}</div>;
   }
@@ -109,20 +121,51 @@ export function ToolsSettingsPage() {
       <div className="settings-field-group">
         <div className="settings-form">
           <div className="settings-field-horizontal">
-            <label className="settings-field-label">{t('settingsPage.toolsNeedConfirm')}</label>
+            <div className="settings-field-label">
+              <div>{t('settingsPage.toolsNeedConfirm')}</div>
+              <div className="settings-field-hint">{t('settingsPage.toolsNeedConfirmHint')}</div>
+            </div>
             <div className="settings-field-body">
               <label className="settings-switch">
                 <input
                   type="checkbox"
                   checked={tools.bash.require_confirmation !== false}
-                  onChange={(e) =>
-                    save({
-                      bash: {
-                        ...tools.bash,
-                        require_confirmation: e.target.checked,
-                      },
-                    })
-                  }
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      save({ bash: { ...tools.bash, require_confirmation: true } });
+                      return;
+                    }
+                    setPendingConfirm('bash');
+                  }}
+                />
+                <span className="settings-switch-slider" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Delete File */}
+      <div className="settings-field-group-title">{t('settingsPage.toolsGroupDelete')}</div>
+      <div className="settings-field-group">
+        <div className="settings-form">
+          <div className="settings-field-horizontal">
+            <div className="settings-field-label">
+              <div>{t('settingsPage.toolsNeedConfirm')}</div>
+              <div className="settings-field-hint">{t('settingsPage.toolsDeleteConfirmHint')}</div>
+            </div>
+            <div className="settings-field-body">
+              <label className="settings-switch">
+                <input
+                  type="checkbox"
+                  checked={tools.delete_file.require_confirmation !== false}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      save({ delete_file: { ...tools.delete_file, require_confirmation: true } });
+                      return;
+                    }
+                    setPendingConfirm('delete');
+                  }}
                 />
                 <span className="settings-switch-slider" />
               </label>
@@ -252,32 +295,40 @@ export function ToolsSettingsPage() {
         </div>
       </div>
 
-      {/* Delete File */}
-      <div className="settings-field-group-title">{t('settingsPage.toolsGroupDelete')}</div>
-      <div className="settings-field-group">
-        <div className="settings-form">
-          <div className="settings-field-horizontal">
-            <label className="settings-field-label">{t('settingsPage.toolsNeedConfirm')}</label>
-            <div className="settings-field-body">
-              <label className="settings-switch">
-                <input
-                  type="checkbox"
-                  checked={tools.delete_file.require_confirmation !== false}
-                  onChange={(e) =>
-                    save({
-                      delete_file: {
-                        ...tools.delete_file,
-                        require_confirmation: e.target.checked,
-                      },
-                    })
-                  }
-                />
-                <span className="settings-switch-slider" />
-              </label>
+      {/* 关闭「需确认」的二次确认弹窗 */}
+      {pendingConfirm && (
+        <div
+          className="file-tree-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPendingConfirm(null);
+          }}
+        >
+          <div className="file-tree-modal">
+            <div className="file-tree-modal-header">
+              <span className="file-tree-modal-title">{t('settingsPage.toolsNeedConfirm')}</span>
+            </div>
+            <div className="file-tree-modal-body">
+              <p className="file-tree-modal-message">
+                {pendingConfirm === 'bash'
+                  ? t('settingsPage.toolsNeedConfirmDisableConfirm')
+                  : t('settingsPage.toolsDeleteConfirmDisableConfirm')}
+              </p>
+            </div>
+            <div className="file-tree-modal-footer">
+              <button type="button" className="file-tree-modal-btn" onClick={() => setPendingConfirm(null)}>
+                {t('fileTree.cancelBtn')}
+              </button>
+              <button
+                type="button"
+                className="file-tree-modal-btn file-tree-modal-btn-danger"
+                onClick={confirmDisable}
+              >
+                {t('fileTree.confirmBtn')}
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

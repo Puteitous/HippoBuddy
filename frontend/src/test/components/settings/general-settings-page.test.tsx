@@ -11,7 +11,10 @@ const { configApi, workspaceApi, dataDirApi, desktopBridge, toast, i18n, themeSt
     const bgStore = {
       background: { type: 'none', value: '', size: 'cover' },
       setBackground: vi.fn(),
+      updateImageCrop: vi.fn(),
       resetBackground: vi.fn(),
+      imageDataUrl: '',
+      originalDataUrl: '',
       glassStyle: { blur: 12, panelAlpha: 0.7 },
       setGlassStyle: vi.fn(),
       persistGlassStyle: vi.fn(),
@@ -41,6 +44,7 @@ vi.mock('@/stores/themeStore', () => ({ useThemeStore: (sel: (s: unknown) => unk
 vi.mock('@/stores/appStore', () => ({ useAppStore: (sel: (s: unknown) => unknown) => sel(appStore) }));
 vi.mock('@/stores/backgroundStore', () => ({
   useBackgroundStore: (sel: (s: unknown) => unknown) => sel(bgStore),
+  FULL_CROP: { x: 0, y: 0, w: 1, h: 1 },
 }));
 vi.mock('@/i18n', () => ({
   useI18n: () => ({ t: i18n.t, lang: i18n.lang }),
@@ -158,12 +162,12 @@ describe('GeneralSettingsPage 主题/背景/语言/布局', () => {
     expect(bgStore.setBackground).toHaveBeenCalledWith({ type: 'color', value: '#5b6bbf' });
   });
 
-  it('背景为图片且有值时渲染预览/显示模式/移除按钮', async () => {
-    Object.assign(bgStore, { background: { type: 'image', value: 'data:image/png;base64,AAA', size: 'cover' } });
+  it('背景为图片且有值时渲染裁剪按钮与移除按钮', async () => {
+    Object.assign(bgStore, { background: { type: 'image', value: 'data:image/png;base64,AAA' } });
     render(<GeneralSettingsPage />);
     await screen.findByText(k('settingsPage.generalTitle'));
     expect(screen.getByText(k('settingsPage.generalBgRemove'))).toBeInTheDocument();
-    expect(screen.getByText(k('settingsPage.generalBgCover'))).toBeInTheDocument();
+    expect(screen.getByText(k('settingsPage.generalBgCropButton'))).toBeInTheDocument();
   });
 
   it('背景为图片且为空值时点选图片按钮,对话框取消(null)不改动背景', async () => {

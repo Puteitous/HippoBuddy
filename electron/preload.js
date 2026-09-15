@@ -72,6 +72,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readDir: (path) => ipcRenderer.invoke('fs:readDir', path),
   readFile: (path) => ipcRenderer.invoke('fs:readFile', path),
   readFileBase64: (path) => ipcRenderer.invoke('fs:readFileBase64', path),
+  saveImageFile: (dataUrl) => ipcRenderer.invoke('image:save', dataUrl),
+  deleteImageFile: (filePath) => ipcRenderer.invoke('image:delete', filePath),
   writeFile: (path, content) => ipcRenderer.invoke('fs:writeFile', path, content),
   createFile: (path) => ipcRenderer.invoke('fs:createFile', path),
   createDir: (path) => ipcRenderer.invoke('fs:createDir', path),

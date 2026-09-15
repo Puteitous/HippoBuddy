@@ -21,6 +21,10 @@ interface Window {
     readFile?: (path: string) => Promise<{ path?: string; content?: string; error?: boolean; code?: string; message?: string } | string | null>;
     /** 读取图片文件，返回 base64 data URL（自定义背景用） */
     readFileBase64?: (path: string) => Promise<{ dataUrl?: string; error?: boolean; code?: string; message?: string } | null>;
+    /** 保存背景图片(dataUrl)→ 返回磁盘路径;仅写入背景目录 */
+    saveImageFile?: (dataUrl: string) => Promise<{ path?: string; error?: boolean; code?: string } | null>;
+    /** 删除背景图片文件(仅允许删除背景目录内文件) */
+    deleteImageFile?: (filePath: string) => Promise<{ ok?: boolean; error?: string } | null>;
     /** Electron 封装返回 { path, size } 对象(desktopBridge 内部判定 error 标记) */
     writeFile?: (path: string, content: string) => Promise<{ path?: string; size?: number; error?: boolean; code?: string; message?: string }>;
     createFile?: (path: string) => Promise<boolean>;

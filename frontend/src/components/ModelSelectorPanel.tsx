@@ -215,16 +215,32 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
     const provider = llm?.provider || '';
     const model = llm?.model || '';
     const combo = `${provider}:${model}`;
-    const items: Array<{ label: string; value: string; disabled?: boolean }> = [];
+    const items: Array<{ label: string; value: string; title?: string; disabled?: boolean }> = [];
     const seen = new Set<string>();
+    // 统计同名模型被多少家厂商提供,用于判断是否需要在 label 中追加厂商以区分
+    const nameCount = new Map<string, number>();
     for (const snap of llm?.modelHistory ?? []) {
-      const key = `${snap.provider || ''}:${snap.model || ''}`;
-      if (seen.has(key)) continue;
+      const name = (snap.model || '').trim() || (snap.provider || '');
+      nameCount.set(name, (nameCount.get(name) ?? 0) + 1);
+    }
+    const ambiguous = new Set<string>();
+    for (const [name, count] of nameCount) {
+      if (count > 1) ambiguous.add(name);
+    }
+    for (const snap of llm?.modelHistory ?? []) {
+      const providerName = (snap.provider || '').trim();
+      const modelName = (snap.model || '').trim();
+      const key = `${providerName}:${modelName}`;
+      if (seen.has(key) || !providerName || !modelName) continue;
       seen.add(key);
-      items.push({ label: snap.model || key, value: key });
+      items.push({
+        label: ambiguous.has(modelName) ? `${modelName} (${providerName})` : modelName,
+        value: key,
+        title: `${providerName} · ${modelName}`,
+      });
     }
     if (provider && model && !seen.has(combo)) {
-      items.push({ label: model, value: combo });
+      items.push({ label: model, value: combo, title: `${provider} · ${model}` });
     }
     if (items.length > 0) {
       items.push({ label: '—', value: '__divider__', disabled: true });
@@ -337,6 +353,7 @@ export function ModelSelectorPanel({ placement = 'bottom' }: ModelSelectorPanelP
                       type="button"
                       className={`msp-item${isSelected ? ' msp-selected' : ''}${item.disabled ? ' msp-disabled' : ''}`}
                       disabled={item.disabled}
+                      title={item.title}
                       onClick={() => {
                         if (item.value === ADD_MODEL_VALUE) {
                           handleAddModel();

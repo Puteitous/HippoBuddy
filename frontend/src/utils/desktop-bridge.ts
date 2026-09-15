@@ -359,6 +359,29 @@ export const desktopBridge = {
     }
   },
 
+  /** 将背景图片(dataUrl)落盘,返回磁盘文件路径(localStorage 只存路径避免配额超限) */
+  async saveImageFile(dataUrl: string): Promise<string | null> {
+    try {
+      const result = await window.electronAPI?.saveImageFile?.(dataUrl);
+      if (result && typeof result.path === 'string') return result.path;
+      return null;
+    } catch (e) {
+      console.warn('[desktopBridge] saveImageFile 失败:', e);
+      return null;
+    }
+  },
+
+  /** 删除旧背景图片文件(替换/移除时清理,避免磁盘堆积) */
+  async deleteImageFile(filePath: string): Promise<boolean> {
+    try {
+      const result = await window.electronAPI?.deleteImageFile?.(filePath);
+      return result?.ok !== false;
+    } catch (e) {
+      console.warn('[desktopBridge] deleteImageFile 失败:', e);
+      return false;
+    }
+  },
+
   // ────────────────────────── DevTools ──────────────────────────
 
   /** 打开 DevTools(仅桌面端有效) */

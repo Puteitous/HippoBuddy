@@ -913,6 +913,62 @@ ipcMain.handle('dialog:openImage', async () => {
   return { path: result.filePaths[0] };
 });
 
+// ============================================================================
+// 自定义背景图片落盘(替代塞进 localStorage,规避配额超出导致静默丢失)
+//   localStorage 仅存磁盘文件路径;图片本体写入用户数据目录,运行时读回 data URL
+// ============================================================================
+const BG_EXT_MAP = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/bmp': '.bmp',
+  'image/svg+xml': '.svg',
+  'image/x-icon': '.ico',
+  'image/avif': '.avif',
+};
+
+function backgroundDir() {
+  return path.join(app.getPath('userData'), 'background');
+}
+
+/** 保存背景图片(dataUrl为主体)→ 返回磁盘文件路径;仅允许写入背景目录 */
+ipcMain.handle('image:save', async (_event, dataUrl) => {
+  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+    return { error: true, code: 'INVALID_DATA_URL' };
+  }
+  const comma = dataUrl.indexOf(',');
+  const header = dataUrl.slice(5, comma > -1 ? comma : 5);
+  const mime = header.split(';')[0] || 'image/png';
+  const ext = BG_EXT_MAP[mime] || '.png';
+  const buf = Buffer.from(comma > -1 ? dataUrl.slice(comma + 1) : '', 'base64');
+  const dir = backgroundDir();
+  try {
+    await fs.promises.mkdir(dir, { recursive: true });
+    const filePath = path.join(dir, `bg-${Date.now()}${ext}`);
+    await fs.promises.writeFile(filePath, buf);
+    return { path: filePath };
+  } catch (err) {
+    return { error: true, code: 'WRITE_FAILED', message: err.message };
+  }
+});
+
+/** 删除背景图片文件;仅允许删除背景目录内的文件,防止误删其它路径 */
+ipcMain.handle('image:delete', async (_event, filePath) => {
+  if (typeof filePath !== 'string' || !filePath) return { ok: true };
+  const bgDir = backgroundDir();
+  const resolved = path.resolve(filePath);
+  if (!resolved.toLowerCase().startsWith(path.resolve(bgDir).toLowerCase())) {
+    return { ok: false, error: 'OUTSIDE_BG_DIR' };
+  }
+  try {
+    await fs.promises.unlink(resolved);
+  } catch {
+    /* 文件不存在等情况忽略 */
+  }
+  return { ok: true };
+});
+
 /** 保存文件对话框 — 接收 base64 内容，弹出系统另存为对话框后写入文件 */
 ipcMain.handle('dialog:saveFile', async (_event, content, suggestedName, mimeType) => {
   if (!content) return { path: null, error: '内容为空' };

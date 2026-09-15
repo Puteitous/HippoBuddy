@@ -13,6 +13,7 @@ import { desktopBridge } from '@/utils/desktop-bridge';
 import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { useAppStore } from '@/stores/appStore';
 import { useBackgroundStore, type BackgroundType } from '@/stores/backgroundStore';
+import { ImageBackgroundCropModal } from './ImageBackgroundCropModal';
 import { useAccentStore } from '@/stores/accentStore';
 import { useUpdateStore } from '@/stores/updateStore';
 import { showToast } from './toastStore';
@@ -61,10 +62,17 @@ const DEFAULT_BG_COLOR = '#5b6bbf';
 /** 强调色取色器占位值:未自定义时向用户展示的默认颜色(与浅色主题默认 --accent 一致) */
 const DEFAULT_ACCENT_COLOR = '#787c82';
 
+/** 背景 data URL 体积预算(bytes):PNG 无损在 1920px 照片下可达数 MB,
+   过大的 data URL 作为 CSS background 在 Electron/Chromium 中无法正常绘制,
+   超限则逐步缩小直到可绘制(透明 PNG 只降分辨率、保留透明)。 */
+const BG_URL_BUDGET = 1500 * 1024;
+
 /**
- * 压缩图片 data URL:限制最长边并降质量,控制体积以便存入 localStorage 并流畅渲染。
+ * 压缩图片 data URL:限制最长边并降质量,控制体积以便作为背景正常绘制。
  *  - 最长边超 maxEdge 时等比缩小(默认 1920,足够铺满常规屏幕)
- *  - PNG 保留透明度(输出 PNG);其余格式转 JPEG(quality)
+ *  - PNG:若含透明度则保留 PNG;无透明则转 JPEG(体积小得多、可保留高清,避免被缩小)
+ *  - 其余格式转 JPEG(quality)
+ *  - 若输出仍超体积预算,进一步等比缩小(最低到约 1/8 边长)直到可绘制
  *  - 解码失败时抛异常,由调用方决定是否退回原图
  */
 function compressImageDataUrl(dataUrl: string, maxEdge = 1920, quality = 0.85): Promise<string> {
@@ -73,20 +81,34 @@ function compressImageDataUrl(dataUrl: string, maxEdge = 1920, quality = 0.85): 
     img.onload = () => {
       try {
         const { width, height } = img;
-        const scale = Math.min(1, maxEdge / Math.max(width, height));
-        const w = Math.max(1, Math.round(width * scale));
-        const h = Math.max(1, Math.round(height * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(dataUrl);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, w, h);
         const isPng = dataUrl.startsWith('data:image/png');
-        resolve(isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality));
+        const render = (edge: number, q: number): string => {
+          const scale = Math.min(1, edge / Math.max(width, height));
+          const w = Math.max(1, Math.round(width * scale));
+          const h = Math.max(1, Math.round(height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return dataUrl;
+          ctx.drawImage(img, 0, 0, w, h);
+          // PNG 仅在确实有透明度时才保留 PNG,否则转 JPEG 以减小体积、保留高清
+          const keepPng = isPng && hasAlphaPixels(ctx, w, h);
+          return keepPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', q);
+        };
+        const edge = Math.min(maxEdge, Math.max(width, height));
+        let out = render(edge, quality);
+        if (out.length > BG_URL_BUDGET) {
+          // 超预算:每次缩小一半边长,直到在预算内(最低降到 1/8 边长)
+          for (let f = 0.5; f >= 0.125; f /= 2) {
+            const candidate = render(Math.max(2, Math.round(edge * f)), quality);
+            if (candidate.length <= BG_URL_BUDGET || f <= 0.125) {
+              out = candidate;
+              break;
+            }
+          }
+        }
+        resolve(out);
       } catch (e) {
         reject(e);
       }
@@ -94,6 +116,20 @@ function compressImageDataUrl(dataUrl: string, maxEdge = 1920, quality = 0.85): 
     img.onerror = () => reject(new Error(translate('chat.readImageFailed')));
     img.src = dataUrl;
   });
+}
+
+/** 检测画布是否含有透明度(PNG 转 JPEG 前判断,避免透明像素被转成黑底) */
+function hasAlphaPixels(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+  if (!w || !h) return false;
+  try {
+    const data = ctx.getImageData(0, 0, w, h).data;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 255) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 export function GeneralSettingsPage() {
@@ -115,10 +151,12 @@ export function GeneralSettingsPage() {
   const [scopeMode, setScopeMode] = useState<'strict' | 'balanced' | 'relaxed'>('strict');
   /** 推荐问答开关:回合结束后是否用 LLM 生成推荐问题 */
   const [suggestionsEnabled, setSuggestionsEnabled] = useState(true);
-  /** 自定义背景(类型 + 值) */
+  /** 自定义背景(类型 + 值;image 模式下 value 为磁盘文件路径) */
   const background = useBackgroundStore((s) => s.background);
   const setBackground = useBackgroundStore((s) => s.setBackground);
   const resetBackground = useBackgroundStore((s) => s.resetBackground);
+  /** 图片背景运行时 data URL(从磁盘读回,供设置页预览展示) */
+  const imageDataUrl = useBackgroundStore((s) => s.imageDataUrl);
   /** 玻璃主题背景样式参数(模糊强度 / 面板遮罩浓度) */
   const glassStyle = useBackgroundStore((s) => s.glassStyle);
   const setGlassStyle = useBackgroundStore((s) => s.setGlassStyle);
@@ -127,10 +165,8 @@ export function GeneralSettingsPage() {
   const accent = useAccentStore((s) => s.accent);
   const setAccent = useAccentStore((s) => s.setAccent);
   const resetAccent = useAccentStore((s) => s.resetAccent);
-  /** 图片背景尺寸解析:cover=铺满 / contain=适应 / 其余按缩放百分比 */
-  const bgSize = background.size && background.size !== 'cover' ? background.size : 'cover';
-  const bgMode = bgSize === 'cover' ? 'cover' : bgSize === 'contain' ? 'contain' : 'scale';
-  const scaleValue = bgMode === 'scale' ? parseInt(bgSize, 10) || 100 : 100;
+  /** 图片背景裁剪弹窗开关 */
+  const [cropOpen, setCropOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,7 +309,7 @@ export function GeneralSettingsPage() {
     setBackground({ type, value: '' });
   };
 
-  /** 选择本地图片作为背景:读成 base64 data URL,压缩后持久化(避免大图超出 localStorage 配额/渲染卡顿) */
+  /** 选择本地图片作为背景:读成 base64 data URL,压缩后落盘,localStorage 仅存磁盘路径 */
   const handlePickImage = async () => {
     const path = await desktopBridge.openImageDialog();
     if (!path) return;
@@ -282,13 +318,20 @@ export function GeneralSettingsPage() {
       showToast(translate('settingsPage.generalReadImageFailed'), { type: 'error', duration: 3000 });
       return;
     }
+    let finalDataUrl = dataUrl;
     try {
-      const compressed = await compressImageDataUrl(dataUrl);
-      setBackground({ type: 'image', value: compressed });
+      finalDataUrl = await compressImageDataUrl(dataUrl);
     } catch {
       // 压缩失败(解码异常)时退回原图,保证至少能使用
-      setBackground({ type: 'image', value: dataUrl });
+      finalDataUrl = dataUrl;
     }
+    // 图片本体写入磁盘,localStorage 只存路径——避免大图超出配额导致保存静默失败
+    const savedPath = await desktopBridge.saveImageFile(finalDataUrl);
+    if (!savedPath) {
+      showToast(translate('settingsPage.generalSaveImageFailed'), { type: 'error', duration: 3000 });
+      return;
+    }
+    setBackground({ type: 'image', value: savedPath });
   };
 
   const handleWorkspacePathChange = async (path: string) => {
@@ -405,14 +448,16 @@ export function GeneralSettingsPage() {
           <div className="settings-field-horizontal">
             <div className="settings-field-label">
               <div>{t('settingsPage.generalBackground')}</div>
-              {/* 已在玻璃主题时无需提示;仅其他主题下提示搭配玻璃使用 */}
-              {theme !== 'glass' && (
-                <div className="settings-field-hint">{t('settingsPage.generalBackgroundHint')}</div>
-              )}
             </div>
             <div className="settings-field-body">
               {/* 纵向容器:body 默认横向 flex,多个编辑块需改为纵向排列避免横排溢出 */}
               <div className="settings-bg-root">
+              {/* 仅在非玻璃主题提示搭配玻璃使用;放编辑区顶部整宽显示,避免占据标签列宽把预览挤溢 */}
+              {theme !== 'glass' && (
+                <div className="settings-field-hint settings-bg-top-hint">
+                  {t('settingsPage.generalBackgroundHint')}
+                </div>
+              )}
               <div className="settings-toggle-group">
                 <button
                   type="button"
@@ -477,14 +522,18 @@ export function GeneralSettingsPage() {
 
               {background.type === 'image' && (
                 <div className="settings-bg-split">
-                  {/* 左栏:仅图片预览 */}
+                  {/* 左栏:玻璃参数(模糊/遮罩) */}
+                  <div className="settings-bg-col">
+                    {glassStylePanel}
+                  </div>
+
+                  {/* 右栏:无图时放「选择图片」;有图时放效果预览(裁剪/移除悬浮按钮悬停显示) */}
                   <div className="settings-bg-col">
                     {background.value ? (
-                      /* 预览窗口:模拟玻璃主题下的铺满效果(半透明面板示意) */
                       <div
                         className="settings-bg-window"
                         style={{
-                          background: `url("${background.value}") center / ${bgSize} no-repeat`,
+                          background: `url("${imageDataUrl}") center / cover no-repeat`,
                         }}
                       >
                         <div className="settings-bg-window-panel">
@@ -492,76 +541,28 @@ export function GeneralSettingsPage() {
                             {t('settingsPage.generalBgPreview')}
                           </span>
                         </div>
+                        {/* 悬停显示的操作按钮 */}
+                        <div className="settings-bg-window-actions">
+                          <button
+                            type="button"
+                            className="settings-bg-window-btn"
+                            onClick={() => setCropOpen(true)}
+                          >
+                            {t('settingsPage.generalBgCropButton')}
+                          </button>
+                          <button
+                            type="button"
+                            className="settings-bg-window-btn danger"
+                            onClick={() => setBackground({ type: 'image', value: '' })}
+                          >
+                            {t('settingsPage.generalBgRemove')}
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button type="button" className="settings-bg-pick" onClick={handlePickImage}>
                         {t('settingsPage.generalBgPickImage')}
                       </button>
-                    )}
-                  </div>
-
-                  {/* 右栏:玻璃参数(模糊/遮罩) + 显示模式 + 移除,纵向堆叠 */}
-                  <div className="settings-bg-col">
-                    {glassStylePanel}
-
-                    {background.value && (
-                      <>
-                        {/* 显示模式 + 缩放 */}
-                        <div className="settings-bg-scale">
-                          <div className="settings-toggle-group">
-                            <button
-                              type="button"
-                              className={`settings-toggle-btn${bgMode === 'cover' ? ' active' : ''}`}
-                              onClick={() => setBackground({ ...background, size: 'cover' })}
-                            >
-                              {t('settingsPage.generalBgCover')}
-                            </button>
-                            <button
-                              type="button"
-                              className={`settings-toggle-btn${bgMode === 'contain' ? ' active' : ''}`}
-                              onClick={() => setBackground({ ...background, size: 'contain' })}
-                            >
-                              {t('settingsPage.generalBgContain')}
-                            </button>
-                            <button
-                              type="button"
-                              className={`settings-toggle-btn${bgMode === 'scale' ? ' active' : ''}`}
-                              onClick={() =>
-                                setBackground({ ...background, size: '100% auto' })
-                              }
-                            >
-                              {t('settingsPage.generalBgScale')}
-                            </button>
-                          </div>
-
-                          {bgMode === 'scale' && (
-                            <div className="settings-bg-slider">
-                              <input
-                                type="range"
-                                min={50}
-                                max={200}
-                                step={10}
-                                value={scaleValue}
-                                onChange={(e) =>
-                                  setBackground({
-                                    ...background,
-                                    size: `${e.target.value}% auto`,
-                                  })
-                                }
-                              />
-                              <span className="settings-bg-slider-val">{scaleValue}%</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          className="settings-bg-remove"
-                          onClick={() => setBackground({ type: 'image', value: '' })}
-                        >
-                          {t('settingsPage.generalBgRemove')}
-                        </button>
-                      </>
                     )}
                   </div>
                 </div>
@@ -805,6 +806,8 @@ export function GeneralSettingsPage() {
           )}
         </div>
       </div>
+
+      {cropOpen && <ImageBackgroundCropModal onClose={() => setCropOpen(false)} />}
     </div>
   );
 }

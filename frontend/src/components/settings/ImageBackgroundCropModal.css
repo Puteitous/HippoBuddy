@@ -1,0 +1,181 @@
+/* 图片背景裁剪弹窗 */
+.bg-crop-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.bg-crop-modal {
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  padding: 16px;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--hb-border, rgba(0, 0, 0, 0.08));
+  /* 主题一致面板底色:浅色白 / 深色与午夜用各自 --bg-app;玻璃用实色兜底 */
+  background: var(--bg-app, #fff);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.bg-crop-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bg-crop-modal-close {
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.bg-crop-modal-close:hover {
+  color: var(--text-primary);
+}
+
+/* 取景区:固定矩形框,图片在其后移动 */
+.bg-crop-viewport {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  border-radius: var(--radius-md, 8px);
+  background: #111;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.bg-crop-viewport:active {
+  cursor: grabbing;
+}
+
+.bg-crop-viewport-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* 固定取景区边框:不可移动,仅表示可见(裁剪)范围 */
+.bg-crop-frame {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent, #5b6bbf);
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.bg-crop-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.bg-crop-zoom-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--hb-border, #d1d5db);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.bg-crop-zoom-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bg-crop-zoom-slider {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  accent-color: var(--accent, #5b6bbf);
+  cursor: pointer;
+}
+
+.bg-crop-reset {
+  padding: 4px 10px;
+  border: 1px solid var(--hb-border, #d1d5db);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.bg-crop-reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bg-crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.bg-crop-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.bg-crop-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bg-crop-btn-cancel {
+  border: 1px solid var(--hb-border, #d1d5db);
+  background: transparent;
+  color: var(--text-primary);
+}
+.bg-crop-btn-cancel:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+.bg-crop-btn-apply {
+  border: none;
+  background: var(--accent, #5b6bbf);
+  color: #fff;
+}
+.bg-crop-btn-apply:hover {
+  filter: brightness(1.05);
+}
+
+/* 深色/午夜主题:面板底色已由 --bg-app 保证;仅需按下态悬停与玻璃主题实色兜底 */
+[data-theme="dark"] .bg-crop-btn-cancel:hover,
+[data-theme="midnight"] .bg-crop-btn-cancel:hover {
+  background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
+}
+
+/* 玻璃主题:--bg-app 为半透明,弹窗需要实色面板保证可读与协调 */
+[data-theme="glass"] .bg-crop-modal {
+  background: #1a1e28;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme="glass"] .bg-crop-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
