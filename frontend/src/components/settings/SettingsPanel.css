@@ -414,6 +414,111 @@
   }
 }
 
+/* ========== 提示词页·分组列表 ========== */
+/* 每组 = settings-field-group-title(名称) + 可点「编辑」行。
+   每条 title 都是其分组 div 的 first-child,会被 .settings-field-group-title:first-child
+   归零为 margin-top:0,这里用更高优先级恢复 28px 上边距,保证组间有间隔 */
+.settings-prompt-list > div .settings-field-group-title {
+  margin-top: 28px;
+}
+
+.settings-prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 20px;
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--hb-bg-soft, #fafafa);
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.settings-prompt-row:hover {
+  background: var(--hb-bg, #ffffff);
+}
+
+.settings-prompt-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-prompt-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hb-text, #1f2937);
+  line-height: 1.4;
+}
+
+.settings-prompt-row-desc {
+  font-size: 12px;
+  color: var(--hb-text-soft, #6b7280);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-prompt-row-chev {
+  flex: none;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--hb-accent, #2563eb);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.settings-prompt-row:hover .settings-prompt-row-chev {
+  opacity: 1;
+}
+
+[data-theme="dark"] .settings-prompt-row,
+[data-theme="midnight"] .settings-prompt-row {
+  background: var(--hb-bg-soft-dark, #2a2a2a);
+  border-color: var(--hb-border-dark, #374151);
+}
+
+[data-theme="dark"] .settings-prompt-row-title,
+[data-theme="midnight"] .settings-prompt-row-title {
+  color: var(--hb-text-dark, #e5e7eb);
+}
+
+[data-theme="dark"] .settings-prompt-row-desc,
+[data-theme="midnight"] .settings-prompt-row-desc {
+  color: var(--hb-text-soft-dark, #9ca3af);
+}
+
+/* 详情内容容器:顶部返回栏 + 子页(子页自带 settings-field-group 主体盒子,不再套灰盒) */
+.settings-prompt-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-prompt-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-prompt-detail-title {
+  font-size: 15px;
+  font-weight: 550;
+  color: var(--hb-text, #1f2937);
+}
+
+[data-theme="dark"] .settings-prompt-detail-title,
+[data-theme="midnight"] .settings-prompt-detail-title {
+  color: var(--hb-text-dark, #e5e7eb);
+}
+
 /* ========== 自定义背景设置 ========== */
 .settings-bg-editor {
   display: flex;

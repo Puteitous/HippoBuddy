@@ -115,13 +115,6 @@ export function PromptSettingsPage() {
 
   return (
     <div>
-      <h2 className="settings-page-title">{t('settingsPage.promptPageTitle')}</h2>
-      <p className="settings-page-desc">
-        {t('settingsPage.promptPageDesc')}
-      </p>
-      <hr className="settings-page-divider" />
-
-      <div className="settings-field-group-title">{t('settingsPage.promptSection')}</div>
       <div className="settings-field-group">
         {loading ? (
           <div className="settings-loading">{t('settingsPage.rulesLoading')}</div>

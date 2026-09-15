@@ -895,7 +895,9 @@ export const zh: Record<string, string> = {
 
   /* ==================== Prompt (补充) ==================== */
   'settingsPage.promptPageTitle': '提示词',
+  'settingsPage.promptListDesc': '分类管理并自定义三处可编辑的提示词:模式系统提示词、Git 提交信息、AI 优化。',
   'settingsPage.promptPageDesc': '查看并自定义各模式下模型使用的系统提示词。未自定义时显示该模式内置默认提示词。',
+  'settingsPage.promptEdit': '编辑',
   'settingsPage.promptSection': '模式系统提示词',
   'settingsPage.promptEditPh': '编辑「{mode}」模式的系统提示词...',
   'settingsPage.promptRemarkDefault': '该模式内置默认',
@@ -2499,7 +2501,9 @@ export const en: Record<string, string> = {
 
   /* ==================== Prompt (补充) ==================== */
   'settingsPage.promptPageTitle': 'Prompt',
+  'settingsPage.promptListDesc': 'Manage and customize the three editable prompts: mode system prompts, Git commit message, and AI optimize.',
   'settingsPage.promptPageDesc': 'View and customize the system prompt used by the model in each mode. Shows the built-in default when not customized.',
+  'settingsPage.promptEdit': 'Edit',
   'settingsPage.promptSection': 'Mode System Prompts',
   'settingsPage.promptEditPh': 'Edit the system prompt for the "{mode}" mode...',
   'settingsPage.promptRemarkDefault': 'built-in default',

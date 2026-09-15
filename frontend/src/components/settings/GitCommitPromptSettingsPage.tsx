@@ -82,32 +82,13 @@ export function GitCommitPromptSettingsPage() {
     await handleSave();
   };
 
-  // 是否等于内置默认(用于顶部备注展示)
-  const isDefault = defaultPrompt !== '' && prompt === defaultPrompt;
-
   return (
     <div>
-      <h2 className="settings-page-title">{t('settingsPage.gitCommitPageTitle')}</h2>
-      <p className="settings-page-desc">{t('settingsPage.gitCommitPageDesc')}</p>
-      <hr className="settings-page-divider" />
-
-      <div className="settings-field-group-title">{t('settingsPage.gitCommitSection')}</div>
       <div className="settings-field-group">
         {loading ? (
           <div className="settings-loading">{t('settingsPage.rulesLoading')}</div>
         ) : (
           <div className="settings-form">
-            <div
-              style={{
-                marginBottom: 12,
-                fontSize: 12,
-                color: 'var(--hb-text-soft, #6b7280)',
-              }}
-            >
-              {isDefault
-                ? t('settingsPage.gitCommitRemarkDefault')
-                : t('settingsPage.gitCommitRemarkCustom')}
-            </div>
             <div className="settings-field-label">{t('settingsPage.gitCommitPromptLabel')}</div>
             <textarea
               className="settings-editor-textarea"
