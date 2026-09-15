@@ -72,6 +72,14 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+/* 关于:推到底部,与上方设置项用分隔线区分 */
+.settings-panel-nav-about {
+  margin-top: auto;
+  border-top: 1px solid var(--hb-border, #e5e7eb);
+  padding-top: 12px;
+  border-radius: 0;
+}
+
 .settings-panel-nav-icon {
   display: inline-flex;
   align-items: center;

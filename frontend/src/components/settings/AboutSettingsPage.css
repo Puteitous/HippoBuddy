@@ -1,0 +1,31 @@
+/* ===================================================================
+ * AboutSettingsPage — 关于
+ * 复用设置面板通用样式;仅定义 logo 区与链接按钮的少量补充样式。
+ * =================================================================== */
+
+.about-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 4px 4px;
+}
+
+.about-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--hb-text, #1f2937);
+}
+
+/* 版本号:弱化样式,与名称区分 */
+.about-version {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.45));
+}
+
+/* 链接按钮:展示简短域名,点击在系统浏览器打开 */
+.about-link-btn {
+  font-family: inherit;
+  font-size: 13px;
+}

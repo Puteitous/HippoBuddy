@@ -1037,6 +1037,11 @@ ipcMain.handle('theme:set', (_event, theme) => {
   }
 });
 
+// ---------- 应用信息 ----------
+
+/** 返回应用版本号(供前端"关于"页展示) */
+ipcMain.handle('app:getVersion', () => app.getVersion());
+
 // ---------- 终端 ----------
 
 /** 在系统原生终端中打开指定目录，跨平台支持 */
@@ -1485,6 +1490,10 @@ function setupAutoUpdater() {
 // ---------- IPC: 更新控制 ----------
 
 ipcMain.handle('update:check', async () => {
+  // dev(未打包)下 electron-updater 会跳过检查,提前返回 devMode 供前端提示,避免无意义的检查
+  if (!app.isPackaged) {
+    return { success: false, devMode: true, error: 'Development build: update check not available' };
+  }
   try {
     autoUpdater.checkForUpdates();
     return { success: true };

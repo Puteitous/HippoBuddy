@@ -21,7 +21,7 @@
  *
  * 集成位置:挂在 AppShell 左侧 Sidebar 之外,浮动面板 absolute 定位。
  */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import type { ActivityPanelId } from '@/stores/appStore';
@@ -32,6 +32,7 @@ import { useI18n, translate } from '@/i18n';
 import { TokenMonitor } from './chat-panel/TokenMonitor';
 import { MetricsPanel } from './MetricsPanel';
 import { GitPanel } from './GitPanel';
+import { FeedbackFormModal } from './settings/FeedbackFormModal';
 import './ActivityBar.css';
 
 /**
@@ -161,8 +162,10 @@ export function ActivityBar() {
   const closeTimerRef = useRef<number | null>(null);
   /** 延迟展开定时器(hover 进入按钮后等一拍再展开,过滤掉"只是路过") */
   const openTimerRef = useRef<number | null>(null);
-  /** 标记本次打开是否要忽略一次外部点击(由按钮点击冒泡触发) */
+  /* 标记本次打开是否要忽略一次外部点击(由按钮点击冒泡触发) */
   const ignoreNextOutsideClickRef = useRef(false);
+  /** 建议反馈弹窗开关 */
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current != null) {
@@ -346,20 +349,34 @@ export function ActivityBar() {
           );
         })}
 
-        {/* 底部:切换活动栏可见性 */}
-        <button
-          type="button"
-          className="activity-bar-btn activity-bar-bottom-btn"
-          title={t('activity.hide')}
-          onClick={toggleActivityBar}
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 6H20" />
-            <path d="M4 12H20" />
-            <path d="M4 18H20" />
-            <path d="M7 15L4 12L7 9" />
-          </svg>
-        </button>
+        {/* 底部按钮组:建议反馈 + 切换可见性;容器用 margin-top:auto 推到底部 */}
+        <div className="activity-bar-bottom-group">
+          <button
+            type="button"
+            className="activity-bar-btn"
+            title={t('feedback.title')}
+            onClick={() => setFeedbackOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              <path d="M10 9a2 2 0 0 1 4 0c0 1.4-2 1.9-2 3.2" />
+              <circle cx="12" cy="15.8" r="0.9" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="activity-bar-btn"
+            title={t('activity.hide')}
+            onClick={toggleActivityBar}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6H20" />
+              <path d="M4 12H20" />
+              <path d="M4 18H20" />
+              <path d="M7 15L4 12L7 9" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* 浮动面板 */}
@@ -389,6 +406,8 @@ export function ActivityBar() {
           </div>
         </div>
       )}
+
+      {feedbackOpen && <FeedbackFormModal onClose={() => setFeedbackOpen(false)} />}
     </>
   );
 }

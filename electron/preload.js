@@ -120,6 +120,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTheme: () => ipcRenderer.invoke('theme:get'),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
 
+  // ===== 应用信息 =====
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+
   // ===== Splash 启动画面 =====
   splashRetry: () => ipcRenderer.invoke('splash:retry'),
 });

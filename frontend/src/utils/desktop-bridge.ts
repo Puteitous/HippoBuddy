@@ -395,13 +395,13 @@ export const desktopBridge = {
 
   // ────────────────────────── 自动更新 ──────────────────────────
 
-  /** 手动检查更新(仅桌面端有效;非桌面端返回 { success: false }) */
-  async checkForUpdates(): Promise<{ success: boolean; error?: string }> {
+  /** 手动检查更新(仅桌面端有效;非桌面端或 dev 未打包时返回 { success: false }) */
+  async checkForUpdates(): Promise<{ success: boolean; error?: string; devMode?: boolean }> {
     try {
       if (window.electronAPI?.checkForUpdates) {
         const r = await window.electronAPI.checkForUpdates();
         if (r?.success) return { success: true };
-        return { success: false, error: r?.error };
+        return { success: false, error: r?.error, devMode: r?.devMode };
       }
       return { success: false };
     } catch (e) {
@@ -537,6 +537,19 @@ export const desktopBridge = {
       await window.electronAPI?.setTheme?.(theme);
     } catch (e) {
       console.warn('[desktopBridge] setTheme 失败:', e);
+    }
+  },
+
+  // ────────────────────────── 应用信息 ──────────────────────────
+
+  /** 获取应用版本号(Electron 端 app.getVersion);非桌面端或失败时返回 null */
+  async getAppVersion(): Promise<string | null> {
+    try {
+      const v = await window.electronAPI?.getAppVersion?.();
+      return v || null;
+    } catch (e) {
+      console.warn('[desktopBridge] getAppVersion 失败:', e);
+      return null;
     }
   },
 };

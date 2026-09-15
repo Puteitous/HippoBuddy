@@ -1,0 +1,272 @@
+/* ===================================================================
+ * FeedbackFormModal — 建议反馈弹窗
+ * 主题变量沿用设置面板: --bg-app(面板底) / --text-primary / --text-secondary
+ * / --hb-border / --accent / --radius-*。浅色/深色/午夜用各自 --bg-app,
+ * 玻璃主题用 --bg-app 实色兜底。
+ * =================================================================== */
+
+.feedback-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.feedback-modal {
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--hb-border, rgba(0, 0, 0, 0.08));
+  background: var(--bg-app, #fff);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.feedback-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.feedback-modal-close {
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.feedback-modal-close:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+.feedback-modal-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.feedback-modal-body {
+  overflow-y: auto;
+}
+
+/* ---- 表单 ---- */
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.feedback-required {
+  color: #e5484d;
+}
+
+.feedback-optional {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.45));
+}
+
+.feedback-input,
+.feedback-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--hb-border, rgba(0, 0, 0, 0.18));
+  border-radius: var(--radius-md, 8px);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.feedback-textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.6;
+}
+
+.feedback-input:focus,
+.feedback-textarea:focus {
+  outline: none;
+  border-color: var(--accent, #787c82);
+}
+
+/* ---- 类型单选组 ---- */
+.feedback-type-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.feedback-type-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--hb-border, rgba(0, 0, 0, 0.18));
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.feedback-type-btn:hover {
+  border-color: var(--accent, #787c82);
+  color: var(--accent, #787c82);
+}
+.feedback-type-btn.active {
+  color: #fff;
+  background: var(--accent, #787c82);
+  border-color: var(--accent, #787c82);
+}
+.feedback-type-btn.active:hover {
+  color: #fff;
+}
+
+/* ---- 图片上传 ---- */
+.feedback-image-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.feedback-image-preview {
+  position: relative;
+  display: inline-block;
+}
+.feedback-image-preview img {
+  display: block;
+  max-width: 200px;
+  max-height: 140px;
+  border-radius: 8px;
+  border: 1px solid var(--hb-border, rgba(0, 0, 0, 0.12));
+}
+
+.feedback-image-remove {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.feedback-image-remove:hover {
+  background: #e5484d;
+}
+
+.feedback-image-picker {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 160px;
+  min-height: 90px;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent, #787c82);
+  background: transparent;
+  border: 1.5px dashed var(--hb-border, rgba(0, 0, 0, 0.3));
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.feedback-image-picker:hover,
+.feedback-image-picker.drag {
+  border-color: var(--accent, #787c82);
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent, #787c82) 8%, transparent);
+}
+.feedback-image-picker-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.4));
+}
+
+/* ---- 提交 ---- */
+.feedback-submit {
+  display: block;
+  margin: 4px auto 0;
+  padding: 8px 22px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent, #787c82);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.feedback-submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.feedback-submit-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.feedback-submit-disabled:hover {
+  filter: none;
+}
+
+/* ---- 错误 / 成功态 ---- */
+.feedback-error {
+  margin: 0;
+  font-size: 12px;
+  color: #e5484d;
+}
+
+.feedback-success {
+  padding: 8px 0;
+  text-align: center;
+}
+.feedback-success-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.feedback-success-desc {
+  margin: 8px 0 12px;
+  font-size: 12px;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.55));
+}
+
+/* 玻璃主题:--bg-app 为半透明,弹窗需要实色面板保证可读,与裁剪弹窗保持一致 */
+[data-theme="glass"] .feedback-modal {
+  background: #1a1e28;
+  border-color: rgba(255, 255, 255, 0.1);
+}

@@ -61,7 +61,7 @@ interface Window {
     openDevTools?: () => void;
 
     // ── 自动更新(对齐 electron/preload.js 的 update:* IPC) ──
-    checkForUpdates?: () => Promise<{ success?: boolean; error?: string }>;
+    checkForUpdates?: () => Promise<{ success?: boolean; error?: string; devMode?: boolean }>;
     downloadUpdate?: () => Promise<{ success?: boolean; error?: string }>;
     cancelUpdate?: () => Promise<{ success?: boolean; error?: string }>;
     quitAndInstall?: () => Promise<{ success?: boolean }>;
@@ -81,6 +81,9 @@ interface Window {
     // ── 主题同步(Electron 侧 splash 保持一致) ──
     getTheme?: () => Promise<'dark' | 'light' | 'midnight'>;
     setTheme?: (theme: string) => Promise<void>;
+
+    // ── 应用信息(对齐 electron/preload.js 的 app:* IPC) ──
+    getAppVersion?: () => Promise<string>;
   };
 
   // ── JCEF / Java 桌面端(旧 cockpit 注入) ──

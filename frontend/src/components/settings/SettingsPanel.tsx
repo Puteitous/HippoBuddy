@@ -24,6 +24,7 @@ import { ContextSettingsPage } from './ContextSettingsPage';
 import { SessionSettingsPage } from './SessionSettingsPage';
 import { ToolsSettingsPage } from './ToolsSettingsPage';
 import { McpSettingsPage } from './McpSettingsPage';
+import { AboutSettingsPage, ABOUT_PAGE_ID } from './AboutSettingsPage';
 import './SettingsPanel.css';
 
 /** 设置页 id */
@@ -36,7 +37,8 @@ type SettingsPageId =
   | 'context'
   | 'session'
   | 'tools'
-  | 'mcp';
+  | 'mcp'
+  | typeof ABOUT_PAGE_ID;
 
 interface NavItem {
   id: SettingsPageId;
@@ -92,6 +94,11 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: 'settingsPage.navMcp',
     icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
   },
+  {
+    id: ABOUT_PAGE_ID,
+    labelKey: 'settingsPage.navAbout',
+    icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
+  },
 ];
 
 function renderPage(page: SettingsPageId, promptInitialTab?: string) {
@@ -114,6 +121,8 @@ function renderPage(page: SettingsPageId, promptInitialTab?: string) {
       return <ToolsSettingsPage />;
     case 'mcp':
       return <McpSettingsPage />;
+    case ABOUT_PAGE_ID:
+      return <AboutSettingsPage />;
     default:
       return null;
   }
@@ -154,13 +163,42 @@ export function SettingsPanel() {
   return (
     <div className="settings-panel">
       <aside className="settings-panel-nav">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => item.id !== ABOUT_PAGE_ID).map((item) => {
           const isActive = item.id === activePage;
           return (
             <button
               key={item.id}
               type="button"
               className={`settings-panel-nav-item${isActive ? ' active' : ''}`}
+              onClick={() => setActivePage(item.id)}
+            >
+              <span className="settings-panel-nav-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d={item.icon} />
+                </svg>
+              </span>
+              <span className="settings-panel-nav-label">{t(item.labelKey)}</span>
+            </button>
+          );
+        })}
+
+        {/* 底部独立项:关于(与设置项以分隔线区分,推到底部) */}
+        {NAV_ITEMS.filter((item) => item.id === ABOUT_PAGE_ID).map((item) => {
+          const isActive = item.id === activePage;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`settings-panel-nav-item settings-panel-nav-about${isActive ? ' active' : ''}`}
               onClick={() => setActivePage(item.id)}
             >
               <span className="settings-panel-nav-icon">
