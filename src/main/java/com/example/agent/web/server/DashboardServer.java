@@ -14,6 +14,7 @@ import com.example.agent.web.handler.GitLogHandler;
 import com.example.agent.web.handler.GitBranchHandler;
 import com.example.agent.web.handler.GitDiffHandler;
 import com.example.agent.web.handler.GitOperateHandler;
+import com.example.agent.web.handler.AiOptimizeHandler;
 import com.example.agent.web.handler.GitCommitMessageHandler;
 import com.example.agent.web.handler.GitCommitBodyHandler;
 import com.example.agent.web.handler.MemoryApiHandler;
@@ -114,6 +115,7 @@ public class DashboardServer {
             server.createContext("/api/git/operate", new GitOperateHandler());
             server.createContext("/api/git/commit-message", new GitCommitMessageHandler());
             server.createContext("/api/git/commit-body", new GitCommitBodyHandler());
+            server.createContext("/api/input/optimize", new AiOptimizeHandler());
             server.createContext("/api/diff/original", new DiffOriginalHandler());
             server.createContext("/api/file/raw", new RawFileHandler());
             server.createContext("/api/config", new ConfigApiHandler());

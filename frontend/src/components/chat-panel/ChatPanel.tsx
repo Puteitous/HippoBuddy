@@ -15,7 +15,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useSessionStream } from '@/hooks/useSessionStream';
 import { useVisionSupport } from '@/hooks/useVisionSupport';
-import { api, configApi } from '@/api/client';
+import { api, configApi, optimizeApi } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { translate, useI18n } from '@/i18n';
 import { setDefaultProcessView, getDefaultProcessCollapsed } from '@/utils/process-view-config';
@@ -358,6 +358,10 @@ export function ChatPanel() {
   const inlineInputRef = useRef<InlineInputHandle | null>(null);
   /** 行内输入框是否有内容(用于控制发送按钮禁用态) */
   const [hasInputContent, setHasInputContent] = useState(false);
+  /** AI 优化中标记;优化按钮禁用态 + 按钮/确认条的切换依据 */
+  const [optimizing, setOptimizing] = useState(false);
+  /** 优化完成后暂存的原始「文本+芯片」快照,供「恢复原稿」;null 表示无待恢复 */
+  const [optimizeOriginal, setOptimizeOriginal] = useState<{ text: string; chips: RefChip[] } | null>(null);
   /** 待发送图片(转为 dataUrl 后随 ChatRequest.images 提交) */
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   /** 灯箱预览的当前索引(null 为关闭) */
@@ -543,6 +547,58 @@ export function ChatPanel() {
     },
     [isStreamSending, visionSupported, addImage, pushWarning],
   );
+
+  /**
+   * AI 优化输入:把当前纯文本交给后端流式优化,增量回填输入框。
+   * 开始时暂存「文本+芯片」原稿快照;完成时把优化文本(保留原芯片)写回。
+   */
+  const handleOptimize = useCallback(async () => {
+    const input = inlineInputRef.current;
+    const text = input?.getTextContent() ?? '';
+    if (!text.trim() || isStreamSending || optimizing) return;
+
+    // 暂存原稿(含芯片),供「恢复原稿」
+    const original = input?.getContent() ?? { text: '', chips: [] };
+    setOptimizeOriginal(original);
+    setOptimizing(true);
+
+    let acc = '';
+    try {
+      await optimizeApi.optimizeText(
+        text,
+        (delta) => {
+          acc += delta;
+          input?.setContent(acc);
+        },
+      );
+    } catch (e) {
+      setOptimizeOriginal(null);
+      const msg = e instanceof Error ? e.message : String(e);
+      showToast(`${translate('chat.optimizeFailed')}${msg}`, { type: 'error', duration: 3000 });
+      // 失败时恢复原稿
+      input?.restore(original);
+      setOptimizing(false);
+      return;
+    } finally {
+      setOptimizing(false);
+    }
+
+    // 成功:以优化文本 + 原芯片结构写回,保留原稿快照供「恢复原稿」
+    input?.restore({ text: acc, chips: original.chips });
+  }, [isStreamSending, optimizing]);
+
+  /** 用户确认采用优化版:回到正常发送态(清除待恢复快照) */
+  const handleApplyOptimized = useCallback(() => {
+    setOptimizeOriginal(null);
+    setHasInputContent(true);
+  }, []);
+
+  /** 恢复原稿:用暂存的文本+芯片覆盖优化结果 */
+  const handleRevertOptimize = useCallback(() => {
+    if (!optimizeOriginal) return;
+    inlineInputRef.current?.restore(optimizeOriginal);
+    setOptimizeOriginal(null);
+  }, [optimizeOriginal]);
 
   const handleSend = useCallback(() => {
     const content = inlineInputRef.current?.getContent() ?? { text: '', chips: [] };
@@ -892,6 +948,19 @@ export function ChatPanel() {
             />
           </div>
 
+          {/* AI 优化结果确认条:优化完成后浮出,供采用/恢复 */}
+          {optimizeOriginal && !optimizing && (
+            <div className="chat-panel-optimize-confirm">
+              <span className="chat-panel-optimize-confirm-text">{t('chat.optimizeApplied')}</span>
+              <button type="button" onClick={handleApplyOptimized}>
+                {t('chat.useOptimized')}
+              </button>
+              <button type="button" onClick={handleRevertOptimize}>
+                {t('chat.revertOriginal')}
+              </button>
+            </div>
+          )}
+
           {/* 状态栏(对齐旧版 .input-status-bar):# / 📷 | Token | 文件变更 | 模型 | 发送/停止 */}
           <div className="chat-panel-input-status-bar">
             <div className="chat-panel-status-left">
@@ -926,6 +995,21 @@ export function ChatPanel() {
               <ModelSelectorPanel placement="top" />
             </div>
             <div className="chat-panel-status-actions">
+              {/* AI 优化按钮:优化中显示 loading,待确认时禁用(避免重复优化) */}
+              <button
+                type="button"
+                className={`chat-panel-optimize-btn${optimizing ? ' optimizing' : ''}`}
+                onClick={handleOptimize}
+                disabled={optimizing || !!optimizeOriginal || !hasInputContent || isStreamSending}
+                title={t('chat.optimize')}
+                aria-label={t('chat.optimize')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" aria-hidden>
+                  <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+                  <circle cx="12" cy="12" r="3.5" />
+                </svg>
+              </button>
+
               {isStreamSending ? (
                 <button
                   type="button"

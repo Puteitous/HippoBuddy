@@ -164,6 +164,14 @@ export function GitPanel() {
   const { t, lang } = useI18n();
   const workspacePath = useAppStore((s) => s.workspacePath);
   const openGitDiff = usePreviewStore((s) => s.openGitDiff);
+  const setView = useAppStore((s) => s.setView);
+  const setSettingsInitialPage = useAppStore((s) => s.setSettingsInitialPage);
+
+  /** 跳转设置页定位「Git 提交信息」提示词,便于就地调整生成提交信息的 system prompt */
+  const openCommitPromptSettings = useCallback(() => {
+    setSettingsInitialPage('prompt:gitCommit');
+    setView('settings');
+  }, [setSettingsInitialPage, setView]);
 
   // 重开面板时以同一工作区的快照作首帧数据:有数据就直接渲染,刷新在后台静默替换,
   // 避免先闪一下"加载中"。快照缺失(首次打开/换了项目)时才走占位。
@@ -812,6 +820,18 @@ export function GitPanel() {
             <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2" />
             <polyline points="14 2 14 5 11 5" />
             <polyline points="2 14 2 11 5 11" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="git-panel-icon-btn git-panel-prompt-btn"
+          title={t('git.commitPromptSettings')}
+          aria-label={t('git.commitPromptSettings')}
+          disabled={busy || !available}
+          onClick={openCommitPromptSettings}
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M10.5 2.5l3 3-6 6-3.5.5.5-3.5 6-6zM4 13h9" />
           </svg>
         </button>
         <button

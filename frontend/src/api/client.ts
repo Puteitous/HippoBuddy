@@ -392,6 +392,22 @@ export interface GitLogEntry {
   refs: string;
 }
 
+/**
+ * 输入区 AI 优化 API(对应后端 AiOptimizeHandler)
+ */
+export const optimizeApi = {
+  /** GET /api/input/optimize/defaults - 内置默认优化提示词(供设置页展示与恢复默认) */
+  defaults: () =>
+    getJson<{ systemPrompt: string }>(`${API_BASE}/input/optimize/defaults`),
+
+  /**
+   * 流式优化用户输入文本(AiOptimizeHandler 的 SSE: delta/complete/error)。
+   * onDelta 收到增量文本;完成或出错则 resolve/reject。
+   */
+  optimizeText: (text: string, onDelta: (delta: string) => void, signal?: AbortSignal) =>
+    streamOptimize(text, onDelta, signal),
+};
+
 export const gitApi = {
   /** GET /api/git/status - git 状态(结构化 entries,供面板分组与文件树徽章共用) */
   status: (path: string) =>
@@ -680,6 +696,101 @@ async function streamCommitMessage(
       }
     } else if (name === 'error') {
       let message = '生成提交信息失败';
+      try {
+        const parsed = JSON.parse(dataStr) as { error?: string };
+        if (parsed?.error) message = parsed.error;
+      } catch {
+        // 保留默认
+      }
+      throw new Error(message);
+    }
+    // complete 事件:正常结束,忽略
+  }
+}
+
+// ============================================================================
+// 流式调用 AI 优化输入文本(AiOptimizeHandler 的 SSE: delta/complete/error)
+// ============================================================================
+
+/**
+ * POST /api/input/optimize 并流式获取优化增量文本。
+ *
+ * 事件协议与 streamCommitMessage 一致:delta 的事件体为 JSON {@code {"d":<增量文本>}},
+ * 文本在服务端 JSON 转义;complete 事件结束;error 事件抛错。
+ */
+async function streamOptimize(
+  text: string,
+  onDelta: (delta: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/input/optimize`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify({ text }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const errBody = await response.json();
+      message = errBody?.error ?? message;
+    } catch {
+      // 忽略
+    }
+    throw new Error(message);
+  }
+
+  // 非流式(返回 JSON error,如"Missing text parameter")直接抛出
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('text/event-stream')) {
+    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(errBody?.error || '优化文本失败');
+  }
+
+  if (!response.body) throw new Error('Response body is null');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let separatorIndex: number;
+      while ((separatorIndex = buffer.indexOf('\n\n')) !== -1) {
+        const chunk = buffer.slice(0, separatorIndex);
+        buffer = buffer.slice(separatorIndex + 2);
+        handleEvent(chunk);
+      }
+    }
+    const trimmed = buffer.trim();
+    if (trimmed.length > 0) handleEvent(trimmed);
+  } finally {
+    reader.releaseLock();
+  }
+
+  function handleEvent(chunk: string): void {
+    let name: string | null = null;
+    const dataLines: string[] = [];
+    for (const line of chunk.split('\n')) {
+      if (line.startsWith('event:')) name = line.slice(6).trim();
+      else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart());
+    }
+    const dataStr = dataLines.join('\n');
+    if (name === 'delta') {
+      try {
+        const parsed = JSON.parse(dataStr) as { d?: string };
+        if (typeof parsed.d === 'string') onDelta(parsed.d);
+      } catch {
+        // 忽略无法解析的增量
+      }
+    } else if (name === 'error') {
+      let message = '优化文本失败';
       try {
         const parsed = JSON.parse(dataStr) as { error?: string };
         if (parsed?.error) message = parsed.error;

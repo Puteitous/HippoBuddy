@@ -88,6 +88,8 @@ export interface UiConfigSection {
   system_prompts?: Record<string, string>;
   /** Git 面板 AI 生成提交信息所用 system prompt;空=未自定义,用内置默认 */
   git_commit_prompt?: string;
+  /** 输入区 AI 优化所用 system prompt;空=未自定义,用内置默认 */
+  ai_optimize_prompt?: string;
   syntax_highlight: boolean;
   show_token_usage: boolean;
   show_timestamp: boolean;

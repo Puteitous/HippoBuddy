@@ -94,14 +94,14 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-function renderPage(page: SettingsPageId) {
+function renderPage(page: SettingsPageId, promptInitialTab?: string) {
   switch (page) {
     case 'general':
       return <GeneralSettingsPage />;
     case 'model':
       return <ModelSettingsPage />;
     case 'prompt':
-      return <PromptsSettingsPage />;
+      return <PromptsSettingsPage initialTab={promptInitialTab} />;
     case 'rules':
       return <RulesSettingsPage />;
     case 'skills':
@@ -124,10 +124,13 @@ export function SettingsPanel() {
   const settingsInitialPage = useAppStore((s) => s.settingsInitialPage);
   const setSettingsInitialPage = useAppStore((s) => s.setSettingsInitialPage);
   const { t } = useI18n();
-  // 初始页:外部可指定(如 ModelSelectorPanel「添加模型」→ model 页);仅首次挂载读取
-  const [activePage, setActivePage] = useState<SettingsPageId>(
-    () => (settingsInitialPage === 'model' ? 'model' : 'general'),
-  );
+  // 初始页:外部可指定(如 ModelSelectorPanel「添加模型」→ model 页;GitPanel「提交提示词」→ prompt 页并预选 tab);
+  // 仅首次挂载读取。格式:纯页面名,或「页面:定位」(如 prompt:gitCommit)以同时预选页内 Tab。
+  const [activePage, setActivePage] = useState<SettingsPageId>(() => {
+    if (settingsInitialPage === 'model') return 'model';
+    if (settingsInitialPage.split(':')[0] === 'prompt') return 'prompt';
+    return 'general';
+  });
 
   // 消费初始页标记,避免下次进入 Settings 仍停留在上次指定的页
   useEffect(() => {
@@ -200,8 +203,10 @@ export function SettingsPanel() {
             <line x1="13" y1="3" x2="3" y2="13" />
           </svg>
         </button>
-        <div className="settings-panel-page" key={activePage}>
-          {renderPage(activePage)}
+        <div className="settings-panel-scroll">
+          <div className="settings-panel-page" key={activePage}>
+            {renderPage(activePage, settingsInitialPage.split(':')[1])}
+          </div>
         </div>
       </section>
 

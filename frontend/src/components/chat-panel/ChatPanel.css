@@ -494,6 +494,85 @@
   color: var(--error-color);
 }
 
+/* ── AI 优化按钮(复用发送按钮圆形外观) ── */
+.chat-panel-optimize-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 2px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 0;
+}
+
+.chat-panel-optimize-btn:hover:not(:disabled) {
+  background: var(--bg-code);
+  color: var(--primary-color);
+  transform: scale(1.05);
+}
+
+.chat-panel-optimize-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.chat-panel-optimize-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chat-panel-optimize-btn.optimizing svg {
+  animation: hippo-optimize-spin 1s linear infinite;
+}
+
+@keyframes hippo-optimize-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── AI 优化结果确认条 ── */
+.chat-panel-optimize-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 4px 8px 8px;
+  font-size: var(--font-size-xs);
+  animation: chat-panel-optimize-in var(--transition-fast) ease-out;
+}
+
+.chat-panel-optimize-confirm-text {
+  margin-right: auto;
+  color: var(--text-secondary);
+}
+
+.chat-panel-optimize-confirm button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  background: var(--bg-app);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.chat-panel-optimize-confirm button:hover {
+  background: var(--bg-code);
+  color: var(--text-primary);
+  border-color: var(--primary-color);
+}
+
+@keyframes chat-panel-optimize-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ── 深色主题适配(对齐旧版 [data-theme="dark"] .input-inner) ── */
 [data-theme="dark"] .chat-panel-input-card,
 [data-theme="midnight"] .chat-panel-input-card {

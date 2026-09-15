@@ -9,17 +9,20 @@ import { useState } from 'react';
 import { useI18n } from '@/i18n';
 import { PromptSettingsPage } from './PromptSettingsPage';
 import { GitCommitPromptSettingsPage } from './GitCommitPromptSettingsPage';
+import { AiOptimizePromptSettingsPage } from './AiOptimizePromptSettingsPage';
 
-type TabId = 'mode' | 'gitCommit';
+type TabId = 'mode' | 'gitCommit' | 'aiOptimize';
 
 const TABS: { id: TabId; labelKey: string }[] = [
   { id: 'mode', labelKey: 'settingsPage.promptSection' },
   { id: 'gitCommit', labelKey: 'settingsPage.gitCommitPageTitle' },
+  { id: 'aiOptimize', labelKey: 'settingsPage.aiOptimizePageTitle' },
 ];
 
-export function PromptsSettingsPage() {
+export function PromptsSettingsPage({ initialTab }: { initialTab?: string }) {
   const { t } = useI18n();
-  const [tab, setTab] = useState<TabId>('mode');
+  // 外部可指定初始 Tab(如 GitPanel「提交提示词」→ gitCommit);仅首次挂载读取
+  const [tab, setTab] = useState<TabId>(initialTab === 'gitCommit' ? 'gitCommit' : 'mode');
 
   return (
     <div>
@@ -35,7 +38,7 @@ export function PromptsSettingsPage() {
           </button>
         ))}
       </div>
-      {tab === 'mode' ? <PromptSettingsPage /> : <GitCommitPromptSettingsPage />}
+      {tab === 'mode' ? <PromptSettingsPage /> : tab === 'gitCommit' ? <GitCommitPromptSettingsPage /> : <AiOptimizePromptSettingsPage />}
     </div>
   );
 }
