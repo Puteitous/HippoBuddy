@@ -1,7 +1,5 @@
 package com.example.agent.tools;
 
-import com.example.agent.console.AgentUi;
-import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.core.todo.TodoManager;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -121,9 +119,6 @@ public class TodoWriteTool implements ToolExecutor {
         } else {
             todoManager.mergeUpdates(treeTodos);
         }
-
-        AgentUi ui = ServiceLocator.getOrNull(AgentUi.class);
-        todoManager.renderToUi(ui);
 
         return todoManager.formatAsMarkdown();
     }

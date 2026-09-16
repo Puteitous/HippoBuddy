@@ -1,9 +1,5 @@
 package com.example.agent.progress;
 
-import com.example.agent.console.AgentUi;
-import com.example.agent.console.ConsoleStyle;
-import com.example.agent.core.di.ServiceLocator;
-
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ToolCallCard {

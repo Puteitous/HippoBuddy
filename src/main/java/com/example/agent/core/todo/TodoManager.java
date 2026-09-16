@@ -1,7 +1,5 @@
 package com.example.agent.core.todo;
 
-import com.example.agent.console.AgentUi;
-import com.example.agent.console.ConsoleStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -130,49 +128,6 @@ public class TodoManager {
     }
 
     // ============ 渲染输出 ============
-
-    /**
-     * 递归输出到控制台终端。
-     */
-    public void renderToUi(AgentUi ui) {
-        if (rootNodes.isEmpty() || ui == null) {
-            return;
-        }
-
-        ui.println();
-        ui.println(ConsoleStyle.gray("══════════════════ 任务清单 ═════════════════"));
-
-        for (TodoTreeNode node : rootNodes) {
-            renderNodeToUi(ui, node, 0);
-        }
-
-        long completed = countByStatus(TodoStatus.COMPLETED);
-        long total = size();
-        String summary = String.format("  进度: %d/%d 已完成", completed, total);
-        ui.println();
-        ui.println(ConsoleStyle.cyan(summary));
-        ui.println(ConsoleStyle.gray("═══════════════════════════════════════════════"));
-        ui.println();
-    }
-
-    private void renderNodeToUi(AgentUi ui, TodoTreeNode node, int depth) {
-        String indent = "  ".repeat(depth);
-        String icon = node.getStatus().getIcon();
-        String sessionTag = node.getSessionId() != null ? " 🔗" : "";
-        String line = String.format("  %s%s%s  %s", indent, icon, sessionTag, node.getContent());
-
-        if (node.getStatus() == TodoStatus.COMPLETED) {
-            ui.println(ConsoleStyle.gray(line));
-        } else if (node.getStatus() == TodoStatus.IN_PROGRESS) {
-            ui.println(ConsoleStyle.yellow(line));
-        } else {
-            ui.println(line);
-        }
-
-        for (TodoTreeNode child : node.getChildren()) {
-            renderNodeToUi(ui, child, depth + 1);
-        }
-    }
 
     /**
      * 递归格式化为 Markdown（带缩进）。

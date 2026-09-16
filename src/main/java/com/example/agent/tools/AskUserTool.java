@@ -1,14 +1,6 @@
 package com.example.agent.tools;
 
-import com.example.agent.console.AgentUi;
-import com.example.agent.console.ConsoleStyle;
-import com.example.agent.core.blocker.RequestContext;
-import com.example.agent.core.di.ServiceLocator;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import org.jline.reader.EndOfFileException;
-import org.jline.reader.LineReader;
-import org.jline.reader.UserInterruptException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -100,20 +92,8 @@ public class AskUserTool implements ToolExecutor {
             allowCustomInput = arguments.get("allow_custom_input").asBoolean();
         }
 
-        // 在 Web 环境中，返回交互式数据，等待用户响应
-        if (RequestContext.isWeb()) {
-            return formatWebResult(question, options, allowCustomInput);
-        }
-
-        // 在 CLI 环境中，使用终端交互
-        try {
-            String answer = promptUser(question, options, allowCustomInput);
-            return formatResult(question, answer);
-        } catch (UserInterruptException | EndOfFileException e) {
-            throw new ToolExecutionException("用户取消了输入", e);
-        } catch (Exception e) {
-            throw new ToolExecutionException("用户交互失败：" + e.getMessage(), e);
-        }
+        // 返回交互式数据，由前端渲染成交互式卡片并回传用户响应（人在回路）
+        return formatWebResult(question, options, allowCustomInput);
     }
 
     /**
@@ -150,75 +130,4 @@ public class AskUserTool implements ToolExecutor {
             .replace("\t", "\\t") + "\"";
     }
 
-    private String promptUser(String question, List<String> options, boolean allowCustomInput) {
-        LineReader reader = ServiceLocator.get(LineReader.class);
-        AgentUi ui = ServiceLocator.get(AgentUi.class);
-        com.example.agent.progress.SpinnerManager spinnerManager = com.example.agent.progress.SpinnerManager.getInstance();
-
-        spinnerManager.pauseAll();
-        try {
-        ui.println();
-        ui.println(ConsoleStyle.gray("┌─────────────────────────────────────────────────────────────┐"));
-        ui.println(ConsoleStyle.gray("│   ") + ConsoleStyle.boldYellow("Agent 需要您的确认") + ConsoleStyle.gray("                                      │"));
-        ui.println(ConsoleStyle.gray("└─────────────────────────────────────────────────────────────┘"));
-        ui.println();
-        ui.println(ConsoleStyle.bold("问题: ") + question);
-        ui.println();
-
-        if (!options.isEmpty()) {
-            ui.println(ConsoleStyle.bold("选项:"));
-            for (int i = 0; i < options.size(); i++) {
-                ui.println("  " + ConsoleStyle.cyan(String.valueOf(i + 1)) + ". " + options.get(i));
-            }
-            if (allowCustomInput) {
-                ui.println("  " + ConsoleStyle.cyan("0") + ". 输入自定义答案");
-            }
-            ui.println();
-            String prompt = ConsoleStyle.yellow("请选择 (输入数字");
-
-            if (allowCustomInput) {
-                prompt += "或直接输入答案";
-            }
-            prompt += "): ";
-
-            String input = reader.readLine(prompt).trim();
-
-            try {
-                int choice = Integer.parseInt(input);
-                if (choice >= 1 && choice <= options.size()) {
-                    return options.get(choice - 1);
-                } else if (choice == 0 && allowCustomInput) {
-                    return reader.readLine(ConsoleStyle.yellow("请输入您的答案: ")).trim();
-                } else {
-                    ui.println(ConsoleStyle.yellow("无效的选择，请重新输入。"));
-                    return promptUser(question, options, allowCustomInput);
-                }
-            } catch (NumberFormatException e) {
-                if (allowCustomInput) {
-                    return input;
-                } else {
-                    ui.println(ConsoleStyle.yellow("请输入有效的数字选项。"));
-                    return promptUser(question, options, allowCustomInput);
-                }
-            }
-        } else {
-            String input = reader.readLine(ConsoleStyle.yellow("您的回答: "));
-            return input != null ? input.trim() : "";
-        }
-        } finally {
-            spinnerManager.resumeAll();
-        }
-    }
-
-    private String formatResult(String question, String answer) {
-        StringBuilder result = new StringBuilder();
-        
-        result.append("用户回答\n");
-        result.append("─────────────────────────────────────────────────────────────\n");
-        result.append("问题: ").append(question).append("\n");
-        result.append("回答: ").append(answer).append("\n");
-        result.append("─────────────────────────────────────────────────────────────\n");
-        
-        return result.toString();
-    }
 }

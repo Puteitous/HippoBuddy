@@ -19,7 +19,6 @@
         <jackson.version>2.16.1</jackson.version>
         <okhttp.version>4.12.0</okhttp.version>
 
-        <jline.version>3.25.1</jline.version>
         <junit.version>5.10.2</junit.version>
         <logback.version>1.4.14</logback.version>
         <jacoco.version>0.8.11</jacoco.version>
@@ -87,12 +86,6 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
             <version>${jackson.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.jline</groupId>
-            <artifactId>jline</artifactId>
-            <version>${jline.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
