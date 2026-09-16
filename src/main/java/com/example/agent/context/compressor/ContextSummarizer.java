@@ -2,7 +2,7 @@ package com.example.agent.context.compressor;
 
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.model.Message;
-import com.example.agent.memory.SessionMemoryManager;
+import com.example.agent.memory.session.SessionMemoryManager;
 import com.example.agent.service.TokenEstimator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>HippoBuddy</name>
-    <description>A simple command-line AI Agent</description>
+    <description>AI-powered desktop assistant for chat, coding, and office productivity (Java backend for the Electron desktop app and Web Cockpit).</description>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
