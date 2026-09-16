@@ -20,7 +20,8 @@ import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
 import { useI18n } from '@/i18n';
 import type { Lang } from '@/i18n/messages';
-import { on } from '@/utils/eventBus';
+import { emit, on } from '@/utils/eventBus';
+import type { GitBranchChangedPayload } from '@/utils/eventBus';
 import { gitBadgeKindOf, gitBadgeLetter } from '@/utils/git-status';
 import { showToast } from '@/utils/toastStore';
 import { FileTypeIcon } from './FileTypeIcon';
@@ -489,6 +490,14 @@ export function GitPanel() {
     });
   };
 
+  /** 初始化当前目录为 git 仓库;成功后走 runOperate 内的全量 refresh,空态自动切换为普通面板 */
+  const initRepo = (): void => {
+    if (busy) return;
+    void runOperate({ action: 'init', path: workspacePath }).then((ok) => {
+      if (ok) showToast(t('git.initSuccess'), { type: 'success' });
+    });
+  };
+
   /** AI 依据当前变更流式生成提交信息,逐增填充输入框(有暂存则暂存,否则未暂存) */
   const generateCommitMessage = async (): Promise<void> => {
     if (aiMsgLoading || !workspacePath || (stagedCount === 0 && unstagedEntries.length === 0)) return;
@@ -516,7 +525,10 @@ export function GitPanel() {
 
   const checkout = (branch: string): void => {
     if (busy || branch === currentBranch) return;
-    void runOperate({ action: 'checkout', path: workspacePath, branch });
+    // 切分支会改变工作区文件结构:成功后广播 git:branch-changed,供 Sidebar 刷新文件树
+    void runOperate({ action: 'checkout', path: workspacePath, branch }).then((ok) => {
+      if (ok) emit<GitBranchChangedPayload>('git:branch-changed', { branch });
+    });
   };
 
   /** 远端操作 fetch/pull/push;push 需当前分支,dangling HEAD 时禁用 */
@@ -905,7 +917,20 @@ export function GitPanel() {
       )}
 
       {showLoading && <div className="git-panel-placeholder">{t('git.loading')}</div>}
-      {!showLoading && !available && <div className="git-panel-placeholder">{t('git.notRepo')}</div>}
+      {!showLoading && !available && (
+        <div className="git-panel-empty">
+          <div className="git-panel-empty-desc">{t('git.notRepo')}</div>
+          <div className="git-panel-empty-hint">{t('git.initRepoDesc')}</div>
+          <button
+            type="button"
+            className="git-panel-init-btn"
+            disabled={busy}
+            onClick={initRepo}
+          >
+            {busy ? <span className="git-panel-btn-spin" role="status" aria-label={t('git.loading')} /> : t('git.initRepo')}
+          </button>
+        </div>
+      )}
       {!showLoading && error && <div className="git-panel-error">{error}</div>}
 
       {!showLoading && available && (
@@ -1446,6 +1471,10 @@ function BranchDropdown({
 
   useEffect(() => {
     const onDown = (ev: PointerEvent) => {
+      // 点在分支列表内部不关闭:避免 pointerdown 先于 click 卸载列表,导致 item 的
+      // click 落空而切换失败(与 SyncMenu 的内部 contains 防护同理)
+      const el = document.querySelector('.git-panel-branch-list');
+      if (el && el.contains(ev.target as Node)) return;
       // 左键/触屏关闭;右键(button=2)保留以弹分支项菜单
       if (ev.button !== 2) onClose();
     };
@@ -1490,6 +1519,7 @@ function BranchDropdown({
               className={`git-panel-branch-list-item${b === currentBranch ? ' current' : ''}`}
               title={b}
               onClick={() => {
+                onClose(); // pointerdown 不再负责关闭(列表内),点击后由这里收起
                 if (b !== currentBranch) onCheckout(b);
               }}
               onContextMenu={(e) => onOpenBranchCtx(e, b)}
@@ -1506,7 +1536,10 @@ function BranchDropdown({
               key={b}
               className="git-panel-branch-list-item"
               title={b}
-              onClick={() => onCheckout(b)}
+              onClick={() => {
+                onClose();
+                onCheckout(b);
+              }}
             >
               <span className="git-panel-branch-list-name">{b}</span>
             </div>

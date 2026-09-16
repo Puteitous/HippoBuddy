@@ -217,6 +217,46 @@
   word-break: break-word;
 }
 
+/* 非仓库空态:提示 + 初始化按钮(整面板主体仅此区,纵向排布并垂直居中留白) */
+.git-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  color: var(--hb-text-soft, #9ca3af);
+}
+.git-panel-empty-desc {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hb-text, #111827);
+}
+.git-panel-empty-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--hb-text-soft, #9ca3af);
+}
+.git-panel-init-btn {
+  margin-top: 4px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent, #2563eb);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+.git-panel-init-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .git-panel-section {
   display: flex;
   flex-direction: column;

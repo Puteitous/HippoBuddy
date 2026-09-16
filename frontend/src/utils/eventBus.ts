@@ -56,7 +56,13 @@ export type EventBusEvent =
    * 故依赖该数据的组件(如 FileChangesMonitor)应订阅本事件再刷新,而非与消息加载并发,
    * 从而复刻旧版 switchSession 的顺序语义,消除"切换后读不到变更数据"的竞态。
    */
-  | 'session:messages-loaded';
+  | 'session:messages-loaded'
+  // ── Git:分支切换联动 ──────────────────────────────
+  /**
+   * 源码管理面板切换分支成功后发出,携带新的当前分支名。
+   * Sidebar 订阅后刷新文件树(分支切换会改变工作区文件结构,需重新 readDir)。
+   */
+  | 'git:branch-changed';
 
 /** selection:add-to-input 的 payload(对齐旧版 selection-actions.js 事件结构) */
 export interface SelectionAddToInputPayload {
@@ -91,6 +97,11 @@ export interface LlmChangedPayload {
 /** session:messages-loaded 的 payload:当前会话 id */
 export interface SessionMessagesLoadedPayload {
   sessionId: string | null;
+}
+
+/** git:branch-changed 的 payload:切换后的新分支名 */
+export interface GitBranchChangedPayload {
+  branch: string;
 }
 
 type Handler<T = unknown> = (payload: T) => void;

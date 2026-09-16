@@ -486,7 +486,8 @@ export const gitApi = {
       | 'push'
       | 'createBranch'
       | 'renameBranch'
-      | 'deleteBranch';
+      | 'deleteBranch'
+      | 'init';
     path: string;
     file?: string;
     message?: string;

@@ -32,6 +32,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *   <li>createBranch: {@code git branch newName [branch]}(branch 为可选起始点)</li>
  *   <li>renameBranch: {@code git branch -m branch newName}</li>
  *   <li>deleteBranch: {@code git branch -d branch}(仅删已合并分支)</li>
+ *   <li>init:      {@code git init}(将当前目录初始化为 git 仓库)</li>
  * </ul>
  * 成功后返回 {@code {success:true}},失败 {@code {success:false, error:...}}。
  */
@@ -156,6 +157,9 @@ public class GitOperateHandler implements HttpHandler {
                 }
                 // -d 仅删已合并分支;未合并会报错并给出提示
                 r = GitRunner.run(workDir, "branch", "-d", branch);
+            }
+            case "init" -> {
+                r = GitRunner.run(workDir, "init");
             }
             default -> {
                 sendJson(exchange, 400, objectMapper.writeValueAsString(Map.of("success", false, "error", "Unknown action: " + action)));

@@ -33,7 +33,7 @@ import { usePreviewStore } from '@/stores/previewStore';
 import { useChatStore } from '@/stores/chatStore';
 import { showToast } from '@/utils/toastStore';
 import { on } from '@/utils/eventBus';
-import type { RollbackCompletedPayload } from '@/utils/eventBus';
+import type { GitBranchChangedPayload, RollbackCompletedPayload } from '@/utils/eventBus';
 import type { Session } from '@/types';
 import { useI18n, translate } from '@/i18n';
 import { FileTree } from './workspace/FileTree';
@@ -211,6 +211,14 @@ export function Sidebar() {
   // 回滚完成 → 刷新文件树
   useEffect(() => {
     const unsubscribe = on<RollbackCompletedPayload>('rollback:completed', () => {
+      setFileTreeToken((t) => t + 1);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Git 分支切换成功 → 刷新文件树(工作区文件结构可能变化,需重新 readDir)
+  useEffect(() => {
+    const unsubscribe = on<GitBranchChangedPayload>('git:branch-changed', () => {
       setFileTreeToken((t) => t + 1);
     });
     return unsubscribe;
