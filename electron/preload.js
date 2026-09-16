@@ -123,6 +123,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ===== 应用信息 =====
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+  getStartupChangelog: () => ipcRenderer.invoke('app:getStartupChangelog'),
 
   // ===== Splash 启动画面 =====
   splashRetry: () => ipcRenderer.invoke('splash:retry'),

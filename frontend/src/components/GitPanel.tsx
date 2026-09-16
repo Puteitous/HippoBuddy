@@ -512,6 +512,11 @@ export function GitPanel() {
         (delta) => setCommitMsg((prev) => prev + delta),
         controller.signal,
       );
+      // 兜底清洗:部分模型(或自定义提示词)会在输出首尾包 Markdown 代码块(```),提交信息应为纯文本
+      setCommitMsg((prev) => {
+        const fenced = prev.match(/^```[^\n]*\n?([\s\S]*?)\n?```\s*$/);
+        return (fenced ? fenced[1] : prev).trim();
+      });
     } catch (e) {
       // 面板卸载引发的中止不是错误,不弹提示;已生成的片段保留在草稿里
       if (!controller.signal.aborted && mountedRef.current) {

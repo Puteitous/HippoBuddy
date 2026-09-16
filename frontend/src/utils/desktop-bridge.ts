@@ -567,6 +567,17 @@ export const desktopBridge = {
       return null;
     }
   },
+
+  /** 获取本次启动是否需要展示"新版本更新内容"及内容(仅打包桌面端有效,否则返回 null) */
+  async getStartupChangelog(): Promise<StartupChangelog | null> {
+    try {
+      const v = await window.electronAPI?.getStartupChangelog?.();
+      return v && v.version ? v : null;
+    } catch (e) {
+      console.warn('[desktopBridge] getStartupChangelog 失败:', e);
+      return null;
+    }
+  },
 };
 
 /**

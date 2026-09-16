@@ -603,6 +603,8 @@ export const zh: Record<string, string> = {
   'updater.restart': '重启安装',
   'updater.checkFailed': '检查更新失败：{message}',
   'updater.downloadFailed': '下载更新失败：{message}',
+  'changelog.title': '更新内容',
+  'changelog.acknowledge': '知道了',
 
   'settingsPage.rulesTitle': '规则管理',
   'settingsPage.rulesDescPage': '管理项目级和用户级规则文件，按「始终生效」和「手动引用」分组',
@@ -2262,6 +2264,8 @@ export const en: Record<string, string> = {
   'updater.restart': 'Restart & Install',
   'updater.checkFailed': 'Update check failed: {message}',
   'updater.downloadFailed': 'Download failed: {message}',
+  'changelog.title': 'What\'s new',
+  'changelog.acknowledge': 'Got it',
 
   'settingsPage.rulesTitle': 'Rules Management',
   'settingsPage.rulesDescPage': 'Manage project and user rule files, grouped by Always and Manual',

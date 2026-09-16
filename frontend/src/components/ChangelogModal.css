@@ -1,0 +1,146 @@
+/* ChangelogModal - 升级后首次启动的"新版本更新内容"弹窗 */
+
+.changelog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  animation: changelog-fade-in var(--transition-fast) ease;
+}
+
+@keyframes changelog-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.changelog-modal {
+  width: 400px;
+  max-width: calc(100vw - 48px);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-lg) + 2px);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-sans);
+  padding: 18px 18px 16px;
+  animation: changelog-pop-in 0.2s ease;
+  overflow: hidden;
+}
+
+@keyframes changelog-pop-in {
+  from { transform: translateY(-8px) scale(0.97); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ── 头部:版本徽章 + 标题 + 关闭 ── */
+
+.changelog-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.changelog-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.changelog-title {
+  flex: 1;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.changelog-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.changelog-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── 正文:带对勾的分点列表 ── */
+
+.changelog-list {
+  margin: 10px 0 4px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-height: 264px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.changelog-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.changelog-check {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin-top: 5px;
+  color: var(--accent);
+}
+
+.changelog-note {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+/* ── 底部按钮 ── */
+
+.changelog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.changelog-btn-primary {
+  padding: 6px 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--bg-overlay);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: filter var(--transition-fast), opacity var(--transition-fast);
+}
+
+.changelog-btn-primary:hover {
+  filter: brightness(1.1);
+}

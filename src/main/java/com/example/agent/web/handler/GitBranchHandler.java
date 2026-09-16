@@ -59,6 +59,15 @@ public class GitBranchHandler implements HttpHandler {
             }
         }
 
+        // 空仓(unborn 分支,尚未有 commit):git branch 不列出 unborn 分支,导致取不到当前分支名,
+        // 用 git symbolic-ref --short HEAD 兜底取默认分支名(如 master/main),供面板展示与切换。
+        if (current.isEmpty()) {
+            GitRunner.Result headRef = GitRunner.run(workDir, "symbolic-ref", "--short", "HEAD");
+            if (headRef.ok() && !headRef.stdout().isBlank()) {
+                current = headRef.stdout().trim();
+            }
+        }
+
         // 远端分支(origin/* 等),过滤 origin/HEAD 符号引用与已存在同名本地分支
         List<String> remotes = new ArrayList<>();
         GitRunner.Result rr = GitRunner.run(workDir, "branch", "-r", "--format=%(refname:short)");

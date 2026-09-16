@@ -37,6 +37,7 @@ import { SkillMarket } from './SkillMarket';
 import { SelectionActions } from './SelectionActions';
 import { OnboardingTour } from './OnboardingTour';
 import { UpdateCard } from './UpdateCard';
+import { ChangelogModal } from './ChangelogModal';
 import { ToastViewport } from '@/utils/toast';
 import './AppShell.css';
 
@@ -150,6 +151,8 @@ export function AppShell() {
       <OnboardingTour />
       {/* 自动更新卡片(仅桌面端 available/downloading/downloaded 时渲染) */}
       <UpdateCard />
+      {/* 升级后首次启动展示"新版本更新内容"(仅发生升级且当前版本有内容时渲染) */}
+      <ChangelogModal />
     </div>
   );
 }

@@ -1042,6 +1042,75 @@ ipcMain.handle('theme:set', (_event, theme) => {
 /** 返回应用版本号(供前端"关于"页展示) */
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
+// ---------- 升级更新内容 ----------
+
+/** 本地随包分发的版本更新日志(release-notes.json,列于 versions 数组) */
+const RELEASE_NOTES_FILE = 'release-notes.json';
+
+/** 已展示过更新内容的版本记录(存于 userData,用于判断是否发生升级) */
+const SEEN_VERSION_FILE = 'seen-version.json';
+
+function releaseNotesPath() {
+  // release-notes.json 作为源码随 electron-builder 的 files 打进 app.asar,与 main.js 同级
+  return path.join(__dirname, RELEASE_NOTES_FILE);
+}
+
+function seenVersionPath() {
+  return path.join(app.getPath('userData'), SEEN_VERSION_FILE);
+}
+
+/** 读取已记录版本,无记录返回 null */
+function readSeenVersion() {
+  try {
+    const data = JSON.parse(fs.readFileSync(seenVersionPath(), 'utf-8'));
+    return typeof data.version === 'string' ? data.version : null;
+  } catch { /* 文件不存在或损坏 */ }
+  return null;
+}
+
+function writeSeenVersion(version) {
+  try {
+    fs.mkdirSync(path.dirname(seenVersionPath()), { recursive: true });
+    fs.writeFileSync(seenVersionPath(), JSON.stringify({ version }, null, 2), 'utf-8');
+  } catch { /* 静默忽略 */ }
+}
+
+/** 读取本地更新日志(失败返回空数组) */
+function readReleaseNotes() {
+  try {
+    const data = JSON.parse(fs.readFileSync(releaseNotesPath(), 'utf-8'));
+    return Array.isArray(data.versions) ? data.versions : [];
+  } catch { /* 未分发日志文件或解析失败 */ }
+  return [];
+}
+
+/**
+ * 判定本次启动是否需要弹出"新版本更新内容"。
+ * 规则(dev 未打包一律返回 null):
+ *  - 已记录的版本 >= 当前版本(重复启动/旧包) → 不弹窗;
+ *  - 其余情况(发生升级,或没有基线记录——包括首次安装、以及从无此功能旧版升级上来)
+ *     → 返回当前版本更新内容,并更新/写入已见版本。
+ *
+ * 说明:由于发布本功能之前的旧版本不会写基线文件,无法区分"首次安装"与
+ * "从旧版升级",故放宽为"无基线也展示一次"。副作用为全新安装会看到一次更新面板;
+ * 此后每次版本升级各展示一次、同版本重复启动不重弹。
+ */
+async function getStartupChangelog() {
+  if (!app.isPackaged) return null;
+  const current = app.getVersion();
+  const seen = readSeenVersion();
+  // 已记录同版本或更高 → 不重复弹窗
+  if (seen !== null && compareVersions(current, seen) <= 0) return null;
+  writeSeenVersion(current);
+  const entry = readReleaseNotes().find((v) => v.version === current);
+  return {
+    version: current,
+    notes: entry && Array.isArray(entry.notes) ? entry.notes : [],
+  };
+}
+
+ipcMain.handle('app:getStartupChangelog', () => getStartupChangelog());
+
 // ---------- 终端 ----------
 
 /** 在系统原生终端中打开指定目录，跨平台支持 */

@@ -47,6 +47,7 @@ public class GitCommitMessageHandler implements HttpHandler {
         1. 第一行为标题，格式「type(scope): 简述」，type 取自 feat/fix/refactor/style/docs/test/chore，scope 为该次改动的模块名（尽量短）
         2. 标题后空一行，然后用带序号的分点列出主要改动，每条以「N. 」开头
         3. 只输出提交信息本身（含换行），不要任何解释或额外文字
+        4. 不要使用 Markdown 代码块（```）包裹输出，直接输出纯文本
         """;
 
     /** 默认 user 模板;用户未通过配置覆盖时(ui.git_commit_template 为空)使用 */

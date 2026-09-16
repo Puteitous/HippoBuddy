@@ -85,6 +85,7 @@ interface Window {
 
     // ── 应用信息(对齐 electron/preload.js 的 app:* IPC) ──
     getAppVersion?: () => Promise<string>;
+    getStartupChangelog?: () => Promise<StartupChangelog | null>;
   };
 
   // ── JCEF / Java 桌面端(旧 cockpit 注入) ──
@@ -138,4 +139,10 @@ interface UpdateProgress {
   percent?: number;
   total?: number;
   transferred?: number;
+}
+
+/** 升级后主界面展示的"新版本更新内容"(来源:随包分发的 release-notes.json) */
+interface StartupChangelog {
+  version: string;
+  notes: string[];
 }
