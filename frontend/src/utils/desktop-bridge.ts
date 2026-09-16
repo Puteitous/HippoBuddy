@@ -150,6 +150,40 @@ export const desktopBridge = {
     }
   },
 
+  // ────────────────────────── 工作区文件监听 ──────────────────────────
+
+  /**
+   * 告诉桌面端监听工作区目录,文件系统变更时回调 onFileSystemChanged。
+   * 切换工作区时两次调用即可:底层会先 unwatch 旧目录再 watch 新的。
+   */
+  watchWorkspace(dirPath: string): void {
+    try {
+      void window.electronAPI?.watchWorkspace?.(dirPath);
+      window.HippoWorkspace?.watchWorkspace?.(dirPath);
+    } catch (e) {
+      console.warn('[desktopBridge] watchWorkspace 失败:', e);
+    }
+  },
+
+  /**
+   * 订阅文件系统变更(携带触发目录 path)。返回取消订阅函数。
+   * 仅在 Electron 桌面端生效;浏览器 dev / 未注入时为空操作。
+   */
+  onFileSystemChanged(callback: (payload: { path?: string }) => void): () => void {
+    try {
+      window.electronAPI?.onFileSystemChanged?.(callback);
+    } catch (e) {
+      console.warn('[desktopBridge] onFileSystemChanged 失败:', e);
+    }
+    return () => {
+      try {
+        window.electronAPI?.removeFileSystemChangedListener?.();
+      } catch {
+        /* 忽略 */
+      }
+    };
+  },
+
   /** 在系统资源管理器中显示文件 */
   async showItemInFolder(path: string): Promise<void> {
     try {

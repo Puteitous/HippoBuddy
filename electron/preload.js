@@ -22,6 +22,12 @@ ipcRenderer.on('window:maximized-changed', (_event, maximized) => {
   if (_maximizedCallback) _maximizedCallback(maximized);
 });
 
+/** 文件系统变更回调（缓存一个，避免累加监听器） */
+let _fsChangedCallback = null;
+ipcRenderer.on('fs:changed', (_event, payload) => {
+  if (_fsChangedCallback) _fsChangedCallback(payload || {});
+});
+
 /** 原生通知点击回调（缓存一个，避免累加监听器） */
 let _notificationClickedCallback = null;
 ipcRenderer.on('notification:clicked', (_event, payload) => {
@@ -81,6 +87,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteFile: (path) => ipcRenderer.invoke('fs:deleteFile', path),
   showItemInFolder: (path) => ipcRenderer.invoke('fs:showItemInFolder', path),
   isDirectory: (path) => ipcRenderer.invoke('fs:isDirectory', path),
+
+  // ===== 工作区文件系统监听 =====
+  watchWorkspace: (path) => ipcRenderer.invoke('fs:watch', path),
+  unwatchWorkspace: () => ipcRenderer.invoke('fs:unwatch'),
+  onFileSystemChanged: (callback) => { _fsChangedCallback = callback; },
+  removeFileSystemChangedListener: () => { _fsChangedCallback = null; },
 
   // ===== 对话框 =====
   openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),

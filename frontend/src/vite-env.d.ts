@@ -33,6 +33,13 @@ interface Window {
     deleteFile?: (path: string) => Promise<boolean>;
     showItemInFolder?: (path: string) => Promise<void>;
     isDirectory?: (path: string) => Promise<boolean>;
+    /** 监听工作区目录文件变更(切换时会先 unwatch 旧的) */
+    watchWorkspace?: (path: string) => Promise<{ ok?: boolean; error?: string } | null>;
+    /** 停止工作区目录监听 */
+    unwatchWorkspace?: () => Promise<{ ok?: boolean } | null>;
+    /** 文件系统变更事件(单个回调缓存,重复订阅会覆盖) */
+    onFileSystemChanged?: (cb: (payload: { path?: string }) => void) => void;
+    removeFileSystemChangedListener?: () => void;
     openExternal?: (url: string) => Promise<void>;
     openTerminal?: (path: string) => Promise<void>;
 
@@ -108,6 +115,8 @@ interface Window {
     openExternal?: (url: string) => void;
     /** 当前工作区根路径(用于把绝对路径精简为相对路径) */
     currentPath?: string;
+    /** 监听工作区目录文件变更(旧版桌面端可选注入) */
+    watchWorkspace?: (path: string) => void;
   };
 
   // ── Mermaid 图表渲染(mermaid.ts 全局导出菜单关闭委托) ──

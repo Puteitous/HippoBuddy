@@ -45,6 +45,9 @@ const EXPANDED_KEY = 'hippo-file-tree-expanded';
 /** 单链目录折叠最大探测深度(对齐旧版 FileTree.js _compactMaxDepth) */
 const COMPACT_MAX_DEPTH = 5;
 
+/** 刷新按钮图标旋转的最小展示时长(ms),保证动画可见 */
+const REFRESH_MIN_MS = 600;
+
 /**
  * compact 检测用的 readDir 结果缓存,避免逐层重复读目录。
  * 在每次整体刷新 / 路径切换时由 clearCompactCache 清空。
@@ -145,6 +148,9 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
   const [rootEntries, setRootEntries] = useState<DirEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  /** 刷新开始时间:用于保证旋转动画至少展示一段时间(本地读目录瞬间完成) */
+  const refreshStartRef = useRef<number>(0);
   /** 展开的目录集合(顶层管理,便于持久化 / 折叠全部 / 刷新保留) */
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => readExpanded(rootPath));
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
@@ -166,6 +172,27 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
   const prevRootRef = useRef<string | null>(null);
   /** 树内点击选中的文件路径:用于跳过「点击后滚动居中」,避免点击的节点本就在可视区内还弹跳 */
   const treeClickPathRef = useRef<string | null>(null);
+
+  /** 刷新:发起一次整体重载(保留展开 + 高亮) */
+  const handleRefresh = useCallback(() => {
+    refreshStartRef.current = Date.now();
+    setRefreshing(true);
+    setTreeVersion((v) => v + 1);
+  }, []);
+
+  /** 关闭旋转动画但保证至少展示 REFRESH_MIN_MS,避免本地读目录瞬间完成时动画一闪而过 */
+  const finishRefresh = useCallback(() => {
+    const start = refreshStartRef.current;
+    const remain = REFRESH_MIN_MS - (Date.now() - start);
+    if (remain > 0) {
+      window.setTimeout(() => {
+        // 仅当仍未发起新刷新时才关闭,避免旧定时器误关新一次的动画
+        if (refreshStartRef.current === start) setRefreshing(false);
+      }, remain);
+    } else {
+      setRefreshing(false);
+    }
+  }, []);
 
   /** 树内点击选中文件:记录路径供滚动 effect 判断跳过(点击的节点已在可视区内,无需居中) */
   const handleFileSelect = useCallback(
@@ -190,6 +217,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
     }
     if (!rootPath) {
       setLoading(false);
+      finishRefresh();
       return;
     }
     let cancelled = false;
@@ -203,6 +231,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
         setRootEntries(sortEntries(entries));
       }
       setLoading(false);
+      finishRefresh();
     })();
     // 并行拉取 git status
     (async () => {
@@ -218,7 +247,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
     return () => {
       cancelled = true;
     };
-  }, [rootPath, treeVersion, refreshToken]);
+  }, [rootPath, treeVersion, refreshToken, finishRefresh]);
 
   // 由结构化 entries 构造 相对路径→徽章(字母 + 配色类别)映射,供文件节点渲染彩色徽章
   const gitFilesMap = useMemo(() => {
@@ -227,10 +256,6 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
     for (const e of gitStatus.entries) m[e.path] = gitBadgeOf(e);
     return m;
   }, [gitStatus]);
-
-  const handleRefresh = useCallback(() => {
-    setTreeVersion((v) => v + 1);
-  }, []);
 
   const handleCollapseAll = useCallback(() => {
     setExpandedDirs(new Set());
@@ -581,14 +606,15 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
           </button>
           <button
             type="button"
-            className="file-tree-refresh-btn"
+            className={`file-tree-refresh-btn${refreshing ? ' file-tree-refreshing' : ''}`}
             onClick={handleRefresh}
             title={t('fileTree.refresh')}
             aria-label={t('fileTree.refresh')}
           >
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M13 8a5 5 0 1 1-1.5-3.5" />
-              <polyline points="13 3 13 6 10 6" />
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M2 8a6 6 0 0 1 11.2-3.2M14 8a6 6 0 0 1-11.2 3.2" />
+              <polyline points="14 2 14 5 11 5" />
+              <polyline points="2 14 2 11 5 11" />
             </svg>
           </button>
         </div>

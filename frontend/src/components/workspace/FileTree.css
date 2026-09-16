@@ -33,19 +33,31 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: none;
   background: transparent;
   color: var(--hb-text-soft, #6b7280);
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .file-tree-refresh-btn:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.06));
   color: var(--hb-text, #1f2937);
+}
+
+/* 刷新进行中:图标旋转 */
+.file-tree-refreshing svg {
+  animation: file-tree-spin 0.8s linear infinite;
+}
+
+@keyframes file-tree-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .file-tree-list {

@@ -884,6 +884,63 @@ ipcMain.handle('fs:isDirectory', async (_event, filePath) => {
   }
 });
 
+// -------- 工作区目录监听(文件树自动刷新) --------
+
+let workspaceWatcher = null;
+let workspaceWatchDir = null;
+let workspaceWatchTimer = null;
+
+/**
+ * 是否应忽略该变更(相对工作区的路径)。过滤 .git / node_modules 等
+ * 高频变动目录,避免一有文件变化就触发前端 readDir,造成性能损耗。
+ */
+function isIgnorableWatchPath(file) {
+  if (!file) return false;
+  const segs = file.split(/[\\/]+/);
+  return segs.some((s) => s === '.git' || s === 'node_modules' || s === '.idea' || s === 'dist' || s === '.cache');
+}
+
+function stopWorkspaceWatch() {
+  if (workspaceWatcher) {
+    try { workspaceWatcher.close(); } catch { /* 忽略 */ }
+    workspaceWatcher = null;
+  }
+  if (workspaceWatchTimer) {
+    clearTimeout(workspaceWatchTimer);
+    workspaceWatchTimer = null;
+  }
+  workspaceWatchDir = null;
+}
+
+function startWorkspaceWatch(dirPath) {
+  stopWorkspaceWatch();
+  const dir = path.resolve(dirPath || '');
+  if (!dir) return { ok: false };
+  workspaceWatchDir = dir;
+  try {
+    // fs.watch recursive 监听整个工作区,主进程内做噪声过滤 + 防抖聚合
+    workspaceWatcher = fs.watch(dir, { recursive: true }, (_eventType, filename) => {
+      if (isIgnorableWatchPath(filename)) return;
+      if (workspaceWatchTimer) clearTimeout(workspaceWatchTimer);
+      workspaceWatchTimer = setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('fs:changed', { path: workspaceWatchDir });
+        }
+      }, 300);
+    });
+    workspaceWatcher.on('error', () => { stopWorkspaceWatch(); });
+    return { ok: true };
+  } catch (err) {
+    stopWorkspaceWatch();
+    return { ok: false, error: err.message };
+  }
+}
+
+/** 前端设置/切换工作区后调用,切换会先 unwatch 旧目录 */
+ipcMain.handle('fs:watch', async (_event, dirPath) => startWorkspaceWatch(dirPath));
+/** 显式停止监听(应用退出 / 清理时调用) */
+ipcMain.handle('fs:unwatch', async () => { stopWorkspaceWatch(); return { ok: true }; });
+
 // ---------- 对话框 ----------
 
 /** 打开文件夹选择对话框 */
@@ -1695,6 +1752,7 @@ app.on('will-quit', (event) => {
   // 先优雅关闭后端（可能耗时数秒），完成后才真正退出。
   // 若在此同步退出，/api/shutdown 请求来不及发出，后端会残留为孤儿进程持续占用端口。
   event.preventDefault();
+  stopWorkspaceWatch();
   stopBackend().finally(() => {
     if (tray) {
       tray.destroy();

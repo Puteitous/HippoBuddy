@@ -36,6 +36,7 @@ import { on } from '@/utils/eventBus';
 import type { GitBranchChangedPayload, RollbackCompletedPayload } from '@/utils/eventBus';
 import type { Session } from '@/types';
 import { useI18n, translate } from '@/i18n';
+import { desktopBridge } from '@/utils/desktop-bridge';
 import { FileTree } from './workspace/FileTree';
 import './Sidebar.css';
 
@@ -222,6 +223,40 @@ export function Sidebar() {
       setFileTreeToken((t) => t + 1);
     });
     return unsubscribe;
+  }, []);
+
+  // AI 工具(write_file / edit_file / delete_file)写文件 → 刷新文件树
+  // (对齐旧版"AI 改文件后预览/文件树联动"。delete_file 会对每个路径各发一次事件,
+  //  这里做防抖合并,避免连续触发多次 readDir。)
+  useEffect(() => {
+    let timer: number | undefined;
+    const unsubscribe = on<string>('file:preview-reload', () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setFileTreeToken((t) => t + 1), 300);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+    };
+  }, []);
+
+  // 工作区变化 → 让桌面端监听该目录(便于感知外部编辑器/终端等文件变更)。切工作区重设即自动换监听。
+  useEffect(() => {
+    if (!workspacePath) return;
+    desktopBridge.watchWorkspace(workspacePath);
+  }, [workspacePath]);
+
+  // 桌面端文件系统监听回调 → 防抖刷新文件树(覆盖外部编辑、bash 命令等不在 AI 工具事件内的变更)
+  useEffect(() => {
+    let timer: number | undefined;
+    const unsubscribe = desktopBridge.onFileSystemChanged(() => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setFileTreeToken((t) => t + 1), 300);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+    };
   }, []);
 
   // 预览面包屑点击目录段 → 切换到文件视图并让文件树展开/高亮该目录(对齐旧版 switchView('files') + revealDirectory)
