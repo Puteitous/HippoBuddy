@@ -79,6 +79,9 @@ public class SessionApiHandler implements HttpHandler {
             } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/fork$")) {
                 String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/fork"));
                 rewindHandler.handleForkSession(exchange, sessionId);
+            } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/summarize-new$")) {
+                String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/summarize-new"));
+                rewindHandler.handleSummarizeNew(exchange, sessionId);
             } else if ("DELETE".equals(method) && path.matches("/api/sessions/[^/]+$")) {
                 String sessionId = path.substring("/api/sessions/".length());
                 handleDeleteSession(exchange, sessionId);

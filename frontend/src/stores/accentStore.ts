@@ -36,11 +36,16 @@ function saveStored(accent: string): void {
   }
 }
 
-/** 应用到 <html>:覆盖 --accent;空值移除覆盖,回落到各主题默认强调色 */
+/** 应用到 <html>:覆盖 --accent 及主按钮品牌色 --active-project;空值移除覆盖,回落到各主题默认强调色 */
 function applyAccent(accent: string): void {
   const root = document.documentElement;
-  if (accent) root.style.setProperty('--accent', accent);
-  else root.style.removeProperty('--accent');
+  if (accent) {
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--active-project', accent);
+  } else {
+    root.style.removeProperty('--accent');
+    root.style.removeProperty('--active-project');
+  }
 }
 
 // 模块加载即应用已保存强调色,避免刷新后首帧回落到主题默认

@@ -29,3 +29,30 @@
   font-family: inherit;
   font-size: 13px;
 }
+
+/* 网址与跳转图标按钮的横向容器 */
+.about-link-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 独立跳转图标按钮 */
+.about-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.45));
+  cursor: pointer;
+}
+
+.about-open-btn:hover {
+  color: var(--hb-accent, #4f6ef7);
+  background: color-mix(in srgb, var(--hb-accent, #4f6ef7) 8%, transparent);
+}

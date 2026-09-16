@@ -1489,6 +1489,12 @@ function setupAutoUpdater() {
 
 // ---------- IPC: 更新控制 ----------
 
+// 仅探测是否 dev(未打包)环境,不触发真实检查。
+// 供「关于」页等仅需判断可用性的场景使用,避免进页即自动检查更新。
+ipcMain.handle('update:devcheck', async () => {
+  return { devMode: !app.isPackaged };
+});
+
 ipcMain.handle('update:check', async () => {
   // dev(未打包)下 electron-updater 会跳过检查,提前返回 devMode 供前端提示,避免无意义的检查
   if (!app.isPackaged) {

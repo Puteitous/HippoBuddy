@@ -98,6 +98,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openTerminal: (path) => ipcRenderer.invoke('terminal:open', path),
 
   // ===== 自动更新 =====
+  checkDevMode: () => ipcRenderer.invoke('update:devcheck'),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   cancelUpdate: () => ipcRenderer.invoke('update:cancel'),

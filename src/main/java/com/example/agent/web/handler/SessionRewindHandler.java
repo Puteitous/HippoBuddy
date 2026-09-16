@@ -3,6 +3,10 @@ package com.example.agent.web.handler;
 import com.example.agent.application.ConversationService;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
+import com.example.agent.llm.client.LlmClient;
+import com.example.agent.llm.model.ChatResponse;
+import com.example.agent.llm.model.Message;
+import com.example.agent.session.TranscriptEntry;
 import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
@@ -51,6 +55,22 @@ public class SessionRewindHandler {
     private static final Logger logger = LoggerFactory.getLogger(SessionRewindHandler.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final ConversationJsonlReader jsonlReader = new ConversationJsonlReader(objectMapper);
+
+    /**
+     * 作为追加的 user 消息发给 LLM，让其基于「完整 system prompt + 全部历史」生成纯文本总结。
+     * 只输出总结正文，方便整体作为新会话的首条 user 消息。
+     */
+    private static final String SUMMARY_PROMPT =
+            "你是会话续接助手。请把下面整个对话总结成一份可直接续接的交接纪要。\n" +
+            "要求：\n" +
+            "1. 只输出总结本身，不要任何开场白、标题帽、Markdown 外壳或\"以下是总结\"之类的话。\n" +
+            "2. 用 Markdown 列表，四个小节的顺序固定：\n" +
+            "   - 目标：本次任务/需求是什么\n" +
+            "   - 已完成：关键决策、已改动的文件、已得出的结论\n" +
+            "   - 当前状态：停在哪个点、上下文里最关键的技术上下文\n" +
+            "   - 待办：下一步应该做什么\n" +
+            "3. 面向\"新会话接手的助手\"，它没看过原对话，所以不要省略判断/决策依据。\n" +
+            "4. 如果某节没有内容，就写\"暂无\"。";
 
     /**
      * 回滚预览：收集目标消息之后的所有文件操作变更。
@@ -306,6 +326,110 @@ public class SessionRewindHandler {
             logger.error("分叉会话失败: sessionId={}", sessionId, e);
             sendError(exchange, 500, "分叉失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 上下文快满时的总结：后端一次性生成总结并新建会话承接。
+     * POST /api/sessions/{id}/summarize-new
+     * <p>
+     * 流程：取当前会话的有效消息前缀（含 system prompt，保持前缀一致以命中 prompt-cache），
+     * 临时追加一条 user(总结提示词)，单次调用 LLM 拿纯文本总结；随后新建一个会话，
+     * 把总结作为其首条 user 消息写入 conversation.jsonl。原会话 transcript 完全不变。
+     * <p>
+     * 返回 {@code {newSessionId, summary}}，前端切到新会话继续。
+     */
+    public void handleSummarizeNew(HttpExchange exchange, String sessionId) throws IOException {
+        logger.info("handleSummarizeNew: sessionId={}", sessionId);
+
+        Conversation conversation = com.example.agent.web.session.WebSessionManager.getInstance().getSessions().get(sessionId);
+        if (conversation == null) {
+            sendError(exchange, 400, "会话必须处于活跃状态才能总结: " + sessionId);
+            return;
+        }
+
+        ConversationService conversationService = ServiceLocator.get(ConversationService.class);
+        LlmClient llmClient = ServiceLocator.get(LlmClient.class);
+
+        try {
+            // 复用真实发送链路的前缀（含 system prompt），保证 prompt-cache 前缀一致
+            List<Message> prefix = conversationService.prepareForInference(conversation);
+            List<Message> promptMessages = new ArrayList<>(prefix);
+            promptMessages.add(Message.user(SUMMARY_PROMPT));
+
+            ChatResponse resp = llmClient.chat(promptMessages);
+            Message first = resp != null ? resp.getFirstMessage() : null;
+            String summary = first != null ? first.getContent() : null;
+            if (summary == null || summary.isBlank()) {
+                sendError(exchange, 500, "总结生成结果为空");
+                return;
+            }
+
+            // 复用 fork 的建会话模板：剥离 _fork_/_summary_ 链取根 id，生成新 id
+            String rootSessionId = stripSuffix(sessionId);
+            String newSessionId = rootSessionId + "_summary_" + System.currentTimeMillis();
+
+            Path sourceJsonl = findJsonlPathForSession(sessionId);
+            if (sourceJsonl == null || !Files.exists(sourceJsonl)) {
+                sendError(exchange, 404, "Session not found");
+                return;
+            }
+
+            Path newSessionDir = getSessionDir(newSessionId);
+            Files.createDirectories(newSessionDir);
+            Path newJsonlPath = newSessionDir.resolve("conversation.jsonl");
+
+            // 继承源会话元数据（workspacePath 等），使新会话在同一工作区继续
+            Path sourceMetadata = sourceJsonl.getParent().resolve("session.json");
+            if (Files.exists(sourceMetadata)) {
+                Files.copy(sourceMetadata, newSessionDir.resolve("session.json"),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            // 命名：源标题 + "（续）"
+            String sourceTitle = extractSessionTitle(sourceJsonl);
+            if (sourceTitle == null || sourceTitle.isBlank()) sourceTitle = "会话";
+            int parentNum = extractTrailingNumber(sourceTitle);
+            String cleanTitle = parentNum > 0 ? sourceTitle.replaceAll(" \\(\\d+\\)$", "") : sourceTitle;
+            String newTitle = cleanTitle + "（续）";
+
+            List<String> lines = new ArrayList<>();
+            ObjectNode titleEntry = objectMapper.createObjectNode();
+            titleEntry.put("type", "custom-title");
+            titleEntry.put("uuid", UUID.randomUUID().toString());
+            titleEntry.put("sessionId", newSessionId);
+            titleEntry.put("timestamp", java.time.Instant.now().toString());
+            titleEntry.put("version", "1.0.0");
+            titleEntry.put("cwd", System.getProperty("user.dir"));
+            titleEntry.put("title", newTitle);
+            lines.add(objectMapper.writeValueAsString(titleEntry));
+
+            // 首条 user 消息 = 总结全文（复用 TranscriptEntry 的落盘格式）
+            lines.add(objectMapper.writeValueAsString(
+                    TranscriptEntry.user(newSessionId, Message.user(summary))));
+            Files.write(newJsonlPath, lines, StandardCharsets.UTF_8);
+
+            jsonlReader.getFileCache().put(newSessionId, newJsonlPath);
+
+            logger.info("总结到新会话完成: source={}, newSessionId={}, 总结长度={}", sessionId, newSessionId, summary.length());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("newSessionId", newSessionId);
+            response.put("summary", summary);
+            sendJson(exchange, response);
+
+        } catch (Exception e) {
+            logger.error("总结到新会话失败: sessionId={}", sessionId, e);
+            sendError(exchange, 500, "总结失败: " + e.getMessage());
+        }
+    }
+
+    /** 剥离 _fork_ / _summary_ 链，返回根会话 id。 */
+    private String stripSuffix(String sessionId) {
+        int forkIdx = sessionId.indexOf("_fork_");
+        if (forkIdx > 0) return sessionId.substring(0, forkIdx);
+        int summaryIdx = sessionId.indexOf("_summary_");
+        if (summaryIdx > 0) return sessionId.substring(0, summaryIdx);
+        return sessionId;
     }
 
     /**

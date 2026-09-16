@@ -1,0 +1,178 @@
+/* ===================================================================
+ * ContextLimitModal — 上下文快满弹窗
+ * 主题变量沿用设置面板：--bg-app / --text-primary / --text-secondary
+ * / --hb-border / --accent / --radius-*。浅色/深色/午夜用各自 --bg-app，
+ * 玻璃主题用实色兜底（对齐 FeedbackFormModal）。
+ * =================================================================== */
+
+.cl-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.cl-modal {
+  width: 460px;
+  max-width: calc(100vw - 32px);
+  padding: 16px 18px;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--hb-border, rgba(0, 0, 0, 0.08));
+  background: var(--bg-app, #fff);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.cl-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cl-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.cl-modal-close:hover {
+  background: var(--surface-muted, rgba(127, 127, 127, 0.2));
+  color: var(--text-primary);
+}
+
+.cl-modal-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.cl-modal-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+.cl-modal-meter-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-muted, rgba(127, 127, 127, 0.18));
+  overflow: hidden;
+}
+.cl-modal-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+.cl-modal-percent {
+  min-width: 42px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.cl-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--hb-border, rgba(0, 0, 0, 0.18));
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.cl-btn:hover:not(:disabled) {
+  border-color: var(--accent, #787c82);
+}
+.cl-btn-primary {
+  color: #fff;
+  /* 品牌强调色 --active-project，随主题切换(浅色#2563eb/深色玻璃#60a5fa)，白字对比清晰；用户自定义强调色时由 accentStore 一并写入 */
+  background: var(--active-project, #2563eb);
+  border-color: var(--active-project, #2563eb);
+}
+.cl-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  border-color: var(--active-project, #2563eb);
+}
+.cl-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 总结中按钮转圈动画 */
+.cl-spinner {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: cl-spin 0.7s linear infinite;
+}
+@keyframes cl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cl-spinner {
+    animation: none;
+  }
+}
+
+/* 最小化后的状态栏胶囊（可再次点开） */
+.cl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 9px;
+  margin: 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warning, #d97706);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--warning, #d97706) 45%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background 0.15s, border-color 0.15s;
+}
+.cl-chip:hover {
+  background: color-mix(in srgb, var(--warning, #d97706) 12%, transparent);
+  border-color: var(--warning, #d97706);
+}
+
+/* 玻璃主题：--bg-app 为半透明，弹窗需要实色面板保证可读 */
+[data-theme="glass"] .cl-modal {
+  background: #1a1e28;
+  border-color: rgba(255, 255, 255, 0.1);
+}

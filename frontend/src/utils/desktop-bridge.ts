@@ -395,6 +395,21 @@ export const desktopBridge = {
 
   // ────────────────────────── 自动更新 ──────────────────────────
 
+  /**
+   * 仅探测是否 dev(未打包)环境,不触发真实更新检查。
+   * 供「关于」页等仅需判断可用性的场景使用。
+   * @returns 非桌面端或调用失败时按 null 处理(调用方以非 true 视为非 dev)
+   */
+  async checkDevMode(): Promise<boolean> {
+    try {
+      const r = await window.electronAPI?.checkDevMode?.();
+      return r?.devMode === true;
+    } catch (e) {
+      console.warn('[desktopBridge] checkDevMode 失败:', e);
+      return false;
+    }
+  },
+
   /** 手动检查更新(仅桌面端有效;非桌面端或 dev 未打包时返回 { success: false }) */
   async checkForUpdates(): Promise<{ success: boolean; error?: string; devMode?: boolean }> {
     try {

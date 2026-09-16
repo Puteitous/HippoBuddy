@@ -43,10 +43,8 @@ export function AboutSettingsPage() {
 
   useEffect(() => {
     void desktopBridge.getAppVersion().then(setVersion);
-    // 探测是否 dev 未打包:update:check 未成功会带 devMode 标志,据此禁用更新按钮
-    void desktopBridge.checkForUpdates().then((r) => {
-      if (r.devMode) setDevMode(true);
-    });
+    // 探测是否 dev 未打包(仅查询环境,不触发真实更新检查),据此禁用更新按钮
+    void desktopBridge.checkDevMode().then(setDevMode);
   }, []);
 
   const openLink = (url: string) => desktopBridge.openExternal(url);
@@ -76,9 +74,24 @@ export function AboutSettingsPage() {
                 <div className="settings-field-hint">{t(link.hintKey)}</div>
               </div>
               <div className="settings-field-body">
-                <button type="button" className="settings-toggle-btn about-link-btn" onClick={() => openLink(link.url)}>
-                  {link.url.replace(/^https?:\/\//, '')}
-                </button>
+                <div className="about-link-row">
+                  <button type="button" className="settings-toggle-btn about-link-btn" onClick={() => openLink(link.url)}>
+                    {link.url.replace(/^https?:\/\//, '')}
+                  </button>
+                  <button
+                    type="button"
+                    className="about-open-btn"
+                    aria-label={`${t(link.labelKey)}`}
+                    title={link.url}
+                    onClick={() => openLink(link.url)}
+                  >
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14L21 3" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           ))}

@@ -61,6 +61,7 @@ interface Window {
     openDevTools?: () => void;
 
     // ── 自动更新(对齐 electron/preload.js 的 update:* IPC) ──
+    checkDevMode?: () => Promise<{ devMode?: boolean }>;
     checkForUpdates?: () => Promise<{ success?: boolean; error?: string; devMode?: boolean }>;
     downloadUpdate?: () => Promise<{ success?: boolean; error?: string }>;
     cancelUpdate?: () => Promise<{ success?: boolean; error?: string }>;

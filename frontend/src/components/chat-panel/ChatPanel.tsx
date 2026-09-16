@@ -40,6 +40,7 @@ import {
   TIMELINE_STANDALONE_TOOLS,
 } from '../tool-renderers/tool-timeline-utils';
 import { TokenMonitor } from './TokenMonitor';
+import { ContextLimitModal } from './ContextLimitModal';
 import { ImageUpload } from './ImageUpload';
 import { Lightbox } from './Lightbox';
 import { FileChangesMonitor } from './FileChangesMonitor';
@@ -987,6 +988,7 @@ export function ChatPanel() {
               {!showHero && (
                 <>
                   <TokenMonitor statusBar />
+                  <ContextLimitModal />
                   <span className="chat-panel-status-divider" aria-hidden />
                   <FileChangesMonitor />
                   <span className="chat-panel-status-divider" aria-hidden />

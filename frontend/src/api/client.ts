@@ -128,6 +128,13 @@ export const sessionApi = {
       `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/fork`,
       body,
     ),
+
+  /** POST /api/sessions/:id/summarize-new - 上下文快满时总结并新建会话承接 */
+  summarizeNew: (sessionId: string) =>
+    postJson<{ newSessionId: string; summary: string }>(
+      `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/summarize-new`,
+      {},
+    ),
 };
 
 // ============================================================================
