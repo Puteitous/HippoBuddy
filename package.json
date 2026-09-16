@@ -3,10 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:cm": "node scripts/build-codemirror.mjs",
     "build:ooxml": "node scripts/build-ooxml.mjs",
     "build:docx-preview": "node scripts/build-docx-preview.mjs",
-    "build:vendor": "node scripts/build-codemirror.mjs && node scripts/build-ooxml.mjs && node scripts/build-docx-preview.mjs"
+    "build:vendor": "node scripts/build-ooxml.mjs && node scripts/build-docx-preview.mjs"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.3",
