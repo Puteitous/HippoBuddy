@@ -762,6 +762,12 @@ export const zh: Record<string, string> = {
   'settingsPage.mcpServerDeleted': '已删除服务器: ',
   'settingsPage.mcpDeleteConfirm': '确定删除 MCP 服务器「',
   'settingsPage.mcpDeleteConfirmEnd': '」？',
+  'settingsPage.pluginRegistryGroup': '插件目录',
+  'settingsPage.pluginRegistryUrlLabel': '远程目录地址 (registry_url)',
+  'settingsPage.pluginRegistryUrlHint': '远程插件目录 index.json 地址。留空使用官方默认源；填写后插件市场从该地址拉取目录。',
+  'settingsPage.pluginRegistrySave': '保存',
+  'settingsPage.pluginRegistrySaving': '保存中...',
+  'settingsPage.pluginRegistrySaved': '插件目录已保存，插件市场将刷新',
 
   /* ==================== SettingsPanel Navigation ==================== */
   'settingsPage.navGeneral': '通用',
@@ -2454,6 +2460,12 @@ export const en: Record<string, string> = {
   'settingsPage.mcpServerDeleted': 'Server deleted: ',
   'settingsPage.mcpDeleteConfirm': 'Are you sure you want to delete MCP server "',
   'settingsPage.mcpDeleteConfirmEnd': '"? ',
+  'settingsPage.pluginRegistryGroup': 'Plugin Directory',
+  'settingsPage.pluginRegistryUrlLabel': 'Remote directory URL (registry_url)',
+  'settingsPage.pluginRegistryUrlHint': 'URL of the remote plugin index.json. Leave empty to use the official default source; when filled, the plugin market loads from this address.',
+  'settingsPage.pluginRegistrySave': 'Save',
+  'settingsPage.pluginRegistrySaving': 'Saving...',
+  'settingsPage.pluginRegistrySaved': 'Plugin directory saved, the market will refresh',
 
   /* ==================== SettingsPanel Navigation ==================== */
   'settingsPage.navGeneral': 'General',

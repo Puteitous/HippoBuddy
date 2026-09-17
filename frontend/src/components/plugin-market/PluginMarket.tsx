@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { skillsApi, configApi, mcpApi, pluginsApi } from '@/api/client';
 import { type RemotePluginEntry, type RemoteRegistry } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
-import { emit as emitEvent } from '@/utils/eventBus';
+import { emit as emitEvent, on as onEvent } from '@/utils/eventBus';
 import { useI18n } from '@/i18n';
 import type { SkillEntry, McpConfigSection, McpServerConfigSection } from '@/types/config';
 import {
@@ -223,6 +223,14 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
   // 打开市场时自动拉取远程目录(静默,失败回退内置)
   useEffect(() => {
     void loadCatalog(false);
+  }, [loadCatalog]);
+
+  // 设置页修改 registry_url 后自动重新拉取目录
+  useEffect(() => {
+    const unsubscribe = onEvent('plugin-registry:changed', () => {
+      void loadCatalog(true);
+    });
+    return unsubscribe;
   }, [loadCatalog]);
 
   useEffect(() => {

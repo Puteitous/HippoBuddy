@@ -68,7 +68,13 @@ export type EventBusEvent =
    * PluginMarket 安装/卸载 MCP 插件后发出,携带 server id。
    * 供 McpSettingsPage 等订阅后刷新；MCP 连接在应用重启后由后端拉起。
    */
-  | 'mcp:changed';
+  | 'mcp:changed'
+  // ── 插件目录:远程源变更联动 ─────────────────────────
+  /**
+   * 设置页修改 plugins.registry_url 后发出,携带 registry_url。
+   * PluginMarket 订阅后重新拉取远程目录(切换用户自定义源后即时生效)。
+   */
+  | 'plugin-registry:changed';
 
 /** selection:add-to-input 的 payload(对齐旧版 selection-actions.js 事件结构) */
 export interface SelectionAddToInputPayload {

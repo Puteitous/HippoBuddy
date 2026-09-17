@@ -1,6 +1,7 @@
 package com.example.agent.web.handler;
 
 import com.example.agent.config.Config;
+import com.example.agent.config.PluginConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -70,13 +71,8 @@ public class PluginRegistryApiHandler implements HttpHandler {
 
         String url = Config.getInstance().getPlugins().getRegistryUrl();
         if (url == null || url.isBlank()) {
-            // 未配置远程目录 → 离线形态,前端回退内置目录
-            ObjectNode offline = MAPPER.createObjectNode();
-            offline.put("version", 0);
-            offline.put("offline", true);
-            offline.set("plugins", MAPPER.createArrayNode());
-            sendJson(exchange, 200, offline.toString());
-            return;
+            // registry_url 留空 → 回退到内置默认源(而非离线),保证「留空 = 官方默认源」语义
+            url = PluginConfig.DEFAULT_REGISTRY_URL;
         }
 
         try {

@@ -14,8 +14,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PluginConfig {
 
-    // 默认远程目录:Gitee raw(仓库镜像,国内可达性好)。可在 config.yaml 的 plugins.registry_url 覆盖。
-    private String registry_url = "https://gitee.com/putetou/HippoBuddy/raw/main/plugin-index.json";
+    /** 默认远程目录:Gitee raw(仓库镜像,国内可达性好)。registry_url 留空时回退到该地址。 */
+    public static final String DEFAULT_REGISTRY_URL =
+            "https://gitee.com/putetou/HippoBuddy/raw/main/plugin-index.json";
+
+    private String registry_url = DEFAULT_REGISTRY_URL;
 
     public PluginConfig() {
     }

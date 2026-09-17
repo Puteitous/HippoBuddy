@@ -12,7 +12,7 @@ import { configApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { translate, useI18n } from '@/i18n';
 import { showToast } from './toastStore';
-import { on as onEvent } from '@/utils/eventBus';
+import { on as onEvent, emit as emitEvent } from '@/utils/eventBus';
 import type {
   McpConfigSection,
   McpServerConfigSection,
@@ -117,6 +117,9 @@ function editorToServer(s: ServerEditorState): McpServerConfigSection {
 export function McpSettingsPage() {
   const { t } = useI18n();
   const [mcp, setMcp] = useState<McpConfigSection>(defaultMcp());
+  /** 远程插件目录地址(plugins.registry_url),空串 = 使用官方默认源 */
+  const [registryUrl, setRegistryUrl] = useState('');
+  const [savingRegistryUrl, setSavingRegistryUrl] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editor, setEditor] = useState<ServerEditorState | null>(null);
@@ -130,6 +133,7 @@ export function McpSettingsPage() {
       if (config.mcp) {
         setMcp({ ...defaultMcp(), ...config.mcp });
       }
+      setRegistryUrl(config.plugins?.registry_url ?? '');
     } catch (e) {
       const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
       setLoadError(msg);
@@ -150,6 +154,7 @@ export function McpSettingsPage() {
         if (config.mcp) {
           setMcp({ ...defaultMcp(), ...config.mcp });
         }
+        setRegistryUrl(config.plugins?.registry_url ?? '');
       } catch (e) {
         if (cancelled) return;
         const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
@@ -181,6 +186,22 @@ export function McpSettingsPage() {
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
       showToast(translate('settingsPage.mcpSaveFailedToast') + msg, { type: 'error', duration: 3000 });
+    }
+  };
+
+  /** 保存远程插件目录地址(plugins.registry_url);空串 = 使用官方默认源 */
+  const saveRegistryUrl = async () => {
+    if (savingRegistryUrl) return;
+    setSavingRegistryUrl(true);
+    try {
+      await configApi.updateFull({ plugins: { registry_url: registryUrl.trim() } });
+      showToast(translate('settingsPage.pluginRegistrySaved'), { type: 'success', duration: 2000 });
+      emitEvent('plugin-registry:changed', { registry_url: registryUrl.trim() });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast(translate('settingsPage.mcpSaveFailedToast') + msg, { type: 'error', duration: 3000 });
+    } finally {
+      setSavingRegistryUrl(false);
     }
   };
 
@@ -294,6 +315,37 @@ export function McpSettingsPage() {
       <h2 className="settings-page-title">{t('settingsPage.mcpPageTitle')}</h2>
       <p className="settings-page-desc">{t('settingsPage.mcpPageDesc')}</p>
       <hr className="settings-page-divider" />
+
+      {/* 插件目录(远程 registry_url 配置) */}
+      <div className="settings-field-group-title">{t('settingsPage.pluginRegistryGroup')}</div>
+      <div className="settings-field-group">
+        <div className="settings-form">
+          <div className="settings-field">
+            <label className="settings-field-label">
+              {t('settingsPage.pluginRegistryUrlLabel')}
+              <div className="settings-field-hint">{t('settingsPage.pluginRegistryUrlHint')}</div>
+            </label>
+            <input
+              className="settings-input"
+              type="text"
+              value={registryUrl}
+              spellCheck={false}
+              autoComplete="off"
+              placeholder="https://.../plugin-index.json"
+              onChange={(e) => setRegistryUrl(e.target.value)}
+            />
+            <button
+              type="button"
+              className="settings-btn settings-btn-primary"
+              style={{ marginTop: 10 }}
+              disabled={savingRegistryUrl}
+              onClick={() => void saveRegistryUrl()}
+            >
+              {savingRegistryUrl ? t('settingsPage.pluginRegistrySaving') : t('settingsPage.pluginRegistrySave')}
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* 基本设置 */}
       <div className="settings-field-group-title">{t('settingsPage.mcpBasic')}</div>

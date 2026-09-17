@@ -104,5 +104,11 @@ mcp:
   #     env:
   #       MY_VAR: value
 
+plugins:
+  # 远程插件目录（插件市场数据源）。留空（或不写本节）时使用官方默认源；
+  # 填写后插件市场从该地址拉取 index.json 目录（需 https:// 或本地回环地址）。
+  # 也可在设置页 → MCP → 插件目录 中修改。
+  registry_url: ""
+
 workspace:
   default_workspace_path: ""          # 默认工作区路径（桌面端通过 UI 设置）
