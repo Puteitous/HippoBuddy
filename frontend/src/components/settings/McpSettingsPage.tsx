@@ -7,11 +7,12 @@
  * 服务器条目:id/name/type(stdio|sse)/command/args/url/env/auto_register_tools
  * 行为:基本设置 checkbox/select 变更立即 PUT;服务器增删改通过内嵌编辑器,save 时 PUT。
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { configApi } from '@/api/client';
 import { ApiError } from '@/api/error';
 import { translate, useI18n } from '@/i18n';
 import { showToast } from './toastStore';
+import { on as onEvent } from '@/utils/eventBus';
 import type {
   McpConfigSection,
   McpServerConfigSection,
@@ -121,6 +122,23 @@ export function McpSettingsPage() {
   const [editor, setEditor] = useState<ServerEditorState | null>(null);
   const [savingServer, setSavingServer] = useState(false);
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const config = await configApi.getFull();
+      if (config.mcp) {
+        setMcp({ ...defaultMcp(), ...config.mcp });
+      }
+    } catch (e) {
+      const msg = e instanceof ApiError ? `[${e.status}] ${e.message}` : String(e);
+      setLoadError(msg);
+      showToast(translate('settingsPage.mcpLoadFailedToast') + msg, { type: 'error', duration: 3000 });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -145,6 +163,14 @@ export function McpSettingsPage() {
       cancelled = true;
     };
   }, []);
+
+  // 插件市场安装/卸载 MCP 插件后发出 mcp:changed,刷新本页列表(仅重新拉取,不影响编辑器状态)
+  useEffect(() => {
+    const unsubscribe = onEvent('mcp:changed', () => {
+      void load();
+    });
+    return unsubscribe;
+  }, [load]);
 
   /** 基本设置保存:接受部分 patch,合并到 mcp 节后立即 PUT */
   const saveBasic = async (patch: Partial<McpConfigSection>) => {

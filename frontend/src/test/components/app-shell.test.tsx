@@ -32,8 +32,8 @@ vi.mock('@/components/chat-panel/ChatPanel', () => ({ ChatPanel: () => <div data
 vi.mock('@/components/settings/SettingsPanel', () => ({ SettingsPanel: () => <div data-testid="settings-panel" /> }));
 vi.mock('@/components/workspace/PreviewPanel', () => ({ PreviewPanel: () => <div data-testid="preview-panel" /> }));
 vi.mock('@/components/workspace/PreviewResizer', () => ({ PreviewResizer: () => <div data-testid="preview-resizer" /> }));
-vi.mock('@/components/SkillMarket', () => ({
-  SkillMarket: ({ onClose }: { onClose?: () => void }) => (
+vi.mock('@/components/plugin-market/PluginMarket', () => ({
+  PluginMarket: ({ onClose }: { onClose?: () => void }) => (
     <div data-testid="skill-market">
       <button onClick={onClose}>close-skill-market</button>
     </div>
@@ -68,7 +68,7 @@ beforeEach(() => {
     view: 'chat',
     isLoadingSessions: false,
     sessionsError: null,
-    skillMarketOpen: false,
+    pluginMarketOpen: false,
     panelLayout: 'preview-left',
   });
 });
@@ -111,14 +111,14 @@ describe('AppShell 布局装配', () => {
     expect(container.querySelector('.chat-layout.layout-chat-first')).not.toBeNull();
   });
 
-  it('skillMarketOpen 时主区替换为技能市场,onClose 可关闭', () => {
-    useAppStore.setState({ skillMarketOpen: true, view: 'chat' });
+  it('pluginMarketOpen 时主区替换为技能市场,onClose 可关闭', () => {
+    useAppStore.setState({ pluginMarketOpen: true, view: 'chat' });
     render(<AppShell />);
     expect(screen.getByTestId('skill-market')).toBeInTheDocument();
     expect(screen.queryByTestId('chat-panel')).not.toBeInTheDocument();
     expect(screen.queryByTestId('settings-panel')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'close-skill-market' }));
-    expect(useAppStore.getState().skillMarketOpen).toBe(false);
+    expect(useAppStore.getState().pluginMarketOpen).toBe(false);
     expect(screen.queryByTestId('skill-market')).not.toBeInTheDocument();
   });
 });

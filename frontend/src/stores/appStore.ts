@@ -4,7 +4,7 @@
  * 当前阶段承载「会话列表」「当前会话」「模式」「工作区」「主视图切换」相关状态。
  * 阶段 3.1:加入 view(chat/settings)用于 AppShell 主区域切换。
  * 阶段 3.5:新增 view='workspace'(FileTree + FileTabs + FilePreview/FileDiffView)。
- * 阶段 3.7-1:新增 activityBarHidden / skillMarketOpen,替代旧版全局变量调用。
+ * 阶段 3.7-1:新增 activityBarHidden / pluginMarketOpen,替代旧版全局变量调用。
  * 2026-08-19:布局对齐旧版后移除 view='workspace';文件树移入全局 Sidebar(胶囊切换),
  * 预览面板(PreviewPanel)与聊天并排,相关状态迁至 previewStore。
  */
@@ -193,7 +193,7 @@ interface AppState {
   /** Sidebar 是否折叠(从 localStorage 恢复) */
   sidebarCollapsed: boolean;
   /** SkillMarket 面板是否打开 */
-  skillMarketOpen: boolean;
+  pluginMarketOpen: boolean;
   /** 进入 Settings 视图时初始定位的设置页(由 ModelSelectorPanel 等外部触发,消费后重置为 'general') */
   settingsInitialPage: string;
   /** 面板布局偏好(聊天/预览左右排布,从 localStorage 恢复,默认 preview-left 对齐旧版) */
@@ -241,7 +241,7 @@ interface AppState {
   /** 设置 Sidebar 折叠状态(同时持久化到 localStorage) */
   setSidebarCollapsed: (collapsed: boolean) => void;
   /** 设置 SkillMarket 打开/关闭 */
-  setSkillMarketOpen: (open: boolean) => void;
+  setPluginMarketOpen: (open: boolean) => void;
   /** 设置 Settings 视图初始页(消费后应重置为 'general') */
   setSettingsInitialPage: (page: string) => void;
   /** 设置面板布局(同时持久化到 localStorage,key 对齐旧版 hippo-layout) */
@@ -276,7 +276,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activityPanel: null,
   activityPanelPinned: false,
   sidebarCollapsed: readSidebarCollapsed(),
-  skillMarketOpen: false,
+  pluginMarketOpen: false,
   settingsInitialPage: 'general',
   panelLayout: readPanelLayout(),
 
@@ -395,7 +395,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ sidebarCollapsed: collapsed });
   },
 
-  setSkillMarketOpen: (open) => set({ skillMarketOpen: open }),
+  setPluginMarketOpen: (open) => set({ pluginMarketOpen: open }),
   setSettingsInitialPage: (page) => set({ settingsInitialPage: page }),
   setPanelLayout: (layout) => {
     persistPanelLayout(layout);

@@ -18,6 +18,7 @@ import com.example.agent.llm.client.LlmClientFactory;
 import com.example.agent.llm.retry.RetryPolicy;
 import com.example.agent.logging.CostMetricsCollector;
 import com.example.agent.logging.EventMetricsCollector;
+import com.example.agent.mcp.McpServiceManager;
 
 import com.example.agent.service.TokenEstimator;
 import com.example.agent.service.TokenEstimatorFactory;
@@ -116,6 +117,14 @@ public final class CoreModule {
         ConcurrentToolExecutor concurrentToolExecutor = new ConcurrentToolExecutor(toolRegistry, objectMapper);
         ServiceLocator.registerSingleton(ConcurrentToolExecutor.class, concurrentToolExecutor);
         logger.info("✅ [Level 3] 工具层: ConcurrentToolExecutor");
+
+        // MCP 服务管理器：按 config.mcp 配置拉起已启用服务器的连接（异步），
+        // 将服务器暴露的 Tools/Prompts/Resources 注册进 ToolRegistry 供 LLM 调用。
+        // 连接是异步的，不阻塞启动；线程池由 ThreadPools 统一管理，退出时自动回收。
+        McpServiceManager mcpServiceManager = new McpServiceManager(config, toolRegistry);
+        mcpServiceManager.initialize();
+        ServiceLocator.registerSingleton(McpServiceManager.class, mcpServiceManager);
+        logger.info("✅ [Level 3] 工具层: McpServiceManager");
 
         healthRegistry.register(new LlmHealthIndicator(llmClient, costMetrics));
         logger.info("✅ [收尾] LLM 健康检查器已注册");

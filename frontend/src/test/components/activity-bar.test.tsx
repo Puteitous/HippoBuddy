@@ -33,7 +33,7 @@ beforeEach(() => {
     activityBarHidden: false,
     activityPanel: null,
     activityPanelPinned: false,
-    skillMarketOpen: false,
+    pluginMarketOpen: false,
   });
 });
 
@@ -139,7 +139,7 @@ describe('ActivityBar', () => {
   it('skillMarket 动作:打开技能市场', () => {
     render(<ActivityBar />);
     fireEvent.click(btn('action', 'skillMarket'));
-    expect(useAppStore.getState().skillMarketOpen).toBe(true);
+    expect(useAppStore.getState().pluginMarketOpen).toBe(true);
   });
 
   it('openBrowser 动作:调用 previewStore.openWeb', () => {

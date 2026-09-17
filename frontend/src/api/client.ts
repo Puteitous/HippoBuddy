@@ -502,6 +502,12 @@ export const gitApi = {
 // Skills API (对应后端 SkillsApiHandler)
 // ============================================================================
 
+export const mcpApi = {
+  /** POST /api/mcp/refresh - 安装/卸载 MCP 插件后即时建立/断开连接(无需重启) */
+  refresh: (action: 'connect' | 'disconnect', serverId: string) =>
+    postJson<{ success: boolean; message?: string }>(`${API_BASE}/mcp/refresh`, { action, serverId }),
+};
+
 export const skillsApi = {
   /** GET /api/skills/list - 列出项目技能 + 用户技能 */
   list: () => getJson<SkillsListResponse>(`${API_BASE}/skills/list`),

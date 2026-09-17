@@ -5,6 +5,7 @@ import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.web.handler.ChatApiHandler;
 import com.example.agent.web.handler.ConfigApiHandler;
+import com.example.agent.web.handler.McpRefreshApiHandler;
 import com.example.agent.web.handler.DataDirApiHandler;
 import com.example.agent.web.handler.DiffOriginalHandler;
 import com.example.agent.web.handler.FileApiHandler;
@@ -119,6 +120,7 @@ public class DashboardServer {
             server.createContext("/api/diff/original", new DiffOriginalHandler());
             server.createContext("/api/file/raw", new RawFileHandler());
             server.createContext("/api/config", new ConfigApiHandler());
+            server.createContext("/api/mcp/refresh", new McpRefreshApiHandler());
             server.createContext("/api/settings/data-dir", new DataDirApiHandler());
             server.createContext("/api/workspace", new WorkspaceApiHandler());
             server.createContext("/api/suggestions", new SuggestionsApiHandler());

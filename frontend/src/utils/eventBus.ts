@@ -62,7 +62,13 @@ export type EventBusEvent =
    * 源码管理面板切换分支成功后发出,携带新的当前分支名。
    * Sidebar 订阅后刷新文件树(分支切换会改变工作区文件结构,需重新 readDir)。
    */
-  | 'git:branch-changed';
+  | 'git:branch-changed'
+  // ── MCP:插件市场联动 ───────────────────────────────
+  /**
+   * PluginMarket 安装/卸载 MCP 插件后发出,携带 server id。
+   * 供 McpSettingsPage 等订阅后刷新；MCP 连接在应用重启后由后端拉起。
+   */
+  | 'mcp:changed';
 
 /** selection:add-to-input 的 payload(对齐旧版 selection-actions.js 事件结构) */
 export interface SelectionAddToInputPayload {

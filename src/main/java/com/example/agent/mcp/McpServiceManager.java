@@ -11,6 +11,7 @@ import com.example.agent.mcp.model.McpResource;
 import com.example.agent.mcp.registry.McpPromptRegistry;
 import com.example.agent.mcp.registry.McpResourceRegistry;
 import com.example.agent.mcp.registry.McpToolAdapter;
+import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,8 @@ public class McpServiceManager {
     private final McpResourceRegistry resourceRegistry = new McpResourceRegistry();
     private final McpPromptRegistry promptRegistry = new McpPromptRegistry();
     private final ConcurrentHashMap<String, McpClient> activeClients = new ConcurrentHashMap<>();
+    /** serverId → 该 server 已注册到 ToolRegistry 的工具名,用于热断开时注销避免残留失效工具 */
+    private final ConcurrentHashMap<String, List<String>> registeredToolNames = new ConcurrentHashMap<>();
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicBoolean shutdownHookRegistered = new AtomicBoolean(false);
     private final List<Runnable> shutdownHooks = new ArrayList<>();
@@ -117,13 +120,16 @@ public class McpServiceManager {
                     })
                     .thenAccept(tools -> {
                         if (serverConfig.isAutoRegisterTools()) {
+                            List<String> names = new ArrayList<>();
                             tools.forEach(tool -> {
                                 McpToolAdapter adapter = new McpToolAdapter(client, tool);
                                 toolRegistry.register(adapter);
+                                names.add(adapter.getName());
                                 logger.info("已注册MCP工具: {} ({})",
                                         adapter.getName(),
                                         tool.getDescription());
                             });
+                            registeredToolNames.put(serverId, names);
                         }
 
                         client.listResources()
@@ -180,6 +186,19 @@ public class McpServiceManager {
     }
 
     public void disconnectServer(String serverId) {
+        // 先注销该 server 已注册到 ToolRegistry 的工具,避免残留已失效的 mcp_* 工具仍暴露给 LLM
+        List<String> names = registeredToolNames.remove(serverId);
+        if (names != null) {
+            for (String name : names) {
+                try {
+                    toolRegistry.unregister(name);
+                    logger.info("已注销MCP工具: {}", name);
+                } catch (Exception e) {
+                    logger.warn("注销MCP工具失败: {} - {}", name, e.getMessage());
+                }
+            }
+        }
+
         McpClient client = activeClients.remove(serverId);
         if (client != null) {
             try {

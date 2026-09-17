@@ -15,7 +15,7 @@
  *  - 3.7-1 内置面板:
  *    - token → 复用 chat-panel/TokenMonitor(展示当前会话 Token)
  *  - 动作按钮:
- *    - skillMarket → 触发 appStore.setSkillMarketOpen(true)
+ *    - pluginMarket → 触发 appStore.setPluginMarketOpen(true)
  *    - toggleActivity → appStore.toggleActivityBar()
  *    - openBrowser / openTerminal → desktopBridge 调用(降级 toast 提示)
  *
@@ -102,7 +102,7 @@ const BUTTONS: ActivityButton[] = [
   },
   {
     id: 'abSkillMarket',
-    titleKey: 'activity.skillMarket',
+    titleKey: 'activity.pluginMarket',
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="9" cy="21" r="1" />
@@ -151,7 +151,7 @@ export function ActivityBar() {
   const { t } = useI18n();
   const hidden = useAppStore((s) => s.activityBarHidden);
   const toggleActivityBar = useAppStore((s) => s.toggleActivityBar);
-  const setSkillMarketOpen = useAppStore((s) => s.setSkillMarketOpen);
+  const setPluginMarketOpen = useAppStore((s) => s.setPluginMarketOpen);
   const activePanel = useAppStore((s) => s.activityPanel);
   const activePanelPinned = useAppStore((s) => s.activityPanelPinned);
   const setActivityPanel = useAppStore((s) => s.setActivityPanel);
@@ -216,7 +216,7 @@ export function ActivityBar() {
       if (btn.action) {
         switch (btn.action) {
           case 'skillMarket':
-            setSkillMarketOpen(true);
+            setPluginMarketOpen(true);
             return;
           case 'toggleActivity':
             toggleActivityBar();
@@ -244,7 +244,7 @@ export function ActivityBar() {
         }
       }
     },
-    [activePanel, activePanelPinned, clearCloseTimer, clearOpenTimer, closePanel, setActivityPanel, setSkillMarketOpen, toggleActivityBar],
+    [activePanel, activePanelPinned, clearCloseTimer, clearOpenTimer, closePanel, setActivityPanel, setPluginMarketOpen, toggleActivityBar],
   );
 
   /** 悬停预览:鼠标移入面板按钮 → 展开对应面板(不影响点击固定状态) */

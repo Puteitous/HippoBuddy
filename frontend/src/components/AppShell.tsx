@@ -14,7 +14,7 @@
  * 阶段 3.1:建立骨架与会话列表。
  * 阶段 3.2:ChatPanel 由占位升级为真实实现(纯文本对话)。
  * 阶段 3.6:Settings 由占位升级为真实实现(8 个设置页 + 主壳 + Toast)。
- * 阶段 3.7-1:挂载全局 ToastViewport / ActivityBar / SkillMarket 浮层。
+ * 阶段 3.7-1:挂载全局 ToastViewport / ActivityBar / PluginMarket 浮层。
  * 历史消息加载由 useSessionMessages Hook 处理(切会话时复用活跃流分区 / 加载历史)。
  */
 import { useEffect } from 'react';
@@ -33,7 +33,7 @@ import { SettingsPanel } from './settings/SettingsPanel';
 import { PreviewPanel } from './workspace/PreviewPanel';
 import { PreviewResizer } from './workspace/PreviewResizer';
 import { ActivityBar } from './ActivityBar';
-import { SkillMarket } from './SkillMarket';
+import { PluginMarket } from './plugin-market/PluginMarket';
 import { SelectionActions } from './SelectionActions';
 import { OnboardingTour } from './OnboardingTour';
 import { UpdateCard } from './UpdateCard';
@@ -44,8 +44,8 @@ import './AppShell.css';
 export function AppShell() {
   const view = useAppStore((s) => s.view);
   const panelLayout = useAppStore((s) => s.panelLayout);
-  const skillMarketOpen = useAppStore((s) => s.skillMarketOpen);
-  const setSkillMarketOpen = useAppStore((s) => s.setSkillMarketOpen);
+  const pluginMarketOpen = useAppStore((s) => s.pluginMarketOpen);
+  const setPluginMarketOpen = useAppStore((s) => s.setPluginMarketOpen);
   const setSessions = useAppStore((s) => s.setSessions);
   const setIsLoadingSessions = useAppStore((s) => s.setIsLoadingSessions);
   const setSessionsError = useAppStore((s) => s.setSessionsError);
@@ -127,9 +127,9 @@ export function AppShell() {
         <SidebarResizer />
         {/* 技能市场在打开时于主内容区内嵌展示(对齐旧版:替换聊天面板,保留活动栏/会话列表) */}
         <main className="app-shell-main">
-          {skillMarketOpen ? (
-            <SkillMarket
-              onClose={() => setSkillMarketOpen(false)}
+          {pluginMarketOpen ? (
+            <PluginMarket
+              onClose={() => setPluginMarketOpen(false)}
             />
           ) : view === 'settings' ? (
             <SettingsPanel />

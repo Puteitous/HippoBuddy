@@ -16,7 +16,7 @@ function reset() {
     activityBarHidden: false,
     activityPanel: null,
     activityPanelPinned: false,
-    skillMarketOpen: false,
+    pluginMarketOpen: false,
     settingsInitialPage: 'general',
     panelLayout: 'preview-left',
     sessionInputDrafts: {},
