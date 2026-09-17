@@ -186,16 +186,30 @@ export type UpdateConfigRequest = Partial<
 // Skills (对应后端 SkillsApiHandler)
 // ============================================================================
 
-/** 技能项 */
+/** 目录形态技能附带的一项资源 */
+export interface SkillResourceEntry {
+  /** 相对技能目录的路径(如 references/api.md) */
+  path: string;
+  /** 绝对路径 */
+  filePath: string;
+}
+
+/** 技能项（支持扁平 <name>.md 与目录 <name>/SKILL.md 两种形态） */
 export interface SkillEntry {
-  /** 文件名(如 my-skill.md) */
+  /** 统一身份键：扁平=文件名去后缀，目录=目录名 */
+  skillId: string;
+  /** 是否为目录形态技能（入口 SKILL.md + 同目录资源） */
+  isDirectory: boolean;
+  /** 入口文件名(扁平如 my-skill.md；目录恒为 SKILL.md) */
   fileName: string;
-  /** 技能名(去 .md 后缀) */
+  /** 技能名 */
   name?: string;
   /** 描述 */
   description?: string;
-  /** 绝对路径 */
+  /** 入口文件绝对路径 */
   filePath: string;
+  /** 目录形态技能的附带资源(扁平技能无此字段) */
+  resources?: SkillResourceEntry[];
 }
 
 /** GET /api/skills/list 响应 */

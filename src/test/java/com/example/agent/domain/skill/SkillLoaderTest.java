@@ -505,4 +505,147 @@ class SkillLoaderTest {
             assertEquals("body\n", SkillLoader.stripFrontmatter(input));
         }
     }
+
+    // ==================== 目录形态技能 ====================
+
+    @Nested
+    @DisplayName("目录形态技能")
+    class DirectorySkillTests {
+
+        /** 建一个目录技能：<skills>/<name>/SKILL.md + scripts/run.py */
+        private void createDirectorySkill(String name, String body) throws IOException {
+            Path skillDir = tempDir.resolve(".hippo").resolve("skills").resolve(name);
+            Files.createDirectories(skillDir.resolve("scripts"));
+            Files.writeString(skillDir.resolve("SKILL.md"),
+                    "---\nname: " + name + "\n---\n" + body);
+            Files.writeString(skillDir.resolve("scripts").resolve("run.py"), "print('hi')");
+        }
+
+        @Test
+        @DisplayName("发现目录技能 — skillId 取目录名，rootDir 指向技能目录")
+        void discoverDirectorySkill() throws IOException {
+            createDirectorySkill("pdf-tools", "正文");
+
+            List<SkillEntry> skills = SkillLoader.loadProjectSkills(tempDir.toString());
+            assertEquals(1, skills.size());
+            SkillEntry entry = skills.get(0);
+            assertEquals("pdf-tools", entry.getSkillId());
+            assertTrue(entry.isDirectorySkill());
+            assertNotNull(entry.getRootDir());
+            assertEquals("SKILL.md", entry.getFileName());
+        }
+
+        @Test
+        @DisplayName("多个目录技能不互相覆盖（按 skillId 去重而非 fileName）")
+        void multipleDirectorySkillsNotOverwritten() throws IOException {
+            createDirectorySkill("alpha", "A");
+            createDirectorySkill("beta", "B");
+
+            List<SkillEntry> skills = SkillLoader.loadProjectSkills(tempDir.toString());
+            assertEquals(2, skills.size(), "两个目录技能入口都叫 SKILL.md，不得互相覆盖");
+            assertEquals(List.of("alpha", "beta"),
+                    skills.stream().map(SkillEntry::getSkillId).sorted().toList());
+        }
+
+        @Test
+        @DisplayName("目录缺少 SKILL.md 时被忽略")
+        void directoryWithoutEntryIgnored() throws IOException {
+            Path dir = tempDir.resolve(".hippo").resolve("skills").resolve("not-a-skill");
+            Files.createDirectories(dir);
+            Files.writeString(dir.resolve("readme.md"), "x");
+
+            assertTrue(SkillLoader.loadProjectSkills(tempDir.toString()).isEmpty());
+        }
+
+        @Test
+        @DisplayName("扁平与目录形态共存")
+        void flatAndDirectoryCoexist() throws IOException {
+            Path skillsDir = tempDir.resolve(".hippo").resolve("skills");
+            Files.createDirectories(skillsDir);
+            Files.writeString(skillsDir.resolve("plain.md"), "content");
+            createDirectorySkill("pdf-tools", "正文");
+
+            List<SkillEntry> skills = SkillLoader.loadProjectSkills(tempDir.toString());
+            assertEquals(2, skills.size());
+            assertEquals(List.of("pdf-tools", "plain"),
+                    skills.stream().map(SkillEntry::getSkillId).sorted().toList());
+        }
+
+        @Test
+        @DisplayName("loadAllSkills — 目录技能与扁平技能一起返回，入口文件名不再作身份")
+        void loadAllSkillsIncludesDirectorySkill() throws IOException {
+            createDirectorySkill("pdf-tools", "正文");
+
+            List<SkillEntry> skills = SkillLoader.loadAllSkills(tempDir.toString());
+            assertEquals(1, skills.size());
+            assertEquals("pdf-tools", skills.get(0).getSkillId());
+        }
+
+        @Test
+        @DisplayName("listResources — 返回相对路径且不含入口文件")
+        void listResources() throws IOException {
+            createDirectorySkill("pdf-tools", "正文");
+            SkillEntry entry = SkillLoader.loadProjectSkills(tempDir.toString()).get(0);
+
+            assertEquals(List.of("scripts/run.py"), SkillLoader.listResources(entry));
+        }
+
+        @Test
+        @DisplayName("listResources — 扁平技能无资源")
+        void listResourcesFlatIsEmpty() throws IOException {
+            Path skillsDir = tempDir.resolve(".hippo").resolve("skills");
+            Files.createDirectories(skillsDir);
+            Files.writeString(skillsDir.resolve("plain.md"), "content");
+            SkillEntry entry = SkillLoader.loadProjectSkills(tempDir.toString()).get(0);
+
+            assertTrue(SkillLoader.listResources(entry).isEmpty());
+        }
+
+        @Test
+        @DisplayName("resolveResource — 正常解析到技能目录内的文件")
+        void resolveResourceOk() throws IOException {
+            createDirectorySkill("pdf-tools", "正文");
+            SkillEntry entry = SkillLoader.loadProjectSkills(tempDir.toString()).get(0);
+
+            Path resolved = SkillLoader.resolveResource(entry, "scripts/run.py");
+            assertTrue(Files.exists(resolved));
+            assertTrue(resolved.startsWith(Path.of(entry.getRootDir())));
+        }
+
+        @Test
+        @DisplayName("resolveResource — 拒绝路径穿越与绝对路径")
+        void resolveResourceRejectsEscape() throws IOException {
+            createDirectorySkill("pdf-tools", "正文");
+            SkillEntry entry = SkillLoader.loadProjectSkills(tempDir.toString()).get(0);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> SkillLoader.resolveResource(entry, "../outside.md"));
+            assertThrows(IllegalArgumentException.class,
+                    () -> SkillLoader.resolveResource(entry, tempDir.resolve("x.md").toString()));
+        }
+
+        @Test
+        @DisplayName("resolveResource — 拒绝指向入口文件本身与不存在的资源")
+        void resolveResourceRejectsEntryAndMissing() throws IOException {
+            createDirectorySkill("pdf-tools", "正文");
+            SkillEntry entry = SkillLoader.loadProjectSkills(tempDir.toString()).get(0);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> SkillLoader.resolveResource(entry, "SKILL.md"));
+            assertThrows(IllegalArgumentException.class,
+                    () -> SkillLoader.resolveResource(entry, "scripts/nope.py"));
+        }
+
+        @Test
+        @DisplayName("resolveResource — 扁平技能不支持资源")
+        void resolveResourceRejectsFlat() throws IOException {
+            Path skillsDir = tempDir.resolve(".hippo").resolve("skills");
+            Files.createDirectories(skillsDir);
+            Files.writeString(skillsDir.resolve("plain.md"), "content");
+            SkillEntry entry = SkillLoader.loadProjectSkills(tempDir.toString()).get(0);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> SkillLoader.resolveResource(entry, "anything.md"));
+        }
+    }
 }

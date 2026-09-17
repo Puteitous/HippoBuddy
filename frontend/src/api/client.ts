@@ -284,10 +284,12 @@ export interface RemoteRegistry {
   plugins?: RemotePluginEntry[];
 }
 
-/** 标准插件包解析结果(对应后端 /api/plugins/package/install) */
+/** 标准插件包安装结果(对应后端 /api/plugins/package/install) */
 export interface PackageInstallResult {
   success: boolean;
   message?: string;
+  /** 是否为预览(仅解析不落盘) */
+  dryRun?: boolean;
   /** plugin.json 清单 */
   plugin?: {
     name: string;
@@ -297,8 +299,18 @@ export interface PackageInstallResult {
   };
   /** mcp.json 配置(可选) */
   mcp?: McpServerConfigSection;
-  /** skills/*.md 内容列表(可选) */
-  skills?: Array<{ name: string; content: string }>;
+  /** 技能摘要：整目录/单文件落盘由后端完成，前端只据此刷新 */
+  skills?: Array<{
+    skillId: string;
+    isDirectory: boolean;
+    /** 落盘绝对路径(dryRun 时缺省) */
+    path?: string;
+    /** 目录技能落盘字节数 */
+    bytes?: number;
+    /** 同名技能已存在被跳过 */
+    skipped?: boolean;
+    reason?: string;
+  }>;
 }
 
 // ============================================================================
@@ -311,10 +323,11 @@ export const pluginsApi = {
 
   /**
    * POST /api/plugins/package/install - 下载并解析标准插件包(Agent Plugins 1.0)。
-   * 返回 plugin.json 清单 + mcp 配置 + skills 内容,由前端完成装配安装。
+   * 技能由后端直接落盘(整目录保留)，返回 plugin.json 清单 + mcp 配置 + 技能摘要；
+   * dryRun=true 时仅预览不落盘。
    */
-  installPackage: (downloadUrl: string) =>
-    postJson<PackageInstallResult>(`${API_BASE}/plugins/package/install`, { downloadUrl }),
+  installPackage: (downloadUrl: string, options?: { scope?: 'user' | 'project'; dryRun?: boolean }) =>
+    postJson<PackageInstallResult>(`${API_BASE}/plugins/package/install`, { downloadUrl, ...options }),
 };
 
 /**
@@ -599,18 +612,25 @@ export const skillsApi = {
     content: string;
   }) => postJson<SkillMutationResponse>(`${API_BASE}/skills/create`, body),
 
-  /** POST /api/skills/update - 更新技能文件 */
+  /**
+   * POST /api/skills/update - 更新技能文件。
+   * directory=true 表示目录技能：入口固定为 <dir>/SKILL.md，就地改写不做重命名。
+   */
   update: (body: {
     filePath: string;
     name: string;
     description?: string;
     scope: 'project' | 'user';
     content: string;
+    directory?: boolean;
   }) => postJson<SkillMutationResponse>(`${API_BASE}/skills/update`, body),
 
-  /** POST /api/skills/delete - 删除技能文件 */
-  delete: (filePath: string) =>
-    postJson<SkillMutationResponse>(`${API_BASE}/skills/delete`, { filePath }),
+  /**
+   * POST /api/skills/delete - 删除技能。
+   * options.directory=true 时删除整个技能目录(含 scripts/、references/ 等资源)。
+   */
+  delete: (filePath: string, options?: { directory?: boolean }) =>
+    postJson<SkillMutationResponse>(`${API_BASE}/skills/delete`, { filePath, ...options }),
 };
 
 // ============================================================================

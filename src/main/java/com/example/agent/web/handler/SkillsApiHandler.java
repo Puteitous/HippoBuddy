@@ -21,7 +21,9 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * 技能管理 API（GET /api/skills/list, GET /api/skills/get,
@@ -89,10 +91,25 @@ public class SkillsApiHandler implements HttpHandler {
 
         for (SkillEntry skill : skills) {
             ObjectNode node = MAPPER.createObjectNode();
+            node.put("skillId", skill.getSkillId());
+            node.put("isDirectory", skill.isDirectorySkill());
             node.put("name", skill.getName());
             node.put("description", skill.getDescription());
             node.put("fileName", skill.getFileName());
             node.put("filePath", skill.getFilePath());
+
+            // 目录技能附带资源（只读浏览用；内容按需经 /api/skills/get 读取）
+            if (skill.isDirectorySkill()) {
+                ArrayNode resources = MAPPER.createArrayNode();
+                Path skillRoot = Path.of(skill.getRootDir());
+                for (String relative : SkillLoader.listResources(skill)) {
+                    ObjectNode res = MAPPER.createObjectNode();
+                    res.put("path", relative);
+                    res.put("filePath", skillRoot.resolve(relative).toAbsolutePath().normalize().toString());
+                    resources.add(res);
+                }
+                node.set("resources", resources);
+            }
 
             if ("project".equals(skill.getSource())) {
                 projectArray.add(node);
@@ -278,6 +295,8 @@ public class SkillsApiHandler implements HttpHandler {
         String description = json.has("description") ? json.get("description").asText().trim() : "";
         String scope = json.has("scope") ? json.get("scope").asText().trim() : "project";
         String content = json.has("content") ? json.get("content").asText() : "";
+        // 目录形态技能：入口固定为 <dir>/SKILL.md，只改写内容，不做重命名
+        boolean directory = json.has("directory") && json.get("directory").asBoolean(false);
 
         if (oldFilePath.isBlank()) {
             sendJson(exchange, 400, "{\"success\":false,\"message\":\"filePath 不能为空\"}");
@@ -310,39 +329,45 @@ public class SkillsApiHandler implements HttpHandler {
             newContent.append("\n");
         }
 
-        // 确定新文件路径
-        String fileName = name.replaceAll("[\\\\/:*?\"<>|]", "-");
-        if (!fileName.endsWith(".md")) {
-            fileName = fileName + ".md";
-        }
-
-        Path targetDir;
-        if ("user".equals(scope)) {
-            targetDir = WorkspaceManager.getUserSkillsDir();
+        Path targetFile;
+        if (directory) {
+            // 目录技能：入口文件就地改写，保持 <dir>/SKILL.md 位置不变
+            targetFile = oldFile;
         } else {
-            String workspacePath = WorkspaceContext.getCurrentFolder();
-            if (workspacePath == null || workspacePath.isBlank()) {
-                sendJson(exchange, 400, "{\"success\":false,\"message\":\"未设置工作区，无法保存为项目级技能\"}");
+            // 确定新文件路径
+            String fileName = name.replaceAll("[\\\\/:*?\"<>|]", "-");
+            if (!fileName.endsWith(".md")) {
+                fileName = fileName + ".md";
+            }
+
+            Path targetDir;
+            if ("user".equals(scope)) {
+                targetDir = WorkspaceManager.getUserSkillsDir();
+            } else {
+                String workspacePath = WorkspaceContext.getCurrentFolder();
+                if (workspacePath == null || workspacePath.isBlank()) {
+                    sendJson(exchange, 400, "{\"success\":false,\"message\":\"未设置工作区，无法保存为项目级技能\"}");
+                    return;
+                }
+                targetDir = Path.of(workspacePath).toAbsolutePath().normalize()
+                        .resolve(".hippo").resolve("skills");
+            }
+
+            try {
+                Files.createDirectories(targetDir);
+            } catch (IOException e) {
+                logger.error("创建技能目录失败: {}", targetDir, e);
+                sendJson(exchange, 500, "{\"success\":false,\"message\":\"创建目录失败\"}");
                 return;
             }
-            targetDir = Path.of(workspacePath).toAbsolutePath().normalize()
-                    .resolve(".hippo").resolve("skills");
-        }
 
-        try {
-            Files.createDirectories(targetDir);
-        } catch (IOException e) {
-            logger.error("创建技能目录失败: {}", targetDir, e);
-            sendJson(exchange, 500, "{\"success\":false,\"message\":\"创建目录失败\"}");
-            return;
-        }
+            targetFile = targetDir.resolve(fileName);
 
-        Path targetFile = targetDir.resolve(fileName);
-
-        // 如果目标文件已存在且不是当前文件本身，报错
-        if (Files.exists(targetFile) && !targetFile.toAbsolutePath().normalize().equals(oldFile.toAbsolutePath().normalize())) {
-            sendJson(exchange, 400, "{\"success\":false,\"message\":\"目标文件已存在: " + fileName + "\"}");
-            return;
+            // 如果目标文件已存在且不是当前文件本身，报错
+            if (Files.exists(targetFile) && !targetFile.toAbsolutePath().normalize().equals(oldFile.toAbsolutePath().normalize())) {
+                sendJson(exchange, 400, "{\"success\":false,\"message\":\"目标文件已存在: " + fileName + "\"}");
+                return;
+            }
         }
 
         try {
@@ -383,6 +408,8 @@ public class SkillsApiHandler implements HttpHandler {
         String filePath = json.has("filePath") ? json.get("filePath").asText().trim() : "";
         String scope = json.has("scope") ? json.get("scope").asText().trim() : "";
         String fileName = json.has("fileName") ? json.get("fileName").asText().trim() : "";
+        // 目录形态技能：删除整个技能目录
+        boolean directory = json.has("directory") && json.get("directory").asBoolean(false);
 
         Path targetFile = null;
 
@@ -412,12 +439,27 @@ public class SkillsApiHandler implements HttpHandler {
             return;
         }
 
+        Path skillDir = null;
+        if (directory) {
+            // 递归删除前先确认：入口必须名为 SKILL.md，且其父目录就是某个技能根目录下的技能目录
+            skillDir = resolveSkillDirForDelete(targetFile);
+            if (skillDir == null) {
+                sendJson(exchange, 400, "{\"success\":false,\"message\":\"非法的目录技能路径\"}");
+                return;
+            }
+        }
+
         try {
-            Files.delete(targetFile);
-            logger.info("技能文件已删除: {}", targetFile);
+            if (skillDir != null) {
+                deleteRecursively(skillDir);
+                logger.info("目录技能已删除: {}", skillDir);
+            } else {
+                Files.delete(targetFile);
+                logger.info("技能文件已删除: {}", targetFile);
+            }
         } catch (IOException e) {
-            logger.error("删除技能文件失败: {}", targetFile, e);
-            sendJson(exchange, 500, "{\"success\":false,\"message\":\"删除文件失败\"}");
+            logger.error("删除技能失败: {}", targetFile, e);
+            sendJson(exchange, 500, "{\"success\":false,\"message\":\"删除失败\"}");
             return;
         }
 
@@ -445,6 +487,48 @@ public class SkillsApiHandler implements HttpHandler {
         resp.put("message", "技能已重新加载");
 
         sendJson(exchange, 200, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(resp));
+    }
+
+    /**
+     * 校验 targetFile 是否为合法的目录技能入口（{@code <skillsRoot>/<name>/SKILL.md}）。
+     * <p>
+     * 递归删除属破坏性操作，故不信任入参路径：入口文件名必须是 {@code SKILL.md}，
+     * 且其祖父目录必须恰好是用户级或项目级技能根目录。
+     *
+     * @return 合法的技能目录；不合法返回 null
+     */
+    private Path resolveSkillDirForDelete(Path targetFile) {
+        Path normalized = targetFile.toAbsolutePath().normalize();
+        if (!SkillLoader.ENTRY_FILE_NAME.equals(normalized.getFileName().toString())) {
+            return null;
+        }
+        Path skillDir = normalized.getParent();
+        if (skillDir == null || !Files.isDirectory(skillDir)) {
+            return null;
+        }
+        Path skillsRoot = skillDir.getParent();
+        if (skillsRoot == null) {
+            return null;
+        }
+
+        Path userRoot = WorkspaceManager.getUserSkillsDir().toAbsolutePath().normalize();
+        String workspacePath = WorkspaceContext.getCurrentFolder();
+        Path projectRoot = (workspacePath == null || workspacePath.isBlank())
+                ? null
+                : Path.of(workspacePath).toAbsolutePath().normalize().resolve(".hippo").resolve("skills");
+
+        boolean allowed = skillsRoot.equals(userRoot)
+                || (projectRoot != null && skillsRoot.equals(projectRoot));
+        return allowed ? skillDir : null;
+    }
+
+    /** 递归删除目录（先子后父） */
+    private void deleteRecursively(Path dir) throws IOException {
+        try (Stream<Path> stream = Files.walk(dir)) {
+            for (Path path : stream.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
     }
 
     private void sendJson(HttpExchange exchange, int statusCode, String json) throws IOException {

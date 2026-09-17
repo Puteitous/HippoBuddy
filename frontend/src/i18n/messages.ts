@@ -671,6 +671,11 @@ export const zh: Record<string, string> = {
   'settingsPage.skillsNamePh': 'my-skill（字母、数字、连字符，不含 .md）',
   'settingsPage.skillsLoading': '加载中...',
   'settingsPage.skillsContentPh': '技能正文内容，Markdown 格式',
+  'settingsPage.skillsDirectoryBadge': '目录',
+  'settingsPage.skillsResources': '附带资源',
+  'settingsPage.skillsResourcesHint': '资源随技能目录一并打包，此处只读浏览；删除技能会一并移除',
+  'settingsPage.skillsScopeLockedHint': '目录技能不支持跨作用域移动',
+  'settingsPage.deleteConfirmSkillDir': '确定删除目录技能「',
   'settingsPage.deleteConfirmSkill': '确定删除技能「',
 
   'settingsPage.sessionTitle': '会话管理',
@@ -1540,6 +1545,7 @@ export const zh: Record<string, string> = {
   'pluginMarket.installPackageSuccess': '✓ 插件包「{name}」已安装',
   'pluginMarket.packageParseError': '插件包解析失败: ',
   'pluginMarket.packageEmpty': '插件包中没有可安装的 MCP 或技能',
+  'pluginMarket.packageSkipped': '以下技能已存在，已跳过：{names}',
 
   /* ==================== Delete Confirm ==================== */
   'deleteConfirm.message': '确认删除？',
@@ -2370,6 +2376,11 @@ export const en: Record<string, string> = {
   'settingsPage.skillsNamePh': 'my-skill (letters, numbers, hyphens, no .md)',
   'settingsPage.skillsLoading': 'Loading...',
   'settingsPage.skillsContentPh': 'Skill content in Markdown format',
+  'settingsPage.skillsDirectoryBadge': 'Folder',
+  'settingsPage.skillsResources': 'Bundled Resources',
+  'settingsPage.skillsResourcesHint': 'Bundled with the skill directory; read-only here. Deleting the skill removes them too',
+  'settingsPage.skillsScopeLockedHint': 'Folder skills cannot be moved across scopes',
+  'settingsPage.deleteConfirmSkillDir': 'Delete folder skill "',
   'settingsPage.deleteConfirmSkill': 'Delete skill "',
 
   'settingsPage.sessionTitle': 'Session Management',
@@ -3223,6 +3234,7 @@ export const en: Record<string, string> = {
   'pluginMarket.installPackageSuccess': '✓ Plugin package "{name}" installed',
   'pluginMarket.packageParseError': 'Package parse failed: ',
   'pluginMarket.packageEmpty': 'No installable MCP or skills in the package',
+  'pluginMarket.packageSkipped': 'Skipped skills that already exist: {names}',
 
   'deleteConfirm.message': 'Confirm delete?',
   'deleteConfirm.cancel': 'Cancel',

@@ -58,7 +58,33 @@ public class McpToolAdapter implements ToolExecutor {
         } catch (java.util.concurrent.TimeoutException e) {
             throw new com.example.agent.tools.ToolExecutionException("MCP工具执行超时: " + tool.getName(), e);
         } catch (Exception e) {
-            throw new com.example.agent.tools.ToolExecutionException("MCP工具执行失败: " + tool.getName(), e);
+            // 提取根因消息，LLM 据此判断是重试、改参数还是报给用户
+            String detail = extractRootCauseMessage(e);
+            throw new com.example.agent.tools.ToolExecutionException(
+                    "MCP工具执行失败: " + tool.getName() + " - " + detail, e);
         }
+    }
+
+    /**
+     * 从异常链中提取最内层的可读消息，用于生成 LLM 友好的错误描述。
+     * <p>
+     * CompletableFuture.get() 抛出的 ExecutionException 会把原始异常包装一层，
+     * 直接取 getMessage() 得到的是 "java.lang.RuntimeException: xxx" 类名前缀，
+     * 剥离后才是真正的错误描述。
+     * </p>
+     */
+    private static String extractRootCauseMessage(Exception e) {
+        Throwable t = e;
+        // 沿 cause 链走到最内层
+        while (t.getCause() != null && t.getCause() != t) {
+            t = t.getCause();
+        }
+        String msg = t.getMessage();
+        if (msg != null && !msg.isBlank()) {
+            // 截断超长消息，防止撑爆上下文
+            return msg.length() <= 200 ? msg : msg.substring(0, 200) + "…";
+        }
+        // 无消息文本时回退到类名
+        return t.getClass().getSimpleName();
     }
 }

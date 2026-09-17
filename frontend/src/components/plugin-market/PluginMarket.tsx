@@ -43,9 +43,11 @@ interface InstalledPlugin {
   type: 'skill' | 'mcp';
   name: string;
   description: string;
-  /** skill 类型:文件路径;mcp 类型:server id */
+  /** skill 类型:入口文件路径;mcp 类型:server id */
   filePath: string;
   source: 'project' | 'user' | 'mcp';
+  /** skill 类型:是否为目录形态技能(删除时需整目录删除) */
+  isDirectory?: boolean;
 }
 
 interface PluginMarketProps {
@@ -127,11 +129,12 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
   }, []);
 
   const toInstalledSkill = (s: SkillEntry): Omit<InstalledPlugin, 'source'> => ({
-    id: s.name || s.fileName.replace(/\.md$/, ''),
+    id: s.skillId,
     type: 'skill',
-    name: s.name || s.fileName.replace(/\.md$/, ''),
+    name: s.name || s.skillId,
     description: s.description || '',
     filePath: s.filePath,
+    isDirectory: s.isDirectory,
   });
 
   /**
@@ -398,7 +401,7 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
 
   /**
    * 安装标准插件包(Agent Plugins 1.0):
-   * 后端下载解包解析 → 前端装配:有 mcp 写 config + 热连接,有 skills 逐个落盘。
+   * 后端下载解包并把技能整目录落盘 → 前端只装配 mcp(写 config + 热连接)。
    */
   const installPackagePlugin = useCallback(
     async (plugin: MarketPlugin) => {
@@ -413,25 +416,24 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
         await installMcpServer(result.mcp, result.mcp.name || plugin.name);
         installedAny = true;
       }
-      // 2. skills/*.md → 逐个落盘
+      // 2. skills:已由后端整目录落盘,前端只统计结果(同名技能会被后端跳过)
       const skills = result.skills || [];
-      for (const skill of skills) {
-        const res = await skillsApi.create({
-          name: skill.name,
-          description: result.plugin?.description || '',
-          scope: 'user',
-          content: skill.content,
-        });
-        if (res.success) {
-          installedAny = true;
-          emitEvent('skills:changed', { name: skill.name, action: 'install' });
-        }
+      const skipped = skills.filter((s) => s.skipped);
+      if (skills.some((s) => !s.skipped)) {
+        installedAny = true;
+        emitEvent('skills:changed', { action: 'install' });
       }
       if (installedAny) {
         await reloadInstalled();
         showToast(t('pluginMarket.installPackageSuccess', { name: plugin.name }), { type: 'success', duration: 3000 });
-      } else {
+      } else if (skipped.length === 0) {
         showToast(t('pluginMarket.packageEmpty'), { type: 'warning', duration: 2500 });
+      }
+      if (skipped.length > 0) {
+        showToast(
+          t('pluginMarket.packageSkipped', { names: skipped.map((s) => s.skillId).join(', ') }),
+          { type: 'warning', duration: 3500 },
+        );
       }
     },
     [installMcpServer, reloadInstalled, t],
@@ -444,7 +446,8 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
       if (!window.confirm(t(confirmKey, { name: item.name }))) return;
       try {
         if (item.type === 'skill') {
-          const result = await skillsApi.delete(item.filePath);
+          // 目录技能需整目录删除(含 scripts/、references/ 等资源)
+          const result = await skillsApi.delete(item.filePath, { directory: item.isDirectory });
           if (result.success) {
             showToast(t('pluginMarket.uninstallSuccess', { name: item.name }), { type: 'success', duration: 2000 });
             await reloadInstalled();
@@ -504,14 +507,18 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           setPreviewContent(await resp.text());
         } else if (plugin.type === 'package') {
-          // package:调用后端解析,展示清单 + mcp 配置 + skills 列表
-          const result = await pluginsApi.installPackage(plugin.downloadUrl!);
+          // package:dryRun 调用后端解析,展示清单 + mcp 配置 + 技能列表(不落盘)
+          const result = await pluginsApi.installPackage(plugin.downloadUrl!, { dryRun: true });
           if (!result.success) {
             setPreviewError(t('pluginMarket.loadFailed') + (result.message || ''));
           } else {
             setPreviewContent(
               JSON.stringify(
-                { plugin: result.plugin, mcp: result.mcp ?? null, skills: (result.skills || []).map((s) => s.name) },
+                {
+                  plugin: result.plugin,
+                  mcp: result.mcp ?? null,
+                  skills: (result.skills || []).map((s) => (s.isDirectory ? s.skillId + '/' : s.skillId)),
+                },
                 null,
                 2,
               ),

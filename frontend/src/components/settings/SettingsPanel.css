@@ -1024,6 +1024,51 @@
   line-height: 1.5;
 }
 
+/* 目录形态技能的「目录」标记 */
+.settings-skill-dir-badge {
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--hb-text-soft, #6b7280);
+  background: var(--hb-bg-soft, #f3f4f6);
+  padding: 1px 6px;
+  border-radius: 6px;
+  vertical-align: middle;
+}
+
+/* 目录技能附带资源：只读浏览 */
+.settings-skill-resource-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.settings-skill-resource {
+  font-family: var(--hb-font-mono, monospace);
+  font-size: 11px;
+  color: var(--hb-text, #374151);
+  background: var(--hb-bg-soft, #f3f4f6);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.settings-skill-resource:hover {
+  border-color: var(--hb-border, #d1d5db);
+}
+
+.settings-skill-resource.active {
+  border-color: var(--hb-accent, #3b82f6);
+  color: var(--hb-accent, #3b82f6);
+}
+
+.settings-skill-resource-view {
+  margin-top: 8px;
+  min-height: 160px;
+}
+
 .settings-item-del {
   flex-shrink: 0;
   width: 26px;

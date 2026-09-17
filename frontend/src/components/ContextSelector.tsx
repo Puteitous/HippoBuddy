@@ -475,7 +475,7 @@ function SkillGroup({ label, skills, selectedSkillPaths, onToggle }: SkillGroupP
             />
             <div className="context-selector-item-info">
               <div className="context-selector-item-name">
-                {skill.name || skill.fileName.replace(/\.md$/, '')}
+                {skill.name || skill.skillId}
               </div>
               {skill.description && (
                 <div className="context-selector-item-desc">{skill.description}</div>

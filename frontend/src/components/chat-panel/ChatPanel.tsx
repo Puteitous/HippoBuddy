@@ -398,11 +398,10 @@ export function ChatPanel() {
           : prev.filter((p) => p !== skill.filePath),
       );
       if (selected) {
-        const fileName = skill.fileName || skill.filePath.split(/[/\\]/).pop() || '';
         const chip: RefChip = {
           id: `skill-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           kind: 'file',
-          text: skill.name || fileName.replace(/\.md$/, ''),
+          text: skill.name || skill.skillId,
           filePath: skill.filePath,
         };
         inlineInputRef.current?.insertChipAtCursor(chip);

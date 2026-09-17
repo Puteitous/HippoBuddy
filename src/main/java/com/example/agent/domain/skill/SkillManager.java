@@ -11,8 +11,9 @@ import java.util.stream.Collectors;
 /**
  * 技能管理器 — 加载技能列表并提供查询。
  * <p>
- * 职责：加载项目级 {@code {workspace}/.hippo/skills/*.md}
- * 和用户级 {@code {HIPPO_ROOT}/skills/*.md} 技能文件。
+ * 职责：加载项目级 {@code {workspace}/.hippo/skills/}
+ * 和用户级 {@code {HIPPO_ROOT}/skills/} 下的技能，支持扁平 {@code <name>.md}
+ * 与目录形态 {@code <name>/SKILL.md} 两种结构。
  * 数据懒加载，首次调用 {@link #getSkills()} 时从磁盘扫描。
  * </p>
  * <p>
@@ -57,19 +58,24 @@ public class SkillManager {
     }
 
     /**
-     * 按技能名称（文件名，不含 {@code .md}）查找技能。
+     * 按技能名称查找技能。
+     * <p>
+     * 依次匹配：{@code skillId}（扁平=文件名去 .md，目录=目录名）、入口文件名（含/不含 .md）、
+     * Frontmatter 中的 {@code name} 字段。
      *
-     * @param name 技能名称（文件名不含 .md，或 Frontmatter 中的 name 字段）
+     * @param name 技能名称
      * @return 匹配的 SkillEntry，未找到返回 null
      */
     public SkillEntry findByName(String name) {
         if (name == null || name.isBlank()) {
             return null;
         }
-        String fileName = name.endsWith(".md") ? name : name + ".md";
+        String trimmed = name.trim();
+        String fileName = trimmed.endsWith(".md") ? trimmed : trimmed + ".md";
         return getSkills().stream()
-                .filter(s -> s.getFileName().equals(fileName)
-                        || s.getName().equals(name))
+                .filter(s -> s.getSkillId().equals(trimmed)
+                        || s.getFileName().equals(fileName)
+                        || s.getName().equals(trimmed))
                 .findFirst()
                 .orElse(null);
     }
@@ -95,16 +101,16 @@ public class SkillManager {
      * 输出格式（与 {@code SkillTool} 原有工具描述保持一致的分组风格）：
      * <pre>
      * ## 可用技能
-     * 以下技能文件提供特定领域的专业指导，当用户请求涉及以下领域时，
+     * 以下技能提供特定领域的专业指导，当用户请求涉及以下领域时，
      * 调用 skill 工具获取详细内容：
      *
      * 【项目技能】
-     * - 文件名 — 描述
+     * - 技能名称 — 描述
      *
      * 【用户技能】
-     * - 文件名 — 描述
+     * - 技能名称 — 描述
      *
-     * 使用方式：调用 skill 工具并传入对应的技能名称（文件名不含 .md 后缀）。
+     * 使用方式：调用 skill 工具并传入对应的技能名称。
      * </pre>
      * 技能清单为空时返回空字符串（调用方应跳过注入）。
      * </p>
@@ -126,13 +132,13 @@ public class SkillManager {
 
         StringBuilder sb = new StringBuilder();
         sb.append("\n\n## 可用技能\n");
-        sb.append("以下技能文件提供特定领域的专业指导，当用户请求涉及以下领域时，")
+        sb.append("以下技能提供特定领域的专业指导，当用户请求涉及以下领域时，")
            .append("调用 skill 工具获取详细内容：\n");
 
         if (!projectSkills.isEmpty()) {
             sb.append("\n【项目技能】\n");
             for (SkillEntry skill : projectSkills) {
-                sb.append("- ").append(skill.getFileName());
+                sb.append("- ").append(skill.getSkillId());
                 if (skill.getDescription() != null && !skill.getDescription().isBlank()) {
                     sb.append(" — ").append(skill.getDescription());
                 }
@@ -143,7 +149,7 @@ public class SkillManager {
         if (!userSkills.isEmpty()) {
             sb.append("\n【用户技能】\n");
             for (SkillEntry skill : userSkills) {
-                sb.append("- ").append(skill.getFileName());
+                sb.append("- ").append(skill.getSkillId());
                 if (skill.getDescription() != null && !skill.getDescription().isBlank()) {
                     sb.append(" — ").append(skill.getDescription());
                 }
@@ -151,7 +157,7 @@ public class SkillManager {
             }
         }
 
-        sb.append("\n使用方式：调用 skill 工具并传入对应的技能名称（文件名不含 .md 后缀）。");
+        sb.append("\n使用方式：调用 skill 工具并传入对应的技能名称。");
         return sb.toString();
     }
 }

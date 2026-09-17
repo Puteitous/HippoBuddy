@@ -3,10 +3,15 @@
  *
  * 列表(项目/用户分组)+ 编辑/创建/删除
  *
+ * 支持两种技能形态：
+ *  - 扁平：单个 <name>.md
+ *  - 目录：<name>/SKILL.md + 同目录资源(scripts/、references/ 等)，仅入口可编辑，资源只读浏览
+ *
  * 状态:
  *  - mode: 'list' | 'edit' | 'create'
  *  - skills: { project: SkillEntry[]; user: SkillEntry[] }
- *  - editing: { skill, scope, content }
+ *  - editing: { skill, scope, name, description, content }
+ *  - resourcePreview: 目录技能资源的只读预览
  *
  * 3.7-1:订阅 eventBus 'skills:changed',当 SkillMarket 安装/卸载技能时
  * 自动刷新本地列表(替代旧版 window.settingsPanel.reloadSkills())。
@@ -17,7 +22,7 @@ import { ApiError } from '@/api/error';
 import { on as onEvent } from '@/utils/eventBus';
 import { translate, useI18n } from '@/i18n';
 import { showToast } from './toastStore';
-import type { SkillEntry } from '@/types/config';
+import type { SkillEntry, SkillResourceEntry } from '@/types/config';
 
 type SkillScope = 'project' | 'user';
 type Mode = 'list' | 'edit' | 'create';
@@ -40,6 +45,11 @@ function emptyEditor(): EditorState {
   };
 }
 
+/** 技能显示名：优先 Frontmatter name，否则用 skillId（目录技能不能显示 SKILL.md） */
+function skillDisplayName(skill: SkillEntry): string {
+  return skill.name || skill.skillId;
+}
+
 export function SkillsSettingsPage() {
   const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('list');
@@ -50,6 +60,8 @@ export function SkillsSettingsPage() {
   const [editor, setEditor] = useState<EditorState>(emptyEditor());
   const [contentLoading, setContentLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** 目录技能的只读资源预览 */
+  const [resourcePreview, setResourcePreview] = useState<{ path: string; content: string } | null>(null);
 
   const loadSkills = async () => {
     setLoading(true);
@@ -80,10 +92,11 @@ export function SkillsSettingsPage() {
 
   const openEdit = async (skill: SkillEntry, scope: SkillScope) => {
     setMode('edit');
+    setResourcePreview(null);
     setEditor({
       skill,
       scope,
-      name: skill.name || skill.fileName.replace(/\.md$/, ''),
+      name: skillDisplayName(skill),
       description: skill.description || '',
       content: '',
     });
@@ -100,14 +113,27 @@ export function SkillsSettingsPage() {
     }
   };
 
+  /** 只读查看目录技能的一项资源 */
+  const openResourcePreview = async (resource: SkillResourceEntry) => {
+    try {
+      const data = await skillsApi.get(resource.filePath);
+      setResourcePreview({ path: resource.path, content: data.content || '' });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast(translate('settingsPage.skillsLoadFailedToast') + msg, { type: 'error', duration: 3000 });
+    }
+  };
+
   const openCreate = () => {
     setMode('create');
+    setResourcePreview(null);
     setEditor(emptyEditor());
   };
 
   const closeEditor = () => {
     setMode('list');
     setEditor(emptyEditor());
+    setResourcePreview(null);
     loadSkills();
   };
 
@@ -127,7 +153,11 @@ export function SkillsSettingsPage() {
         content: editor.content,
       };
       const result = mode === 'edit' && editor.skill
-        ? await skillsApi.update({ filePath: editor.skill.filePath, ...body })
+        ? await skillsApi.update({
+            filePath: editor.skill.filePath,
+            ...body,
+            directory: editor.skill.isDirectory,
+          })
         : await skillsApi.create(body);
       if (result.success) {
         showToast(mode === 'edit' ? translate('settingsPage.skillsSaved') : translate('settingsPage.skillsCreated'), {
@@ -153,10 +183,13 @@ export function SkillsSettingsPage() {
   };
 
   const handleDelete = async (skill: SkillEntry) => {
-    const name = skill.name || skill.fileName.replace(/\.md$/, '');
-    if (!window.confirm(translate('settingsPage.deleteConfirmSkill') + name + translate('settingsPage.deleteConfirmEnd'))) return;
+    const name = skillDisplayName(skill);
+    const confirmKey = skill.isDirectory
+      ? 'settingsPage.deleteConfirmSkillDir'
+      : 'settingsPage.deleteConfirmSkill';
+    if (!window.confirm(translate(confirmKey) + name + translate('settingsPage.deleteConfirmEnd'))) return;
     try {
-      const result = await skillsApi.delete(skill.filePath);
+      const result = await skillsApi.delete(skill.filePath, { directory: skill.isDirectory });
       if (result.success) {
         showToast(translate('settingsPage.skillsDeletedToast') + name, { type: 'success', duration: 2000 });
         loadSkills();
@@ -265,8 +298,11 @@ export function SkillsSettingsPage() {
   };
 
   const renderEditor = () => {
-    const title = mode === 'edit' && editor.skill
-      ? translate('settingsPage.skillsEditTitlePrefix') + (editor.skill.name || editor.skill.fileName.replace(/\.md$/, ''))
+    const editingSkill = editor.skill;
+    const isDirectory = Boolean(editingSkill?.isDirectory);
+    const resources = editingSkill?.resources ?? [];
+    const title = mode === 'edit' && editingSkill
+      ? translate('settingsPage.skillsEditTitlePrefix') + skillDisplayName(editingSkill)
       : translate('settingsPage.skillsCreateTitle');
     return (
       <div className="settings-editor">
@@ -319,6 +355,7 @@ export function SkillsSettingsPage() {
                 type="button"
                 className={`settings-toggle-btn${editor.scope === 'project' ? ' active' : ''}`}
                 onClick={() => setEditor({ ...editor, scope: 'project' })}
+                disabled={isDirectory}
               >
                 {t('settingsPage.skillsScopeProject')}
               </button>
@@ -326,10 +363,14 @@ export function SkillsSettingsPage() {
                 type="button"
                 className={`settings-toggle-btn${editor.scope === 'user' ? ' active' : ''}`}
                 onClick={() => setEditor({ ...editor, scope: 'user' })}
+                disabled={isDirectory}
               >
                 {t('settingsPage.skillsScopeUser')}
               </button>
             </div>
+            {isDirectory && (
+              <div className="settings-field-hint">{t('settingsPage.skillsScopeLockedHint')}</div>
+            )}
           </div>
         </div>
         <textarea
@@ -339,6 +380,32 @@ export function SkillsSettingsPage() {
           onChange={(e) => setEditor({ ...editor, content: e.target.value })}
           spellCheck={false}
         />
+        {isDirectory && resources.length > 0 && (
+          <div className="settings-field settings-skill-resources">
+            <label className="settings-field-label">{t('settingsPage.skillsResources')}</label>
+            <div className="settings-skill-resource-list">
+              {resources.map((r) => (
+                <button
+                  key={r.path}
+                  type="button"
+                  className={`settings-skill-resource${resourcePreview?.path === r.path ? ' active' : ''}`}
+                  onClick={() => openResourcePreview(r)}
+                >
+                  {r.path}
+                </button>
+              ))}
+            </div>
+            <div className="settings-field-hint">{t('settingsPage.skillsResourcesHint')}</div>
+            {resourcePreview && (
+              <textarea
+                className="settings-editor-textarea settings-skill-resource-view"
+                value={resourcePreview.content}
+                readOnly
+                spellCheck={false}
+              />
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -368,10 +435,13 @@ function SkillItemRow({
   const { t } = useI18n();
   return (
     <div className="settings-item" onClick={onClick}>
-      <span className="settings-item-icon">📄</span>
+      <span className="settings-item-icon">{skill.isDirectory ? '📁' : '📄'}</span>
       <div className="settings-item-info">
         <div className="settings-item-name">
-          {skill.name || skill.fileName.replace(/\.md$/, '')}
+          {skillDisplayName(skill)}
+          {skill.isDirectory && (
+            <span className="settings-skill-dir-badge">{t('settingsPage.skillsDirectoryBadge')}</span>
+          )}
         </div>
         {skill.description && (
           <div className="settings-item-meta">{skill.description}</div>

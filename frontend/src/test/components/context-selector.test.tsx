@@ -21,8 +21,8 @@ function defaultList() {
     userRules: [],
   });
   skillsApiProps.list.mockResolvedValue({
-    projectSkills: [{ fileName: 'proj-skill.md', description: '项目技能描述', filePath: '/skills/proj-skill.md' }],
-    userSkills: [{ fileName: 'my-skill.md', name: '我的技能', description: '技能描述', filePath: '/skills/my-skill.md' }],
+    projectSkills: [{ skillId: 'proj-skill', isDirectory: false, fileName: 'proj-skill.md', description: '项目技能描述', filePath: '/skills/proj-skill.md' }],
+    userSkills: [{ skillId: 'my-skill', isDirectory: false, fileName: 'my-skill.md', name: '我的技能', description: '技能描述', filePath: '/skills/my-skill.md' }],
   });
 }
 
@@ -126,11 +126,11 @@ describe('ContextSelector', () => {
     expect(screen.getByText('前往设置 → 规则 创建')).toBeInTheDocument();
   });
 
-  it('技能级:项目/用户分组,无 name 回退 fileName 去 .md,勾选回调 true', async () => {
+  it('技能级:项目/用户分组,无 name 回退 skillId,勾选回调 true', async () => {
     const onSkillToggle = vi.fn();
     skillsApiProps.list.mockResolvedValue({
-      projectSkills: [{ fileName: 'proj-skill.md', description: '项目技能描述', filePath: '/skills/proj-skill.md' }],
-      userSkills: [{ fileName: 'no-name.md', filePath: '/skills/no-name.md' }],
+      projectSkills: [{ skillId: 'proj-skill', isDirectory: false, fileName: 'proj-skill.md', description: '项目技能描述', filePath: '/skills/proj-skill.md' }],
+      userSkills: [{ skillId: 'no-name', isDirectory: false, fileName: 'no-name.md', filePath: '/skills/no-name.md' }],
     });
     renderDefault({ onSkillToggle });
     await openPanel();
@@ -139,9 +139,9 @@ describe('ContextSelector', () => {
     expect(screen.getByText('项目技能')).toBeInTheDocument();
     expect(screen.getByText('用户技能')).toBeInTheDocument();
 
-    // name 回退:proj-skill.md → 'proj-skill'
+    // name 回退:优先 skillId
     expect(screen.getByText('proj-skill')).toBeInTheDocument();
-    // no-name.md 无 name → 回退为 'no-name'
+    // 无 name → 回退为 skillId 'no-name'
     expect(screen.getByText('no-name')).toBeInTheDocument();
 
     const projCheckbox = screen.getByRole('checkbox', { name: /proj-skill/ });

@@ -273,8 +273,8 @@ class SkillManagerTest {
         assertTrue(snippet.startsWith("\n\n## 可用技能\n"), "应以「可用技能」标题开头");
         assertTrue(snippet.contains("【项目技能】"), "应包含项目技能分组");
         assertFalse(snippet.contains("【用户技能】"), "无用户技能时不应出现用户分组");
-        assertTrue(snippet.contains("- code-review.md — 审查代码中的常见问题"),
-                "应包含技能文件名和描述");
+        assertTrue(snippet.contains("- code-review — 审查代码中的常见问题"),
+                "应包含技能名称和描述");
         assertTrue(snippet.contains("使用方式：调用 skill 工具并传入对应的技能名称"),
                 "应包含使用方式说明");
     }
@@ -292,8 +292,8 @@ class SkillManagerTest {
 
         assertTrue(snippet.contains("【用户技能】"), "应包含用户技能分组");
         assertFalse(snippet.contains("【项目技能】"), "无项目技能时不应出现项目分组");
-        assertTrue(snippet.contains("- git-workflow.md — Git 协作规范"),
-                "应包含用户技能文件名和描述");
+        assertTrue(snippet.contains("- git-workflow — Git 协作规范"),
+                "应包含用户技能名称和描述");
     }
 
     @Test
@@ -313,8 +313,8 @@ class SkillManagerTest {
 
         assertTrue(snippet.contains("【项目技能】"), "应包含项目技能分组");
         assertTrue(snippet.contains("【用户技能】"), "应包含用户技能分组");
-        assertTrue(snippet.contains("- project-skill.md — 项目级技能"), "应列出项目技能");
-        assertTrue(snippet.contains("- user-skill.md — 用户级技能"), "应列出用户技能");
+        assertTrue(snippet.contains("- project-skill — 项目级技能"), "应列出项目技能");
+        assertTrue(snippet.contains("- user-skill — 用户级技能"), "应列出用户技能");
     }
 
     @Test
@@ -327,8 +327,8 @@ class SkillManagerTest {
         SkillManager manager = new SkillManager();
         String snippet = manager.buildSystemPromptSnippet();
 
-        assertTrue(snippet.contains("- no-desc.md\n"), "描述为空时不应输出「— 」后缀");
-        assertFalse(snippet.contains("no-desc.md —"), "不应包含空描述分隔符");
+        assertTrue(snippet.contains("- no-desc\n"), "描述为空时不应输出「— 」后缀");
+        assertFalse(snippet.contains("no-desc —"), "不应包含空描述分隔符");
     }
 
     @Test
@@ -347,12 +347,58 @@ class SkillManagerTest {
 
         WorkspaceContext.setCurrentFolder(ws1.toString());
         String snippetA = manager.buildSystemPromptSnippet();
-        assertTrue(snippetA.contains("skill-a.md"), "工作区 A 的清单应包含 skill-a");
-        assertFalse(snippetA.contains("skill-b.md"), "工作区 A 的清单不应包含 skill-b");
+        assertTrue(snippetA.contains("skill-a"), "工作区 A 的清单应包含 skill-a");
+        assertFalse(snippetA.contains("skill-b"), "工作区 A 的清单不应包含 skill-b");
 
         WorkspaceContext.setCurrentFolder(ws2.toString());
         String snippetB = manager.buildSystemPromptSnippet();
-        assertTrue(snippetB.contains("skill-b.md"), "工作区 B 的清单应包含 skill-b");
-        assertFalse(snippetB.contains("skill-a.md"), "工作区 B 的清单不应包含 skill-a");
+        assertTrue(snippetB.contains("skill-b"), "工作区 B 的清单应包含 skill-b");
+        assertFalse(snippetB.contains("skill-a"), "工作区 B 的清单不应包含 skill-a");
+    }
+
+    // ==================== 目录形态技能 ====================
+
+    @Test
+    @DisplayName("findByName - 目录技能按目录名查找成功")
+    void testFindByNameDirectorySkill() throws IOException {
+        Path skillDir = tempDir.resolve(".hippo").resolve("skills").resolve("pdf-tools");
+        Files.createDirectories(skillDir);
+        Files.writeString(skillDir.resolve("SKILL.md"),
+                "---\nname: PDF 工具\ndescription: 抽取文本\n---\n正文");
+
+        SkillManager manager = new SkillManager();
+        SkillEntry entry = manager.findByName("pdf-tools");
+        assertNotNull(entry);
+        assertEquals("pdf-tools", entry.getSkillId());
+        assertEquals("SKILL.md", entry.getFileName());
+        assertTrue(entry.isDirectorySkill());
+    }
+
+    @Test
+    @DisplayName("getSkills - 多个目录技能都在（入口同名 SKILL.md 不互相覆盖）")
+    void testMultipleDirectorySkills() throws IOException {
+        Path skillsDir = tempDir.resolve(".hippo").resolve("skills");
+        for (String name : new String[]{"alpha", "beta"}) {
+            Path dir = skillsDir.resolve(name);
+            Files.createDirectories(dir);
+            Files.writeString(dir.resolve("SKILL.md"), "---\ndescription: " + name + "\n---\n");
+        }
+
+        SkillManager manager = new SkillManager();
+        assertEquals(2, manager.getSkills().size());
+    }
+
+    @Test
+    @DisplayName("buildSystemPromptSnippet - 目录技能按目录名列出")
+    void testSnippetDirectorySkill() throws IOException {
+        Path skillDir = tempDir.resolve(".hippo").resolve("skills").resolve("pdf-tools");
+        Files.createDirectories(skillDir);
+        Files.writeString(skillDir.resolve("SKILL.md"), "---\ndescription: 抽取 PDF 文本\n---\n正文");
+
+        SkillManager manager = new SkillManager();
+        String snippet = manager.buildSystemPromptSnippet();
+
+        assertTrue(snippet.contains("- pdf-tools — 抽取 PDF 文本"), "目录技能应列出目录名");
+        assertFalse(snippet.contains("SKILL.md"), "清单不应出现入口文件名 SKILL.md");
     }
 }
