@@ -20,7 +20,8 @@
  * 说明:MCP 插件安装/卸载后经 /api/mcp/refresh 即时建立/断开连接,无需重启。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { skillsApi, configApi, mcpApi } from '@/api/client';
+import { skillsApi, configApi, mcpApi, pluginsApi } from '@/api/client';
+import { type RemotePluginEntry, type RemoteRegistry } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { emit as emitEvent } from '@/utils/eventBus';
 import { useI18n } from '@/i18n';
@@ -69,6 +70,13 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
   const [savedCategory, setSavedCategory] = useState<string>(DEFAULT_CATEGORY_LABEL);
   /** 类型筛选:全部 / 技能 / MCP */
   const [typeFilter, setTypeFilter] = useState<MarketPluginType | 'all'>('all');
+
+  /** 市场目录数据源:初始为内置,拉取远程成功后整体替换 */
+  const [catalogPlugins, setCatalogPlugins] = useState<MarketPlugin[]>(MARKET_PLUGINS);
+  /** 远程目录不可用(失败/未配置/空)时为 true,界面显示离线标记 */
+  const [offlineMode, setOfflineMode] = useState(false);
+  /** 正在拉取远程目录 */
+  const [refreshingCatalog, setRefreshingCatalog] = useState(false);
 
   const [installedPlugins, setInstalledPlugins] = useState<InstalledPlugin[]>([]);
   /** skill 已安装名集合(kebab-case) */
@@ -126,6 +134,86 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
     filePath: s.filePath,
   });
 
+  /**
+   * 远程目录条目 → 内置 MarketPlugin 结构。
+   * - desc 原样透传:内置渲染走 t(),未知 key 会原样返回文本,兼容「i18n key / 纯文本」两种形态
+   * - package 类型(标准插件包)在 Step 1 未支持,直接跳过
+   */
+  const toMarketPlugin = useCallback((r: RemotePluginEntry): MarketPlugin | null => {
+    if (r.type === 'package') return null;
+    if (r.type === 'mcp') {
+      if (!r.mcp) return null;
+      return {
+        id: r.id,
+        type: 'mcp',
+        name: r.name,
+        desc: r.desc || r.name,
+        source: r.source || 'community',
+        category: (r.category as MarketPlugin['category']) || 'dev',
+        mcp: r.mcp,
+      };
+    }
+    // skill
+    if (!r.skillUrl) return null;
+    return {
+      id: r.id,
+      type: 'skill',
+      name: r.name,
+      desc: r.desc || r.name,
+      source: r.source || 'community',
+      category: (r.category as MarketPlugin['category']) || 'dev',
+      skillUrl: r.skillUrl,
+    };
+  }, []);
+
+  /**
+   * 拉取远程插件目录并整体替换市场数据源。
+   * - 成功且非空 → 用远程条目替换内置目录,离线标记关闭
+   * - 失败/未配置/空 → 回退内置目录,离线标记开启
+   * - notify=true 时对结果 Toast(手动刷新场景)
+   */
+  const loadCatalog = useCallback(
+    async (notify: boolean) => {
+      setRefreshingCatalog(true);
+      try {
+        const registry: RemoteRegistry = await pluginsApi.getRegistry();
+        const remote = (registry.plugins || [])
+          .map(toMarketPlugin)
+          .filter((p): p is MarketPlugin => p !== null);
+        if (remote.length > 0) {
+          setCatalogPlugins(remote);
+          setOfflineMode(false);
+          if (notify) {
+            showToast(t('pluginMarket.registryUpdated'), { type: 'success', duration: 2000 });
+          }
+        } else {
+          // 远程可达但目录为空/未配置 → 回退内置并标记离线
+          setCatalogPlugins(MARKET_PLUGINS);
+          setOfflineMode(true);
+          if (notify) {
+            showToast(t('pluginMarket.noRemotePlugins'), { type: 'warning', duration: 2500 });
+          }
+        }
+      } catch (e) {
+        // 拉取失败(网络/代理/超时)→ 回退内置并标记离线
+        console.warn('[PluginMarket] 拉取远程目录失败,回退内置目录:', e);
+        setCatalogPlugins(MARKET_PLUGINS);
+        setOfflineMode(true);
+        if (notify) {
+          showToast(t('pluginMarket.offlineMode'), { type: 'warning', duration: 3000 });
+        }
+      } finally {
+        setRefreshingCatalog(false);
+      }
+    },
+    [toMarketPlugin, t],
+  );
+
+  // 打开市场时自动拉取远程目录(静默,失败回退内置)
+  useEffect(() => {
+    void loadCatalog(false);
+  }, [loadCatalog]);
+
   useEffect(() => {
     void reloadInstalled();
   }, [reloadInstalled]);
@@ -159,7 +247,7 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
   }, [onClose, previewing, closePreview]);
 
   const filteredPlugins = useMemo<MarketPlugin[]>(() => {
-    return MARKET_PLUGINS.filter((p) => {
+    return catalogPlugins.filter((p) => {
       const matchQuery =
         !searchQuery ||
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -168,11 +256,11 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
       const matchType = typeFilter === 'all' || p.type === typeFilter;
       return matchQuery && matchCat && matchType;
     });
-  }, [searchQuery, activeCategory, typeFilter, t]);
+  }, [searchQuery, activeCategory, typeFilter, t, catalogPlugins]);
 
   const filteredBySource = useMemo<MarketPlugin[]>(() => {
     if (!activeSource) return [];
-    return MARKET_PLUGINS.filter((p) => {
+    return catalogPlugins.filter((p) => {
       const matchSource = p.source.includes(activeSource.id);
       const matchQuery =
         !searchQuery ||
@@ -182,7 +270,7 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
       const matchType = typeFilter === 'all' || p.type === typeFilter;
       return matchSource && matchQuery && matchCat && matchType;
     });
-  }, [activeSource, searchQuery, activeCategory, typeFilter, t]);
+  }, [activeSource, searchQuery, activeCategory, typeFilter, t, catalogPlugins]);
 
   const isInstalled = useCallback(
     (p: MarketPlugin): boolean =>
@@ -377,9 +465,33 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
           <h2 className="plugin-market-title">{t('pluginMarket.title')}</h2>
           <span className="plugin-market-subtitle">{t('pluginMarket.subtitle')}</span>
         </div>
-        <button type="button" className="plugin-market-close" title={t('pluginMarket.closeEsc')} onClick={onClose}>
-          ✕
-        </button>
+        <div className="plugin-market-header-actions">
+          {offlineMode && (
+            <span className="plugin-market-offline" title={t('pluginMarket.offlineMode')}>
+              {t('pluginMarket.offlineTitle')}
+            </span>
+          )}
+          <button
+            type="button"
+            className="plugin-market-refresh"
+            title={t('pluginMarket.refresh')}
+            disabled={refreshingCatalog}
+            onClick={() => void loadCatalog(true)}
+          >
+            {refreshingCatalog ? (
+              <span className="plugin-market-refresh-spin">⟳</span>
+            ) : (
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+            )}
+          </button>
+          <button type="button" className="plugin-market-close" title={t('pluginMarket.closeEsc')} onClick={onClose}>
+            ✕
+          </button>
+        </div>
       </header>
 
       <div className="plugin-market-body">
@@ -400,7 +512,7 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
               plugins={installedPlugins}
               onUninstall={handleUninstall}
               onPreview={(item) => {
-                const plugin = MARKET_PLUGINS.find((p) => p.id === item.id);
+                const plugin = catalogPlugins.find((p) => p.id === item.id);
                 if (plugin) {
                   void handlePreview(plugin);
                 } else if (item.type === 'skill') {

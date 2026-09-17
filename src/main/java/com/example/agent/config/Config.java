@@ -34,6 +34,7 @@ public class Config {
     private MemoryConfig memory = new MemoryConfig();
     private WebConfig web = new WebConfig();
     private WorkspaceConfig workspace = new WorkspaceConfig();
+    private PluginConfig plugins = new PluginConfig();
 
     private transient ConfigLoader configLoader;
 
@@ -134,6 +135,7 @@ public class Config {
                 this.memory = reloaded.memory;
                 this.web = reloaded.web;
                 this.workspace = reloaded.workspace;
+                this.plugins = reloaded.plugins;
                 this.loadFromEnvironment();
                 logger.info("Configuration reloaded from: {}", configFile.getAbsolutePath());
             } catch (IOException e) {
@@ -296,6 +298,17 @@ public class Config {
 
     public void setWorkspace(WorkspaceConfig workspace) {
         this.workspace = workspace;
+    }
+
+    public PluginConfig getPlugins() {
+        if (plugins == null) {
+            plugins = new PluginConfig();
+        }
+        return plugins;
+    }
+
+    public void setPlugins(PluginConfig plugins) {
+        this.plugins = plugins;
     }
 
     @JsonIgnore

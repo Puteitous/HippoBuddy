@@ -67,6 +67,60 @@
   border-color: var(--hb-text-soft, #6b7280);
 }
 
+/* ========== Header actions(刷新 / 离线标记) ========== */
+.plugin-market-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plugin-market-refresh {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-radius: 6px;
+  background: var(--hb-bg, #ffffff);
+  color: var(--hb-text-soft, #6b7280);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.plugin-market-refresh:hover:not(:disabled) {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+  color: var(--hb-text, #1f2937);
+  border-color: var(--hb-text-soft, #6b7280);
+}
+
+.plugin-market-refresh:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.plugin-market-refresh-spin {
+  display: inline-block;
+  animation: plugin-market-spin 1s linear infinite;
+  font-size: 14px;
+}
+
+@keyframes plugin-market-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.plugin-market-offline {
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #b45309;
+  background: rgba(180, 83, 9, 0.12);
+  border: 1px solid rgba(180, 83, 9, 0.3);
+  white-space: nowrap;
+}
+
 /* ========== Body ========== */
 .plugin-market-body {
   flex: 1;

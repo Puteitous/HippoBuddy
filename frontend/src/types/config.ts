@@ -144,6 +144,12 @@ export interface McpConfigSection {
   servers: McpServerConfigSection[];
 }
 
+/** 插件目录配置(plugins 节) */
+export interface PluginConfigSection {
+  /** 远程插件目录 index.json 地址,空串表示仅使用内置目录 */
+  registry_url: string;
+}
+
 // ============================================================================
 // Full Config (GET /api/config)
 // ============================================================================
@@ -162,6 +168,7 @@ export interface FullConfig {
   ui?: UiConfigSection;
   workspace?: WorkspaceConfigSection;
   mcp?: McpConfigSection;
+  plugins?: PluginConfigSection;
 }
 
 // ============================================================================
@@ -172,7 +179,7 @@ export interface FullConfig {
 // ============================================================================
 
 export type UpdateConfigRequest = Partial<
-  Pick<FullConfig, 'session' | 'context' | 'tools' | 'ui' | 'workspace' | 'mcp'>
+  Pick<FullConfig, 'session' | 'context' | 'tools' | 'ui' | 'workspace' | 'mcp' | 'plugins'>
 >;
 
 // ============================================================================

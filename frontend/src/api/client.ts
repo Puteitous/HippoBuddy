@@ -245,6 +245,54 @@ export const configApi = {
 };
 
 /**
+ * 远程插件目录。字段对齐后端 /api/plugins/registry(即远程 index.json 的 plugin 条目)。
+ * type='skill' 用 skillUrl;type='mcp' 用 mcp(字段对齐 McpServerConfigSection);
+ * type='package' 为标准插件包,含 downloadUrl。
+ */
+export interface RemotePluginEntry {
+  id: string;
+  type: 'skill' | 'mcp' | 'package';
+  name: string;
+  /** 描述:可为 i18n key 或纯文本,空时前端回退用 name */
+  desc?: string;
+  category?: string;
+  /** 来源仓库 id(对齐 PluginSource.id) */
+  source?: string;
+  /** skill 专用:安装/预览 URL */
+  skillUrl?: string;
+  /** mcp 专用:MCP server 配置 */
+  mcp?: {
+    id: string;
+    name: string;
+    type: 'stdio' | 'sse';
+    command?: string;
+    args?: string[];
+    url?: string;
+    env?: Record<string, string>;
+    auto_register_tools?: boolean;
+  };
+  /** package 专用:标准插件包下载地址 */
+  downloadUrl?: string;
+}
+
+/** /api/plugins/registry 返回结构(远程 index.json 原样透传) */
+export interface RemoteRegistry {
+  version?: number;
+  updated?: string;
+  offline?: boolean;
+  plugins?: RemotePluginEntry[];
+}
+
+// ============================================================================
+// Plugins API (对应后端 PluginRegistryApiHandler / ConfigApiHandler plugins 节)
+// ============================================================================
+
+export const pluginsApi = {
+  /** GET /api/plugins/registry - 拉取远程插件目录(后端代理,避免前端跨域) */
+  getRegistry: () => getJson<RemoteRegistry>(`${API_BASE}/plugins/registry`),
+};
+
+/**
  * GET /api/system-prompts/default/{mode} - 某任务模式的内置默认基础提示词
  * 仅用于设置页展示该模式的系统预设提示词(实际发送时后端还会叠加规则/技能/工作区等增强)。
  */

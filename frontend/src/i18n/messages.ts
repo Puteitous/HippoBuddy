@@ -1523,6 +1523,12 @@ export const zh: Record<string, string> = {
   'pluginMarket.mcp.github': 'GitHub — 仓库、Issue、PR 查询与操作（需 GITHUB_TOKEN）',
   'pluginMarket.mcp.postgres': 'PostgreSQL — 只读查询与写入（需数据库连接串）',
   'pluginMarket.mcp.sqlite': 'SQLite — 本地数据库读写与查询',
+  'pluginMarket.refresh': '刷新目录',
+  'pluginMarket.refreshing': '刷新中...',
+  'pluginMarket.offlineMode': '远程目录不可用，已切换离线模式',
+  'pluginMarket.offlineTitle': '离线模式',
+  'pluginMarket.registryUpdated': '远程目录已更新',
+  'pluginMarket.noRemotePlugins': '远程目录暂无插件',
 
   /* ==================== Delete Confirm ==================== */
   'deleteConfirm.message': '确认删除？',
@@ -3189,6 +3195,12 @@ export const en: Record<string, string> = {
   'pluginMarket.mcp.github': 'GitHub — repos, issues, PRs (requires GITHUB_TOKEN)',
   'pluginMarket.mcp.postgres': 'PostgreSQL — read/write queries (requires connection string)',
   'pluginMarket.mcp.sqlite': 'SQLite — local database read/write and query',
+  'pluginMarket.refresh': 'Refresh catalog',
+  'pluginMarket.refreshing': 'Refreshing...',
+  'pluginMarket.offlineMode': 'Remote catalog unavailable, switched to offline mode',
+  'pluginMarket.offlineTitle': 'Offline mode',
+  'pluginMarket.registryUpdated': 'Remote catalog updated',
+  'pluginMarket.noRemotePlugins': 'Remote catalog has no plugins',
 
   'deleteConfirm.message': 'Confirm delete?',
   'deleteConfirm.cancel': 'Cancel',

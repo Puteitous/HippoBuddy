@@ -430,6 +430,7 @@ public class ConfigApiHandler implements HttpHandler {
         root.set("ui", MAPPER.valueToTree(config.getUi()));
         root.set("workspace", MAPPER.valueToTree(config.getWorkspace()));
         root.set("mcp", MAPPER.valueToTree(config.getMcp()));
+        root.set("plugins", MAPPER.valueToTree(config.getPlugins()));
         sendJson(exchange, 200, MAPPER.writeValueAsString(root));
     }
 
@@ -471,6 +472,9 @@ public class ConfigApiHandler implements HttpHandler {
         }
         if (values.has("mcp")) {
             MAPPER.readerForUpdating(config.getMcp()).readValue(values.get("mcp"));
+        }
+        if (values.has("plugins")) {
+            MAPPER.readerForUpdating(config.getPlugins()).readValue(values.get("plugins"));
         }
         config.save();
 
