@@ -219,6 +219,15 @@
         "args": ["-y", "@modelcontextprotocol/server-sqlite"],
         "auto_register_tools": true
       }
+    },
+    {
+      "id": "pkg-agent-plugins-example",
+      "type": "package",
+      "name": "agent-plugins-example",
+      "desc": "Agent Plugins 官方示例包（plugin.json + skills/），演示标准插件包安装",
+      "source": "agentplugins",
+      "category": "dev",
+      "downloadUrl": "https://codeload.github.com/agentplugins/agent-plugins-example/zip/refs/heads/main"
     }
   ]
 }

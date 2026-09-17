@@ -32,6 +32,7 @@ import type { ChatSseEventName } from '@/types/sse';
 import type {
   DataDirInfo,
   FullConfig,
+  McpServerConfigSection,
   RuleGetResponse,
   RuleMutationResponse,
   RulesListResponse,
@@ -283,13 +284,37 @@ export interface RemoteRegistry {
   plugins?: RemotePluginEntry[];
 }
 
+/** 标准插件包解析结果(对应后端 /api/plugins/package/install) */
+export interface PackageInstallResult {
+  success: boolean;
+  message?: string;
+  /** plugin.json 清单 */
+  plugin?: {
+    name: string;
+    version: string;
+    author: string;
+    description: string;
+  };
+  /** mcp.json 配置(可选) */
+  mcp?: McpServerConfigSection;
+  /** skills/*.md 内容列表(可选) */
+  skills?: Array<{ name: string; content: string }>;
+}
+
 // ============================================================================
-// Plugins API (对应后端 PluginRegistryApiHandler / ConfigApiHandler plugins 节)
+// Plugins API (对应后端 PluginRegistryApiHandler / PluginPackageInstallHandler)
 // ============================================================================
 
 export const pluginsApi = {
   /** GET /api/plugins/registry - 拉取远程插件目录(后端代理,避免前端跨域) */
   getRegistry: () => getJson<RemoteRegistry>(`${API_BASE}/plugins/registry`),
+
+  /**
+   * POST /api/plugins/package/install - 下载并解析标准插件包(Agent Plugins 1.0)。
+   * 返回 plugin.json 清单 + mcp 配置 + skills 内容,由前端完成装配安装。
+   */
+  installPackage: (downloadUrl: string) =>
+    postJson<PackageInstallResult>(`${API_BASE}/plugins/package/install`, { downloadUrl }),
 };
 
 /**

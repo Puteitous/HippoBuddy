@@ -137,10 +137,21 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
   /**
    * 远程目录条目 → 内置 MarketPlugin 结构。
    * - desc 原样透传:内置渲染走 t(),未知 key 会原样返回文本,兼容「i18n key / 纯文本」两种形态
-   * - package 类型(标准插件包)在 Step 1 未支持,直接跳过
+   * - package 类型(标准插件包):需 downloadUrl,预览/安装走 installPackage 端点
    */
   const toMarketPlugin = useCallback((r: RemotePluginEntry): MarketPlugin | null => {
-    if (r.type === 'package') return null;
+    if (r.type === 'package') {
+      if (!r.downloadUrl) return null;
+      return {
+        id: r.id,
+        type: 'package',
+        name: r.name,
+        desc: r.desc || r.name,
+        source: r.source || 'community',
+        category: (r.category as MarketPlugin['category']) || 'dev',
+        downloadUrl: r.downloadUrl,
+      };
+    }
     if (r.type === 'mcp') {
       if (!r.mcp) return null;
       return {
@@ -278,10 +289,15 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
     [installedSkillNames, installedMcpIds],
   );
 
-  /** 安装插件(skill fetch+create;mcp 写 config) */
+  /** 安装插件(skill fetch+create;mcp 写 config;package 下载解包解析) */
   const handleInstall = useCallback(
     async (plugin: MarketPlugin) => {
-      const confirmKey = plugin.type === 'skill' ? 'pluginMarket.confirmInstall' : 'pluginMarket.confirmInstallMcp';
+      const confirmKey =
+        plugin.type === 'skill'
+          ? 'pluginMarket.confirmInstall'
+          : plugin.type === 'package'
+            ? 'pluginMarket.confirmInstallPackage'
+            : 'pluginMarket.confirmInstallMcp';
       if (!window.confirm(t(confirmKey, { name: plugin.name, source: plugin.source }))) return;
       setInstalling((prev) => new Set(prev).add(plugin.id));
       try {
@@ -305,47 +321,11 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
               duration: 3000,
             });
           }
+        } else if (plugin.type === 'package') {
+          await installPackagePlugin(plugin);
         } else {
           // mcp:追加 server 到 config.mcp.servers
-          const cfg = await configApi.getFull();
-          const servers = cfg?.mcp?.servers || [];
-          if (servers.some((s) => s.id === plugin.mcp!.id)) {
-            showToast(t('pluginMarket.alreadyInstalledMcp', { name: plugin.name }), { type: 'warning', duration: 2500 });
-            return;
-          }
-          const server: McpServerConfigSection = {
-            id: plugin.mcp!.id,
-            name: plugin.mcp!.name,
-            type: plugin.mcp!.type,
-            command: plugin.mcp!.command ?? '',
-            args: plugin.mcp!.args ?? [],
-            url: plugin.mcp!.url ?? '',
-            env: plugin.mcp!.env ?? {},
-            auto_register_tools: plugin.mcp!.auto_register_tools ?? true,
-          };
-          const base = cfg?.mcp;
-          const mcp: McpConfigSection = {
-            enabled: base?.enabled ?? true,
-            auto_connect: base?.auto_connect ?? true,
-            auto_reconnect: base?.auto_reconnect ?? true,
-            max_reconnect_attempts: base?.max_reconnect_attempts ?? 5,
-            reconnect_delay_seconds: base?.reconnect_delay_seconds ?? 5,
-            request_timeout: base?.request_timeout ?? 60000,
-            servers: [...servers, server],
-          };
-          const result = await configApi.updateFull({ mcp });
-          if (result.success) {
-            // 立即触发后端热连接,无需重启;失败不阻断安装流程
-            await mcpApi.refresh('connect', plugin.mcp!.id).catch(() => {});
-            showToast(t('pluginMarket.installMcpSuccess', { name: plugin.name }), { type: 'success', duration: 3000 });
-            await reloadInstalled();
-            emitEvent('mcp:changed', { id: plugin.mcp!.id, action: 'install' });
-          } else {
-            showToast(t('pluginMarket.installFailed') + (result as { message?: string }).message || '', {
-              type: 'error',
-              duration: 3000,
-            });
-          }
+          await installMcpServer(plugin.mcp!, plugin.name);
         }
       } catch (e) {
         console.warn('[PluginMarket] 安装失败:', e);
@@ -359,6 +339,94 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
       }
     },
     [reloadInstalled, t],
+  );
+
+  /** 安装单个 MCP server:写 config.mcp.servers + 触发热连接(供 mcp 条目与 package 内 mcp 复用) */
+  const installMcpServer = useCallback(
+    async (serverCfg: MarketPlugin['mcp'], displayName: string) => {
+      if (!serverCfg) return;
+      const cfg = await configApi.getFull();
+      const servers = cfg?.mcp?.servers || [];
+      if (servers.some((s) => s.id === serverCfg.id)) {
+        showToast(t('pluginMarket.alreadyInstalledMcp', { name: displayName }), { type: 'warning', duration: 2500 });
+        return;
+      }
+      const server: McpServerConfigSection = {
+        id: serverCfg.id,
+        name: serverCfg.name,
+        type: serverCfg.type,
+        command: serverCfg.command ?? '',
+        args: serverCfg.args ?? [],
+        url: serverCfg.url ?? '',
+        env: serverCfg.env ?? {},
+        auto_register_tools: serverCfg.auto_register_tools ?? true,
+      };
+      const base = cfg?.mcp;
+      const mcp: McpConfigSection = {
+        enabled: base?.enabled ?? true,
+        auto_connect: base?.auto_connect ?? true,
+        auto_reconnect: base?.auto_reconnect ?? true,
+        max_reconnect_attempts: base?.max_reconnect_attempts ?? 5,
+        reconnect_delay_seconds: base?.reconnect_delay_seconds ?? 5,
+        request_timeout: base?.request_timeout ?? 60000,
+        servers: [...servers, server],
+      };
+      const result = await configApi.updateFull({ mcp });
+      if (result.success) {
+        // 立即触发后端热连接,无需重启;失败不阻断安装流程
+        await mcpApi.refresh('connect', serverCfg.id).catch(() => {});
+        showToast(t('pluginMarket.installMcpSuccess', { name: displayName }), { type: 'success', duration: 3000 });
+        await reloadInstalled();
+        emitEvent('mcp:changed', { id: serverCfg.id, action: 'install' });
+      } else {
+        showToast(t('pluginMarket.installFailed') + (result as { message?: string }).message || '', {
+          type: 'error',
+          duration: 3000,
+        });
+      }
+    },
+    [reloadInstalled, t],
+  );
+
+  /**
+   * 安装标准插件包(Agent Plugins 1.0):
+   * 后端下载解包解析 → 前端装配:有 mcp 写 config + 热连接,有 skills 逐个落盘。
+   */
+  const installPackagePlugin = useCallback(
+    async (plugin: MarketPlugin) => {
+      const result = await pluginsApi.installPackage(plugin.downloadUrl!);
+      if (!result.success) {
+        showToast(t('pluginMarket.packageParseError') + (result.message || ''), { type: 'error', duration: 3000 });
+        return;
+      }
+      let installedAny = false;
+      // 1. mcp.json → 写 config.mcp.servers + 热连接
+      if (result.mcp) {
+        await installMcpServer(result.mcp, result.mcp.name || plugin.name);
+        installedAny = true;
+      }
+      // 2. skills/*.md → 逐个落盘
+      const skills = result.skills || [];
+      for (const skill of skills) {
+        const res = await skillsApi.create({
+          name: skill.name,
+          description: result.plugin?.description || '',
+          scope: 'user',
+          content: skill.content,
+        });
+        if (res.success) {
+          installedAny = true;
+          emitEvent('skills:changed', { name: skill.name, action: 'install' });
+        }
+      }
+      if (installedAny) {
+        await reloadInstalled();
+        showToast(t('pluginMarket.installPackageSuccess', { name: plugin.name }), { type: 'success', duration: 3000 });
+      } else {
+        showToast(t('pluginMarket.packageEmpty'), { type: 'warning', duration: 2500 });
+      }
+    },
+    [installMcpServer, reloadInstalled, t],
   );
 
   /** 卸载插件(skill 删文件;mcp 从 config 移除) */
@@ -427,6 +495,20 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
           const resp = await fetch(plugin.skillUrl!);
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           setPreviewContent(await resp.text());
+        } else if (plugin.type === 'package') {
+          // package:调用后端解析,展示清单 + mcp 配置 + skills 列表
+          const result = await pluginsApi.installPackage(plugin.downloadUrl!);
+          if (!result.success) {
+            setPreviewError(t('pluginMarket.loadFailed') + (result.message || ''));
+          } else {
+            setPreviewContent(
+              JSON.stringify(
+                { plugin: result.plugin, mcp: result.mcp ?? null, skills: (result.skills || []).map((s) => s.name) },
+                null,
+                2,
+              ),
+            );
+          }
         } else {
           setPreviewContent(JSON.stringify(plugin.mcp, null, 2));
         }
@@ -800,6 +882,7 @@ function PluginGrid({
                 <div className="plugin-market-skill-name">
                   {plugin.name}
                   {plugin.type === 'mcp' && <span className="plugin-market-type-badge">MCP</span>}
+                  {plugin.type === 'package' && <span className="plugin-market-type-badge">{t('pluginMarket.packageBadge')}</span>}
                 </div>
                 <div className="plugin-market-skill-desc">{t(plugin.desc)}</div>
               </div>

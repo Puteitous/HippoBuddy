@@ -1529,6 +1529,11 @@ export const zh: Record<string, string> = {
   'pluginMarket.offlineTitle': '离线模式',
   'pluginMarket.registryUpdated': '远程目录已更新',
   'pluginMarket.noRemotePlugins': '远程目录暂无插件',
+  'pluginMarket.packageBadge': 'PKG',
+  'pluginMarket.confirmInstallPackage': '确定安装插件包「{name}」？\n来源：{source}',
+  'pluginMarket.installPackageSuccess': '✓ 插件包「{name}」已安装',
+  'pluginMarket.packageParseError': '插件包解析失败: ',
+  'pluginMarket.packageEmpty': '插件包中没有可安装的 MCP 或技能',
 
   /* ==================== Delete Confirm ==================== */
   'deleteConfirm.message': '确认删除？',
@@ -3201,6 +3206,11 @@ export const en: Record<string, string> = {
   'pluginMarket.offlineTitle': 'Offline mode',
   'pluginMarket.registryUpdated': 'Remote catalog updated',
   'pluginMarket.noRemotePlugins': 'Remote catalog has no plugins',
+  'pluginMarket.packageBadge': 'PKG',
+  'pluginMarket.confirmInstallPackage': 'Install plugin package "{name}"?\nSource: {source}',
+  'pluginMarket.installPackageSuccess': '✓ Plugin package "{name}" installed',
+  'pluginMarket.packageParseError': 'Package parse failed: ',
+  'pluginMarket.packageEmpty': 'No installable MCP or skills in the package',
 
   'deleteConfirm.message': 'Confirm delete?',
   'deleteConfirm.cancel': 'Cancel',

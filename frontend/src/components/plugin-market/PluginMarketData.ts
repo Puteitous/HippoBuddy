@@ -17,7 +17,7 @@ export type PluginCategoryKey = 'all' | 'dev' | 'frontend' | 'security' | 'devop
 export type PluginTagKey = 'official' | 'community' | 'vendor' | 'featured';
 
 /** 插件类型 */
-export type MarketPluginType = 'skill' | 'mcp';
+export type MarketPluginType = 'skill' | 'mcp' | 'package';
 
 /** 推荐来源仓库 */
 export interface PluginSource {
@@ -59,6 +59,8 @@ export interface MarketPlugin {
     env?: Record<string, string>;
     auto_register_tools?: boolean;
   };
+  /** type='package' 专用：标准插件包(Agent Plugins 1.0)下载地址 */
+  downloadUrl?: string;
 }
 
 /** 分类标签 */
