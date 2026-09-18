@@ -1,9 +1,14 @@
 package com.example.agent.mcp;
 
 import com.example.agent.config.Config;
+import com.example.agent.mcp.client.AbstractMcpClient;
 import com.example.agent.mcp.client.McpClient;
 import com.example.agent.mcp.config.McpConfig;
+import com.example.agent.mcp.model.McpPrompt;
+import com.example.agent.mcp.model.McpResource;
+import com.example.agent.mcp.model.McpTool;
 import com.example.agent.tools.ToolRegistry;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,15 +23,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * McpServiceManager 初始连接失败后的重试行为测试。
+ * McpServiceManager 的连接重试与掉线重连行为测试。
  * <p>
- * 覆盖点：失败后按 reconnect_delay_seconds 重试、达到 max_reconnect_attempts 后放弃、
- * auto_reconnect=false 时不重试、显式断开后取消重试。
+ * 覆盖点：初始连接失败后按 reconnect_delay_seconds 重试、达到 max_reconnect_attempts 后放弃、
+ * auto_reconnect=false 时不重试、显式断开后取消重试；
+ * 以及已建连后掉线、客户端自行重连成功时，重新 listTools 并注册工具（含清理失效旧工具）。
  * </p>
  * <p>
  * 时序说明：重试由调度线程池异步触发，故用轮询等待而非固定 sleep 断言；
@@ -38,7 +46,7 @@ import static org.mockito.Mockito.when;
  * 调度器同理注入独立实例，避免共用 ThreadPools 的 mcp-scheduler（会被 shutdown 永久关闭）。
  * </p>
  */
-@DisplayName("McpServiceManager：初始连接失败重试")
+@DisplayName("McpServiceManager：连接失败重试与掉线重连")
 class McpConnectRetryTest {
 
     private static final String SERVER_ID = "flaky";
@@ -47,6 +55,7 @@ class McpConnectRetryTest {
 
     private Config config;
     private McpServiceManager manager;
+    private ToolRegistry toolRegistry;
     private ScheduledExecutorService retryScheduler;
     private final AtomicInteger createCount = new AtomicInteger();
 
@@ -65,7 +74,8 @@ class McpConnectRetryTest {
         config.getMcp().setMaxReconnectAttempts(3);
         config.getMcp().setReconnectDelaySeconds(RETRY_DELAY_SECONDS);
 
-        manager = new McpServiceManager(config, new ToolRegistry(), cfg -> {
+        toolRegistry = new ToolRegistry();
+        manager = new McpServiceManager(config, toolRegistry, cfg -> {
             createCount.incrementAndGet();
             return failingClient();
         });
@@ -141,6 +151,50 @@ class McpConnectRetryTest {
         assertEquals(1, createCount.get(), "显式断开后不应再有重试");
     }
 
+    // ========== 掉线后重连重新注册工具 ==========
+
+    @Test
+    @DisplayName("掉线重连成功后重新 listTools 并注册工具")
+    void testReregistersToolsAfterReconnect() throws Exception {
+        // 首次连接返回空工具列表（模拟工具尚未就绪），重连后返回 1 个工具
+        FakeReconnectClient client = new FakeReconnectClient(serverConfig());
+        client.toolListOnFirstCall(List.of());
+        client.toolListAfterReconnect(List.of(mcpTool("echo")));
+
+        manager = new McpServiceManager(config, toolRegistry, cfg -> client);
+        injectReconnectExecutor(manager);
+
+        manager.connectServer(serverConfig());
+        awaitTrue(() -> client.listToolsCalls() >= 1, 5000);
+        assertFalse(toolRegistry.hasTool("mcp_flaky_echo"), "首次未返回工具时不应注册");
+
+        // 模拟已建连后进程掉线，由客户端自行重连
+        client.onConnectionLost();
+
+        awaitTrue(() -> toolRegistry.hasTool("mcp_flaky_echo"), 5000);
+        assertTrue(toolRegistry.hasTool("mcp_flaky_echo"), "重连成功后应重新注册工具");
+        assertEquals(2, client.listToolsCalls(), "重连后应重新 listTools 一次");
+    }
+
+    @Test
+    @DisplayName("重连后服务端工具集变化时，旧工具被注销")
+    void testRemovesStaleToolsAfterReconnect() throws Exception {
+        FakeReconnectClient client = new FakeReconnectClient(serverConfig());
+        client.toolListOnFirstCall(List.of(mcpTool("old")));
+        client.toolListAfterReconnect(List.of(mcpTool("new")));
+
+        manager = new McpServiceManager(config, toolRegistry, cfg -> client);
+        injectReconnectExecutor(manager);
+
+        manager.connectServer(serverConfig());
+        awaitTrue(() -> toolRegistry.hasTool("mcp_flaky_old"), 5000);
+
+        client.onConnectionLost();
+
+        awaitTrue(() -> toolRegistry.hasTool("mcp_flaky_new"), 5000);
+        assertFalse(toolRegistry.hasTool("mcp_flaky_old"), "重连后不应残留失效的旧工具");
+    }
+
     // ========== 辅助方法 ==========
 
     private void injectReconnectExecutor(McpServiceManager target) throws Exception {
@@ -192,6 +246,88 @@ class McpConnectRetryTest {
                 return;
             }
             Thread.sleep(50);
+        }
+    }
+
+    private McpTool mcpTool(String name) {
+        McpTool tool = new McpTool();
+        tool.setName(name);
+        tool.setDescription(name + " 工具");
+        return tool;
+    }
+
+    /**
+     * 可控制 listTools 返回值的假客户端，用于触发「已建连后掉线 → 自行重连」路径。
+     * <p>
+     * 必须继承 {@link AbstractMcpClient}：重连监听器只对 AbstractMcpClient 实例装配，
+     * 且 {@code onConnectionLost}/{@code attemptReconnect} 逻辑本身就在该类中。
+     * </p>
+     */
+    private static class FakeReconnectClient extends AbstractMcpClient {
+
+        private final AtomicInteger listToolsCalls = new AtomicInteger();
+        private List<McpTool> firstCallTools = List.of();
+        private List<McpTool> laterCallTools = List.of();
+
+        FakeReconnectClient(McpConfig.McpServerConfig config) {
+            super(config);
+        }
+
+        void toolListOnFirstCall(List<McpTool> tools) {
+            this.firstCallTools = tools;
+        }
+
+        void toolListAfterReconnect(List<McpTool> tools) {
+            this.laterCallTools = tools;
+        }
+
+        int listToolsCalls() {
+            return listToolsCalls.get();
+        }
+
+        @Override
+        public CompletableFuture<Void> connect() {
+            connected = true;
+            resetReconnectState();
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<Void> initialize() {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<Void> disconnect() {
+            markUserInitiatedDisconnect();
+            connected = false;
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<List<McpTool>> listTools() {
+            boolean first = listToolsCalls.incrementAndGet() == 1;
+            return CompletableFuture.completedFuture(first ? firstCallTools : laterCallTools);
+        }
+
+        @Override
+        public CompletableFuture<List<McpResource>> listResources() {
+            return CompletableFuture.completedFuture(List.of());
+        }
+
+        @Override
+        public CompletableFuture<List<McpPrompt>> listPrompts() {
+            return CompletableFuture.completedFuture(List.of());
+        }
+
+        @Override
+        protected CompletableFuture<JsonNode> sendRequestInternal(String method, Object params) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        protected void doSendMessage(String messageJson) {
+            // 假客户端不落地真实子进程，无需发送
         }
     }
 }

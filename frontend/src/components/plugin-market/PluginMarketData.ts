@@ -10,6 +10,8 @@
  * 渲染时经 useI18n().t() 翻译。
  */
 
+import type { RemotePluginParam } from '@/api/client';
+
 /** 分类筛选 key(对应 messages.ts 中 pluginMarket.* 分类 key) */
 export type PluginCategoryKey = 'all' | 'dev' | 'frontend' | 'security' | 'devops' | 'data';
 
@@ -61,6 +63,11 @@ export interface MarketPlugin {
   };
   /** type='package' 专用：标准插件包(Agent Plugins 1.0)下载地址 */
   downloadUrl?: string;
+  /**
+   * type='mcp' 专用：该 server 启动所必需、但目录里给不出的参数(允许目录 / token / 连接串)。
+   * 安装时弹窗收集后按 target 追加到 args 或写入 env；缺了必然启动失败。
+   */
+  params?: RemotePluginParam[];
 }
 
 /** 分类标签 */
@@ -292,6 +299,15 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
       args: ['-y', '@modelcontextprotocol/server-filesystem'],
       auto_register_tools: true,
     },
+    params: [
+      {
+        key: 'allowedDir',
+        target: 'args',
+        label: 'pluginMarket.param.filesystemDir',
+        hint: 'D:\\projects',
+        required: true,
+      },
+    ],
   },
   {
     id: 'mcp-github',
@@ -308,6 +324,16 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
       args: ['-y', '@modelcontextprotocol/server-github'],
       auto_register_tools: true,
     },
+    params: [
+      {
+        key: 'GITHUB_PERSONAL_ACCESS_TOKEN',
+        target: 'env',
+        label: 'pluginMarket.param.githubToken',
+        hint: 'ghp_xxxxxxxxxxxx',
+        required: true,
+        secret: true,
+      },
+    ],
   },
   {
     id: 'mcp-postgres',
@@ -324,6 +350,15 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
       args: ['-y', '@modelcontextprotocol/server-postgres'],
       auto_register_tools: true,
     },
+    params: [
+      {
+        key: 'connectionString',
+        target: 'args',
+        label: 'pluginMarket.param.postgresUrl',
+        hint: 'postgresql://user:pass@localhost:5432/db',
+        required: true,
+      },
+    ],
   },
 ];
 

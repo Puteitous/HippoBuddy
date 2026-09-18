@@ -170,7 +170,16 @@
         "command": "npx",
         "args": ["-y", "@modelcontextprotocol/server-filesystem"],
         "auto_register_tools": true
-      }
+      },
+      "params": [
+        {
+          "key": "allowedDir",
+          "target": "args",
+          "label": "pluginMarket.param.filesystemDir",
+          "hint": "D:\\projects",
+          "required": true
+        }
+      ]
     },
     {
       "id": "mcp-github",
@@ -186,7 +195,17 @@
         "command": "npx",
         "args": ["-y", "@modelcontextprotocol/server-github"],
         "auto_register_tools": true
-      }
+      },
+      "params": [
+        {
+          "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "target": "env",
+          "label": "pluginMarket.param.githubToken",
+          "hint": "ghp_xxxxxxxxxxxx",
+          "required": true,
+          "secret": true
+        }
+      ]
     },
     {
       "id": "mcp-postgres",
@@ -202,7 +221,16 @@
         "command": "npx",
         "args": ["-y", "@modelcontextprotocol/server-postgres"],
         "auto_register_tools": true
-      }
+      },
+      "params": [
+        {
+          "key": "connectionString",
+          "target": "args",
+          "label": "pluginMarket.param.postgresUrl",
+          "hint": "postgresql://user:pass@localhost:5432/db",
+          "required": true
+        }
+      ]
     },
     {
       "id": "pkg-agent-plugins-example",

@@ -247,6 +247,27 @@ export const configApi = {
 };
 
 /**
+ * 安装时需用户提供的参数。
+ *
+ * 用于目录里那些「缺了必然启动失败」的条目：filesystem 需要允许目录、github 需要 token、
+ * postgres 需要连接串。安装时由前端弹窗收集，按 target 追加到 args 或写入 env。
+ */
+export interface RemotePluginParam {
+  /** 参数标识；target='env' 时即环境变量名 */
+  key: string;
+  /** 落点：args=追加为位置参数；env=写入环境变量 */
+  target: 'args' | 'env';
+  /** 显示名（i18n key 或纯文本） */
+  label: string;
+  /** 输入提示（示例值） */
+  hint?: string;
+  /** 必填：未填则不允许安装 */
+  required?: boolean;
+  /** 敏感值（密码型输入，不回显） */
+  secret?: boolean;
+}
+
+/**
  * 远程插件目录。字段对齐后端 /api/plugins/registry(即远程 index.json 的 plugin 条目)。
  * type='skill' 用 skillUrl;type='mcp' 用 mcp(字段对齐 McpServerConfigSection);
  * type='package' 为标准插件包,含 downloadUrl。
@@ -273,6 +294,8 @@ export interface RemotePluginEntry {
     env?: Record<string, string>;
     auto_register_tools?: boolean;
   };
+  /** mcp 专用:安装时需用户填写的参数(可选；无声明则安装流程与原先一致) */
+  params?: RemotePluginParam[];
   /** package 专用:标准插件包下载地址 */
   downloadUrl?: string;
 }

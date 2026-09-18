@@ -336,8 +336,13 @@
   }
 }
 
-/* ── 词级高亮(行内精确变更:仅以背景色标识,文字色交给语法高亮或正文) ── */
+/* ── 词级高亮(行内精确变更:仅以背景色标识,文字色交给语法高亮或正文) ──
+   使用 inline-block + padding 撑满行高,避免词级背景比行级底色矮一截。
+   font-size:12.5px / line-height:1.55 时,line-height ≈ 19.375px,
+   文字内容高度 ≈ 12.5px,上下各需 padding ≈ 3.44px → 用 0.275em 对齐。 */
 .diff-word-del {
+  display: inline-block;
+  padding: 0.275em 0;
   background: rgba(239, 68, 68, 0.22);
   border-radius: 2px;
   /* 显式清除 <del> 浏览器 UA 默认的 line-through,避免红底上又出现删除线 */
@@ -345,6 +350,8 @@
 }
 
 .diff-word-ins {
+  display: inline-block;
+  padding: 0.275em 0;
   background: rgba(34, 197, 94, 0.22);
   border-radius: 2px;
   /* 显式清除 <ins> 浏览器 UA 默认的 underline */

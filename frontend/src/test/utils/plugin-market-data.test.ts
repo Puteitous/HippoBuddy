@@ -86,6 +86,31 @@ describe('MARKET_PLUGINS', () => {
       }
     }
   });
+
+  it('params 声明合法(target 为 args|env，key/label 非空且 key 不重复)', () => {
+    for (const p of MARKET_PLUGINS) {
+      const params = p.params ?? [];
+      const keys = params.map((f) => f.key);
+      expect(new Set(keys).size).toBe(keys.length);
+      for (const f of params) {
+        expect(['args', 'env']).toContain(f.target);
+        expect(f.label?.trim()).toBeTruthy();
+        expect(f.key?.trim()).toBeTruthy();
+        // target='env' 时 key 即环境变量名，需符合常规命名
+        if (f.target === 'env') {
+          expect(f.key).toMatch(/^[A-Z][A-Z0-9_]*$/);
+        }
+      }
+    }
+  });
+
+  it('必填参数只能声明在 mcp 条目上', () => {
+    for (const p of MARKET_PLUGINS) {
+      if (p.type !== 'mcp') {
+        expect(p.params ?? []).toHaveLength(0);
+      }
+    }
+  });
 });
 
 describe('PLUGIN_CATEGORIES / DEFAULT', () => {

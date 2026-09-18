@@ -8,6 +8,7 @@ import com.example.agent.mcp.client.McpClientFactory;
 import com.example.agent.mcp.config.McpConfig;
 import com.example.agent.mcp.model.McpPrompt;
 import com.example.agent.mcp.model.McpResource;
+import com.example.agent.mcp.model.McpTool;
 import com.example.agent.mcp.registry.McpPromptRegistry;
 import com.example.agent.mcp.registry.McpResourceRegistry;
 import com.example.agent.mcp.registry.McpToolAdapter;
@@ -164,6 +165,9 @@ public class McpServiceManager {
                 logger.warn("MCP服务器 {} 连接已丢失，将不再重试", disconnectedClient.getServerId());
                 activeClients.remove(disconnectedClient.getServerId());
             });
+            // 掉线重连由客户端自身完成（只 connect + initialize），工具重新登记需交回本管理器
+            abstractClient.setReconnectListener(reconnectedClient ->
+                    refreshCapabilities(reconnectedClient, serverConfig));
         }
 
         client.connect()
@@ -175,54 +179,7 @@ public class McpServiceManager {
                     logger.info("MCP服务器 {} 初始化成功，正在获取工具列表...", serverId);
                     return client.listTools();
                 })
-                .thenAccept(tools -> {
-                    if (serverConfig.isAutoRegisterTools()) {
-                        List<String> names = new ArrayList<>();
-                        tools.forEach(tool -> {
-                            McpToolAdapter adapter = new McpToolAdapter(client, tool);
-                            toolRegistry.register(adapter);
-                            names.add(adapter.getName());
-                            logger.info("已注册MCP工具: {} ({})",
-                                    adapter.getName(),
-                                    tool.getDescription());
-                        });
-                        registeredToolNames.put(serverId, names);
-                    }
-
-                    client.listResources()
-                            .thenAccept(resources -> {
-                                if (!resources.isEmpty()) {
-                                    resourceRegistry.registerResources(client, resources);
-                                    logger.info("MCP服务器 {} 共注册了 {} 个资源",
-                                            serverConfig.getName(),
-                                            resources.size());
-                                }
-                            })
-                            .exceptionally(e -> {
-                                logger.debug("MCP服务器 {} 不支持 Resources 或获取失败: {}",
-                                        serverId, e.getMessage());
-                                return null;
-                            });
-
-                    client.listPrompts()
-                            .thenAccept(prompts -> {
-                                if (!prompts.isEmpty()) {
-                                    promptRegistry.registerPrompts(client, prompts);
-                                    logger.info("MCP服务器 {} 共注册了 {} 个提示词",
-                                            serverConfig.getName(),
-                                            prompts.size());
-                                }
-                            })
-                            .exceptionally(e -> {
-                                logger.debug("MCP服务器 {} 不支持 Prompts 或获取失败: {}",
-                                        serverId, e.getMessage());
-                                return null;
-                            });
-
-                    logger.info("MCP服务器 {} 就绪！共注册了 {} 个工具",
-                            serverConfig.getName(),
-                            tools.size());
-                })
+                .thenAccept(tools -> registerCapabilities(client, serverConfig, tools))
                 .exceptionally(e -> {
                     logger.error("MCP服务器 {} 连接/初始化失败（第 {} 次尝试）: {}",
                             serverId,
@@ -239,6 +196,96 @@ public class McpServiceManager {
                     scheduleConnectRetry(serverConfig, attempt, e.getMessage());
                     return null;
                 });
+    }
+
+    /**
+     * 把 server 当前的工具/资源/提示词登记到本地注册表。
+     * <p>
+     * 初次连接与掉线重连后共用此方法。登记前先注销该 server 上一轮登记的工具名，
+     * 因此重连后服务端工具集发生变化时不会残留失效工具。
+     * </p>
+     */
+    private void registerCapabilities(McpClient client, McpConfig.McpServerConfig serverConfig, List<McpTool> tools) {
+        String serverId = serverConfig.getId();
+        unregisterRegisteredTools(serverId);
+
+        if (serverConfig.isAutoRegisterTools()) {
+            List<String> names = new ArrayList<>();
+            tools.forEach(tool -> {
+                McpToolAdapter adapter = new McpToolAdapter(client, tool);
+                toolRegistry.register(adapter);
+                names.add(adapter.getName());
+                logger.info("已注册MCP工具: {} ({})",
+                        adapter.getName(),
+                        tool.getDescription());
+            });
+            registeredToolNames.put(serverId, names);
+        }
+
+        client.listResources()
+                .thenAccept(resources -> {
+                    if (!resources.isEmpty()) {
+                        resourceRegistry.registerResources(client, resources);
+                        logger.info("MCP服务器 {} 共注册了 {} 个资源",
+                                serverConfig.getName(),
+                                resources.size());
+                    }
+                })
+                .exceptionally(e -> {
+                    logger.debug("MCP服务器 {} 不支持 Resources 或获取失败: {}",
+                            serverId, e.getMessage());
+                    return null;
+                });
+
+        client.listPrompts()
+                .thenAccept(prompts -> {
+                    if (!prompts.isEmpty()) {
+                        promptRegistry.registerPrompts(client, prompts);
+                        logger.info("MCP服务器 {} 共注册了 {} 个提示词",
+                                serverConfig.getName(),
+                                prompts.size());
+                    }
+                })
+                .exceptionally(e -> {
+                    logger.debug("MCP服务器 {} 不支持 Prompts 或获取失败: {}",
+                            serverId, e.getMessage());
+                    return null;
+                });
+
+        logger.info("MCP服务器 {} 就绪！共注册了 {} 个工具",
+                serverConfig.getName(),
+                tools.size());
+    }
+
+    /**
+     * 掉线自动重连成功后，重新拉取工具列表并登记，使 mcp_* 工具立即恢复可见。
+     */
+    private void refreshCapabilities(McpClient client, McpConfig.McpServerConfig serverConfig) {
+        String serverId = serverConfig.getId();
+        logger.info("MCP服务器 {} 重连成功，重新获取并注册工具...", serverId);
+
+        client.listTools()
+                .thenAccept(tools -> registerCapabilities(client, serverConfig, tools))
+                .exceptionally(e -> {
+                    logger.warn("MCP服务器 {} 重连后重新获取工具列表失败: {}", serverId, e.getMessage());
+                    return null;
+                });
+    }
+
+    /** 注销该 server 已登记到 ToolRegistry 的工具；无登记时为空操作。 */
+    private void unregisterRegisteredTools(String serverId) {
+        List<String> names = registeredToolNames.remove(serverId);
+        if (names == null) {
+            return;
+        }
+        for (String name : names) {
+            try {
+                toolRegistry.unregister(name);
+                logger.debug("已注销MCP工具: {}", name);
+            } catch (Exception e) {
+                logger.warn("注销MCP工具失败: {} - {}", name, e.getMessage());
+            }
+        }
     }
 
     /**
@@ -291,17 +338,7 @@ public class McpServiceManager {
         cancelPendingConnectRetry(serverId);
 
         // 先注销该 server 已注册到 ToolRegistry 的工具,避免残留已失效的 mcp_* 工具仍暴露给 LLM
-        List<String> names = registeredToolNames.remove(serverId);
-        if (names != null) {
-            for (String name : names) {
-                try {
-                    toolRegistry.unregister(name);
-                    logger.info("已注销MCP工具: {}", name);
-                } catch (Exception e) {
-                    logger.warn("注销MCP工具失败: {} - {}", name, e.getMessage());
-                }
-            }
-        }
+        unregisterRegisteredTools(serverId);
 
         McpClient client = activeClients.remove(serverId);
         if (client != null) {

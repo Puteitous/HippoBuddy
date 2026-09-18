@@ -47,6 +47,7 @@ public abstract class AbstractMcpClient implements McpClient {
     private final AtomicInteger reconnectAttempts = new AtomicInteger(0);
     private final AtomicBoolean connectionLossHandling = new AtomicBoolean(false);
     private Consumer<McpClient> disconnectListener;
+    private Consumer<McpClient> reconnectListener;
     protected ScheduledExecutorService reconnectExecutor;
 
     protected AbstractMcpClient(McpConfig.McpServerConfig config) {
@@ -72,6 +73,18 @@ public abstract class AbstractMcpClient implements McpClient {
 
     public void setDisconnectListener(Consumer<McpClient> listener) {
         this.disconnectListener = listener;
+    }
+
+    /**
+     * 注册重连成功回调。
+     * <p>
+     * 重连只负责 connect + initialize，本类不持有 ToolRegistry，无法自行把工具重新登记回去。
+     * 因此重连成功后回调 McpServiceManager，由其重新 listTools 并注册，
+     * 否则恢复连接后 mcp_* 工具仍是断线前的旧实例，LLM 要等重启或切换 mode 才能重新看到。
+     * </p>
+     */
+    public void setReconnectListener(Consumer<McpClient> listener) {
+        this.reconnectListener = listener;
     }
 
     public void setReconnectExecutor(ScheduledExecutorService executor) {
@@ -135,6 +148,7 @@ public abstract class AbstractMcpClient implements McpClient {
                         logger.info("✅ MCP服务器 {} 重连成功！", getServerId());
                         reconnectAttempts.set(0);
                         connectionLossHandling.set(false);
+                        notifyReconnected();
                     })
                     .exceptionally(e -> {
                         logger.warn("MCP服务器 {} 重连失败: {}", getServerId(), e.getMessage());
@@ -160,6 +174,12 @@ public abstract class AbstractMcpClient implements McpClient {
     private void notifyDisconnect() {
         if (disconnectListener != null) {
             disconnectListener.accept(this);
+        }
+    }
+
+    private void notifyReconnected() {
+        if (reconnectListener != null) {
+            reconnectListener.accept(this);
         }
     }
 

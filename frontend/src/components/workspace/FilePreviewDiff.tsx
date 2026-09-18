@@ -280,21 +280,38 @@ function renderLineContent(
  * delete 词包 <del>、added 行 insert 词包 <ins>,其余词直接输出来着色 HTML。
  * 所有输出均由 hljs/转义保证安全,可注入 dangerouslySetInnerHTML。
  */
+/**
+ * 词级(行内)diff 渲染 + 合并相邻同类型 token：
+ * 将连续的同类型 token 合并为一个 <ins>/<del> 元素，消除 inline-block 之间的间隔。
+ */
 function renderWordTokensHtml(
   tokens: WordDiffToken[],
   lineType: 'removed' | 'added',
   hljsLang: string | null,
 ): string {
-  return tokens
-    .map((t) => {
-      const inner = highlightWordToken(t.value, hljsLang);
-      if (lineType === 'removed' && t.type === 'delete') {
-        return `<del class="diff-word-del">${inner}</del>`;
-      }
-      if (lineType === 'added' && t.type === 'insert') {
-        return `<ins class="diff-word-ins">${inner}</ins>`;
-      }
-      return inner;
+  // 先将 tokens 按"是否高亮词"分组，相邻同组合并
+  const groups: Array<{ highlight: boolean; values: string[] }> = [];
+  for (const t of tokens) {
+    const isHighlight =
+      (lineType === 'removed' && t.type === 'delete') ||
+      (lineType === 'added' && t.type === 'insert');
+    const last = groups[groups.length - 1];
+    if (last && last.highlight === isHighlight) {
+      last.values.push(t.value);
+    } else {
+      groups.push({ highlight: isHighlight, values: [t.value] });
+    }
+  }
+
+  return groups
+    .map((g) => {
+      const inner = g.values
+        .map((v) => highlightWordToken(v, hljsLang))
+        .join('');
+      if (!g.highlight) return inner;
+      const tag = lineType === 'removed' ? 'del' : 'ins';
+      const cls = lineType === 'removed' ? 'diff-word-del' : 'diff-word-ins';
+      return `<${tag} class="${cls}">${inner}</${tag}>`;
     })
     .join('');
 }

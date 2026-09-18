@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diff 词级高亮优化对比</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+    background: #f5f5f5;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  h2 {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 12px;
+  }
+
+  h3 {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .side-by-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+
+  .section {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+  }
+
+  table {
+    border-collapse: collapse;
+    table-layout: auto;
+    width: 100%;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  col { width: auto; }
+  col.diff-col-gutter { width: 26px; }
+  col.diff-col-marker { width: 16px; }
+
+  td {
+    padding: 0;
+    vertical-align: top;
+  }
+
+  .diff-gutter {
+    width: 26px;
+    min-width: 26px;
+    text-align: right;
+    padding: 0 4px !important;
+    color: #9ca3af;
+    user-select: none;
+    white-space: nowrap;
+    border-right: 1px solid #e5e7eb;
+  }
+
+  .diff-gutter.new {
+    border-left: 1px solid #e5e7eb;
+    border-right: none;
+  }
+
+  .diff-marker {
+    width: 16px;
+    min-width: 16px;
+    text-align: center;
+    color: #9ca3af;
+    user-select: none;
+    font-weight: 600;
+  }
+
+  .diff-content {
+    padding: 0 8px !important;
+    white-space: pre;
+  }
+
+  pre.diff-line {
+    margin: 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    white-space: pre;
+    overflow: visible;
+  }
+
+  /* ===== 插入行样式 ===== */
+  .diff-insert .diff-gutter,
+  .diff-insert .diff-marker,
+  .diff-insert .diff-content {
+    background: rgba(34, 197, 94, 0.08);
+  }
+
+  /* ===== 删除行样式 ===== */
+  .diff-delete .diff-gutter,
+  .diff-delete .diff-marker,
+  .diff-delete .diff-content {
+    background: rgba(239, 68, 68, 0.08);
+  }
+
+  /* ============= 旧版：行内 inline ============= */
+  .old-style .diff-word-del {
+    background: rgba(239, 68, 68, 0.22);
+    border-radius: 2px;
+    text-decoration: none;
+  }
+
+  .old-style .diff-word-ins {
+    background: rgba(34, 197, 94, 0.22);
+    border-radius: 2px;
+    text-decoration: none;
+  }
+
+  /* ============= 新版：inline-block + 合并 ============= */
+  .new-style .diff-word-del {
+    display: inline-block;
+    padding: 0.275em 0;
+    background: rgba(239, 68, 68, 0.22);
+    border-radius: 2px;
+    text-decoration: none;
+  }
+
+  .new-style .diff-word-ins {
+    display: inline-block;
+    padding: 0.275em 0;
+    background: rgba(34, 197, 94, 0.22);
+    border-radius: 2px;
+    text-decoration: none;
+  }
+
+  /* 标注标签 */
+  .badge {
+    display: inline-block;
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+  }
+
+  .badge.old {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .badge.new {
+    background: #dcfce7;
+    color: #15803d;
+  }
+
+  .note {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    color: #555;
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border-left: 3px solid #3b82f6;
+    line-height: 1.6;
+  }
+
+  .hilite {
+    background: rgba(250, 204, 21, 0.3);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+
+  .arrow-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: #9ca3af;
+    grid-column: 1 / -1;
+    padding: 8px 0;
+  }
+</style>
+</head>
+<body>
+
+<h2>词级 diff 高亮优化前后对比</h2>
+<p style="font-family:-apple-system,'Segoe UI',sans-serif;color:#666;margin-bottom:24px;">
+  注意观察词级高亮（<span class="hilite">绿色/红色色块</span>）与行级底色（淡绿/淡红背景）的对齐关系。
+</p>
+
+<div class="side-by-side">
+
+<!-- ==================== 旧版 ==================== -->
+<div class="section old-style">
+  <span class="badge old">❌ 优化前</span>
+  <h3>行内 inline + 逐 token 独立包裹</h3>
+
+  <table>
+    <colgroup>
+      <col class="diff-col-gutter">
+      <col class="diff-col-gutter">
+      <col class="diff-col-marker">
+      <col>
+    </colgroup>
+    <tbody>
+      <!-- 相同行 -->
+      <tr class="diff-row diff-equal">
+        <td class="diff-gutter old">5</td>
+        <td class="diff-gutter new">5</td>
+        <td class="diff-marker"> </td>
+        <td class="diff-content"><pre class="diff-line">export function greet(name: string): string {</pre></td>
+      </tr>
+
+      <!-- 新增行：三个独立 ins，中间有间隔 -->
+      <tr class="diff-row diff-insert">
+        <td class="diff-gutter old"> </td>
+        <td class="diff-gutter new">6</td>
+        <td class="diff-marker">+</td>
+        <td class="diff-content"><pre class="diff-line">
+          <ins class="diff-word-ins">  return</ins>
+          <ins class="diff-word-ins"> `Hello,</ins>
+          <ins class="diff-word-ins"> ${name}!`;</ins>
+        </pre></td>
+      </tr>
+
+      <!-- 删除行 -->
+      <tr class="diff-row diff-delete">
+        <td class="diff-gutter old">6</td>
+        <td class="diff-gutter new"> </td>
+        <td class="diff-marker">-</td>
+        <td class="diff-content"><pre class="diff-line">
+          <del class="diff-word-del">  return</del>
+          <del class="diff-word-del"> `Hi,</del>
+          <del class="diff-word-del"> ${name}`;</del>
+        </pre></td>
+      </tr>
+
+      <!-- 混合行：insert + equal + insert -->
+      <tr class="diff-row diff-insert">
+        <td class="diff-gutter old"> </td>
+        <td class="diff-gutter new">8</td>
+        <td class="diff-marker">+</td>
+        <td class="diff-content"><pre class="diff-line">
+          <ins class="diff-word-ins">console.log(</ins>greeting<ins class="diff-word-ins">.toUpperCase()</ins>);
+        </pre></td>
+      </tr>
+
+      <!-- 混合行：delete + equal + delete -->
+      <tr class="diff-row diff-delete">
+        <td class="diff-gutter old">8</td>
+        <td class="diff-gutter new"> </td>
+        <td class="diff-marker">-</td>
+        <td class="diff-content"><pre class="diff-line">
+          <del class="diff-word-del">console.info(</del>greeting<del class="diff-word-del">.trim()</del>);
+        </pre></td>
+      </tr>
+
+      <!-- 整行都是 insert -->
+      <tr class="diff-row diff-insert">
+        <td class="diff-gutter old"> </td>
+        <td class="diff-gutter new">9</td>
+        <td class="diff-marker">+</td>
+        <td class="diff-content"><pre class="diff-line">
+          <ins class="diff-word-ins">const</ins>
+          <ins class="diff-word-ins">upper</ins>
+          <ins class="diff-word-ins">=</ins>
+          <ins class="diff-word-ins">greeting.toUpperCase();</ins>
+        </pre></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== 新版 ==================== -->
+<div class="section new-style">
+  <span class="badge new">✅ 优化后</span>
+  <h3>inline-block + 相邻同类型合并</h3>
+
+  <table>
+    <colgroup>
+      <col class="diff-col-gutter">
+      <col class="diff-col-gutter">
+      <col class="diff-col-marker">
+      <col>
+    </colgroup>
+    <tbody>
+      <!-- 相同行 -->
+      <tr class="diff-row diff-equal">
+        <td class="diff-gutter old">5</td>
+        <td class="diff-gutter new">5</td>
+        <td class="diff-marker"> </td>
+        <td class="diff-content"><pre class="diff-line">export function greet(name: string): string {</pre></td>
+      </tr>
+
+      <!-- 新增行：合并为一个 ins -->
+      <tr class="diff-row diff-insert">
+        <td class="diff-gutter old"> </td>
+        <td class="diff-gutter new">6</td>
+        <td class="diff-marker">+</td>
+        <td class="diff-content"><pre class="diff-line">
+          <ins class="diff-word-ins">  return `Hello, ${name}!`;</ins>
+        </pre></td>
+      </tr>
+
+      <!-- 删除行：合并为一个 del -->
+      <tr class="diff-row diff-delete">
+        <td class="diff-gutter old">6</td>
+        <td class="diff-gutter new"> </td>
+        <td class="diff-marker">-</td>
+        <td class="diff-content"><pre class="diff-line">
+          <del class="diff-word-del">  return `Hi, ${name}`;</del>
+        </pre></td>
+      </tr>
+
+      <!-- 混合行：insert + equal + insert → 合并两端 insert -->
+      <tr class="diff-row diff-insert">
+        <td class="diff-gutter old"> </td>
+        <td class="diff-gutter new">8</td>
+        <td class="diff-marker">+</td>
+        <td class="diff-content"><pre class="diff-line">
+          <ins class="diff-word-ins">console.log(</ins>greeting<ins class="diff-word-ins">.toUpperCase()</ins>);
+        </pre></td>
+      </tr>
+
+      <!-- 混合行：delete + equal + delete -->
+      <tr class="diff-row diff-delete">
+        <td class="diff-gutter old">8</td>
+        <td class="diff-gutter new"> </td>
+        <td class="diff-marker">-</td>
+        <td class="diff-content"><pre class="diff-line">
+          <del class="diff-word-del">console.info(</del>greeting<del class="diff-word-del">.trim()</del>);
+        </pre></td>
+      </tr>
+
+      <!-- 整行都是 insert → 合并为一个大 ins -->
+      <tr class="diff-row diff-insert">
+        <td class="diff-gutter old"> </td>
+        <td class="diff-gutter new">9</td>
+        <td class="diff-marker">+</td>
+        <td class="diff-content"><pre class="diff-line">
+          <ins class="diff-word-ins">const upper = greeting.toUpperCase();</ins>
+        </pre></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</div>
+
+<div class="note">
+  <strong>📌 对比要点：</strong><br>
+  <strong>高度：</strong>旧版词级背景只盖住文字内容区（<span style="color:#b91c1c;">矮一截</span>），新版用 <code>display: inline-block; padding: 0.275em 0</code> 撑满行高 ← 与行级底色齐平<br>
+  <strong>间隔：</strong>旧版每个 token 独立 <code>&lt;ins&gt;</code> → 相邻色块之间有 <span style="color:#b91c1c;">断裂间隙</span>，新版合并相邻同类型 → <span style="color:#15803d;">连续无间隔</span><br>
+  <strong>混合行（第 4-5 行）：</strong><code>equal</code> 词（无背景）保持原样，仅左右两侧的 insert/delete 合并。
+</div>
+
+</body>
+</html>

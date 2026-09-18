@@ -11,6 +11,7 @@
  *  - 安装:
  *    skill → fetch skillUrl 内容 → skillsApi.create(scope='user')
  *    mcp   → 读取 config.mcp.servers 追加该 server → configApi.updateFull({mcp})
+ *            (条目声明了必填参数时先弹窗收集,缺项不写入 config,避免装完启动必失败)
  *  - 卸载:
  *    skill → skillsApi.delete(filePath)
  *    mcp   → 从 config.mcp.servers 移除该 id → configApi.updateFull({mcp})
@@ -21,7 +22,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { skillsApi, configApi, mcpApi, pluginsApi } from '@/api/client';
-import { type RemotePluginEntry, type RemoteRegistry } from '@/api/client';
+import { type RemotePluginEntry, type RemotePluginParam, type RemoteRegistry } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { emit as emitEvent, on as onEvent } from '@/utils/eventBus';
 import { useI18n } from '@/i18n';
@@ -95,6 +96,9 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
   /** 安装中 id 集合(按钮 disabled) */
   const [installing, setInstalling] = useState<Set<string>>(new Set());
 
+  /** 需收集安装参数的 MCP 条目(非空时展示参数弹窗) */
+  const [pendingParams, setPendingParams] = useState<MarketPlugin | null>(null);
+
   /** 名称规范化(对齐旧版:name.toLowerCase().replace(/\s+/g, '-')) */
   const normalizeName = (name: string): string => name.toLowerCase().replace(/\s+/g, '-');
 
@@ -165,6 +169,7 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
         source: r.source || 'community',
         category: (r.category as MarketPlugin['category']) || 'dev',
         mcp: r.mcp,
+        params: r.params,
       };
     }
     // skill
@@ -300,16 +305,9 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
     [installedSkillNames, installedMcpIds],
   );
 
-  /** 安装插件(skill fetch+create;mcp 写 config;package 下载解包解析) */
-  const handleInstall = useCallback(
-    async (plugin: MarketPlugin) => {
-      const confirmKey =
-        plugin.type === 'skill'
-          ? 'pluginMarket.confirmInstall'
-          : plugin.type === 'package'
-            ? 'pluginMarket.confirmInstallPackage'
-            : 'pluginMarket.confirmInstallMcp';
-      if (!window.confirm(t(confirmKey, { name: plugin.name, source: plugin.source }))) return;
+  /** 执行安装(不含确认环节；paramsValues 仅对带参数声明的 MCP 条目有意义) */
+  const performInstall = useCallback(
+    async (plugin: MarketPlugin, paramsValues?: Record<string, string>) => {
       setInstalling((prev) => new Set(prev).add(plugin.id));
       try {
         if (plugin.type === 'skill') {
@@ -335,8 +333,8 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
         } else if (plugin.type === 'package') {
           await installPackagePlugin(plugin);
         } else {
-          // mcp:追加 server 到 config.mcp.servers
-          await installMcpServer(plugin.mcp!, plugin.name);
+          // mcp:参数(允许目录 / token / 连接串)按 target 落进 args 或 env,再追加 server 到 config.mcp.servers
+          await installMcpServer(applyParams(plugin.mcp!, plugin.params, paramsValues), plugin.name);
         }
       } catch (e) {
         console.warn('[PluginMarket] 安装失败:', e);
@@ -350,6 +348,33 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
       }
     },
     [reloadInstalled, t],
+  );
+
+  /**
+   * 安装入口。
+   * 声明了必填参数的 MCP 条目先弹窗收集参数(参数表单本身即二次确认)；
+   * 其余条目保持原有的 window.confirm 后直接安装。
+   */
+  const handleInstall = useCallback(
+    (plugin: MarketPlugin) => {
+      if (plugin.type === 'mcp' && plugin.params?.length) {
+        setPendingParams(plugin);
+        return;
+      }
+      if (!window.confirm(t(confirmKeyOf(plugin.type), { name: plugin.name, source: plugin.source }))) return;
+      void performInstall(plugin);
+    },
+    [performInstall, t],
+  );
+
+  /** 参数弹窗提交：收集到的值随安装一起写入 config */
+  const handleParamSubmit = useCallback(
+    (values: Record<string, string>) => {
+      const plugin = pendingParams;
+      setPendingParams(null);
+      if (plugin) void performInstall(plugin, values);
+    },
+    [pendingParams, performInstall],
   );
 
   /** 安装单个 MCP server:写 config.mcp.servers + 触发热连接(供 mcp 条目与 package 内 mcp 复用) */
@@ -659,8 +684,44 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
           onClose={closePreview}
         />
       )}
+
+      {pendingParams && (
+        <PluginParamModal
+          plugin={pendingParams}
+          onSubmit={handleParamSubmit}
+          onClose={() => setPendingParams(null)}
+        />
+      )}
     </div>
   );
+}
+
+/** 安装确认文案按类型区分(package 有独立文案) */
+function confirmKeyOf(type: MarketPluginType): string {
+  if (type === 'skill') return 'pluginMarket.confirmInstall';
+  if (type === 'package') return 'pluginMarket.confirmInstallPackage';
+  return 'pluginMarket.confirmInstallMcp';
+}
+
+/**
+ * 把弹窗收集的参数按 target 落进 server 配置：args 追加为位置参数，env 写入环境变量。
+ * 空值跳过(只有非必填项可能为空)；返回新对象，不改动入参。
+ */
+function applyParams(
+  server: NonNullable<MarketPlugin['mcp']>,
+  params: RemotePluginParam[] | undefined,
+  values: Record<string, string> | undefined,
+): NonNullable<MarketPlugin['mcp']> {
+  if (!params?.length || !values) return server;
+  const args = [...(server.args ?? [])];
+  const env = { ...(server.env ?? {}) };
+  for (const field of params) {
+    const value = (values[field.key] ?? '').trim();
+    if (!value) continue;
+    if (field.target === 'env') env[field.key] = value;
+    else args.push(value);
+  }
+  return { ...server, args, env };
 }
 
 // ============================================================================
@@ -897,6 +958,9 @@ function PluginGrid({
                 <div className="plugin-market-skill-name">
                   {plugin.name}
                   {plugin.type === 'mcp' && <span className="plugin-market-type-badge">MCP</span>}
+                  {plugin.type === 'mcp' && plugin.params?.length ? (
+                    <span className="plugin-market-param-badge">{t('pluginMarket.paramBadge')}</span>
+                  ) : null}
                   {plugin.type === 'package' && <span className="plugin-market-type-badge">{t('pluginMarket.packageBadge')}</span>}
                 </div>
                 <div className="plugin-market-skill-desc">{t(plugin.desc)}</div>
@@ -1060,6 +1124,99 @@ function PreviewModal({
           ) : (
             <pre className="plugin-market-preview-code">{content}</pre>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// PluginParamModal(安装前收集必填参数)
+// ============================================================================
+
+/**
+ * 安装前收集条目声明却给不出的参数(允许目录 / token / 连接串)。
+ * 必填项为空时就地报错、不提交，避免写出「装完必然启动失败」的 server 配置。
+ */
+function PluginParamModal({
+  plugin,
+  onSubmit,
+  onClose,
+}: {
+  plugin: MarketPlugin;
+  onSubmit: (values: Record<string, string>) => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const params = plugin.params ?? [];
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [showErrors, setShowErrors] = useState(false);
+
+  const isBlank = (key: string) => !(values[key] ?? '').trim();
+  const missing = params.filter((p) => p.required && isBlank(p.key));
+
+  const handleSubmit = () => {
+    if (missing.length > 0) {
+      setShowErrors(true);
+      return;
+    }
+    onSubmit(values);
+  };
+
+  return (
+    <div
+      className="plugin-market-param-modal"
+      role="dialog"
+      aria-label={t('pluginMarket.paramTitle', { name: plugin.name })}
+    >
+      <div className="plugin-market-param-backdrop" onClick={onClose} />
+      <div className="plugin-market-param-panel">
+        <div className="plugin-market-param-header">
+          <span className="plugin-market-param-title">{t('pluginMarket.paramTitle', { name: plugin.name })}</span>
+          <button type="button" className="plugin-market-param-close" title={t('pluginMarket.paramCancel')} onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="plugin-market-param-body">
+          <p className="plugin-market-param-intro">{t('pluginMarket.paramIntro')}</p>
+
+          {params.map((p, idx) => {
+            const invalid = showErrors && !!p.required && isBlank(p.key);
+            return (
+              <label key={p.key} className="plugin-market-param-field">
+                <span className="plugin-market-param-label">
+                  {t(p.label)}
+                  {p.required && <span className="plugin-market-param-req">{t('pluginMarket.paramRequired')}</span>}
+                </span>
+                <input
+                  className={`plugin-market-param-input${invalid ? ' invalid' : ''}`}
+                  type={p.secret ? 'password' : 'text'}
+                  placeholder={p.hint}
+                  value={values[p.key] ?? ''}
+                  autoFocus={idx === 0}
+                  onChange={(e) => setValues((prev) => ({ ...prev, [p.key]: e.target.value }))}
+                />
+              </label>
+            );
+          })}
+
+          {showErrors && missing.length > 0 && (
+            <div className="plugin-market-param-error">
+              {t('pluginMarket.paramMissing', { fields: missing.map((p) => t(p.label)).join('、') })}
+            </div>
+          )}
+
+          <div className="plugin-market-param-note">{t('pluginMarket.paramNote')}</div>
+        </div>
+
+        <div className="plugin-market-param-footer">
+          <button type="button" className="plugin-market-param-btn" onClick={onClose}>
+            {t('pluginMarket.paramCancel')}
+          </button>
+          <button type="button" className="plugin-market-param-btn primary" onClick={handleSubmit}>
+            {t('pluginMarket.paramConfirm')}
+          </button>
         </div>
       </div>
     </div>
