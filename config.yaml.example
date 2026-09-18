@@ -94,6 +94,7 @@ mcp:
   max_reconnect_attempts: 5           # 最大重连次数
   reconnect_delay_seconds: 5          # 重连间隔（秒）
   request_timeout: 60000              # 请求超时（毫秒）
+  init_timeout: 300000                # 握手超时（毫秒），独立于 request_timeout；npx/uvx 首次启动需下载包故留足时间
   servers: []                         # MCP 服务列表（在 config.yaml 中配置）
   # servers:
   #   - id: my-server

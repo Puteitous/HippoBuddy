@@ -36,6 +36,8 @@ public abstract class AbstractMcpClient implements McpClient {
     protected final McpConfig globalConfig;
     protected final JsonRpcHandler jsonRpcHandler;
     protected final int requestTimeoutMs;
+    /** 握手专用超时，独立于 requestTimeoutMs（npx/uvx 冷启动需先下载包） */
+    protected final int initTimeoutMs;
 
     protected volatile boolean connected = false;
     protected String serverName;
@@ -54,6 +56,9 @@ public abstract class AbstractMcpClient implements McpClient {
 
         int timeout = globalConfig.getRequestTimeout();
         this.requestTimeoutMs = timeout > 0 ? timeout : 60000;
+
+        int initTimeout = globalConfig.getInitTimeout();
+        this.initTimeoutMs = initTimeout > 0 ? initTimeout : this.requestTimeoutMs;
 
         if (globalConfig.getMaxReconnectAttempts() < 0) {
             globalConfig.setMaxReconnectAttempts(5);
@@ -176,8 +181,19 @@ public abstract class AbstractMcpClient implements McpClient {
     protected abstract CompletableFuture<JsonNode> sendRequestInternal(String method, Object params);
 
     protected <T> CompletableFuture<T> sendRequest(String method, Object params, Class<T> resultType) {
+        return sendRequest(method, params, resultType, requestTimeoutMs);
+    }
+
+    /**
+     * 带超时参数的请求。
+     * <p>
+     * 握手阶段传入 {@link #initTimeoutMs}：npx/uvx 类服务器冷启动需先下载包，
+     * 耗时远超常规请求，沿用 request_timeout 会导致握手必然失败。
+     * </p>
+     */
+    protected <T> CompletableFuture<T> sendRequest(String method, Object params, Class<T> resultType, int timeoutMs) {
         return sendRequestInternal(method, params)
-                .orTimeout(requestTimeoutMs, TimeUnit.MILLISECONDS)
+                .orTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                 .exceptionally(ex -> {
                     if (ex instanceof java.util.concurrent.TimeoutException) {
                         throw new McpTimeoutException("请求超时: " + method);
@@ -198,7 +214,7 @@ public abstract class AbstractMcpClient implements McpClient {
         Map<String, Object> capabilities = new HashMap<>();
         params.put("capabilities", capabilities);
 
-        return sendRequest("initialize", params, InitializeResult.class)
+        return sendRequest("initialize", params, InitializeResult.class, initTimeoutMs)
                 .thenAccept(result -> {
                     this.serverInfo = result.getServerInfo();
                     if (serverInfo != null) {

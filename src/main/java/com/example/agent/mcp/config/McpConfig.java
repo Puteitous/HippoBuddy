@@ -28,6 +28,17 @@ public class McpConfig {
     @JsonProperty("request_timeout")
     private int requestTimeout = 60000;
 
+    /**
+     * 握手（initialize）超时，单位毫秒。
+     * <p>
+     * 独立于 request_timeout：npx/uvx 类服务器首次启动需先下载包，实测冷启动可达数分钟。
+     * 若沿用 60 秒的请求超时，握手必然超时，且本次运行不再重试，表现为「MCP 工具时有时无」。
+     * 设为 &lt;=0 时回退到 request_timeout，等价于改动前行为。
+     * </p>
+     */
+    @JsonProperty("init_timeout")
+    private int initTimeout = 300000;
+
     private List<McpServerConfig> servers = new ArrayList<>();
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -154,6 +165,14 @@ public class McpConfig {
 
     public void setRequestTimeout(int requestTimeout) {
         this.requestTimeout = requestTimeout;
+    }
+
+    public int getInitTimeout() {
+        return initTimeout;
+    }
+
+    public void setInitTimeout(int initTimeout) {
+        this.initTimeout = initTimeout;
     }
 
     public List<McpServerConfig> getServers() {
