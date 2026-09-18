@@ -164,6 +164,43 @@ class AgentModeTest {
     }
 
     @Nested
+    @DisplayName("MCP 工具放行测试")
+    class McpToolTests {
+
+        @Test
+        @DisplayName("CHAT 模式放行 MCP 工具")
+        void testChatAllowsMcpTool() {
+            assertTrue(AgentMode.CHAT.isToolAllowed("mcp_echo_echo"));
+        }
+
+        @Test
+        @DisplayName("CODING 模式放行 MCP 工具")
+        void testCodingAllowsMcpTool() {
+            assertTrue(AgentMode.CODING.isToolAllowed("mcp_memory_create_entities"));
+        }
+
+        @Test
+        @DisplayName("OFFICE 模式放行 MCP 工具")
+        void testOfficeAllowsMcpTool() {
+            assertTrue(AgentMode.OFFICE.isToolAllowed("mcp_fetch_fetch"));
+        }
+
+        @Test
+        @DisplayName("非 mcp_ 前缀的工具仍按白名单精确匹配拒绝")
+        void testNonMcpToolStillDenied() {
+            assertFalse(AgentMode.CHAT.isToolAllowed("mcp"));
+            assertFalse(AgentMode.CHAT.isToolAllowed("MCP_echo_echo"));
+            assertFalse(AgentMode.CHAT.isToolAllowed("mcp-echo-echo"));
+        }
+
+        @Test
+        @DisplayName("工具名为 null 时拒绝而不抛异常")
+        void testNullToolNameDenied() {
+            assertFalse(AgentMode.CHAT.isToolAllowed(null));
+        }
+    }
+
+    @Nested
     @DisplayName("通用方法测试")
     class CommonMethodTests {
 

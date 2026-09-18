@@ -44,6 +44,17 @@ public enum AgentMode {
         )
     );
 
+    /**
+     * MCP 工具名前缀。
+     * <p>
+     * McpToolAdapter 生成的工具名固定为 {@code mcp_{serverId}_{toolName}}。
+     * 这类工具来自用户显式安装并配置的 MCP Server，不属于模式白名单的管控范围
+     * （白名单只圈定内置工具，用于区分只读/可写能力），故所有模式一律放行；
+     * 其可用性由 MCP 连接状态与 Server 自身配置决定。
+     * </p>
+     */
+    private static final String MCP_TOOL_PREFIX = "mcp_";
+
     private final String icon;
     private final String displayName;
     private final String description;
@@ -73,7 +84,12 @@ public enum AgentMode {
     }
 
     public boolean isToolAllowed(String toolName) {
-        return allowedTools.contains(toolName);
+        if (toolName == null) {
+            return false;
+        }
+        // MCP 工具不参与模式白名单：否则注册进 ToolRegistry 后会被过滤掉，
+        // 既进不了 LLM 的 tools 参数，也会在 executeToolCalls 被当成越权调用拒绝。
+        return allowedTools.contains(toolName) || toolName.startsWith(MCP_TOOL_PREFIX);
     }
 
     public String getFullDisplayName() {

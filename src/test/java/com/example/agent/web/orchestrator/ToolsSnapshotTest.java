@@ -102,6 +102,19 @@ class ToolsSnapshotTest {
     }
 
     @Test
+    @DisplayName("MCP 工具不受模式白名单限制（CHAT 会话也能暴露给 LLM）")
+    void mcpTools_bypassModeWhitelist() {
+        registerFakeTool("read_file");
+        registerFakeTool("mcp_echo_echo");
+
+        List<Tool> chat = orchestrator.getOrCreateToolsSnapshot("s1", AgentMode.CHAT);
+
+        assertTrue(toolNames(chat).contains("mcp_echo_echo"),
+            "MCP 工具应进入 tools 参数，实际: " + toolNames(chat));
+        assertTrue(toolNames(chat).contains("read_file"));
+    }
+
+    @Test
     @DisplayName("快照后新注册工具不影响已有会话（MCP 晚注册场景）")
     void toolRegisteredAfterSnapshot_doesNotAffectExistingSession() {
         registerFakeTool("read_file");
