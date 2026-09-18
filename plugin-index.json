@@ -120,7 +120,7 @@
         "name": "Fetch",
         "type": "stdio",
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-fetch"],
+        "args": ["-y", "mcp-server-fetch-typescript"],
         "auto_register_tools": true
       }
     },
@@ -152,7 +152,7 @@
         "name": "Git",
         "type": "stdio",
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-git"],
+        "args": ["-y", "@cyanheads/git-mcp-server"],
         "auto_register_tools": true
       }
     },
@@ -201,22 +201,6 @@
         "type": "stdio",
         "command": "npx",
         "args": ["-y", "@modelcontextprotocol/server-postgres"],
-        "auto_register_tools": true
-      }
-    },
-    {
-      "id": "mcp-sqlite",
-      "type": "mcp",
-      "name": "sqlite",
-      "desc": "pluginMarket.mcp.sqlite",
-      "source": "modelcontextprotocol",
-      "category": "data",
-      "mcp": {
-        "id": "mcp-sqlite",
-        "name": "SQLite",
-        "type": "stdio",
-        "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-sqlite"],
         "auto_register_tools": true
       }
     },

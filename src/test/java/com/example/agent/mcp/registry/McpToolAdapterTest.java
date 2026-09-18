@@ -70,6 +70,22 @@ class McpToolAdapterTest {
             McpToolAdapter a = new McpToolAdapter(mockClient, mcpTool);
             assertEquals("mcp_my_custom_server_" + TOOL_NAME, a.getName());
         }
+
+        @Test
+        @DisplayName("serverId 自带 mcp- 前缀时不重复拼接")
+        void deduplicatesHyphenMcpPrefix() {
+            when(mockClient.getServerId()).thenReturn("mcp-memory");
+            McpToolAdapter a = new McpToolAdapter(mockClient, mcpTool);
+            assertEquals("mcp_memory_" + TOOL_NAME, a.getName());
+        }
+
+        @Test
+        @DisplayName("serverId 自带 mcp_ 前缀时不重复拼接")
+        void deduplicatesUnderscoreMcpPrefix() {
+            when(mockClient.getServerId()).thenReturn("mcp_echo");
+            McpToolAdapter a = new McpToolAdapter(mockClient, mcpTool);
+            assertEquals("mcp_echo_" + TOOL_NAME, a.getName());
+        }
     }
 
     // ========== 工具描述 ==========

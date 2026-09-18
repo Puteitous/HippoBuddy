@@ -20,7 +20,24 @@ public class McpToolAdapter implements ToolExecutor {
     public McpToolAdapter(McpClient client, McpTool tool) {
         this.client = client;
         this.tool = tool;
-        this.fullToolName = "mcp_" + client.getServerId() + "_" + tool.getName();
+        this.fullToolName = "mcp_" + normalizeServerId(client.getServerId()) + "_" + tool.getName();
+    }
+
+    /**
+     * 归一化 serverId，去掉多余的 mcp 前缀。
+     * <p>
+     * 工具名约定为 {@code mcp_{serverId}_{toolName}}，而 serverId 往往自带 mcp 前缀
+     * （配置与插件市场里普遍写作 {@code mcp-memory}、{@code mcp-fetch}），
+     * 不去重就会拼出 {@code mcp_mcp-memory_create_entities} 这类重复前缀。
+     * </p>
+     */
+    private static String normalizeServerId(String serverId) {
+        if (serverId.length() > 4
+                && (serverId.regionMatches(true, 0, "mcp_", 0, 4)
+                    || serverId.regionMatches(true, 0, "mcp-", 0, 4))) {
+            return serverId.substring(4);
+        }
+        return serverId;
     }
 
     @Override

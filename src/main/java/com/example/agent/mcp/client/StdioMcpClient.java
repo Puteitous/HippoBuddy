@@ -9,18 +9,28 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public class StdioMcpClient extends AbstractMcpClient {
 
     private static final Logger logger = LoggerFactory.getLogger(StdioMcpClient.class);
+
+    /** Windows 批处理垫片扩展名：这类文件无法被 CreateProcess 直接执行，必须经 cmd.exe /c 转发 */
+    private static final List<String> SHELL_SCRIPT_EXTS = List.of(".cmd", ".bat");
 
     private Process process;
     private BufferedReader stdoutReader;
@@ -50,11 +60,7 @@ public class StdioMcpClient extends AbstractMcpClient {
 
                 logger.info("启动MCP子进程: {} {}", command, serverConfig.getArgs());
 
-                List<String> commandList = new ArrayList<>();
-                commandList.add(command);
-                if (serverConfig.getArgs() != null) {
-                    commandList.addAll(serverConfig.getArgs());
-                }
+                List<String> commandList = buildCommandList(serverConfig);
 
                 ProcessBuilder pb = new ProcessBuilder(commandList);
                 if (serverConfig.getEnv() != null && !serverConfig.getEnv().isEmpty()) {
@@ -97,6 +103,81 @@ public class StdioMcpClient extends AbstractMcpClient {
         });
     }
 
+    /**
+     * 构建子进程命令行。
+     * <p>
+     * Windows 上 npm/npx/yarn/pnpm 等命令实际是 {@code .cmd} 批处理垫片，而 ProcessBuilder
+     * 底层走 CreateProcessW：它只补全 {@code .exe}，既不认 PATHEXT 也无法执行 {@code .cmd/.bat}，
+     * 直接启动会报 {@code CreateProcess error=2, 系统找不到指定的文件}。
+     * 因此命令解析为批处理垫片时改用 {@code cmd.exe /c} 转发（与 BashTool 的处理一致）；
+     * 解析为原生可执行文件（node.exe 等）时保持直接启动，避免多一层进程。
+     * </p>
+     */
+    private static List<String> buildCommandList(McpConfig.McpServerConfig config) {
+        String command = config.getCommand();
+        List<String> commandList = new ArrayList<>();
+
+        if (isWindows() && needsCmdWrapper(command)) {
+            logger.info("检测到 Windows 批处理命令，改用 cmd.exe /c 转发: {}", command);
+            commandList.add("cmd.exe");
+            commandList.add("/c");
+        }
+        commandList.add(command);
+        if (config.getArgs() != null) {
+            commandList.addAll(config.getArgs());
+        }
+        return commandList;
+    }
+
+    /** 判断命令是否需要 cmd.exe 转发：仅当它最终解析为 .cmd/.bat 批处理文件。 */
+    private static boolean needsCmdWrapper(String command) {
+        String lower = command.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".cmd") || lower.endsWith(".bat")) {
+            return true;
+        }
+        if (lower.endsWith(".exe") || lower.endsWith(".com")) {
+            return false;
+        }
+        return resolvesToShellScript(command);
+    }
+
+    /**
+     * 沿 PATH 查找命令，判断命中的是否为批处理垫片。
+     * <p>
+     * 按 PATHEXT 的顺序逐扩展名探测，取第一个命中的文件，以此模拟 Windows 的解析顺序：
+     * node → 命中 node.exe（无需转发）；npx → 命中 npx.cmd（需要转发）。
+     * </p>
+     */
+    private static boolean resolvesToShellScript(String command) {
+        String path = System.getenv("PATH");
+        if (path == null || path.isBlank()) {
+            return false;
+        }
+        String pathExt = System.getenv("PATHEXT");
+        List<String> exts = (pathExt == null || pathExt.isBlank())
+                ? List.of(".com", ".exe", ".bat", ".cmd")
+                : Arrays.stream(pathExt.split(";"))
+                        .map(e -> e.toLowerCase(Locale.ROOT).trim())
+                        .filter(e -> !e.isEmpty())
+                        .toList();
+
+        for (String dir : path.split(Pattern.quote(File.pathSeparator))) {
+            if (dir.isBlank()) {
+                continue;
+            }
+            for (String ext : exts) {
+                if (Files.isRegularFile(Path.of(dir, command + ext))) {
+                    return SHELL_SCRIPT_EXTS.contains(ext);
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+    }
+
     private void cleanupResources(Process p, BufferedReader out, BufferedWriter in, BufferedReader err, ExecutorService exec) {
         if (exec != null) {
             exec.shutdownNow();
@@ -111,6 +192,42 @@ public class StdioMcpClient extends AbstractMcpClient {
             if (err != null) err.close();
         } catch (Exception ignored) {}
         if (p != null) {
+            terminateProcessTree(p);
+        }
+    }
+
+    /**
+     * Windows：用 {@code taskkill /F /T} 递归终止进程树。
+     * <p>
+     * 经 {@code cmd.exe /c} 转发启动时，真实的 MCP 进程是 cmd 的后代（cmd → npx.cmd → node），
+     * 仅终止根进程会遗留孤立的 node。taskkill 失败时回退到 destroyForcibly。
+     * </p>
+     */
+    private void killWindowsTree(Process p) {
+        try {
+            Process killer = new ProcessBuilder("taskkill", "/F", "/T", "/PID", String.valueOf(p.pid()))
+                    .redirectErrorStream(true)
+                    .start();
+            killer.getOutputStream().close();
+            if (!killer.waitFor(5, TimeUnit.SECONDS)) {
+                killer.destroyForcibly();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            p.destroyForcibly();
+        } catch (Exception e) {
+            logger.warn("taskkill 执行失败，回退到 destroyForcibly: pid={}", p.pid(), e);
+            p.destroyForcibly();
+        }
+    }
+
+    private void terminateProcessTree(Process p) {
+        if (p == null || !p.isAlive()) {
+            return;
+        }
+        if (isWindows()) {
+            killWindowsTree(p);
+        } else {
             p.destroyForcibly();
         }
     }
@@ -231,14 +348,19 @@ public class StdioMcpClient extends AbstractMcpClient {
             }
 
             if (process != null) {
-                process.destroy();
-                try {
-                    if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                if (isWindows()) {
+                    // 可能是 cmd.exe /c 转发启动的，必须按进程树终止
+                    killWindowsTree(process);
+                } else {
+                    process.destroy();
+                    try {
+                        if (!process.waitFor(5, TimeUnit.SECONDS)) {
+                            process.destroyForcibly();
+                        }
+                    } catch (InterruptedException e) {
                         process.destroyForcibly();
+                        Thread.currentThread().interrupt();
                     }
-                } catch (InterruptedException e) {
-                    process.destroyForcibly();
-                    Thread.currentThread().interrupt();
                 }
             }
 
