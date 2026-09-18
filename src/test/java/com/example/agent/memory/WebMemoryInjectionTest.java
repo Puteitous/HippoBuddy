@@ -12,7 +12,6 @@ import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.testutil.MockLlmClient;
 import com.example.agent.testutil.LlmResponseBuilder;
 import com.example.agent.tools.ToolRegistry;
-import com.example.agent.tools.RecallMemoryTool;
 import com.example.agent.web.server.DashboardServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -85,11 +84,10 @@ class WebMemoryInjectionTest {
             ServiceLocator.registerSingleton(MemoryStore.class, memoryStore);
             ServiceLocator.registerSingleton(MemoryRetriever.class, memoryRetriever);
 
-            // 注册记忆工具
+            // 注册 ToolRegistry（Web 侧 orchestrator 依赖）
             try {
                 ToolRegistry toolRegistry = new ToolRegistry();
                 ServiceLocator.registerSingleton(ToolRegistry.class, toolRegistry);
-                toolRegistry.register(new RecallMemoryTool(memoryStore));
             } catch (Exception e) {
                 // ToolRegistry 可能已注册
             }

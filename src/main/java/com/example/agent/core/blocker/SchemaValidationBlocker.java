@@ -198,10 +198,6 @@ public class SchemaValidationBlocker implements Blocker {
             "mode", "replace"
         ));
         
-        examples.put("recall_memory", Map.of(
-            "query", "用户偏好设置"
-        ));
-        
         examples.put("fork_agent", Map.of(
             "instruction", "搜索项目中的错误处理代码"
         ));

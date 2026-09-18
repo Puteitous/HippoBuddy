@@ -14,9 +14,9 @@ import java.nio.file.Path;
  * 负责：
  * 1. 创建 MemoryStore、MemoryRetriever
  * 2. 注册到 DI 容器
- * 3. 注册记忆工具到 ToolRegistry
  * 
- * 设计哲学：文件即记忆，不需要向量化
+ * 设计哲学：文件即记忆，不需要向量化。记忆的读写删除由 LLM 通过
+ * read_file / edit_file / rm 直接操作 .hippo/memory/ 下的文件完成。
  */
 public class MemoryModule {
     
@@ -56,9 +56,6 @@ public class MemoryModule {
         com.example.agent.core.di.ServiceLocator.registerSingleton(MemoryRetriever.class, memoryRetriever);
         com.example.agent.core.di.ServiceLocator.registerSingleton(MemoryMetricsCollector.class, metricsCollector);
         
-        // 5. 注册记忆工具到 ToolRegistry
-        registerMemoryTools();
-        
         logger.info("========== 记忆模块初始化完成 ==========");
         
         return memoryRetriever;
@@ -90,27 +87,6 @@ public class MemoryModule {
         }
     }
     
-    /**
-     * 注册记忆工具到 ToolRegistry
-     * 
-     * 设计哲学：不注册 forget_memory 工具
-     * LLM 应使用标准文件操作（read_file + edit_file + rm）管理记忆
-     * 这样 LLM 能看到每一步操作，失败后可以自主重试
-     */
-    private static void registerMemoryTools() {
-        try {
-            com.example.agent.tools.ToolRegistry toolRegistry = 
-                com.example.agent.core.di.ServiceLocator.get(com.example.agent.tools.ToolRegistry.class);
-            
-            // toolRegistry.register(new com.example.agent.tools.RecallMemoryTool(memoryStore));
-            
-            logger.info("⚠️ 记忆工具未注册（Memory 未启用）");
-            logger.info("ℹ️  记忆删除：LLM 使用 read_file + edit_file + rm 自主操作");
-        } catch (Exception e) {
-            logger.warn("注册记忆工具失败（ToolRegistry 可能未初始化）：{}", e.getMessage());
-        }
-    }
-
     // Getter 方法
     
     public static MemoryStore getMemoryStore() {

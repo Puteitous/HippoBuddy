@@ -58,12 +58,6 @@ class AgentModeTest {
         }
 
         @Test
-        @DisplayName("CHAT 模式允许 recall_memory 工具")
-        void testChatAllowsRecallMemory() {
-            assertTrue(AgentMode.CHAT.isToolAllowed("recall_memory"));
-        }
-
-        @Test
         @DisplayName("CHAT 模式不允许 write_file 工具")
         void testChatDeniesWriteFile() {
             assertFalse(AgentMode.CHAT.isToolAllowed("write_file"));
@@ -147,12 +141,6 @@ class AgentModeTest {
         }
 
         @Test
-        @DisplayName("CODING 模式允许 recall_memory 工具")
-        void testCodingAllowsRecallMemory() {
-            assertTrue(AgentMode.CODING.isToolAllowed("recall_memory"));
-        }
-
-        @Test
         @DisplayName("CODING 模式允许所有 CHAT 模式的工具")
         void testCodingAllowsAllChatTools() {
             Set<String> chatTools = AgentMode.CHAT.getAllowedTools();
@@ -219,7 +207,7 @@ class AgentModeTest {
         @Test
         @DisplayName("CHAT 模式允许的工具数量正确")
         void testChatAllowedToolsCount() {
-            assertEquals(16, AgentMode.CHAT.getAllowedTools().size());
+            assertEquals(9, AgentMode.CHAT.getAllowedTools().size());
         }
 
         @Test

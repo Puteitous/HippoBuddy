@@ -18,7 +18,7 @@ import java.util.Set;
  * 1. 删除自动向量检索 + 全文注入逻辑
  * 2. 新增 injectPersistentContext()：仅注入持久上下文（偏好和项目约束）
  * 3. 提供 memoize 缓存，基于持久记忆的 lastUpdated 时间戳总和失效
- * 4. 不再自动注入可检索知识，改为提供 recall_memory 工具
+ * 4. 不再自动注入可检索知识，LLM 通过 read_file 直接读取 .hippo/memory/ 下的文件
  * 5. 移除 EmbeddingService 依赖，文件系统就是存储
  */
 public class MemoryRetriever {
