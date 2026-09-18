@@ -18,18 +18,13 @@ import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 /**
  * 标准插件包安装端点(对齐 Agent Plugins 1.0 打包结构)。
@@ -65,14 +60,6 @@ public class PluginPackageInstallHandler implements HttpHandler {
     private static final int TIMEOUT_SECONDS = 15;
     /** 下载上限 50MB */
     private static final long MAX_DOWNLOAD_BYTES = 50L * 1024 * 1024;
-    /** 解包文件数上限 */
-    private static final int MAX_ENTRIES = 200;
-    /** 解包总量上限 100MB(防 zip 炸弹) */
-    private static final long MAX_TOTAL_BYTES = 100L * 1024 * 1024;
-    /** 单个技能文件大小上限 5MB */
-    private static final long MAX_FILE_BYTES = 5L * 1024 * 1024;
-    /** 单个技能目录落盘总量上限 20MB */
-    private static final long MAX_SKILL_DIR_BYTES = 20L * 1024 * 1024;
 
     private final OkHttpClient httpClient;
 
@@ -127,7 +114,7 @@ public class PluginPackageInstallHandler implements HttpHandler {
 
             // 2. 解压到临时目录(防路径穿越)
             tempDir = Files.createTempDirectory("hippo-plugin-");
-            extractZip(zipBytes, tempDir);
+            ZipPackageUtils.extractZip(zipBytes, tempDir);
 
             // 3. 解析 plugin.json / mcp.json,并把技能(整目录)落盘
             ObjectNode result = parseAndInstall(tempDir, scope, dryRun);
@@ -141,7 +128,7 @@ public class PluginPackageInstallHandler implements HttpHandler {
             sendJson(exchange, 500, error(e.getMessage() == null ? String.valueOf(e) : e.getMessage()));
         } finally {
             if (tempDir != null) {
-                deleteRecursively(tempDir);
+                ZipPackageUtils.deleteRecursively(tempDir);
             }
         }
     }
@@ -175,53 +162,6 @@ public class PluginPackageInstallHandler implements HttpHandler {
                 throw new IllegalArgumentException("插件包超过大小上限(" + (MAX_DOWNLOAD_BYTES / 1024 / 1024) + "MB)");
             }
             return bytes;
-        }
-    }
-
-    /** 解压 zip 到临时目录,严格防路径穿越 */
-    private void extractZip(byte[] zipBytes, Path destRoot) throws IOException {
-        long totalBytes = 0;
-        int entryCount = 0;
-        try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                entryCount++;
-                if (entryCount > MAX_ENTRIES) {
-                    throw new IllegalArgumentException("插件包文件数超过上限(" + MAX_ENTRIES + ")");
-                }
-
-                if (entry.isDirectory()) {
-                    continue;
-                }
-
-                String entryName = entry.getName();
-                // 防路径穿越:拒绝绝对路径与 ../
-                Path entryPath = Path.of(entryName);
-                if (entryPath.isAbsolute() || entryName.contains("..")) {
-                    throw new IllegalArgumentException("插件包包含非法路径: " + entryName);
-                }
-
-                Path target = destRoot.resolve(entryPath).normalize();
-                if (!target.startsWith(destRoot)) {
-                    throw new IllegalArgumentException("插件包路径越界: " + entryName);
-                }
-
-                // 限制单文件大小
-                if (entry.getSize() > MAX_FILE_BYTES) {
-                    throw new IllegalArgumentException("单个文件超过大小上限: " + entryName);
-                }
-
-                Files.createDirectories(target.getParent());
-                long written = Files.copy(zis, target);
-                if (written > MAX_FILE_BYTES) {
-                    throw new IllegalArgumentException("单个文件超过大小上限("
-                            + (MAX_FILE_BYTES / 1024 / 1024) + "MB): " + entryName);
-                }
-                totalBytes += written;
-                if (totalBytes > MAX_TOTAL_BYTES) {
-                    throw new IllegalArgumentException("插件包解压总量超过上限(" + (MAX_TOTAL_BYTES / 1024 / 1024) + "MB)");
-                }
-            }
         }
     }
 
@@ -352,7 +292,7 @@ public class PluginPackageInstallHandler implements HttpHandler {
         if (Files.exists(targetDir)) {
             return skipped(node);
         }
-        node.put("bytes", copySkillTree(sourceDir, targetDir));
+        node.put("bytes", ZipPackageUtils.copySkillTree(sourceDir, targetDir));
         node.put("path", targetDir.toAbsolutePath().normalize().toString());
         return node;
     }
@@ -383,34 +323,6 @@ public class PluginPackageInstallHandler implements HttpHandler {
         return WorkspaceManager.getUserSkillsDir();
     }
 
-    /** 递归复制技能目录,校验单文件与目录总量上限 */
-    private long copySkillTree(Path sourceDir, Path targetDir) throws IOException {
-        long total = 0;
-        try (var stream = Files.walk(sourceDir)) {
-            for (Path source : stream.toList()) {
-                Path relative = sourceDir.relativize(source);
-                Path target = targetDir.resolve(relative);
-                if (Files.isDirectory(source)) {
-                    Files.createDirectories(target);
-                    continue;
-                }
-                long size = Files.size(source);
-                if (size > MAX_FILE_BYTES) {
-                    throw new IllegalArgumentException("技能文件超过大小上限("
-                            + (MAX_FILE_BYTES / 1024 / 1024) + "MB): " + relative);
-                }
-                total += size;
-                if (total > MAX_SKILL_DIR_BYTES) {
-                    throw new IllegalArgumentException("技能目录超过大小上限("
-                            + (MAX_SKILL_DIR_BYTES / 1024 / 1024) + "MB): " + sourceDir.getFileName());
-                }
-                Files.createDirectories(target.getParent());
-                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-        }
-        return total;
-    }
-
     /** 定位含 plugin.json 的包根:优先自身,否则向下扫一层子目录(兼容 zip 顶层包裹目录) */
     private Path locatePackageRoot(Path root) throws IOException {
         if (Files.exists(root.resolve("plugin.json"))) {
@@ -429,20 +341,6 @@ public class PluginPackageInstallHandler implements HttpHandler {
 
     private String textOr(JsonNode node, String fallback) {
         return node != null && node.isTextual() ? node.asText() : fallback;
-    }
-
-    private void deleteRecursively(Path dir) {
-        try (var stream = Files.walk(dir)) {
-            stream.sorted(Comparator.reverseOrder()).forEach(p -> {
-                try {
-                    Files.deleteIfExists(p);
-                } catch (IOException e) {
-                    // 忽略清理失败
-                }
-            });
-        } catch (IOException e) {
-            logger.warn("清理临时目录失败: {}", dir);
-        }
     }
 
     private static String error(String message) throws IOException {

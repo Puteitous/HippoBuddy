@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -60,6 +61,15 @@ public final class SkillLoader {
 
     /** 目录形态技能的一个候选项：入口文件 + 技能根目录（扁平形态为 null） */
     private record Candidate(Path entryFile, Path rootDir, String skillId) {
+    }
+
+    /**
+     * 技能文件 Frontmatter 中的字段。
+     * <p>
+     * 字段值为 {@code null} 表示该 key 在 Frontmatter 中<b>不存在</b>（区别于存在但为空串）。
+     * 无 Frontmatter 时两个字段均为 {@code null}。
+     */
+    public record Frontmatter(String name, String description) {
     }
 
     // ==================== 项目级技能 ====================
@@ -231,26 +241,45 @@ public final class SkillLoader {
     /**
      * 扫描技能目录（只扫一层），识别扁平 {@code .md} 与目录形态 {@code <dir>/SKILL.md}。
      * 目录不存在或读取失败时返回空列表。
+     * <p>
+     * 同一 {@code skillId} 若同时存在扁平 {@code <name>.md} 与目录 {@code <name>/}，
+     * 按<b>目录形态优先</b>去重——目录是更完整的形态（含 scripts/、references/ 等资源），
+     * 否则扁平文件会覆盖目录技能、令其资源全部不可用。
      */
     private static List<Candidate> scanCandidates(Path dir) {
         if (dir == null || !Files.exists(dir) || !Files.isDirectory(dir)) {
             return Collections.emptyList();
         }
-        List<Candidate> candidates = new ArrayList<>();
+        Map<String, Candidate> bySkillId = new LinkedHashMap<>();
         try (Stream<Path> stream = Files.list(dir)) {
             for (Path child : stream.sorted().collect(Collectors.toList())) {
                 String name = child.getFileName().toString();
+                Candidate candidate = null;
                 if (Files.isRegularFile(child) && name.endsWith(".md")) {
-                    candidates.add(new Candidate(child, null, name.substring(0, name.length() - 3)));
+                    candidate = new Candidate(child, null, name.substring(0, name.length() - 3));
                 } else if (Files.isDirectory(child) && Files.exists(child.resolve(ENTRY_FILE_NAME))) {
-                    candidates.add(new Candidate(child.resolve(ENTRY_FILE_NAME), child, name));
+                    candidate = new Candidate(child.resolve(ENTRY_FILE_NAME), child, name);
+                }
+                if (candidate == null) {
+                    continue;
+                }
+                Candidate existing = bySkillId.get(candidate.skillId());
+                if (existing == null) {
+                    bySkillId.put(candidate.skillId(), candidate);
+                } else if (existing.rootDir() == null && candidate.rootDir() != null) {
+                    // 目录形态优先：替换已记录的扁平形态
+                    logger.warn("技能 ID 冲突, 采用目录形态: {} (忽略扁平文件 {})",
+                            candidate.skillId(), existing.entryFile().getFileName());
+                    bySkillId.put(candidate.skillId(), candidate);
+                } else {
+                    logger.warn("技能 ID 冲突, 保留已有形态: {}", candidate.skillId());
                 }
             }
         } catch (IOException e) {
             logger.warn("扫描技能目录失败: {}", dir, e);
             return Collections.emptyList();
         }
-        return candidates;
+        return new ArrayList<>(bySkillId.values());
     }
 
     private static List<SkillEntry> toEntries(List<Candidate> candidates, String source) {
@@ -276,35 +305,10 @@ public final class SkillLoader {
             String content = Files.readString(file);
             String fileName = file.getFileName().toString();
 
-            // 读取前几行用于 Frontmatter 解析
-            String head = content.lines().limit(20).collect(Collectors.joining("\n"));
-
-            // 默认 name 取 skillId（扁平=文件名去后缀，目录=目录名）
-            String name = candidate.skillId();
-            String description = "";
-
-            // 解析 Frontmatter（如果有）
-            if (head.startsWith("---\n") || head.startsWith("---\r\n")) {
-                int endIndex = findFrontmatterEnd(head);
-                if (endIndex > 0) {
-                    // 空 Frontmatter（如 "---\n---\n正文"）时 endIndex <= 4，
-                    // 此时 yamlBlock 为空字符串，跳过字段解析（避免 substring 越界）
-                    String yamlBlock = endIndex > 4 ? head.substring(4, endIndex) : "";
-                    String[] lines = yamlBlock.split("\\r?\\n");
-                    for (String line : lines) {
-                        int colonIdx = line.indexOf(':');
-                        if (colonIdx > 0) {
-                            String key = line.substring(0, colonIdx).trim();
-                            String value = line.substring(colonIdx + 1).trim();
-                            if (key.equals("name")) {
-                                name = value;
-                            } else if (key.equals("description")) {
-                                description = value;
-                            }
-                        }
-                    }
-                }
-            }
+            // 解析 Frontmatter；字段缺失时回退：name 取 skillId（扁平=文件名去后缀，目录=目录名），description 为空
+            Frontmatter fm = parseFrontmatter(content);
+            String name = fm.name() != null ? fm.name() : candidate.skillId();
+            String description = fm.description() != null ? fm.description() : "";
 
             String rootDir = candidate.rootDir() == null
                     ? null
@@ -327,6 +331,45 @@ public final class SkillLoader {
             idx = content.indexOf("\r\n---", searchFrom);
         }
         return idx;
+    }
+
+    /**
+     * 解析技能文件内容中的 Frontmatter 字段（仅取 {@code name} / {@code description}）。
+     * <p>
+     * 只扫描内容前 20 行；不存在对应 key 时字段为 {@code null}。
+     *
+     * @param content 完整的技能文件内容（可能含 Frontmatter）
+     */
+    public static Frontmatter parseFrontmatter(String content) {
+        if (content == null || content.isBlank()) {
+            return new Frontmatter(null, null);
+        }
+        String head = content.lines().limit(20).collect(Collectors.joining("\n"));
+        if (!head.startsWith("---\n") && !head.startsWith("---\r\n")) {
+            return new Frontmatter(null, null);
+        }
+        int endIndex = findFrontmatterEnd(head);
+        if (endIndex <= 0) {
+            return new Frontmatter(null, null);
+        }
+        // 空 Frontmatter（如 "---\n---\n正文"）时 endIndex <= 4，
+        // 此时 yamlBlock 为空字符串，跳过字段解析（避免 substring 越界）
+        String yamlBlock = endIndex > 4 ? head.substring(4, endIndex) : "";
+        String name = null;
+        String description = null;
+        for (String line : yamlBlock.split("\\r?\\n")) {
+            int colonIdx = line.indexOf(':');
+            if (colonIdx > 0) {
+                String key = line.substring(0, colonIdx).trim();
+                String value = line.substring(colonIdx + 1).trim();
+                if (key.equals("name")) {
+                    name = value;
+                } else if (key.equals("description")) {
+                    description = value;
+                }
+            }
+        }
+        return new Frontmatter(name, description);
     }
 
     /**

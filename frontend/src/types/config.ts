@@ -230,6 +230,21 @@ export interface SkillMutationResponse {
   filePath?: string;
 }
 
+/** POST /api/skills/import 响应 */
+export interface SkillImportResponse {
+  success: boolean;
+  message?: string;
+  /** 落盘时解析出的技能名（仅 .md 导入） */
+  name?: string;
+  /** 落盘时解析出的描述（仅 .md 导入） */
+  description?: string;
+  filePath?: string;
+  /** zip 导入：安装的技能数 */
+  count?: number;
+  /** zip 导入：各技能摘要 */
+  skills?: { skillId: string; isDirectory: boolean; path?: string }[];
+}
+
 // ============================================================================
 // Rules (对应后端 RulesApiHandler)
 // ============================================================================

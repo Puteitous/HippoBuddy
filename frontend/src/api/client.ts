@@ -37,6 +37,7 @@ import type {
   RuleMutationResponse,
   RulesListResponse,
   SkillGetResponse,
+  SkillImportResponse,
   SkillMutationResponse,
   SkillsListResponse,
   UpdateConfigRequest,
@@ -631,6 +632,23 @@ export const skillsApi = {
    */
   delete: (filePath: string, options?: { directory?: boolean }) =>
     postJson<SkillMutationResponse>(`${API_BASE}/skills/delete`, { filePath, ...options }),
+
+  /**
+   * POST /api/skills/import - 导入技能（单个 .md 或 .zip 压缩包）。
+   * - 从 URL：传 url（后端代拉，规避前端 CORS；指向 zip 时按压缩包处理）
+   * - 从文件：.md 传 content + fileName；.zip 传 zipBase64 + fileName
+   * zip 只取技能、忽略包内 mcp.json；目标已存在时后端返回 409，可带 overwrite=true 重试覆盖。
+   */
+  import: (body: {
+    url?: string;
+    content?: string;
+    zipBase64?: string;
+    fileName?: string;
+    scope: 'project' | 'user';
+    name?: string;
+    description?: string;
+    overwrite?: boolean;
+  }) => postJson<SkillImportResponse>(`${API_BASE}/skills/import`, body),
 };
 
 // ============================================================================

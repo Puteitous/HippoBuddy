@@ -572,6 +572,23 @@ class SkillLoaderTest {
         }
 
         @Test
+        @DisplayName("同名扁平与目录并存 — 目录形态优先，资源仍可用")
+        void sameSkillIdDirectoryWins() throws IOException {
+            Path skillsDir = tempDir.resolve(".hippo").resolve("skills");
+            Files.createDirectories(skillsDir);
+            // 真实场景：<name>.md 与 <name>/ 同 skillId 并存
+            Files.writeString(skillsDir.resolve("pdf-tools.md"), "---\nname: flat\n---\n扁平正文");
+            createDirectorySkill("pdf-tools", "目录正文");
+
+            List<SkillEntry> skills = SkillLoader.loadProjectSkills(tempDir.toString());
+            assertEquals(1, skills.size(), "同一 skillId 只应保留一个条目");
+            SkillEntry entry = skills.get(0);
+            assertEquals("pdf-tools", entry.getSkillId());
+            assertTrue(entry.isDirectorySkill(), "目录形态应优先于同名扁平文件");
+            assertEquals(List.of("scripts/run.py"), SkillLoader.listResources(entry));
+        }
+
+        @Test
         @DisplayName("loadAllSkills — 目录技能与扁平技能一起返回，入口文件名不再作身份")
         void loadAllSkillsIncludesDirectorySkill() throws IOException {
             createDirectorySkill("pdf-tools", "正文");

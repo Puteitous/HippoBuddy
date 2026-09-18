@@ -108,6 +108,7 @@ public class DashboardServer {
             server.createContext("/api/skills/save", new SkillsApiHandler());
             server.createContext("/api/skills/update", new SkillsApiHandler());
             server.createContext("/api/skills/delete", new SkillsApiHandler());
+            server.createContext("/api/skills/import", new SkillsApiHandler());
             server.createContext("/api/skills/reload", new SkillsApiHandler());
             server.createContext("/api/system-prompts", new SystemPromptApiHandler());
             server.createContext("/api/files", new FileApiHandler());
