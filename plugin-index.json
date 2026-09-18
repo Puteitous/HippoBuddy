@@ -113,7 +113,7 @@
       "type": "mcp",
       "name": "fetch",
       "desc": "pluginMarket.mcp.fetch",
-      "source": "modelcontextprotocol",
+      "source": "tatn",
       "category": "dev",
       "mcp": {
         "id": "mcp-fetch",
@@ -145,7 +145,7 @@
       "type": "mcp",
       "name": "git",
       "desc": "pluginMarket.mcp.git",
-      "source": "modelcontextprotocol",
+      "source": "cyanheads",
       "category": "dev",
       "mcp": {
         "id": "mcp-git",

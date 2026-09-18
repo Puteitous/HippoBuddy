@@ -120,11 +120,37 @@ export const PLUGIN_SOURCES: PluginSource[] = [
     url: 'https://github.com/addyosmani/agent-skills',
     tag: 'featured',
   },
+  {
+    id: 'tatn',
+    name: 'tatn/mcp-server-fetch-typescript',
+    stars: '—',
+    desc: 'pluginMarket.source.tatn',
+    url: 'https://github.com/tatn/mcp-server-fetch-typescript',
+    tag: 'community',
+  },
+  {
+    id: 'cyanheads',
+    name: 'cyanheads/git-mcp-server',
+    stars: '—',
+    desc: 'pluginMarket.source.cyanheads',
+    url: 'https://github.com/cyanheads/git-mcp-server',
+    tag: 'community',
+  },
+  {
+    id: 'agentplugins',
+    name: 'agentplugins/agent-plugins-example',
+    stars: '—',
+    desc: 'pluginMarket.source.agentplugins',
+    url: 'https://github.com/agentplugins/agent-plugins-example',
+    tag: 'official',
+  },
 ];
 
 /**
- * 市场插件(技能 + MCP)。
- * 技能条目对齐原 FEATURED_SKILLS；MCP 条目为 stdio 类型、npx 启动、无必填参数的官方 server。
+ * 市场插件(技能 + MCP + 标准插件包)。
+ * 技能条目对齐原 FEATURED_SKILLS；MCP 条目为 stdio 类型、npx 启动；
+ * 需要用户提供参数(允许目录 / token / 连接串)的 MCP 条目用 params 声明，安装时弹窗收集。
+ * 与远程 plugin-index.json 保持一致：任何条目改动都要同时落这两处，否则离线模式下展示的是旧内容。
  */
 export const MARKET_PLUGINS: MarketPlugin[] = [
   // ---- 技能 ----
@@ -241,7 +267,7 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
     type: 'mcp',
     name: 'fetch',
     desc: 'pluginMarket.mcp.fetch',
-    source: 'modelcontextprotocol',
+    source: 'tatn',
     category: 'dev',
     mcp: {
       id: 'mcp-fetch',
@@ -273,7 +299,7 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
     type: 'mcp',
     name: 'git',
     desc: 'pluginMarket.mcp.git',
-    source: 'modelcontextprotocol',
+    source: 'cyanheads',
     category: 'dev',
     mcp: {
       id: 'mcp-git',
@@ -359,6 +385,17 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
         required: true,
       },
     ],
+  },
+
+  // ---- 标准插件包(Agent Plugins 1.0) ----
+  {
+    id: 'pkg-agent-plugins-example',
+    type: 'package',
+    name: 'agent-plugins-example',
+    desc: 'Agent Plugins 官方示例包（plugin.json + skills/），演示标准插件包安装',
+    source: 'agentplugins',
+    category: 'dev',
+    downloadUrl: 'https://codeload.github.com/agentplugins/agent-plugins-example/zip/refs/heads/main',
   },
 ];
 

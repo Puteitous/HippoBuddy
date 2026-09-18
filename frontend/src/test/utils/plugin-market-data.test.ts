@@ -7,7 +7,7 @@ import {
 } from '@/components/plugin-market/PluginMarketData';
 
 const VALID_TAGS = ['official', 'community', 'vendor', 'featured'];
-const VALID_TYPES = ['skill', 'mcp'];
+const VALID_TYPES = ['skill', 'mcp', 'package'];
 
 describe('PLUGIN_SOURCES', () => {
   it('非空', () => {
@@ -67,10 +67,13 @@ describe('MARKET_PLUGINS', () => {
     }
   });
 
-  it('skill 类型带 skillUrl;mcp 类型带完整 mcp 配置', () => {
+  it('skill 带 skillUrl;mcp 带完整 mcp 配置;package 带 downloadUrl', () => {
     for (const p of MARKET_PLUGINS) {
       if (p.type === 'skill') {
         expect(p.skillUrl?.trim()).toBeTruthy();
+        expect([undefined, null]).toContain(p.mcp);
+      } else if (p.type === 'package') {
+        expect(p.downloadUrl).toMatch(/^https:\/\//);
         expect([undefined, null]).toContain(p.mcp);
       } else {
         expect(p.mcp).toBeTruthy();

@@ -305,78 +305,6 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
     [installedSkillNames, installedMcpIds],
   );
 
-  /** 执行安装(不含确认环节；paramsValues 仅对带参数声明的 MCP 条目有意义) */
-  const performInstall = useCallback(
-    async (plugin: MarketPlugin, paramsValues?: Record<string, string>) => {
-      setInstalling((prev) => new Set(prev).add(plugin.id));
-      try {
-        if (plugin.type === 'skill') {
-          const resp = await fetch(plugin.skillUrl!);
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const content = await resp.text();
-          const result = await skillsApi.create({
-            name: plugin.name,
-            description: t(plugin.desc),
-            scope: 'user',
-            content,
-          });
-          if (result.success) {
-            showToast(t('pluginMarket.installSuccess', { name: plugin.name }), { type: 'success', duration: 2000 });
-            await reloadInstalled();
-            emitEvent('skills:changed', { name: plugin.name, action: 'install' });
-          } else {
-            showToast(t('pluginMarket.installFailed') + (result.message || t('settingsPage.skillsUnknownError')), {
-              type: 'error',
-              duration: 3000,
-            });
-          }
-        } else if (plugin.type === 'package') {
-          await installPackagePlugin(plugin);
-        } else {
-          // mcp:参数(允许目录 / token / 连接串)按 target 落进 args 或 env,再追加 server 到 config.mcp.servers
-          await installMcpServer(applyParams(plugin.mcp!, plugin.params, paramsValues), plugin.name);
-        }
-      } catch (e) {
-        console.warn('[PluginMarket] 安装失败:', e);
-        showToast(t('pluginMarket.installNetworkError'), { type: 'error', duration: 3000 });
-      } finally {
-        setInstalling((prev) => {
-          const next = new Set(prev);
-          next.delete(plugin.id);
-          return next;
-        });
-      }
-    },
-    [reloadInstalled, t],
-  );
-
-  /**
-   * 安装入口。
-   * 声明了必填参数的 MCP 条目先弹窗收集参数(参数表单本身即二次确认)；
-   * 其余条目保持原有的 window.confirm 后直接安装。
-   */
-  const handleInstall = useCallback(
-    (plugin: MarketPlugin) => {
-      if (plugin.type === 'mcp' && plugin.params?.length) {
-        setPendingParams(plugin);
-        return;
-      }
-      if (!window.confirm(t(confirmKeyOf(plugin.type), { name: plugin.name, source: plugin.source }))) return;
-      void performInstall(plugin);
-    },
-    [performInstall, t],
-  );
-
-  /** 参数弹窗提交：收集到的值随安装一起写入 config */
-  const handleParamSubmit = useCallback(
-    (values: Record<string, string>) => {
-      const plugin = pendingParams;
-      setPendingParams(null);
-      if (plugin) void performInstall(plugin, values);
-    },
-    [pendingParams, performInstall],
-  );
-
   /** 安装单个 MCP server:写 config.mcp.servers + 触发热连接(供 mcp 条目与 package 内 mcp 复用) */
   const installMcpServer = useCallback(
     async (serverCfg: MarketPlugin['mcp'], displayName: string) => {
@@ -462,6 +390,78 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
       }
     },
     [installMcpServer, reloadInstalled, t],
+  );
+
+  /** 执行安装(不含确认环节；paramsValues 仅对带参数声明的 MCP 条目有意义) */
+  const performInstall = useCallback(
+    async (plugin: MarketPlugin, paramsValues?: Record<string, string>) => {
+      setInstalling((prev) => new Set(prev).add(plugin.id));
+      try {
+        if (plugin.type === 'skill') {
+          const resp = await fetch(plugin.skillUrl!);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const content = await resp.text();
+          const result = await skillsApi.create({
+            name: plugin.name,
+            description: t(plugin.desc),
+            scope: 'user',
+            content,
+          });
+          if (result.success) {
+            showToast(t('pluginMarket.installSuccess', { name: plugin.name }), { type: 'success', duration: 2000 });
+            await reloadInstalled();
+            emitEvent('skills:changed', { name: plugin.name, action: 'install' });
+          } else {
+            showToast(t('pluginMarket.installFailed') + (result.message || t('settingsPage.skillsUnknownError')), {
+              type: 'error',
+              duration: 3000,
+            });
+          }
+        } else if (plugin.type === 'package') {
+          await installPackagePlugin(plugin);
+        } else {
+          // mcp:参数(允许目录 / token / 连接串)按 target 落进 args 或 env,再追加 server 到 config.mcp.servers
+          await installMcpServer(applyParams(plugin.mcp!, plugin.params, paramsValues), plugin.name);
+        }
+      } catch (e) {
+        console.warn('[PluginMarket] 安装失败:', e);
+        showToast(t('pluginMarket.installNetworkError'), { type: 'error', duration: 3000 });
+      } finally {
+        setInstalling((prev) => {
+          const next = new Set(prev);
+          next.delete(plugin.id);
+          return next;
+        });
+      }
+    },
+    [installMcpServer, installPackagePlugin, reloadInstalled, t],
+  );
+
+  /**
+   * 安装入口。
+   * 声明了必填参数的 MCP 条目先弹窗收集参数(参数表单本身即二次确认)；
+   * 其余条目保持原有的 window.confirm 后直接安装。
+   */
+  const handleInstall = useCallback(
+    (plugin: MarketPlugin) => {
+      if (plugin.type === 'mcp' && plugin.params?.length) {
+        setPendingParams(plugin);
+        return;
+      }
+      if (!window.confirm(t(confirmKeyOf(plugin.type), { name: plugin.name, source: plugin.source }))) return;
+      void performInstall(plugin);
+    },
+    [performInstall, t],
+  );
+
+  /** 参数弹窗提交：收集到的值随安装一起写入 config */
+  const handleParamSubmit = useCallback(
+    (values: Record<string, string>) => {
+      const plugin = pendingParams;
+      setPendingParams(null);
+      if (plugin) void performInstall(plugin, values);
+    },
+    [pendingParams, performInstall],
   );
 
   /** 卸载插件(skill 删文件;mcp 从 config 移除) */
