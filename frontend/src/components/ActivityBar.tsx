@@ -31,7 +31,7 @@ import { showToast } from '@/utils/toastStore';
 import { useI18n, translate } from '@/i18n';
 import { TokenMonitor } from './chat-panel/TokenMonitor';
 import { MetricsPanel } from './MetricsPanel';
-import { GitPanel } from './GitPanel';
+import { GitPanel } from './git-panel/GitPanel';
 import { FeedbackFormModal } from './settings/FeedbackFormModal';
 import './ActivityBar.css';
 

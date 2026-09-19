@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { GitPanel, __resetGitPanelSnapshot } from '@/components/GitPanel';
+import { GitPanel, __resetGitPanelSnapshot } from '@/components/git-panel/GitPanel';
 import { useAppStore } from '@/stores/appStore';
 import type { GitStatusEntry } from '@/api/client';
 
