@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ContextSelector } from '@/components/ContextSelector';
+import { ContextSelector } from '@/components/chat-panel/ContextSelector';
 
 const { rulesApiProps, skillsApiProps } = vi.hoisted(() => ({
   rulesApiProps: { list: vi.fn() },

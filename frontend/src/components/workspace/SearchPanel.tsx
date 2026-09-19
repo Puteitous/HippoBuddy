@@ -26,7 +26,7 @@ import {
   replaceAll,
 } from '@codemirror/search';
 import './SearchPanel.css';
-import { useI18n } from '../i18n';
+import { useI18n } from '../../i18n';
 
 interface SearchPanelProps {
   /** CM6 编辑器实例(由 FilePreview 传入) */

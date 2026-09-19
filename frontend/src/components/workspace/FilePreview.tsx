@@ -26,7 +26,7 @@ import type { EditorView } from '@codemirror/view';
 import { FilePreviewEditor } from './FilePreviewEditor';
 import { ImagePreview } from './ImagePreview';
 import { MarkdownPreview } from './MarkdownPreview';
-import { SearchPanel } from '@/components/SearchPanel';
+import { SearchPanel } from '@/components/workspace/SearchPanel';
 import { usePreviewStore } from '@/stores/previewStore';
 import { translate, useI18n } from '@/i18n';
 import './FilePreview.css';
