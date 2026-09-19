@@ -5,6 +5,7 @@ import {
   PLUGIN_CATEGORIES,
   DEFAULT_CATEGORY_LABEL,
 } from '@/components/plugin-market/PluginMarketData';
+import remoteIndex from '../../../../plugin-index.json';
 
 const VALID_TAGS = ['official', 'community', 'vendor', 'featured'];
 const VALID_TYPES = ['skill', 'mcp', 'package'];
@@ -133,5 +134,26 @@ describe('PLUGIN_CATEGORIES / DEFAULT', () => {
   it('all 分类是第一个,默认 label 与之一致', () => {
     expect(PLUGIN_CATEGORIES[0].key).toBe('all');
     expect(DEFAULT_CATEGORY_LABEL).toBe(PLUGIN_CATEGORIES[0].label);
+  });
+});
+
+/**
+ * 远程目录(plugin-index.json，后端 /api/plugins/registry 转发)与内置兜底 MARKET_PLUGINS
+ * 是两份独立数据：任何条目改动都必须同时落两处，否则离线模式下展示的是旧内容。
+ * 这里自动校验两目录保持一致，避免靠人工比对。
+ */
+describe('远程目录与内置兜底一致性', () => {
+  it('条目数一致', () => {
+    expect(remoteIndex.plugins).toHaveLength(MARKET_PLUGINS.length);
+  });
+
+  it('id 与顺序完全一致', () => {
+    const remoteIds = remoteIndex.plugins.map((p) => p.id);
+    const localIds = MARKET_PLUGINS.map((p) => p.id);
+    expect(remoteIds).toEqual(localIds);
+  });
+
+  it('逐条内容完全一致(离线模式应展示与远程相同的条目)', () => {
+    expect(remoteIndex.plugins).toEqual(MARKET_PLUGINS);
   });
 });

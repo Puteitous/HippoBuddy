@@ -22,7 +22,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { skillsApi, configApi, mcpApi, pluginsApi } from '@/api/client';
-import { type RemotePluginEntry, type RemotePluginParam, type RemoteRegistry } from '@/api/client';
+import { type PackageInstallResult, type RemotePluginEntry, type RemotePluginParam, type RemoteRegistry } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { emit as emitEvent, on as onEvent } from '@/utils/eventBus';
 import { useI18n } from '@/i18n';
@@ -98,6 +98,12 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
 
   /** 需收集安装参数的 MCP 条目(非空时展示参数弹窗) */
   const [pendingParams, setPendingParams] = useState<MarketPlugin | null>(null);
+
+  /** 需收集参数的包内 mcp(标准插件包装完后由包内 mcp.json 的 params 触发,确认后再写 config) */
+  const [pendingPackageParams, setPendingPackageParams] = useState<{
+    plugin: MarketPlugin;
+    mcp: NonNullable<PackageInstallResult['mcp']>;
+  } | null>(null);
 
   /** 名称规范化(对齐旧版:name.toLowerCase().replace(/\s+/g, '-')) */
   const normalizeName = (name: string): string => name.toLowerCase().replace(/\s+/g, '-');
@@ -363,23 +369,23 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
         showToast(t('pluginMarket.packageParseError') + (result.message || ''), { type: 'error', duration: 3000 });
         return;
       }
-      let installedAny = false;
-      // 1. mcp.json → 写 config.mcp.servers + 热连接
+      // 1. mcp.json:声明了必填参数 → 弹窗收集,确认后再写 config + 热连接;否则直接装
       if (result.mcp) {
-        await installMcpServer(result.mcp, result.mcp.name || plugin.name);
-        installedAny = true;
+        if (result.mcp.params?.length) {
+          setPendingPackageParams({ plugin, mcp: result.mcp });
+        } else {
+          await installMcpServer(result.mcp, result.mcp.name || plugin.name);
+        }
       }
       // 2. skills:已由后端整目录落盘,前端只统计结果(同名技能会被后端跳过)
       const skills = result.skills || [];
       const skipped = skills.filter((s) => s.skipped);
       if (skills.some((s) => !s.skipped)) {
-        installedAny = true;
         emitEvent('skills:changed', { action: 'install' });
-      }
-      if (installedAny) {
         await reloadInstalled();
         showToast(t('pluginMarket.installPackageSuccess', { name: plugin.name }), { type: 'success', duration: 3000 });
-      } else if (skipped.length === 0) {
+      } else if (!result.mcp && skipped.length === 0) {
+        // 既无技能也无 mcp 才算空包;仅含 mcp 时,其成功提示由 installMcpServer/参数弹窗确认后给出
         showToast(t('pluginMarket.packageEmpty'), { type: 'warning', duration: 2500 });
       }
       if (skipped.length > 0) {
@@ -462,6 +468,20 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
       if (plugin) void performInstall(plugin, values);
     },
     [pendingParams, performInstall],
+  );
+
+  /** 包内 mcp 参数弹窗提交：确认后用收集值装配 server 配置，再写 config + 热连接 */
+  const handlePackageParamSubmit = useCallback(
+    (values: Record<string, string>) => {
+      const pending = pendingPackageParams;
+      setPendingPackageParams(null);
+      if (!pending) return;
+      void installMcpServer(
+        applyParams(pending.mcp, pending.mcp.params, values),
+        pending.mcp.name || pending.plugin.name,
+      );
+    },
+    [pendingPackageParams, installMcpServer],
   );
 
   /** 卸载插件(skill 删文件;mcp 从 config 移除) */
@@ -690,6 +710,18 @@ export function PluginMarket({ onClose }: PluginMarketProps) {
           plugin={pendingParams}
           onSubmit={handleParamSubmit}
           onClose={() => setPendingParams(null)}
+        />
+      )}
+
+      {pendingPackageParams && (
+        <PluginParamModal
+          plugin={{
+            ...pendingPackageParams.plugin,
+            name: pendingPackageParams.mcp.name || pendingPackageParams.plugin.name,
+            params: pendingPackageParams.mcp.params ?? [],
+          }}
+          onSubmit={handlePackageParamSubmit}
+          onClose={() => setPendingPackageParams(null)}
         />
       )}
     </div>

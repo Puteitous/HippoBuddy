@@ -321,8 +321,8 @@ export interface PackageInstallResult {
     author: string;
     description: string;
   };
-  /** mcp.json 配置(可选) */
-  mcp?: McpServerConfigSection;
+  /** mcp.json 配置(可选)；包作者可声明 params，安装时弹窗收集后再写 config */
+  mcp?: McpServerConfigSection & { params?: RemotePluginParam[] };
   /** 技能摘要：整目录/单文件落盘由后端完成，前端只据此刷新 */
   skills?: Array<{
     skillId: string;

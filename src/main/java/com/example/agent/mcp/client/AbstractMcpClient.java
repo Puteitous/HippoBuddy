@@ -139,6 +139,14 @@ public abstract class AbstractMcpClient implements McpClient {
     }
 
     private void attemptReconnect() {
+        // 重试在调度线程上异步执行：若排队期间用户已显式断开，直接放弃，
+        // 否则 connect() 内部会清掉 userInitiatedDisconnect 标记，把刚卸载的插件又连回来
+        if (userInitiatedDisconnect.get()) {
+            logger.info("MCP服务器 {} 在重连前已被显式断开，取消重连", getServerId());
+            connectionLossHandling.set(false);
+            return;
+        }
+
         try {
             logger.info("正在重连 MCP 服务器 {}...", getServerId());
 
@@ -152,12 +160,16 @@ public abstract class AbstractMcpClient implements McpClient {
                     })
                     .exceptionally(e -> {
                         logger.warn("MCP服务器 {} 重连失败: {}", getServerId(), e.getMessage());
+                        // 释放重入保护后再触发下一轮，否则标记一直为 true，
+                        // 后续 onConnectionLost 被直接挡回，max_reconnect_attempts 形同虚设
+                        connectionLossHandling.set(false);
                         onConnectionLost();
                         return null;
                     });
 
         } catch (Exception e) {
             logger.warn("MCP服务器 {} 重连异常: {}", getServerId(), e.getMessage());
+            connectionLossHandling.set(false);
             onConnectionLost();
         }
     }
@@ -166,8 +178,16 @@ public abstract class AbstractMcpClient implements McpClient {
         userInitiatedDisconnect.set(true);
     }
 
+    /**
+     * 清除「用户显式断开」标记，使后续意外掉线能再次触发自动重连。
+     * <p>
+     * 注意：这里刻意<b>不清零</b> {@code reconnectAttempts}——connect() 在初次连接与
+     * 掉线重连时都会被调用，若重连的 connect() 里清零计数，「connect 成功但 initialize
+     * 持续失败」时计数会永远归零、重试无上限。计数只在重连成功（{@link #attemptReconnect()}
+     * 成功分支）时归零；初次连接用的是新建客户端实例，计数天然为 0。
+     * </p>
+     */
     protected void resetReconnectState() {
-        reconnectAttempts.set(0);
         userInitiatedDisconnect.set(false);
     }
 

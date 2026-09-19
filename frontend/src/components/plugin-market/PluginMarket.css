@@ -1108,8 +1108,7 @@
 }
 
 [data-theme="dark"] .plugin-market-param-panel,
-[data-theme="midnight"] .plugin-market-param-panel,
-[data-theme="glass"] .plugin-market-param-panel {
+[data-theme="midnight"] .plugin-market-param-panel {
   background: var(--hb-bg-dark, #1a1a1a);
 }
 
@@ -1142,10 +1141,8 @@
 
 [data-theme="dark"] .plugin-market-param-input,
 [data-theme="midnight"] .plugin-market-param-input,
-[data-theme="glass"] .plugin-market-param-input,
 [data-theme="dark"] .plugin-market-param-btn,
-[data-theme="midnight"] .plugin-market-param-btn,
-[data-theme="glass"] .plugin-market-param-btn {
+[data-theme="midnight"] .plugin-market-param-btn {
   background: var(--hb-bg-dark, #1a1a1a);
   border-color: var(--hb-border-dark, #4b5563);
   color: var(--hb-text-dark, #e5e7eb);
@@ -1157,6 +1154,33 @@
   border-color: #3b82f6;
   background: #3b82f6;
   color: #ffffff;
+}
+
+/* ========== 玻璃主题弹窗实底覆盖 ==========
+   玻璃主题的 --bg-app 是 rgba(22,24,32,0.4)，而 --hb-bg-dark 指向它，
+   弹窗若跟随就会只有 40% 不透明——底层列表与文字直接透出。与 .bg-crop-modal /
+   .cl-modal 同一处理：弹窗改用实色面板（与全屏 frost 层协调，不是纯黑）。
+   面板变实底后输入框/按钮再沿用 --hb-bg-dark 会与面板几乎同色，
+   故改用半透明白填充，保证「看得见能输入、能点」。 */
+[data-theme="glass"] .plugin-market-param-panel,
+[data-theme="glass"] .plugin-market-preview-panel {
+  background: #1a1e28;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="glass"] .plugin-market-param-input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="glass"] .plugin-market-param-btn {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--hb-text-dark, #e7e9ef);
+}
+
+[data-theme="glass"] .plugin-market-param-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* 来源标签(对齐 PluginSource.tag 的英文取值) */

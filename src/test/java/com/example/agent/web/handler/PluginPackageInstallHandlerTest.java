@@ -299,6 +299,43 @@ class PluginPackageInstallHandlerTest {
             assertEquals(200, exchange.getResponseCode());
             assertNull(body(exchange).get("mcp"));
         }
+
+        @Test
+        @DisplayName("mcp.json 声明的 params 原样透传(前端安装时弹窗收集)")
+        void testMcpParamsTransmitted() throws IOException {
+            servedBody = zipBytes(Map.of(
+                    "plugin.json", "{\"name\":\"param-mcp-pack\"}",
+                    "mcp.json", "{\"mcp\":{\"id\":\"mcp-needs-key\",\"name\":\"NeedsKey\",\"type\":\"stdio\","
+                            + "\"command\":\"npx\",\"args\":[\"-y\",\"some-server\"],"
+                            + "\"params\":[{\"key\":\"API_TOKEN\",\"target\":\"env\",\"label\":\"apiToken\","
+                            + "\"hint\":\"sk-xxx\",\"required\":true,\"secret\":true}]}}"));
+            FakeHttpExchange exchange = post(Map.of("downloadUrl", zipUrl, "scope", "project"));
+
+            assertEquals(200, exchange.getResponseCode());
+            Map<String, Object> mcp = asMap(body(exchange).get("mcp"));
+            List<Object> params = asList(mcp.get("params"));
+            assertEquals(1, params.size());
+            Map<String, Object> field = asMap(params.get(0));
+            assertEquals("API_TOKEN", field.get("key"));
+            assertEquals("env", field.get("target"));
+            assertEquals("apiToken", field.get("label"));
+            assertEquals("sk-xxx", field.get("hint"));
+            assertEquals(Boolean.TRUE, field.get("required"));
+            assertEquals(Boolean.TRUE, field.get("secret"));
+        }
+
+        @Test
+        @DisplayName("mcp.json 未声明 params 时结果不含该字段")
+        void testMcpWithoutParams() throws IOException {
+            servedBody = zipBytes(Map.of(
+                    "plugin.json", "{\"name\":\"no-param-pack\"}",
+                    "mcp.json", "{\"id\":\"plain\",\"type\":\"stdio\",\"command\":\"npx\"}"));
+            FakeHttpExchange exchange = post(Map.of("downloadUrl", zipUrl));
+
+            assertEquals(200, exchange.getResponseCode());
+            Map<String, Object> mcp = asMap(body(exchange).get("mcp"));
+            assertFalse(mcp.containsKey("params"));
+        }
     }
 
     // ==================== 技能落盘 ====================

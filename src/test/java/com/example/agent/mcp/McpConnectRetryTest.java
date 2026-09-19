@@ -34,7 +34,8 @@ import static org.mockito.Mockito.when;
  * <p>
  * 覆盖点：初始连接失败后按 reconnect_delay_seconds 重试、达到 max_reconnect_attempts 后放弃、
  * auto_reconnect=false 时不重试、显式断开后取消重试；
- * 以及已建连后掉线、客户端自行重连成功时，重新 listTools 并注册工具（含清理失效旧工具）。
+ * 以及已建连后掉线、客户端自行重连成功时，重新 listTools 并注册工具（含清理失效旧工具）；
+ * 掉线重连失败时按 max_reconnect_attempts 多次尝试，且 connect 成功但 initialize 持续失败不会无限循环。
  * </p>
  * <p>
  * 时序说明：重试由调度线程池异步触发，故用轮询等待而非固定 sleep 断言；
@@ -193,6 +194,84 @@ class McpConnectRetryTest {
 
         awaitTrue(() -> toolRegistry.hasTool("mcp_flaky_new"), 5000);
         assertFalse(toolRegistry.hasTool("mcp_flaky_old"), "重连后不应残留失效的旧工具");
+    }
+
+    // ========== 掉线重连失败路径 ==========
+
+    @Test
+    @DisplayName("掉线重连失败时按 max_reconnect_attempts 多次尝试，而非只试一次")
+    void retriesMultipleTimesAfterReconnectFailure() throws Exception {
+        AtomicInteger connectCalls = new AtomicInteger();
+        FakeReconnectClient client = new FakeReconnectClient(serverConfig()) {
+            @Override
+            public CompletableFuture<Void> connect() {
+                if (connectCalls.incrementAndGet() == 1) {
+                    // 初次连接成功，让 manager 正常建立会话
+                    connected = true;
+                    resetReconnectState();
+                    return CompletableFuture.completedFuture(null);
+                }
+                return CompletableFuture.failedFuture(new RuntimeException("重连时子进程启动失败"));
+            }
+        };
+
+        manager = new McpServiceManager(config, toolRegistry, cfg -> client);
+        injectReconnectExecutor(manager);
+
+        manager.connectServer(serverConfig());
+        awaitTrue(() -> connectCalls.get() >= 1, 5000);
+
+        // 模拟已建连后进程掉线；重连时 connect 持续失败
+        client.onConnectionLost();
+
+        // maxReconnectAttempts=3：初次 1 次 + 3 次重连，第 4 次触发放弃，manager 移除客户端
+        awaitTrue(() -> manager.getClient(SERVER_ID) == null, 8000);
+        assertEquals(4, connectCalls.get(), "初次连接 + 3 次重连失败后应停止");
+
+        // 再等满一个重试间隔，确认没有多余的尝试
+        awaitTrue(() -> connectCalls.get() > 4, RETRY_DELAY_SECONDS * 1000L + 1000);
+        assertEquals(4, connectCalls.get(), "达到最大重试次数后不应再尝试");
+    }
+
+    @Test
+    @DisplayName("connect 成功但 initialize 持续失败时，重连次数有上限，不会无限循环")
+    void stopsRetryingWhenConnectSucceedsButInitKeepsFailing() throws Exception {
+        AtomicInteger connectCalls = new AtomicInteger();
+        AtomicInteger initCalls = new AtomicInteger();
+        FakeReconnectClient client = new FakeReconnectClient(serverConfig()) {
+            @Override
+            public CompletableFuture<Void> connect() {
+                connectCalls.incrementAndGet();
+                connected = true;
+                resetReconnectState();
+                return CompletableFuture.completedFuture(null);
+            }
+
+            @Override
+            public CompletableFuture<Void> initialize() {
+                if (initCalls.incrementAndGet() == 1) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                return CompletableFuture.failedFuture(new RuntimeException("initialize 持续失败"));
+            }
+        };
+
+        manager = new McpServiceManager(config, toolRegistry, cfg -> client);
+        injectReconnectExecutor(manager);
+
+        manager.connectServer(serverConfig());
+        awaitTrue(() -> initCalls.get() >= 1, 5000);
+
+        client.onConnectionLost();
+
+        // 初次 initialize 1 次 + 3 次重连各 1 次，第 4 次触发放弃
+        awaitTrue(() -> manager.getClient(SERVER_ID) == null, 8000);
+        assertEquals(4, connectCalls.get(), "connect 每次成功但 initialize 持续失败，仍应受次数上限约束");
+        assertEquals(4, initCalls.get(), "initialize 失败次数同样受 max_reconnect_attempts 限制");
+
+        // 再等满一个重试间隔，确认没有第 5 次
+        awaitTrue(() -> initCalls.get() > 4, RETRY_DELAY_SECONDS * 1000L + 1000);
+        assertEquals(4, initCalls.get(), "达到上限后不应无限重试");
     }
 
     // ========== 辅助方法 ==========

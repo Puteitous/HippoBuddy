@@ -209,6 +209,11 @@ public class PluginPackageInstallHandler implements HttpHandler {
     /**
      * 读 mcp.json(可选),返回 server 配置节点;不存在返回 null。
      * 兼容 {@code { mcp: {...} }} 包裹与裸配置两种形态。
+     * <p>
+     * 包作者可在 mcp.json 里额外声明 {@code params}（与目录条目同构：{key, target: args|env,
+     * label, hint, required, secret}），由前端安装时弹窗收集；本方法将其原样透传，
+     * 否则 McpServerConfig 没有该字段，treeToValue 序列化时会把它丢掉。
+     * </p>
      */
     private JsonNode readMcpConfig(Path packageRoot) throws IOException {
         Path mcpJson = packageRoot.resolve("mcp.json");
@@ -221,7 +226,12 @@ public class PluginPackageInstallHandler implements HttpHandler {
         if (server.getId() == null || server.getId().isBlank()) {
             throw new IllegalArgumentException("mcp.json 缺少 server id");
         }
-        return MAPPER.valueToTree(server);
+        ObjectNode mcpNode = (ObjectNode) MAPPER.valueToTree(server);
+        JsonNode params = mcpBody.get("params");
+        if (params != null && params.isArray()) {
+            mcpNode.set("params", params);
+        }
+        return mcpNode;
     }
 
     /**
