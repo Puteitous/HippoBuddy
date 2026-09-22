@@ -50,8 +50,13 @@
 |---|---|
 | **Smart Chat** | Chat / Code / Office modes, switch anytime |
 | **AI Coding** | Understand project context, generate & refactor code |
-| **File Ops** | Read, write, edit, delete with diff & rollback |
+| **File Ops** | Read, write, edit, delete with diff preview & rollback |
 | **Sessions** | Create, rename, delete, fork discussions |
+| **Office Read/Write** | Native parse & generation for Word / Excel / PPT / CSV |
+| **Subagent** | Fork, cancel, and run parallel subagents (worker agents) |
+| **Memory** | Extract, consolidate & retrieve cross-session memory |
+| **MCP Extension** | Built-in SSE & Stdio MCP clients, plug in external tools |
+| **Skill System** | Load and orchestrate reusable skill libraries on demand |
 | **Toolbox** | Token stats, terminal, browser, live monitor |
 | **Onboarding** | Spotlight tour on first launch |
 
@@ -81,16 +86,15 @@ Compared to other AI agent tools (Codex, Claude Code, Copilot, Kimi, Trae Work, 
 | **UI Design** | Minimalist and clean |
 | **Platform** | Desktop (Windows / macOS / Linux) |
 
-### What's missing
+### Roadmap
 
-HippoBuddy is actively developed. Current limitations:
+HippoBuddy is under active iteration. Core capabilities (MCP, subagents, memory, Office read/write, skill system) are already shipped and will be continuously polished:
 
 - Requires personal LLM API key + web search tool config
-- Subagent, MCP, and Memory features are still maturing
-- No plugin system, automated task pipeline, or browser automation yet
-- Office file generation/editing relies on skill calls + external editors
-- Third-party integration limited (falls under plugin scope)
-- Large-context long-running stability still being validated
+- Subagent, MCP, and Memory are supported but being hardened for stability & ease of use
+- Automated task pipeline and browser automation are planned
+- More complex Office layout editing will be improved further
+- Third-party software integration is still limited
 - Designed for personal task efficiency, not 24/7 online service
 
 ---
