@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => ipcRenderer.invoke('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   getWindowState: () => ipcRenderer.invoke('window:getState'),
+  flashFrame: () => ipcRenderer.send('window:flashFrame'),
 
   // 最大化状态变化事件（替代轮询）
   onMaximizedChanged: (callback) => { _maximizedCallback = callback; },

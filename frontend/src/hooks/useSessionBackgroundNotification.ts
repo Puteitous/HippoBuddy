@@ -31,10 +31,11 @@ function sessionTitle(sid: string): string {
 
 export function useSessionBackgroundNotification() {
   useEffect(() => {
-    // 会话完成:隐藏发系统通知;可见时仅后台会话弹 toast(当前会话不打扰)
+    // 会话完成:隐藏发系统通知+任务栏闪烁;可见时仅后台会话弹 toast(当前会话不打扰)
     const notifyDone = (sid: string) => {
       const title = sessionTitle(sid);
       if (document.hidden) {
+        desktopBridge.flashFrame();
         void desktopBridge.showNotification(
           translate('chat.notifySessionDoneTitle'),
           translate('chat.notifySessionDoneBody', { title }),
@@ -47,10 +48,11 @@ export function useSessionBackgroundNotification() {
       }
     };
 
-    // 等待用户(确认卡片 / ask_user):隐藏发系统通知;可见时仅后台会话弹 toast
+    // 等待用户(确认卡片 / ask_user):隐藏发系统通知+任务栏闪烁;可见时仅后台会话弹 toast
     const notifyWait = (sid: string) => {
       const title = sessionTitle(sid);
       if (document.hidden) {
+        desktopBridge.flashFrame();
         void desktopBridge.showNotification(
           translate('chat.notifyWaitTitle'),
           translate('chat.notifyWaitBody', { title }),

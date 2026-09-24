@@ -88,7 +88,8 @@ public class DashboardServer {
         }
 
         try {
-            server = HttpServer.create(new InetSocketAddress(port), 0);
+            // 用装饰器包裹:创建 /api 上下文时自动挂 JSON no-store 过滤器
+            server = new NoStoreJsonHttpServer(HttpServer.create(new InetSocketAddress(port), 0));
 
             server.createContext("/sse/memory-events", new SseHandler());
             server.createContext("/api/chat", new ChatApiHandler());

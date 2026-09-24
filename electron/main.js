@@ -720,6 +720,16 @@ ipcMain.handle('window:isMaximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false;
 });
 
+// 任务栏闪烁(任务完成/等待确认时提醒用户)。窗口可见或聚焦时无视觉意义,由渲染层仅在隐藏时调用。
+// 用 30s 定时自动停止:Windows 上 flashFrame(true) 会一直闪到窗口被聚焦,若用户长时间不点开会永久闪。
+let _flashTimer = null;
+ipcMain.on('window:flashFrame', () => {
+  if (!mainWindow) return;
+  clearTimeout(_flashTimer);
+  mainWindow.flashFrame(true);
+  _flashTimer = setTimeout(() => mainWindow?.flashFrame(false), 30_000);
+});
+
 // ---------- DevTools ----------
 
 ipcMain.handle('window:getState', () => {

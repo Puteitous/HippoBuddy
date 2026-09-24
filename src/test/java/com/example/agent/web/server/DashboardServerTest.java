@@ -130,6 +130,25 @@ class DashboardServerTest {
             conn.disconnect();
             DashboardServer.stop();
         }
+
+        @Test
+        @DisplayName("/api JSON GET 响应自动带 Cache-Control: no-store")
+        void jsonApiResponseGetsNoStore() throws Exception {
+            DashboardServer.start(0);
+            HttpServer server = getStaticField(DashboardServer.class, "server");
+            int port = server.getAddress().getPort();
+
+            URL url = new URL("http://localhost:" + port + "/api/metrics");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+
+            assertEquals(200, conn.getResponseCode());
+            assertEquals("no-store", conn.getHeaderField("Cache-Control"));
+
+            conn.disconnect();
+            DashboardServer.stop();
+        }
     }
 
     @Nested

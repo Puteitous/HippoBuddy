@@ -51,6 +51,8 @@ interface Window {
     closeWindow?: () => Promise<void>;
     isMaximized?: () => Promise<boolean>;
     getWindowState?: () => Promise<{ maximized?: boolean } | null>;
+    /** 触发任务栏图标闪烁提醒(主进程 30s 后自动停止) */
+    flashFrame?: () => void;
     /** 最大化状态变化事件(替代轮询),重复订阅会覆盖上一个回调 */
     onMaximizedChanged?: (callback: (maximized: boolean) => void) => void;
     removeMaximizedChangedListener?: () => void;

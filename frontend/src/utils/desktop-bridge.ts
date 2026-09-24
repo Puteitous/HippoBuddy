@@ -289,6 +289,15 @@ export const desktopBridge = {
     }
   },
 
+  /** 触发任务栏图标闪烁提醒(仅桌面端;窗口隐藏/未聚焦时才有意义,主进程 30s 后自动停止) */
+  flashFrame(): void {
+    try {
+      window.electronAPI?.flashFrame?.();
+    } catch (e) {
+      console.warn('[desktopBridge] flashFrame 失败:', e);
+    }
+  },
+
   /** 最大化窗口 */
   maximizeWindow(): void {
     try {

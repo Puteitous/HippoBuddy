@@ -1,5 +1,6 @@
 package com.example.agent.web.handler;
 
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.slf4j.Logger;
@@ -17,6 +18,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 提供原始二进制文件下载（用于图片、PDF、Office 文件的预览）。
@@ -79,6 +85,23 @@ public class RawFileHandler implements HttpHandler {
         String fileName = file.getFileName().toString();
         String mimeType = getMimeType(fileName);
 
+        // ── 缓存校验器(ETag / Last-Modified):让浏览器可重验证,而不是死记旧字节 ──
+        FileTime mtime = Files.getLastModifiedTime(file);
+        long mtimeMillis = mtime.toMillis();
+        String etag = buildEtag(fileSize, mtimeMillis);
+        String lastModified = formatHttpDate(mtimeMillis);
+
+        // 条件请求命中(文件未变)→ 直接 304,不读字节、不重发内容。
+        // 这样修复损坏文件后下一次预览立刻拿到正确字节,未变更文件则省去全量下载。
+        if (isNotModified(exchange, etag, mtimeMillis)) {
+            exchange.getResponseHeaders().set("ETag", etag);
+            exchange.getResponseHeaders().set("Last-Modified", lastModified);
+            exchange.getResponseHeaders().set("Cache-Control", "no-cache");
+            exchange.sendResponseHeaders(304, -1);
+            exchange.close();
+            return;
+        }
+
         byte[] content = Files.readAllBytes(file);
 
         // ── CSV 文件编码检测与转换 ──
@@ -87,35 +110,73 @@ public class RawFileHandler implements HttpHandler {
             mimeType = "text/csv; charset=UTF-8";
         }
 
-        // Office 文件（xlsx/xls/csv/docx/pptx）：小于 10MB 不缓存，大文件缓存 1 小时
-        // HTML 文件始终不缓存（用户可能编辑后重新预览）
-        // CSV 的编码检测若缓存可能显示乱码，但 CSV 通常很小（远低于 10MB），走小文件不缓存即可
+        // ── 缓存策略 ──
+        // 小 Office / CSV / HTML:始终不缓存(可能随时编辑再预览;CSV 编码转换后不可复用字节)
+        // 其余(大 Office、图片、PDF、二进制):缓存但每次重验证(no-cache),配合上面的 ETag/Last-Modified
+        //   返回 304,既即时反映文件变更,又不重复全量下载。
         String lower = fileName.toLowerCase();
-        String cacheControl;
-        if (lower.endsWith(".xlsx") || lower.endsWith(".xls")
+        boolean noStore = lower.endsWith(".xlsx") || lower.endsWith(".xls")
                 || lower.endsWith(".csv")
-                || lower.endsWith(".docx") || lower.endsWith(".pptx")) {
-            if (fileSize < 10L * 1024 * 1024) {
-                cacheControl = "no-cache, no-store, must-revalidate";
-            } else {
-                cacheControl = "private, max-age=3600";
-            }
-        } else if (lower.endsWith(".html") || lower.endsWith(".htm")) {
-            cacheControl = "no-cache, no-store, must-revalidate";
-        } else {
-            cacheControl = "private, max-age=3600";
-        }
+                || lower.endsWith(".docx") || lower.endsWith(".pptx")
+                ? fileSize < 10L * 1024 * 1024
+                : lower.endsWith(".html") || lower.endsWith(".htm");
+        String cacheControl = noStore
+                ? "no-cache, no-store, must-revalidate"
+                : "no-cache";
 
         exchange.getResponseHeaders().set("Content-Type", mimeType);
         exchange.getResponseHeaders().set("Content-Length", String.valueOf(content.length));
         exchange.getResponseHeaders().set("Content-Size-Human", formatFileSize(fileSize));
         exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
         exchange.getResponseHeaders().set("Cache-Control", cacheControl);
+        exchange.getResponseHeaders().set("ETag", etag);
+        exchange.getResponseHeaders().set("Last-Modified", lastModified);
 
         exchange.sendResponseHeaders(200, content.length);
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(content);
         }
+    }
+
+    // ============================================================================
+    // 缓存校验(ETag / Last-Modified / 条件请求)
+    // ============================================================================
+
+    /** 基于文件 size + mtime 构造强校验值:文件任何变化都会改变它 */
+    private static String buildEtag(long size, long mtimeMillis) {
+        return "\"" + Long.toHexString(size) + "-" + Long.toHexString(mtimeMillis) + "\"";
+    }
+
+    /** 按 HTTP 日期格式(RFC 1123, GMT)格式化 mtime */
+    private static String formatHttpDate(long mtimeMillis) {
+        return DateTimeFormatter.RFC_1123_DATE_TIME.format(
+            ZonedDateTime.ofInstant(Instant.ofEpochMilli(mtimeMillis), ZoneOffset.UTC));
+    }
+
+    /**
+     * 判断是否命中条件请求(文件自上次下载后未变 → 应返回 304)。
+     * 优先级:If-None-Match(ETag)命中判定;否则退化为 If-Modified-Since(mtime 秒级比较)。
+     */
+    private static boolean isNotModified(HttpExchange exchange, String etag, long mtimeMillis) {
+        Headers req = exchange.getRequestHeaders();
+        String inm = req.getFirst("If-None-Match");
+        if (inm != null) {
+            if (inm.trim().equals("*")) return true;
+            for (String candidate : inm.split(",")) {
+                if (candidate.trim().equals(etag)) return true;
+            }
+        }
+        String ims = req.getFirst("If-Modified-Since");
+        if (ims != null) {
+            try {
+                Instant since = Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(ims));
+                // mtime 与请求头都按秒比较(HTTP 头到秒粒度)
+                return mtimeMillis / 1000 <= since.getEpochSecond();
+            } catch (Exception ignored) {
+                // 非法日期忽略,按未命中处理
+            }
+        }
+        return false;
     }
 
     /**
