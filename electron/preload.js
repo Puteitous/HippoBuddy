@@ -3,18 +3,9 @@
  *
  * 通过 contextBridge 在主进程和渲染进程之间建立安全的 IPC 桥梁。
  * contextIsolation: true 下，渲染进程无法直接访问 Node.js API。
- *
- * 对应 JCEF 6 个 Bridge Handler 的 Electron IPC 替代：
- *   WindowHandler     →  window:*         ✅
- *   DialogHandler     →  dialog:*         ✅
- *   ExternalLinkHandler → shell:*        ✅
- *   DevToolsHandler   →  devtools:*      ✅
- *   FileHandler       →  fs:*            ✅
- *   TerminalHandler   →  terminal:*      ✅
- *   ConfigHandler     →  迁至 HTTP API（Phase 3）
  */
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 ///** 最大化状态变化回调（缓存一个，避免累加监听器） */
 let _maximizedCallback = null;
@@ -88,6 +79,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteFile: (path) => ipcRenderer.invoke('fs:deleteFile', path),
   showItemInFolder: (path) => ipcRenderer.invoke('fs:showItemInFolder', path),
   isDirectory: (path) => ipcRenderer.invoke('fs:isDirectory', path),
+  /** 从拖入的 File 对象获取真实磁盘路径(Electron ≥26 的 webUtils.getPathForFile,取不到返回 null) */
+  getPathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file) || null;
+    } catch (e) {
+      console.warn('[preload] getPathForFile 失败:', e);
+      return null;
+    }
+  },
 
   // ===== 工作区文件系统监听 =====
   watchWorkspace: (path) => ipcRenderer.invoke('fs:watch', path),

@@ -1,7 +1,7 @@
 /**
  * Hippo Buddy Desktop — Electron 主进程
  *
- * 加载 Java 后端 DashboardServer 提供的 Web UI，替代 JCEF 成为桌面壳。
+ * 加载 Java 后端 DashboardServer 提供的 Web UI。
  *
  * 启动方式：
  *   npm run dev   React 重构版(dev,/app)
@@ -9,10 +9,6 @@
  *
  * 环境变量：
  *   HIPPO_PORT  — Java 后端端口（默认 9090）
- *
- * Phase 1：基本窗口 + IPC 框架
- * Phase 2：迁移所有 JCEF Bridge Handler 到 Electron IPC
- * Phase 3：移除 JCEF 代码
  */
 
 const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, nativeImage, nativeTheme } = require('electron');

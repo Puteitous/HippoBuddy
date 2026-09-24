@@ -2,7 +2,7 @@
  * FileTree - 工作区文件树(对齐旧版 FileTree.js 核心能力)
  *
  * 职责:
- *   1. 调用 desktopBridge.readDir 加载目录条目(Electron / JCEF / dev 降级)
+ *   1. 调用 desktopBridge.readDir 加载目录条目(Electron / dev 降级)
  *   2. 递归渲染树节点(目录可展开/折叠,展开状态持久化到 localStorage)
  *   3. 点击文件 → onFileSelect 回调(由宿主打开 tab)
  *   4. Git 状态徽标(M/A/D,数据来自 /api/git/status)

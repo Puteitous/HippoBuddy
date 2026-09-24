@@ -227,9 +227,7 @@ export function ActivityBar() {
             return;
           case 'openTerminal':
             try {
-              const electron = window.electronAPI?.openTerminal;
-              const jcef = window.HippoDesktop?.openTerminal;
-              const fn = electron ?? jcef;
+              const fn = window.electronAPI?.openTerminal;
               if (fn) {
                 void fn(desktopBridge.getCurrentPath() || '.').catch(() => {
                   showToast(translate('topbar.openTerminalFailed'), { type: 'error' });

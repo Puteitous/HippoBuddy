@@ -5,10 +5,9 @@
 //
 // 实际注入的 namespace 因宿主而异:
 //   - Electron 桌面端(electron/preload.js):window.electronAPI
-//   - JCEF / Java 桌面端(旧 cockpit):window.HippoDesktop
 //   - 浏览器 dev 环境:未注入,desktopBridge 内部降级为 noop / null
 //
-// desktopBridge.ts 把这三类差异收敛到统一调用面,业务代码只走 desktopBridge。
+// desktopBridge.ts 收敛差异到统一调用面,业务代码只走 desktopBridge。
 // ============================================================================
 
 interface Window {
@@ -33,6 +32,8 @@ interface Window {
     deleteFile?: (path: string) => Promise<boolean>;
     showItemInFolder?: (path: string) => Promise<void>;
     isDirectory?: (path: string) => Promise<boolean>;
+    /** 从拖入的 File 对象获取真实磁盘路径(取不到返回 null) */
+    getPathForFile?: (file: File) => string | null;
     /** 监听工作区目录文件变更(切换时会先 unwatch 旧的) */
     watchWorkspace?: (path: string) => Promise<{ ok?: boolean; error?: string } | null>;
     /** 停止工作区目录监听 */
@@ -97,35 +98,11 @@ interface Window {
     getStartupChangelog?: () => Promise<StartupChangelog | null>;
   };
 
-  // ── JCEF / Java 桌面端(旧 cockpit 注入) ──
-  HippoDesktop?: {
-    readDir?: (path: string) => Promise<DirEntryResult | null>;
-    readFile?: (path: string) => Promise<string>;
-    writeFile?: (path: string, content: string) => Promise<boolean>;
-    createFile?: (path: string) => Promise<boolean>;
-    createDir?: (path: string) => Promise<boolean>;
-    rename?: (oldPath: string, newPath: string) => Promise<boolean>;
-    deleteFile?: (path: string) => Promise<boolean>;
-    showItemInFolder?: (path: string) => Promise<void>;
-    isDirectory?: (path: string) => Promise<boolean>;
-    openTerminal?: (path: string) => Promise<void>;
-  };
-
-  // ── 新前端统一桥接入口(desktopBridge 优先消费 electronAPI/HippoDesktop) ──
-  HippoWorkspace?: {
-    navigateToFile?: (path: string, startLine?: number, endLine?: number) => void;
-    openExternal?: (url: string) => void;
-    /** 当前工作区根路径(用于把绝对路径精简为相对路径) */
-    currentPath?: string;
-    /** 监听工作区目录文件变更(旧版桌面端可选注入) */
-    watchWorkspace?: (path: string) => void;
-  };
-
   // ── Mermaid 图表渲染(mermaid.ts 全局导出菜单关闭委托) ──
   __mermaidDocClickHandler?: (e: MouseEvent) => void;
 }
 
-/** desktopBridge.readDir 返回的目录条目结构(Electron / JCEF 一致) */
+/** desktopBridge.readDir 返回的目录条目结构 */
 interface DirEntryResult {
   entries: DirEntry[];
 }

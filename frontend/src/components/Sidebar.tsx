@@ -342,7 +342,7 @@ export function Sidebar() {
     });
   };
 
-  /** 打开项目工作区(对齐旧版 HippoWorkspace.openWorkspace,走新版 workspaceApi) */
+  /** 打开项目工作区(走新版 workspaceApi) */
   const openProjectWorkspace = async (path: string) => {
     try {
       const state = await workspaceApi.setCurrent(path);

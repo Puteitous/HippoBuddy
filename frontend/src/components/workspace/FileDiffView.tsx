@@ -124,7 +124,7 @@ export function FileDiffView({ filePath, toolCallId }: FileDiffViewProps) {
   const handleOpenInEditor = useCallback(() => {
     if (!filePath || !viewData) return;
     const line = getFirstChangeLine(viewData.changes);
-    // 对齐旧版:切到 preview tab 并定位到首个变更行的新行号(替代依赖旧版全局 HippoWorkspace 的无反应调用)
+    // 切到 preview tab 并定位到首个变更行的新行号
     usePreviewStore.getState().openFile(filePath, line ?? undefined);
   }, [filePath, viewData]);
 

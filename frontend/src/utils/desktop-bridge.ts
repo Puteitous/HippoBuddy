@@ -1,14 +1,14 @@
 /**
- * 桌面端桥接(Electron / JCEF / 浏览器 dev 三环境统一调用面)
+ * 桌面端桥接(Electron / 浏览器 dev 双环境统一调用面)
  *
  * 把所有桌面端注入的全局 API 调用集中到一处,便于:
  *  - 在浏览器 dev 环境下安全降级(全局未注入时返回 noop / null)
- *  - 屏蔽 Electron(electronAPI)与 JCEF(HippoDesktop)的命名空间差异
- *  - 后续 3.7 接入更多组件时在此统一扩展
+ *  - 屏蔽 Electron(electronAPI)命名空间差异
+ *  - 后续接入更多组件时在此统一扩展
  *
  * 注:全局 Window 类型声明见 `src/vite-env.d.ts`,此处不再重复声明。
  *
- * 优先级:electronAPI(Electron) > HippoDesktop(旧 JCEF) > 浏览器 noop / null。
+ * 优先级:electronAPI(Electron) > 浏览器 dev noop / null。
  */
 
 import { useAppStore } from '@/stores/appStore';
@@ -17,20 +17,19 @@ import { useAppStore } from '@/stores/appStore';
 export const desktopBridge = {
   // ────────────────────────── 环境判断 ──────────────────────────
 
-  /** 是否运行在桌面端(Electron / JCEF 注入过桥接 API) */
+  /** 是否运行在桌面端(Electron 注入过桥接 API) */
   get isDesktop(): boolean {
-    return !!(window.electronAPI?.isElectron || window.HippoDesktop);
+    return !!window.electronAPI?.isElectron;
   },
 
   // ────────────────────────── 导航 / 链接 ──────────────────────────
 
-  /** 跳转到文件(在 Electron 桌面端打开编辑器定位) */
-  navigateToFile(path: string, startLine?: number, endLine?: number): void {
-    try {
-      window.HippoWorkspace?.navigateToFile?.(path, startLine, endLine);
-    } catch (e) {
-      console.warn('[desktopBridge] navigateToFile 失败:', e);
-    }
+  /**
+   * 跳转到文件(在桌面端编辑器打开定位)。
+   * 旧 JCEF 时代的 HippoWorkspace 注入已移除,Electron 暂未提供等价能力,当前为空操作,预留接口。
+   */
+  navigateToFile(_path: string, _startLine?: number, _endLine?: number): void {
+    // 预留:待 Electron 接入编辑器定位能力后在此实现
   },
 
   /** 打开外部链接 */
@@ -40,10 +39,6 @@ export const desktopBridge = {
         void window.electronAPI.openExternal(url);
         return;
       }
-      if (window.HippoWorkspace?.openExternal) {
-        window.HippoWorkspace.openExternal(url);
-        return;
-      }
       // dev 环境降级:浏览器新开标签页
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (e) {
@@ -51,11 +46,10 @@ export const desktopBridge = {
     }
   },
 
-  /** 获取当前工作区根路径
-   *  优先读 HippoWorkspace.currentPath(旧版注入);新版走 appStore.workspacePath(workspaceApi 拉取的可靠根),保证
+  /** 获取当前工作区根路径(workspaceApi 拉取的可靠根),保证
    *  toRelativePath 等依赖能正确精简为相对路径。 */
   getCurrentPath(): string {
-    return window.HippoWorkspace?.currentPath || useAppStore.getState().workspacePath || '';
+    return useAppStore.getState().workspacePath || '';
   },
 
   // ────────────────────────── 文件系统 ──────────────────────────
@@ -69,10 +63,6 @@ export const desktopBridge = {
     try {
       if (window.electronAPI?.readDir) {
         const result = await window.electronAPI.readDir(dirPath);
-        return result?.entries ?? null;
-      }
-      if (window.HippoDesktop?.readDir) {
-        const result = await window.HippoDesktop.readDir(dirPath);
         return result?.entries ?? null;
       }
       return null;
@@ -91,14 +81,11 @@ export const desktopBridge = {
     try {
       if (window.electronAPI?.readFile) {
         const result = await window.electronAPI.readFile(filePath);
-        // Electron 封装返回 { path, content } 对象,归一化为纯文本(与 JCEF 一致)
+        // Electron 封装返回 { path, content } 对象,归一化为纯文本
         if (result && typeof result === 'object' && 'content' in result) {
           return typeof result.content === 'string' ? result.content : null;
         }
         return typeof result === 'string' ? result : null;
-      }
-      if (window.HippoDesktop?.readFile) {
-        return await window.HippoDesktop.readFile(filePath);
       }
       return null;
     } catch (e) {
@@ -108,7 +95,7 @@ export const desktopBridge = {
   },
 
   /**
-   * 写文本文件内容(对齐旧版 writeFile,供编辑器保存使用)
+   * 写文本文件内容(供编辑器保存使用)
    * @param filePath 文件绝对路径
    * @param content 写入的文本内容
    * @returns 是否写入成功;无注入 / 失败时返回 false
@@ -119,10 +106,6 @@ export const desktopBridge = {
       if (window.electronAPI?.writeFile) {
         const result = await window.electronAPI.writeFile(filePath, content);
         return !(result && typeof result === 'object' && result.error);
-      }
-      if (window.HippoDesktop?.writeFile) {
-        const result = await window.HippoDesktop.writeFile(filePath, content);
-        return !(result && typeof result === 'object' && (result as Record<string, unknown>).error);
       }
       return false;
     } catch (e) {
@@ -140,13 +123,31 @@ export const desktopBridge = {
       if (window.electronAPI?.isDirectory) {
         return await window.electronAPI.isDirectory(path);
       }
-      if (window.HippoDesktop?.isDirectory) {
-        return await window.HippoDesktop.isDirectory(path);
-      }
       return false;
     } catch (e) {
       console.warn('[desktopBridge] isDirectory 失败:', e);
       return false;
+    }
+  },
+
+  /**
+   * 从拖入的 File 对象获取真实磁盘路径(外部拖拽文件/文件夹用)。
+   * Electron ≥26 走 webUtils.getPathForFile;旧版 Electron 回落 File.path。
+   * 浏览器 dev 未注入时返回 null(调用方降级处理)。
+   * @returns 真实绝对路径;取不到时返回 null
+   */
+  getPathForFile(file: File): string | null {
+    try {
+      if (window.electronAPI?.getPathForFile) {
+        return window.electronAPI.getPathForFile(file);
+      }
+      // 旧版 Electron(≤31)File 对象自带 path
+      const legacyPath = (file as { path?: unknown }).path;
+      if (typeof legacyPath === 'string' && legacyPath) return legacyPath;
+      return null;
+    } catch (e) {
+      console.warn('[desktopBridge] getPathForFile 失败:', e);
+      return null;
     }
   },
 
@@ -159,7 +160,6 @@ export const desktopBridge = {
   watchWorkspace(dirPath: string): void {
     try {
       void window.electronAPI?.watchWorkspace?.(dirPath);
-      window.HippoWorkspace?.watchWorkspace?.(dirPath);
     } catch (e) {
       console.warn('[desktopBridge] watchWorkspace 失败:', e);
     }
@@ -188,21 +188,16 @@ export const desktopBridge = {
   async showItemInFolder(path: string): Promise<void> {
     try {
       await window.electronAPI?.showItemInFolder?.(path);
-      await window.HippoDesktop?.showItemInFolder?.(path);
     } catch (e) {
       console.warn('[desktopBridge] showItemInFolder 失败:', e);
     }
   },
 
-  /** 创建空文件(对齐旧版 createFile) */
+  /** 创建空文件 */
   async createFile(path: string): Promise<boolean> {
     try {
       if (window.electronAPI?.createFile) {
         await window.electronAPI.createFile(path);
-        return true;
-      }
-      if (window.HippoDesktop?.createFile) {
-        await window.HippoDesktop.createFile(path);
         return true;
       }
       return false;
@@ -212,15 +207,11 @@ export const desktopBridge = {
     }
   },
 
-  /** 创建文件夹(对齐旧版 createDir) */
+  /** 创建文件夹 */
   async createDir(path: string): Promise<boolean> {
     try {
       if (window.electronAPI?.createDir) {
         await window.electronAPI.createDir(path);
-        return true;
-      }
-      if (window.HippoDesktop?.createDir) {
-        await window.HippoDesktop.createDir(path);
         return true;
       }
       return false;
@@ -230,17 +221,13 @@ export const desktopBridge = {
     }
   },
 
-  /** 移动 / 重命名文件或文件夹(对齐旧版 rename) */
+  /** 移动 / 重命名文件或文件夹 */
   async rename(oldPath: string, newPath: string): Promise<boolean> {
     try {
-      // electron/HippoDesktop 的 rename 成功时返回结果对象而非 true,失败时抛异常;
+      // Electron 的 rename 成功时返回结果对象而非 true,失败时抛异常;
       // 因此以「未抛错」判定成功,不能与 === true 比较。
       if (window.electronAPI?.rename) {
         await window.electronAPI.rename(oldPath, newPath);
-        return true;
-      }
-      if (window.HippoDesktop?.rename) {
-        await window.HippoDesktop.rename(oldPath, newPath);
         return true;
       }
       return false;
@@ -250,15 +237,11 @@ export const desktopBridge = {
     }
   },
 
-  /** 删除文件或文件夹(对齐旧版 deleteFile) */
+  /** 删除文件或文件夹 */
   async deleteFile(path: string): Promise<boolean> {
     try {
       if (window.electronAPI?.deleteFile) {
         await window.electronAPI.deleteFile(path);
-        return true;
-      }
-      if (window.HippoDesktop?.deleteFile) {
-        await window.HippoDesktop.deleteFile(path);
         return true;
       }
       return false;
@@ -268,11 +251,10 @@ export const desktopBridge = {
     }
   },
 
-  /** 在终端中打开指定目录(对齐旧版 openTerminal) */
+  /** 在终端中打开指定目录 */
   async openTerminal(path: string): Promise<void> {
     try {
       await window.electronAPI?.openTerminal?.(path);
-      await window.HippoDesktop?.openTerminal?.(path);
     } catch (e) {
       console.warn('[desktopBridge] openTerminal 失败:', e);
     }

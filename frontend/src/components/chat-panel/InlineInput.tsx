@@ -16,6 +16,7 @@ import { useCallback, useEffect, useImperativeHandle, useRef, forwardRef, useSta
 import type { RefChip } from '@/types';
 import { usePreviewStore } from '@/stores/previewStore';
 import { getFileIconUrl } from '@/utils/file-icons';
+import { desktopBridge, toRelativePath } from '@/utils/desktop-bridge';
 import {
   buildPastedPreview,
   createPastedTextChip,
@@ -34,6 +35,26 @@ import './InlineInput.css';
  * 以元素为 WeakMap 键:芯片被移除/替换后随元素被 GC 回收,无需手动清理。
  */
 const chipContentStore = new WeakMap<HTMLElement, string>();
+
+/**
+ * 外部拖入但取不到真实路径(浏览器 dev)时的文本兜底上限。
+ * 仅对小文本文件读内容转 paste chip,避免大文件/二进制读进输入框。
+ */
+const MAX_DROPPED_TEXT_BYTES = 512 * 1024;
+
+/** 判断是否为图片文件(拖入时 OS 文件常带空 MIME,需按扩展名兜底) */
+function isImageFile(file: File): boolean {
+  if (file.type.startsWith('image/')) return true;
+  return /\.(png|jpe?g|gif|webp|bmp|svg|ico|avif)$/i.test(file.name);
+}
+
+/** 判断是否可尝试按文本读取(MIME 或常见文本扩展名) */
+function isLikelyTextFile(file: File): boolean {
+  if (file.type.startsWith('text/')) return true;
+  if (file.type.startsWith('application/json') || file.type.startsWith('application/xml') ||
+      file.type.startsWith('application/javascript') || file.type.startsWith('application/x-')) return true;
+  return /\.(txt|md|log|json|xml|yml|yaml|csv|tsv|js|ts|jsx|tsx|py|java|go|rs|c|cpp|h|hpp|css|scss|html|sh|bat|cmd|ps1|sql|ini|conf|toml|env|gitignore|dockerfile)$/i.test(file.name);
+}
 
 
 /** 从 chip 提取文件名(用于扩展名图标解析);无路径时返回 null → 回落通用图标 */
@@ -336,6 +357,8 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
   const placeholderRef = useRef<HTMLDivElement | null>(null);
   const isComposingRef = useRef(false);
   const [hasContent, setHasContent] = useState(false);
+  // 拖拽悬停态(外部文件/内部文件树拖入时高亮输入框)
+  const [isDragging, setIsDragging] = useState(false);
 
   // 更新占位符显隐
   const updatePlaceholder = useCallback(() => {
@@ -634,16 +657,93 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
   }, [updatePlaceholder, notifyDraftChange]);
 
   // 拖拽
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
+    // dragover 高频触发,幂等置 true,兜底 dragenter 偶发漏触发的情况
+    setIsDragging(true);
   }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // 拖到编辑区内的子元素(芯片/文本)会触发 dragleave,此时不清除高亮;
+    // 只有真正离开编辑区(relatedTarget 在外部或为 null)才清除
+    const editor = editorRef.current;
+    const related = e.relatedTarget;
+    if (!editor || !(related instanceof Node) || !editor.contains(related)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  // 外部拖入且取不到真实路径(浏览器 dev)时的兜底:
+  // 小文本文件读内容转 paste chip,尽力保留内容;非文本/过大直接忽略
+  const insertDroppedFileAsText = useCallback(async (file: File) => {
+    if (file.size > MAX_DROPPED_TEXT_BYTES || !isLikelyTextFile(file)) return;
+    const content = await file.text().catch(() => '');
+    if (!content.trim()) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (shouldConvertPasteToChip(content)) {
+      const chip = createPastedTextChip(content);
+      if (insertChipAtDom(editor, chip)) {
+        updatePlaceholder();
+        onChipAdd?.(chip);
+        notifyDraftChange();
+      }
+      return;
+    }
+    document.execCommand('insertText', false, content);
+  }, [updatePlaceholder, onChipAdd, notifyDraftChange]);
+
+  // 外部拖入(操作系统文件):图片走图片管线,文件/文件夹取真实路径做引用芯片(路径引用,不复制文件)
+  const handleExternalFilesDrop = useCallback(async (files: File[]) => {
+    for (const file of files) {
+      // 图片 → 走图片管线(多模态识别),与粘贴图片一致
+      if (isImageFile(file)) {
+        onPasteImage?.(file, file.name);
+        continue;
+      }
+      // 非图片 → 优先取真实路径做 file chip:工作区内精简为相对路径,
+      // 工作区外保留绝对路径(后端 balanced/relaxed 读模式可访问,strict 会被护栏拦截并给出明确报错)
+      const realPath = desktopBridge.getPathForFile(file);
+      if (realPath) {
+        const editor = editorRef.current;
+        if (!editor) return;
+        const chip: RefChip = {
+          id: `drag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          kind: 'file',
+          text: realPath.split(/[/\\]/).pop() || file.name,
+          filePath: toRelativePath(realPath),
+        };
+        insertChipAtDom(editor, chip);
+        updatePlaceholder();
+        onChipAdd?.(chip);
+        notifyDraftChange();
+        continue;
+      }
+      // 取不到路径(浏览器 dev)→ 读文本内容兜底
+      await insertDroppedFileAsText(file);
+    }
+  }, [onPasteImage, insertDroppedFileAsText, updatePlaceholder, onChipAdd, notifyDraftChange]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragging(false);
     const editor = editorRef.current;
     if (!editor) return;
 
+    // 外部拖入(操作系统文件/文件夹):dataTransfer.files 非空
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      void handleExternalFilesDrop(files);
+      return;
+    }
+
+    // 内部拖拽(文件树等):text/plain 携带工作区路径
     const path = e.dataTransfer.getData('text/plain');
     if (path) {
       const fileName = path.split(/[/\\]/).pop() || path;
@@ -658,7 +758,7 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
       onChipAdd?.(chip);
       notifyDraftChange();
     }
-  }, [onChipAdd, updatePlaceholder, notifyDraftChange]);
+  }, [handleExternalFilesDrop, onChipAdd, updatePlaceholder, notifyDraftChange]);
 
   // 组合事件
   const handleCompositionStart = useCallback(() => {
@@ -691,7 +791,7 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
       </div>
       <div
         ref={editorRef}
-        className="inline-input-editor"
+        className={isDragging ? 'inline-input-editor is-dragover' : 'inline-input-editor'}
         contentEditable={!disabled}
         suppressContentEditableWarning
         spellCheck={false}
@@ -700,7 +800,9 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
         onKeyUp={handleKeyUp}
         onPaste={handlePaste}
         onDoubleClick={handleDoubleClick}
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}

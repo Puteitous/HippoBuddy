@@ -152,6 +152,11 @@
   outline: none;
 }
 
+/* ── 拖拽悬停高亮 ────────────────────────────────────────
+   高亮作用在宿主 .chat-panel-input-card 上(见 ChatPanel.css 的
+   .chat-panel-input-card:has(...) 规则),这里仅保留 is-dragover 标记类;
+   :has() 由 Electron 内核完整支持,无需在此加编辑器自身样式。 */
+
 /* ── 禁用态 ────────────────────────────────────────────── */
 
 .inline-input-editor[contenteditable="false"] {

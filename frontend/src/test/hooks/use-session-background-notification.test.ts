@@ -17,6 +17,7 @@ const { chatStore, appState, toast, bridge, notifClicks } = vi.hoisted(() => {
     },
     toast: { showToast: vi.fn() },
     bridge: {
+      flashFrame: vi.fn(),
       showNotification: vi.fn().mockResolvedValue({ success: true }),
       onNotificationClicked: vi.fn((cb: (payload: { sessionId?: string }) => void) => {
         notifClicks.push(cb);

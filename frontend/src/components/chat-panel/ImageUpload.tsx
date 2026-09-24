@@ -18,7 +18,7 @@
  *  - 不实现 image-lightbox(可点击放大,简化为新标签打开)
  *  - 拖拽上传留待 3.7
  */
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import type { PendingImage } from '@/types';
 import {
   MAX_IMAGE_SIZE_BYTES,
@@ -27,6 +27,7 @@ import {
 } from '@/utils/image-vision';
 import { useVisionSupport } from '@/hooks/useVisionSupport';
 import { useI18n } from '@/i18n';
+import { showToast } from '@/utils/toastStore';
 import './ImageUpload.css';
 
 interface ImageUploadProps {
@@ -50,22 +51,13 @@ function ImageUploadComponent({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // 视觉能力是否支持(由当前生效模型的 provider/model 决定)
   const visionSupported = useVisionSupport();
-  // 内联错误提示(单条,3s 后自动消失)
-  const [warning, setWarning] = useState<string | null>(null);
-
-  // 警告 3s 后自动消失
-  useEffect(() => {
-    if (!warning) return;
-    const t = setTimeout(() => setWarning(null), 3000);
-    return () => clearTimeout(t);
-  }, [warning]);
 
   // ── 添加图片(从 File 读取为 dataUrl 后通知 ChatPanel) ─────────
   const handleFile = useCallback(
     async (file: File) => {
       if (!file.type.startsWith('image/')) return;
       if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        setWarning(t('chat.imageTooLarge', { name: file.name }));
+        showToast(t('chat.imageTooLarge', { name: file.name }), { type: 'warning', duration: 3000 });
         return;
       }
       try {
@@ -73,7 +65,7 @@ function ImageUploadComponent({
         onAdd({ id: generateImageId(), dataUrl, name: file.name, size: file.size });
       } catch (e) {
         const err = e instanceof Error ? ` (${e.message})` : '';
-        setWarning(t('chat.readImageFailedUpload', { name: file.name, err }));
+        showToast(t('chat.readImageFailedUpload', { name: file.name, err }), { type: 'error', duration: 3000 });
       }
     },
     [onAdd, t],
@@ -135,9 +127,6 @@ function ImageUploadComponent({
           <polyline points="21 15 16 10 5 21" />
         </svg>
       </button>
-
-      {/* 内联警告(无第三方依赖,3s 自动消失) */}
-      {warning && <span className="image-upload-warning">{warning}</span>}
 
       {/* 缩略图列表(showPreview=false 时由宿主在附件行渲染,对齐旧版 .input-img-preview) */}
       {showPreview && hasImages && (

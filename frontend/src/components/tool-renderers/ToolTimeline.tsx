@@ -531,8 +531,7 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
             filePath
               ? (e) => {
                   e.stopPropagation();
-                  // 应用内 openFile 跳转并定位行号(与文件引用芯片一致,
-                  // 规避新版 Electron 无 HippoWorkspace.navigateToFile 的问题)
+                  // 应用内 openFile 跳转并定位行号(与文件引用芯片一致)
                   usePreviewStore.getState().openFile(filePath);
                 }
               : undefined

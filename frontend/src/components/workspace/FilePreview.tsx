@@ -164,8 +164,7 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
     }
   }, [kind, filePath, loadText, setMdDraft, setTabDirty]);
 
-  // 保存当前文本编辑器内容(对齐旧版 HippoDesktop.writeFile):
-  // 优先桌面桥直写,成功清 dirty / 失败提示。md 编辑模式同样可保存。
+  // 保存当前文本编辑器内容:优先桌面桥直写,成功清 dirty / 失败提示。md 编辑模式同样可保存。
   const handleSave = useCallback(async () => {
     if (!editorView || !isEditable) return;
     const content = editorView.state.doc.toString();

@@ -367,8 +367,6 @@ export function ChatPanel() {
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   /** 灯箱预览的当前索引(null 为关闭) */
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  // 复用 chatStore.pushWarning 展示图片上传警告(语义可接受)
-  const pushWarning = useChatStore((s) => s.pushWarning);
   /** 当前模型是否支持视觉(粘贴图片时校验,对齐旧版 ImageUpload._isVisionSupported) */
   const visionSupported = useVisionSupport();
 
@@ -528,13 +526,15 @@ export function ChatPanel() {
   const handlePasteImage = useCallback(
     (blob: Blob, name: string) => {
       if (isStreamSending) return;
-      // 模型不支持视觉时拦截粘贴图片(对齐旧版 ImageUpload 粘贴校验)
+      // 模型不支持视觉时拦截图片(粘贴/拖拽/按钮三条入口共用此校验)。
+      // 用全局 toast 而非 chat-panel-warnings:警告条只在消息区内渲染,
+      // 新会话 hero 空态看不到;toast 挂载于 AppShell,任何场景都能弹出。
       if (!visionSupported) {
-        pushWarning(translate('chat.noVisionSupport'));
+        showToast(translate('chat.noVisionSupport'), { type: 'warning', duration: 3000 });
         return;
       }
       if (blob.size > MAX_IMAGE_SIZE_BYTES) {
-        pushWarning(translate('chat.imageTooLarge', { name }));
+        showToast(translate('chat.imageTooLarge', { name }), { type: 'warning', duration: 3000 });
         return;
       }
       void fileToDataUrl(blob)
@@ -542,10 +542,13 @@ export function ChatPanel() {
           addImage({ id: generateImageId(), dataUrl, name, size: blob.size });
         })
         .catch((err) => {
-          pushWarning(`${translate('chat.readImageFailed')}${err instanceof Error ? `: ${err.message}` : ''}`);
+          showToast(`${translate('chat.readImageFailed')}${err instanceof Error ? `: ${err.message}` : ''}`, {
+            type: 'error',
+            duration: 3000,
+          });
         });
     },
-    [isStreamSending, visionSupported, addImage, pushWarning],
+    [isStreamSending, visionSupported, addImage],
   );
 
   /**

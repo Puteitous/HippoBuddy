@@ -588,6 +588,37 @@
   border-color: rgba(153, 173, 204, 0.35);
 }
 
+/* ── 拖拽悬停:输入卡片整体高亮 ───────────────────────────
+   InlineInput 的 is-dragover 类驻留在其内部编辑器上,用 :has() 判空上浮到宿主卡片,
+   让高亮包裹整个拖放目标(含附件行/工具栏),而非仅文字行。
+   蓝与芯片配色同族(#5861f2 系),项目 --accent 为灰色故单独定义 --drag-highlight。 */
+:root {
+  --drag-highlight: #5b7cfa;
+}
+.chat-panel-input-card:has(.inline-input-editor.is-dragover) {
+  border-color: var(--drag-highlight);
+  box-shadow:
+    var(--drag-highlight) 0px 0px 14px -3px;
+  background: color-mix(in srgb, var(--drag-highlight) 6%, var(--bg-white));
+}
+
+[data-theme="dark"] .chat-panel-input-card:has(.inline-input-editor.is-dragover),
+[data-theme="midnight"] .chat-panel-input-card:has(.inline-input-editor.is-dragover) {
+  border-color: var(--drag-highlight);
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 8px 0px,
+    rgba(0, 0, 0, 0.3) 0px 6px 24px -1px,
+    var(--drag-highlight) 0px 0px 14px -3px;
+  background: color-mix(in srgb, var(--drag-highlight) 6%, var(--bg-app));
+}
+
+[data-theme="glass"] .chat-panel-input-card:has(.inline-input-editor.is-dragover) {
+  border-color: var(--drag-highlight);
+  box-shadow:
+    var(--drag-highlight) 0px 0px 14px -3px;
+  background: color-mix(in srgb, var(--drag-highlight) 5%, var(--glass-panel));
+}
+
 /* ============================================================
    面板头部(对齐旧版 cockpit.css .chat-panel-header)
    ============================================================ */

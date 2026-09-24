@@ -414,7 +414,7 @@ public class ConfigApiHandler implements HttpHandler {
         sendJson(exchange, 200, MAPPER.writeValueAsString(resp));
     }
 
-    // ===== 全量配置读写（替代原 JCEF ConfigHandler 的 handleGetConfig/handleUpdateConfig） =====
+    // ===== 全量配置读写 =====
 
     /**
      * GET /api/config — 返回完整配置 JSON（所有配置节）。
