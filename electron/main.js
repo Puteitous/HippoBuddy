@@ -11,7 +11,7 @@
  *   HIPPO_PORT  — Java 后端端口（默认 9090）
  */
 
-const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, nativeImage, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu, Notification, nativeImage, nativeTheme, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { fileURLToPath } = require('url');
@@ -858,13 +858,114 @@ ipcMain.handle('fs:createDir', async (_event, dirPath) => {
   return { path: dirPath };
 });
 
-/** 重命名/移动 */
-ipcMain.handle('fs:rename', async (_event, oldPath, newPath) => {
+/** 自动生成不冲突的新路径:x → "x - Copy" → "x - Copy 2" ... */
+function autoRenamePath(target) {
+  if (!fs.existsSync(target)) return target;
+  const dir = path.dirname(target);
+  const ext = path.extname(target);
+  const base = path.basename(target, ext);
+  let i = 1;
+  for (;;) {
+    const candidate = path.join(dir, `${base} - Copy${i > 1 ? ` ${i}` : ''}${ext}`);
+    if (!fs.existsSync(candidate)) return candidate;
+    i += 1;
+  }
+}
+
+/** 重命名/移动。
+ * mode:'error'(默认,目标存在则抛错) | 'overwrite'(覆盖) | 'autorename'(自动改名)。
+ * 失败时抛异常,由 renderer 的 invoke 走 catch 判定。
+ */
+ipcMain.handle('fs:rename', async (_event, oldPath, newPath, mode) => {
   const source = path.resolve(oldPath);
-  const target = path.resolve(newPath);
+  let target = path.resolve(newPath);
+  const m = mode === 'overwrite' || mode === 'autorename' ? mode : 'error';
+  if (m === 'autorename') target = autoRenamePath(target);
+  if (m === 'overwrite') {
+    try {
+      await fs.promises.access(target, fs.constants.F_OK);
+      // 覆盖移动:先移除既有目标再重命名
+      await fs.promises.rm(target, { recursive: true, force: true });
+    } catch (err) {
+      if (!err || err.code !== 'ENOENT') throw err;
+    }
+  }
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
   await fs.promises.rename(source, target);
-  return { oldPath, newPath };
+  return { oldPath, newPath: target };
+});
+
+/**
+ * 复制文件/文件夹(递归)。
+ * mode:'error'(默认,目标存在则拒绝) | 'overwrite'(覆盖) | 'autorename'(自动改名)。
+ * 一律禁止复制到自身或其子目录(避免无限递归)。
+ */
+ipcMain.handle('fs:copy', async (_event, sourcePath, destPath, mode) => {
+  const source = path.resolve(sourcePath);
+  let target = path.resolve(destPath);
+  const m = mode === 'overwrite' || mode === 'autorename' ? mode : 'error';
+  let srcStat;
+  try {
+    srcStat = await fs.promises.stat(source);
+  } catch (err) {
+    return err && err.code === 'ENOENT'
+      ? { error: true, code: 'ENOENT' }
+      : { error: true, code: 'UNKNOWN', message: err.message };
+  }
+  // 目标位于源自身或其子目录 → 拒绝
+  const rel = path.relative(source, target);
+  if (rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) {
+    return { error: true, code: 'INTO_SELF' };
+  }
+  // 自动改名:预先算出不冲突的目标名
+  if (m === 'autorename') target = autoRenamePath(target);
+  // 默认模式:目标已存在 → 拒绝
+  if (m === 'error') {
+    try {
+      await fs.promises.access(target, fs.constants.F_OK);
+      return { error: true, code: 'EXISTS' };
+    } catch (err) {
+      if (!err || err.code !== 'ENOENT') {
+        return { error: true, code: 'UNKNOWN', message: err && err.message };
+      }
+    }
+  }
+  try {
+    await fs.promises.mkdir(path.dirname(target), { recursive: true });
+    if (srcStat.isDirectory()) {
+      const cpOpts = { recursive: true };
+      if (m === 'overwrite') cpOpts.force = true;
+      else {
+        cpOpts.force = false;
+        cpOpts.errorOnExist = true;
+      }
+      await fs.promises.cp(source, target, cpOpts);
+    } else {
+      await fs.promises.copyFile(source, target);
+    }
+    return { path: target };
+  } catch (err) {
+    return err && err.code === 'ENOENT'
+      ? { error: true, code: 'ENOENT' }
+      : { error: true, code: 'UNKNOWN', message: err.message };
+  }
+});
+
+/** 批量检测路径是否存在;返回 [{ path, exists }] */
+ipcMain.handle('fs:existsMany', async (_event, paths) => {
+  const arr = Array.isArray(paths) ? paths : [];
+  const out = [];
+  for (const p of arr) {
+    let exists = false;
+    try {
+      await fs.promises.access(path.resolve(p), fs.constants.F_OK);
+      exists = true;
+    } catch (e) {
+      exists = false;
+    }
+    out.push({ path: p, exists });
+  }
+  return out;
 });
 
 /** 删除文件（移入回收站） */
@@ -889,6 +990,311 @@ ipcMain.handle('fs:isDirectory', async (_event, filePath) => {
     return { exists: false, isDirectory: false };
   }
 });
+
+// ============================================================================
+// 系统剪贴板文件操作(复制/剪切 ↔ 资源管理器/Finder/文件管理器互通)
+//
+// 各平台文件列表剪贴板格式:
+//   - Windows : CF_HDROP(FileNameW,UTF-16LE 的 DROPFILES 结构);Chromium 会把它
+//               映射为 text/uri-list 暴露给 Web,读原始数据仍须按 FileNameW 读取
+//   - macOS   : NSFilenamesPboardType(XML plist 字符串数组);Finder 无标准"剪切"标记,一律按复制处理
+//   - Linux   : text/uri-list(file:// URI 列表)
+// 注意:Electron 每次 writeBuffer 会覆盖整个剪贴板,故各平台只写一个核心格式,
+//       剪切/复制标记由渲染进程内存态维护,读侧再从 Preferred DropEffect 等尽量探测。
+// ============================================================================
+
+/** 本地绝对路径 → file:// URI(Linux uri-list / gnome 格式用) */
+function fileUriOf(p) {
+  return 'file://' + encodeURI(path.resolve(p).replace(/\\/g, '/'));
+}
+
+/** file:// URI → 本地绝对路径(兼容 Windows 盘符形式 file:///C:/xxx) */
+function uriToPath(uri) {
+  if (!uri) return null;
+  let p = String(uri).trim();
+  if (p.startsWith('file://')) p = p.slice('file://'.length);
+  try {
+    p = decodeURI(p);
+  } catch (e) {
+    /* 原样保留 */
+  }
+  if (!p) return null;
+  if (/^\/[A-Za-z]:\//.test(p)) p = p.slice(1);
+  return path.normalize(p);
+}
+
+/** 解析 CF_HDROP:DROPFILES 头(pFiles=20 偏移处开始路径列表;fWide 决定宽字符编码) */
+function parseDroppedFiles(buf) {
+  if (!buf || buf.length < 20) return [];
+  const pFiles = buf.readUInt32LE(0);
+  const fWide = buf.readUInt32LE(16) !== 0;
+  const paths = [];
+  let off = pFiles;
+  if (fWide) {
+    // UTF-16LE:按 2 字节对齐扫描,连续两个 0 字节为一个路径的终止符;
+    // 若一直扫到缓冲区末尾(缺终止符的畸形剪贴板),把剩余内容作为最后一段,避免丢路径
+    while (off + 1 < buf.length) {
+      const start = off;
+      while (off + 1 < buf.length && !(buf[off] === 0 && buf[off + 1] === 0)) off += 2;
+      const s = buf.toString('utf16le', start, off);
+      if (s) paths.push(s);
+      off += 2;
+    }
+  } else {
+    while (off < buf.length) {
+      const end = buf.indexOf(0, off);
+      if (end < 0) {
+        const s = buf.toString('utf8', off);
+        if (s) paths.push(s);
+        break;
+      }
+      const s = buf.toString('utf8', off, end);
+      if (s) paths.push(s);
+      off = end + 1;
+      if (off < buf.length && buf[off] === 0) break;
+    }
+  }
+  return paths.filter(Boolean);
+}
+
+/** 生成读取剪辑板文件列表的 PowerShell 脚本(仅 Windows)。
+ * 注意:Get-Clipboard -Format FileDropList 返回的是 List<PSObject>,元素可能是路径字符串也可能是
+ * FileInfo 对象;直接隐式输出会被 PowerShell 格式化成表格,所以这里逐项强制 .ToString() 取真实路径,
+ * 再用 Test-Path 过滤出真实存在的文件,最后逐行输出纯路径。
+ */
+function readFileDropListPs() {
+  return (
+    '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;Add-Type -AssemblyName System.Windows.Forms;' +
+    '$l=Get-Clipboard -Format FileDropList;' +
+    '$paths=@();' +
+    'if($l){foreach($o in $l){$s=[string]$o;if($s -and (Test-Path -LiteralPath $s -ErrorAction SilentlyContinue)){$paths+=$s}}};' +
+    'if($paths.Count -eq 0){\'__EMPTY__\'}else{$paths|ForEach-Object{$_}}'
+  );
+}
+
+/** 运行 PowerShell 脚本(Windows),返回 { code, stdout, stderr } */
+function runPowershell(script) {
+  return new Promise((resolve) => {
+    const child = spawn('powershell', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      script,
+    ], { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += d.toString()));
+    child.stderr.on('data', (d) => (stderr += d.toString()));
+    child.on('error', (err) => resolve({ code: -1, stdout, stderr: err.message }));
+    child.on('close', (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
+/** 将路径转成 AppleScript 字符串字面量(转义反斜杠与双引号) */
+function appleString(p) {
+  return `"${String(p).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * 运行 osascript(macOS) 执行 AppleScript,返回 { code, stdout, stderr }。
+ * 与 runPowershell 对应:mac 上用 osascript 读写剪贴板文件,规避 Electron clipboard 不可靠的问题。
+ * 注意:osascript 只在 macOS 存在,勿在 Windows/Linux 调用。
+ */
+function runOsascript(script) {
+  return new Promise((resolve) => {
+    const child = spawn('osascript', ['-e', script], {});
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += d.toString()));
+    child.stderr.on('data', (d) => (stderr += d.toString()));
+    child.on('error', (err) => resolve({ code: -1, stdout, stderr: err.message || String(err) }));
+    child.on('close', (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
+/** 读取 macOS 剪贴板里所有文件路径的 AppleScript(逐项转 POSIX path,非文件则跳过) */
+function readMacClipboardPs() {
+  return (
+    'set out to ""\n' +
+    'repeat with f in (the clipboard as list)\n' +
+    '  try\n' +
+    '    set out to out & (POSIX path of f) & linefeed\n' +
+    '  end try\n' +
+    'end repeat\n' +
+    'return out'
+  );
+}
+
+/**
+ * 写入系统剪贴板:文件路径列表 + 剪切/复制标记。
+ * 注意:Windows 上 Electron 的 clipboard.writeBuffer('FileNameW', ...) 无法产生
+ * 资源管理器可识别的 CF_HDROP(只能自读,Explorer 看得到文件但粘贴不了),
+ * 所以 Windows 改为调用 PowerShell 的 System.Windows.Forms.Clipboard.SetFileDropList,
+ * 它走 .NET Win32 API,能生成真正由 Explorer 识别并粘贴的 CF_HDROP。
+ */
+async function clipboardWriteFiles(paths, isCut) {
+  if (!Array.isArray(paths) || paths.length === 0) return { ok: false, error: 'EMPTY' };
+  try {
+    if (process.platform === 'win32') {
+      // 路径经 base64 传入,避免中文/PowerShell 转义问题;SetFileDropList 写入真 CF_HDROP
+      const b64 = Buffer.from(JSON.stringify(paths), 'utf8').toString('base64');
+      const ps =
+        `$json=[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${b64}'));` +
+        `$paths=@($json|ConvertFrom-Json);Add-Type -AssemblyName System.Windows.Forms;` +
+        `$f=New-Object System.Collections.Specialized.StringCollection;` +
+        `foreach($p in $paths){[void]$f.Add([string]$p)};` +
+        `[System.Windows.Forms.Clipboard]::SetFileDropList($f)`;
+      const r = await runPowershell(ps);
+      if (r.code !== 0) {
+        console.error('[clipboard] PowerShell SetFileDropList failed:', r.stderr || r.stdout);
+        return { ok: false, error: r.stderr || `exit=${r.code}` };
+      }
+      console.log(`[clipboard] writeFiles(win): isCut=${isCut} paths=${JSON.stringify(paths)}`);
+      // 用资源管理器的视角验证:Get-Clipboard -Format FileDropList 能读到才算真的可粘贴
+      const check = await runPowershell(readFileDropListPs());
+      if (check.code === 0 && check.stdout && check.stdout.trim() !== '__EMPTY__') {
+        const lines = check.stdout.trim().split(/\r?\n/).filter(Boolean);
+        console.log(
+          `[clipboard] writeFiles(win) → 资源管理器视角验证通过,FileDropList 且 ${lines.length} 项: ${JSON.stringify(lines)}`
+        );
+      } else {
+        console.warn(
+          `[clipboard] writeFiles(win) → 警告:Get-Clipboard FileDropList 读不到,资源管理器可能无法粘贴!(code=${check.code} stderr=${check.stderr})`
+        );
+      }
+      return { ok: true };
+    }
+
+    // macOS 用 osascript 设剪贴板文件(Finder 可靠识别),Linux 仍用 text/uri-list(Electron 原生支持)
+    if (process.platform === 'darwin') {
+      const posixItems = paths.map(appleString);
+      // 单个文件:set the clipboard to POSIX file "..."(文档中最常被验证的写法);
+      // 多个文件:写成文件对象列表,让 Finder 识别为一组文件
+      const script =
+        paths.length === 1
+          ? `set the clipboard to POSIX file ${posixItems[0]}`
+          : `set the clipboard to { ${posixItems.map((s) => `POSIX file ${s}`).join(', ')} }`;
+      const r = await runOsascript(script);
+      if (r.code !== 0) {
+        console.error('[clipboard] macOS osascript 设剪贴板失败:', r.stderr || r.stdout);
+        return { ok: false, error: r.stderr || `exit=${r.code}` };
+      }
+      console.log(`[clipboard] writeFiles(mac): isCut=${isCut} paths=${JSON.stringify(paths)}`);
+      return { ok: true };
+    } else {
+      // Linux 文件管理器读取 text/uri-list(file:// URI 列表)
+      const uris = paths.map(fileUriOf);
+      clipboard.writeBuffer('text/uri-list', Buffer.from(uris.join('\r\n') + '\r\n', 'utf8'));
+    }
+    console.log(`[clipboard] writeFiles: isCut=${isCut} paths=${JSON.stringify(paths)}`);
+    // 写入后立刻读回系统剪贴板,确认文件列表真的落进了全局剪贴板
+    try {
+      const check = await clipboardReadFiles();
+      if (check && check.paths.length > 0) {
+        console.log(
+          `[clipboard] writeFiles → 验证通过,系统剪贴板现含 ${check.paths.length} 项: ${JSON.stringify(check.paths)} isCut=${check.isCut}`
+        );
+      } else {
+        console.warn(`[clipboard] writeFiles → 警告:写入后系统剪贴板读回为空!`);
+      }
+    } catch (e) {
+      console.warn('[clipboard] writeFiles → 读回验证失败:', e && e.message);
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error('[clipboard] writeFiles 写入异常:', err && err.message);
+    return { ok: false, error: err && err.message };
+  }
+}
+
+/** 读取系统剪贴板:返回 { paths, isCut },无文件内容时返回 null */
+async function clipboardReadFiles() {
+  try {
+    let paths = [];
+    let isCut = false;
+    if (process.platform === 'win32') {
+      // 资源管理器复制文件用的是 CF_HDROP,且多为延迟渲染;Electron 的 readBuffer 读不到这份数据,
+      // 所以优先用 PowerShell Get-Clipboard -Format FileDropList 读取(与写入 SetFileDropList 对称保证互通)
+      const psGet = await runPowershell(readFileDropListPs());
+      if (psGet.code === 0 && psGet.stdout && psGet.stdout.trim() !== '__EMPTY__') {
+        paths = psGet.stdout.trim().split(/\r?\n/).filter(Boolean);
+      } else {
+        // PowerShell 拿不到时,回退 Electron 读取(自写自读等场景)
+        const formats = clipboard.availableFormats();
+        let pathsFromBuf = [];
+        for (const name of ['FileNameW', 'FileName']) {
+          let buf = null;
+          try {
+            buf = clipboard.readBuffer(name);
+          } catch (e) {
+            buf = null;
+          }
+          if (buf && buf.length > 0) {
+            pathsFromBuf = parseDroppedFiles(buf);
+            if (pathsFromBuf.length > 0) break;
+          }
+        }
+        if (pathsFromBuf.length > 0) {
+          paths = pathsFromBuf;
+        } else if (formats.includes('text/uri-list')) {
+          let txt = '';
+          try {
+            txt = clipboard.readBuffer('text/uri-list').toString('utf8') || '';
+          } catch (e) {
+            txt = '';
+          }
+          if (!txt) txt = clipboard.readText() || '';
+          paths = txt.split(/\r?\n/).map(uriToPath).filter(Boolean);
+        }
+      }
+      // Explorer 剪切文件时设置 Preferred DropEffect=2(1=复制);读不到默认按复制
+      try {
+        if (clipboard.availableFormats().includes('Preferred DropEffect')) {
+          const eff = clipboard.readBuffer('Preferred DropEffect');
+          if (eff && eff.length >= 4) isCut = eff.readUInt32LE(0) === 2;
+        }
+      } catch (e) {
+        isCut = false;
+      }
+    } else if (process.platform === 'darwin') {
+      // Finder 复制文件走 osascript 读取(读不到非文件内容),过滤出真实存在的路径
+      const r = await runOsascript(readMacClipboardPs());
+      if (r.code === 0) {
+        paths = r.stdout
+          .toString()
+          .split(/\n/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .filter((p) => fs.existsSync(p));
+      }
+      // macOS Finder 无标准文件剪切剪贴板标记,外部来源一律按复制处理
+    } else {
+      const formats = clipboard.availableFormats();
+      if (formats.includes('x-special/gnome-copied-files')) {
+        const txt = clipboard.readBuffer('x-special/gnome-copied-files').toString('utf8') || '';
+        const lines = txt.split('\n').filter(Boolean);
+        if (lines.length > 0) {
+          if (lines[0] === 'cut') isCut = true;
+          paths = lines.slice(1).map(uriToPath).filter(Boolean);
+        }
+      }
+      if (paths.length === 0 && formats.includes('text/uri-list')) {
+        const txt = clipboard.readBuffer('text/uri-list').toString('utf8') || '';
+        paths = txt.split(/\r?\n/).map(uriToPath).filter(Boolean);
+      }
+    }
+    if (paths.length > 0) console.log(`[clipboard] readFiles(win): ${paths.length} 项: ${JSON.stringify(paths)} isCut=${isCut}`);
+    return paths.length > 0 ? { paths, isCut } : null;
+  } catch (err) {
+    console.warn('[clipboard] readFiles 异常:', err && err.message);
+    return null;
+  }
+}
+
+ipcMain.handle('clipboard:writeFiles', (_event, paths, isCut) => clipboardWriteFiles(paths, isCut));
+ipcMain.handle('clipboard:readFiles', () => clipboardReadFiles());
 
 // -------- 工作区目录监听(文件树自动刷新) --------
 

@@ -221,13 +221,13 @@ export const desktopBridge = {
     }
   },
 
-  /** 移动 / 重命名文件或文件夹 */
-  async rename(oldPath: string, newPath: string): Promise<boolean> {
+  /** 移动 / 重命名文件或文件夹。
+   * mode:'error'(默认) | 'overwrite'(覆盖) | 'autorename'(自动改名) */
+  async rename(oldPath: string, newPath: string, mode: 'error' | 'overwrite' | 'autorename' = 'error'): Promise<boolean> {
     try {
-      // Electron 的 rename 成功时返回结果对象而非 true,失败时抛异常;
-      // 因此以「未抛错」判定成功,不能与 === true 比较。
+      // Electron 的 rename 成功时返回结果对象,失败时抛异常;以「未抛错」判定成功。
       if (window.electronAPI?.rename) {
-        await window.electronAPI.rename(oldPath, newPath);
+        await window.electronAPI.rename(oldPath, newPath, mode);
         return true;
       }
       return false;
@@ -248,6 +248,77 @@ export const desktopBridge = {
     } catch (e) {
       console.warn('[desktopBridge] deleteFile 失败:', e);
       return false;
+    }
+  },
+
+  /**
+   * 复制文件/文件夹(递归复制)。
+   * mode:'error'(默认,目标存在则失败) | 'overwrite'(覆盖) | 'autorename'(自动改名)。
+   */
+  async copyFile(
+    sourcePath: string,
+    destPath: string,
+    mode: 'error' | 'overwrite' | 'autorename' = 'error',
+  ): Promise<boolean> {
+    try {
+      if (window.electronAPI?.copyFile) {
+        const result = await window.electronAPI.copyFile(sourcePath, destPath, mode);
+        return !result?.error && !!result?.path;
+      }
+      return false;
+    } catch (e) {
+      console.warn('[desktopBridge] copyFile 失败:', e);
+      return false;
+    }
+  },
+
+  /** 批量检测路径是否存在;返回 { path → exists } 映射,失败时返回空对象 */
+  async existsMany(paths: string[]): Promise<Record<string, boolean>> {
+    try {
+      const res = await window.electronAPI?.existsMany?.(paths);
+      if (Array.isArray(res)) {
+        return Object.fromEntries(res.map((r) => [r.path, !!r.exists]));
+      }
+      return {};
+    } catch (e) {
+      console.warn('[desktopBridge] existsMany 失败:', e);
+      return {};
+    }
+  },
+
+  /**
+   * 写入系统剪贴板:文件路径列表 + 剪切/复制标记。
+   * 桌面端与资源管理器 / Finder 互通;浏览器 dev 环境返回 false。
+   */
+  async clipboardWriteFiles(paths: string[], isCut: boolean): Promise<boolean> {
+    try {
+      if (window.electronAPI?.clipboardWriteFiles) {
+        const result = await window.electronAPI.clipboardWriteFiles(paths, isCut);
+        return !!result?.ok;
+      }
+      return false;
+    } catch (e) {
+      console.warn('[desktopBridge] clipboardWriteFiles 失败:', e);
+      return false;
+    }
+  },
+
+  /**
+   * 读取系统剪贴板中的文件列表(来自本应用或外部文件管理器的复制/剪切)。
+   * @returns { paths, isCut } | null(无文件内容 / 无注入 / 失败)
+   */
+  async clipboardReadFiles(): Promise<{ paths: string[]; isCut: boolean } | null> {
+    try {
+      if (window.electronAPI?.clipboardReadFiles) {
+        const result = await window.electronAPI.clipboardReadFiles();
+        if (result && Array.isArray(result.paths) && result.paths.length > 0) {
+          return { paths: result.paths, isCut: !!result.isCut };
+        }
+      }
+      return null;
+    } catch (e) {
+      console.warn('[desktopBridge] clipboardReadFiles 失败:', e);
+      return null;
     }
   },
 

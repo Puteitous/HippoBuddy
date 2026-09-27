@@ -75,8 +75,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeFile: (path, content) => ipcRenderer.invoke('fs:writeFile', path, content),
   createFile: (path) => ipcRenderer.invoke('fs:createFile', path),
   createDir: (path) => ipcRenderer.invoke('fs:createDir', path),
-  rename: (oldPath, newPath) => ipcRenderer.invoke('fs:rename', oldPath, newPath),
+  rename: (oldPath, newPath, mode) => ipcRenderer.invoke('fs:rename', oldPath, newPath, mode),
+  copyFile: (sourcePath, destPath, mode) => ipcRenderer.invoke('fs:copy', sourcePath, destPath, mode),
   deleteFile: (path) => ipcRenderer.invoke('fs:deleteFile', path),
+  /** 批量检测路径是否存在;返回 [{ path, exists }] */
+  existsMany: (paths) => ipcRenderer.invoke('fs:existsMany', paths),
+  /** 写入系统剪贴板:文件路径列表 + 剪切/复制标记(与资源管理器互通) */
+  clipboardWriteFiles: (paths, isCut) => ipcRenderer.invoke('clipboard:writeFiles', paths, isCut),
+  /** 读取系统剪贴板中的文件列表(外部复制/剪切),无文件内容时返回 null */
+  clipboardReadFiles: () => ipcRenderer.invoke('clipboard:readFiles'),
   showItemInFolder: (path) => ipcRenderer.invoke('fs:showItemInFolder', path),
   isDirectory: (path) => ipcRenderer.invoke('fs:isDirectory', path),
   /** 从拖入的 File 对象获取真实磁盘路径(Electron ≥26 的 webUtils.getPathForFile,取不到返回 null) */

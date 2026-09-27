@@ -172,6 +172,14 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
   const prevRootRef = useRef<string | null>(null);
   /** 树内点击选中的文件路径:用于跳过「点击后滚动居中」,避免点击的节点本就在可视区内还弹跳 */
   const treeClickPathRef = useRef<string | null>(null);
+  /** 最近一次交互的节点(点击/右键),供 Ctrl+C/X/V 快捷键定位复制来源与粘贴目标 */
+  const lastInteractRef = useRef<{ path: string; isDir: boolean } | null>(null);
+  /**
+   * 应用内剪贴板状态(路径 + 剪切标记)。
+   * 系统剪贴板格式在 Windows 上只能承载文件列表(CF_HDROP),无法同时携带"剪切"标记,
+   * 因此剪切语义由这里的内存态维护;粘贴时系统路径与本态一致才沿用剪切标记。
+   */
+  const clipboardRef = useRef<{ paths: string[]; isCut: boolean } | null>(null);
 
   /** 刷新:发起一次整体重载(保留展开 + 高亮) */
   const handleRefresh = useCallback(() => {
@@ -266,7 +274,7 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
 
   /** 确认树内移动(拖放落点 → ConfirmDialog 确认后 rename + 刷新) */
   const handleConfirmMove = useCallback(
-    async (confirmed: boolean) => {
+    async (confirmed: boolean | string) => {
       if (!pendingMove) return;
       const { sourcePath, destPath, fileName } = pendingMove;
       setPendingMove(null);
@@ -399,6 +407,117 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
     return () => window.clearTimeout(timer);
   }, [activeDirPath, expandedDirs]);
 
+  // ── 复制 / 剪切 / 粘贴(系统剪贴板,与资源管理器互通) ─────────────
+
+  /** 把节点路径写入系统剪贴板(复制=copy / 剪切=cut) */
+  const copySelectionToClipboard = useCallback(async (sourcePath: string, isCut: boolean) => {
+    // 先记录内存态(承载剪切标记,系统剪贴板格式带不了),再写系统剪贴板
+    clipboardRef.current = { paths: [sourcePath], isCut };
+    const ok = await desktopBridge.clipboardWriteFiles([sourcePath], isCut);
+    if (ok) {
+      showToast(
+        translate(isCut ? 'fileTree.cutCopied' : 'fileTree.fileCopied', {
+          name: basename(sourcePath),
+        }),
+        { type: 'success' },
+      );
+    } else {
+      showToast(translate('fileTree.copyFailed'), { type: 'error' });
+    }
+  }, []);
+
+  /** 把剪贴板文件粘贴到目标目录:剪切→移动(rename),复制→递归复制(copyFile)。
+   * 粘贴前检测同名冲突:有冲突弹策略框(覆盖/重命名/跳过),无冲突弹确认框。*/
+  const pasteFromClipboard = useCallback(
+    async (targetDir: string) => {
+      const clip = await desktopBridge.clipboardReadFiles();
+      if (!clip) {
+        showToast(translate('fileTree.clipboardEmpty'), { type: 'info' });
+        return;
+      }
+      // 剪切语义:本应用刚复制/剪切的路径(与系统剪贴板一致)沿用内存态标记,
+      // 否则(来自外部资源管理器)按系统剪贴板探测结果,读不到标记一律按复制
+      const mem = clipboardRef.current;
+      const samePaths =
+        !!mem &&
+        mem.paths.length === clip.paths.length &&
+        mem.paths.every((p, i) => pathKey(p) === pathKey(clip.paths[i]));
+      const isCut = samePaths ? mem!.isCut : clip.isCut;
+      const { paths } = clip;
+
+      // 生成待执行项(跳过粘贴回自身所在位置)
+      const items: { src: string; dest: string }[] = [];
+      for (const src of paths) {
+        const dest = joinPath(targetDir, basename(src));
+        if (pathKey(src) === pathKey(dest)) continue;
+        items.push({ src, dest });
+      }
+      if (items.length === 0) return;
+
+      // 检测目标目录里是否已有同名项
+      const existMap = await desktopBridge.existsMany(items.map((i) => i.dest));
+      const conflicts = items.filter((i) => existMap[i.dest]);
+      const targetName = escapeHtml(basename(targetDir) || targetDir);
+
+      // 决策:有同名冲突 → 三策略弹窗;无冲突 → 粘贴确认弹窗
+      const decision: boolean | string = await new Promise((resolve) => {
+        if (conflicts.length > 0) {
+          setConfirmDialog({
+            title: translate('fileTree.conflictTitle'),
+            message: translate('fileTree.conflictMessage', { count: conflicts.length }),
+            actions: [
+              { label: translate('fileTree.conflictOverwrite'), value: 'overwrite', danger: true },
+              { label: translate('fileTree.conflictAutorename'), value: 'autorename' },
+              { label: translate('fileTree.conflictSkip'), value: 'skip' },
+            ],
+            onSubmit: (v) => resolve(v),
+          });
+        } else {
+          setConfirmDialog({
+            title: translate('fileTree.pasteTitle'),
+            message: translate('fileTree.pasteConfirm', { count: items.length, dir: targetName }),
+            confirmLabel: translate('fileTree.pasteAction'),
+            onSubmit: (v) => resolve(v === true ? 'error' : 'cancel'),
+          });
+        }
+      });
+      if (!decision || decision === 'cancel') return;
+      const strategy = decision as 'error' | 'overwrite' | 'autorename' | 'skip';
+
+      let okCount = 0;
+      let failCount = 0;
+      for (const item of items) {
+        const isConflict = !!existMap[item.dest];
+        // 冲突且选择「跳过」→ 该文件不处理(非冲突项仍正常粘贴)
+        if (isConflict && strategy === 'skip') continue;
+        // 仅对冲突项应用用户策略;无冲突项目标不存在,用默认模式即可
+        const mode: 'error' | 'overwrite' | 'autorename' =
+          isConflict && strategy !== 'skip'
+            ? strategy === 'error'
+              ? 'error'
+              : strategy
+            : 'error';
+        const ok = isCut
+          ? await desktopBridge.rename(item.src, item.dest, mode)
+          : await desktopBridge.copyFile(item.src, item.dest, mode);
+        if (ok) okCount += 1;
+        else failCount += 1;
+      }
+      // 剪切粘贴成功后清除内存态,避免同一份内容被重复"移动"(下次粘贴退化为复制)
+      if (okCount > 0 && isCut && samePaths) {
+        clipboardRef.current = null;
+      }
+      if (okCount > 0) {
+        showToast(translate('fileTree.pasted', { count: okCount }), { type: 'success' });
+        setTreeVersion((v) => v + 1);
+      }
+      if (failCount > 0) {
+        showToast(translate('fileTree.pasteFailed', { count: failCount }), { type: 'error' });
+      }
+    },
+    [],
+  );
+
   // ── 右键菜单项处理 ─────────────────────────────────────────
   const handleContextAction = useCallback(
     (action: string) => {
@@ -493,6 +612,18 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
           void copyToClipboard(relative);
           break;
         }
+        case 'copy':
+        case 'cut': {
+          // 复制/剪切文件本体 → 写入系统剪贴板(与资源管理器互通)
+          void copySelectionToClipboard(targetPath, action === 'cut');
+          break;
+        }
+        case 'paste': {
+          // 粘贴目标:右键的是目录则粘到该目录,否则粘到其父目录
+          const targetDir = isDir ? targetPath : parentOf(targetPath);
+          void pasteFromClipboard(targetDir);
+          break;
+        }
         case 'show-in-explorer': {
           void desktopBridge.showItemInFolder(targetPath);
           break;
@@ -504,8 +635,37 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
         }
       }
     },
-    [ctxMenu, rootPath],
+    [ctxMenu, rootPath, copySelectionToClipboard, pasteFromClipboard],
   );
+
+  /** 快捷键 Ctrl/Cmd + C / X / V:复制/剪切/粘贴当前交互节点 */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const el = containerRef.current;
+      if (!el || !el.contains(e.target as Node)) return;
+      const sel = lastInteractRef.current;
+      switch (e.key.toLowerCase()) {
+        case 'c':
+          e.preventDefault();
+          if (sel) void copySelectionToClipboard(sel.path, false);
+          break;
+        case 'x':
+          e.preventDefault();
+          if (sel) void copySelectionToClipboard(sel.path, true);
+          break;
+        case 'v': {
+          e.preventDefault();
+          // 粘贴目标:交互的是目录则粘到该目录,否则粘到其父目录;无交互则粘到根目录
+          const targetDir = sel ? (sel.isDir ? sel.path : parentOf(sel.path)) : rootPath;
+          if (targetDir) void pasteFromClipboard(targetDir);
+          break;
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [rootPath, copySelectionToClipboard, pasteFromClipboard]);
 
   // ── 点击外部 / Esc 关闭右键菜单 ────────────────────────────
   useEffect(() => {
@@ -569,8 +729,12 @@ export function FileTree({ rootPath, onFileSelect, activePath, revealDir, refres
             dragOverPath={dragOverPath}
             onDragOverChange={setDragOverPath}
             onMoveTo={setPendingMove}
+            onInteract={(path, isDir) => {
+              lastInteractRef.current = { path, isDir };
+            }}
             onContextMenu={(e, path, isDir) => {
               e.preventDefault();
+              lastInteractRef.current = { path, isDir };
               const menuW = 210;
               const menuH = 260;
               let left = e.clientX;
@@ -684,6 +848,8 @@ interface FileTreeNodeProps {
   onDragOverChange: (path: string | null) => void;
   /** 拖放落点:请求移动(source → dest) */
   onMoveTo: (move: PendingMoveState) => void;
+  /** 节点被点击/右键时上报(用于键盘快捷键定位复制来源与粘贴目标) */
+  onInteract: (path: string, isDir: boolean) => void;
   onContextMenu: (
     e: ReactMouseEvent,
     path: string,
@@ -705,6 +871,7 @@ function FileTreeNode({
   dragOverPath,
   onDragOverChange,
   onMoveTo,
+  onInteract,
   onContextMenu,
 }: FileTreeNodeProps) {
   const { t } = useI18n();
@@ -759,10 +926,16 @@ function FileTreeNode({
   const status = gitFiles ? gitFiles[relativePath] : undefined;
   const indentStyle = useMemo(() => ({ paddingLeft: `${depth * 14 + 8}px` }), [depth]);
 
-  const handleClick = useCallback(() => {
-    if (isDir) onToggle(dirPath);
-    else onFileSelect(dirPath);
-  }, [isDir, dirPath, onToggle, onFileSelect]);
+  const handleClick = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      onInteract(dirPath, isDir);
+      // 聚焦节点,让 Ctrl+C/X/V 快捷键以当前节点为操作对象(焦点不落在输入框等别处)
+      e.currentTarget.focus();
+      if (isDir) onToggle(dirPath);
+      else onFileSelect(dirPath);
+    },
+    [isDir, dirPath, onToggle, onFileSelect, onInteract],
+  );
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -832,6 +1005,7 @@ function FileTreeNode({
         ].join(' ').trim()}
         style={indentStyle}
         draggable
+        tabIndex={-1}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -881,6 +1055,7 @@ function FileTreeNode({
                 dragOverPath={dragOverPath}
                 onDragOverChange={onDragOverChange}
                 onMoveTo={onMoveTo}
+                onInteract={onInteract}
                 onContextMenu={onContextMenu}
               />
             ))
@@ -918,13 +1093,24 @@ function ContextMenu({
   const items: CtxItem[] = [
     { action: 'new-file', labelKey: 'fileTree.newFile' },
     { action: 'new-folder', labelKey: 'fileTree.newFolder' },
+  ];
+  if (desktopBridge.isDesktop) {
+    // 复制/剪切/粘贴文件本体依赖系统剪贴板 IPC,仅桌面端可用
+    items.push(
+      { separator: true },
+      { action: 'copy', labelKey: 'fileTree.copyFile' },
+      { action: 'cut', labelKey: 'fileTree.cutFile' },
+      { action: 'paste', labelKey: 'fileTree.pasteFile' },
+    );
+  }
+  items.push(
     { separator: true },
     { action: 'copy-absolute', labelKey: 'fileTree.copyAbsolutePath' },
     { action: 'copy-relative', labelKey: 'fileTree.copyRelativePath' },
     { separator: true },
     { action: 'rename', labelKey: 'fileTree.renameTitle' },
     { action: 'delete', labelKey: 'fileTree.deleteBtn' },
-  ];
+  );
   if (desktopBridge.isDesktop) {
     items.push({ separator: true }, { action: 'show-in-explorer', labelKey: 'fileTree.showInExplorer' });
     items.push({ action: 'open-in-terminal', labelKey: 'fileTree.openInTerminal' });
@@ -1043,9 +1229,12 @@ interface ConfirmDialogState {
   title: string;
   message: string;
   note?: string;
-  /** 确认按钮文案(默认「删除」) */
+  /** 确认按钮文案(默认「删除」);仅在未传 actions 时使用 */
   confirmLabel?: string;
-  onSubmit: (confirmed: boolean) => void | Promise<void>;
+  /** 额外动作按钮(用于多选策略类弹窗,如冲突的 覆盖/重命名/跳过);传入后替代默认确认按钮 */
+  actions?: { label: string; value: string; danger?: boolean }[];
+  /** 回调接收布尔(确认/取消)或 actions 的 value(字符串) */
+  onSubmit: (confirmed: boolean | string) => void | Promise<void>;
 }
 
 function ConfirmDialog({
@@ -1053,6 +1242,7 @@ function ConfirmDialog({
   message,
   note,
   confirmLabel,
+  actions,
   onSubmit,
   onClose,
 }: ConfirmDialogState & { onClose: () => void }) {
@@ -1065,6 +1255,10 @@ function ConfirmDialog({
   const cancel = () => {
     onClose();
     void onSubmit(false);
+  };
+  const pickAction = (value: string) => {
+    onClose();
+    void onSubmit(value);
   };
 
   useEffect(() => {
@@ -1096,9 +1290,24 @@ function ConfirmDialog({
           <button type="button" className="file-tree-modal-btn" onClick={cancel}>
             {t('fileTree.cancelBtn')}
           </button>
-          <button type="button" className="file-tree-modal-btn file-tree-modal-btn-danger" onClick={confirm}>
-            {resolveLabel}
-          </button>
+          {actions && actions.length > 0 ? (
+            actions.map((a) => (
+              <button
+                key={a.value}
+                type="button"
+                className={
+                  'file-tree-modal-btn' + (a.danger ? ' file-tree-modal-btn-danger' : ' file-tree-modal-btn-primary')
+                }
+                onClick={() => pickAction(a.value)}
+              >
+                {a.label}
+              </button>
+            ))
+          ) : (
+            <button type="button" className="file-tree-modal-btn file-tree-modal-btn-danger" onClick={confirm}>
+              {resolveLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

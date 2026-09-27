@@ -28,7 +28,15 @@ interface Window {
     writeFile?: (path: string, content: string) => Promise<{ path?: string; size?: number; error?: boolean; code?: string; message?: string }>;
     createFile?: (path: string) => Promise<boolean>;
     createDir?: (path: string) => Promise<boolean>;
-    rename?: (oldPath: string, newPath: string) => Promise<boolean>;
+    rename?: (oldPath: string, newPath: string, mode?: string) => Promise<boolean>;
+    /** 复制文件/文件夹(递归);mode='error'|'overwrite'|'autorename',目标存在时可被覆盖/自动改名 */
+    copyFile?: (sourcePath: string, destPath: string, mode?: string) => Promise<{ path?: string; error?: boolean; code?: string; message?: string } | null>;
+    /** 批量检测路径是否存在;返回 [{ path, exists }] */
+    existsMany?: (paths: string[]) => Promise<{ path: string; exists: boolean }[] | null>;
+    /** 写入系统剪贴板:文件路径列表 + 剪切/复制标记(与资源管理器互通) */
+    clipboardWriteFiles?: (paths: string[], isCut: boolean) => Promise<{ ok?: boolean; error?: string } | null>;
+    /** 读取系统剪贴板中的文件列表(外部复制/剪切),无文件内容时返回 null */
+    clipboardReadFiles?: () => Promise<{ paths: string[]; isCut: boolean } | null>;
     deleteFile?: (path: string) => Promise<boolean>;
     showItemInFolder?: (path: string) => Promise<void>;
     isDirectory?: (path: string) => Promise<boolean>;

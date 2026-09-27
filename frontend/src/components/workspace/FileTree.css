@@ -84,6 +84,11 @@
   color: var(--hb-text, #1f2937);
 }
 
+/* 节点可聚焦以承接 Ctrl+C/X/V 快捷键,聚焦态不显示默认 outline(高亮由 .active 表达) */
+.file-tree-node:focus {
+  outline: none;
+}
+
 .file-tree-node:hover {
   background: var(--hb-hover, rgba(0, 0, 0, 0.05));
 }
