@@ -40,7 +40,7 @@ const { appState, chatState, apiMocks, ApiError, translateMock } = vi.hoisted(()
     if (base === undefined) return key;
     if (!params) return base;
     return Object.entries(params).reduce(
-      (s, [k, v]) => s.replace(`{${k}}`, String(v)),
+      (s, [k, v]) => s.replace(`{${k}}`, () => String(v)),
       base,
     );
   });

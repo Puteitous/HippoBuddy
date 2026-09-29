@@ -36,6 +36,17 @@ describe('resolveImageSrc', () => {
     expect(url).toBe('/api/file/raw?path=' + encodeURIComponent('/root/img/a.png'));
   });
 
+  it('marked 已转义的中文文件名先反解,避免二次转义', () => {
+    // 模拟 marked cleanUrl 的输出:中文已被 encodeURI 成 %E5%9B%BE(=「图」)
+    const url = resolveImageSrc('%E5%9B%BE1_%E5%95%86%E5%93%81.png', 'C:/docs/');
+    expect(url).toBe('/api/file/raw?path=' + encodeURIComponent('C:/docs/图1_商品.png'));
+  });
+
+  it('非法转义序列(孤立 %)保持原样不抛错', () => {
+    const url = resolveImageSrc('a%b.png', '/root/docs/');
+    expect(url).toBe('/api/file/raw?path=' + encodeURIComponent('/root/docs/a%b.png'));
+  });
+
   it('query/hash 片段被剥离(本地文件路径不含 URL 语法)', () => {
     const url = resolveImageSrc('img/a.png?v=2#top', '/root/docs/');
     expect(url).toBe('/api/file/raw?path=' + encodeURIComponent('/root/docs/img/a.png'));

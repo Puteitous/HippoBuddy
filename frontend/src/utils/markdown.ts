@@ -137,8 +137,17 @@ export function resolveImageSrc(src: string, baseDir?: string): string {
   if (!baseDir) return src;
 
   // 剥离 query / hash:本地文件路径不含 URL 语法
-  const clean = src.split(/[?#]/)[0];
+  let clean = src.split(/[?#]/)[0];
   if (!clean) return src;
+  // marked 的 cleanUrl 会在渲染时对图片 href 先做一次 encodeURI(非 ASCII 字节转成 %XX,
+  // 如「图」→ %E5%9B%BE)。若不在此还原,下面再 encodeURIComponent 会把这段二次转义,
+  // 后端 URLDecoder 只解一次,路径仍带字面 %XX,匹配不到磁盘真实文件名而 404。
+  // 因此先反解回原始文件路径,保证最终 encodeURIComponent 对整段路径只编码一次。
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {
+    /* 非法转义序列(如单独出现的 %)保持原样 */
+  }
 
   // 拼接绝对路径(兼容 Windows 反斜杠与 URL 正斜杠)
   const normSrc = clean.replace(/\\/g, '/');
@@ -238,7 +247,9 @@ function wrapBareMhchem(text: string): string {
 
   // 恢复围栏代码块
   for (const { key, orig } of fencedBlocks) {
-    result = result.replace(key, orig);
+    // 用函数替换器:orig 里含 $ 时(如 r'^\s*$')不会被 replace 当作 $&/$'/$$ 等特殊序列展开,
+    // 否则会把整段文档注入到该处,破坏围栏代码块结构。
+    result = result.replace(key, () => orig);
   }
   return result;
 }
@@ -333,7 +344,8 @@ function renderMath(html: string): string {
 
   // 恢复受保护区域
   for (const { key, match } of protectedBlocks) {
-    html = html.replace(key, match);
+    // 同样用函数替换器:match 内可能含 $ 序列($&/$'/$$),字符串替换会错误展开破坏 HTML。
+    html = html.replace(key, () => match);
   }
   return html;
 }

@@ -55,4 +55,20 @@ describe('renderMarkdown', () => {
     expect(html).toContain('mermaid-preview-btn');
     expect(html).toContain('mermaid.preview');
   });
+
+  it('代码块内含 $ 序列不会被当作替换指令破坏', () => {
+    const html = renderMarkdown("## 标题\n\n```python\nimport re\nx = re.compile(r'^\\s*$')\n```\n\n**运行结果：**\n\n### 下一章\n");
+    expect(html).toContain('<h3>下一章</h3>');
+    // hljs 可能用 <span> 切分代码,但 $' 字样原样保留,不应被吞掉
+    expect(html).toContain("r'^\\s*$'");
+    // 不会被误注入成重复的 markdown 文本
+    expect(html).not.toContain('CODE_');
+  });
+
+  it('换行衔接的 markdown 结构不被破坏(围栏块后内容正常渲染)', () => {
+    const html = renderMarkdown('```text\n$$ 100\n```\n\n**说明**：余额 $$ 500。\n\n### 尾部\n');
+    // $$ 在代码块内原样保留,且后续标题正常渲染
+    expect(html).toContain('<h3>尾部</h3>');
+    expect(html).toContain('<strong>说明</strong>');
+  });
 });
