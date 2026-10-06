@@ -1918,6 +1918,15 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false; // 先通知用户，由用户决定是否下载
   autoUpdater.allowPrerelease = false;
 
+  // Windows 更新 feed 明示平台后缀：electron-builder 默认产出 latest.yml，
+  // 发布阶段会将其重命名为 latest-win.yml（与 mac 的 latest-mac.yml、
+  // linux 的 latest-linux*.yml 保持一致的命名风格）。
+  // electron-updater 的 Provider.getChannelFilePrefix() 对 win32 返回空前缀，
+  // 因此这里把 channel 设为 'latest-win' 即对应文件名 latest-win.yml。
+  if (process.platform === 'win32') {
+    autoUpdater.channel = 'latest-win';
+  }
+
   // ----- 事件监听 -----
 
   autoUpdater.on('checking-for-update', () => {

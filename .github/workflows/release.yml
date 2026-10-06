@@ -65,7 +65,7 @@ jobs:
 
       - name: Extract version from tag
         id: get_version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
   # ============================================================
   # 第二阶段：Windows 打包
@@ -74,8 +74,8 @@ jobs:
     needs: build-jar
     runs-on: windows-latest
     env:
-      ELECTRON_CACHE: electron\.electron-cache
-      ELECTRON_BUILDER_CACHE: electron\.builder-cache
+      ELECTRON_CACHE: ${{ github.workspace }}/electron/.electron-cache
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/electron/.builder-cache
     steps:
       - uses: actions/checkout@v4
 
@@ -104,12 +104,12 @@ jobs:
           path: |
             electron\.electron-cache
             electron\.builder-cache
-          key: win-electron-${{ hashFiles('electron/package-lock.json') }}
+          key: win-electron-v2-${{ hashFiles('electron/package-lock.json') }}
 
       - name: Set version from tag
         shell: pwsh
         run: |
-          $version = "$env:GITHUB_REF" -replace 'refs/tags/v', ''
+          $version = "$env:GITHUB_REF_NAME" -replace '^v', ''
           (Get-Content electron/package.json) -replace '"version": ".*"', "`"version`": `"$version`"" | Set-Content electron/package.json
           Write-Host "Version set to: $version"
 
@@ -130,19 +130,20 @@ jobs:
           jlink --module-path "$Env:JAVA_HOME\jmods" --add-modules $Modules --output $JreOut --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
       - name: Build Windows installer
-        run: cd electron && npx electron-builder --win --x64 --publish=never
+        # 构建期确保更新源（app-update.yml）指向本仓库 Puteitous/HippoBuddy。
+        run: cd electron && npx electron-builder --win --x64 --publish=never --config.publish.owner=Puteitous
 
-      - name: Upload Windows installer to Release
-        uses: softprops/action-gh-release@v2
+      - name: Clean unpacked output
+        run: Remove-Item -Recurse -Force electron/release/win-unpacked -ErrorAction SilentlyContinue
+
+      # 产物先存为 artifact，最后由统一的 publish job 一次性发布，
+      # 避免多个 job 并发写同一 release 触发 "other side closed" 等竞态。
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
-            electron/release/HippoBuddy*.exe
-            electron/release/latest.yml
-            electron/release/*.blockmap
-          draft: true
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: release-win
+          path: electron/release
+          retention-days: 3
 
   # ============================================================
   # 第三阶段：macOS 打包
@@ -165,8 +166,8 @@ jobs:
             runner: macos-latest
             cache: mac-arm64-electron
     env:
-      ELECTRON_CACHE: electron/.electron-cache
-      ELECTRON_BUILDER_CACHE: electron/.builder-cache
+      ELECTRON_CACHE: ${{ github.workspace }}/electron/.electron-cache
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/electron/.builder-cache
     steps:
       - uses: actions/checkout@v4
 
@@ -195,11 +196,11 @@ jobs:
           path: |
             electron/.electron-cache
             electron/.builder-cache
-          key: ${{ matrix.cache }}-${{ hashFiles('electron/package-lock.json') }}
+          key: ${{ matrix.cache }}-v2-${{ hashFiles('electron/package-lock.json') }}
 
       - name: Set version from tag
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          VERSION="${GITHUB_REF_NAME#v}"
           sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" electron/package.json
           echo "Version set to: $VERSION"
 
@@ -219,8 +220,10 @@ jobs:
             --output electron/resources/jre \
             --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
-      - name: Build macOS DMG (${{ matrix.name }})
-        run: cd electron && npx electron-builder --mac ${{ matrix.target }} --publish=never
+      - name: Build macOS DMG/ZIP (${{ matrix.name }})
+        # DMG 供用户下载安装；ZIP 供 electron-updater（Squirrel.Mac 只认 zip）自动更新。
+        # --config.publish.owner=Puteitous：更新源指向本仓库（与 package.json owner 一致）。
+        run: cd electron && npx electron-builder --mac ${{ matrix.target }} --publish=never --config.publish.owner=Puteitous
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
@@ -295,26 +298,91 @@ jobs:
           pkill -f "hippo-agent.jar" 2>/dev/null || true
           echo "SMOKE TEST COMPLETE"
 
-      - name: Upload macOS DMG to Release
-        uses: softprops/action-gh-release@v2
+      - name: Clean unpacked output
+        run: rm -rf electron/release/mac electron/release/mac-arm64 electron/release/mac-x64
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
-            electron/release/HippoBuddy*.dmg
-            electron/release/latest-mac.yml
-            electron/release/*.blockmap
-          draft: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: release-mac-${{ matrix.name }}
+          path: electron/release
+          retention-days: 3
 
   # ============================================================
-  # 第四阶段：Linux 打包
+  # 第四阶段：Linux 打包（x64 + arm64）
+  # arm64 覆盖国产平台：银河麒麟桌面 V10 SP1（飞腾/鲲鹏）等。
   # ============================================================
+
+  # 4.1 arm64 内置 JRE（单独 job）
+  # jlink 是「宿主架构相关」工具：x86_64 的 jlink 无法为 arm64 的 jmods
+  # 生成运行时，因此 arm64 JRE 必须在原生 arm64 runner 上生成。
+  # 生成后作为 artifact 交给下面的打包 job 复用。
+  build-jre-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (for jlink)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Generate trimmed JRE with jlink
+        run: |
+          MODULES="java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.security.jgss,java.sql,java.xml,java.xml.crypto,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.httpserver"
+          jlink --module-path "$JAVA_HOME/jmods" \
+            --add-modules "$MODULES" \
+            --output electron/resources/jre \
+            --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
+
+      - name: Upload arm64 JRE
+        uses: actions/upload-artifact@v4
+        with:
+          name: jre-linux-arm64
+          path: electron/resources/jre
+          retention-days: 3
+
+  # 4.2 桌面端打包 + 产物自检 + 冒烟测试
+  # 两个架构统一在 x86_64 runner 上打 deb / AppImage。
+  # 原因：electron-builder 25.x 内置的 fpm（用于生成 deb）只提供
+  # `fpm-1.9.3-2.3.1-linux-x86` 预编译包，其内 ruby 为 x86_64 ELF，
+  # 在原生 arm64 runner 上会直接报
+  #   `lib/ruby/bin.real/ruby: cannot execute binary file: Exec format error`
+  # 而 fpm 本身只做归档打包，Architecture 字段由 --architecture 决定，
+  # 与宿主架构无关，因此在 x86_64 上打 arm64 deb 完全可行。
   build-linux:
-    needs: build-jar
+    needs: [build-jar, build-jre-arm64]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # x64：海光 / 兆芯 / 通用 x86_64。同时产出 AppImage。
+          - name: x64
+            arch: x64
+            targets: AppImage deb
+            debArch: amd64
+            elfArch: x86-64
+            cache: linux-x64-electron
+            prebuiltJre: false
+          # arm64：飞腾 FT-2000/4、D2000/D3000、鲲鹏 920 等麒麟桌面机主流架构。
+          # 同时产出 AppImage 与 deb：AppImage 让 arm64 端也具备 electron-updater
+          # 自动更新能力（arm64 客户端请求 latest-linux-arm64.yml）。
+          # JRE 复用 build-jre-arm64 的产物。
+          - name: arm64
+            arch: arm64
+            targets: AppImage deb
+            debArch: arm64
+            elfArch: aarch64
+            cache: linux-arm64-electron
+            prebuiltJre: true
     env:
-      ELECTRON_CACHE: electron/.electron-cache
-      ELECTRON_BUILDER_CACHE: electron/.builder-cache
+      # 必须用绝对路径：electron-builder 打包 deb 时以 <cache>/fpm 为 workingDir
+      # 调用 7za 解压 fpm，若 cache 为相对路径会与 workingDir 二次拼接，
+      # 导致 7za 找不到归档报 "No more files"，deb 构建直接失败。
+      ELECTRON_CACHE: ${{ github.workspace }}/electron/.electron-cache
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/electron/.builder-cache
     steps:
       - uses: actions/checkout@v4
 
@@ -343,11 +411,11 @@ jobs:
           path: |
             electron/.electron-cache
             electron/.builder-cache
-          key: linux-electron-${{ hashFiles('electron/package-lock.json') }}
+          key: ${{ matrix.cache }}-v2-${{ hashFiles('electron/package-lock.json') }}
 
       - name: Set version from tag
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          VERSION="${GITHUB_REF_NAME#v}"
           sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" electron/package.json
           echo "Version set to: $VERSION"
 
@@ -360,6 +428,8 @@ jobs:
           cp target/${{ needs.build-jar.outputs.jar_name }} electron/resources/hippo-agent.jar
 
       - name: Generate trimmed JRE with jlink
+        # arm64 已由 build-jre-arm64 在原生 arm64 runner 上生成，直接复用
+        if: ${{ !matrix.prebuiltJre }}
         run: |
           MODULES="java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,java.security.jgss,java.sql,java.xml,java.xml.crypto,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.httpserver"
           jlink --module-path "$JAVA_HOME/jmods" \
@@ -367,16 +437,305 @@ jobs:
             --output electron/resources/jre \
             --strip-debug --compress zip-6 --no-header-files --no-man-pages --vm server
 
-      - name: Build Linux AppImage
-        run: cd electron && npx electron-builder --linux --x64 --publish=never
+      # arm64：取 build-jre-arm64 在原生 arm64 runner 上 jlink 好的运行时
+      # （jlink 是宿主架构相关工具，x86_64 上无法为 arm64 jmods 生成运行时）
+      - name: Download prebuilt arm64 JRE
+        if: matrix.prebuiltJre
+        uses: actions/download-artifact@v4
+        with:
+          name: jre-linux-arm64
+          path: electron/resources/jre
 
-      - name: Upload Linux AppImage to Release
+      - name: Ensure JRE executable bits
+        # GitHub Actions artifact 不保留文件权限：arm64 的 JRE 在独立 runner 上由
+        # jlink 生成后经 upload/download-artifact 传递，下载后 jre/bin/java 会变成
+        # 0644，导致运行时 spawn 报 EACCES。此处显式补回可执行位。
+        # 注意 -R 的 X（大写）只对「目录或已有可执行位」的文件生效，无法把 0644
+        # 的文件补成可执行，因此必须再对 bin/* 显式 chmod 0755。
+        run: |
+          if [ -d electron/resources/jre ]; then
+            chmod -R u+rwX,go+rX electron/resources/jre
+            chmod 0755 electron/resources/jre/bin/* 2>/dev/null || true
+            ls -l electron/resources/jre/bin || true
+          fi
+
+      - name: Build Linux packages (${{ matrix.name }})
+        # 显式指定 target + arch：x64 → AppImage + amd64 deb；arm64 → arm64 AppImage + arm64 deb。
+        # --config.publish.owner=Puteitous：更新源指向本仓库（与 package.json owner 一致；homepage 已直接写入 package.json）。
+        run: cd electron && npx electron-builder --linux ${{ matrix.targets }} --${{ matrix.arch }} --publish=never --config.publish.owner=Puteitous
+
+      # 冒烟测试 1/2：静态校验产物结构与「麒麟 V10 桌面版 SP1」兼容性
+      #  · deb 的 Architecture 字段必须与目标架构一致（amd64 / arm64）
+      #  · 内置 JRE 与 hippo-agent.jar 必须随包分发
+      #  · 所有 ELF 的架构必须与 deb 架构一致
+      #  · glibc 符号版本不得高于 2.31 —— 麒麟 V10 桌面版 SP1 基于
+      #    Ubuntu 20.04，glibc = 2.31，引用更高版本会导致启动时
+      #    "version `GLIBC_2.xx' not found"。
+      - name: Verify Linux artifacts (${{ matrix.name }})
+        shell: bash
+        run: |
+          set -u
+          echo "--- release 目录 ---"
+          ls -lh electron/release
+
+          # 用 find -print -quit 取首个匹配：无匹配时 find 仍返回 0，
+          # 而 `ls *.deb` 在 set -e -o pipefail 下会以 exit 2 直接终止脚本，
+          # 使下面的友好报错永远执行不到。
+          DEB=$(find electron/release -maxdepth 1 -name '*.deb' -print -quit)
+          [ -n "$DEB" ] || { echo "ERROR: 未找到 .deb 产物"; exit 1; }
+
+          echo "--- deb 元数据 ---"
+          dpkg-deb -I "$DEB"
+
+          # 1) 架构字段
+          DEB_ARCH=$(dpkg-deb -f "$DEB" Architecture)
+          echo "deb Architecture: $DEB_ARCH"
+          [ "$DEB_ARCH" = "${{ matrix.debArch }}" ] || {
+            echo "ERROR: deb 架构 $DEB_ARCH != 期望 ${{ matrix.debArch }}"; exit 1; }
+
+          # 2) 包内容：内置 JRE / JAR / 主程序 / chrome-sandbox
+          CONTENTS=$(dpkg-deb -c "$DEB")
+          echo "$CONTENTS" | grep -q 'resources/jre/bin/java' || { echo "ERROR: deb 内缺少内置 JRE"; exit 1; }
+          echo "$CONTENTS" | grep -q 'resources/hippo-agent.jar' || { echo "ERROR: deb 内缺少 hippo-agent.jar"; exit 1; }
+          echo "$CONTENTS" | grep -q 'chrome-sandbox' || { echo "ERROR: deb 内缺少 chrome-sandbox（沙箱/权限相关）"; exit 1; }
+          echo "$CONTENTS" | grep -q 'usr/share/applications/.*\.desktop' || { echo "ERROR: deb 内缺少 .desktop（UKUI/桌面菜单无法出现）"; exit 1; }
+          # 麒麟 V10（Ubuntu 20.04 基线）hicolor 主题只索引到 512x512，必须随包提供该档位
+          # 图标；若只有 1024x1024 等更高档位，桌面会回退显示默认「灰色齿轮」。
+          echo "$CONTENTS" | grep -q 'usr/share/icons/hicolor/512x512/apps/' || { echo "ERROR: deb 内缺少 512x512 图标（麒麟 V10 会显示灰色齿轮）"; exit 1; }
+          echo "OK: 内置 JRE、hippo-agent.jar、chrome-sandbox、.desktop、512 图标均已打包"
+
+          # 3) 解包后校验 ELF 架构与 glibc 依赖
+          ROOT=$(mktemp -d)
+          dpkg-deb -x "$DEB" "$ROOT"
+          # hippo-agent.jar 位于 /opt/<name>/resources/，其上一层即应用根目录
+          APPDIR=$(dirname "$(dirname "$(find "$ROOT" -name 'hippo-agent.jar' | head -n 1)")")
+          # 主程序 = 应用根目录下体积最大的可执行文件（即重命名后的 Electron 本体）
+          MAIN=$(find "$APPDIR" -maxdepth 1 -type f -perm -u+x ! -name '*.so*' -printf '%s %p\n' \
+                 | sort -rn | head -n 1 | cut -d' ' -f2-)
+          [ -n "$MAIN" ] && [ -x "$MAIN" ] || { echo "ERROR: 未找到主程序"; find "$APPDIR" -maxdepth 1; exit 1; }
+          echo "app dir: $APPDIR"
+          echo "main binary: $MAIN"
+
+          # 3.1 ELF 架构一致性
+          for f in "$MAIN" "$APPDIR/resources/jre/bin/java"; do
+            [ -x "$f" ] || { echo "ERROR: $f 缺失或缺可执行位（安装后 spawn 会报 EACCES）"; ls -l "$f" 2>/dev/null || true; exit 1; }
+            INFO=$(file -b "$f")
+            echo "  $(basename "$f"): $INFO"
+            echo "$INFO" | grep -q "${{ matrix.elfArch }}" || {
+              echo "ERROR: $f 架构不是 ${{ matrix.elfArch }}"; exit 1; }
+          done
+          echo "OK: ELF 架构均为 ${{ matrix.elfArch }}"
+
+          # 3.2 glibc 上限（麒麟 V10 桌面版 SP1 = Ubuntu 20.04 = glibc 2.31）
+          MAX_ALLOWED=2.31
+          BAD=""
+          for f in "$MAIN" "$APPDIR"/lib*.so* "$APPDIR/resources/jre/bin/java" \
+                   "$APPDIR"/resources/jre/lib/server/libjvm.so \
+                   "$APPDIR"/resources/jre/lib/libjli.so; do
+            [ -f "$f" ] || continue
+            V=$(strings -a "$f" 2>/dev/null | grep -o 'GLIBC_2\.[0-9]*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)
+            [ -n "$V" ] || continue
+            echo "  $(basename "$f"): max GLIBC_$V"
+            if [ "$(printf '%s\n%s\n' "$MAX_ALLOWED" "$V" | sort -V | tail -n 1)" != "$MAX_ALLOWED" ]; then
+              BAD="$BAD $(basename "$f")(GLIBC_$V)"
+            fi
+          done
+          if [ -n "$BAD" ]; then
+            echo "ERROR: 以下文件依赖高于 glibc $MAX_ALLOWED 的符号，无法在麒麟 V10 桌面版 SP1 上运行:$BAD"
+            echo "       处理办法：降级 Electron/JDK，或要求目标机 glibc ≥ 上述版本。"
+            exit 1
+          fi
+          echo "OK: 全部 ELF 的 glibc 依赖 ≤ $MAX_ALLOWED（麒麟 V10 SP1 / Ubuntu 20.04 基线）"
+
+          # 4) AppImage：x64 与 arm64 均产出（存在则做基本检查）
+          # 注意：用 find 取首个匹配——无匹配时 find 仍返回 0，不会像
+          # `ls *.AppImage` 那样在 set -e -o pipefail 下以 exit 2 终止脚本。
+          APPIMAGE=$(find electron/release -maxdepth 1 -name '*.AppImage' -print -quit)
+          if [ -n "$APPIMAGE" ]; then
+            file "$APPIMAGE" || true
+            SIZE=$(stat -c %s "$APPIMAGE")
+            echo "AppImage size: $SIZE bytes"
+            [ "$SIZE" -gt 52428800 ] || { echo "ERROR: AppImage 体积异常（<50MB）"; exit 1; }
+            echo "OK: AppImage 产物检查通过"
+          else
+            echo "SKIP: 本架构不产出 AppImage（${{ matrix.name }}）"
+          fi
+          rm -rf "$ROOT"
+
+      # 冒烟测试 2/2：在 x86_64 ubuntu runner 上真实安装并启动 deb 包，
+      # 验证「内置 JRE + hippo-agent.jar → 后端启动 → /app 新前端可访问」整条链路。
+      # 仅 x64 执行：arm64 deb 由 fpm 在 x86_64 上生成（见 build-linux 注释），
+      # dpkg 无法在 x86_64 宿主上安装 arm64 包，运行时冒烟改由 verify 步骤的
+      # ELF 架构 + glibc 符号版本静态校验兜底。
+      - name: Install Linux runtime dependencies
+        if: matrix.arch == 'x64'
+        run: |
+          sudo apt-get update -y
+          # Electron/Chromium 运行所需系统库 + xvfb（无头环境提供虚拟显示）
+          for pkg in libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xauth xvfb \
+                     libgbm1 libsecret-1-0 libasound2 libasound2t64; do
+            sudo apt-get install -y --no-install-recommends "$pkg" || echo "skip $pkg"
+          done
+
+      - name: Smoke test Linux deb (${{ matrix.name }})
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          set -u
+          DEB=$(find electron/release -maxdepth 1 -name '*.deb' -print -quit)
+
+          echo "--- 安装 deb ---"
+          sudo dpkg -i "$DEB" || sudo apt-get -f install -y
+
+          # 验证安装状态（deb 包名由 productName 规范化为小写）
+          PKG=$(dpkg-deb -f "$DEB" Package)
+          echo "package name: $PKG"
+          dpkg -s "$PKG" | grep -q '^Status: install ok installed' || {
+            echo "ERROR: $PKG 未处于 installed 状态"; dpkg -s "$PKG" || true; exit 1; }
+
+          # 定位可执行文件：deb 装在 /opt/<name>，并在 /usr/bin 建软链
+          BIN=$(command -v hippobuddy || true)
+          if [ -z "$BIN" ]; then
+            BIN=$(find /opt/HippoBuddy -maxdepth 1 -type f -perm -u+x | head -n 1)
+          fi
+          [ -n "$BIN" ] && [ -x "$BIN" ] || { echo "ERROR: 未找到可执行文件"; ls -l /opt/HippoBuddy || true; exit 1; }
+          echo "installed binary: $BIN"
+
+          # 产物自检：内置 JRE 与 JAR 必须随 deb 一起落盘
+          RES=/opt/HippoBuddy/resources
+          [ -x "$RES/jre/bin/java" ] || { echo "ERROR: 内置 JRE 缺失或缺可执行位（spawn 报 EACCES）"; ls -l "$RES/jre/bin/java" 2>/dev/null || true; exit 1; }
+          [ -f "$RES/hippo-agent.jar" ] || { echo "ERROR: 缺少 hippo-agent.jar"; exit 1; }
+          echo "OK: 内置 JRE 与 hippo-agent.jar 均已就位"
+
+          # 清理 9090 端口残留，避免干扰
+          if command -v lsof >/dev/null 2>&1 && sudo lsof -ti tcp:9090 >/dev/null 2>&1; then
+            echo "WARN: 端口 9090 已被占用，清理"
+            sudo lsof -ti tcp:9090 | xargs -r sudo kill -9 || true
+            sleep 2
+          fi
+
+          # 直接执行主进程以捕获日志，后台运行。
+          # xvfb 提供虚拟显示；runner 以 root 运行，必须 --no-sandbox。
+          LOG=/tmp/hippo-linux-smoke.log
+          rm -f "$LOG"
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" "$BIN" \
+            --no-sandbox --disable-dev-shm-usage >"$LOG" 2>&1 &
+          APP_PID=$!
+          echo "Launched PID=$APP_PID"
+
+          # 轮询后端就绪（最多 120s）
+          # /app 生产下会 302 → /app/，用 -L 跟随，最终以 index.html 返回 200 判定新前端可访问。
+          READY=0
+          for i in $(seq 1 120); do
+            code=$(curl -s -L -o /dev/null -w "%{http_code}" "http://localhost:9090/app" || echo 000)
+            if [ "$code" = "200" ]; then
+              READY=1
+              echo "SMOKE OK: /app HTTP 200（第 $i 次探测）"
+              break
+            fi
+            if ! kill -0 $APP_PID 2>/dev/null; then
+              echo "ERROR: 主进程提前退出（第 $i 次探测）"
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$READY" != "1" ]; then
+            echo "=== SMOKE FAILED ==="
+            echo "--- 主进程日志 ---"
+            cat "$LOG" || true
+            exit 1
+          fi
+          echo "PASS: deb 安装并启动成功，后端就绪，/app 新前端可访问"
+
+          # 清理：关闭应用与后端
+          sudo kill -9 $APP_PID 2>/dev/null || true
+          sudo pkill -f hippobuddy 2>/dev/null || true
+          sudo pkill -f "hippo-agent.jar" 2>/dev/null || true
+          echo "SMOKE TEST COMPLETE"
+
+      - name: Clean unpacked output
+        run: rm -rf electron/release/linux-unpacked electron/release/linux-arm64-unpacked
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-${{ matrix.arch }}
+          path: electron/release
+          retention-days: 3
+
+  # ============================================================
+  # 第五阶段：统一发布
+  # 所有构建 job 先把产物存为 artifact，这里一次性下载并发布到
+  # 同一个 draft release，彻底消除多个 job 并发写同一 release 时
+  # 出现的 "other side closed" / 资产被覆盖等竞态。
+  # 仅当全部构建 job 成功后才发布，避免发布残缺产物。
+  # ============================================================
+  publish:
+    needs: [build-win, build-mac, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: downloads
+          pattern: release-*
+
+      - name: Stage artifacts (flatten + per-platform update feeds)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p stage
+
+          # 1) 产物（exe/AppImage/deb/dmg/zip/blockmap 等）平铺到 stage。
+          #    跳过更新 feed 与 electron-builder 调试文件，它们按平台单独处理。
+          #    注意：GNU cp 9.x 在单次 batched 调用里会因「will not overwrite
+          #    just-created」直接失败退出，故逐个 cp -f；同名产物后者覆盖前者。
+          while IFS= read -r -d '' f; do
+            base=$(basename "$f")
+            case "$base" in
+              latest*.yml|builder-debug.yml) continue ;;
+            esac
+            cp -f "$f" stage/
+          done < <(find downloads -type f -print0)
+
+          # 2) Windows feed：electron-builder 产出 latest.yml，按「平台明示」需求
+          #    重命名为 latest-win.yml（main.js 在 win32 下设
+          #    autoUpdater.channel='latest-win' 与之对应）。
+          win_yml=$(find downloads -type f -name 'latest.yml' -print -quit)
+          [ -n "$win_yml" ] || { echo "ERROR: 未找到 Windows feed(latest.yml)"; exit 1; }
+          cp -f "$win_yml" stage/latest-win.yml
+
+          # 3) Linux feed：electron-updater 的 Provider.getChannelFilePrefix() 按架构
+          #    取文件——x64 用 latest-linux.yml，arm64 用 latest-linux-arm64.yml，
+          #    两者必须分别保留、不能合并，否则 arm64 端取不到更新源。
+          while IFS= read -r -d '' f; do
+            cp -f "$f" stage/
+          done < <(find downloads -type f \
+            \( -name 'latest-linux.yml' -o -name 'latest-linux-arm64.yml' \) -print0)
+          [ -f stage/latest-linux.yml ] || { echo "ERROR: 未找到 latest-linux.yml"; exit 1; }
+          [ -f stage/latest-linux-arm64.yml ] || { echo "ERROR: 未找到 latest-linux-arm64.yml"; exit 1; }
+
+          # 4) macOS feed：x64 / arm64 两个 job 各自产出一份同名 latest-mac.yml
+          #    （平铺会互相覆盖）。MacUpdater 只认 feed 里的 .zip，并按文件名是否含
+          #    "arm64" 过滤架构，因此把两侧 files 合并进单一 latest-mac.yml，
+          #    这样 x64 与 arm64 客户端都能取到各自产物。
+          mapfile -t mac_ymls < <(find downloads -type f -name 'latest-mac.yml' | sort)
+          [ "${#mac_ymls[@]}" -gt 0 ] || { echo "ERROR: 未找到 macOS feed(latest-mac.yml)"; exit 1; }
+          python3 .github/scripts/merge_update_feeds.py "${mac_ymls[@]}" > stage/latest-mac.yml
+
+          echo "--- stage 内容 ---"
+          ls -lh stage
+
+      - name: Publish draft release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            electron/release/HippoBuddy*.AppImage
-            electron/release/latest-linux.yml
-            electron/release/*.blockmap
+          files: stage/*
           draft: true
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -62,6 +62,31 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      # Pages 未在仓库设置里启用（Settings > Pages > Source = GitHub Actions）时，
+      # deploy-pages 建 deployment 会拿到 404 并让整个 workflow 变红。
+      # 先探测一次，未启用就显式跳过部署，而不是失败。
+      - name: Check GitHub Pages availability
+        id: pages-check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")
+          echo "Pages API status: ${status}"
+          if [ "${status}" = "404" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GitHub Pages 未在本仓库启用，跳过部署。启用路径：https://github.com/${GITHUB_REPOSITORY}/settings/pages （Build and deployment > Source = GitHub Actions）"
+          else
+            # 200=已启用；其余（403/5xx 等）无法判定，仍尝试部署，避免误跳过
+            if [ "${status}" != "200" ]; then
+              echo "::warning::无法确认 Pages 是否已启用（HTTP ${status}），仍尝试部署。"
+            fi
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy to GitHub Pages
         id: deployment
+        if: steps.pages-check.outputs.enabled == 'true'
         uses: actions/deploy-pages@v4

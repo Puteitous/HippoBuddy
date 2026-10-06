@@ -5,6 +5,7 @@
   "main": "main.js",
   "private": true,
   "author": "HippoBuddy",
+  "homepage": "https://www.hippobuddy.cn/",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
@@ -35,6 +36,7 @@
       "release-notes.json",
       "assets/**/*"
     ],
+    "afterPack": "afterPack.js",
     "extraResources": [
       {
         "from": "resources",
@@ -54,34 +56,49 @@
           "target": "nsis",
           "arch": ["x64"]
         }
-      ]
+      ],
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
     },
     "mac": {
       "target": [
         {
           "target": "dmg",
           "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
         }
       ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "category": "public.app-category.developer-tools",
       "identity": null,
       "hardenedRuntime": false
     },
     "linux": {
+      "icon": "icons",
       "target": [
         {
-          "target": "AppImage",
-          "arch": ["x64"]
+          "target": "AppImage"
+        },
+        {
+          "target": "deb"
         }
       ],
-      "category": "Development"
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
+      "category": "Development",
+      "synopsis": "HippoBuddy desktop agent",
+      "description": "HippoBuddy desktop agent",
+      "maintainer": "HippoBuddy",
+      "desktop": {
+        "Terminal": "false"
+      }
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "artifactName": "${productName}-${version}.${ext}"
+      "createStartMenuShortcut": true
     }
   }
 }
