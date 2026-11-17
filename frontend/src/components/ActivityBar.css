@@ -35,6 +35,15 @@
   background: var(--hb-hover, rgba(0, 0, 0, 0.06));
 }
 
+/* 视图按钮(会话/文件)与面板按钮之间的细分隔 */
+.activity-bar-divider {
+  width: 20px;
+  height: 1px;
+  flex-shrink: 0;
+  margin: 4px 0;
+  background: var(--border, rgba(0, 0, 0, 0.08));
+}
+
 /* 选中态保持蓝色,用于区分当前激活面板;不改动以保留对比 */
 .activity-bar-btn.active {
   background: rgba(59, 130, 246, 0.12);

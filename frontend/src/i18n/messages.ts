@@ -26,10 +26,11 @@ export const zh: Record<string, string> = {
   'html.header.close': '关闭',
 
   /* ==================== Activity Bar ==================== */
+  'activity.sessions': '会话',
   'activity.token': 'Token 统计',
   'activity.monitor': '实时监控',
   'activity.git': '源码管理',
-  'activity.files': '文件变更',
+  'activity.files': '文件',
   'activity.terminal': '打开终端',
   'activity.browser': '打开浏览器',
   'activity.pluginMarket': '技能市场',
@@ -106,9 +107,6 @@ export const zh: Record<string, string> = {
   'git.cherryPickDesc': '将对提交 {subject} 执行 cherry-pick，将其改动应用到当前分支。确定继续吗？',
 
   /* ==================== Session Panel ==================== */
-  'session.title': '会话',
-  'session.sessionList': '会话列表',
-  'session.fileBrowse': '文件浏览',
   'session.toggleGroup': '切换分组方式',
   'session.groupProject': '项目',
   'session.groupTime': '时间',
@@ -1699,7 +1697,6 @@ export const zh: Record<string, string> = {
   'activity.hide': '隐藏活动栏',
   'activity.panelLabel': '活动栏面板',
   'activity.panelClose': '关闭面板',
-  'topbar.expandSessionPanel': '展开会话面板',
   'topbar.remove': '移除',
   'topbar.noRecentFolders': '暂无最近文件夹',
   'topbar.openFolderFailed': '打开文件夹失败: {err}',
@@ -1712,7 +1709,12 @@ export const zh: Record<string, string> = {
   'window.restore': '还原',
 
   /* ==================== Sidebar ==================== */
-  'sidebar.collapse': '收起会话面板',
+  'sidebar.history': '会话历史',
+  'sidebar.search': '搜索会话',
+  'sidebar.searchPlaceholder': '搜索会话标题…',
+  'sidebar.searchEmpty': '没有匹配的会话',
+  'sidebar.searchResults': '{n} 个结果',
+  'sidebar.searchClose': '关闭搜索',
   'sidebar.noWorkspace': '未设置工作区',
   'sidebar.loadFailed': '加载会话失败',
   'sidebar.empty': '暂无会话',
@@ -1819,10 +1821,11 @@ export const en: Record<string, string> = {
   'html.header.maximize': 'Maximize',
   'html.header.close': 'Close',
 
+  'activity.sessions': 'Sessions',
   'activity.token': 'Token Stats',
   'activity.monitor': 'Live Monitor',
   'activity.git': 'Source Control',
-  'activity.files': 'File Changes',
+  'activity.files': 'Files',
   'activity.terminal': 'Open Terminal',
   'activity.browser': 'Open Browser',
   'activity.pluginMarket': 'Skill Market',
@@ -1898,9 +1901,6 @@ export const en: Record<string, string> = {
   'git.cherryPickTitle': 'Cherry-pick commit',
   'git.cherryPickDesc': 'Cherry-pick {subject} onto the current branch. Continue?',
 
-  'session.title': 'Sessions',
-  'session.sessionList': 'Session List',
-  'session.fileBrowse': 'File Explorer',
   'session.toggleGroup': 'Toggle Grouping',
   'session.groupProject': 'Project',
   'session.groupTime': 'Time',
@@ -3460,7 +3460,6 @@ export const en: Record<string, string> = {
   'activity.hide': 'Hide Activity Bar',
   'activity.panelLabel': 'Activity Bar Panel',
   'activity.panelClose': 'Close Panel',
-  'topbar.expandSessionPanel': 'Expand Session Panel',
   'topbar.remove': 'Remove',
   'topbar.noRecentFolders': 'No recent folders',
   'topbar.openFolderFailed': 'Failed to open folder: {err}',
@@ -3473,7 +3472,12 @@ export const en: Record<string, string> = {
   'window.restore': 'Restore',
 
   /* ==================== Sidebar ==================== */
-  'sidebar.collapse': 'Collapse Session Panel',
+  'sidebar.history': 'Session History',
+  'sidebar.search': 'Search sessions',
+  'sidebar.searchPlaceholder': 'Search session titles…',
+  'sidebar.searchEmpty': 'No matching sessions',
+  'sidebar.searchResults': '{n} results',
+  'sidebar.searchClose': 'Close search',
   'sidebar.noWorkspace': 'No workspace set',
   'sidebar.loadFailed': 'Failed to load sessions',
   'sidebar.empty': 'No sessions yet',

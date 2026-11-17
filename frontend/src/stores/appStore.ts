@@ -156,6 +156,27 @@ function persistSidebarCollapsed(collapsed: boolean): void {
   }
 }
 
+/** 侧栏视图(会话列表 / 文件树)持久化 key(对齐旧版 view-capsule) */
+const SIDEBAR_VIEW_KEY = 'hippo-sidebar-view';
+
+export type SidebarView = 'sessions' | 'files';
+
+function readSidebarView(): SidebarView {
+  try {
+    return localStorage.getItem(SIDEBAR_VIEW_KEY) === 'files' ? 'files' : 'sessions';
+  } catch {
+    return 'sessions';
+  }
+}
+
+function persistSidebarView(view: SidebarView): void {
+  try {
+    localStorage.setItem(SIDEBAR_VIEW_KEY, view);
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
 /** 会话标签栏持久化 key(刷新后恢复已打开的标签) */
 const OPEN_TABS_KEY = 'hippo-open-tabs';
 
@@ -281,6 +302,8 @@ interface AppState {
   activityPanelPinned: boolean;
   /** Sidebar 是否折叠(从 localStorage 恢复) */
   sidebarCollapsed: boolean;
+  /** Sidebar 当前视图(会话列表 / 文件树,从 localStorage 恢复) */
+  sidebarView: SidebarView;
   /** SkillMarket 面板是否打开 */
   pluginMarketOpen: boolean;
   /** 进入 Settings 视图时初始定位的设置页(由 ModelSelectorPanel 等外部触发,消费后重置为 'general') */
@@ -342,6 +365,8 @@ interface AppState {
   openActivityPanel: (panel: ActivityPanelId) => void;
   /** 设置 Sidebar 折叠状态(同时持久化到 localStorage) */
   setSidebarCollapsed: (collapsed: boolean) => void;
+  /** 切换 Sidebar 视图(活动栏触发,同时持久化到 localStorage) */
+  setSidebarView: (view: SidebarView) => void;
   /** 设置 SkillMarket 打开/关闭 */
   setPluginMarketOpen: (open: boolean) => void;
   /** 设置 Settings 视图初始页(消费后应重置为 'general') */
@@ -378,6 +403,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activityPanel: null,
   activityPanelPinned: false,
   sidebarCollapsed: readSidebarCollapsed(),
+  sidebarView: readSidebarView(),
   pluginMarketOpen: false,
   settingsInitialPage: 'general',
   panelLayout: readPanelLayout(),
@@ -637,6 +663,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarCollapsed: (collapsed) => {
     persistSidebarCollapsed(collapsed);
     set({ sidebarCollapsed: collapsed });
+  },
+
+  setSidebarView: (view) => {
+    persistSidebarView(view);
+    set({ sidebarView: view });
   },
 
   setPluginMarketOpen: (open) => set({ pluginMarketOpen: open }),

@@ -56,32 +56,6 @@ body.window-maximized {
   letter-spacing: -0.01em;
 }
 
-/* 侧栏折叠逃生按钮(对齐旧版 header 中 toolbar-escape 的胶囊外观) */
-.top-bar-sidebar-show {
-  height: 26px;
-  width: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 14px;
-  background: var(--bg-app);
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
-}
-
-.top-bar-sidebar-show:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--text-secondary);
-}
-
-[data-theme="dark"] .top-bar-sidebar-show:hover,
-[data-theme="midnight"] .top-bar-sidebar-show:hover {
-  background: rgba(255, 255, 255, 0.07);
-}
-
 /* ============================================================
    工具区(对齐旧版 .header-actions)
    ============================================================ */

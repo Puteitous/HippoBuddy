@@ -54,8 +54,6 @@ function errMsg(e: unknown): string {
 export function TopBar() {
   const { t } = useI18n();
   const setView = useAppStore((s) => s.setView);
-  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
-  const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
   const workspacePath = useAppStore((s) => s.workspacePath);
   const setWorkspacePath = useAppStore((s) => s.setWorkspacePath);
 
@@ -235,24 +233,6 @@ export function TopBar() {
           </svg>
         </span>
         <span className="top-bar-name">HippoBuddy</span>
-        {/* 侧栏折叠时的逃生展开按钮(对齐旧版 header 中 toolbar-escape) */}
-        {sidebarCollapsed && (
-          <button
-            type="button"
-            className="top-bar-sidebar-show"
-            title={t('topbar.expandSessionPanel')}
-            aria-label={t('topbar.expandSessionPanel')}
-            onClick={() => setSidebarCollapsed(false)}
-          >
-            <svg viewBox="0 0 48 48" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 10.5H40" />
-              <path d="M24 19.5H40" />
-              <path d="M24 28.5H40" />
-              <path d="M8 37.5H40" />
-              <path d="M16 19L8 24L16 29V19Z" fill="none" />
-            </svg>
-          </button>
-        )}
       </div>
 
       {/* 工具区(对齐旧版 .header-actions) */}

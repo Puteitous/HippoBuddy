@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { Sidebar } from '@/components/Sidebar';
 import { useAppStore } from '@/stores/appStore';
 import type { Session } from '@/types';
@@ -72,6 +72,7 @@ beforeEach(() => {
     isLoadingSessions: false,
     sessionsError: null,
     sidebarCollapsed: false,
+    sidebarView: 'sessions',
     sessionDisplayNames: {},
     sessionInputDrafts: {},
     heroPendingDraft: '',
@@ -84,22 +85,15 @@ afterEach(() => {
 });
 
 describe('Sidebar 工具栏与折叠', () => {
-  it('渲染折叠/新建按钮、视图胶囊、标题与会话计数', () => {
+  it('不再渲染工具条(新建会话统一走标签栏 +),标题为「会话历史」且无计数', () => {
     useAppStore.setState({ sessions: [session('s1'), session('s2')] });
-    render(<Sidebar />);
-    expect(screen.getByRole('button', { name: '收起会话面板' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '新建会话' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '会话列表' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '文件浏览' })).toBeInTheDocument();
-    expect(screen.getByText('会话')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
-  });
-
-  it('点击折叠按钮折叠侧栏并持久化', () => {
-    render(<Sidebar />);
-    fireEvent.click(screen.getByRole('button', { name: '收起会话面板' }));
-    expect(useAppStore.getState().sidebarCollapsed).toBe(true);
-    expect(localStorage.getItem('hippo-sidebar-collapsed')).toBe('true');
+    const { container } = render(<Sidebar />);
+    expect(container.querySelector('.sidebar-toolbar')).toBeNull();
+    expect(screen.queryByRole('button', { name: '新建会话' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '会话列表' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '文件浏览' })).not.toBeInTheDocument();
+    expect(screen.getByText('会话历史')).toBeInTheDocument();
+    expect(screen.queryByText('2')).not.toBeInTheDocument();
   });
 
   it('sidebarCollapsed=true 时 aside 带 hidden class', () => {
@@ -107,29 +101,73 @@ describe('Sidebar 工具栏与折叠', () => {
     const { container } = render(<Sidebar />);
     expect(container.querySelector('aside.sidebar.hidden')).not.toBeNull();
   });
-
-  it('点击新建会话生成 web-* 当前会话', () => {
-    render(<Sidebar />);
-    fireEvent.click(screen.getByRole('button', { name: '新建会话' }));
-    expect(useAppStore.getState().currentSessionId?.startsWith('web-')).toBe(true);
-  });
 });
 
 describe('Sidebar 分组模式', () => {
-  it('分组按钮默认 Project,点击切换到 Time 并持久化', () => {
+  it('分组下拉默认 Project,选择 Time 后持久化并关闭菜单', () => {
     render(<Sidebar />);
-    expect(screen.getByText('项目')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '切换分组方式' }));
-    expect(screen.getByText('时间')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /时间/ }));
     expect(localStorage.getItem('hippo-session-group-mode')).toBe('time');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
-  it('再次点击切回 Project', () => {
+  it('再次打开下拉可选回 Project', () => {
     render(<Sidebar />);
     fireEvent.click(screen.getByRole('button', { name: '切换分组方式' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /时间/ }));
     fireEvent.click(screen.getByRole('button', { name: '切换分组方式' }));
-    expect(screen.getByText('项目')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /项目/ }));
     expect(localStorage.getItem('hippo-session-group-mode')).toBe('project');
+  });
+});
+
+describe('Sidebar 搜索', () => {
+  it('按标题过滤并高亮命中片段,显示结果数', () => {
+    useAppStore.setState({
+      sessions: [
+        session('s1', { title: '分析日志问题' }),
+        session('s2', { title: '排查登录问题' }),
+      ],
+    });
+    const { container } = render(<Sidebar />);
+    fireEvent.click(screen.getByRole('button', { name: '搜索会话' }));
+    fireEvent.change(screen.getByPlaceholderText('搜索会话标题…'), { target: { value: '日志' } });
+
+    const names = [...container.querySelectorAll('.session-item-name')].map((el) => el.textContent);
+    expect(names).toEqual(['分析日志问题']);
+    expect(container.querySelector('.session-item-name mark')?.textContent).toBe('日志');
+    expect(screen.getByText('1 个结果')).toBeInTheDocument();
+  });
+
+  it('按项目名匹配:平铺展示并带行内项目名,不渲染项目分组头', () => {
+    useAppStore.setState({
+      sessions: [
+        session('s1', { title: '甲', projectPath: '/e:/work/Alpha' }),
+        session('s2', { title: '乙', projectPath: '/e:/work/Beta' }),
+      ],
+    });
+    const { container } = render(<Sidebar />);
+    fireEvent.click(screen.getByRole('button', { name: '搜索会话' }));
+    fireEvent.change(screen.getByPlaceholderText('搜索会话标题…'), { target: { value: 'alpha' } });
+
+    expect(screen.getByText('甲')).toBeInTheDocument();
+    expect(screen.queryByText('乙')).not.toBeInTheDocument();
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+    expect(container.querySelector('.session-project-header')).toBeNull();
+  });
+
+  it('无匹配显示空态;Esc 退出搜索并恢复列表', () => {
+    useAppStore.setState({ sessions: [session('s1', { title: '甲' })] });
+    render(<Sidebar />);
+    fireEvent.click(screen.getByRole('button', { name: '搜索会话' }));
+    const input = screen.getByPlaceholderText('搜索会话标题…');
+    fireEvent.change(input, { target: { value: 'zzz' } });
+    expect(screen.getByText('没有匹配的会话')).toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByPlaceholderText('搜索会话标题…')).not.toBeInTheDocument();
+    expect(screen.getByText('甲')).toBeInTheDocument();
   });
 });
 
@@ -346,19 +384,31 @@ describe('Sidebar 置顶会话', () => {
     expect(toast.showToast).toHaveBeenCalledWith('会话已置顶', { type: 'success' });
   });
 
-  it('置顶会话置顶显示并带图钉标记,普通分组不含', () => {
+  it('项目分组下置顶会话排在所属项目最前并带图钉标记', () => {
     useAppStore.setState({
       sessions: [session('s1', { title: '置顶甲', pinned: true }), session('s2', { title: '普通乙' })],
     });
     const { container } = render(<Sidebar />);
-    // 无标题栏,用细分隔线区隔置顶区
-    expect(container.querySelector('.session-pinned-divider')).not.toBeNull();
+    // 项目分组模式:不再有全局置顶区与分隔线
+    expect(container.querySelector('.session-pinned-divider')).toBeNull();
     expect(container.querySelector('.session-pinned-header')).toBeNull();
-    // 置顶会话带行内图钉标记
+    // 置顶会话带行内图钉标记,且在同一项目(其他)内排最前
     expect(container.querySelector('.session-pin-mark')).not.toBeNull();
-    // 置顶会话仅出现在置顶区(整个列表出现一次)
+    const names = [...container.querySelectorAll('.session-item-name')].map((el) => el.textContent);
+    expect(names).toEqual(['置顶甲', '普通乙']);
+    // 仅出现一次,不会同时在置顶区和项目内重复
     expect(screen.getAllByText('置顶甲')).toHaveLength(1);
-    expect(screen.getByText('普通乙')).toBeInTheDocument();
+  });
+
+  it('时间分组下置顶会话仍在顶部并以分隔线区隔', () => {
+    localStorage.setItem('hippo-session-group-mode', 'time');
+    useAppStore.setState({
+      sessions: [session('s1', { title: '置顶甲', pinned: true }), session('s2', { title: '普通乙' })],
+    });
+    const { container } = render(<Sidebar />);
+    expect(container.querySelector('.session-pinned-divider')).not.toBeNull();
+    const names = [...container.querySelectorAll('.session-item-name')].map((el) => el.textContent);
+    expect(names).toEqual(['置顶甲', '普通乙']);
   });
 });
 
@@ -449,7 +499,7 @@ describe('Sidebar 时间分组', () => {
 describe('Sidebar 视图切换(文件树)', () => {
   it('文件视图:未设置工作区时显示空态', () => {
     render(<Sidebar />);
-    fireEvent.click(screen.getByRole('button', { name: '文件浏览' }));
+    act(() => useAppStore.getState().setSidebarView('files'));
     expect(screen.getByText('未设置工作区')).toBeInTheDocument();
   });
 
@@ -459,9 +509,9 @@ describe('Sidebar 视图切换(文件树)', () => {
       workspacePath: '/ws',
     });
     render(<Sidebar />);
-    fireEvent.click(screen.getByRole('button', { name: '文件浏览' }));
+    act(() => useAppStore.getState().setSidebarView('files'));
     expect(screen.getByTestId('file-tree')).toHaveTextContent('/ws');
-    fireEvent.click(screen.getByRole('button', { name: '会话列表' }));
+    act(() => useAppStore.getState().setSidebarView('sessions'));
     expect(screen.getByText('甲')).toBeInTheDocument();
   });
 });
@@ -487,11 +537,11 @@ describe('Sidebar 无限滚动', () => {
     expect(createdBefore).toBeGreaterThan(0);
 
     // 切到文件树:会话列表分支(.sidebar-body 及 sentinel)被卸载
-    fireEvent.click(screen.getByRole('button', { name: '文件浏览' }));
+    act(() => useAppStore.getState().setSidebarView('files'));
     expect(container.querySelector('.session-list-sentinel')).toBeNull();
 
     // 切回会话列表:observer 必须重建并观察新的 sentinel,否则滚到底无法加载更多
-    fireEvent.click(screen.getByRole('button', { name: '会话列表' }));
+    act(() => useAppStore.getState().setSidebarView('sessions'));
     expect(container.querySelector('.session-list-sentinel')).not.toBeNull();
     expect(ioInstances.length).toBeGreaterThan(createdBefore);
     expect(ioInstances[ioInstances.length - 1].observe).toHaveBeenCalled();

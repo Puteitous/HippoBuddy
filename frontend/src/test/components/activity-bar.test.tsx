@@ -34,6 +34,9 @@ beforeEach(() => {
     activityPanel: null,
     activityPanelPinned: false,
     pluginMarketOpen: false,
+    view: 'chat',
+    sidebarCollapsed: false,
+    sidebarView: 'sessions',
   });
 });
 
@@ -50,6 +53,39 @@ describe('ActivityBar', () => {
     expect(document.querySelector('[data-action="openBrowser"]')).not.toBeNull();
     expect(document.querySelector('[data-action="openTerminal"]')).not.toBeNull();
     expect(screen.getByTitle('activity.hide')).toBeInTheDocument();
+  });
+
+  it('会话/文件视图按钮:切换视图,再点当前视图收起侧栏', () => {
+    render(<ActivityBar />);
+    // 默认会话视图激活
+    expect(btn('view', 'sessions').classList.contains('active')).toBe(true);
+    expect(btn('view', 'files').classList.contains('active')).toBe(false);
+
+    fireEvent.click(btn('view', 'files'));
+    expect(useAppStore.getState().sidebarView).toBe('files');
+    expect(useAppStore.getState().sidebarCollapsed).toBe(false);
+    expect(btn('view', 'files').classList.contains('active')).toBe(true);
+    expect(btn('view', 'sessions').classList.contains('active')).toBe(false);
+
+    // 当前视图再点一次 → 收起侧栏,两个按钮都不高亮
+    fireEvent.click(btn('view', 'files'));
+    expect(useAppStore.getState().sidebarCollapsed).toBe(true);
+    expect(document.querySelectorAll('.activity-bar-btn.active')).toHaveLength(0);
+
+    // 收起状态下点另一个视图 → 展开并切换
+    fireEvent.click(btn('view', 'sessions'));
+    expect(useAppStore.getState().sidebarCollapsed).toBe(false);
+    expect(useAppStore.getState().sidebarView).toBe('sessions');
+  });
+
+  it('设置/技能市场占用主区时点击视图按钮回到聊天', () => {
+    useAppStore.setState({ view: 'settings', pluginMarketOpen: true, sidebarCollapsed: true });
+    render(<ActivityBar />);
+    fireEvent.click(btn('view', 'sessions'));
+    expect(useAppStore.getState().view).toBe('chat');
+    expect(useAppStore.getState().pluginMarketOpen).toBe(false);
+    expect(useAppStore.getState().sidebarCollapsed).toBe(false);
+    expect(useAppStore.getState().sidebarView).toBe('sessions');
   });
 
   it('hidden=true 时只显示展开按钮,点击后恢复活动栏', () => {

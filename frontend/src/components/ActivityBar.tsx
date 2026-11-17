@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAppStore } from '@/stores/appStore';
-import type { ActivityPanelId } from '@/stores/appStore';
+import type { ActivityPanelId, SidebarView } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
 import { desktopBridge } from '@/utils/desktop-bridge';
 import { showToast } from '@/utils/toastStore';
@@ -135,6 +135,35 @@ const BUTTONS: ActivityButton[] = [
   },
 ];
 
+/** 视图切换按钮:控制左侧侧栏显示会话列表还是文件树(非浮动面板,仅点击生效) */
+const VIEW_BUTTONS: Array<{
+  id: string;
+  titleKey: string;
+  view: SidebarView;
+  icon: ReactNode;
+}> = [
+  {
+    id: 'abSessions',
+    titleKey: 'activity.sessions',
+    view: 'sessions',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'abFiles',
+    titleKey: 'activity.files',
+    view: 'files',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+];
+
 /** 面板标题的 i18n key */
 function panelTitleKey(id: ActivityPanelId): string {
   switch (id) {
@@ -155,6 +184,14 @@ export function ActivityBar() {
   const activePanel = useAppStore((s) => s.activityPanel);
   const activePanelPinned = useAppStore((s) => s.activityPanelPinned);
   const setActivityPanel = useAppStore((s) => s.setActivityPanel);
+  // 侧栏视图切换(会话 / 文件)
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
+  const sidebarView = useAppStore((s) => s.sidebarView);
+  const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
+  const setSidebarView = useAppStore((s) => s.setSidebarView);
+  const mainView = useAppStore((s) => s.view);
+  const pluginMarketOpen = useAppStore((s) => s.pluginMarketOpen);
+  const setView = useAppStore((s) => s.setView);
 
   const barRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -193,6 +230,37 @@ export function ActivityBar() {
     clearCloseTimer();
     setActivityPanel(null);
   }, [clearCloseTimer, setActivityPanel]);
+
+  /**
+   * 侧栏视图按钮:
+   *  - 当前视图再点一次 → 收起侧栏(对齐 VS Code 活动栏);
+   *  - 其它情况 → 展开侧栏并切换视图;
+   *  - 设置 / 技能市场占用主区域时切回聊天,避免"侧栏是会话/文件但主区不是聊天"。
+   */
+  const handleViewClick = useCallback(
+    (view: SidebarView) => {
+      if (!sidebarCollapsed && sidebarView === view) {
+        setSidebarCollapsed(true);
+        return;
+      }
+      setSidebarCollapsed(false);
+      setSidebarView(view);
+      if (mainView !== 'chat' || pluginMarketOpen) {
+        setView('chat');
+        setPluginMarketOpen(false);
+      }
+    },
+    [
+      sidebarCollapsed,
+      sidebarView,
+      setSidebarCollapsed,
+      setSidebarView,
+      mainView,
+      pluginMarketOpen,
+      setView,
+      setPluginMarketOpen,
+    ],
+  );
 
   /** 点击按钮:面板 → toggle,动作 → 执行 */
   const handleClickButton = useCallback(
@@ -329,6 +397,23 @@ export function ActivityBar() {
           scheduleClose();
         }}
       >
+        {VIEW_BUTTONS.map((btn) => {
+          const isActive = !sidebarCollapsed && sidebarView === btn.view;
+          return (
+            <button
+              key={btn.id}
+              type="button"
+              className={`activity-bar-btn${isActive ? ' active' : ''}`}
+              title={t(btn.titleKey)}
+              data-view={btn.view}
+              onClick={() => handleViewClick(btn.view)}
+            >
+              {btn.icon}
+            </button>
+          );
+        })}
+        <div className="activity-bar-divider" aria-hidden="true" />
+
         {BUTTONS.map((btn) => {
           const isActive = btn.panel != null && activePanel === btn.panel;
           return (

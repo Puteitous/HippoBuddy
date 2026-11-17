@@ -80,19 +80,6 @@ describe('TopBar (浏览模式,isDesktop=false)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'html.header.themeToggle' }));
     expect(themeStore.toggleTheme).toHaveBeenCalledTimes(1);
   });
-
-  it('侧栏折叠时显示展开按钮,点击取消折叠', () => {
-    useAppStore.setState({ sidebarCollapsed: true });
-    render(<TopBar />);
-    const expand = screen.getByRole('button', { name: 'topbar.expandSessionPanel' });
-    fireEvent.click(expand);
-    expect(useAppStore.getState().sidebarCollapsed).toBe(false);
-  });
-
-  it('侧栏未折叠时不显示展开按钮', () => {
-    render(<TopBar />);
-    expect(screen.queryByRole('button', { name: 'topbar.expandSessionPanel' })).not.toBeInTheDocument();
-  });
 });
 
 describe('TopBar (桌面模式,isDesktop=true)', () => {
