@@ -60,6 +60,13 @@ public class UiConfig {
     @JsonProperty("suggestions_enabled")
     private boolean suggestionsEnabled = true;
 
+    /**
+     * 聊天区会话标签栏最大标签数(0=不限制,默认 10 对齐 VS Code 编辑器标签)。
+     * 超出上限时淘汰最久未激活的标签,只移出标签栏,不删除会话。
+     */
+    @JsonProperty("session_tab_limit")
+    private int sessionTabLimit = 10;
+
     public UiConfig() {
     }
 
@@ -151,6 +158,14 @@ public class UiConfig {
         this.suggestionsEnabled = suggestionsEnabled;
     }
 
+    public int getSessionTabLimit() {
+        return sessionTabLimit;
+    }
+
+    public void setSessionTabLimit(int sessionTabLimit) {
+        this.sessionTabLimit = sessionTabLimit;
+    }
+
     @Override
     public String toString() {
         return "UiConfig{" +
@@ -162,6 +177,7 @@ public class UiConfig {
                 ", showTimestamp=" + showTimestamp +
                 ", colorOutput=" + colorOutput +
                 ", suggestionsEnabled=" + suggestionsEnabled +
+                ", sessionTabLimit=" + sessionTabLimit +
                 '}';
     }
 }

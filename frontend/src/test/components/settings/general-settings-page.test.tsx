@@ -7,7 +7,11 @@ const k = (s: string) => s; // i18n t 恒等,用 key 断言,避免绑定具体�
 const { configApi, workspaceApi, dataDirApi, desktopBridge, toast, i18n, themeStore, appStore, bgStore } =
   vi.hoisted(() => {
     const themeStore = { theme: 'light', applyTheme: vi.fn() };
-    const appStore = { panelLayout: 'preview-left', setPanelLayout: vi.fn() };
+    const appStore = {
+      panelLayout: 'preview-left',
+      setPanelLayout: vi.fn(),
+      setSessionTabLimit: vi.fn(),
+    };
     const bgStore = {
       background: { type: 'none', value: '', size: 'cover' },
       setBackground: vi.fn(),
@@ -57,6 +61,20 @@ function textInputs(container: HTMLElement): HTMLInputElement[] {
   return [...container.querySelectorAll<HTMLInputElement>('input[type="text"]')];
 }
 
+/** 权限范围下拉(页面里还有标签数量下拉,按 aria-label 区分) */
+function scopeSelect(container: HTMLElement): HTMLSelectElement {
+  return container.querySelector<HTMLSelectElement>(
+    `select[aria-label="${k('settingsPage.generalScopeLabel')}"]`,
+  ) as HTMLSelectElement;
+}
+
+/** 会话标签数量下拉 */
+function tabLimitSelect(container: HTMLElement): HTMLSelectElement {
+  return container.querySelector<HTMLSelectElement>(
+    `select[aria-label="${k('settingsPage.generalTabLimit')}"]`,
+  ) as HTMLSelectElement;
+}
+
 function lastUpdate() {
   const calls = configApi.updateFull.mock.calls;
   return calls[calls.length - 1] as [{ ui?: Record<string, unknown>; tools?: Record<string, unknown> }];
@@ -77,6 +95,7 @@ beforeEach(() => {
   themeStore.applyTheme.mockClear();
   appStore.panelLayout = 'preview-left';
   appStore.setPanelLayout.mockClear();
+  appStore.setSessionTabLimit.mockClear();
   bgStore.background = { type: 'none', value: '', size: 'cover' };
   bgStore.setBackground.mockClear();
   bgStore.resetBackground.mockClear();
@@ -106,7 +125,7 @@ describe('GeneralSettingsPage 加载', () => {
     expect(ws.value).toBe('/ws');
     expect(dd.value).toBe('/dd');
     // 后端 result/relaxed 覆盖默认值
-    expect((container.querySelector('select') as HTMLSelectElement).value).toBe('relaxed');
+    expect(scopeSelect(container).value).toBe('relaxed');
   });
 
   it('未回填失败的结果不影响其余字段(allSettled 容错)', async () => {
@@ -205,7 +224,7 @@ describe('GeneralSettingsPage 默认展示模式 / 权限范围', () => {
   it('切换权限范围 relaxed → updateFull 携带 tools.mode=relaxed', async () => {
     const { container } = render(<GeneralSettingsPage />);
     await screen.findByText(k('settingsPage.generalTitle'));
-    fireEvent.change(container.querySelector('select') as HTMLSelectElement, {
+    fireEvent.change(scopeSelect(container), {
       target: { value: 'relaxed' },
     });
     await waitFor(() => expect(configApi.updateFull).toHaveBeenCalled());
@@ -223,6 +242,19 @@ describe('GeneralSettingsPage 默认展示模式 / 权限范围', () => {
     fireEvent.click(screen.getByRole('button', { name: k('settingsPage.generalProcessViewResult') }));
     await waitFor(() => expect(toast.showToast).toHaveBeenCalled());
     expect(String(toast.showToast.mock.calls[0][0])).toMatch(/^settingsPage.generalProcessViewSaveFailedError: boom/);
+  });
+
+  it('切换会话标签数量 → updateFull 携带 ui.session_tab_limit 并同步 store', async () => {
+    const { container } = render(<GeneralSettingsPage />);
+    await screen.findByText(k('settingsPage.generalTitle'));
+    fireEvent.change(tabLimitSelect(container), { target: { value: '6' } });
+    await waitFor(() => expect(configApi.updateFull).toHaveBeenCalled());
+    expect(lastUpdate()[0].ui).toMatchObject({ session_tab_limit: 6 });
+    expect(appStore.setSessionTabLimit).toHaveBeenCalledWith(6);
+    expect(toast.showToast).toHaveBeenCalledWith('settingsPage.generalTabLimitSaved', {
+      type: 'success',
+      duration: 2000,
+    });
   });
 });
 

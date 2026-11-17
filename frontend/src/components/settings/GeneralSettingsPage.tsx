@@ -58,6 +58,9 @@ const GRADIENT_PRESETS: { nameKey: string; css: string }[] = [
 
 const DEFAULT_BG_COLOR = '#5b6bbf';
 
+/** 会话标签栏数量上限的预设选项(0=不限单独渲染在后) */
+const TAB_LIMIT_OPTIONS = [6, 8, 10, 12, 16, 20];
+
 /** 强调色取色器占位值:未自定义时向用户展示的默认颜色(与浅色主题默认 --accent 一致) */
 const DEFAULT_ACCENT_COLOR = '#787c82';
 
@@ -148,6 +151,9 @@ export function GeneralSettingsPage() {
   const [scopeMode, setScopeMode] = useState<'strict' | 'balanced' | 'relaxed'>('strict');
   /** 推荐问答开关:回合结束后是否用 LLM 生成推荐问题 */
   const [suggestionsEnabled, setSuggestionsEnabled] = useState(true);
+  /** 会话标签栏数量上限(0=不限) */
+  const [tabLimit, setTabLimit] = useState(10);
+  const setSessionTabLimit = useAppStore((s) => s.setSessionTabLimit);
   /** 自定义背景(类型 + 值;image 模式下 value 为磁盘文件路径) */
   const background = useBackgroundStore((s) => s.background);
   const setBackground = useBackgroundStore((s) => s.setBackground);
@@ -190,6 +196,11 @@ export function GeneralSettingsPage() {
           const m = cfg.value.tools?.mode;
           setScopeMode(m === 'relaxed' ? 'relaxed' : m === 'balanced' ? 'balanced' : 'strict');
           setSuggestionsEnabled(cfg.value.ui?.suggestions_enabled !== false);
+          setTabLimit(
+            typeof cfg.value.ui?.session_tab_limit === 'number'
+              ? cfg.value.ui.session_tab_limit
+              : 10,
+          );
         }
       } catch (e) {
         if (cancelled) return;
@@ -253,6 +264,28 @@ export function GeneralSettingsPage() {
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : String(e);
       showToast(translate('settingsPage.generalScopeSaveFailed') + msg, { type: 'error', duration: 3000 });
+    }
+  };
+
+  /** 保存会话标签栏数量上限(0=不限);同步内存状态,超限标签会立即裁剪 */
+  const handleTabLimitChange = async (value: number) => {
+    if (value === tabLimit) return;
+    const prev = tabLimit;
+    setTabLimit(value);
+    setSessionTabLimit(value);
+    try {
+      const config = await configApi.getFull();
+      const ui: UiConfigSection = {
+        ...((config.ui ?? {}) as UiConfigSection),
+        session_tab_limit: value,
+      };
+      await configApi.updateFull({ ui });
+      showToast(translate('settingsPage.generalTabLimitSaved'), { type: 'success', duration: 2000 });
+    } catch (e) {
+      setTabLimit(prev);
+      setSessionTabLimit(prev);
+      const msg = e instanceof ApiError ? e.message : String(e);
+      showToast(translate('settingsPage.generalTabLimitSaveFailed') + msg, { type: 'error', duration: 3000 });
     }
   };
 
@@ -663,6 +696,29 @@ export function GeneralSettingsPage() {
               </div>
             </div>
           </div>
+
+          <div className="settings-field-horizontal">
+            <div className="settings-field-label">
+              <div>{t('settingsPage.generalTabLimit')}</div>
+              <div className="settings-field-hint">{t('settingsPage.generalTabLimitHint')}</div>
+            </div>
+            <div className="settings-field-body">
+              <select
+                className="settings-select"
+                aria-label={t('settingsPage.generalTabLimit')}
+                value={tabLimit}
+                onChange={(e) => void handleTabLimitChange(Number(e.target.value))}
+              >
+                {TAB_LIMIT_OPTIONS.includes(tabLimit) ? null : (
+                  <option value={tabLimit}>{tabLimit}</option>
+                )}
+                {TAB_LIMIT_OPTIONS.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+                <option value={0}>{t('settingsPage.generalTabLimitUnlimited')}</option>
+              </select>
+            </div>
+          </div>
         </div>
         </div>
 
@@ -678,6 +734,7 @@ export function GeneralSettingsPage() {
             <div className="settings-field-body">
               <select
                 className="settings-select"
+                aria-label={t('settingsPage.generalScopeLabel')}
                 value={scopeMode}
                 onChange={(e) => handleScopeModeChange(e.target.value as 'strict' | 'balanced' | 'relaxed')}
               >

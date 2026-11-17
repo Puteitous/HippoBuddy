@@ -418,6 +418,14 @@ export function ChatPanel() {
   const [messagesContainerEl, setMessagesContainerEl] = useState<HTMLDivElement | null>(null);
   // 用户是否手动上滚(暂停自动滚动)
   const stickToBottomRef = useRef(true);
+  /** 各会话的滚动位置(切走时保存,切回时恢复;stickBottom=true 表示原本贴底) */
+  const scrollMemoryRef = useRef<Record<string, { top: number; stickBottom: boolean }>>({});
+  /** 上一会话 id(切换时保存离开会话的滚动位置) */
+  const prevSessionIdRef = useRef<string | null>(currentSessionId);
+  /** 当前滚动容器的实时 scrollTop(滚动事件持续更新,切换时不必再读 DOM) */
+  const lastScrollTopRef = useRef(0);
+  /** 已恢复滚动位置的会话(每会话只恢复一次,避免流式追加反复覆盖用户滚动) */
+  const restoredSessionRef = useRef<string | null>(null);
 
   const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
@@ -439,13 +447,52 @@ export function ChatPanel() {
     scrollToBottom('auto');
   }, [pendingConfirmRecords.length, messages.length, stream, isReasoning, scrollToBottom]);
 
-  // 切换会话时,重置 stickToBottom,并滚到底
+  // 切换会话:保存离开会话的滚动位置,并决定目标会话的初始滚动行为。
+  // 有记忆且原本不贴底 → 等历史加载完成后恢复位置(见下方恢复 effect);
+  // 无记忆或原本贴底 → 滚到底部(与原行为一致)。
   useEffect(() => {
-    stickToBottomRef.current = true;
-    setShowScrollHint(false);
-    // 等下一帧渲染完历史消息再滚
-    requestAnimationFrame(() => scrollToBottom('auto'));
+    const prev = prevSessionIdRef.current;
+    if (prev && prev !== currentSessionId) {
+      scrollMemoryRef.current[prev] = {
+        top: lastScrollTopRef.current,
+        stickBottom: stickToBottomRef.current,
+      };
+    }
+    prevSessionIdRef.current = currentSessionId;
+    restoredSessionRef.current = null;
+
+    const mem = currentSessionId ? scrollMemoryRef.current[currentSessionId] : undefined;
+    stickToBottomRef.current = !mem || mem.stickBottom;
+    setShowScrollHint(!!mem && !mem.stickBottom);
+
+    const el = messagesContainerRef.current;
+    lastScrollTopRef.current = el ? el.scrollTop : 0;
+
+    if (!mem || mem.stickBottom) {
+      // 等下一帧渲染完历史消息再滚
+      requestAnimationFrame(() => scrollToBottom('auto'));
+    }
   }, [currentSessionId, scrollToBottom]);
+
+  // 历史消息异步加载完成(或缓存首次渲染)后,恢复切走前记录的滚动位置。
+  // 每会话只恢复一次:后续流式追加不再改动位置,避免覆盖用户滚动。
+  useEffect(() => {
+    if (!currentSessionId) return;
+    const mem = scrollMemoryRef.current[currentSessionId];
+    if (!mem || mem.stickBottom) return;
+    if (restoredSessionRef.current === currentSessionId) return;
+
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    // 内容高度还不足以支撑目标位置,说明历史仍在加载,等下一次消息变化
+    if (el.scrollHeight - el.clientHeight < mem.top) return;
+
+    el.scrollTop = mem.top;
+    restoredSessionRef.current = currentSessionId;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 80;
+    setShowScrollHint(!stickToBottomRef.current);
+  }, [currentSessionId, messages.length, stream.length]);
 
   // 切换会话:恢复该会话的输入草稿,清空图片,并聚焦输入框
   useEffect(() => {
@@ -475,6 +522,7 @@ export function ChatPanel() {
   const handleScroll = useCallback(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
+    lastScrollTopRef.current = el.scrollTop;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     stickToBottomRef.current = distanceFromBottom < 80;
     setShowScrollHint(distanceFromBottom >= 100);

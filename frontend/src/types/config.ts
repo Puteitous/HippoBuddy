@@ -96,6 +96,8 @@ export interface UiConfigSection {
   color_output: boolean;
   /** 推荐问答开关:回合结束后是否用 LLM 生成推荐问题 */
   suggestions_enabled?: boolean;
+  /** 会话标签栏最大标签数(0=不限;超出淘汰最久未激活的标签) */
+  session_tab_limit?: number;
   /** 回合默认展示模式:full=完整展示处理过程;result=只展示最终结果(默认收起) */
   default_process_view: string;
 }

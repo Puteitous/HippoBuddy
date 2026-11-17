@@ -156,6 +156,95 @@ function persistSidebarCollapsed(collapsed: boolean): void {
   }
 }
 
+/** 会话标签栏持久化 key(刷新后恢复已打开的标签) */
+const OPEN_TABS_KEY = 'hippo-open-tabs';
+
+/** 标签上限 localStorage 缓存 key(后端 ui.session_tab_limit 为权威值,此处仅作启动兜底) */
+const TAB_LIMIT_KEY = 'hippo-session-tab-limit';
+
+/** 标签上限默认值(对齐 VS Code 编辑器标签默认 10;0=不限制) */
+const DEFAULT_TAB_LIMIT = 10;
+
+function readOpenTabs(): string[] {
+  try {
+    const raw = localStorage.getItem(OPEN_TABS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((v): v is string => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistOpenTabs(ids: string[]): void {
+  try {
+    if (ids.length === 0) localStorage.removeItem(OPEN_TABS_KEY);
+    else localStorage.setItem(OPEN_TABS_KEY, JSON.stringify(ids));
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
+/** 归一化标签上限:0=不限,非负整数为有效上限,其余回退默认值 */
+export function normalizeTabLimit(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return DEFAULT_TAB_LIMIT;
+  return Math.floor(value);
+}
+
+function readTabLimit(): number {
+  try {
+    const raw = localStorage.getItem(TAB_LIMIT_KEY);
+    if (raw == null) return DEFAULT_TAB_LIMIT;
+    return normalizeTabLimit(Number(raw));
+  } catch {
+    return DEFAULT_TAB_LIMIT;
+  }
+}
+
+function persistTabLimit(limit: number): void {
+  try {
+    localStorage.setItem(TAB_LIMIT_KEY, String(limit));
+  } catch {
+    /* localStorage 不可用时静默降级 */
+  }
+}
+
+/**
+ * 计算「把某会话作为激活标签」后的标签集合。
+ *  - 已在标签中:只刷新最近激活时间,不改变顺序(激活不重排,位置稳定)
+ *  - 不在标签中:追加到末尾;超过上限(且上限 > 0)时淘汰最久未激活的(排除本次激活项)
+ * 淘汰只移出标签栏,不删除会话,用户仍可从 Sidebar / 历史下拉找回。
+ */
+function openTabPatch(
+  state: AppState,
+  sessionId: string,
+): Pick<AppState, 'openTabs' | 'tabLastActiveAt'> {
+  const lastActive = { ...state.tabLastActiveAt, [sessionId]: Date.now() };
+  if (state.openTabs.includes(sessionId)) {
+    return { openTabs: state.openTabs, tabLastActiveAt: lastActive };
+  }
+  let tabs = [...state.openTabs, sessionId];
+  const limit = state.sessionTabLimit;
+  if (limit > 0) {
+    while (tabs.length > limit) {
+      let victim: string | null = null;
+      let oldest = Infinity;
+      for (const id of tabs) {
+        if (id === sessionId) continue;
+        const at = lastActive[id] ?? 0;
+        if (at < oldest) {
+          oldest = at;
+          victim = id;
+        }
+      }
+      if (!victim) break;
+      tabs = tabs.filter((id) => id !== victim);
+      delete lastActive[victim];
+    }
+  }
+  return { openTabs: tabs, tabLastActiveAt: lastActive };
+}
+
 interface AppState {
   /** 所有会话列表(来自 GET /api/sessions) */
   sessions: Session[];
@@ -206,10 +295,23 @@ interface AppState {
   /** 会话临时显示名(内存态,对齐旧版 sessionManager.sessionNames:首条消息时把无标题新会话置为「新会话」,真实标题生成后由 s.title 优先覆盖;key = sessionId) */
   sessionDisplayNames: Record<string, string>;
 
+  /** 会话标签栏:已打开的会话 id(按打开顺序;切换激活不重排,持久化到 localStorage) */
+  openTabs: string[];
+  /** 标签最近激活时间戳(key = sessionId,内存态;用于超限淘汰) */
+  tabLastActiveAt: Record<string, number>;
+  /** 标签数量上限(0=不限;来自后端 ui.session_tab_limit,默认 10) */
+  sessionTabLimit: number;
+
   /** 设置会话列表 */
   setSessions: (sessions: Session[]) => void;
-  /** 切换当前会话(同时重置 chatStore 由组件层处理) */
+  /** 切换当前会话(同时重置 chatStore 由组件层处理);切换会把目标会话加入标签栏 */
   setCurrentSession: (sessionId: string | null) => void;
+  /** 关闭标签(只移出标签栏,不删除会话);关闭当前标签时优先激活右邻标签,其次左邻,都没有则回 hero */
+  closeTab: (sessionId: string) => void;
+  /** 批量关闭标签(关闭其他/右侧/全部),激活标签回落规则同 closeTab */
+  closeTabs: (sessionIds: string[]) => void;
+  /** 设置标签数量上限(0=不限;超限时立即淘汰最久未激活的标签) */
+  setSessionTabLimit: (limit: number) => void;
   /** 设置会话模式 */
   setMode: (mode: SessionMode) => void;
   /** 设置生效的自定义系统提示词(设置页保存后同步更新) */
@@ -284,6 +386,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   heroPendingDraft: '',
   sessionDisplayNames: {},
 
+  openTabs: readOpenTabs(),
+  tabLastActiveAt: {},
+  sessionTabLimit: readTabLimit(),
+
   setSessions: (sessions) => {
     persistSessionsCache(sessions);
     set((state) => {
@@ -293,17 +399,130 @@ export const useAppStore = create<AppState>((set, get) => ({
       const cur = state.currentSessionId;
       const curSession = sessions.find((s) => s.id === cur);
       if (curSession?.mode) patch.mode = curSession.mode;
+      // 清理指向已不存在会话的标签;当前会话(可能是尚未落库的 web- 虚拟会话)始终保留
+      const openTabs = state.openTabs.filter(
+        (id) => id === cur || sessions.some((s) => s.id === id),
+      );
+      if (openTabs.length !== state.openTabs.length) {
+        patch.openTabs = openTabs;
+        persistOpenTabs(openTabs);
+      }
       return patch;
     });
   },
   setCurrentSession: (sessionId) => {
     persistCurrentSession(sessionId);
+    // 切回即视为已读:清除后台完成未读标记(对无分区的会话是空操作)
+    if (sessionId) useChatStore.getState().dismissSessionCompleted(sessionId);
     set((state) => {
       const patch: Partial<AppState> = { currentSessionId: sessionId };
       // 切换会话时恢复该会话已固化的 mode;无记录(新会话/虚拟会话)保持全局兜底不变
-      const target = state.sessions.find((s) => s.id === sessionId);
+      const target = sessionId ? state.sessions.find((s) => s.id === sessionId) : undefined;
       if (target?.mode) patch.mode = target.mode;
+      // 切换即视为激活该标签:不在标签栏则追加(超限淘汰最久未激活)
+      if (sessionId) Object.assign(patch, openTabPatch(state, sessionId));
       return patch;
+    });
+    if (sessionId) persistOpenTabs(get().openTabs);
+  },
+  closeTab: (sessionId) => {
+    const state = get();
+    const idx = state.openTabs.indexOf(sessionId);
+    if (idx < 0) return;
+
+    const openTabs = state.openTabs.filter((id) => id !== sessionId);
+    const tabLastActiveAt = { ...state.tabLastActiveAt };
+    delete tabLastActiveAt[sessionId];
+    persistOpenTabs(openTabs);
+
+    // 关闭非当前标签:只更新标签集合,当前会话不变
+    if (state.currentSessionId !== sessionId) {
+      set({ openTabs, tabLastActiveAt });
+      return;
+    }
+
+    // 关闭当前标签:优先激活右邻(原索引位置),其次左邻;都没有则回 hero
+    const next = openTabs[idx] ?? openTabs[idx - 1] ?? null;
+    if (!next) {
+      persistCurrentSession(null);
+      set({ openTabs, tabLastActiveAt, currentSessionId: null });
+      return;
+    }
+    persistCurrentSession(next);
+    const target = state.sessions.find((s) => s.id === next);
+    set({
+      openTabs,
+      tabLastActiveAt,
+      currentSessionId: next,
+      ...(target?.mode ? { mode: target.mode } : {}),
+    });
+  },
+  closeTabs: (sessionIds) => {
+    const state = get();
+    const remove = new Set(sessionIds);
+    if (!state.openTabs.some((id) => remove.has(id))) return;
+
+    const openTabs = state.openTabs.filter((id) => !remove.has(id));
+    const tabLastActiveAt = { ...state.tabLastActiveAt };
+    for (const id of remove) delete tabLastActiveAt[id];
+    persistOpenTabs(openTabs);
+
+    // 当前标签未被关闭:只更新标签集合
+    if (!state.currentSessionId || !remove.has(state.currentSessionId)) {
+      set({ openTabs, tabLastActiveAt });
+      return;
+    }
+
+    // 当前标签被关闭:按原顺序优先右邻存活标签,其次左邻,都没有则回 hero
+    const idx = state.openTabs.indexOf(state.currentSessionId);
+    const pick = (from: number, step: 1 | -1): string | null => {
+      for (let i = from; i >= 0 && i < state.openTabs.length; i += step) {
+        if (!remove.has(state.openTabs[i])) return state.openTabs[i];
+      }
+      return null;
+    };
+    const next = pick(idx + 1, 1) ?? pick(idx - 1, -1);
+    if (!next) {
+      persistCurrentSession(null);
+      set({ openTabs, tabLastActiveAt, currentSessionId: null });
+      return;
+    }
+    persistCurrentSession(next);
+    const target = state.sessions.find((s) => s.id === next);
+    set({
+      openTabs,
+      tabLastActiveAt,
+      currentSessionId: next,
+      ...(target?.mode ? { mode: target.mode } : {}),
+    });
+  },
+  setSessionTabLimit: (limit) => {
+    const next = normalizeTabLimit(limit);
+    persistTabLimit(next);
+    set((state) => {
+      if (next === 0 || state.openTabs.length <= next) {
+        return { sessionTabLimit: next };
+      }
+      // 上限调小时立即裁剪:淘汰最久未激活的,保留当前会话
+      let openTabs = state.openTabs;
+      const tabLastActiveAt = { ...state.tabLastActiveAt };
+      while (openTabs.length > next) {
+        let victim: string | null = null;
+        let oldest = Infinity;
+        for (const id of openTabs) {
+          if (id === state.currentSessionId) continue;
+          const at = tabLastActiveAt[id] ?? 0;
+          if (at < oldest) {
+            oldest = at;
+            victim = id;
+          }
+        }
+        if (!victim) break;
+        openTabs = openTabs.filter((id) => id !== victim);
+        delete tabLastActiveAt[victim];
+      }
+      persistOpenTabs(openTabs);
+      return { sessionTabLimit: next, openTabs, tabLastActiveAt };
     });
   },
   setMode: (mode) => {
@@ -316,10 +535,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().systemPromptLoaded) return;
     try {
       const cfg = await configApi.getFull();
+      const tabLimit = cfg.ui?.session_tab_limit;
       set({
         systemPrompts: cfg.ui?.system_prompts ?? {},
         systemPromptLoaded: true,
         suggestionsEnabled: cfg.ui?.suggestions_enabled !== false,
+        // 后端配置为权威值;字段缺省时保留本地缓存的上限
+        ...(typeof tabLimit === 'number' ? { sessionTabLimit: normalizeTabLimit(tabLimit) } : {}),
       });
     } catch {
       // 加载失败时不阻塞发送,回退为未自定义(使用内置默认提示词)
@@ -348,14 +570,36 @@ export const useAppStore = create<AppState>((set, get) => ({
       const sessions = state.sessions.filter((s) => s.id !== sessionId);
       persistSessionsCache(sessions);
       const removingCurrent = state.currentSessionId === sessionId;
-      // 删除当前会话后回到 hero(currentSessionId=null):必须同步清除持久化的
-      // 当前会话 id,否则刷新页面 readCurrentSession 会读到已删除会话,AppShell 兜底
-      // 会把它当成失效会话并自动选中其它历史会话,导致回到 hero 的状态无法跨刷新保持。
+
+      // 同步移出标签栏,并清理其最近激活时间
+      const idx = state.openTabs.indexOf(sessionId);
+      const openTabs = state.openTabs.filter((id) => id !== sessionId);
+      const tabLastActiveAt = { ...state.tabLastActiveAt };
+      delete tabLastActiveAt[sessionId];
+      if (idx >= 0) persistOpenTabs(openTabs);
+
       if (removingCurrent) {
+        // 删除当前会话:优先激活右邻标签,其次左邻;都没有则回 hero。
+        // currentSessionId 为 null 时必须清除持久化值,否则刷新后 AppShell 兜底
+        // 会把它当成失效会话并自动选中其它历史会话,导致 hero 状态无法跨刷新保持。
+        const next = openTabs[idx] ?? openTabs[idx - 1] ?? null;
+        if (next) {
+          persistCurrentSession(next);
+          const target = sessions.find((s) => s.id === next);
+          return {
+            sessions,
+            openTabs,
+            tabLastActiveAt,
+            currentSessionId: next,
+            ...(target?.mode ? { mode: target.mode } : {}),
+          };
+        }
         persistCurrentSession(null);
       }
       return {
         sessions,
+        openTabs,
+        tabLastActiveAt,
         currentSessionId: removingCurrent ? null : state.currentSessionId,
       };
     });
@@ -420,9 +664,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       // 新建会话时把 hero 待定草稿带入新会话(对齐旧版 createNewSession 的
       // savedDraft = getHeroPendingDraft 逻辑;空草稿不占位)
       if (heroDraft) drafts[id] = heroDraft;
-      return { currentSessionId: id, sessionInputDrafts: drafts };
+      return {
+        currentSessionId: id,
+        sessionInputDrafts: drafts,
+        // 新建即开标签并激活(尚未发送的虚拟会话;关闭未发送标签不会产生后端会话)
+        ...openTabPatch(s, id),
+      };
     });
     persistCurrentSession(id);
+    persistOpenTabs(get().openTabs);
     return id;
   },
 }));

@@ -1,13 +1,14 @@
 /**
- * ChatPanelHeader - 聊天面板头部
+ * ChatPanelHeader - 聊天面板头部(会话标签栏 + 操作按钮合并成一行)
  *
- * 对齐旧版 cockpit.html 的 .chat-panel-header:
- *  - 左侧:标题(当前会话名,无则 "Chat")+ 项目名后缀(.chat-panel-project)
- *  - 右侧:历史会话下拉(按时间分组,对齐旧版 updateHistoryDropdown)+ 新建会话 + 收起聊天
+ * 对齐旧版 cockpit.html 的 .chat-panel-header,但在新版中改为标签化导航:
+ *  - 左侧:会话标签栏(SessionTabs),激活标签即当前会话;无标签时显示 "Chat" 标题
+ *  - 右侧:历史会话下拉(按时间分组)+ 收起聊天
+ *  - 新建会话入口收敛到标签栏尾部的 "+"(对齐标签栏交互,避免两个入口重复)
  *
  * 与新版 TopBar 的分工:
  *  - TopBar:应用级(品牌名 / 模型选择 / Chat-Workspace-Settings 视图切换)
- *  - ChatPanelHeader:会话级(当前会话标题 / 历史会话快捷切换 / 新建 / 收起聊天面板)
+ *  - ChatPanelHeader:会话级(会话标签切换 / 历史会话 / 收起聊天面板)
  * 两者职责不重叠,不重复。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,6 +18,8 @@ import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { showToast } from '@/utils/toastStore';
 import { translate, useI18n } from '@/i18n';
+import { sessionTitle } from '@/utils/session-title';
+import { SessionTabs } from './SessionTabs';
 import type { Session, SessionMode } from '@/types';
 
 /** 历史下拉最大条数(对齐旧版 MAX_ITEMS = 40) */
@@ -36,18 +39,6 @@ function categorize(timestamp: number): TimeCategory {
   if (timestamp >= todayStart - 7 * day) return '7天内';
   if (timestamp >= todayStart - 30 * day) return '30天内';
   return '更早';
-}
-
-/** 会话显示名(对齐旧版:优先 sessionNames / title,兜底 "会话 + 短 id") */
-function sessionTitle(
-  s: Session,
-  displayNames: Record<string, string>,
-  t: (key: string, params?: Record<string, string | number>) => string,
-): string {
-  if (s.title && s.title.trim()) return s.title;
-  if (displayNames[s.id]) return displayNames[s.id];
-  const shortId = s.id.replace(/^web-/, '').slice(-6);
-  return shortId ? t('chat.sessionPrefix', { id: shortId }) : t('chat.unnamedSession');
 }
 
 interface ChatPanelHeaderProps {
@@ -78,8 +69,8 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
   const workspacePath = useAppStore((s) => s.workspacePath);
   const mode = useAppStore((s) => s.mode);
   const sessionDisplayNames = useAppStore((s) => s.sessionDisplayNames);
+  const openTabs = useAppStore((s) => s.openTabs);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
-  const createNewSession = useAppStore((s) => s.createNewSession);
 
   /** 历史下拉是否展开(hover 展开 / 点击钉住 / 点击外部关闭,对齐旧版) */
   const [open, setOpen] = useState(false);
@@ -93,7 +84,7 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
     setOpen(true);
   };
 
-  /** 关闭并解除钉住(wrapper 鼠标离开 / 点击外部 / 选择会话 / 新建会话) */
+  /** 关闭并解除钉住(wrapper 鼠标离开 / 点击外部 / 选择会话) */
   const closeDropdown = () => {
     pinnedOpenRef.current = false;
     setOpen(false);
@@ -125,13 +116,6 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
   const grouped = useMemo(() => groupSessionsByTime(sessions), [sessions]);
 
   // ── 动作 ──────────────────────────────────────────────
-  const handleNewSession = () => {
-    // 对齐旧版 createNewSession:生成 web-* 会话 id 并把 hero 待定草稿带入新会话;
-    // 首次发送消息时才真正持久化;useSessionMessages 会自动 reset chatStore。
-    createNewSession();
-    closeDropdown();
-  };
-
   const handleSelectSession = (id: string) => {
     if (id !== currentSessionId) setCurrentSession(id);
     closeDropdown();
@@ -139,25 +123,31 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
 
   return (
     <div className="chat-panel-header">
-      <div className="chat-panel-title-group">
-        <span className="chat-panel-title" title={currentSession ? title : undefined}>
-          {title}
-        </span>
-        {(workspacePath || mode) && (
-          <div className="chat-panel-title-popover">
-            {workspacePath && (
+      {/* 有标签时左侧让位给标签栏;无标签(hero 空态)时显示当前会话标题 + 工作区/模式信息 */}
+      {openTabs.length === 0 && (
+        <div className="chat-panel-title-group">
+          <span className="chat-panel-title" title={currentSession ? title : undefined}>
+            {title}
+          </span>
+          {(workspacePath || mode) && (
+            <div className="chat-panel-title-popover">
+              {workspacePath && (
+                <div className="popover-row">
+                  <span className="popover-label">{t('chat.workspacePath')}</span>
+                  <span className="popover-value">{workspacePath}</span>
+                </div>
+              )}
               <div className="popover-row">
-                <span className="popover-label">{t('chat.workspacePath')}</span>
-                <span className="popover-value">{workspacePath}</span>
+                <span className="popover-label">{t('chat.currentMode')}</span>
+                <span className="popover-value">{t(MODE_KEYS[mode]) ?? mode}</span>
               </div>
-            )}
-            <div className="popover-row">
-              <span className="popover-label">{t('chat.currentMode')}</span>
-              <span className="popover-value">{t(MODE_KEYS[mode]) ?? mode}</span>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+
+      {/* 会话标签栏(含计数与新建入口) */}
+      <SessionTabs />
 
       <div className="chat-header-actions">
         {/* 历史会话下拉 */}
@@ -215,21 +205,6 @@ export function ChatPanelHeader({ onCollapse }: ChatPanelHeaderProps) {
             </div>
           )}
         </div>
-
-        {/* 新建会话 */}
-        <button
-          type="button"
-          className="chat-header-btn"
-          title={t('chat.newSession')}
-          aria-label={t('chat.newSession')}
-          onClick={handleNewSession}
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20.5 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h13.5a2 2 0 0 1 2 2z" />
-            <line x1="8" y1="10" x2="16" y2="10" />
-            <line x1="12" y1="6" x2="12" y2="14" />
-          </svg>
-        </button>
 
         {/* 收起聊天(对齐旧版 .panel-toggle-btn) */}
         <button
