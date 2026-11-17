@@ -55,9 +55,15 @@
   position: relative;
   z-index: 10;
   margin: 0;
-  background: transparent;
+  /* 填充画布底色:浅色/深色下两面板之间呈现 4px 缝隙(与玻璃主题视觉一致) */
+  background: var(--bg-canvas);
   transition: background 0.15s;
   border-radius: 2px;
+}
+
+/* 玻璃主题:画布为毛玻璃遮罩层,分隔条保持透明以透出遮罩 */
+[data-theme="glass"] .preview-resizer {
+  background: transparent;
 }
 
 .preview-resizer:hover,
