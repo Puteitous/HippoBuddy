@@ -47,7 +47,6 @@ const BATCH_SIZE = 20;
 const GROUP_MODE_KEY = 'hippo-session-group-mode';
 /** 折叠项目持久化 key(与旧版一致) */
 const COLLAPSED_PROJECTS_KEY = 'hippo-collapsed-projects';
-const PINNED_COLLAPSED_KEY = 'hippo-pinned-collapsed';
 /** 无工作区路径的会话归入的"其他"分组 key */
 const OTHER_PROJECT_KEY = '__other__';
 
@@ -65,11 +64,10 @@ function readSidebarView(): SidebarView {
   }
 }
 
-/** 渲染行:置顶区头 / 项目分组头 / 时间分类头 / 会话项 */
+/** 渲染行:置顶分隔线 / 项目分组头 / 会话项 */
 type Row =
-  | { type: 'pinned-header' }
+  | { type: 'pinned-divider' }
   | { type: 'project-header'; projectKey: string; name: string; fullPath: string; collapsed: boolean }
-  | { type: 'category'; category: string }
   | { type: 'session'; session: Session; name: string };
 
 /** 会话排序/分组用的时间戳(lastActivityAt 优先,回退 createdAt;对齐旧版) */
@@ -112,65 +110,8 @@ function persistCollapsedProjects(projects: Set<string>): void {
   }
 }
 
-function readPinnedCollapsed(): boolean {
-  try {
-    return localStorage.getItem(PINNED_COLLAPSED_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function persistPinnedCollapsed(collapsed: boolean): void {
-  try {
-    localStorage.setItem(PINNED_COLLAPSED_KEY, collapsed ? '1' : '0');
-  } catch {
-    /* localStorage 不可用时静默降级 */
-  }
-}
-
-/** 按时间分组:今天/昨天/7天内/30天内/更早(北京时区;对齐旧版 groupSessionsByTime) */
-function groupSessionsByTime(sessions: Session[]): Array<[string, Session[]]> {
-  const now = Date.now();
-  const BEIJING_OFFSET = 8 * 3600 * 1000;
-  const dayIndex = (ts: number) => Math.floor((ts + BEIJING_OFFSET) / 86400000);
-  const today = dayIndex(now);
-
-  const buckets: Record<string, Session[]> = {
-    '今天': [],
-    '昨天': [],
-    '7天内': [],
-    '30天内': [],
-    '更早': [],
-  };
-
-  for (const s of sessions) {
-    const ts = parseInt(s.lastActivityAt || s.createdAt, 10);
-    if (isNaN(ts)) {
-      buckets['更早'].push(s);
-      continue;
-    }
-    const daysAgo = today - dayIndex(ts);
-    if (daysAgo === 0) buckets['今天'].push(s);
-    else if (daysAgo === 1) buckets['昨天'].push(s);
-    else if (daysAgo <= 7) buckets['7天内'].push(s);
-    else if (daysAgo <= 30) buckets['30天内'].push(s);
-    else buckets['更早'].push(s);
-  }
-
-  return Object.entries(buckets).filter(([, arr]) => arr.length > 0);
-}
-
-/** 时间分类(内部中文常量,兼作分组 key 与 React key)→ 对应 i18n key,展示时 t() 输出 */
-const CATEGORY_KEYS: Record<string, string> = {
-  '今天': 'session.today',
-  '昨天': 'session.yesterday',
-  '7天内': 'session.days7',
-  '30天内': 'session.days30',
-  '更早': 'session.earlier',
-};
-
 export function Sidebar() {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const sessions = useAppStore((s) => s.sessions);
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const isLoading = useAppStore((s) => s.isLoadingSessions);
@@ -283,7 +224,6 @@ export function Sidebar() {
   // 分组模式 / 折叠项目(初始化读取 localStorage,与旧版 key 一致)
   const [groupMode, setGroupMode] = useState<GroupMode>(readGroupMode);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(readCollapsedProjects);
-  const [pinnedCollapsed, setPinnedCollapsed] = useState<boolean>(readPinnedCollapsed);
   // 无限滚动:已渲染行数
   const [renderedCount, setRenderedCount] = useState(BATCH_SIZE);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -333,15 +273,6 @@ export function Sidebar() {
     });
   };
 
-  /** 折叠/展开置顶区(持久化,与折叠项目同一套交互) */
-  const togglePinnedCollapsed = () => {
-    setPinnedCollapsed((prev) => {
-      const next = !prev;
-      persistPinnedCollapsed(next);
-      return next;
-    });
-  };
-
   /** 打开项目工作区(走新版 workspaceApi) */
   const openProjectWorkspace = async (path: string) => {
     try {
@@ -356,12 +287,11 @@ export function Sidebar() {
   };
 
   /**
-   * 计算渲染行:排序 → 分组(project/time) → 注入虚拟会话。
+   * 计算渲染行:置顶会话 → 分隔线 → 普通会话(project/time 分组)。
    * 对齐旧版 renderSessionList / _computeRows / _injectVirtualSession。
    */
   const rows = useMemo<Row[]>(() => {
-    // 置顶会话分离到独立分区(置顶区);普通会话参与 project/time 分组。
-    // 置顶会话从原分组移除,仅在置顶区出现一次(取消置顶后自动回到所属分组)。
+    // 置顶会话置顶显示(行内小图钉标识),不参与普通分组;分隔线区隔两块。
     const pinnedSessions = sessions
       .filter((s) => s.pinned)
       .sort((a, b) => sessionTime(b) - sessionTime(a));
@@ -370,24 +300,17 @@ export function Sidebar() {
     const sorted = [...normalSessions].sort((a, b) => sessionTime(b) - sessionTime(a));
     const rows: Row[] = [];
 
-    // 置顶区:仅当存在置顶会话时渲染(空区不占黄金位置);插到列表最上方,
-    // 独立于 project/time 分组模式,且不被无限滚动裁掉(始终位于 rows 头部)。
-    // 折叠时仅保留头部(保留箭头切换),跳过其下置顶会话。
     if (pinnedSessions.length > 0) {
-      rows.push({ type: 'pinned-header' });
-      if (!pinnedCollapsed) {
-        for (const s of pinnedSessions) {
-          rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
-        }
+      for (const s of pinnedSessions) {
+        rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
       }
+      rows.push({ type: 'pinned-divider' });
     }
 
     if (groupMode === 'time') {
-      for (const [category, arr] of groupSessionsByTime(sorted)) {
-        rows.push({ type: 'category', category });
-        for (const s of arr) {
-          rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
-        }
+      // 时间模式:时间已常显在每行,不再渲染日期分类头,直接平铺
+      for (const s of sorted) {
+        rows.push({ type: 'session', session: s, name: sessionDisplayName(s, sessionDisplayNames) });
       }
     } else {
       // 1. 按 projectPath 分组(路径统一 / 分隔,无路径归入"其他")
@@ -406,7 +329,7 @@ export function Sidebar() {
           const fullPath = projectKey === OTHER_PROJECT_KEY ? '' : projectKey;
           const name = fullPath
             ? fullPath.split('/').filter(Boolean).pop() || fullPath
-            : translate('session.other');
+            : t('session.other');
           return { projectKey, fullPath, name, sessions: arr, latest };
         })
         .sort((a, b) => b.latest - a.latest);
@@ -435,7 +358,7 @@ export function Sidebar() {
     // 虚拟会话(新建未持久化的 web-*)不显示在会话列表,列表仅由已持久化会话驱动,
     // 刷新后行为即天然一致(不会出现"当前会话消失/不一致")。
     return rows;
-  }, [sessions, groupMode, collapsedProjects, pinnedCollapsed, lang]);
+  }, [sessions, groupMode, collapsedProjects, sessionDisplayNames, t]);
 
   /** 当前活跃会话所属项目 key(用于项目头 has-active 高亮;虚拟会话归入"其他") */
   const activeProjectKey = useMemo(() => {
@@ -514,33 +437,6 @@ export function Sidebar() {
     });
     return () => cancelAnimationFrame(raf);
   }, [hasMore, rows, renderedCount, sidebarView]);
-
-  // 玻璃主题:检测时间分类头是否吸顶命中,命中才加 .stuck 开启局部模糊。
-  // sticky 吸顶时其 top 会吸附到滚动容器(.sidebar-body)顶部,用该判据区分
-  // "正在吸顶"与"平时透明",避免未吸顶时也带 backdrop-filter。
-  useEffect(() => {
-    const body = bodyRef.current;
-    if (!body) return;
-    const apply = () => {
-      const bodyTop = body.getBoundingClientRect().top;
-      body.querySelectorAll<HTMLElement>('.session-category').forEach((el) => {
-        const stuck = el.getBoundingClientRect().top <= bodyTop + 1;
-        el.classList.toggle('stuck', stuck);
-      });
-    };
-    apply();
-    body.addEventListener('scroll', apply, { passive: true });
-    const ro = new ResizeObserver(apply);
-    ro.observe(body);
-    window.addEventListener('resize', apply);
-    return () => {
-      body.removeEventListener('scroll', apply);
-      ro.disconnect();
-      window.removeEventListener('resize', apply);
-    };
-    // rows 变化或视图在「会话列表 ↔ 文件树」间切换(.sidebar-body 会被卸载重建)时,
-    // 都需重新绑定滚动监听并对新容器做一次吸顶扫描,否则切回会话列表后模糊失效。
-  }, [rows, sidebarView]);
 
   return (
     <aside className={`sidebar${sidebarCollapsed ? ' hidden' : ''}`}>
@@ -666,27 +562,9 @@ export function Sidebar() {
         {!isLoading && rows.length > 0 && (
           <div className="session-list">
             {visibleRows.map((row) => {
-              if (row.type === 'pinned-header') {
-                return (
-                  <div key="pinned-header" className="session-pinned-header">
-                    {/* 置顶区头:图钉图标 + 置顶标题 */}
-                    <svg viewBox="0 0 48 48" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round">
-                      <path d="M10.6963 17.5042C13.3347 14.8657 16.4701 14.9387 19.8781 16.8076L32.62 9.74509L31.8989 4.78683L43.2126 16.1005L38.2656 15.3907L31.1918 28.1214C32.9752 31.7589 33.1337 34.6647 30.4953 37.3032C30.4953 37.3032 26.235 33.0429 22.7171 29.525L6.44305 41.5564L18.4382 25.2461C14.9202 21.7281 10.6963 17.5042 10.6963 17.5042Z" />
-                    </svg>
-                    <span className="session-pinned-header-title">{t('sidebar.pinned')}</span>
-                    <button
-                      type="button"
-                      className={`session-pinned-collapse${pinnedCollapsed ? ' collapsed' : ''}`}
-                      title={pinnedCollapsed ? t('sidebar.expandPinned') : t('sidebar.collapsePinned')}
-                      aria-label={pinnedCollapsed ? t('sidebar.expandPinned') : t('sidebar.collapsePinned')}
-                      onClick={togglePinnedCollapsed}
-                    >
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </button>
-                  </div>
-                );
+              if (row.type === 'pinned-divider') {
+                // 置顶区与普通列表之间的细分隔(无标题栏)
+                return <div key="pinned-divider" className="session-pinned-divider" />;
               }
               if (row.type === 'project-header') {
                 return (
@@ -700,18 +578,6 @@ export function Sidebar() {
                     onOpen={() => void openProjectWorkspace(row.fullPath)}
                     onNewChat={() => handleNewChatInProject(row.fullPath)}
                   />
-                );
-              }
-              if (row.type === 'category') {
-                return (
-                  <div key={row.category} className="session-category">
-                    {/* 时间分类头:时钟图标 + 分类文案,语义贴合时间分组 */}
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <polyline points="12 6 12 12 16 14" />
-                    </svg>
-                    {t(CATEGORY_KEYS[row.category])}
-                  </div>
                 );
               }
               return (
@@ -820,6 +686,8 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
   const removeSession = useAppStore((s) => s.removeSession);
   const setCurrentSession = useAppStore((s) => s.setCurrentSession);
   const sessionDisplayNames = useAppStore((s) => s.sessionDisplayNames);
+  // 已在标签栏打开:纯提示标记,优先级低于运行中/待确认/完成未读
+  const inTabs = useAppStore((s) => s.openTabs.includes(session.id));
 
   // 前端活跃流(对应会话在 sessionStreams 分区内的流式/工具调用进行中)——
   // 切走/新建其他会话后,原会话后台仍在流式,借此在会话项上提示续看。
@@ -1017,8 +885,18 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
         !renaming && (
           <>
             <div className="session-item-meta">
-              <span className="session-item-mode">{session.mode ?? 'coding'}</span>
               <span className="session-item-time">{time}</span>
+              {session.pinned && (
+                <span className="session-pin-mark" title={t('sidebar.pinned')}>
+                  <svg viewBox="0 0 48 48" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round">
+                    <path d="M10.6963 17.5042C13.3347 14.8657 16.4701 14.9387 19.8781 16.8076L32.62 9.74509L31.8989 4.78683L43.2126 16.1005L38.2656 15.3907L31.1918 28.1214C32.9752 31.7589 33.1337 34.6647 30.4953 37.3032C30.4953 37.3032 26.235 33.0429 22.7171 29.525L6.44305 41.5564L18.4382 25.2461C14.9202 21.7281 10.6963 17.5042 10.6963 17.5042Z" />
+                  </svg>
+                </span>
+              )}
+              {/* 已在标签栏打开:与标签栏联动的灰点,放在行尾保持左侧状态图标区干净 */}
+              {!awaitingConfirm && !streaming && !completedUnread && inTabs && (
+                <span className="session-opened-mark" title={t('chat.tabOpened')} />
+              )}
             </div>
             {/* hover 操作按钮(对齐旧版 .session-actions) */}
             <div className="session-actions">
@@ -1077,12 +955,25 @@ function SessionItem({ session, active, onSelect }: SessionItemProps) {
   );
 }
 
-/** 时间戳格式化为简短显示 */
+/** 时间戳格式化为相对时间(刚刚 / N 分钟前 / N 小时前 / 昨天 / N 天前 / N 周前) */
 function formatTime(timestamp: string): string {
   const n = Number(timestamp);
-  if (!Number.isFinite(n)) return '';
+  if (!Number.isFinite(n) || n <= 0) return '';
+  const diff = Date.now() - n;
+  if (diff < 60_000) return translate('sidebar.timeJustNow');
+  if (diff < 3_600_000) {
+    return translate('sidebar.timeMinutes', { n: Math.floor(diff / 60_000) });
+  }
+  if (diff < 86_400_000) {
+    return translate('sidebar.timeHours', { n: Math.floor(diff / 3_600_000) });
+  }
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 1) return translate('sidebar.timeYesterday');
+  if (days < 7) return translate('sidebar.timeDays', { n: days });
+  if (days < 30) return translate('sidebar.timeWeeks', { n: Math.floor(days / 7) });
+  if (days < 365) return translate('sidebar.timeMonths', { n: Math.floor(days / 30) });
+  // 超过一年:回落到绝对日期,避免"13 个月前"这类难读的表述
   const date = new Date(n);
-  // 简化显示:MM-DD HH:mm
   const pad = (x: number) => x.toString().padStart(2, '0');
-  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }

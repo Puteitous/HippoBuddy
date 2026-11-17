@@ -154,15 +154,17 @@ describe('Sidebar 列表四态', () => {
 });
 
 describe('Sidebar 会话项与切换', () => {
-  it('渲染会话名称/模式/时间,点击切换当前会话', () => {
-    const ts = String(new Date(2024, 0, 15, 10, 30).getTime());
+  it('渲染会话名称/模式/相对时间,点击切换当前会话', () => {
+    // 5 分钟前 → 相对时间「5 分钟前」
+    const ts = String(Date.now() - 5 * 60_000);
     useAppStore.setState({
       sessions: [session('s1', { title: '我的会话', mode: 'coding', createdAt: ts })],
     });
     const { container } = render(<Sidebar />);
     expect(screen.getByText('我的会话')).toBeInTheDocument();
-    expect(screen.getByText('coding')).toBeInTheDocument();
-    expect(container.querySelector('.session-item-time')?.textContent).toMatch(/\d{2}-\d{2} \d{2}:\d{2}/);
+    // 会话项不再常驻显示模式,只保留相对时间
+    expect(screen.queryByText('coding')).not.toBeInTheDocument();
+    expect(container.querySelector('.session-item-time')?.textContent).toBe('5 分钟前');
     fireEvent.click(container.querySelector('.session-item') as HTMLElement);
     expect(useAppStore.getState().currentSessionId).toBe('s1');
   });
@@ -344,28 +346,19 @@ describe('Sidebar 置顶会话', () => {
     expect(toast.showToast).toHaveBeenCalledWith('会话已置顶', { type: 'success' });
   });
 
-  it('置顶会话进入顶部置顶区,普通分组不含', () => {
+  it('置顶会话置顶显示并带图钉标记,普通分组不含', () => {
     useAppStore.setState({
       sessions: [session('s1', { title: '置顶甲', pinned: true }), session('s2', { title: '普通乙' })],
     });
     const { container } = render(<Sidebar />);
-    expect(container.querySelector('.session-pinned-header')).not.toBeNull();
-    // 置顶区头部标题
-    expect(screen.getByText('置顶')).toBeInTheDocument();
+    // 无标题栏,用细分隔线区隔置顶区
+    expect(container.querySelector('.session-pinned-divider')).not.toBeNull();
+    expect(container.querySelector('.session-pinned-header')).toBeNull();
+    // 置顶会话带行内图钉标记
+    expect(container.querySelector('.session-pin-mark')).not.toBeNull();
     // 置顶会话仅出现在置顶区(整个列表出现一次)
     expect(screen.getAllByText('置顶甲')).toHaveLength(1);
     expect(screen.getByText('普通乙')).toBeInTheDocument();
-  });
-
-  it('置顶区可折叠隐藏置顶会话', () => {
-    useAppStore.setState({
-      sessions: [session('s1', { title: '置顶甲', pinned: true })],
-    });
-    const { container } = render(<Sidebar />);
-    fireEvent.click(screen.getByTitle('收起置顶会话'));
-    expect(localStorage.getItem('hippo-pinned-collapsed')).toBe('1');
-    expect(screen.queryByText('置顶甲')).not.toBeInTheDocument();
-    expect(container.querySelector('.session-pinned-collapse.collapsed')).not.toBeNull();
   });
 });
 
@@ -440,14 +433,16 @@ describe('Sidebar 项目分组', () => {
 });
 
 describe('Sidebar 时间分组', () => {
-  it('time 模式按时间渲染分类头(今天)', () => {
+  it('time 模式平铺列表,不渲染日期分类头', () => {
     localStorage.setItem('hippo-session-group-mode', 'time');
     useAppStore.setState({
       sessions: [session('s1', { title: '甲', lastActivityAt: String(Date.now()) })],
     });
     render(<Sidebar />);
-    expect(screen.getByText('今天')).toBeInTheDocument();
     expect(screen.getByText('甲')).toBeInTheDocument();
+    // 日期分类头已移除,时间改为每行常显的相对时间
+    expect(screen.queryByText('今天')).not.toBeInTheDocument();
+    expect(screen.getByText('刚刚')).toBeInTheDocument();
   });
 });
 

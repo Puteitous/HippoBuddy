@@ -269,8 +269,8 @@
   margin: 0 0 1px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: var(--font-size-lg);
-  color: var(--text-primary);
+  font-size: 13px;
+  color: var(--text-secondary);
   font-weight: 400;
   display: flex;
   justify-content: space-between;
@@ -298,6 +298,7 @@
 .session-item-active:hover {
   background: rgb(220, 224, 228);
   color: var(--text-primary);
+  font-weight: 500;
 }
 
 [data-theme="dark"] .session-item-active,
@@ -358,8 +359,18 @@
   transform: scale(1.2);
 }
 
+/* 已在标签栏打开的小灰点:纯提示标记,与运行中绿圈/未读蓝点区分 */
+.session-opened-mark {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-muted);
+  opacity: 0.55;
+}
+
 .session-item-name {
-  font-size: var(--font-size-lg);
+  font-size: 13px;
   font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -367,32 +378,49 @@
   line-height: 1.4;
 }
 
-/* mode/时间 meta:默认隐藏,悬浮显示(与 .session-actions 同交互) */
+/* mode/时间 meta:常显(hover 时让位给操作按钮,不改变布局) */
 .session-item-meta {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 6px;
   margin-left: 4px;
-  font-size: var(--font-size-xs);
+  font-size: 10.5px;
   color: var(--text-muted);
   flex-shrink: 0;
 }
 
+/* hover 时隐藏 meta 但不移出文档流:操作按钮绝对定位覆盖其上,避免列表抖动 */
 .session-item:hover .session-item-meta {
-  display: flex;
+  visibility: hidden;
 }
 
-.session-item-mode {
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+/* 置顶标记:行内小图钉,弱化处理(与操作区的置顶按钮区分) */
+.session-pin-mark {
+  display: inline-flex;
+  align-items: center;
+  color: #d9a441;
+  opacity: 0.75;
+}
+
+.session-pin-mark:hover {
+  opacity: 1;
+}
+
+/* 置顶区与普通列表之间的细分隔线(置顶区不再有标题栏) */
+.session-pinned-divider {
+  height: 1px;
+  margin: 4px 4px 6px;
+  background: var(--border);
 }
 
 /* ========== hover 操作按钮(对齐旧版 .session-actions) ========== */
 .session-actions {
   display: none;
-  flex-shrink: 0;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
   gap: 2px;
-  margin-left: 4px;
 }
 
 .session-item:hover .session-actions {
@@ -524,93 +552,6 @@
 }
 [data-theme="glass"] .group-mode-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
-}
-
-/* ========== 时间分类头(对齐旧版 .session-category) ========== */
-.session-category {
-  padding: 6px 8px 5px;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.03em;
-  user-select: none;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  /* 吸顶头部需不透底:取列表底色(--bg-app),与 .session-item 同底 */
-  background: var(--bg-app);
-  /* 时钟图标 + 文案 水平对齐 */
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* 玻璃主题吸顶分类头:默认与 .session-item 一致为透明、无模糊;仅当分类头
-   吸顶命中(JS 检测后加 .stuck)才对后方滑过的 .session-item 做局部模糊,
-   实现「平时完全透明,吸顶时才看不清后方文字」。局部模糊无 fixed 后代,安全。 */
-[data-theme="glass"] .session-category {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-[data-theme="glass"] .session-category.stuck {
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-}
-
-/* ========== 置顶区头(位于列表最上方,样式对齐项目分组头,融合不割裂) ========== */
-.session-pinned-header {
-  padding: 7px 8px 6px 10px;
-  margin: 6px 0 0;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  user-select: none;
-  border-radius: 6px;
-}
-
-.session-pinned-header svg {
-  color: #f59e0b; /* 图钉强调色,对齐"置顶"语义 */
-  flex-shrink: 0;
-}
-
-.session-pinned-header-title {
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 置顶区收起/展开切换按钮(对齐项目头箭头交互) */
-.session-pinned-collapse {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  flex-shrink: 0;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  line-height: 0;
-}
-
-.session-pinned-collapse:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.session-pinned-header .session-pinned-collapse svg {
-  color: inherit; /* 箭头使用普通文字色,非图钉黄 */
-  transition: transform 0.15s ease;
-}
-
-.session-pinned-collapse.collapsed svg {
-  transform: rotate(-90deg);
 }
 
 /* ---------- hover 置顶按钮 ---------- */
