@@ -16,6 +16,7 @@ import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.client.LlmClientFactory;
 import com.example.agent.llm.exception.LlmErrorClassifier;
 import com.example.agent.llm.exception.LlmException;
+import com.example.agent.llm.retry.RetryPolicy;
 import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Tool;
@@ -52,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public class WebAgentOrchestrator {
 
@@ -90,9 +92,20 @@ public class WebAgentOrchestrator {
     private static final TruncationService truncationService = new TruncationService(TokenEstimatorFactory.getDefault());
     private static final SessionCancelManager cancelManager = SessionCancelManager.getInstance();
 
+    /**
+     * 流式调用“首包前”自动重试策略：最多重试 2 次（共 3 次尝试），退避 1s → 2s。
+     * <p>
+     * 仅在尚未向用户输出任何 chunk（content/reasoning/tool_call）时生效；
+     * 一旦开始输出，重试会在对话中产生重复内容，因此不再重试。
+     * </p>
+     */
+    private static final RetryPolicy DEFAULT_STREAM_RETRY_POLICY = new RetryPolicy(2, 1000, 2.0, 5000);
+
     private static final WebAgentOrchestrator INSTANCE = new WebAgentOrchestrator(WebSessionManager.getInstance());
 
     private final SessionManager sessionManager;
+    /** 流式首包前重试策略（测试可注入零退避策略） */
+    private final RetryPolicy streamRetryPolicy;
     private volatile LlmClient llmClient;
 
     /**
@@ -133,7 +146,13 @@ public class WebAgentOrchestrator {
     }
 
     public WebAgentOrchestrator(SessionManager sessionManager) {
+        this(sessionManager, DEFAULT_STREAM_RETRY_POLICY);
+    }
+
+    /** 测试用构造：注入自定义流式重试策略（如零退避） */
+    WebAgentOrchestrator(SessionManager sessionManager, RetryPolicy streamRetryPolicy) {
         this.sessionManager = sessionManager;
+        this.streamRetryPolicy = streamRetryPolicy;
         this.llmClient = ServiceLocator.get(LlmClient.class);
         this.toolRegistry = ServiceLocator.get(ToolRegistry.class);
     }
@@ -256,7 +275,11 @@ public class WebAgentOrchestrator {
                 ((AbstractLlmClient) llmClient).setCancelCheck(() -> cancelManager.isCancelled(sessionId));
             }
 
-            ChatResponse response = llmClient.chatStream(messages, tools, (StreamChunk chunk) -> {
+            // 是否已向用户输出过任何 chunk：决定失败后能否安全自动重试。
+            // 一旦输出过内容，重试会在对话中产生重复文本，只能交给用户手动重试。
+            final boolean[] deliveredAnyChunk = {false};
+            Consumer<StreamChunk> onChunk = chunk -> {
+                deliveredAnyChunk[0] = true;
                 if (cancelManager.isCancelled(sessionId)) {
                     logger.debug("流式回调感知取消信号, 中止 LLM 请求: sessionId={}", sessionId);
                     llmClient.abortCurrentRequest();
@@ -352,7 +375,10 @@ public class WebAgentOrchestrator {
                     }
                     sseWriter.sendSseEvent("web_search_done", buildWebSearchPayload(action));
                 }
-            });
+            };
+
+            ChatResponse response = callLlmStreamWithRetry(
+                sessionId, messages, tools, onChunk, deliveredAnyChunk, sseWriter);
 
             if (cancelManager.isCancelled(sessionId)) {
                 logger.info("收到取消信号，跳过工具执行 (sessionId={}, turn={})", sessionId, turn + 1);
@@ -1137,6 +1163,82 @@ public class WebAgentOrchestrator {
         }
 
         node.put("truncated", totalCount > 10);
+        return node.toString();
+    }
+
+    /**
+     * 流式调用 LLM，并对“首包前失败”做安全自动重试。
+     * <p>
+     * 触发条件（需全部满足）：
+     * <ul>
+     *   <li>本次尝试尚未向用户输出任何 chunk（{@code deliveredAny[0] == false}）；</li>
+     *   <li>用户未取消；</li>
+     *   <li>异常可重试（连接失败 / 超时 / 5xx / 429 / 读流阶段的 IO 中断）。</li>
+     * </ul>
+     * 每次重试前推送 {@code retry} SSE 事件，让前端提示“正在重试”，避免用户误以为卡死。
+     *
+     * @param deliveredAny 单元素数组，onChunk 被调用即置 true，表示已经输出过内容
+     */
+    private ChatResponse callLlmStreamWithRetry(String sessionId,
+                                                List<Message> messages,
+                                                List<Tool> tools,
+                                                Consumer<StreamChunk> onChunk,
+                                                boolean[] deliveredAny,
+                                                SseWriter sseWriter) throws LlmException {
+        int attempt = 0;
+        while (true) {
+            deliveredAny[0] = false;
+            try {
+                return llmClient.chatStream(messages, tools, onChunk);
+            } catch (LlmException e) {
+                if (deliveredAny[0] || cancelManager.isCancelled(sessionId)
+                        || !isRetryableStreamFailure(e, attempt)) {
+                    throw e;
+                }
+
+                long delayMs = streamRetryPolicy.getDelayMs(attempt);
+                attempt++;
+                logger.warn("LLM 流式请求首包前失败，{} ms 后进行第 {}/{} 次重试 (sessionId={}): {}",
+                    delayMs, attempt, streamRetryPolicy.getMaxRetries(), sessionId, e.getMessage());
+                sseWriter.sendSseEvent("retry", buildRetryPayload(attempt, delayMs, e));
+
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+                if (cancelManager.isCancelled(sessionId)) {
+                    throw e;
+                }
+            }
+        }
+    }
+
+    /**
+     * 首包前的流式失败是否可安全重试。
+     * 复用 {@link RetryPolicy} 的判定（超时 / 连接失败 / 5xx / 429），并补充读流阶段的
+     * IO 中断（Connection reset、broken pipe 等会被包装成普通 LlmException）。
+     * 排除请求体序列化失败：JsonProcessingException 同样是 IOException，但重试无意义。
+     */
+    private boolean isRetryableStreamFailure(LlmException e, int attempt) {
+        if (streamRetryPolicy.shouldRetry(e, attempt)) {
+            return true;
+        }
+        Throwable cause = e.getCause();
+        return cause instanceof java.io.IOException
+                && !(cause instanceof com.fasterxml.jackson.core.JsonProcessingException);
+    }
+
+    /** 构建 retry SSE 事件负载：第几次重试、总次数、退避时长、失败原因码 */
+    private String buildRetryPayload(int attempt, long delayMs, LlmException e) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("attempt", attempt);
+        node.put("maxRetries", streamRetryPolicy.getMaxRetries());
+        node.put("delayMs", delayMs);
+        if (e.getErrorCode() != null) {
+            node.put("reason", e.getErrorCode());
+        }
         return node.toString();
     }
 

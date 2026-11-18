@@ -4,7 +4,10 @@ import com.example.agent.application.ConversationService;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.llm.client.LlmClient;
+import com.example.agent.llm.exception.LlmConnectionException;
 import com.example.agent.llm.exception.LlmException;
+import com.example.agent.llm.retry.RetryPolicy;
+import com.example.agent.llm.stream.StreamChunk;
 import com.example.agent.llm.model.ChatResponse;
 import com.example.agent.llm.model.FunctionCall;
 import com.example.agent.llm.model.Message;
@@ -36,6 +39,7 @@ import java.io.Writer;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -1062,6 +1066,95 @@ class WebAgentOrchestratorTest {
                 orchestrator, null, null);
             assertNotNull(bothNull, "双 null 应返回空列表而非抛异常");
             assertTrue(bothNull.isEmpty());
+        }
+    }
+
+    @Nested
+    @DisplayName("流式首包前自动重试")
+    class StreamRetryTests {
+
+        /** 注入零退避策略，避免测试真实等待 1s/2s */
+        private WebAgentOrchestrator newOrchestratorWithRetry(LlmClient client) {
+            ServiceLocator.registerSingleton(LlmClient.class, client);
+            return new WebAgentOrchestrator(mockSessionManager, new RetryPolicy(2, 0, 2.0, 0));
+        }
+
+        @Test
+        @DisplayName("首包前连接失败应自动重试并恢复输出")
+        void retryAfterConnectionFailureThenSuccess() throws Exception {
+            LlmClient client = mock(LlmClient.class);
+            when(client.chatStream(anyList(), anyList(), any()))
+                .thenThrow(new LlmConnectionException("网络断开", "http://mock"))
+                .thenAnswer(invocation -> {
+                    // 模拟第二次尝试正常流式输出
+                    Consumer<StreamChunk> onChunk = invocation.getArgument(2);
+                    StreamChunk chunk = new StreamChunk();
+                    chunk.setContent("恢复成功");
+                    onChunk.accept(chunk);
+                    return LlmResponseBuilder.create().content("恢复成功").build();
+                });
+
+            newOrchestratorWithRetry(client)
+                .execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            verify(client, times(2)).chatStream(anyList(), anyList(), any());
+            String output = sseOutput();
+            assertTrue(output.contains("event: retry"), "应有 retry 事件");
+            assertTrue(output.contains("\"attempt\":1"), "retry 事件应携带第 1 次重试");
+            assertTrue(output.contains("event: content"), "重试成功后应有 content");
+            assertTrue(output.contains("event: done"), "重试成功后应有 done");
+            assertFalse(output.contains("event: error"), "重试成功不应有 error");
+        }
+
+        @Test
+        @DisplayName("持续失败达到上限后抛异常，最多 3 次尝试、2 次 retry")
+        void retryExhaustedThrowsAfterThreeAttempts() throws Exception {
+            LlmClient client = mock(LlmClient.class);
+            when(client.chatStream(anyList(), anyList(), any()))
+                .thenThrow(new LlmConnectionException("网络断开", "http://mock"));
+
+            WebAgentOrchestrator retryOrchestrator = newOrchestratorWithRetry(client);
+
+            assertThrows(LlmException.class,
+                () -> retryOrchestrator.execute(TEST_SESSION_ID, conversation, sseWriter));
+
+            verify(client, times(3)).chatStream(anyList(), anyList(), any());
+            String output = sseOutput();
+            assertEquals(2, countOccurrences(output, "event: retry"), "应重试 2 次");
+            assertFalse(output.contains("event: content"), "失败场景不应有 content");
+        }
+
+        @Test
+        @DisplayName("已输出内容后失败不应重试，避免重复内容")
+        void noRetryAfterContentDelivered() throws Exception {
+            LlmClient client = mock(LlmClient.class);
+            when(client.chatStream(anyList(), anyList(), any())).thenAnswer(invocation -> {
+                Consumer<StreamChunk> onChunk = invocation.getArgument(2);
+                StreamChunk chunk = new StreamChunk();
+                chunk.setContent("半截内容");
+                onChunk.accept(chunk);
+                throw new LlmConnectionException("中途断开", "http://mock");
+            });
+
+            WebAgentOrchestrator retryOrchestrator = newOrchestratorWithRetry(client);
+
+            assertThrows(LlmException.class,
+                () -> retryOrchestrator.execute(TEST_SESSION_ID, conversation, sseWriter));
+
+            verify(client, times(1)).chatStream(anyList(), anyList(), any());
+            String output = sseOutput();
+            assertFalse(output.contains("event: retry"), "已输出内容后不应重试");
+            assertTrue(output.contains("半截内容"), "已输出的内容应保留");
+        }
+
+        private int countOccurrences(String text, String token) {
+            int count = 0;
+            int idx = 0;
+            while ((idx = text.indexOf(token, idx)) != -1) {
+                count++;
+                idx += token.length();
+            }
+            return count;
         }
     }
 }

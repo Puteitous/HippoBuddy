@@ -120,6 +120,7 @@ export function ChatPanel() {
     isReasoning,
     stream,
     error,
+    retryNotice,
     warnings,
     toolCalls,
     webSearchActions,
@@ -924,6 +925,16 @@ export function ChatPanel() {
                 )}
               </div>
             )}
+        {/* 自动重试提示(首包前网络失败,后端正在退避重试) */}
+        {retryNotice && (
+          <div className="chat-panel-retry">
+            {t('chat.retryNotice', {
+              attempt: retryNotice.attempt,
+              maxRetries: retryNotice.maxRetries,
+            })}
+          </div>
+        )}
+
         {/* 错误提示 */}
         {error && (
           <div className="chat-panel-error">

@@ -63,6 +63,17 @@
   font-size: var(--font-size-md);
 }
 
+/* 自动重试提示(网络波动,后端正在首包前重试) */
+.chat-panel-retry {
+  margin: 8px auto;
+  padding: 8px 14px;
+  background: var(--warning-bg);
+  border-left: 3px solid var(--warning-color);
+  border-radius: var(--radius-sm);
+  color: var(--warning-color);
+  font-size: var(--font-size-md);
+}
+
 /* 警告提示 */
 .chat-panel-warnings {
   position: relative;

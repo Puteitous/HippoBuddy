@@ -26,6 +26,7 @@ export type ChatSseEventName =
   | 'waiting_user'
   | 'continue'
   | 'warning'
+  | 'retry'
   | 'error'
   | 'done'
   | 'complete';
@@ -144,6 +145,18 @@ export interface WarningPayload {
   message: string;
 }
 
+/** 流式请求首包前自动重试(后端尚未输出任何内容时的网络类失败) */
+export interface RetryPayload {
+  /** 第几次重试(从 1 开始) */
+  attempt: number;
+  /** 最大重试次数 */
+  maxRetries: number;
+  /** 本次重试前的退避时长(毫秒) */
+  delayMs: number;
+  /** 失败原因码(如 NETWORK_ERROR / TIMEOUT / SERVER_BUSY,可空) */
+  reason?: string;
+}
+
 /** 错误事件 */
 export interface ErrorPayload {
   /** 错误码(可空,后端 LlmErrorClassifier 常量) */
@@ -182,6 +195,7 @@ export interface ChatSseEventMap {
   waiting_user: WaitingUserPayload;
   continue: ContinuePayload;
   warning: WarningPayload;
+  retry: RetryPayload;
   error: ErrorPayload;
   done: DonePayload;
   complete: CompletePayload;

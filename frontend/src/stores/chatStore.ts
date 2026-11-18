@@ -183,6 +183,8 @@ export interface SessionStreamState {
   warnings: string[];
   /** 错误信息(error 事件或网络错误,无错误时为 null) */
   error: string | null;
+  /** 流式请求首包前自动重试提示(retry 事件;恢复输出或结束时清除) */
+  retryNotice: ChatSseEventMap['retry'] | null;
   /** 是否正在加载历史消息(GET /api/sessions/:id/messages) */
   isLoadingMessages: boolean;
   /** 各回合处理过程(思考+工具调用)是否收起:roundKey → collapsed(回合级独立收起) */
@@ -219,6 +221,7 @@ function emptySessionStream(): SessionStreamState {
     completedUnread: false,
     warnings: [],
     error: null,
+    retryNotice: null,
     isLoadingMessages: false,
     collapsedRounds: {},
     processStartedAt: undefined,
@@ -770,6 +773,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         // 清空等待中的 ask + 残留状态
         s.isSending = true;
         s.error = null;
+        s.retryNotice = null;
         s.askUserData = null;
         s.waitingForUser = false;
       });
@@ -940,6 +944,7 @@ export const useChatStore = create<ChatState>((set, get) => {
                     createdAt: Date.now(),
                   },
             );
+            s.retryNotice = null;
             s.isReasoning = true;
           });
           break;
@@ -957,6 +962,8 @@ export const useChatStore = create<ChatState>((set, get) => {
           const payload = data as ChatSseEventMap['content'];
           updateSession(sid, (s) => {
             const chunk = payload.content;
+            // 已恢复输出,重试提示不再需要
+            s.retryNotice = null;
             s.stream = appendToLastAssistant(
               s.stream,
               (a) => (a.text += chunk),
@@ -978,6 +985,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         case 'tool_start': {
           const payload = data as ChatSseEventMap['tool_start'];
           updateSession(sid, (s) => {
+            s.retryNotice = null;
             // 无 thinking 事件(思考被禁用等)的回合,以首个工具开始作为过程起点
             if (s.processStartedAt == null) s.processStartedAt = Date.now();
             if (payload.name === 'todo_write') {
@@ -1139,6 +1147,14 @@ export const useChatStore = create<ChatState>((set, get) => {
           });
           break;
         }
+        case 'retry': {
+          // 后端首包前自动重试(尚未输出任何内容),仅提示,不改变 isSending
+          const payload = data as ChatSseEventMap['retry'];
+          updateSession(sid, (s) => {
+            s.retryNotice = payload;
+          });
+          break;
+        }
         case 'error': {
           const payload = data as ChatSseEventMap['error'];
           // 先提交已累积的流式内容到 messages,再清理运行态标记,
@@ -1146,6 +1162,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           get().commitStreamingMessage(sid);
           updateSession(sid, (s) => {
             s.error = payload.message;
+            s.retryNotice = null;
             s.isSending = false;
             s.isReasoning = false;
             // 定格处理过程耗时,避免 error 后 process-summary 仍用 Date.now() 不断前跳
@@ -1165,6 +1182,7 @@ export const useChatStore = create<ChatState>((set, get) => {
             });
           }
           updateSession(sid, (s) => {
+            s.retryNotice = null;
             // 正常完成时后端发 done {} (reason 为空)。若不兜底, doneReason 会一直是 null,
             // 后台任务完成提醒钩子按「doneReason 由空→非空」判定会永远不触发。
             // 这里归一到哨兵值,使正常完成也能被识别为一次「刚完成」。
@@ -1190,6 +1208,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           // 兜底清理运行态,防止后端异常顺序导致计时/转圈不消失。
           get().commitStreamingMessage(sid);
           updateSession(sid, (s) => {
+            s.retryNotice = null;
             s.isSending = false;
             s.isReasoning = false;
             s.processEndedAt = Math.max(s.processEndedAt ?? 0, Date.now());
