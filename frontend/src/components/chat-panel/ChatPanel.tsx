@@ -31,6 +31,7 @@ import {
 
 import { MessageBubble, WebSearchStreamingRow } from './MessageBubble';
 import { HistoryRenderer } from './HistoryRenderer';
+import type { HistoryRendererHandle } from './HistoryRenderer';
 import { ProcessSection } from './ProcessSection';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
 import { ToolTimeline } from '../tool-renderers/ToolTimeline';
@@ -416,6 +417,8 @@ export function ChatPanel() {
   // 消息容器 DOM 实例(ChatNav 顶层常驻后,以 state 传递才能在其 effect 中触发
   // 重新绑定滚动监听;ref 对象本身变化不会触发子组件 effect)
   const [messagesContainerEl, setMessagesContainerEl] = useState<HTMLDivElement | null>(null);
+  // 历史窗口化:恢复深层滚动位置、ChatNav 跳转老消息时需要展开更早回合
+  const historyRef = useRef<HistoryRendererHandle | null>(null);
   // 用户是否手动上滚(暂停自动滚动)
   const stickToBottomRef = useRef(true);
   /** 各会话的滚动位置(切走时保存,切回时恢复;stickBottom=true 表示原本贴底) */
@@ -482,16 +485,30 @@ export function ChatPanel() {
     if (!mem || mem.stickBottom) return;
     if (restoredSessionRef.current === currentSessionId) return;
 
+    const applyRestore = (el: HTMLDivElement) => {
+      el.scrollTop = mem.top;
+      restoredSessionRef.current = currentSessionId;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickToBottomRef.current = distanceFromBottom < 80;
+      setShowScrollHint(!stickToBottomRef.current);
+    };
+
     const el = messagesContainerRef.current;
     if (!el) return;
-    // 内容高度还不足以支撑目标位置,说明历史仍在加载,等下一次消息变化
-    if (el.scrollHeight - el.clientHeight < mem.top) return;
+    if (el.scrollHeight - el.clientHeight < mem.top) {
+      // 高度不足有两种可能:历史仍在加载,或更早回合被窗口化折叠。
+      // 先展开全部历史,等下一帧渲染完成后再恢复位置。
+      historyRef.current?.revealAll();
+      const raf = requestAnimationFrame(() => {
+        const next = messagesContainerRef.current;
+        if (!next || restoredSessionRef.current === currentSessionId) return;
+        if (next.scrollHeight - next.clientHeight < mem.top) return;
+        applyRestore(next);
+      });
+      return () => cancelAnimationFrame(raf);
+    }
 
-    el.scrollTop = mem.top;
-    restoredSessionRef.current = currentSessionId;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stickToBottomRef.current = distanceFromBottom < 80;
-    setShowScrollHint(!stickToBottomRef.current);
+    applyRestore(el);
   }, [currentSessionId, messages.length, stream.length]);
 
   // 切换会话:恢复该会话的输入草稿,清空图片,并聚焦输入框
@@ -854,7 +871,10 @@ export function ChatPanel() {
       {/* 会话内用户消息导航(右侧浮动窄条)。
           对齐旧版:chatNavStrip 为静态 DOM 元素,始终存在(空态由 CSS data-empty 隐藏),
           故放在 .chat-panel 顶层、条件分支之外,不随会话/消息有无而卸载。 */}
-      <ChatNav container={messagesContainerEl} />
+      <ChatNav
+        container={messagesContainerEl}
+        onRevealMessage={(messageId) => historyRef.current?.revealMessage(messageId)}
+      />
 
       {/* 空会话:欢迎屏 Hero(对齐旧版 .empty-state)
           显示条件对齐旧版 createNewSession:除了无选中会话外,
@@ -876,6 +896,7 @@ export function ChatPanel() {
             {/* 实时流式 rows 作为 tail 并入同一 history-list 容器:与固化后消息
                 同 key 复用 DOM,避免卸载重挂导致进入动画重放 */}
             <HistoryRenderer
+              ref={historyRef}
               onRetry={handleRetry}
               onFork={handleFork}
               onSendQuestion={handleSendQuestion}

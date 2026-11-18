@@ -46,6 +46,10 @@ beforeEach(() => {
   chatFns.sessionStreams = {};
   chatFns.hasActiveStream.mockReturnValue(false);
   chatFns.getCachedMessages.mockReturnValue(null);
+  // 真实 store 的分区回收会真正删除分区,测试里同步模拟,避免已回收的会话"复活"
+  chatFns.resetSessionStream.mockImplementation((sid: string) => {
+    delete chatFns.sessionStreams[sid];
+  });
   apiMock.sessions.getMessages.mockResolvedValue([]);
 });
 
@@ -77,9 +81,9 @@ describe('useSessionMessages', () => {
     renderHook(() => useSessionMessages());
     expect(chatFns.setMessages).toHaveBeenCalledWith([{ id: 'c1' }]);
     expect(chatFns.setIsLoadingMessages).toHaveBeenCalledWith(false);
-    // 后台仍刷新后端对齐
+    // 后台仍刷新后端对齐(带 AbortSignal,切走时可中断)
     await act(async () => {});
-    expect(apiMock.sessions.getMessages).toHaveBeenCalledWith('s1');
+    expect(apiMock.sessions.getMessages).toHaveBeenCalledWith('s1', expect.any(AbortSignal));
   });
 
   it('拉取失败:setError 且不 emit', async () => {
@@ -99,16 +103,67 @@ describe('useSessionMessages', () => {
     expect(chatFns.setIsLoadingMessages).not.toHaveBeenCalled();
   });
 
-  it('切走时清理无活跃流的上一个会话分区', () => {
+  it('切走时保留空闲分区(便于切回复用,不立即清理)', () => {
+    chatFns.sessionStreams = { s1: { messages: [] } };
     appState.currentSessionId = 's1';
     const { rerender } = renderHook(() => useSessionMessages());
     chatFns.hasActiveStream.mockReturnValue(false);
     appState.currentSessionId = 's2';
     rerender();
-    expect(chatFns.resetSessionStream).toHaveBeenCalledWith('s1');
+    expect(chatFns.resetSessionStream).not.toHaveBeenCalled();
+  });
+
+  it('切回已保留的会话:复用内存分区,不重复请求历史', () => {
+    const { rerender } = renderHook(() => useSessionMessages());
+    appState.currentSessionId = 's1';
+    rerender();
+    // 模拟真实 store:s1 加载完成后留下内存分区
+    chatFns.sessionStreams = { s1: { messages: [] } };
+    appState.currentSessionId = 's2';
+    rerender();
+    appState.currentSessionId = 's1';
+    rerender();
+    // 仅 s1、s2 各请求一次;切回 s1 命中分区不再请求
+    expect(apiMock.sessions.getMessages).toHaveBeenCalledTimes(2);
+  });
+
+  it('空闲分区超过保留时长后被回收', () => {
+    vi.useFakeTimers();
+    try {
+      chatFns.sessionStreams = { s1: { messages: [] } };
+      appState.currentSessionId = 's1';
+      const { rerender } = renderHook(() => useSessionMessages());
+      vi.advanceTimersByTime(6 * 60 * 1000);
+      appState.currentSessionId = 's2';
+      rerender();
+      expect(chatFns.resetSessionStream).toHaveBeenCalledWith('s1');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('空闲分区数量超限时淘汰最久未用的', () => {
+    vi.useFakeTimers();
+    try {
+      chatFns.sessionStreams = { s1: {}, s2: {}, s3: {}, s4: {}, s5: {}, s6: {}, s7: {} };
+      appState.currentSessionId = 's1';
+      const { rerender } = renderHook(() => useSessionMessages());
+      for (const sid of ['s2', 's3', 's4', 's5', 's6', 's7']) {
+        vi.advanceTimersByTime(1000);
+        appState.currentSessionId = sid;
+        rerender();
+      }
+      // 空闲 6 个 > 上限 4 → 淘汰最久未用的 s1、s2
+      expect(chatFns.resetSessionStream).toHaveBeenCalledWith('s1');
+      expect(chatFns.resetSessionStream).toHaveBeenCalledWith('s2');
+      expect(chatFns.resetSessionStream).not.toHaveBeenCalledWith('s6');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('切走时保留有活跃流的上一个会话分区(供切回续看)', () => {
+    chatFns.sessionStreams = { s1: { isSending: true } };
     appState.currentSessionId = 's1';
     const { rerender } = renderHook(() => useSessionMessages());
     chatFns.hasActiveStream.mockReturnValue(true);

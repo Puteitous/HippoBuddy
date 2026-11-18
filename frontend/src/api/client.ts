@@ -55,9 +55,9 @@ export const sessionApi = {
   /** GET /api/sessions - 列出所有会话(内存活跃 + 磁盘归档) */
   list: () => getJson<Session[]>(`${API_BASE}/sessions`),
 
-  /** GET /api/sessions/:id/messages - 读取会话历史消息(从 JSONL) */
-  getMessages: (sessionId: string) =>
-    getJson<Message[]>(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}/messages`),
+  /** GET /api/sessions/:id/messages - 读取会话历史消息(从 JSONL);signal 用于切走时中断 */
+  getMessages: (sessionId: string, signal?: AbortSignal) =>
+    getJson<Message[]>(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}/messages`, { signal }),
 
   /** GET /api/sessions/:id/tokens - 读取会话 Token 统计 */
   getTokens: (sessionId: string) =>

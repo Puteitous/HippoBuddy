@@ -89,6 +89,28 @@
   font-style: italic;
 }
 
+/* ── 历史窗口化:更早回合的加载入口 ────────────────────────
+   首屏只渲染最近 N 轮,更早的回合折叠在按钮之后,点击追加一批。 */
+.history-load-earlier {
+  align-self: center;
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.history-load-earlier:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
 /* ── 待确认工具独立确认区(对齐旧版回合级行内确认) ──────────
    渲染在 .history-list 之后、chat-panel-messages 内,不依赖流式
    tail(isStreamSending),流结束后仍驻留,直到用户决策才消失。 */

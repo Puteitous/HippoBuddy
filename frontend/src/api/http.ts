@@ -20,9 +20,9 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
   }
 }
 
-/** GET 请求 */
-export async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { method: 'GET' });
+/** GET 请求(可传 init.signal 中断) */
+export async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, { ...init, method: 'GET' });
   if (!response.ok) {
     const message = await extractErrorMessage(response, `HTTP ${response.status}`);
     throw new ApiError(message, response.status);

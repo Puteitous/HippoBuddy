@@ -57,9 +57,14 @@ interface ChatNavProps {
    *  - 切换会话后自动更新,触发本组件重新绑定滚动监听(ref 对象本身变化不会触发 effect)
    */
   container: HTMLDivElement | null;
+  /**
+   * 目标消息尚未渲染时请求 HistoryRenderer 展开历史窗口
+   * (历史窗口化后,更早的回合默认不挂载,需先展开再滚动)
+   */
+  onRevealMessage?: (messageId: string) => void;
 }
 
-export function ChatNav({ container }: ChatNavProps) {
+export function ChatNav({ container, onRevealMessage }: ChatNavProps) {
   const { t } = useI18n();
   const { messages } = useSessionStream();
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
@@ -80,12 +85,21 @@ export function ChatNav({ container }: ChatNavProps) {
     [messages],
   );
 
-  /** 滚动到指定用户消息 */
+  /** 滚动到指定用户消息(目标尚未渲染时先展开窗口,再逐帧重试) */
   const scrollToMessage = useCallback((messageId: string) => {
     if (!container) return;
-    const row = container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
-    if (!row) return;
-    row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    let attempts = 0;
+    const tryScroll = () => {
+      const row = container.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      // 消息在折叠的更早回合里:onRevealMessage 已触发展开,等渲染完成后重试
+      if (++attempts > 10) return;
+      requestAnimationFrame(tryScroll);
+    };
+    tryScroll();
   }, [container]);
 
   /** 根据容器视口与消息项位置计算当前 active(顶部对齐判定) */
@@ -189,6 +203,7 @@ export function ChatNav({ container }: ChatNavProps) {
                 onClick={(e) => {
                   // 对齐旧版 ChatNav.js: 阻止事件冒泡,避免触发外层容器点击
                   e.stopPropagation();
+                  onRevealMessage?.(item.messageId);
                   scrollToMessage(item.messageId);
                 }}
               >

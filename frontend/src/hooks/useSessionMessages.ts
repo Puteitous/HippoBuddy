@@ -6,7 +6,8 @@
  *  - 目标会话已有内存流式分区(chatStore.sessionStreams)时:直接复用,不重置不加载,
  *    使「切回正在流式的会话」能无缝续看实时进度(该会话的 SSE 一直在后台写入分区)。
  *  - 目标会话无分区时:初始化空分区,再从缓存(localStorage)/后端加载历史。
- *  - 切走时:若上一会话无活跃流(流已结束),清理其分区释放内存;活跃流会话保留以便切回续看。
+ *  - 切走时:空闲分区不立即删除,按 TTL + LRU 回收(见下方常量),使快速来回切
+ *    会话时能命中内存、不重复请求历史;活跃流会话始终保留以便切回续看。
  *
  * 设计意图:
  *  - 流式状态按会话分区后,切会话不再需要 reset 清空全局流式缓冲(旧行为会丢失
@@ -20,6 +21,11 @@ import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { emit } from '@/utils/eventBus';
 
+/** 空闲会话的内存分区保留时长:期间切回直接复用,不重新拉历史 */
+const IDLE_PARTITION_TTL_MS = 5 * 60 * 1000;
+/** 最多保留的空闲分区数量(不含当前会话与活跃流会话),超出按最久未用淘汰 */
+const MAX_IDLE_PARTITIONS = 4;
+
 export function useSessionMessages(): void {
   const currentSessionId = useAppStore((s) => s.currentSessionId);
   const resetSessionStream = useChatStore((s) => s.resetSessionStream);
@@ -28,19 +34,38 @@ export function useSessionMessages(): void {
   const setError = useChatStore((s) => s.setError);
   const setIsLoadingMessages = useChatStore((s) => s.setIsLoadingMessages);
   const getCachedMessages = useChatStore((s) => s.getCachedMessages);
-  // 记录上一会话 id,用于切走时清理无活跃流分区
-  const prevSessionIdRef = useRef<string | null>(null);
+  /** 每个会话最后一次成为当前会话的时间(TTL 与 LRU 淘汰依据) */
+  const lastUsedAtRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
+    // 切走即中断未完成的请求,快速连切时只让最后一次请求真正落地
+    const controller = new AbortController();
+    const now = Date.now();
+    if (currentSessionId) lastUsedAtRef.current.set(currentSessionId, now);
 
-    // 切走时:若上一会话无活跃流,清理其内存分区(释放内存)。
-    // 活跃流会话(正在发送/流式缓冲非空)保留,切回时直接续看实时进度。
-    const prev = prevSessionIdRef.current;
-    if (prev && prev !== currentSessionId && !hasActiveStream(prev)) {
-      resetSessionStream(prev);
+    // 切走时的分区回收:不立即删除(切回可直接复用内存),只清理超过 TTL 的
+    // 空闲分区;空闲分区数量超过上限时按最久未用淘汰。活跃流分区始终保留。
+    const streams = useChatStore.getState().sessionStreams;
+    const idle: Array<{ id: string; at: number }> = [];
+    for (const id of Object.keys(streams)) {
+      if (id === currentSessionId || hasActiveStream(id)) continue;
+      const at = lastUsedAtRef.current.get(id) ?? now;
+      lastUsedAtRef.current.set(id, at);
+      if (now - at > IDLE_PARTITION_TTL_MS) {
+        resetSessionStream(id);
+        lastUsedAtRef.current.delete(id);
+        continue;
+      }
+      idle.push({ id, at });
     }
-    prevSessionIdRef.current = currentSessionId;
+    if (idle.length > MAX_IDLE_PARTITIONS) {
+      idle.sort((a, b) => a.at - b.at);
+      for (const { id } of idle.slice(0, idle.length - MAX_IDLE_PARTITIONS)) {
+        resetSessionStream(id);
+        lastUsedAtRef.current.delete(id);
+      }
+    }
 
     if (!currentSessionId) {
       // hero 空态:无选中会话,无需加载
@@ -69,7 +94,7 @@ export function useSessionMessages(): void {
 
     (async () => {
       try {
-        const data = await api.sessions.getMessages(currentSessionId);
+        const data = await api.sessions.getMessages(currentSessionId, controller.signal);
         if (cancelled) return;
         // 后端 JSONL 不含前端固化的 roundElapsedMs,用本地缓存按消息 id 回填,
         // 保住重启后回看历史的精确耗时;匹配不到(缓存被清/rewind·fork 重写)
@@ -101,6 +126,7 @@ export function useSessionMessages(): void {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [currentSessionId, resetSessionStream, hasActiveStream, setMessages, setError, setIsLoadingMessages, getCachedMessages]);
 }

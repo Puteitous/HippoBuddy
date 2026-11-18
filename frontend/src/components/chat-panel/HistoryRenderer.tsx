@@ -10,10 +10,13 @@
  * 历史消息的加载逻辑由 useSessionMessages Hook 负责(在 AppShell 调用),
  * 本组件只读 chatStore.messages / isLoadingMessages / error。
  */
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCall, ToolCallRecord } from '@/types';
 import { useSessionStream } from '@/hooks/useSessionStream';
 import { useChatStore } from '@/stores/chatStore';
+import { useAppStore } from '@/stores/appStore';
+import { useI18n } from '@/i18n';
 import { getDefaultProcessCollapsed } from '@/utils/process-view-config';
 import { MessageBubble, MessageFooter } from './MessageBubble';
 import { ProcessSection } from './ProcessSection';
@@ -39,6 +42,19 @@ import {
   type FlatTodo,
 } from '../tool-renderers/shared-utils';
 import './HistoryRenderer.css';
+
+/** 首屏渲染的回合数(更早的回合折叠到「加载更早」之后) */
+const INITIAL_VISIBLE_ROUNDS = 30;
+/** 每次「加载更早」追加的回合数 */
+const ROUNDS_PER_PAGE = 20;
+
+/** HistoryRenderer 对外暴露的命令式方法(供 ChatNav 跳转、ChatPanel 恢复滚动位置) */
+export interface HistoryRendererHandle {
+  /** 展开窗口直到包含指定消息(未渲染的老消息跳转前调用) */
+  revealMessage: (messageId: string) => void;
+  /** 展开全部历史(切回会话需要恢复深层滚动位置时调用) */
+  revealAll: () => void;
+}
 
 interface HistoryRendererProps {
   /** 重试:重发指定用户消息内容(对齐旧版 retryBtn) */
@@ -146,7 +162,9 @@ function WithdrawableUserMessage({
   );
 }
 
-export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, tail }: HistoryRendererProps) {
+export const HistoryRenderer = forwardRef<HistoryRendererHandle, HistoryRendererProps>(
+  function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, tail }, ref) {
+  const { t } = useI18n();
   // 当前会话的流式分区(权威数据源;含 messages/isLoadingMessages/error/isSending 等)
   const {
     messages,
@@ -160,8 +178,58 @@ export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, 
     suggestions,
     suggestionsLoading,
   } = useSessionStream();
+  const currentSessionId = useAppStore((s) => s.currentSessionId);
   const toggleRoundCollapsed = useChatStore((s) => s.toggleRoundCollapsed);
   const reloadSuggestions = useChatStore((s) => s.reloadSuggestions);
+
+  /**
+   * 历史窗口:已折叠的更早回合数。
+   * 未显式设置(或不属于当前会话)时按「最近 INITIAL_VISIBLE_ROUNDS 回合」默认折叠,
+   * 避免长历史会话切进来时一次性挂载上千条消息把主线程卡住。
+   */
+  const [windowState, setWindowState] = useState<{ id: string | null; hidden: number } | null>(null);
+  /** 每个 user 消息的索引 = 一个回合并起点;首个 user 之前的 assistant/tool 归属第 0 回合 */
+  const roundStarts = useMemo(() => {
+    const starts: number[] = [];
+    messages.forEach((m, i) => {
+      if (m.role === 'user') starts.push(i);
+    });
+    return starts;
+  }, [messages]);
+  const totalRounds = roundStarts.length;
+  // 至少保留最后一个回合可见,避免全部折叠后出现空白
+  const maxHidden = Math.max(0, totalRounds - 1);
+  const hiddenRounds =
+    windowState && windowState.id === currentSessionId
+      ? Math.min(Math.max(windowState.hidden, 0), maxHidden)
+      : Math.min(Math.max(totalRounds - INITIAL_VISIBLE_ROUNDS, 0), maxHidden);
+  const startIndex = hiddenRounds > 0 ? (roundStarts[hiddenRounds] ?? 0) : 0;
+  const visibleMessages = startIndex > 0 ? messages.slice(startIndex) : messages;
+
+  /** 加载更早的一批回合 */
+  const loadEarlier = useCallback(() => {
+    setWindowState({ id: currentSessionId, hidden: Math.max(0, hiddenRounds - ROUNDS_PER_PAGE) });
+  }, [currentSessionId, hiddenRounds]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      revealMessage: (messageId: string) => {
+        const idx = messages.findIndex((m) => m.id === messageId);
+        if (idx < 0) return;
+        let roundIdx = 0;
+        for (let i = 0; i < roundStarts.length; i++) {
+          if (roundStarts[i] <= idx) roundIdx = i;
+          else break;
+        }
+        if (roundIdx >= hiddenRounds) return;
+        setWindowState({ id: currentSessionId, hidden: roundIdx });
+      },
+      revealAll: () => setWindowState({ id: currentSessionId, hidden: 0 }),
+    }),
+    [messages, roundStarts, hiddenRounds, currentSessionId],
+  );
+
   // 是否有工具正在等待确认(带 confirmationData)。确认阶段后端会发 complete 把
   // isSending 提前置 false(见 WebAgentOrchestrator 确认后 return false → finally 发
   // complete),但对话并未结束;若不额外兜底,旧回合 footer 会在确认期间浮现。
@@ -213,6 +281,12 @@ export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, 
     ) : null;
   return (
     <div className="history-list">
+      {/* 更早的回合被窗口化折叠时的入口:点击追加一批,保持滚动位置不跳 */}
+      {hiddenRounds > 0 && (
+        <button type="button" className="history-load-earlier" onClick={loadEarlier}>
+          {t('chat.loadEarlier', { count: hiddenRounds })}
+        </button>
+      )}
       {/* 关键:必须把流式 tail 并进同一个 rows 数组(单一子数组)渲染。
           若写成 {renderMessageRows()}{tail} 两个并列子表达式,React 会对
           tail 与 renderMessageRows 各自独立做 diff——done 固化时
@@ -239,7 +313,8 @@ export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, 
     const rows: ReactNode[] = [];
     // 会话级 todo 累计:按出现顺序深合并多次 todo_write 的增量,使每张 todo 卡片
     // 显示到当前为止的完整任务树(对齐旧版 HistoryRenderer 的 _todoHistoryCache)。
-    let todoCache: FlatTodo[] = [];
+    // 窗口化时先预演被折叠的更早消息,避免窗口内卡片显示残缺任务树。
+    let todoCache: FlatTodo[] = startIndex > 0 ? seedTodoCache(messages, startIndex) : [];
     let toolGroup: Message[] = [];
 
     // ── 当前回合缓冲 ──
@@ -457,7 +532,7 @@ export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, 
       );
     })();
 
-    for (const m of messages) {
+    for (const m of visibleMessages) {
       if (m.role === 'user') {
         // 上一条 user 之后的回合结束。
         // 必须先 flush toolGroup 再 flushRound:若上一回合以工具收尾且无后续 assistant
@@ -511,7 +586,8 @@ export function HistoryRenderer({ onRetry, onFork, onSendQuestion, onFillInput, 
     //  - 提交后:commitAskUser 固化为消息流内 tool 记录,由上方回合内路径渲染只读卡。
     return rows;
   }
-}
+  },
+);
 
 /** 从消息 content 提取纯文本(user 消息重试重发用) */
 function extractText(content: string | ContentPart[]): string {
@@ -520,6 +596,24 @@ function extractText(content: string | ContentPart[]): string {
     .filter((p) => p.type === 'text' && p.text)
     .map((p) => p.text ?? '')
     .join('\n');
+}
+
+/**
+ * 预演窗口外消息里的 todo_write,还原会话级累计任务树。
+ * 窗口化只影响渲染范围,不能影响 todo 卡片的累计语义。
+ */
+function seedTodoCache(messages: Message[], end: number): FlatTodo[] {
+  let cache: FlatTodo[] = [];
+  for (let i = 0; i < end; i++) {
+    const m = messages[i];
+    if (m.role !== 'assistant' || !m.tool_calls?.length) continue;
+    for (const tc of m.tool_calls) {
+      if (tc.name !== 'todo_write') continue;
+      const { mode, todos } = parseTodoArgs(tc.arguments);
+      cache = mode === 'replace' ? deepMergeTodoList([], todos) : deepMergeTodoList(cache, todos);
+    }
+  }
+  return cache;
 }
 
 /** 空操作回调(推荐卡片未传处理函数时兜底) */
