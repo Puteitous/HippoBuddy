@@ -757,7 +757,8 @@
   user-select: none;
 }
 
-/* 标签栏尾部的新建入口(头部原「新建会话」按钮已收敛到这里,避免重复) */
+/* 标签栏尾部的新建入口(头部原「新建会话」按钮已收敛到这里,避免重复)
+   默认保持幽灵态,悬停才浮出底框,避免与标签争夺视觉权重 */
 .session-tab-new {
   width: 26px;
   height: 26px;
@@ -766,19 +767,34 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: none;
-  border-radius: 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 17px;
-  line-height: 1;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast), transform var(--transition-fast);
 }
 
 .session-tab-new:hover {
   background: var(--bg-hover);
+  border-color: var(--border);
   color: var(--text-primary);
+}
+
+.session-tab-new:active {
+  background: var(--bg-active);
+  transform: scale(0.92);
+}
+
+.session-tab-new:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.session-tab-new svg {
+  display: block;
 }
 
 /* 标签重命名输入框(替换标题,回车/失焦提交,Esc 取消) */

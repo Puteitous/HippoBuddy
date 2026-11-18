@@ -380,7 +380,17 @@ export function SessionTabs() {
         aria-label={t('chat.newSession')}
         onClick={() => createNewSession()}
       >
-        +
+        <svg
+          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        >
+          <path d="M8 3.5v9M3.5 8h9" />
+        </svg>
       </button>
 
       {/* 右键菜单(portal 渲染,避免被标签栏 overflow 裁剪) */}

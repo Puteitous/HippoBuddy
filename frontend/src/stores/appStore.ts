@@ -12,6 +12,7 @@ import { create } from 'zustand';
 import type { Session, SessionMode } from '@/types';
 import { configApi } from '@/api/client';
 import { useChatStore } from '@/stores/chatStore';
+import { translate } from '@/i18n';
 
 
 /** 主视图类型 */
@@ -698,6 +699,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       return {
         currentSessionId: id,
         sessionInputDrafts: drafts,
+        // 尚未发送的会话没有标题,先给「新会话」兜底显示名(避免标签栏出现「会话 + id」),
+        // 首条消息发出后若标题生成成功,由 s.title 覆盖
+        sessionDisplayNames: { ...s.sessionDisplayNames, [id]: translate('session.defaultName') },
         // 新建即开标签并激活(尚未发送的虚拟会话;关闭未发送标签不会产生后端会话)
         ...openTabPatch(s, id),
       };
