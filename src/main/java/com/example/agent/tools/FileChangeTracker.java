@@ -4,6 +4,7 @@ import com.example.agent.logging.WorkspaceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,6 +28,17 @@ public class FileChangeTracker {
     private static final Map<String, Long> sessionLoadedAt = new ConcurrentHashMap<>();
     private static final int MAX_CHANGES_PER_FILE = 20;
     private static final int MAX_TOTAL_CHANGES = 500;
+    /**
+     * 单条变更内联正文上限（字符数，原文字节数同口径）。
+     * 超过则只记录元数据：不保存内容、不参与 diff、不可回滚，
+     * 避免大文件把 changes.jsonl 和内存撑爆。
+     */
+    private static final int MAX_INLINE_SIZE = 1024 * 1024;
+    /**
+     * 加载时单条记录的行长上限。超过则只解析元数据、丢弃正文，
+     * 兼容旧版本写入的超大记录（如整份二进制被当文本存档）。
+     */
+    private static final int MAX_LOAD_RECORD_CHARS = 4 * MAX_INLINE_SIZE;
     private static final String STORAGE_FILE = "changes.jsonl";
 
     private static final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -136,22 +148,35 @@ public class FileChangeTracker {
         if (sessionFile == null || !Files.exists(sessionFile)) return;
 
         try {
-            List<String> lines = Files.readAllLines(sessionFile, StandardCharsets.UTF_8);
             Map<String, List<FileChange>> sessionChanges = new ConcurrentHashMap<>();
-            for (String line : lines) {
-                if (line.isBlank()) continue;
-                try {
-                    FileChange change = FileChange.fromJson(line);
-                    sessionChanges
-                        .computeIfAbsent(normalizePath(change.filePath), k -> new CopyOnWriteArrayList<>())
-                        .add(change);
-                } catch (Exception e) {
-                    logger.warn("跳过损坏的变更记录: {}", e.getMessage());
+            int total = 0;
+            int metadataOnly = 0;
+            // 流式逐行读取：避免一次性把整个 changes.jsonl 读进内存
+            try (BufferedReader reader = Files.newBufferedReader(sessionFile, StandardCharsets.UTF_8)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.isBlank()) continue;
+                    total++;
+                    try {
+                        // 超大行只取元数据，丢弃正文，兼容旧版本写入的巨型记录
+                        boolean oversized = line.length() > MAX_LOAD_RECORD_CHARS;
+                        if (oversized) metadataOnly++;
+                        FileChange change = oversized
+                            ? FileChange.fromJsonMetadataOnly(line)
+                            : FileChange.fromJson(line);
+                        if (change.filePath.isEmpty()) continue;
+                        sessionChanges
+                            .computeIfAbsent(normalizePath(change.filePath), k -> new CopyOnWriteArrayList<>())
+                            .add(change);
+                    } catch (Exception e) {
+                        logger.warn("跳过损坏的变更记录: {}", e.getMessage());
+                    }
                 }
             }
             changesBySession.put(sessionId, sessionChanges);
             sessionLoadedAt.put(sessionId, System.currentTimeMillis());
-            logger.info("已加载会话变更记录: sessionId={}, {}条", sessionId, lines.size());
+            logger.info("已加载会话变更记录: sessionId={}, {}条（{}条超大记录仅保留元数据）",
+                sessionId, total, metadataOnly);
         } catch (IOException e) {
             logger.warn("加载会话变更记录失败: sessionId={}", sessionId, e);
         }
@@ -209,6 +234,16 @@ public class FileChangeTracker {
         ensureInitialized();
         String sid = (sessionId != null && !sessionId.isEmpty()) ? sessionId : getCurrentSessionId();
         String tcid = (toolCallId != null && !toolCallId.isEmpty()) ? toolCallId : getCurrentToolCallId();
+
+        // 大小兜底：正文超过内联上限时只保留元数据，避免大文件写进 changes.jsonl / 常驻内存
+        if (!binary && exceedsInlineLimit(originalContent, newContent, originalBytes)) {
+            logger.debug("变更内容超过内联上限，仅记录元数据: {}", filePath);
+            originalContent = "";
+            newContent = "";
+            originalBytes = null;
+            binary = true;
+        }
+
         FileChange change = new FileChange(filePath, originalContent, newContent, toolName, System.currentTimeMillis(), newFile, sid, originalBytes, tcid, binary);
 
         // 记录 AI 写入时刻，供 FileSnapshotService 与外部变更去重（AI 写入已有即时刷新链路）
@@ -225,6 +260,14 @@ public class FileChangeTracker {
         appendToFile(change);
 
         trimTotalIfNeeded();
+    }
+
+    /** 正文是否超过内联上限（字符数 / 原始字节数任一超限即视为超限） */
+    private static boolean exceedsInlineLimit(String originalContent, String newContent, byte[] originalBytes) {
+        if (originalBytes != null && originalBytes.length > MAX_INLINE_SIZE) return true;
+        long chars = (originalContent != null ? (long) originalContent.length() : 0L)
+            + (newContent != null ? (long) newContent.length() : 0L);
+        return chars > MAX_INLINE_SIZE;
     }
 
     public static List<FileChange> getRecentChanges(int limit) {
@@ -784,6 +827,23 @@ public class FileChangeTracker {
                 ",\"toolCallId\":\"" + escapeJson(toolCallId) + "\"" +
                 ",\"binary\":" + binary
                 + bytesField + "}";
+        }
+
+        /**
+         * 超大记录只解析元数据：不提取正文，并标记 binary 以禁止回滚/diff
+         * （避免对旧版本写入的巨型记录做内存拷贝）。
+         */
+        public static FileChange fromJsonMetadataOnly(String json) {
+            return new FileChange(
+                extractJsonString(json, "filePath"),
+                "", "",
+                extractJsonString(json, "toolName"),
+                extractJsonLong(json, "timestamp"),
+                extractJsonBoolean(json, "newFile"),
+                extractJsonString(json, "sessionId"),
+                null,
+                extractJsonString(json, "toolCallId"),
+                true);
         }
 
         public static FileChange fromJson(String json) {

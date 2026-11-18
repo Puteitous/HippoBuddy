@@ -37,6 +37,21 @@ class FileChangeTrackerTest {
     }
 
     @Test
+    void testRecordChange_OversizedContentOnlyKeepsMetadata() {
+        String filePath = tempDir.resolve("large.txt").toString();
+        String big = "x".repeat(1024 * 1024 + 1);
+
+        FileChangeTracker.recordChange(filePath, big, big, "write_file");
+
+        FileChangeTracker.FileChange change = FileChangeTracker.getLastChange(filePath);
+        assertNotNull(change);
+        assertTrue(change.binary, "超过内联上限应只保留元数据");
+        assertEquals("", change.originalContent);
+        assertEquals("", change.newContent);
+        assertNull(change.originalBytes);
+    }
+
+    @Test
     void testGetLastChangeNonExistent() {
         FileChangeTracker.FileChange change = FileChangeTracker.getLastChange("/nonexistent/file.txt");
         assertNull(change);
@@ -694,5 +709,33 @@ class FileChangeTrackerTest {
         assertEquals(2, changes.size());
         assertEquals("v0", changes.get(0).originalContent,
             "重启后从磁盘恢复同一会话，最早一条仍可作为 diff 基线");
+    }
+
+    @Test
+    void testLoadSessionChanges_OversizedRecordKeepsMetadataOnly(@TempDir Path storageDir) throws Exception {
+        // 模拟旧版本写入的超大记录：加载时只保留元数据，不把正文读进内存
+        FileChangeTracker.resetForTest();
+        FileChangeTracker.setStorageDirForTest(storageDir);
+
+        String bigFilePath = storageDir.resolve("model.onnx").toString();
+        String bigContent = "x".repeat(5 * 1024 * 1024);
+        String line = "{\"filePath\":\"" + bigFilePath.replace("\\", "\\\\") + "\""
+            + ",\"originalContent\":\"" + bigContent + "\""
+            + ",\"newContent\":\"\",\"toolName\":\"delete_file\",\"timestamp\":1"
+            + ",\"newFile\":false,\"sessionId\":\"session-big\",\"toolCallId\":\"tc1\",\"binary\":false}";
+        Path sessionDir = storageDir.resolve("session-big");
+        Files.createDirectories(sessionDir);
+        Files.writeString(sessionDir.resolve("changes.jsonl"), line + System.lineSeparator(),
+            StandardCharsets.UTF_8);
+
+        FileChangeTracker.loadSessionChanges("session-big");
+
+        List<FileChangeTracker.FileChange> changes =
+            FileChangeTracker.getSessionFileChanges("session-big", bigFilePath);
+        assertEquals(1, changes.size());
+        FileChangeTracker.FileChange change = changes.get(0);
+        assertTrue(change.binary, "超大记录加载后应标记为 binary，禁止回滚/diff");
+        assertEquals("", change.originalContent);
+        assertEquals("", change.newContent);
     }
 }

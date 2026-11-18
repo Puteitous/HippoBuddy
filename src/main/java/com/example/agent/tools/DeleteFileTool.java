@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -35,15 +36,29 @@ public class DeleteFileTool implements ToolExecutor {
     /** 单次删除操作的最大文件数，超过直接拒绝 */
     private static final int MAX_DELETE_COUNT = 50;
 
+    /** 内容嗅探读取的头部字节数 */
+    private static final int SNIFF_BYTES = 8192;
+
     private static final Set<String> BINARY_EXTENSIONS = Set.of(
-        "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg",
-        "zip", "rar", "7z", "tar", "gz",
-        "exe", "dll", "so", "dylib",
-        "mp3", "mp4", "avi", "mov", "wmv", "flv",
-        "class", "jar", "war",
+        // 图片
+        "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "webp", "tiff", "tif", "heic", "psd",
+        // 压缩包/镜像
+        "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "zst", "cab", "iso",
+        // 可执行/库/字节码
+        "exe", "dll", "so", "dylib", "msi", "apk", "aar", "pyc", "pyo", "whl",
+        "class", "jar", "war", "o", "obj", "a", "lib",
+        // 音视频
+        "mp3", "mp4", "avi", "mov", "wmv", "flv", "mkv", "webm",
+        "flac", "ogg", "wav", "aac", "m4a",
+        // 模型/推理产物
+        "onnx", "wasm", "bin", "pb", "tflite", "h5", "keras",
+        "gguf", "ggml", "safetensors", "pt", "pth", "ckpt",
+        "npy", "npz", "pkl", "joblib", "mlmodel",
+        // 数据库/列式存储
+        "sqlite", "db", "mdb", "parquet", "avro", "orc", "feather",
+        // 字体/文档
         "ttf", "otf", "woff", "woff2", "eot",
-        "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-        "pdf"
+        "doc", "docx", "xls", "xlsx", "ppt", "pptx", "pdf", "epub"
     );
 
     public DeleteFileTool() {
@@ -54,6 +69,23 @@ public class DeleteFileTool implements ToolExecutor {
         int dot = fileName.lastIndexOf('.');
         if (dot < 0) return false;
         return BINARY_EXTENSIONS.contains(fileName.substring(dot + 1).toLowerCase());
+    }
+
+    /**
+     * 内容嗅探：头部 8KB 含 NUL 字节即视为二进制。
+     * 只读头部，任何大小的文件成本都很低，不依赖扩展名白名单。
+     */
+    private static boolean isBinaryContent(Path file) {
+        if (!Files.exists(file) || !Files.isRegularFile(file)) return false;
+        try (InputStream in = Files.newInputStream(file)) {
+            byte[] head = in.readNBytes(SNIFF_BYTES);
+            for (byte b : head) {
+                if (b == 0) return true;
+            }
+        } catch (IOException e) {
+            logger.debug("二进制嗅探失败，按文本处理: {}", file, e);
+        }
+        return false;
     }
 
     @Override
@@ -178,7 +210,8 @@ public class DeleteFileTool implements ToolExecutor {
                 // 先读原内容用于变更追踪
                 String originalContent = "";
                 byte[] originalBytes = null;
-                boolean binary = isBinaryExtension(file);
+                // 类型兜底：扩展名白名单快速判定，未收录的格式再用内容嗅探（头部 NUL 字节）
+                boolean binary = isBinaryExtension(file) || isBinaryContent(file);
                 if (!binary && Files.exists(file) && Files.isRegularFile(file)) {
                     try {
                         originalContent = Files.readString(file, StandardCharsets.UTF_8);

@@ -11,7 +11,9 @@ import org.mockito.MockedStatic;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -770,6 +772,82 @@ class DeleteFileToolTest {
             assertEquals(1, result.getEmptyDirs().size());
             assertEquals(1, result.getNotFound().size());
             assertTrue(result.getNotFound().get(0).contains("ghost"));
+        }
+    }
+
+    // ====== 变更记录：二进制/超大文件不内联正文 ======
+
+    private FileChangeTracker.FileChange firstRecordedChange(String sessionId) {
+        Map<String, List<FileChangeTracker.FileChange>> changes =
+            FileChangeTracker.getSessionFileChanges(sessionId);
+        assertFalse(changes.isEmpty(), "应记录一条文件变更");
+        return changes.values().iterator().next().get(0);
+    }
+
+    @Test
+    void testExecute_BinaryContentNotInlined(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            // 扩展名不在白名单，但头部含 NUL 字节 → 内容嗅探兜底
+            byte[] bytes = new byte[1024];
+            Arrays.fill(bytes, (byte) 0x4F);
+            bytes[0] = 0;
+            Files.write(tempDir.resolve("model.dat"), bytes);
+
+            FileChangeTracker.clearSessionChanges();
+            FileChangeTracker.setCurrentSessionId("test-binary-sniff");
+            try {
+                tool.execute(createArgs("model.dat"));
+
+                FileChangeTracker.FileChange change = firstRecordedChange("test-binary-sniff");
+                assertTrue(change.binary, "含 NUL 字节的文件应标记为二进制");
+                assertEquals("", change.originalContent);
+                assertNull(change.originalBytes);
+            } finally {
+                FileChangeTracker.clearSessionChanges();
+                FileChangeTracker.clearCurrentSessionId();
+            }
+        }
+    }
+
+    @Test
+    void testExecute_BinaryExtensionNotInlined(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            // 模型文件即使不含 NUL 字节，也应靠扩展名识别，不读取正文
+            Files.write(tempDir.resolve("model.onnx"), new byte[1024]);
+
+            FileChangeTracker.clearSessionChanges();
+            FileChangeTracker.setCurrentSessionId("test-binary-ext");
+            try {
+                tool.execute(createArgs("model.onnx"));
+
+                FileChangeTracker.FileChange change = firstRecordedChange("test-binary-ext");
+                assertTrue(change.binary, "onnx 应标记为二进制");
+                assertEquals("", change.originalContent);
+                assertNull(change.originalBytes);
+            } finally {
+                FileChangeTracker.clearSessionChanges();
+                FileChangeTracker.clearCurrentSessionId();
+            }
+        }
+    }
+
+    @Test
+    void testExecute_SmallTextKeepsContent(@TempDir Path tempDir) throws Exception {
+        try (MockedStatic<PathSecurityUtils> utils = mockSecurityUtils(tempDir)) {
+            Files.writeString(tempDir.resolve("Main.java"), "class Main {}", StandardCharsets.UTF_8);
+
+            FileChangeTracker.clearSessionChanges();
+            FileChangeTracker.setCurrentSessionId("test-small-text");
+            try {
+                tool.execute(createArgs("Main.java"));
+
+                FileChangeTracker.FileChange change = firstRecordedChange("test-small-text");
+                assertFalse(change.binary);
+                assertEquals("class Main {}", change.originalContent);
+            } finally {
+                FileChangeTracker.clearSessionChanges();
+                FileChangeTracker.clearCurrentSessionId();
+            }
         }
     }
 }

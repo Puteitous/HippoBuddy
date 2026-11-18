@@ -15,6 +15,22 @@ public class DiffComputer {
 
     public static final DiffComputer DEFAULT = new DiffComputer();
 
+    /** 超过该字符数不做 Myers diff：大文件直接跳过，避免请求线程卡死 */
+    private static final int MAX_DIFF_CHARS = 2 * 1024 * 1024;
+    /** 超过该总行数不做 Myers diff */
+    private static final int MAX_DIFF_LINES = 20000;
+
+    /** 输入超过上限时返回 true，调用方跳过 diff 返回空结果/零统计 */
+    private static boolean exceedsDiffLimit(String original, String modified) {
+        long chars = (original != null ? (long) original.length() : 0L)
+            + (modified != null ? (long) modified.length() : 0L);
+        return chars > MAX_DIFF_CHARS;
+    }
+
+    private static boolean exceedsLineLimit(int origLines, int modLines) {
+        return (long) origLines + modLines > MAX_DIFF_LINES;
+    }
+
     /** 按行分割，去掉文件末尾 \n 带来的尾部空串；空文本视为 0 行 */
     private static List<String> splitLines(String text) {
         if (text == null || text.isEmpty()) {
@@ -41,8 +57,10 @@ public class DiffComputer {
     }
 
     public List<String[]> computeDiff(String original, String modified) {
+        if (exceedsDiffLimit(original, modified)) return new ArrayList<>();
         List<String> origLines = splitLines(original);
         List<String> modLines = splitLines(modified);
+        if (exceedsLineLimit(origLines.size(), modLines.size())) return new ArrayList<>();
 
         Patch<String> patch = DiffUtils.diff(origLines, modLines);
         List<String[]> result = new ArrayList<>();
@@ -88,6 +106,7 @@ public class DiffComputer {
     }
 
     public List<Map<String, Object>> computeWordDiff(String original, String modified) {
+        if (exceedsDiffLimit(original, modified)) return new ArrayList<>();
         List<String> origWords = Arrays.asList(original.split("(?<=\\s)|(?=\\s)", -1));
         List<String> modWords = Arrays.asList(modified.split("(?<=\\s)|(?=\\s)", -1));
 
@@ -214,10 +233,13 @@ public class DiffComputer {
     }
 
     public int[] countDiffStats(String original, String modified) {
+        // 大文件不做 Myers diff：按 0 变化返回（调用方均为展示用途，不能卡死在统计上）
+        if (exceedsDiffLimit(original, modified)) return new int[]{0, 0};
         // 复用 splitLines：空文本视为 0 行，去掉末尾 \n 的尾空串，
         // 避免 split("\n", -1) 把空串误算成 1 行导致统计失真
         List<String> origLines = splitLines(original);
         List<String> modLines = splitLines(modified);
+        if (exceedsLineLimit(origLines.size(), modLines.size())) return new int[]{0, 0};
 
         Patch<String> patch = DiffUtils.diff(origLines, modLines);
 

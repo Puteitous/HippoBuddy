@@ -305,4 +305,37 @@ class DiffComputerTest {
             assertTrue(newLines.get(1).stream().anyMatch(t -> "insert".equals(t.get("type"))));
         }
     }
+
+    @Nested
+    @DisplayName("大文件守卫：超过上限不做 Myers diff")
+    class LargeInputGuardTests {
+
+        @Test
+        @DisplayName("countDiffStats 超过字符上限返回零统计")
+        void countDiffStatsSkipsLargeInput() {
+            String big = "x".repeat(2 * 1024 * 1024 + 1);
+            assertArrayEquals(new int[]{0, 0}, diffComputer.countDiffStats(big, ""));
+        }
+
+        @Test
+        @DisplayName("computeDiff 超过字符上限返回空 diff")
+        void computeDiffSkipsLargeInput() {
+            String big = "x".repeat(2 * 1024 * 1024 + 1);
+            assertTrue(diffComputer.computeDiff(big, "").isEmpty());
+        }
+
+        @Test
+        @DisplayName("computeWordDiff 超过字符上限返回空")
+        void computeWordDiffSkipsLargeInput() {
+            String big = "x".repeat(2 * 1024 * 1024 + 1);
+            assertTrue(diffComputer.computeWordDiff(big, "").isEmpty());
+        }
+
+        @Test
+        @DisplayName("countDiffStats 超过行数上限返回零统计")
+        void countDiffStatsSkipsTooManyLines() {
+            String big = "a\n".repeat(20001);
+            assertArrayEquals(new int[]{0, 0}, diffComputer.countDiffStats(big, ""));
+        }
+    }
 }
