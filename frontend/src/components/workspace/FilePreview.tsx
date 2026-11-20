@@ -3,6 +3,7 @@
  *
  * 渲染策略(按文件扩展名分流):
  *   - 图片(png/jpg/gif/svg/webp/bmp/ico) → ImagePreview(缩放工具栏/滚轮缩放/拖拽/重置)
+ *   - 视频(mp4/m4v/webm/ogv/mov) → <video> 原生播放器,经 /api/file/raw Range 分段加载
  *   - PDF → <iframe> 走 /api/file/raw
  *   - docx/pptx/xlsx/xls → BinaryPreview(Silurus / docx-preview 引擎,3.7-2)
  *   - md/markdown → MarkdownPreview(渲染预览 + TOC + 本地图片映射,批次 A)
@@ -42,9 +43,11 @@ interface FilePreviewProps {
   deepLinkTick?: number;
 }
 
-type PreviewKind = 'text' | 'markdown' | 'image' | 'pdf' | 'binary' | 'opaque' | 'unknown';
+type PreviewKind = 'text' | 'markdown' | 'image' | 'video' | 'pdf' | 'binary' | 'opaque' | 'unknown';
 
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+// Chromium 可播放的视频容器(mkv/avi/wmv/flv 编码不支持,归入 opaque)
+const VIDEO_EXT = ['mp4', 'm4v', 'webm', 'ogv', 'mov'];
 const OFFICE_EXT = ['docx', 'pptx', 'xlsx', 'xls'];
 const HTML_EXT = ['html', 'htm'];
 // 无法预览的已知二进制(压缩包/可执行/库文件等,对齐旧版 shared.js isBinaryFile 黑名单)
@@ -57,6 +60,8 @@ const BINARY_EXT = new Set([
   'iso', 'img', 'dmg', 'deb', 'rpm', 'msi', 'pkg',
   'db', 'sqlite', 'sqlite3',
   'bin', 'dat',
+  // 浏览器不支持的视频容器(避免按文本打开乱码)
+  'avi', 'mkv', 'wmv', 'flv', 'mpg', 'mpeg',
 ]);
 const WRAP_STORAGE_KEY = 'hb.filePreview.wrap';
 
@@ -394,6 +399,20 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
         {kind === 'image' && (
           <ImagePreview key={reloadTick} src={rawUrl} fileName={basename(filePath)} />
         )}
+        {kind === 'video' && (
+          <div className="file-preview-video">
+            <video
+              key={reloadTick}
+              className="file-preview-video-el"
+              src={rawUrl}
+              controls
+              preload="metadata"
+              playsInline
+            >
+              {t('preview.videoUnsupported')}
+            </video>
+          </div>
+        )}
         {kind === 'pdf' && (
           <iframe
             key={reloadTick}
@@ -515,6 +534,7 @@ export function FilePreview({ filePath, startLine, endLine, deepLinkTick }: File
 function detectKind(filePath: string): PreviewKind {
   const ext = getExt(filePath);
   if (IMAGE_EXT.includes(ext)) return 'image';
+  if (VIDEO_EXT.includes(ext)) return 'video';
   if (ext === 'pdf') return 'pdf';
   // Markdown 渲染预览(批次 A)
   if (ext === 'md' || ext === 'markdown') return 'markdown';

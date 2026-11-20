@@ -181,6 +181,23 @@
   background: #525659;
 }
 
+/* 视频预览:黑底居中,播放器自适应预览区大小 */
+.file-preview-video {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: #000;
+}
+
+.file-preview-video-el {
+  max-width: 100%;
+  max-height: 100%;
+  outline: none;
+}
+
 .file-preview-editor-wrap {
   position: relative;
   flex: 1;

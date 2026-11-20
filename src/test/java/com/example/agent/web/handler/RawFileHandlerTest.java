@@ -150,6 +150,62 @@ class RawFileHandlerTest {
     }
 
     @Test
+    @DisplayName("mp4 返回 video/mp4 且不按文本处理")
+    void mp4ServedAsVideo() throws IOException {
+        Path file = write(tempDir, "clip.mp4", new byte[]{1, 2, 3, 4}, fixedMtime());
+        FakeHttpExchange ex = new FakeHttpExchange("GET", rawUrl(file.toString()));
+
+        handler.handle(ex);
+
+        assertEquals(200, ex.getResponseCode());
+        assertEquals("video/mp4", ex.getResponseHeaders().getFirst("Content-Type"));
+        assertEquals("4", ex.getResponseHeaders().getFirst("Content-Length"));
+        assertNull(ex.getResponseHeaders().getFirst("Content-Range"));
+    }
+
+    @Test
+    @DisplayName("Range bytes=2-5 → 206 + Content-Range,只返回区间字节")
+    void rangeRequestReturnsPartialContent() throws IOException {
+        Path file = write(tempDir, "clip.mp4", "0123456789".getBytes(StandardCharsets.UTF_8), fixedMtime());
+        FakeHttpExchange ex = new FakeHttpExchange("GET", rawUrl(file.toString()));
+        ex.requestHeaders.set("Range", "bytes=2-5");
+
+        handler.handle(ex);
+
+        assertEquals(206, ex.getResponseCode());
+        assertEquals("bytes 2-5/10", ex.getResponseHeaders().getFirst("Content-Range"));
+        assertEquals("4", ex.getResponseHeaders().getFirst("Content-Length"));
+        assertEquals("2345", ex.getResponseBodyAsString());
+    }
+
+    @Test
+    @DisplayName("Range bytes=-3(后缀)→ 返回末尾 3 字节")
+    void suffixRangeReturnsTail() throws IOException {
+        Path file = write(tempDir, "clip.mp4", "0123456789".getBytes(StandardCharsets.UTF_8), fixedMtime());
+        FakeHttpExchange ex = new FakeHttpExchange("GET", rawUrl(file.toString()));
+        ex.requestHeaders.set("Range", "bytes=-3");
+
+        handler.handle(ex);
+
+        assertEquals(206, ex.getResponseCode());
+        assertEquals("bytes 7-9/10", ex.getResponseHeaders().getFirst("Content-Range"));
+        assertEquals("789", ex.getResponseBodyAsString());
+    }
+
+    @Test
+    @DisplayName("Range 超出文件大小 → 416 + bytes */size")
+    void unsatisfiableRangeReturns416() throws IOException {
+        Path file = write(tempDir, "clip.mp4", "0123456789".getBytes(StandardCharsets.UTF_8), fixedMtime());
+        FakeHttpExchange ex = new FakeHttpExchange("GET", rawUrl(file.toString()));
+        ex.requestHeaders.set("Range", "bytes=20-");
+
+        handler.handle(ex);
+
+        assertEquals(416, ex.getResponseCode());
+        assertEquals("bytes */10", ex.getResponseHeaders().getFirst("Content-Range"));
+    }
+
+    @Test
     @DisplayName("文件不存在返回 404")
     void missingFileReturns404() throws IOException {
         FakeHttpExchange ex = new FakeHttpExchange("GET", rawUrl(tempDir.resolve("nope.pdf").toString()));
