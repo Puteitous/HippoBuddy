@@ -41,6 +41,17 @@
   background: var(--glass-panel);
 }
 
+/* 带图片的用户消息:外层只负责布局,不再画气泡底色和留白,
+   缩略图与文字气泡各自独立成块,整体更紧凑 */
+.msg-bubble-user-plain {
+  background: transparent;
+  padding: 0;
+}
+
+[data-theme="glass"] .msg-bubble-user-plain {
+  background: transparent;
+}
+
 /* 玻璃主题:去掉页脚深色背景条,透明透出背景;
    悬浮时靠操作按钮自身的 hover 背景(var(--bg-app))呈现,无需整条底色 */
 [data-theme="glass"] .msg-user-wrap .message-footer {
@@ -157,14 +168,68 @@
 .msg-user-multimodal {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 6px;
 }
 
-.msg-user-image {
+/* 图片缩略图:2 列方形网格(1 张时单列、5 张以上 3 列),
+   整体限宽 240px,避免截图撑满气泡 */
+.msg-user-thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  width: 240px;
   max-width: 100%;
-  max-height: 320px;
-  border-radius: var(--radius-sm);
+}
+
+.msg-user-thumb-grid.single {
+  grid-template-columns: 1fr;
+}
+
+.msg-user-thumb-grid.many {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.msg-user-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 0;
   border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-code);
+  overflow: hidden;
+  cursor: zoom-in;
+  transition: border-color var(--transition-fast);
+}
+
+.msg-user-thumb-grid.single .msg-user-thumb {
+  aspect-ratio: 4 / 3;
+}
+
+.msg-user-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.msg-user-thumb:hover,
+.msg-user-thumb:focus-visible {
+  border-color: var(--text-secondary);
+  outline: none;
+}
+
+/* 有图片时文字单独一层气泡,保持原来的用户消息底色 */
+.msg-user-text-bubble {
+  background: var(--bg-canvas);
+  border-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
+[data-theme="glass"] .msg-user-text-bubble {
+  background: var(--glass-panel);
 }
 
 /* ── 助手消息(左对齐,透明底,占满宽度) ─────────────────── */

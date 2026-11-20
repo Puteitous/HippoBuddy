@@ -7,7 +7,8 @@
  *  - 键盘 ← / → 切换,Esc 关闭
  *  - 展示文件名与索引 n/total
  */
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '@/i18n';
 import './Lightbox.css';
 
@@ -29,6 +30,8 @@ interface LightboxProps {
 export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProps) {
   const { t } = useI18n();
   const current = images[index];
+  const [scale, setScale] = useState(1);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   const prev = useCallback(() => {
     if (images.length <= 1) return;
@@ -58,9 +61,31 @@ export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProp
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [prev, next, onClose]);
 
+  // 切换图片时重置缩放
+  useEffect(() => {
+    setScale(1);
+  }, [index]);
+
+  // 滚轮缩放:必须用非 passive 监听才能阻止默认滚动
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setScale((value) => {
+        const next = e.deltaY < 0 ? value * 1.15 : value / 1.15;
+        return Math.min(4, Math.max(0.5, next));
+      });
+    };
+    stage.addEventListener('wheel', onWheel, { passive: false });
+    return () => stage.removeEventListener('wheel', onWheel);
+  }, [current]);
+
   if (!current) return null;
 
-  return (
+  // 挂到 body:消息气泡上的 animation/transform 会成为 fixed 定位的包含块,
+  // 若直接渲染在气泡内,遮罩会被限制在气泡范围内而不是铺满窗口。
+  return createPortal(
     <div
       className="lightbox-overlay"
       role="dialog"
@@ -75,6 +100,9 @@ export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProp
         <span className="lightbox-count">
           {index + 1} / {images.length}
         </span>
+        {scale !== 1 && (
+          <span className="lightbox-zoom">{Math.round(scale * 100)}%</span>
+        )}
         <button
           type="button"
           className="lightbox-close"
@@ -86,8 +114,14 @@ export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProp
         </button>
       </div>
 
-      <div className="lightbox-stage">
-        <img src={current.src} alt={current.name} className="lightbox-img" onClick={(e) => e.stopPropagation()} />
+      <div className="lightbox-stage" ref={stageRef}>
+        <img
+          src={current.src}
+          alt={current.name}
+          className="lightbox-img"
+          style={{ transform: `scale(${scale})` }}
+          onClick={(e) => e.stopPropagation()}
+        />
 
         {images.length > 1 && (
           <>
@@ -118,6 +152,7 @@ export function Lightbox({ images, index, onIndexChange, onClose }: LightboxProp
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

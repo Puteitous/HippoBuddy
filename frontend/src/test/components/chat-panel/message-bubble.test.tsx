@@ -41,7 +41,20 @@ describe('MessageBubble - user', () => {
     });
     render(<MessageBubble message={m} />);
     expect(screen.getByText('看图')).toBeInTheDocument();
-    expect(document.querySelector('img.msg-user-image')).not.toBeNull();
+    expect(document.querySelector('.msg-user-thumb img')).not.toBeNull();
+  });
+
+  it('多模态：点击缩略图打开灯箱', () => {
+    const m = msg({
+      role: 'user',
+      content: [
+        { type: 'text', text: '看图' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,xxx' } },
+      ] as Message['content'],
+    });
+    render(<MessageBubble message={m} />);
+    fireEvent.click(document.querySelector('.msg-user-thumb')!);
+    expect(document.querySelector('.lightbox-overlay')).not.toBeNull();
   });
 
   it('isStreaming 时显示光标', () => {

@@ -132,7 +132,7 @@ describe('用户消息 - 附件卡片', () => {
 
     expect(document.querySelector('.msg-user-attach')).toBeNull();
     expect(screen.getByText('看图')).toBeInTheDocument();
-    expect(document.querySelector('img.msg-user-image')).not.toBeNull();
+    expect(document.querySelector('.msg-user-thumb img')).not.toBeNull();
   });
 
   it('复制按钮取到去除围栏后的内容', async () => {

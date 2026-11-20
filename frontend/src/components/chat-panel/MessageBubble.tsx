@@ -21,6 +21,7 @@ import { formatCharCount } from '@/utils/paste-attachment';
 import { useI18n, translate } from '@/i18n';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { ToolCardDispatcher } from '../tool-renderers/ToolCardDispatcher';
+import { Lightbox } from './Lightbox';
 import type { MessageFileProduct } from './message-utils';
 import './MessageBubble.css';
 
@@ -72,9 +73,10 @@ function MessageBubbleComponent({
   }, [message.content]);
 
   if (message.role === 'user') {
+    const hasImages = Array.isArray(message.content) && message.content.some(isImagePart);
     return (
       <div className="msg-user-wrap" data-message-id={dataMessageId}>
-        <div className="msg-bubble msg-bubble-user">
+        <div className={`msg-bubble msg-bubble-user${hasImages ? ' msg-bubble-user-plain' : ''}`}>
           <UserContent content={message.content} />
           {isStreaming && <span className="msg-cursor" aria-hidden />}
         </div>
@@ -379,12 +381,20 @@ function UserAttachmentCard({ content }: { content: string }) {
   );
 }
 
+/** 多模态内容中的图片 part(URL 已确认存在) */
+type ImageContentPart = ContentPart & { image_url: { url: string } };
+
+function isImagePart(part: ContentPart): part is ImageContentPart {
+  return part.type === 'image_url' && !!part.image_url?.url;
+}
+
 /** 用户消息内容(纯文本或多模态)，支持长内容折叠 */
 const COLLAPSE_THRESHOLD = 200; // px，超过此高度自动折叠
 
 function UserContent({ content }: { content: string | ContentPart[] }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [collapsible, setCollapsible] = useState(false);
 
@@ -394,11 +404,24 @@ function UserContent({ content }: { content: string | ContentPart[] }) {
     [content],
   );
 
+  // 多模态内容:图片走缩略图网格,文字单独成气泡
+  const imageParts = useMemo(
+    () => (typeof content === 'string' ? [] : content.filter(isImagePart)),
+    [content],
+  );
+  const textParts = useMemo(
+    () => (typeof content === 'string' ? [] : content.filter((part) => part.type === 'text' && part.text)),
+    [content],
+  );
+  const imageNames = imageParts.map((_, i) => `${t('chat.userImageAlt')} ${i + 1}`);
+  // 有图片时放宽折叠阈值:两行缩略图不应被误判为超长内容
+  const collapseThreshold = imageParts.length > 0 ? 320 : COLLAPSE_THRESHOLD;
+
   useEffect(() => {
     if (contentRef.current) {
-      setCollapsible(contentRef.current.scrollHeight > COLLAPSE_THRESHOLD);
+      setCollapsible(contentRef.current.scrollHeight > collapseThreshold);
     }
-  }, [content]);
+  }, [content, collapseThreshold]);
 
   return (
     <>
@@ -416,22 +439,33 @@ function UserContent({ content }: { content: string | ContentPart[] }) {
           )
         ) : (
           <div className="msg-user-multimodal">
-            {(content as ContentPart[]).map((part, i) => {
-              if (part.type === 'text' && part.text) {
-                return <div key={i} className="msg-user-text">{part.text}</div>;
-              }
-              if (part.type === 'image_url' && part.image_url?.url) {
-                return (
-                  <img
+            {imageParts.length > 0 && (
+              <div
+                className={`msg-user-thumb-grid${imageParts.length === 1 ? ' single' : ''}${imageParts.length > 4 ? ' many' : ''}`}
+              >
+                {imageParts.map((part, i) => (
+                  <button
                     key={i}
-                    src={part.image_url.url}
-                    alt={t('chat.userImageAlt')}
-                    className="msg-user-image"
-                  />
-                );
-              }
-              return null;
-            })}
+                    type="button"
+                    className="msg-user-thumb"
+                    onClick={() => setLightboxIndex(i)}
+                    aria-label={t('lightbox.preview', { name: imageNames[i] })}
+                    title={t('lightbox.preview', { name: imageNames[i] })}
+                  >
+                    <img src={part.image_url.url} alt={t('chat.userImageAlt')} loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {textParts.length > 0 && (
+              <div className={imageParts.length > 0 ? 'msg-user-text-bubble' : undefined}>
+                {textParts.map((part, i) => (
+                  <div key={i} className="msg-user-text">
+                    {part.text}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -463,6 +497,14 @@ function UserContent({ content }: { content: string | ContentPart[] }) {
             </svg>
           )}
         </button>
+      )}
+      {lightboxIndex !== null && (
+        <Lightbox
+          images={imageParts.map((part, i) => ({ src: part.image_url.url, name: imageNames[i] }))}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
     </>
   );
