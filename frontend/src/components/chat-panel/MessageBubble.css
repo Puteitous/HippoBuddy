@@ -286,6 +286,7 @@
 .msg-markdown {
   overflow-x: auto;
   font-size: var(--font-size-lg);
+  line-height: 1.88;
 }
 
 .msg-markdown p {

@@ -117,6 +117,11 @@
 /* 分组下拉:图标 + 小箭头,菜单右对齐避免溢出面板 */
 .sidebar-group {
   position: relative;
+  /* 必须 flex:否则 inline-flex 按钮按基线排在行盒里,
+     全局 line-height:1.5 的下行空隙会把图标整体顶高约 2.5px,
+     与左侧搜索图标(header 的直接 flex 子项)对不齐 */
+  display: flex;
+  align-items: center;
 }
 
 .sidebar-group-btn {
@@ -201,7 +206,9 @@
   border: none;
   outline: none;
   border-radius: 8px;
-  background: var(--bg-code);
+  /* 与原型一致:浅灰底块区分输入区。--bg-code 在浅色主题是 #ffffff,
+     和头部背景同色,输入框会"隐形" */
+  background: var(--bg-hover);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
