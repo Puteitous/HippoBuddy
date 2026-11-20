@@ -40,7 +40,7 @@ export type EventBusEvent =
   // ── LLM 模型切换 ───────────────────────────────────
   /**
    * 模型切换成功后发出,携带新生效的 provider/model。
-   * ModelSelectorPanel 切换成功后广播,ImageUpload 等依赖当前模型能力的组件订阅后即时刷新。
+   * ModelSelectorPanel 切换成功后广播,useVisionSupport 等依赖当前模型能力的订阅方即时刷新。
    */
   | 'llm:changed'
   // ── 文件树定位:面包屑目录段点击 ────────────────────

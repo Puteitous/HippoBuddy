@@ -70,6 +70,8 @@ function getChipFileName(chip: RefChip): string | null {
 
 export interface InlineInputHandle {
   insertChipAtCursor: (chip: RefChip) => void;
+  /** 添加文件(文件选择器与拖拽共用:图片走视觉管线,其余生成文件引用芯片) */
+  addFiles: (files: File[]) => void;
   /** 按 filePath 移除匹配的芯片(用于技能取消选中等场景) */
   removeChipByFilePath: (filePath: string) => boolean;
   getContent: () => { text: string; chips: RefChip[] };
@@ -359,6 +361,8 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
   const [hasContent, setHasContent] = useState(false);
   // 拖拽悬停态(外部文件/内部文件树拖入时高亮输入框)
   const [isDragging, setIsDragging] = useState(false);
+  // 拖拽分流函数定义在下方 useImperativeHandle 之后,用 ref 转发给 addFiles
+  const addFilesRef = useRef<(files: File[]) => void>(() => {});
 
   // 更新占位符显隐
   const updatePlaceholder = useCallback(() => {
@@ -388,6 +392,10 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
       updatePlaceholder();
       onChipAdd?.(chip);
       notifyDraftChange();
+    },
+
+    addFiles(files: File[]) {
+      addFilesRef.current(files);
     },
 
     removeChipByFilePath(filePath: string): boolean {
@@ -699,7 +707,7 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
     document.execCommand('insertText', false, content);
   }, [updatePlaceholder, onChipAdd, notifyDraftChange]);
 
-  // 外部拖入(操作系统文件):图片走图片管线,文件/文件夹取真实路径做引用芯片(路径引用,不复制文件)
+  // 外部文件(拖入 / 附件按钮选择):图片走图片管线,文件/文件夹取真实路径做引用芯片(路径引用,不复制文件)
   const handleExternalFilesDrop = useCallback(async (files: File[]) => {
     for (const file of files) {
       // 图片 → 走图片管线(多模态识别),与粘贴图片一致
@@ -729,6 +737,11 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
       await insertDroppedFileAsText(file);
     }
   }, [onPasteImage, insertDroppedFileAsText, updatePlaceholder, onChipAdd, notifyDraftChange]);
+
+  // 供附件按钮调用:选择文件与拖入文件走同一条分流逻辑
+  useEffect(() => {
+    addFilesRef.current = handleExternalFilesDrop;
+  }, [handleExternalFilesDrop]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

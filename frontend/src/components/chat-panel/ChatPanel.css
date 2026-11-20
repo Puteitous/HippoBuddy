@@ -286,8 +286,8 @@
   color: var(--text-secondary);
 }
 
-/* 状态栏内 📷 按钮:对齐旧版 .input-img-btn(无边框透明) */
-.chat-panel-status-left .image-upload-btn {
+/* 状态栏内附件按钮:对齐旧版 .input-img-btn(无边框透明) */
+.chat-panel-status-left .attachment-btn {
   width: 26px;
   height: 26px;
   border: none;
@@ -296,7 +296,7 @@
   border-radius: var(--radius-sm);
 }
 
-.chat-panel-status-left .image-upload-btn:hover:not(:disabled) {
+.chat-panel-status-left .attachment-btn:hover:not(:disabled) {
   background: var(--bg-code);
   color: var(--text-secondary);
 }
@@ -677,7 +677,7 @@
   flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 7px;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   color: var(--text-muted);
   cursor: pointer;
   user-select: none;

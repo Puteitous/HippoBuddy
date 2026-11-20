@@ -1,18 +1,10 @@
-/* ImageUpload 图片上传 + 预览样式 */
+/* 附件按钮 + 图片预览样式 */
 
-.image-upload {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  min-height: 28px;
-}
-
-.image-upload-input {
+.attachment-input {
   display: none;
 }
 
-.image-upload-btn {
+.attachment-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -27,13 +19,13 @@
   flex-shrink: 0;
 }
 
-.image-upload-btn:hover:not(:disabled) {
+.attachment-btn:hover:not(:disabled) {
   background: rgba(59, 130, 246, 0.08);
   border-color: #3b82f6;
   color: #2563eb;
 }
 
-.image-upload-btn:disabled {
+.attachment-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -104,11 +96,11 @@
 [data-theme="dark"],
 [data-theme="midnight"],
 [data-theme="glass"] {
-  .image-upload-btn {
+  .attachment-btn {
     border-color: #4b5563;
   }
 
-  .image-upload-btn:hover:not(:disabled) {
+  .attachment-btn:hover:not(:disabled) {
     background: rgba(96, 165, 250, 0.12);
     border-color: #60a5fa;
     color: #93c5fd;

@@ -1,7 +1,7 @@
 /**
  * 图片视觉能力检测 + File → dataUrl 转换的纯函数工具。
  *
- * 与 ImageUpload.tsx 组件分开存放:
+ * 与组件分开存放(图片入口在 ChatPanel,按钮在 AttachmentPicker):
  *  - 共享检测逻辑,后续 ContextSelector / Settings 等也可复用
  *  - 避免 .tsx 同时导出非组件触发 react-refresh/only-export-components 告警
  *

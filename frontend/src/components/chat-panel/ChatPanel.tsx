@@ -42,7 +42,7 @@ import {
 } from '../tool-renderers/tool-timeline-utils';
 import { TokenMonitor } from './TokenMonitor';
 import { ContextLimitModal } from './ContextLimitModal';
-import { ImageUpload } from './ImageUpload';
+import { AttachmentPicker } from './AttachmentPicker';
 import { Lightbox } from './Lightbox';
 import { FileChangesMonitor } from './FileChangesMonitor';
 import { ChatNav } from './ChatNav';
@@ -617,6 +617,15 @@ export function ChatPanel() {
     [isStreamSending, visionSupported, addImage],
   );
 
+  // 附件按钮选中的文件:复用 InlineInput 的分流(图片→图片管线,其余→文件引用芯片)
+  const handlePickFiles = useCallback(
+    (files: File[]) => {
+      if (isStreamSending) return;
+      inlineInputRef.current?.addFiles(files);
+    },
+    [isStreamSending],
+  );
+
   /**
    * AI 优化输入:把当前纯文本交给后端流式优化,增量回填输入框。
    * 开始时暂存「文本+芯片」原稿快照;完成时把优化文本(保留原芯片)写回。
@@ -1055,13 +1064,10 @@ export function ChatPanel() {
                 onRuleToggle={handleRuleToggle}
                 onSkillToggle={handleSkillToggle}
               />
-              {/* ImageUpload 始终挂载,内部按 visionSupported 控制按钮可见性;预览已上移到附件行 */}
-              <ImageUpload
-                images={pendingImages}
-                onAdd={addImage}
-                onRemove={removeImage}
+              {/* 附件按钮:任意文件类型,图片走图片管线、其余生成文件引用芯片 */}
+              <AttachmentPicker
+                onFiles={handlePickFiles}
                 disabled={isStreamSending}
-                showPreview={false}
               />
               <span className="chat-panel-status-divider" aria-hidden />
               {/* Token 使用率 / 文件变更:hero 空态下隐藏,仅消息态显示(对齐旧版

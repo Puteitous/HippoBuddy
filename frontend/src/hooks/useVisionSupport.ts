@@ -1,8 +1,8 @@
 /**
  * useVisionSupport - 当前模型是否支持视觉(图片上传)。
  *
- * 共享给 ImageUpload(控制上传按钮可见性)与 ChatPanel(粘贴图片时校验),
- * 避免两处重复订阅 /api/config/llm 与 llm:changed。
+ * 用于 ChatPanel 的图片入口校验(粘贴/拖入/附件按钮选择的图片),
+ * 订阅 /api/config/llm 与 llm:changed 即时刷新。
  */
 import { useEffect, useState } from 'react';
 import { configApi } from '@/api/client';
