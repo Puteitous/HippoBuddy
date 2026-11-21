@@ -37,6 +37,12 @@ export interface TimelineToolItem {
   content?: string;
   /** 工具确认数据(存在时行内渲染允许/拒绝,对齐旧版内嵌确认卡片) */
   confirmationData?: ToolConfirmationPayload;
+  /** bash 后台运行标记(实时流结构化字段;历史消息无,回退文本识别) */
+  background?: boolean;
+  /** 是否由前台中转后台 */
+  promoted?: boolean;
+  /** 后台进程 PID */
+  pid?: number;
 }
 
 /** 需要独立成卡、不进 timeline 的工具名(对齐旧版 todo_write/ask_user) */
@@ -58,6 +64,9 @@ export function fromToolCallRecord(rec: ToolCallRecord): TimelineToolItem {
     result: rec.result,
     error: rec.error,
     confirmationData: rec.confirmationData,
+    background: rec.background,
+    promoted: rec.promoted,
+    pid: rec.pid,
   };
 }
 
@@ -94,6 +103,9 @@ export function fromToolMessage(msg: Message): TimelineToolItem {
       // interrupted 与 cancelled 语义一致,统一合并为 cancelled
       status = 'cancelled';
     }
+  } else if (content.includes('已被用户终止')) {
+    // 用户中途点「中断」:后端执行结果仍为成功,但语义是已取消
+    status = 'cancelled';
   }
   return {
     id: msg.id,
@@ -105,5 +117,8 @@ export function fromToolMessage(msg: Message): TimelineToolItem {
     status,
     result: content || undefined,
     content,
+    background: msg.background,
+    promoted: msg.promoted,
+    pid: msg.pid,
   };
 }

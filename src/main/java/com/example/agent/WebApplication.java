@@ -5,6 +5,7 @@ import com.example.agent.core.concurrency.GracefulShutdown;
 import com.example.agent.core.di.CoreModule;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.memory.MemoryModule;
+import com.example.agent.tools.BashProcessManager;
 import com.example.agent.web.server.DashboardServer;
 
 import org.slf4j.Logger;
@@ -71,6 +72,9 @@ public final class WebApplication {
             String osName = ManagementFactory.getRuntimeMXBean().getName();
             long pid = Long.parseLong(osName.split("@")[0]);
             logger.info("Web 服务正在退出 (PID: {}), 清理资源...", pid);
+
+            // 先杀掉本应用登记的后台进程，避免退出后遗留孤儿进程占端口
+            BashProcessManager.getInstance().cancelAll();
 
             DashboardServer.stop();
             GracefulShutdown.shutdownAll();

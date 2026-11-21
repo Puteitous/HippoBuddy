@@ -171,6 +171,107 @@
   background: rgba(128, 128, 128, 0.1);
 }
 
+/* ── 行内操作按钮(bash:后台运行/中断/停止,悬浮行时显示) ── */
+.tool-timeline-action-btn {
+  flex-shrink: 0;
+  display: none;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.tool-timeline-row:hover .tool-timeline-action-btn {
+  display: inline-flex;
+}
+
+.tool-timeline-action-btn:hover {
+  color: var(--text-primary);
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.tool-timeline-action-btn.background {
+  color: var(--primary-color, var(--text-primary));
+}
+
+.tool-timeline-action-btn.terminate,
+.tool-timeline-action-btn.stop {
+  color: var(--error-text);
+}
+
+.tool-timeline-action-btn[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 后台运行徽标(常驻显示,不随悬浮显隐) */
+.tool-timeline-bg-pill {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* 进程已自然退出:灰底,避免继续显示成"运行中" */
+.tool-timeline-bg-pill.ended {
+  background: var(--bg-code);
+  color: var(--text-muted);
+}
+
+.tool-timeline-stopped {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bg-code);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* ── 后台日志快照(展开后台 bash 行时可刷新查看) ────────── */
+.timeline-bg-log {
+  margin: 6px 0 0;
+}
+
+.timeline-bg-log-title {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.timeline-bg-log pre {
+  background: var(--bg-code);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--success-text);
+}
+
+.timeline-bg-log pre code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* ── 展开详情 ─────────────────────────────────────────── */
 .tool-timeline-detail {
   max-height: 0;

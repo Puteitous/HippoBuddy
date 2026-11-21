@@ -7,6 +7,7 @@ import com.example.agent.domain.truncation.TruncationService;
 import com.example.agent.llm.exception.LlmException;
 import com.example.agent.llm.model.Message;
 import com.example.agent.service.TokenEstimatorFactory;
+import com.example.agent.tools.BashProcessManager;
 import com.example.agent.tools.BashTool;
 import com.example.agent.tools.DeleteFileTool;
 import com.example.agent.tools.FileChangeTracker;
@@ -193,6 +194,7 @@ public class ToolConfirmHandler implements HttpHandler {
                 String result;
                 try (var _ctx = FileChangeTracker.withContext(sessionId, pending.toolCallId)) {
                     BashTool.setCurrentToolCallId(pending.toolCallId);
+                    BashProcessManager.getInstance().bindSession(pending.toolCallId, sessionId);
                     result = executor.execute(arguments, progressCallback);
                 } finally {
                     BashTool.clearCurrentToolCallId();

@@ -8,6 +8,8 @@ import { deleteJson, getJson, postJson, putJson } from './http';
 import { streamSse } from './sse';
 import type { SseEvent } from './sse';
 import type {
+  BackgroundLogResponse,
+  BackgroundStatusResponse,
   ChatRequest,
   DefaultWorkspaceUpdateResult,
   DiffLine,
@@ -23,6 +25,8 @@ import type {
   SessionTokenStats,
   SuggestionsResponse,
   ToolAbortRequest,
+  ToolBackgroundRequest,
+  ToolBackgroundResponse,
   ToolConfirmRequest,
   UpdateLlmConfigRequest,
   WordDiffToken,
@@ -158,6 +162,22 @@ export const chatApi = {
   /** POST /api/tool/abort - 中止当前会话的 Agent 循环 */
   abortTool: (request: ToolAbortRequest) =>
     postJson<{ success: boolean; message: string }>(`${API_BASE}/tool/abort`, request),
+
+  /** POST /api/tool/background - 把正在前台执行的 bash 进程转入后台托管 */
+  backgroundTool: (request: ToolBackgroundRequest) =>
+    postJson<ToolBackgroundResponse>(`${API_BASE}/tool/background`, request),
+
+  /** GET /api/tool/background - 查询后台进程是否仍在运行 */
+  getBackgroundStatus: (toolCallId: string) =>
+    getJson<BackgroundStatusResponse>(
+      `${API_BASE}/tool/background?toolCallId=${encodeURIComponent(toolCallId)}`,
+    ),
+
+  /** GET /api/tool/background/log - 拉取后台进程日志快照 */
+  getBackgroundLog: (toolCallId: string) =>
+    getJson<BackgroundLogResponse>(
+      `${API_BASE}/tool/background/log?toolCallId=${encodeURIComponent(toolCallId)}`,
+    ),
 
   /** POST /api/suggestions - 基于会话最近历史生成推荐问题(回合结束后异步调用) */
   getSuggestions: (sessionId: string) =>

@@ -6,6 +6,7 @@ import com.example.agent.core.di.CoreModule;
 import com.example.agent.desktop.WorkspaceContext;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.memory.MemoryModule;
+import com.example.agent.tools.BashProcessManager;
 import com.example.agent.web.server.DashboardServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,6 +76,8 @@ public final class DesktopApplication {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("JVM 关闭中，正在优雅停止后端服务...");
             try {
+                // 先杀掉本应用登记的后台进程，避免退出后遗留孤儿进程占端口
+                BashProcessManager.getInstance().cancelAll();
                 DashboardServer.stop();
                 GracefulShutdown.shutdownAll();
             } catch (Exception e) {

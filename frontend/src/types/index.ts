@@ -114,6 +114,12 @@ export interface Message {
   toolCallId?: string;
   /** role === 'tool' 时:工具执行是否成功 */
   success?: boolean;
+  /** role === 'tool' 时:bash 后台运行标记(历史消息结构化字段) */
+  background?: boolean;
+  /** role === 'tool' 时:是否由前台中转后台 */
+  promoted?: boolean;
+  /** role === 'tool' 时:后台进程 PID */
+  pid?: number;
   /** role === 'tool' 时:前端流式固化的工具参数(如 todo_write 的完整累计树)。
    *  后端历史加载走 tool_calls,故仅前端固化路径使用。 */
   args?: unknown;
@@ -240,9 +246,40 @@ export interface ToolConfirmRequest {
 
 /** 工具中止请求 - POST /api/tool/abort */
 export interface ToolAbortRequest {
-  sessionId: string;
+  /** 会话级取消;仅中止单个进程时可省略(只传 toolCallId) */
+  sessionId?: string;
   /** 可选,携带时同步杀掉对应 bash 进程 */
   toolCallId?: string;
+}
+
+/** 前台进程转后台请求 - POST /api/tool/background */
+export interface ToolBackgroundRequest {
+  toolCallId: string;
+}
+
+/** 转后台响应 */
+export interface ToolBackgroundResponse {
+  success: boolean;
+  /** 进程 PID;未找到运行中的进程时为 -1 */
+  pid: number;
+  message: string;
+}
+
+/** 后台进程存活状态 - GET /api/tool/background?toolCallId= */
+export interface BackgroundStatusResponse {
+  running: boolean;
+  /** 运行中时为进程 PID,否则 -1 */
+  pid: number;
+}
+
+/** 后台进程日志快照 - GET /api/tool/background/log?toolCallId= */
+export interface BackgroundLogResponse {
+  running: boolean;
+  pid: number;
+  /** 累积的 stdout 快照 */
+  output: string;
+  /** 累积的 stderr 快照 */
+  error: string;
 }
 
 // ============================================================================
@@ -250,7 +287,7 @@ export interface ToolAbortRequest {
 // ============================================================================
 
 /** 工具调用状态 */
-export type ToolCallStatus = 'running' | 'success' | 'failed' | 'denied';
+export type ToolCallStatus = 'running' | 'success' | 'failed' | 'cancelled' | 'denied';
 
 /**
  * 工具调用运行时记录
@@ -277,6 +314,12 @@ export interface ToolCallRecord {
    * 由 timeline 行内渲染允许/拒绝,对齐旧版内嵌确认卡片。
    */
   confirmationData?: ToolConfirmationPayload;
+  /** bash 后台运行标记(tool_result 结构化字段) */
+  background?: boolean;
+  /** 是否由前台中转后台 */
+  promoted?: boolean;
+  /** 后台进程 PID */
+  pid?: number;
   /** 开始时间戳 */
   startedAt: number;
   /** 结束时间戳 */

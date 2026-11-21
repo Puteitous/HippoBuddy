@@ -31,6 +31,7 @@ import com.example.agent.web.handler.StaticFileHandler;
 import com.example.agent.web.handler.SuggestionsApiHandler;
 import com.example.agent.web.handler.SystemPromptApiHandler;
 import com.example.agent.web.handler.ToolAbortHandler;
+import com.example.agent.web.handler.ToolBackgroundHandler;
 import com.example.agent.web.handler.ToolConfirmHandler;
 import com.example.agent.web.session.WebSessionManager;
 import org.slf4j.Logger;
@@ -95,6 +96,7 @@ public class DashboardServer {
             server.createContext("/api/chat", new ChatApiHandler());
             server.createContext("/api/tool/confirm", new ToolConfirmHandler());
             server.createContext("/api/tool/abort", new ToolAbortHandler());
+            server.createContext("/api/tool/background", new ToolBackgroundHandler());
             server.createContext("/api/sessions", new SessionApiHandler());
             server.createContext("/api/memories", new MemoryApiHandler());
             server.createContext("/api/metrics", new MetricsApiHandler());

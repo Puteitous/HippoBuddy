@@ -487,6 +487,16 @@ public class ConversationService {
     }
 
     public void addToolResult(Conversation conversation, String toolCallId, String toolName, String content, boolean success) {
+        addToolResult(conversation, toolCallId, toolName, content, success, null);
+    }
+
+    /**
+     * 记录工具结果，可附带额外的结构化明细（如 bash 的 promoted 标记）。
+     *
+     * @param detailOverrides 追加/覆盖到 tool_result_detail 的字段；null 表示不附加
+     */
+    public void addToolResult(Conversation conversation, String toolCallId, String toolName,
+                              String content, boolean success, Map<String, Object> detailOverrides) {
         String truncated = truncationService.truncateToolOutput(toolName, content);
         Message message = Message.toolResult(toolCallId, toolName, truncated);
         message.setToolSuccess(success);
@@ -494,7 +504,11 @@ public class ConversationService {
             // 消费 BashTool 保留的结构化结果，随转录持久化（exitCode/stderr/output），供分析与回放
             var detail = BashTool.consumeResult(toolCallId);
             if (detail != null) {
-                message.setToolResultDetail(detail.toDetailMap());
+                Map<String, Object> detailMap = new java.util.LinkedHashMap<>(detail.toDetailMap());
+                if (detailOverrides != null) {
+                    detailMap.putAll(detailOverrides);
+                }
+                message.setToolResultDetail(detailMap);
             }
         }
         addMessage(conversation, message, success);

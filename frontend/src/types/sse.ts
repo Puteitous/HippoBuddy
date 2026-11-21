@@ -84,6 +84,12 @@ export interface ToolResultPayload {
   error?: string;
   /** 参数(同 ToolStartPayload.args) */
   args?: unknown;
+  /** bash 后台运行标记(结构化,避免前端解析结果文本) */
+  background?: boolean;
+  /** 是否由前台执行中途转入后台 */
+  promoted?: boolean;
+  /** 后台进程 PID */
+  pid?: number;
 }
 
 /** bash 工具确认请求 */

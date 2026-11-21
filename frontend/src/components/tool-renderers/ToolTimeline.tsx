@@ -14,9 +14,10 @@
  *    摘要、文件跳转、diff 与旧版一致;仅前端内存固化消息(实时结束未刷新)退化为工具名 + 内容首行
  *  - 「查看变更」按钮走 previewStore.openDiff 打开 diff 标签页(替代旧版 window.showFileDiff)
  */
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
+import { chatApi } from '@/api/client';
 import { useI18n } from '@/i18n';
 import type { TimelineToolItem } from './tool-timeline-utils';
 import { ToolTimelineConfirmation } from './ToolTimelineConfirmation';
@@ -447,8 +448,13 @@ const PATH_SUMMARY_TOOLS = [
   'list_directory',
 ];
 
+/** 后台日志快照在前端展示的最大字符数(后端缓冲最多 100k,避免一次性渲染过大) */
+const BG_LOG_MAX_CHARS = 20000;
+
 function TimelineRow({ item }: { item: TimelineToolItem }) {
   const [expanded, setExpanded] = useState(item.status === 'pending_confirmation');
+  const [bgStopped, setBgStopped] = useState(false);
+  const { t } = useI18n();
   const workspacePath = useAppStore((s) => s.workspacePath);
 
   const summary = useMemo(() => {
@@ -473,6 +479,69 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
     return body.split('\n')[0].slice(0, 120);
   }, [item.name, item.args, item.content, workspacePath]);
   const filePath = useMemo(() => timelineFilePath(item.name, item.args), [item.name, item.args]);
+
+  // 后台运行中的 bash:优先用 tool_result 的结构化字段;历史消息回退文本识别
+  const backgroundPid = useMemo(() => {
+    if (item.name !== 'bash' || item.status !== 'success' || bgStopped) return null;
+    if (item.background) {
+      return item.pid && item.pid > 0 ? String(item.pid) : '';
+    }
+    const text = item.result ?? '';
+    if (!/已转入后台运行|后台启动成功/.test(text)) return null;
+    return text.match(/进程 PID:\s*(\d+)/)?.[1] ?? '';
+  }, [item.name, item.status, item.result, item.background, item.pid, bgStopped]);
+
+  // 轮询后台进程存活状态:已退出则显示"已结束"并移除停止按钮
+  const [bgRunning, setBgRunning] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (backgroundPid === null) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const check = () => {
+      void chatApi
+        .getBackgroundStatus(item.id)
+        .then((res) => {
+          if (cancelled) return;
+          setBgRunning(res.running);
+          // 进程已退出:停止轮询,无需继续查询
+          if (!res.running && timer !== undefined) clearInterval(timer);
+        })
+        .catch(() => {});
+    };
+    check();
+    timer = setInterval(check, 5000);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) clearInterval(timer);
+    };
+  }, [backgroundPid, item.id]);
+
+  // 展开后台行时拉取日志快照:运行期间每 2 秒刷新,进程结束后自动停止
+  const [bgLog, setBgLog] = useState<{ output: string; error: string } | null>(null);
+  useEffect(() => {
+    if (!expanded || backgroundPid === null) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const tail = (text: string) =>
+      text.length > BG_LOG_MAX_CHARS ? `…\n${text.slice(-BG_LOG_MAX_CHARS)}` : text;
+    const load = () => {
+      void chatApi
+        .getBackgroundLog(item.id)
+        .then((res) => {
+          if (cancelled) return;
+          setBgLog({ output: tail(res.output ?? ''), error: tail(res.error ?? '') });
+          // 进程已结束:停止轮询,保留最终快照
+          if (!res.running && timer !== undefined) clearInterval(timer);
+        })
+        .catch(() => {});
+    };
+    load();
+    timer = setInterval(load, 2000);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) clearInterval(timer);
+    };
+  }, [expanded, backgroundPid, item.id]);
 
   const hasDetail = useMemo(() => {
     const { status, progress, result, error, content, confirmationData } = item;
@@ -541,6 +610,26 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
           {summary}
         </span>
         {item.name === 'bash' && summary && <CopyCommandButton command={summary} />}
+        {item.name === 'bash' && item.status === 'running' && (
+          <>
+            <BashRowAction action="background" toolCallId={item.id} />
+            <BashRowAction action="terminate" toolCallId={item.id} />
+          </>
+        )}
+        {backgroundPid !== null && bgRunning !== false && (
+          <>
+            <span className="tool-timeline-bg-pill">
+              {backgroundPid
+                ? t('tool.bash.backgroundPid', { pid: backgroundPid })
+                : t('tool.bash.background')}
+            </span>
+            <BashRowAction action="stop" toolCallId={item.id} onSuccess={() => setBgStopped(true)} />
+          </>
+        )}
+        {backgroundPid !== null && bgRunning === false && (
+          <span className="tool-timeline-bg-pill ended">{t('tool.bash.backgroundEnded')}</span>
+        )}
+        {bgStopped && <span className="tool-timeline-stopped">{t('tool.bash.stopped')}</span>}
         {item.name === 'edit_file' && item.status === 'success' && filePath && (
           <ViewDiffButton filePath={filePath} toolCallId={item.id} />
         )}
@@ -555,6 +644,17 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
       {hasDetail && (
         <div className="tool-timeline-detail">
           <TimelineDetail item={item} />
+          {bgLog && (bgLog.output || bgLog.error) && (
+            <div className="timeline-bg-log">
+              <div className="timeline-bg-log-title">{t('tool.bash.backgroundLog')}</div>
+              <pre>
+                <code>
+                  {bgLog.output}
+                  {bgLog.error ? `${bgLog.output ? '\n' : ''}[stderr]\n${bgLog.error}` : ''}
+                </code>
+              </pre>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -593,6 +693,66 @@ function CopyCommandButton({ command }: { command: string }) {
           <path d="M32.1875 13H7.8125C6.2592 13 5 14.2592 5 15.8125V40.1875C5 41.7408 6.2592 43 7.8125 43H32.1875C33.7408 43 35 41.7408 35 40.1875V15.8125C35 14.2592 33.7408 13 32.1875 13Z" />
         </svg>
       )}
+    </span>
+  );
+}
+
+/**
+ * bash 行内操作按钮:后台运行 / 中断 / 停止(悬浮行时显示)。
+ * 仅针对单个 toolCallId 操作,不携带 sessionId —— 中断只杀该进程,不终止整个 Agent 循环。
+ */
+function BashRowAction({
+  action,
+  toolCallId,
+  onSuccess,
+}: {
+  action: 'background' | 'terminate' | 'stop';
+  toolCallId: string;
+  onSuccess?: () => void;
+}) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+
+  const label =
+    action === 'background'
+      ? t('tool.bash.background')
+      : action === 'stop'
+        ? t('tool.bash.stop')
+        : t('tool.bash.terminate');
+
+  const run = () => {
+    if (busy) return;
+    setBusy(true);
+    const request =
+      action === 'background'
+        ? chatApi.backgroundTool({ toolCallId })
+        : chatApi.abortTool({ toolCallId });
+    void request
+      .then(() => onSuccess?.())
+      .catch(() => {})
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <span
+      className={`tool-timeline-action-btn ${action}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        run();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          run();
+        }
+      }}
+      title={label}
+      role="button"
+      tabIndex={0}
+      aria-disabled={busy || undefined}
+    >
+      {busy ? '…' : label}
     </span>
   );
 }

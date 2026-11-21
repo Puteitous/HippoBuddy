@@ -17,6 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.function.Consumer;
@@ -101,6 +103,15 @@ public class BashTool implements ToolExecutor {
             return null;
         }
         return lastResultsByToolCall.remove(toolCallId);
+    }
+
+    /**
+     * 读取指定 toolCallId 的分类结果（不移除）；无记录时返回 null。
+     * <p>
+     * 供编排层在消费前读取后台状态等结构化字段，不影响 ConversationService 后续消费。
+     */
+    public static BashResult peekResult(String toolCallId) {
+        return toolCallId == null ? null : lastResultsByToolCall.get(toolCallId);
     }
 
     public BashTool() {
@@ -256,9 +267,14 @@ public class BashTool implements ToolExecutor {
         try {
             BashResult result = executeCommand(effectiveCommand, workPath, timeout, progressCallback, outputMode, maxLines, runInBackground);
             rememberResult(currentToolCallId.get(), result); // 保留结构化副本供转录消费
-            return runInBackground
-                ? formatBackgroundResult(effectiveCommand, workPath, result)
-                : formatResult(effectiveCommand, workPath, result);
+            if (runInBackground) {
+                return formatBackgroundResult(effectiveCommand, workPath, result, false);
+            }
+            // 前台执行中被用户"转入后台"：按后台语义返回，进程继续运行
+            if (result.backgroundStarted()) {
+                return formatBackgroundResult(effectiveCommand, workPath, result, true);
+            }
+            return formatResult(effectiveCommand, workPath, result);
         } catch (IOException e) {
             throw new ToolExecutionException("命令执行失败: " + e.getMessage(), e);
         } catch (InterruptedException e) {
@@ -451,15 +467,17 @@ public class BashTool implements ToolExecutor {
 
     /**
      * 格式化后台模式执行结果。
+     *
+     * @param promoted true 表示由前台执行中途转入后台，false 表示调用时即指定 run_in_background
      */
-    private String formatBackgroundResult(String command, Path workPath, BashResult res) {
+    private String formatBackgroundResult(String command, Path workPath, BashResult res, boolean promoted) {
         StringBuilder result = new StringBuilder();
         result.append("命令执行结果（后台模式）\n");
         result.append("命令: ").append(command).append("\n");
         result.append("工作目录: ").append(PathSecurityUtils.getRelativePath(workPath)).append("\n");
 
         if (res.backgroundStarted()) {
-            result.append("状态: 后台启动成功，进程持续运行\n");
+            result.append(promoted ? "状态: 已转入后台运行，进程继续执行\n" : "状态: 后台启动成功，进程持续运行\n");
             result.append("进程 PID: ").append(res.pid()).append("\n");
             result.append("该进程不受超时控制，不会被自动终止。\n");
             result.append("如需强制终止: Windows 执行 taskkill /F /T /PID ").append(res.pid())
@@ -526,7 +544,12 @@ public class BashTool implements ToolExecutor {
         }
         logger.debug("bash 进程启动: toolCallId={}, pid={}, command={}",
             toolCallId, process.pid(), truncateForLog(command));
-        
+
+        // 前台转后台：等待循环感知后置位，读线程据此把后续输出写入后台缓冲
+        BashProcessManager manager = BashProcessManager.getInstance();
+        AtomicBoolean detached = new AtomicBoolean(false);
+        AtomicReference<BashProcessManager.BackgroundRecord> backgroundRecord = new AtomicReference<>();
+
         Thread readerThread = null;
         Thread stderrReaderThread = null;
         try {
@@ -541,7 +564,14 @@ public class BashTool implements ToolExecutor {
                         new InputStreamReader(process.getInputStream(), getPipeCharset()))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        if (toolCallId != null && !BashProcessManager.getInstance().isRunning(toolCallId)) {
+                        if (backgroundRecord.get() != null) {
+                            // 已转后台：输出追加到后台缓冲，不再推流式进度
+                            if (toolCallId != null) {
+                                manager.appendBackgroundOutput(toolCallId, line);
+                            }
+                            continue;
+                        }
+                        if (toolCallId != null && !manager.isRunning(toolCallId)) {
                             break;
                         }
                         if (progressCallback != null) {
@@ -553,6 +583,10 @@ public class BashTool implements ToolExecutor {
                     }
                 } catch (IOException e) {
                     // 进程销毁时流关闭，忽略异常
+                } finally {
+                    if (backgroundRecord.get() != null && toolCallId != null) {
+                        manager.finalizeBackground(toolCallId);
+                    }
                 }
             });
             readerThread.setDaemon(true);
@@ -564,12 +598,22 @@ public class BashTool implements ToolExecutor {
                         new InputStreamReader(process.getErrorStream(), getPipeCharset()))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
+                        if (backgroundRecord.get() != null) {
+                            if (toolCallId != null) {
+                                manager.appendBackgroundError(toolCallId, line);
+                            }
+                            continue;
+                        }
                         synchronized (errorOutput) {
                             errorOutput.append(line).append("\n");
                         }
                     }
                 } catch (IOException e) {
                     // 进程销毁时流关闭，忽略异常
+                } finally {
+                    if (backgroundRecord.get() != null && toolCallId != null) {
+                        manager.finalizeBackground(toolCallId);
+                    }
                 }
             });
             stderrReaderThread.setDaemon(true);
@@ -590,6 +634,27 @@ public class BashTool implements ToolExecutor {
                 long step = Math.min(CANCELLATION_POLL_INTERVAL_MS, remaining);
                 finished = process.waitFor(step, TimeUnit.MILLISECONDS);
                 if (finished) {
+                    break;
+                }
+                // 用户点击"后台运行"：停止等待，把进程与输出交接给后台托管
+                if (toolCallId != null && manager.isDetachRequested(toolCallId)) {
+                    manager.consumeDetachRequested(toolCallId);
+                    BashProcessManager.BackgroundRecord record =
+                        manager.registerBackground(toolCallId, process, command, workPath.toString());
+                    if (record != null) {
+                        // 已产生的输出先转存，避免交接后丢失
+                        synchronized (output) {
+                            appendBackgroundLines(record, output.toString(), false);
+                            output.setLength(0);
+                        }
+                        synchronized (errorOutput) {
+                            appendBackgroundLines(record, errorOutput.toString(), true);
+                            errorOutput.setLength(0);
+                        }
+                        backgroundRecord.set(record);
+                        detached.set(true);
+                        logger.info("bash 前台转后台交接完成: toolCallId={}, pid={}", toolCallId, process.pid());
+                    }
                     break;
                 }
                 // 外部取消已发起（用户点击终止按钮）：进入短确认窗口
@@ -625,6 +690,25 @@ public class BashTool implements ToolExecutor {
                 }
             }
             long duration = System.currentTimeMillis() - startTime;
+
+            // 已转入后台：不终止进程、不等待读线程收尾，立即返回 PID 释放回合锁
+            if (detached.get()) {
+                BashProcessManager.BackgroundRecord record = backgroundRecord.get();
+                String bgOutput = record != null ? record.getOutputSnapshot() : "";
+                String bgError = record != null ? record.getErrorSnapshot() : "";
+                // 补上交接瞬间仍留在本地缓冲的尾部输出
+                synchronized (output) {
+                    bgOutput = bgOutput + output;
+                }
+                synchronized (errorOutput) {
+                    bgError = bgError + errorOutput;
+                }
+                String processedBgOutput = truncateOutput(applyOutputMode(bgOutput, outputMode, maxLines));
+                String processedBgError = truncateOutput(applyOutputMode(bgError, outputMode, maxLines));
+                logger.info("bash 已转入后台运行: toolCallId={}, pid={}", toolCallId, process.pid());
+                return new BashResult(BashResult.NO_VALUE, false, false, false, true,
+                    duration, process.pid(), processedBgError, processedBgOutput, outputMode, maxLines);
+            }
 
             if (!finished && !cancelFailed) {
                 // 纯超时：递归终止整棵进程树（避免只杀 cmd/bash 根进程而遗留孤儿子进程）
@@ -677,14 +761,33 @@ public class BashTool implements ToolExecutor {
                 toolCallId, process.pid(), duration, finalExitCode, externallyCancelled, cancelFailed);
             return result;
         } finally {
-            if (readerThread != null && readerThread.isAlive()) {
-                readerThread.interrupt();
+            // 已转后台：读线程继续消费输出、进程保持登记（供界面"停止"）；由后台 reader 结束时清理
+            if (!detached.get()) {
+                if (readerThread != null && readerThread.isAlive()) {
+                    readerThread.interrupt();
+                }
+                if (stderrReaderThread != null && stderrReaderThread.isAlive()) {
+                    stderrReaderThread.interrupt();
+                }
+                if (toolCallId != null) {
+                    manager.unregister(toolCallId);
+                    manager.consumeDetachRequested(toolCallId);
+                }
             }
-            if (stderrReaderThread != null && stderrReaderThread.isAlive()) {
-                stderrReaderThread.interrupt();
-            }
-            if (toolCallId != null) {
-                BashProcessManager.getInstance().unregister(toolCallId);
+        }
+    }
+
+    /** 把已产生的文本按行转存到后台输出缓冲（stderr 走 appendError 区分流）。 */
+    private static void appendBackgroundLines(BashProcessManager.BackgroundRecord record,
+                                              String text, boolean stderr) {
+        if (record == null || text == null || text.isEmpty()) {
+            return;
+        }
+        for (String line : text.split("\n")) {
+            if (stderr) {
+                record.appendError(line);
+            } else {
+                record.append(line);
             }
         }
     }

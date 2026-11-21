@@ -181,6 +181,20 @@ public class ConversationJsonlReader {
                         }
 
                         msgMap.put("success", success);
+
+                        // bash 后台状态：从持久化的 tool_result_detail 透出，
+                        // 刷新历史后前端直接用字段渲染，无需解析结果文本
+                        JsonNode detail = msgNode.path("tool_result_detail");
+                        if (detail.isObject() && detail.path("backgroundStarted").asBoolean(false)) {
+                            msgMap.put("background", true);
+                            long pid = detail.path("pid").asLong(-1);
+                            if (pid > 0) {
+                                msgMap.put("pid", pid);
+                            }
+                            if (detail.has("promoted")) {
+                                msgMap.put("promoted", detail.path("promoted").asBoolean());
+                            }
+                        }
                     }
 
                     messages.add(msgMap);

@@ -1037,12 +1037,17 @@ export const useChatStore = create<ChatState>((set, get) => {
                 ? {
                     ...tc,
                     status: payload.success
-                      ? 'success'
+                      ? /已被用户终止/.test(payload.result ?? '')
+                        ? 'cancelled'
+                        : 'success'
                       : /用户拒绝|denied|rejected/i.test(payload.error ?? '')
                         ? 'denied'
                         : 'failed',
                     result: payload.result,
                     error: payload.error,
+                    background: payload.background,
+                    promoted: payload.promoted,
+                    pid: payload.pid,
                     endedAt: Date.now(),
                   }
                 : tc,

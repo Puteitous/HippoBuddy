@@ -4,9 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -50,6 +52,11 @@ public class BashProcessManager {
      *  一旦终止操作已完成但进程仍存活，即可立即判定"终止失败"，无需再盲等固定窗口。 */
     private final Set<String> terminateAttemptDoneToolCallIds = ConcurrentHashMap.newKeySet();
 
+    /** 已请求"前台转后台"的 toolCallId 集合。
+     *  <p>由 {@link #requestDetach(String)} 标记，{@link BashTool} 在前台等待循环中轮询感知，
+     *  随后停止等待、释放回合锁，并把读线程交接给后台托管。 */
+    private final Set<String> detachRequestedToolCallIds = ConcurrentHashMap.newKeySet();
+
     // ===== 后台进程（run_in_background）托管 =====
 
     /** 后台进程输出缓冲上限（字符）：达到上限后丢弃中间，仅保留开头与结尾，防止长驻进程日志撑爆内存 */
@@ -57,6 +64,19 @@ public class BashProcessManager {
 
     /** 已托管的后台进程：toolCallId -> 后台进程记录 */
     private final Map<String, BackgroundRecord> backgroundProcesses = new ConcurrentHashMap<>();
+
+    /** 已结束后台进程的日志暂存（有上限），供界面在进程退出后仍能查看最终输出 */
+    private final Map<String, BackgroundRecord> completedBackgroundProcesses = new ConcurrentHashMap<>();
+    private static final int MAX_COMPLETED_BACKGROUNDS = 20;
+
+    /** toolCallId -> 会话 ID：后台进程结束时据此把状态通知投递回对应会话上下文 */
+    private final Map<String, String> toolCallSessions = new ConcurrentHashMap<>();
+
+    /** 会话 -> 待注入下一轮上下文的后台进程通知 */
+    private final Map<String, List<String>> pendingNotices = new ConcurrentHashMap<>();
+
+    /** 被用户主动停止的后台进程（用于区分"已停止"与自然"已结束"的通知文案） */
+    private final Set<String> userStoppedBackgrounds = ConcurrentHashMap.newKeySet();
 
     /**
      * 后台进程记录：持有进程引用与已累积输出（带上限截断），并由行程结束时清理。
@@ -172,9 +192,92 @@ public class BashProcessManager {
         if (toolCallId == null) {
             return;
         }
-        backgroundProcesses.remove(toolCallId);
+        BackgroundRecord finished = backgroundProcesses.remove(toolCallId);
+        if (finished != null) {
+            retainCompleted(toolCallId, finished);
+            boolean userStopped = userStoppedBackgrounds.remove(toolCallId);
+            enqueueNotice(toolCallId, "后台进程 PID " + finished.pid()
+                + "（命令: " + abbreviate(finished.getCommand(), 120) + "）"
+                + (userStopped ? "已被用户停止。" : "已结束。"));
+            toolCallSessions.remove(toolCallId);
+        }
         processes.remove(toolCallId);
         terminateAttemptDoneToolCallIds.remove(toolCallId);
+        detachRequestedToolCallIds.remove(toolCallId);
+        // 后台进程被终止后不会再走 BashTool 的 consumeCancelled，这里顺手清理避免标志泄漏
+        cancelledToolCallIds.remove(toolCallId);
+    }
+
+    /**
+     * 绑定 toolCallId 与所属会话；bash 执行前由编排层调用，供后台进程结束时回投通知。
+     */
+    public void bindSession(String toolCallId, String sessionId) {
+        if (toolCallId != null && sessionId != null) {
+            toolCallSessions.put(toolCallId, sessionId);
+        }
+    }
+
+    /**
+     * 取出并清空某会话待注入上下文的后台进程通知。
+     *
+     * @return 通知列表；无通知时返回空列表
+     */
+    public List<String> drainNotices(String sessionId) {
+        if (sessionId == null) {
+            return List.of();
+        }
+        List<String> notices = pendingNotices.remove(sessionId);
+        return notices != null ? notices : List.of();
+    }
+
+    /** 把一条后台进程状态通知投递到对应会话的待注入队列。 */
+    private void enqueueNotice(String toolCallId, String text) {
+        String sessionId = toolCallSessions.get(toolCallId);
+        if (sessionId == null || text == null) {
+            return;
+        }
+        pendingNotices.computeIfAbsent(sessionId, key -> new CopyOnWriteArrayList<>()).add(text);
+        logger.info("后台进程通知已入队: sessionId={}, toolCallId={}, text={}", sessionId, toolCallId, text);
+    }
+
+    /** 截断过长命令，避免通知文本膨胀。 */
+    private static String abbreviate(String text, int max) {
+        if (text == null) {
+            return "";
+        }
+        return text.length() <= max ? text : text.substring(0, max) + "…";
+    }
+
+    /**
+     * 暂存已结束后台进程的记录（限定数量），供界面查看最终日志。
+     */
+    private void retainCompleted(String toolCallId, BackgroundRecord record) {
+        if (completedBackgroundProcesses.size() >= MAX_COMPLETED_BACKGROUNDS) {
+            String oldestId = null;
+            long oldestStart = Long.MAX_VALUE;
+            for (Map.Entry<String, BackgroundRecord> entry : completedBackgroundProcesses.entrySet()) {
+                long start = entry.getValue().getStartTime();
+                if (start < oldestStart) {
+                    oldestStart = start;
+                    oldestId = entry.getKey();
+                }
+            }
+            if (oldestId != null) {
+                completedBackgroundProcesses.remove(oldestId);
+            }
+        }
+        completedBackgroundProcesses.put(toolCallId, record);
+    }
+
+    /**
+     * 查询后台进程记录用于日志快照：优先运行中的进程，其次已结束进程的暂存记录。
+     */
+    public BackgroundRecord getBackgroundForLog(String toolCallId) {
+        if (toolCallId == null) {
+            return null;
+        }
+        BackgroundRecord live = backgroundProcesses.get(toolCallId);
+        return live != null ? live : completedBackgroundProcesses.get(toolCallId);
     }
 
     private BashProcessManager() {
@@ -193,6 +296,7 @@ public class BashProcessManager {
     public void unregister(String toolCallId) {
         if (toolCallId != null) {
             processes.remove(toolCallId);
+            toolCallSessions.remove(toolCallId);
         }
     }
 
@@ -230,6 +334,11 @@ public class BashProcessManager {
         if (process == null || !process.isAlive()) {
             processes.remove(toolCallId);
             return false;
+        }
+
+        // 后台进程被用户主动停止：记录原因，供 finalizeBackground 时通知模型
+        if (backgroundProcesses.containsKey(toolCallId)) {
+            userStoppedBackgrounds.add(toolCallId);
         }
 
         cancelledToolCallIds.add(toolCallId);
@@ -302,6 +411,40 @@ public class BashProcessManager {
     public void consumeTerminateAttemptDone(String toolCallId) {
         if (toolCallId != null) {
             terminateAttemptDoneToolCallIds.remove(toolCallId);
+        }
+    }
+
+    /**
+     * 请求把正在前台执行的进程转入后台托管。
+     * <p>
+     * 仅做标记，不终止进程：{@link BashTool} 的等待循环会轮询该标记，
+     * 感知后停止按命令 timeout 等待、立即返回 tool_result，并把输出读线程
+     * 交接给 {@link #registerBackground} 的缓冲。进程本身继续运行。
+     *
+     * @return 进程 PID；进程不存在或已结束时返回 -1
+     */
+    public long requestDetach(String toolCallId) {
+        if (toolCallId == null) {
+            return -1;
+        }
+        Process process = processes.get(toolCallId);
+        if (process == null || !process.isAlive()) {
+            return -1;
+        }
+        detachRequestedToolCallIds.add(toolCallId);
+        logger.info("bash 收到转后台请求: toolCallId={}, pid={}", toolCallId, process.pid());
+        return process.pid();
+    }
+
+    /** 查询"转后台是否已请求"（不消费标志）。 */
+    public boolean isDetachRequested(String toolCallId) {
+        return toolCallId != null && detachRequestedToolCallIds.contains(toolCallId);
+    }
+
+    /** 消费"转后台请求"标志：交接完成后清除，避免影响同 id 的后续执行。 */
+    public void consumeDetachRequested(String toolCallId) {
+        if (toolCallId != null) {
+            detachRequestedToolCallIds.remove(toolCallId);
         }
     }
 
