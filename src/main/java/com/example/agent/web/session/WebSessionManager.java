@@ -46,6 +46,7 @@ public class WebSessionManager implements SessionManager {
     private static final Map<String, PendingToolCall> pendingToolCalls = new ConcurrentHashMap<>();
     private static final Map<String, PendingBashConfirmation> pendingBashConfirmations = new ConcurrentHashMap<>();
     private static final Map<String, PendingDeleteConfirmation> pendingDeleteConfirmations = new ConcurrentHashMap<>();
+    private static final Map<String, PendingCompactConfirmation> pendingCompactConfirmations = new ConcurrentHashMap<>();
     private static final Map<String, String> sessionModes = new ConcurrentHashMap<>();
     /** 会话固化的 System Prompt 持久化文件名（与 session.json 同目录，跨重启稳定） */
     private static final String SYSTEM_PROMPT_FILE = "system-prompt.txt";
@@ -99,6 +100,7 @@ public class WebSessionManager implements SessionManager {
         pendingToolCalls.clear();
         pendingBashConfirmations.clear();
         pendingDeleteConfirmations.clear();
+        pendingCompactConfirmations.clear();
         sessionLocks.clear();
         sessionModes.clear();
         sessionModeFrozen.clear();
@@ -177,6 +179,28 @@ public class WebSessionManager implements SessionManager {
     @Override
     public void clearPendingDeleteConfirmation(String sessionId) {
         pendingDeleteConfirmations.remove(sessionId);
+    }
+
+    // ===== compact_context 确认 =====
+
+    @Override
+    public boolean hasPendingCompactConfirmation(String sessionId) {
+        return pendingCompactConfirmations.containsKey(sessionId);
+    }
+
+    @Override
+    public PendingCompactConfirmation pollPendingCompactConfirmation(String sessionId) {
+        return pendingCompactConfirmations.remove(sessionId);
+    }
+
+    @Override
+    public void setPendingCompactConfirmation(String sessionId, PendingCompactConfirmation pending) {
+        pendingCompactConfirmations.put(sessionId, pending);
+    }
+
+    @Override
+    public void clearPendingCompactConfirmation(String sessionId) {
+        pendingCompactConfirmations.remove(sessionId);
     }
 
     @Override

@@ -94,19 +94,6 @@ export const sessionApi = {
       { userMessage },
     ),
 
-  /** POST /api/sessions/:id/compact - 手动压缩会话上下文 */
-  compact: (sessionId: string, instruction?: string) =>
-    postJson<{
-      success: boolean;
-      method: string;
-      originalCount: number;
-      compactedCount: number;
-      reducedCount: number;
-      savedTokens: number;
-      savedPercent: number;
-      summary: string;
-    }>(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}/compact`, { instruction }),
-
   /** POST /api/sessions/:id/rewind-check - 回滚前检查(收集目标消息后的文件变更) */
   rewindCheck: (sessionId: string, body: { messageId: string }) =>
     postJson<RewindCheckResponse>(

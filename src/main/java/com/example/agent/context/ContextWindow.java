@@ -16,6 +16,8 @@ public class ContextWindow {
     private final TokenEstimator tokenEstimator;
     private final List<Message> injectedWarnings;
     private boolean isRecalculating;
+    /** 模型上下文起始下标：压缩后旧消息保留在 UI 历史中，但不再参与推理与预算统计 */
+    private volatile int effectiveStartIndex;
 
     public ContextWindow(int maxTokens, TokenEstimator tokenEstimator) {
         if (tokenEstimator == null) {
@@ -62,11 +64,28 @@ public class ContextWindow {
 
     private void doRecalculate() {
         List<Message> allMessages = new ArrayList<>();
-        allMessages.addAll(messages);
+        allMessages.addAll(sliceFromStart());
         allMessages.addAll(injectedWarnings);
         
         int totalTokens = tokenEstimator.estimateConversationTokens(allMessages);
         budget.update(totalTokens);
+    }
+
+    /**
+     * 返回模型实际可见的消息（不含注入警告）。
+     * 当 {@link #effectiveStartIndex} > 0 时，始终保留首条 system 消息，
+     * 其余从起始下标开始；旧消息仅用于 UI 历史。
+     */
+    private List<Message> sliceFromStart() {
+        List<Message> result = new ArrayList<>();
+        int start = Math.min(Math.max(0, effectiveStartIndex), messages.size());
+        if (start > 0 && !messages.isEmpty() && messages.get(0).isSystem()) {
+            result.add(messages.get(0));
+        }
+        for (int i = start; i < messages.size(); i++) {
+            result.add(messages.get(i));
+        }
+        return result;
     }
 
     public void injectWarning(Message warningMessage) {
@@ -83,7 +102,7 @@ public class ContextWindow {
     }
 
     public List<Message> getEffectiveMessages() {
-        List<Message> result = new ArrayList<>(messages);
+        List<Message> result = new ArrayList<>(sliceFromStart());
         result.addAll(injectedWarnings);
         
         return result.stream()
@@ -104,6 +123,7 @@ public class ContextWindow {
     public void replaceMessages(List<Message> newMessages) {
         messages.clear();
         messages.addAll(newMessages);
+        effectiveStartIndex = 0;
         recalculateBudget();
     }
 
@@ -115,6 +135,9 @@ public class ContextWindow {
             );
         }
         messages.remove(index);
+        if (index < effectiveStartIndex) {
+            effectiveStartIndex--;
+        }
         recalculateBudget();
     }
 
@@ -133,7 +156,20 @@ public class ContextWindow {
     public void clear() {
         messages.clear();
         injectedWarnings.clear();
+        effectiveStartIndex = 0;
         budget.reset();
+    }
+
+    public int getEffectiveStartIndex() {
+        return effectiveStartIndex;
+    }
+
+    /** 设置模型上下文的起始下标；用于压缩后让旧消息只保留在 UI 历史中。 */
+    public void setEffectiveStartIndex(int index) {
+        this.effectiveStartIndex = Math.max(0, Math.min(index, messages.size()));
+        // 起点变化后使用率会跳变，重置已触发阈值，避免压缩后不再提醒
+        budget.reset();
+        recalculateBudget();
     }
 
     public void forceRecalculate() {

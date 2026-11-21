@@ -2,11 +2,8 @@ package com.example.agent.web.handler;
 
 import com.example.agent.application.ConversationService;
 import com.example.agent.config.Config;
-import com.example.agent.context.ManualCompactor;
 import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
-import com.example.agent.llm.client.LlmClient;
-import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.service.TitleGenerationService;
 import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.web.util.ConversationJsonlReader;
@@ -67,9 +64,6 @@ public class SessionApiHandler implements HttpHandler {
             } else if ("GET".equals(method) && path.matches("/api/sessions/[^/]+/tokens$")) {
                 String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/tokens"));
                 handleGetTokens(exchange, sessionId);
-            } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/compact$")) {
-                String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/compact"));
-                handleCompactSession(exchange, sessionId);
             } else if ("POST".equals(method) && path.matches("/api/sessions/[^/]+/rewind-check$")) {
                 String sessionId = path.substring("/api/sessions/".length(), path.lastIndexOf("/rewind-check"));
                 rewindHandler.handleRewindCheck(exchange, sessionId);
@@ -312,75 +306,6 @@ public class SessionApiHandler implements HttpHandler {
         Map<String, Object> response = new HashMap<>();
         response.put("title", title);
         sendJson(exchange, response);
-    }
-
-    /**
-     * 手动压缩会话上下文（参照 CLI 的 /compact 命令）
-     * POST /api/sessions/{id}/compact
-     * 请求体: {"instruction": "可选的自定义压缩指令"}
-     */
-    private void handleCompactSession(HttpExchange exchange, String sessionId) throws IOException {
-        Conversation conversation = com.example.agent.web.session.WebSessionManager.getInstance().getSessions().get(sessionId);
-        if (conversation == null) {
-            sendError(exchange, 404, "Session not found");
-            exchange.close();
-            return;
-        }
-
-        String userInstruction = null;
-        try {
-            String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            if (!requestBody.isBlank()) {
-                JsonNode json = objectMapper.readTree(requestBody);
-                if (json.has("instruction")) {
-                    userInstruction = json.get("instruction").asText();
-                }
-            }
-        } catch (Exception e) {
-            logger.debug("解析压缩请求体失败", e);
-        }
-
-        try {
-            ConversationService conversationService = ServiceLocator.get(ConversationService.class);
-            LlmClient llmClient = ServiceLocator.get(LlmClient.class);
-            int maxTokens = Config.getInstance().getContext().getMaxTokens();
-
-            ManualCompactor compactor = new ManualCompactor(
-                TokenEstimatorFactory.getDefault(),
-                llmClient
-            );
-
-            var originalMessages = conversation.getMessages();
-            int originalCount = originalMessages.size();
-            int originalTokens = TokenEstimatorFactory.getDefault().estimateConversationTokens(originalMessages);
-
-            var result = compactor.compact(originalMessages, userInstruction, maxTokens);
-
-            conversation.replaceMessages(result.getMessages());
-
-            int compactedCount = result.getMessages().size();
-            int savedTokens = result.getSavedTokens();
-            double savedPercent = savedTokens * 100.0 / Math.max(1, originalTokens);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("method", result.getMethod().getDisplayName());
-            response.put("originalCount", originalCount);
-            response.put("compactedCount", compactedCount);
-            response.put("reducedCount", originalCount - compactedCount);
-            response.put("savedTokens", savedTokens);
-            response.put("savedPercent", Math.round(savedPercent * 10.0) / 10.0);
-            response.put("summary", result.getSummary());
-
-            logger.info("手动压缩完成：sessionId={}, 原{}条/{}tokens → 压缩后{}条, 节省{}tokens({}%)",
-                sessionId, originalCount, originalTokens, compactedCount, savedTokens, savedPercent);
-
-            sendJson(exchange, response);
-        } catch (Exception e) {
-            logger.error("压缩会话失败：sessionId={}", sessionId, e);
-            sendError(exchange, 500, "Failed to compact session: " + e.getMessage());
-        }
-        exchange.close();
     }
 
     /**

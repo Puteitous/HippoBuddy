@@ -49,6 +49,18 @@ public interface SessionManager {
 
     // ============================
 
+    // === compact_context 确认相关 ===
+
+    boolean hasPendingCompactConfirmation(String sessionId);
+
+    PendingCompactConfirmation pollPendingCompactConfirmation(String sessionId);
+
+    void setPendingCompactConfirmation(String sessionId, PendingCompactConfirmation pending);
+
+    void clearPendingCompactConfirmation(String sessionId);
+
+    // ============================
+
     // === Mode 存储 ===
 
     void setMode(String sessionId, String mode);

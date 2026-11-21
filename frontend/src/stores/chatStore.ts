@@ -1073,9 +1073,12 @@ export const useChatStore = create<ChatState>((set, get) => {
         case 'tool_confirmation': {
           const payload = data as ChatSseEventMap['tool_confirmation'];
           updateSession(sid, (s) => {
-            const name = (payload as DeleteFileToolConfirmationPayload).toolType === 'delete_file'
+            const toolType = (payload as { toolType?: string }).toolType;
+            const name = toolType === 'delete_file'
               ? 'delete_file'
-              : 'bash';
+              : toolType === 'compact_context'
+                ? 'compact_context'
+                : 'bash';
             const idx = s.toolCalls.findIndex((tc) => tc.name === name && !tc.confirmationData);
             if (idx === -1) return;
             const next = [...s.toolCalls];

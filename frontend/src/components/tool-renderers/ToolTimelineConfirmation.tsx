@@ -15,6 +15,7 @@ import { FileIcon } from '@/components/FileIcon';
 import { FileTypeIcon } from '@/components/FileTypeIcon';
 import type {
   BashToolConfirmationPayload,
+  CompactContextToolConfirmationPayload,
   DeleteFileToolConfirmationPayload,
   ToolConfirmationPayload,
 } from '@/types/sse';
@@ -50,6 +51,11 @@ function isDeleteFilePayload(
 /** 判定确认数据是否为 bash */
 function isBashPayload(p: ToolConfirmationPayload): p is BashToolConfirmationPayload {
   return !!(p as BashToolConfirmationPayload).command;
+}
+
+/** 判定确认数据是否为 compact_context */
+function isCompactPayload(p: ToolConfirmationPayload): p is CompactContextToolConfirmationPayload {
+  return (p as CompactContextToolConfirmationPayload).toolType === 'compact_context';
 }
 
 /** 风险徽章文案(对齐旧版 i18n tool.confirm.*) */
@@ -157,6 +163,7 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
 
   const isBash = isBashPayload(confirmationData);
   const isDelete = isDeleteFilePayload(confirmationData);
+  const isCompact = isCompactPayload(confirmationData);
 
   // 组装 delete_file 待删除项(文件 + 目录/,对齐旧版 delete-file.js)
   const deleteItems = isDelete
@@ -167,13 +174,19 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
     <div
       className={`timeline-detail-confirmation${isBash ? ` ${confirmationData.riskLevel || 'medium'}` : ''}`}
     >
-      {isBash && (
+      {(isBash || isCompact) && (
         <div className="confirmation-header">
-          <span className="confirmation-header-icon">
-            <RiskIcon />
+          {isBash && (
+            <span className="confirmation-header-icon">
+              <RiskIcon />
+            </span>
+          )}
+          <span className="confirmation-header-title">
+            {isBash ? t('tool.confirm.title') : t('tool.compact.title')}
           </span>
-          <span className="confirmation-header-title">{t('tool.confirm.title')}</span>
-          <span className="risk-badge">{riskLabel(confirmationData.riskLevel || 'medium')}</span>
+          {isBash && (
+            <span className="risk-badge">{riskLabel(confirmationData.riskLevel || 'medium')}</span>
+          )}
         </div>
       )}
 
@@ -188,6 +201,24 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
 
         {isBash && confirmationData.riskReason && (
           <div className="confirmation-reason">{translateRiskReason(confirmationData.riskReason)}</div>
+        )}
+
+        {isCompact && (
+          <>
+            <div className="confirmation-reason">{t('tool.compact.hint')}</div>
+            <div className="confirmation-command">
+              <pre>
+                <code>{confirmationData.summary}</code>
+              </pre>
+            </div>
+            <div className="confirmation-reason">
+              {t('tool.compact.tokens', {
+                before: String(confirmationData.currentTokens),
+                after: String(confirmationData.summaryTokens),
+                percent: String(confirmationData.savedPercent),
+              })}
+            </div>
+          </>
         )}
 
         {isDelete && (
@@ -224,7 +255,11 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
               onClick={() => void handleDecision('deny')}
               disabled={submitting}
             >
-              {isDelete ? t('tool.delete.keep') : t('tool.confirm.deny')}
+              {isCompact
+                ? t('tool.compact.deny')
+                : isDelete
+                  ? t('tool.delete.keep')
+                  : t('tool.confirm.deny')}
             </button>
             <button
               type="button"
@@ -232,7 +267,13 @@ export function ToolTimelineConfirmation({ confirmationData }: ToolTimelineConfi
               onClick={() => void handleDecision('allow')}
               disabled={submitting}
             >
-              {submitting ? t('tool.confirm.processing') : isDelete ? t('tool.delete.confirm') : t('tool.confirm.execute')}
+              {submitting
+                ? t('tool.confirm.processing')
+                : isCompact
+                  ? t('tool.compact.confirm')
+                  : isDelete
+                    ? t('tool.delete.confirm')
+                    : t('tool.confirm.execute')}
             </button>
           </div>
         </div>

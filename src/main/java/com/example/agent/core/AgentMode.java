@@ -25,6 +25,7 @@ public enum AgentMode {
             "skill",
             "web_search", "web_fetch",
             // "lint_diagnostics", // 语法检测工具已下线
+            "compact_context",
             "fork_agent", "fork_agents", "list_subagents", "cancel_subagent"
         )
     ),

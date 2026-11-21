@@ -90,6 +90,7 @@ class ToolDescriptionStabilityTest {
         tools.add(new TodoWriteTool(new TodoManager()));
         tools.add(new WebFetchTool());
         tools.add(new LintDiagnosticsTool());
+        tools.add(new CompactContextTool());
         tools.add(new SkillTool());
         tools.add(new WebSearchTool(new WebSearchConfig()));
         return tools;

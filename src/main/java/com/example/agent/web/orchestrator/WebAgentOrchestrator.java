@@ -32,6 +32,7 @@ import com.example.agent.tools.FileChangeTracker;
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.web.session.PendingBashConfirmation;
+import com.example.agent.web.session.PendingCompactConfirmation;
 import com.example.agent.web.session.PendingDeleteConfirmation;
 import com.example.agent.web.session.PendingToolCall;
 import com.example.agent.web.session.SessionCancelManager;
@@ -236,11 +237,15 @@ public class WebAgentOrchestrator {
             }
 
             // 防御：如果已有挂起的确认弹窗，不进入新一轮 LLM 调用
-            if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
+            if (sessionManager.hasPendingBashConfirmation(sessionId)
+                    || sessionManager.hasPendingDeleteConfirmation(sessionId)
+                    || sessionManager.hasPendingCompactConfirmation(sessionId)) {
                 if (sessionManager.hasPendingBashConfirmation(sessionId)) {
                     logger.info("检测到挂起的 bash 确认，暂停当前 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
-                } else {
+                } else if (sessionManager.hasPendingDeleteConfirmation(sessionId)) {
                     logger.info("检测到挂起的 delete_file 确认，暂停当前 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
+                } else {
+                    logger.info("检测到挂起的 compact_context 确认，暂停当前 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
                 }
                 return;
             }
@@ -700,6 +705,46 @@ public class WebAgentOrchestrator {
             try (var _session = FileChangeTracker.withContext(sessionId, null)) {
                 RequestContext.set(RequestContext.ContextType.WEB);
 
+                // compact_context：模型自产交接笔记 + 用户确认后替换上下文。
+                // 该工具必须单独调用，避免同轮多个 tool_call 的结果无法对齐。
+                if ("compact_context".equals(toolName)) {
+                    JsonNode args = objectMapper.readTree(arguments);
+                    String summary = args != null && args.hasNonNull("summary")
+                        ? args.get("summary").asText("") : "";
+
+                    if (summary.isBlank()) {
+                        String errorMsg = "summary 参数不能为空";
+                        getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                        sseWriter.sendSseEvent("tool_result",
+                            buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
+                        continue;
+                    }
+
+                    if (toolCalls.size() > 1) {
+                        String errorMsg = "compact_context 必须单独调用，不能与其他工具放在同一轮";
+                        getConversationService().addToolResult(conversation, toolCall.getId(), toolName, "错误: " + errorMsg, false);
+                        sseWriter.sendSseEvent("tool_result",
+                            buildToolResultJson(toolCall.getId(), toolName, false, null, errorMsg, arguments, toolCall.getId()));
+                        continue;
+                    }
+
+                    String confirmId = java.util.UUID.randomUUID().toString();
+                    int currentTokens = TokenEstimatorFactory.getDefault()
+                        .estimateConversationTokens(conversation.getMessages());
+                    int summaryTokens = TokenEstimatorFactory.getDefault().estimateTextTokens(summary);
+
+                    PendingCompactConfirmation pending = new PendingCompactConfirmation(
+                        confirmId, toolCall.getId(), toolName, summary, arguments, currentTokens, summaryTokens
+                    );
+                    sessionManager.setPendingCompactConfirmation(sessionId, pending);
+
+                    sseWriter.sendSseEvent("tool_confirmation",
+                        buildCompactConfirmJson(confirmId, summary, currentTokens, summaryTokens));
+                    logger.info("发送 compact_context 确认事件: confirmId={}, currentTokens={}, summaryTokens={}",
+                        confirmId, currentTokens, summaryTokens);
+                    return false;
+                }
+
                 // 对 bash 工具做预检查：三级安全模型
                 if ("bash".equals(toolName)) {
                     JsonNode args = objectMapper.readTree(arguments);
@@ -937,7 +982,9 @@ public class WebAgentOrchestrator {
                 executeToolCalls(remaining, conversation, sseWriter, sessionId, mode);
                 // 执行剩余工具时又触发了新的确认弹窗（如第二个 bash/delete_file 也需确认），
                 // 等待用户确认，不进入下一轮 Agent 循环
-                if (sessionManager.hasPendingBashConfirmation(sessionId) || sessionManager.hasPendingDeleteConfirmation(sessionId)) {
+                if (sessionManager.hasPendingBashConfirmation(sessionId)
+                        || sessionManager.hasPendingDeleteConfirmation(sessionId)
+                        || sessionManager.hasPendingCompactConfirmation(sessionId)) {
                     logger.info("剩余工具执行中触发了新的确认弹窗，等待用户确认 (sessionId={})", sessionId);
                     return;
                 }
@@ -1123,6 +1170,24 @@ public class WebAgentOrchestrator {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("id", id);
         node.put("line", line);
+        return node.toString();
+    }
+
+    /**
+     * 使用 ObjectMapper 安全构建 compact_context 确认 SSE 事件 JSON。
+     */
+    private static String buildCompactConfirmJson(String confirmId, String summary,
+                                                   int currentTokens, int summaryTokens) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("confirmId", confirmId);
+        node.put("toolType", "compact_context");
+        node.put("summary", summary);
+        node.put("currentTokens", currentTokens);
+        node.put("summaryTokens", summaryTokens);
+        int savedTokens = Math.max(0, currentTokens - summaryTokens);
+        node.put("savedTokens", savedTokens);
+        double savedPercent = currentTokens > 0 ? savedTokens * 100.0 / currentTokens : 0;
+        node.put("savedPercent", Math.round(savedPercent * 10.0) / 10.0);
         return node.toString();
     }
 

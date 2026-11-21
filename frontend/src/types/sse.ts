@@ -103,7 +103,21 @@ export interface DeleteFileToolConfirmationPayload {
   truncated: boolean;
 }
 
-export type ToolConfirmationPayload = BashToolConfirmationPayload | DeleteFileToolConfirmationPayload;
+/** compact_context 工具确认请求 */
+export interface CompactContextToolConfirmationPayload {
+  confirmId: string;
+  toolType: 'compact_context';
+  summary: string;
+  currentTokens: number;
+  summaryTokens: number;
+  savedTokens: number;
+  savedPercent: number;
+}
+
+export type ToolConfirmationPayload =
+  | BashToolConfirmationPayload
+  | DeleteFileToolConfirmationPayload
+  | CompactContextToolConfirmationPayload;
 
 /** 联网搜索开始(空对象) */
 export type WebSearchStartPayload = Record<string, never>;

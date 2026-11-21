@@ -39,6 +39,8 @@ public class TranscriptLoader {
         private String customTitle;
         private final Set<String> tags = new HashSet<>();
         private String lastCompactBoundary;
+        /** 最后一条压缩边界之后的第一条消息在 messages 中的下标；-1 表示无边界 */
+        private int boundaryMessageIndex = -1;
         private int truncatedLines = 0;
         private boolean recoveredFromCrash = false;
         private LocalDateTime lastActivityTime;
@@ -60,6 +62,9 @@ public class TranscriptLoader {
                                          com.example.agent.application.ConversationService service) {
             conversation.clear();
             conversation.addMessages(messages);
+            if (boundaryMessageIndex >= 0) {
+                conversation.setContextStartIndex(boundaryMessageIndex);
+            }
         }
 
 
@@ -82,6 +87,10 @@ public class TranscriptLoader {
 
         public String getLastCompactBoundary() {
             return lastCompactBoundary;
+        }
+
+        public int getBoundaryMessageIndex() {
+            return boundaryMessageIndex;
         }
 
         public int getTruncatedLines() {
@@ -314,6 +323,9 @@ public class TranscriptLoader {
                 break;
             case COMPACT_BOUNDARY:
                 result.lastCompactBoundary = entry.getBoundaryUuid();
+                // 记录边界之后的第一条消息位置：旧消息保留给 UI，但不再进入模型上下文。
+                result.boundaryMessageIndex = result.messages.size();
+                result.lastKnownUsage = null;
                 break;
             case CUSTOM_TITLE:
                 result.customTitle = entry.getTitle();

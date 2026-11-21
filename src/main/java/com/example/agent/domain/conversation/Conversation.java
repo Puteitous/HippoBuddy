@@ -162,6 +162,20 @@ public class Conversation {
         return contextWindow;
     }
 
+    /** 设置模型上下文起点：旧消息仍保留给 UI，但不参与推理与预算统计。 */
+    public void setContextStartIndex(int index) {
+        lock.writeLock().lock();
+        try {
+            contextWindow.setEffectiveStartIndex(index);
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public int getContextStartIndex() {
+        return contextWindow.getEffectiveStartIndex();
+    }
+
     public BlockingGuard getBlockingGuard() {
         return blockingGuard;
     }

@@ -1170,6 +1170,12 @@ export const zh: Record<string, string> = {
   'tool.confirm.deny': '拒绝',
   'tool.confirm.execute': '执行',
 
+  'tool.compact.title': '压缩上下文',
+  'tool.compact.hint': '确认后原始对话将不再进入上下文，只保留以下交接笔记。',
+  'tool.compact.tokens': '当前 {before} → 压缩后约 {after} tokens（节省 {percent}%）',
+  'tool.compact.confirm': '确认压缩',
+  'tool.compact.deny': '取消',
+
   /* 后端 Bash 拦截器 riskReason(i18n:key 前缀),需在此翻译 */
   'blocker.bash.chainedCommand': '检测到链式命令，请确认后执行',
   'blocker.bash.localScript': '执行本地脚本可能带来未知风险',
@@ -2949,6 +2955,12 @@ export const en: Record<string, string> = {
   'tool.confirm.lowRisk': 'Low Risk',
   'tool.confirm.deny': 'Deny',
   'tool.confirm.execute': 'Execute',
+
+  'tool.compact.title': 'Compact Context',
+  'tool.compact.hint': 'Once confirmed, the original conversation will leave the context; only the handoff note below is kept.',
+  'tool.compact.tokens': 'Current {before} → about {after} tokens after compaction ({percent}% saved)',
+  'tool.compact.confirm': 'Compact',
+  'tool.compact.deny': 'Cancel',
 
   /* Bash blocker riskReason (i18n:key prefix) */
   'blocker.bash.chainedCommand': 'Chained command detected, please confirm to execute',
