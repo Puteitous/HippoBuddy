@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 0 12px 0 14px;
+  padding: 0 12px 0 0;
   height: 42px;
   flex-shrink: 0;
   background: var(--bg-canvas);
@@ -38,6 +38,7 @@ body.window-maximized {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-left: 22px;
   flex-shrink: 0;
   user-select: none;
 }

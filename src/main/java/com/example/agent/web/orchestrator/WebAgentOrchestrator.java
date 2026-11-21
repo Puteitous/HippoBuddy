@@ -717,7 +717,7 @@ public class WebAgentOrchestrator {
                         }
 
                         if (hookResult.isConfirmationRequired()) {
-                            // 是否弹确认卡片完全由 bash 的"需要确认"开关决定；权限范围（仅工作区/全目录）不影响确认。
+                            // 是否弹确认卡片完全由 bash 的"需要确认"开关决定；权限范围（标准/全目录）不影响确认。
                             // 严格禁止（denied）的命令不受影响，无论什么范围仍会被拦截。
                             boolean skipConfirm = !Config.getInstance().getTools().getBash().isRequireConfirmation();
                             if (skipConfirm) {

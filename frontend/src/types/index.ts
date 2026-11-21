@@ -365,7 +365,7 @@ export interface PendingImage {
 // ============================================================================
 
 /** FilePreview 的渲染模式 */
-export type FileViewMode = 'preview' | 'diff' | 'web' | 'gitDiff';
+export type FileViewMode = 'preview' | 'diff' | 'web' | 'gitDiff' | 'paste';
 
 /**
  * 工作区打开的文件标签
@@ -374,6 +374,7 @@ export type FileViewMode = 'preview' | 'diff' | 'web' | 'gitDiff';
  * - 触发"查看 diff"操作时切换为 'diff'(对接 /api/files/diff)
  * - mode = 'web':内嵌浏览器标签(openWeb 打开,path 存 url 作为唯一 key)
  * - mode = 'gitDiff':git 源码管理面板打开的单文件 git diff(对接 /api/git/diff)
+ * - mode = 'paste':粘贴文本的只读虚拟标签(不落盘,path 为 paste:// 前缀的内存键)
  */
 export interface FileTab {
   /** 对应文件绝对路径或 web 标签的 url(唯一键) */
@@ -384,6 +385,8 @@ export interface FileTab {
   mode: FileViewMode;
   /** web 标签:当前加载的 URL(仅 mode === 'web' 存在) */
   url?: string;
+  /** paste 标签:粘贴原文(仅 mode === 'paste' 存在,内存持有) */
+  pasteContent?: string;
   /** 可选:打开时定位的起始行(用于工具卡片跳转) */
   startLine?: number;
   /** 可选:打开时定位的结束行 */

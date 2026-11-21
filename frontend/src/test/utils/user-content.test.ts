@@ -82,6 +82,19 @@ describe('parseUserContent', () => {
       { kind: 'attachment', content: 'single' },
     ]);
   });
+
+  it('临时粘贴文件引用行解析为 paste-file 段落', () => {
+    const path =
+      'C:\\Users\\alice\\AppData\\Roaming\\HippoBuddy\\.hippo\\tmp\\paste\\2026-11-21\\paste-7228-abcd1234.txt';
+    expect(parseUserContent(`@${path}\n\n分析这段报错`)).toEqual([
+      { kind: 'paste-file', path },
+      { kind: 'text', text: '分析这段报错' },
+    ]);
+  });
+
+  it('普通 @ 路径(非 tmp/paste)不被识别为附件', () => {
+    expect(parseUserContent('@src/App.tsx')).toEqual([{ kind: 'text', text: '@src/App.tsx' }]);
+  });
 });
 
 describe('userContentSegmentsToPlainText', () => {
@@ -93,6 +106,12 @@ describe('userContentSegmentsToPlainText', () => {
   it('单段落时与原文一致', () => {
     const segs = parseUserContent('你好世界');
     expect(userContentSegmentsToPlainText(segs)).toBe('你好世界');
+  });
+
+  it('粘贴文件引用还原为 @路径(复制/重发不丢引用)', () => {
+    const path = 'D:\\data\\.hippo\\tmp\\paste\\2026-11-21\\paste-12-abcd1234.txt';
+    const segs = parseUserContent(`@${path}\n\n分析`);
+    expect(userContentSegmentsToPlainText(segs)).toBe(`@${path}\n\n分析`);
   });
 });
 

@@ -8,7 +8,6 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -18,11 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mockStatic;
 
 /**
- * 权限范围安全语义测试：strict（仅工作区）／balanced（读写分离）／relaxed（全目录 + 高危护栏）。
+ * 权限范围安全语义测试：standard（写限工作区 / 读放行全盘）／relaxed（全目录 + 高危护栏）。
  * <p>
  * 通过 mockStatic(Config) 精确控制 tools.mode，不依赖真实 config（测试环境默认可能处于 relaxed）。
  * 覆盖：
- *  - balanced 读放行工作区外、写仍限工作区
+ *  - standard 读放行工作区外、写仍限工作区；旧值 strict/balanced 按 standard 处理
  *  - .ssh/.gnupg 凭据目录按任意层段名拦截（所有模式）
  *  - Unix 根级 /root 护栏
  *  - Windows 盘根下系统目录段拦截（C:\Windows）
@@ -44,58 +43,58 @@ class PathSecurityUtilsAccessTest {
         }
     }
 
-    // ==================== strict（仅工作区） ====================
+    // ==================== standard（写受限 / 读放行） ====================
 
     @Nested
-    class StrictMode {
-        @Test
-        void readOutsideWorkspaceRejected() throws Exception {
-            withMode("strict", () ->
-                    assertThrows(ToolExecutionException.class,
-                            () -> PathSecurityUtils.validateAndResolveRead("/outside/test.txt")));
-        }
-
-        @Test
-        void writeOutsideWorkspaceRejected() throws Exception {
-            withMode("strict", () ->
-                    assertThrows(ToolExecutionException.class,
-                            () -> PathSecurityUtils.validateAndResolve("/outside/test.txt")));
-        }
-
-        @Test
-        void withinWorkspaceAllowed() throws Exception {
-            withMode("strict", () -> {
-                Path p = assertDoesNotThrow(() -> PathSecurityUtils.validateAndResolve("src"));
-                assertNotNull(p);
-            });
-        }
-    }
-
-    // ==================== balanced（读写分离） ====================
-
-    @Nested
-    class BalancedMode {
+    class StandardMode {
         @Test
         void readOutsideWorkspaceAllowed() throws Exception {
-            withMode("balanced", () -> {
+            withMode("standard", () -> {
                 Path p = assertDoesNotThrow(() -> PathSecurityUtils.validateAndResolveRead("/outside/test.txt"));
                 assertNotNull(p);
             });
         }
 
         @Test
-        void writeOutsideWorkspaceStillRejected() throws Exception {
-            withMode("balanced", () ->
+        void writeOutsideWorkspaceRejected() throws Exception {
+            withMode("standard", () ->
                     assertThrows(ToolExecutionException.class,
                             () -> PathSecurityUtils.validateAndResolve("/outside/test.txt")));
         }
 
         @Test
         void readEtcAllowedAsReadOnly() throws Exception {
-            // 只读护栏仅拦 /root 与凭据目录；/etc 属系统可公开读内容，balanced 读放行
-            withMode("balanced", () -> {
+            // 只读护栏仅拦 /root 与凭据目录；/etc 属系统可公开读内容，standard 读放行
+            withMode("standard", () -> {
                 Path p = assertDoesNotThrow(() -> PathSecurityUtils.validateAndResolveRead("/etc/hosts"));
                 assertNotNull(p);
+            });
+        }
+
+        @Test
+        void withinWorkspaceAllowed() throws Exception {
+            withMode("standard", () -> {
+                Path p = assertDoesNotThrow(() -> PathSecurityUtils.validateAndResolve("src"));
+                assertNotNull(p);
+            });
+        }
+
+        @Test
+        void legacyStrictTreatedAsStandard() throws Exception {
+            // 旧配置 strict：读放开、写仍受限
+            withMode("strict", () -> {
+                assertDoesNotThrow(() -> PathSecurityUtils.validateAndResolveRead("/outside/test.txt"));
+                assertThrows(ToolExecutionException.class,
+                        () -> PathSecurityUtils.validateAndResolve("/outside/test.txt"));
+            });
+        }
+
+        @Test
+        void legacyBalancedTreatedAsStandard() throws Exception {
+            withMode("balanced", () -> {
+                assertDoesNotThrow(() -> PathSecurityUtils.validateAndResolveRead("/outside/test.txt"));
+                assertThrows(ToolExecutionException.class,
+                        () -> PathSecurityUtils.validateAndResolve("/outside/test.txt"));
             });
         }
     }
@@ -126,16 +125,16 @@ class PathSecurityUtilsAccessTest {
     @Nested
     class CredentialSegments {
         @Test
-        void sshSegmentRejectedInStrict() throws Exception {
-            withMode("strict", () ->
+        void sshSegmentRejectedInStandard() throws Exception {
+            withMode("standard", () ->
                     assertThrows(ToolExecutionException.class,
                             () -> PathSecurityUtils.validateAndResolveRead("src/.ssh/id_rsa")));
         }
 
         @Test
-        void sshSegmentRejectedInBalancedRead() throws Exception {
-            // balanced 读放行工作区外普通路径，但任意层级的 .ssh 一律拦截
-            withMode("balanced", () ->
+        void sshSegmentOutsideWorkspaceRejectedInStandard() throws Exception {
+            // standard 读放行工作区外普通路径，但任意层级的 .ssh 一律拦截
+            withMode("standard", () ->
                     assertThrows(ToolExecutionException.class,
                             () -> PathSecurityUtils.validateAndResolveRead("/users/alice/.ssh/id_rsa")));
         }
@@ -179,7 +178,7 @@ class PathSecurityUtilsAccessTest {
             Files.createSymbolicLink(link, credential);
 
             // 原始路径无 .ssh 段，但 realpath 复检应拦截凭据目录
-            withMode("balanced", () ->
+            withMode("standard", () ->
                     assertThrows(ToolExecutionException.class,
                             () -> PathSecurityUtils.validateAndResolveRead(link.toString())));
         }
@@ -192,7 +191,7 @@ class PathSecurityUtilsAccessTest {
             Path link = tmpDir.resolve("link-ordinary");
             Files.createSymbolicLink(link, target);
 
-            withMode("balanced", () -> {
+            withMode("standard", () -> {
                 Path p = assertDoesNotThrow(() -> PathSecurityUtils.validateAndResolveRead(link.toString()));
                 assertNotNull(p);
             });

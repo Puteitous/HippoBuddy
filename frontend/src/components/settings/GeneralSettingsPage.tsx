@@ -147,8 +147,8 @@ export function GeneralSettingsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   /** 回合默认展示模式:full=完整展示处理过程;result=只展示最终结果 */
   const [processView, setProcessView] = useState<'full' | 'result'>('full');
-  /** 权限范围:strict=仅工作区;relaxed=放开整机访问 */
-  const [scopeMode, setScopeMode] = useState<'strict' | 'balanced' | 'relaxed'>('strict');
+  /** 权限范围:standard=写限工作区、读放行全盘;relaxed=放开整机访问 */
+  const [scopeMode, setScopeMode] = useState<'standard' | 'relaxed'>('standard');
   /** 推荐问答开关:回合结束后是否用 LLM 生成推荐问题 */
   const [suggestionsEnabled, setSuggestionsEnabled] = useState(true);
   /** 会话标签栏数量上限(0=不限) */
@@ -193,8 +193,8 @@ export function GeneralSettingsPage() {
           const v = (cfg.value.ui?.default_process_view === 'result' ? 'result' : 'full');
           setProcessView(v);
           setDefaultProcessView(v);
-          const m = cfg.value.tools?.mode;
-          setScopeMode(m === 'relaxed' ? 'relaxed' : m === 'balanced' ? 'balanced' : 'strict');
+          // 兼容旧值：strict / balanced 归一到 standard
+          setScopeMode(cfg.value.tools?.mode === 'relaxed' ? 'relaxed' : 'standard');
           setSuggestionsEnabled(cfg.value.ui?.suggestions_enabled !== false);
           setTabLimit(
             typeof cfg.value.ui?.session_tab_limit === 'number'
@@ -240,7 +240,7 @@ export function GeneralSettingsPage() {
   };
 
   /** 保存权限范围:读取当前 tools 再合并 mode,避免覆盖其他工具配置 */
-  const handleScopeModeChange = async (value: 'strict' | 'balanced' | 'relaxed') => {
+  const handleScopeModeChange = async (value: 'standard' | 'relaxed') => {
     if (value === scopeMode) return;
     setScopeMode(value);
     try {
@@ -253,9 +253,7 @@ export function GeneralSettingsPage() {
       showToast(
         value === 'relaxed'
           ? translate('settingsPage.generalScopeRelaxedToast')
-          : value === 'balanced'
-            ? translate('settingsPage.generalScopeBalancedToast')
-            : translate('settingsPage.generalScopeStrictToast'),
+          : translate('settingsPage.generalScopeStandardToast'),
         {
           type: 'success',
           duration: 2000,
@@ -736,10 +734,9 @@ export function GeneralSettingsPage() {
                 className="settings-select"
                 aria-label={t('settingsPage.generalScopeLabel')}
                 value={scopeMode}
-                onChange={(e) => handleScopeModeChange(e.target.value as 'strict' | 'balanced' | 'relaxed')}
+                onChange={(e) => handleScopeModeChange(e.target.value as 'standard' | 'relaxed')}
               >
-                <option value="strict">{t('settingsPage.generalScopeStrict')}</option>
-                <option value="balanced">{t('settingsPage.generalScopeBalanced')}</option>
+                <option value="standard">{t('settingsPage.generalScopeStandard')}</option>
                 <option value="relaxed">{t('settingsPage.generalScopeRelaxed')}</option>
               </select>
             </div>

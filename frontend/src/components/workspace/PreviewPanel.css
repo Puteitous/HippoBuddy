@@ -47,6 +47,22 @@
   text-align: center;
 }
 
+/* 粘贴文本只读预览:等宽排版 + 保留换行,长行断词避免横向滚动 */
+.paste-preview {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 18px 20px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  outline: none;
+}
+
 /* 预览面板拖拽分隔条(对齐旧版 .panel-resizer) */
 .preview-resizer {
   width: 4px;

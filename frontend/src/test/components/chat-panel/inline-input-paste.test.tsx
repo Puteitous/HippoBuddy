@@ -5,13 +5,14 @@
  *  1. 长文本转芯片,且正文不进入 DOM(旁路存储)
  *  2. 短文本走原路径,不转芯片
  *  3. 序列化时能从旁路回填全文(getContent → 发送组装依赖)
- *  4. 双击芯片可展开为文本(逃生口,换行还原为 <br>)
+ *  4. 点击芯片打开只读预览
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createRef } from 'react';
 import { render, fireEvent } from '@testing-library/react';
 import InlineInput from '@/components/chat-panel/InlineInput';
 import type { InlineInputHandle } from '@/components/chat-panel/InlineInput';
+import { usePreviewStore } from '@/stores/previewStore';
 import type { RefChip } from '@/types';
 
 /** 构造一次纯文本粘贴事件(无图片项) */
@@ -90,19 +91,18 @@ describe('InlineInput 粘贴超长文本', () => {
     expect(container.querySelectorAll('.inline-chip')).toHaveLength(0);
   });
 
-  it('双击芯片展开为文本,换行还原为 <br>', () => {
+  it('点击芯片打开只读预览标签', () => {
     const { editor, container } = renderInput();
-    const content = 'line-1\nline-2\nline-3';
-    // 该内容不足阈值,这里直接用芯片形态注入等价场景:构造超长内容后再展开校验换行
-    pasteText(editor, `${content}\n${'pad'.repeat(700)}`);
+    usePreviewStore.getState().closeAll();
+    const content = 'p'.repeat(2500);
+    pasteText(editor, content);
 
-    const chipEl = container.querySelector('.inline-chip') as HTMLElement;
-    fireEvent.doubleClick(chipEl);
+    fireEvent.click(container.querySelector('.inline-chip') as HTMLElement);
 
-    expect(container.querySelectorAll('.inline-chip')).toHaveLength(0);
-    // 3 个换行 → 前 3 行之间应有 2 个 <br>(padding 行同理)
-    expect(editor.querySelectorAll('br').length).toBeGreaterThanOrEqual(3);
-    expect(editor.textContent).toContain('line-1');
-    expect(editor.textContent).toContain('line-3');
+    const state = usePreviewStore.getState();
+    const tab = state.tabs.find((t) => t.path === state.activePath);
+    expect(tab?.mode).toBe('paste');
+    expect(tab?.pasteContent).toBe(content);
+    expect(state.collapsed).toBe(false);
   });
 });

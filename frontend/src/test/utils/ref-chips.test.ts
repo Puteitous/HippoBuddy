@@ -98,6 +98,13 @@ describe('messageToDraft', () => {
     expect(a.chips[0].id).not.toBe(b.chips[0].id);
   });
 
+  it('临时粘贴文件引用回填为文件芯片,再次合并保持 @路径', () => {
+    const path = 'C:\\data\\.hippo\\tmp\\paste\\2026-11-21\\paste-7228-abcd1234.txt';
+    const draft = messageToDraft(`@${path}\n\n分析`);
+    expect(draft.chips[0]).toMatchObject({ kind: 'file', filePath: path });
+    expect(combineChipsToMessage(draft.chips, draft.text)).toBe(`@${path}\n\n分析`);
+  });
+
   it('往返无损:草稿 → 消息 → 草稿 → 消息 得到同一字符串', () => {
     const original = combineChipsToMessage(
       [chip({ kind: 'paste', text: '粘贴文本 · 2,000 字', selectedText: 'log-1\nlog-2' })],

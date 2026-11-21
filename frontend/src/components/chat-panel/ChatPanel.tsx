@@ -15,7 +15,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useSessionStream } from '@/hooks/useSessionStream';
 import { useVisionSupport } from '@/hooks/useVisionSupport';
-import { api, configApi, optimizeApi } from '@/api/client';
+import { api, configApi, optimizeApi, pasteApi } from '@/api/client';
 import { showToast } from '@/utils/toastStore';
 import { translate, useI18n } from '@/i18n';
 import { setDefaultProcessView, getDefaultProcessCollapsed } from '@/utils/process-view-config';
@@ -103,6 +103,34 @@ export function shouldWrapProcessSection({
   roundCommitted,
 }: ProcessWrapInput): boolean {
   return (hasThinking || toolCount > 0) && streamLength > 0 && !roundCommitted;
+}
+
+/**
+ * 发送前把超长粘贴芯片转换为临时文件引用。
+ *
+ * 落盘成功后芯片降级为 file 引用(@绝对路径),消息里不再携带全文,
+ * 模型需要时用 readFile 读取;写入失败保留原 paste 芯片,回退为内联代码块。
+ */
+async function resolvePasteChipsToFiles(chips: RefChip[]): Promise<RefChip[]> {
+  if (!chips.some((c) => c.kind === 'paste' && c.selectedText)) return chips;
+  return Promise.all(
+    chips.map(async (chip) => {
+      if (chip.kind !== 'paste' || !chip.selectedText) return chip;
+      try {
+        const result = await pasteApi.writeTemp(chip.selectedText);
+        return {
+          ...chip,
+          kind: 'file' as const,
+          text: result.name,
+          filePath: result.path,
+          selectedText: undefined,
+        };
+      } catch {
+        // 后端不可用或写入失败 → 保持内联
+        return chip;
+      }
+    }),
+  );
 }
 
 export function ChatPanel() {
@@ -685,8 +713,6 @@ export function ChatPanel() {
     // 无输入且无芯片且无图片 → 不发送
     if (!typed && chips.length === 0 && pendingImages.length === 0 && !selectedRuleIds.length) return;
     if (isStreamSending) return;
-    // 合并 chips 到 message(file/rule chip → @path,text chip → 代码块)
-    const message = combineChipsToMessage(chips, typed);
     // 取出图片 dataUrl 列表
     const images = pendingImages.map((p) => p.dataUrl);
     // 当前选中的规则 id(由 ContextSelector 维护)
@@ -701,10 +727,17 @@ export function ChatPanel() {
     // 让用户可连续追问同一组上下文(对齐旧版行为)
     stickToBottomRef.current = true;
     clearWarnings();
-    void send(message, {
-      images: images.length > 0 ? images : undefined,
-      selectedRules,
-    });
+
+    // 长粘贴文本先落盘为临时文件,消息里只发 @路径,模型按需读取。
+    // 写盘失败自动回退为内联代码块,保证内容不丢。
+    void (async () => {
+      const resolvedChips = await resolvePasteChipsToFiles(chips);
+      const message = combineChipsToMessage(resolvedChips, typed);
+      void send(message, {
+        images: images.length > 0 ? images : undefined,
+        selectedRules,
+      });
+    })();
 
     // 对齐旧版虚拟会话机制:新建会话(当前 id 尚不在列表中)发送消息后,后台刷新会话列表,
     // 让新会话实时进入侧边栏列表与历史下拉,不必等刷新页面。

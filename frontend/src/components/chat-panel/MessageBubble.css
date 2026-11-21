@@ -63,13 +63,34 @@
 }
 
 /* ── 用户消息内的附件卡片(超长粘贴文本 / 引用文本) ──────
-   发送时芯片正文被包裹为裸 ``` 围栏,这里折叠为卡片展示,
-   避免几千字直接铺满气泡。 */
+   发送时芯片正文被包裹为裸 ``` 围栏,这里渲染成与输入框芯片同款的标签;
+   点击在右侧预览面板打开只读虚拟标签,避免几千字铺满气泡。 */
 .msg-user-attach {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-code);
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 8px 2px 6px;
+  border-radius: 4px;
+  background: var(--chip-bg, rgba(88, 101, 242, 0.2));
+  color: var(--chip-text, #8ea4ff);
+  border: 1px solid var(--chip-border, rgba(88, 101, 242, 0.3));
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+
+.msg-user-attach:hover {
+  filter: brightness(1.15);
+}
+
+.msg-user-attach:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* 卡片与相邻正文之间留出间距(相邻兄弟选择器,首尾不产生多余外边距) */
@@ -78,48 +99,31 @@
   margin-top: 6px;
 }
 
-.msg-user-attach-head {
-  display: flex;
+.msg-user-attach-icon {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--transition-fast);
+  justify-content: center;
+  opacity: 0.8;
+  flex-shrink: 0;
 }
 
-.msg-user-attach-head:hover {
-  background: var(--bg-hover);
+.msg-user-attach-icon svg {
+  display: block;
 }
 
 .msg-user-attach-label {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.msg-user-attach-caret {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-/* 展开态:限高滚动,避免超长内容撑爆气泡与页面 */
-.msg-user-attach-body {
-  max-height: 320px;
-  overflow: auto;
-  padding: 8px 10px;
-  border-top: 1px solid var(--border-color);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
+/* 亮色主题:与输入框芯片保持同一套浅色配色 */
+:root[data-theme="light"] .msg-user-attach {
+  background: rgba(88, 101, 242, 0.1);
+  color: #5861f2;
+  border-color: rgba(88, 101, 242, 0.25);
 }
 
 /* ── 用户消息长内容折叠 ─────────────────────────────── */

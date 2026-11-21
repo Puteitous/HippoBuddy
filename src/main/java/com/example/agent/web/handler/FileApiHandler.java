@@ -48,6 +48,8 @@ public class FileApiHandler implements HttpHandler {
                 handleGetSnapshot(exchange);
             } else if ("GET".equals(method) && path.endsWith("/diff")) {
                 handleGetDiff(exchange);
+            } else if ("POST".equals(method) && path.endsWith("/paste-temp")) {
+                handleWritePasteTemp(exchange);
             } else if ("POST".equals(method) && path.endsWith("/rollback")) {
                 handleRollback(exchange);
             } else {
@@ -417,6 +419,91 @@ public class FileApiHandler implements HttpHandler {
      */
     private static Map<String, Object> buildWordDiffLines(String original, String modified) {
         return diffComputer.computeWordDiffLines(original, modified);
+    }
+
+    /** 临时粘贴文件:超过 7 天自动清理;单文件上限 5MB */
+    private static final long PASTE_TEMP_MAX_BYTES = 5L * 1024 * 1024;
+    private static final long PASTE_TEMP_TTL_MS = 7L * 24 * 60 * 60 * 1000;
+    private static final long PASTE_TEMP_CLEAN_INTERVAL_MS = 60L * 60 * 1000;
+    private static volatile long lastPasteCleanupMs = 0;
+
+    /**
+     * POST /api/files/paste-temp
+     * 把超长粘贴文本写入 {数据目录}/tmp/paste/{日期}/paste-{字数}-{hash}.txt。
+     * 相同内容复用同一文件;返回绝对路径供前端 @路径 引用与预览打开。
+     */
+    private void handleWritePasteTemp(HttpExchange exchange) throws IOException {
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        JsonNode json = objectMapper.readTree(body);
+        String content = json.hasNonNull("content") ? json.get("content").asText() : "";
+
+        if (content.isBlank()) {
+            sendJson(exchange, 400, objectMapper.writeValueAsString(Map.of("error", "content 不能为空")));
+            return;
+        }
+        if (content.getBytes(StandardCharsets.UTF_8).length > PASTE_TEMP_MAX_BYTES) {
+            sendJson(exchange, 413, objectMapper.writeValueAsString(
+                    Map.of("error", "粘贴文本超过 5MB 上限")));
+            return;
+        }
+
+        Path pasteRoot = com.example.agent.logging.WorkspaceManager.getHippoRoot()
+                .resolve("tmp").resolve("paste");
+        cleanupOldPasteFiles(pasteRoot);
+
+        Path dayDir = pasteRoot.resolve(java.time.LocalDate.now().toString());
+        java.nio.file.Files.createDirectories(dayDir);
+
+        String hash = sha256Prefix(content, 8);
+        String fileName = "paste-" + content.length() + "-" + hash + ".txt";
+        Path file = dayDir.resolve(fileName);
+        if (!java.nio.file.Files.exists(file)) {
+            java.nio.file.Files.writeString(file, content, StandardCharsets.UTF_8);
+        }
+
+        int lines = content.split("\n", -1).length;
+        Map<String, Object> result = new HashMap<>();
+        result.put("path", file.toAbsolutePath().normalize().toString());
+        result.put("name", fileName);
+        result.put("chars", content.length());
+        result.put("lines", lines);
+        sendJson(exchange, 200, objectMapper.writeValueAsString(result));
+    }
+
+    private static String sha256Prefix(String content, int hexLen) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(content.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.substring(0, hexLen);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            return Integer.toHexString(content.hashCode());
+        }
+    }
+
+    /** 启动后每小时最多清理一次:删除 7 天前的临时粘贴文件 */
+    private static void cleanupOldPasteFiles(Path pasteRoot) {
+        long now = System.currentTimeMillis();
+        if (now - lastPasteCleanupMs < PASTE_TEMP_CLEAN_INTERVAL_MS || !java.nio.file.Files.isDirectory(pasteRoot)) {
+            return;
+        }
+        lastPasteCleanupMs = now;
+        try (java.util.stream.Stream<Path> walk = java.nio.file.Files.walk(pasteRoot)) {
+            walk.filter(java.nio.file.Files::isRegularFile).forEach(p -> {
+                try {
+                    if (now - java.nio.file.Files.getLastModifiedTime(p).toMillis() > PASTE_TEMP_TTL_MS) {
+                        java.nio.file.Files.deleteIfExists(p);
+                    }
+                } catch (IOException ignored) {
+                    // 单个文件清理失败不影响主流程
+                }
+            });
+        } catch (IOException e) {
+            logger.warn("清理临时粘贴文件失败: {}", pasteRoot, e);
+        }
     }
 
     private void handleRollback(HttpExchange exchange) throws IOException {

@@ -32,10 +32,10 @@ beforeEach(() => {
 });
 
 describe('PermissionBadge', () => {
-  it('默认显示 仅工作区(strict)', async () => {
+  it('旧配置 strict 归一显示 标准', async () => {
     render(<PermissionBadge />);
     expect(await screen.findByRole('button', { name: /切换权限模式/ })).toBeInTheDocument();
-    expect(screen.getByText('仅工作区')).toBeInTheDocument();
+    expect(screen.getByText('标准')).toBeInTheDocument();
   });
 
   it('拉取到 relaxed 配置时显示 全目录', async () => {
@@ -44,22 +44,22 @@ describe('PermissionBadge', () => {
     expect(await screen.findByText('全目录')).toBeInTheDocument();
   });
 
-  it('拉取失败或 mode 非法时保持 strict', async () => {
+  it('拉取失败或 mode 非法时保持 标准', async () => {
     configApiProps.getFull.mockRejectedValue(new Error('net'));
     const { rerender } = render(<PermissionBadge />);
-    expect(await screen.findByText('仅工作区')).toBeInTheDocument();
+    expect(await screen.findByText('标准')).toBeInTheDocument();
 
     configApiProps.getFull.mockResolvedValue({ tools: { mode: 'weird' } });
     rerender(<PermissionBadge />);
-    expect(await screen.findByText('仅工作区')).toBeInTheDocument();
+    expect(await screen.findByText('标准')).toBeInTheDocument();
   });
 
   it('点击展开下拉,显示两个选项', async () => {
     render(<PermissionBadge />);
-    await screen.findByText('仅工作区');
+    await screen.findByText('标准');
     fireEvent.click(screen.getByRole('button', { name: /切换权限模式/ }));
     expect(screen.getByText('可操作整台电脑的文件')).toBeInTheDocument();
-    expect(screen.getByText('只能操作当前项目目录')).toBeInTheDocument();
+    expect(screen.getByText('写操作限工作区,读操作放行全盘')).toBeInTheDocument();
   });
 
   it('切换为 全目录 → 合并 tools 保留其它配置并 updateFull', async () => {
@@ -67,7 +67,7 @@ describe('PermissionBadge', () => {
       tools: { mode: 'strict', bash: { enabled: false, require_confirmation: true } },
     });
     render(<PermissionBadge />);
-    await screen.findByText('仅工作区');
+    await screen.findByText('标准');
     fireEvent.click(screen.getByRole('button', { name: /切换权限模式/ }));
     fireEvent.click(screen.getByText('可操作整台电脑的文件'));
 
@@ -84,7 +84,7 @@ describe('PermissionBadge', () => {
     configApiProps.getFull.mockResolvedValue({ tools: { mode: 'strict' } });
     configApiProps.updateFull.mockRejectedValue(new ApiError(500, 'save fail'));
     render(<PermissionBadge />);
-    await screen.findByText('仅工作区');
+    await screen.findByText('标准');
     fireEvent.click(screen.getByRole('button', { name: /切换权限模式/ }));
     fireEvent.click(screen.getByText('可操作整台电脑的文件'));
 
@@ -97,7 +97,7 @@ describe('PermissionBadge', () => {
 
   it('点击外部区域关闭下拉', async () => {
     render(<PermissionBadge />);
-    await screen.findByText('仅工作区');
+    await screen.findByText('标准');
     fireEvent.click(screen.getByRole('button', { name: /切换权限模式/ }));
     expect(screen.getByText('可操作整台电脑的文件')).toBeInTheDocument();
     fireEvent.mouseDown(document.body);

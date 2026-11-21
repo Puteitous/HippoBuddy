@@ -222,7 +222,7 @@ export function FileTabs({
             ]
               .join(' ')
               .trim()}
-            title={tab.path}
+            title={tab.mode === 'paste' ? tab.name : tab.path}
             onClick={() => onSelect(tab.path)}
             onAuxClick={(e) => {
               // 中键关闭(对齐旧版 auxclick button===1)
@@ -263,6 +263,13 @@ export function FileTabs({
                   <circle cx="8" cy="8" r="6.5" />
                   <path d="M1.5 8h13" />
                   <path d="M8 1.5c1.8 1.8 2.8 4 2.8 6.5S9.8 12.7 8 14.5c-1.8-1.8-2.8-4-2.8-6.5S6.2 3.3 8 1.5z" />
+                </svg>
+              ) : tab.mode === 'paste' ? (
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9.5 1.5H4.5A1.5 1.5 0 0 0 3 3v10a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 13 13V5z" />
+                  <path d="M9.5 1.5V5H13" />
+                  <path d="M5.5 8.5h5" />
+                  <path d="M5.5 11h3.5" />
                 </svg>
               ) : (
                 <FileTypeIcon fileName={tab.name} size={12} />

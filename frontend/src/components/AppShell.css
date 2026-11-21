@@ -15,7 +15,7 @@
   position: relative;
   /* 方案A:画布留白 + 面板间距,让白色圆角卡片浮在画布底上 */
   gap: 0;
-  padding: 0 10px 8px 0;
+  padding: 0 10px 8px 8px;
 }
 
 .app-shell-main {

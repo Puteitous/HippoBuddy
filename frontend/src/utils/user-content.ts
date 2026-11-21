@@ -26,10 +26,17 @@ import type { ContentPart } from '@/types';
 /** 代码围栏标记(与 utils/ref-chips.ts 的 wrapInCodeBlock 保持一致) */
 const FENCE = '```';
 
+/**
+ * 临时粘贴文件引用行:`@C:\...\tmp\paste\2026-11-21\paste-7228-1a2b3c4d.txt`。
+ * 仅识别数据目录下 tmp/paste 的 .txt,避免把用户手写的 @路径 误判成附件卡片。
+ */
+const PASTE_FILE_LINE = /^@(.+[\\/]tmp[\\/]paste[\\/].+\.txt)$/i;
+
 /** 用户消息正文的一个段落 */
 export type UserContentSegment =
   | { kind: 'text'; text: string }
-  | { kind: 'attachment'; content: string };
+  | { kind: 'attachment'; content: string }
+  | { kind: 'paste-file'; path: string };
 
 /** 是否为「裸 ``` 围栏」行(允许缩进;带语言标识的 ```js 不算) */
 function isBareFence(line: string): boolean {
@@ -77,6 +84,14 @@ export function parseUserContent(raw: string): UserContentSegment[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
+    // 临时粘贴文件引用行 → 独立卡片(不参与围栏配对)
+    const pasteMatch = PASTE_FILE_LINE.exec(line.trim());
+    if (pasteMatch && attachBuffer === null) {
+      flushText();
+      segments.push({ kind: 'paste-file', path: pasteMatch[1] });
+      continue;
+    }
+
     if (isBareFence(line)) {
       if (attachBuffer === null) {
         // 仅当其后仍有裸围栏(即能配对)时才视为附件开始
@@ -108,7 +123,11 @@ export function parseUserContent(raw: string): UserContentSegment[] {
 /** 把段落序列还原为纯文本(附件内容原样取回,不含人工围栏) */
 export function userContentSegmentsToPlainText(segments: UserContentSegment[]): string {
   return segments
-    .map((seg) => (seg.kind === 'attachment' ? seg.content : seg.text))
+    .map((seg) => {
+      if (seg.kind === 'attachment') return seg.content;
+      if (seg.kind === 'paste-file') return `@${seg.path}`;
+      return seg.text;
+    })
     .join('\n\n');
 }
 

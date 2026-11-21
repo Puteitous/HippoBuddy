@@ -98,52 +98,73 @@ interface InlineInputProps {
 
 // ── 工具函数 ──────────────────────────────────────────────
 
+/** 芯片内联图标(线性 SVG,统一 12px 视口,颜色跟随 currentColor) */
+const CHIP_ICON_SVG = {
+  paste:
+    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M9.5 1.5H4.5A1.5 1.5 0 0 0 3 3v10a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 13 13V5z"/>' +
+    '<path d="M9.5 1.5V5H13"/><path d="M5.5 8.5h5"/><path d="M5.5 11h3.5"/></svg>',
+  rule:
+    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M6 2.5h4a1 1 0 0 1 1 1V4h1.5A1.5 1.5 0 0 1 14 5.5v8A1.5 1.5 0 0 1 12.5 15h-9A1.5 1.5 0 0 1 2 13.5v-8A1.5 1.5 0 0 1 3.5 4H5v-.5a1 1 0 0 1 1-1z"/>' +
+    '<path d="M6 4h4"/><path d="M5 8h6"/><path d="M5 11h4"/></svg>',
+  text:
+    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M4 3.5h8A1.5 1.5 0 0 1 13.5 5v6A1.5 1.5 0 0 1 12 12.5H6L3 14.5v-9A1.5 1.5 0 0 1 4 3.5z"/></svg>',
+  close:
+    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+    '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>',
+};
+
 /** 创建芯片 DOM 元素 */
 function createChipElement(chip: RefChip): HTMLSpanElement {
   const wrapper = document.createElement('span');
   wrapper.contentEditable = 'false';
   wrapper.className = 'inline-chip';
-  if (chip.kind === 'paste' && chip.selectedText != null) {
-    // 超长粘贴文本:正文存旁路,dataset 只留元数据(selectedText 置 undefined 后
-    // 被 JSON.stringify 丢弃),避免长文本进 DOM 属性并在每次序列化时被重新解析
+  // paste 芯片:正文存旁路,dataset 只留元数据(selectedText 置 undefined 后
+  // 被 JSON.stringify 丢弃),避免长文本进 DOM 属性并在每次序列化时被重新解析。
+  // 可点击打开只读预览,尾部另有"展开为文本编辑"按钮作为逃生口。
+  const isPaste = chip.kind === 'paste';
+  if (isPaste && chip.selectedText != null) {
     chipContentStore.set(wrapper, chip.selectedText);
     wrapper.dataset.chip = JSON.stringify({ ...chip, selectedText: undefined });
   } else {
     wrapper.dataset.chip = JSON.stringify(chip);
   }
+  if (isPaste) wrapper.classList.add('inline-chip-paste', 'inline-chip-navigable');
 
-  // 文件引用:按扩展名显示与文件树一致的彩色图标;rule/paste/text 回落 emoji
+  // 文件引用:按扩展名显示与文件树一致的彩色图标;rule/paste/text 用线性 SVG
   const fileName = getChipFileName(chip);
-  const icon =
-    chip.kind === 'file' && fileName
-      ? (() => {
-          const img = document.createElement('img');
-          img.className = 'inline-chip-icon';
-          img.src = getFileIconUrl(fileName, false);
-          img.alt = '';
-          img.draggable = false;
-          img.loading = 'lazy';
-          return img;
-        })()
-      : (() => {
-          const span = document.createElement('span');
-          span.className = 'inline-chip-icon';
-          span.textContent = chip.kind === 'rule' ? '📋' : chip.kind === 'paste' ? '📄' : '💬';
-          return span;
-        })();
+  let icon: HTMLElement;
+  if (chip.kind === 'file' && fileName) {
+    const img = document.createElement('img');
+    img.className = 'inline-chip-icon';
+    img.src = getFileIconUrl(fileName, false);
+    img.alt = '';
+    img.draggable = false;
+    img.loading = 'lazy';
+    icon = img;
+  } else {
+    const span = document.createElement('span');
+    span.className = 'inline-chip-icon';
+    span.dataset.kind = chip.kind;
+    span.innerHTML = CHIP_ICON_SVG[chip.kind === 'rule' ? 'rule' : isPaste ? 'paste' : 'text'];
+    icon = span;
+  }
 
   const text = document.createElement('span');
   text.className = 'inline-chip-text';
   text.textContent = chip.text;
 
   const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
   closeBtn.className = 'inline-chip-close';
-  closeBtn.innerHTML = '&times;';
+  closeBtn.innerHTML = CHIP_ICON_SVG.close;
   closeBtn.dataset.action = 'remove-chip';
   closeBtn.tabIndex = -1;
 
-  // paste 芯片:title 给出摘要预览 + 展开提示,便于确认粘贴内容
-  if (chip.kind === 'paste') {
+  // paste 芯片:title 给出摘要预览 + 操作提示,便于确认粘贴内容
+  if (isPaste) {
     wrapper.title = `${translate('chat.pastedTextChipHint')}\n\n${buildPastedPreview(
       chip.selectedText ?? '',
     )}`;
@@ -483,7 +504,7 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
 
   // ── 事件处理 ─────────────────────────────────────────────
 
-  // 点击：关闭按钮移除芯片;文件引用芯片点击跳转(对齐旧版 input-ref-chip-navigable)
+  // 点击：关闭按钮移除芯片;芯片本体打开预览/跳转文件
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.dataset.action === 'remove-chip') {
@@ -496,17 +517,20 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
       }
       return;
     }
-    // 点击文件引用芯片(非关闭按钮)→ 在应用内打开文件并定位行号(对齐旧版 input-ref-chip-navigable 跳转)
     const chip = target.closest('.inline-chip') as HTMLElement | null;
-    if (chip) {
-      try {
-        const data = JSON.parse(chip.dataset.chip || '{}') as RefChip;
-        if (data.kind === 'file' && data.filePath) {
-          usePreviewStore.getState().openFile(data.filePath.replace(/\\/g, '/'), data.startLine, data.endLine);
-        }
-      } catch {
-        // 忽略损坏的 chip 数据
+    if (!chip) return;
+    try {
+      const data = JSON.parse(chip.dataset.chip || '{}') as RefChip;
+      if (data.kind === 'file' && data.filePath) {
+        // 文件引用:应用内打开并定位行号(对齐旧版 input-ref-chip-navigable 跳转)
+        usePreviewStore.getState().openFile(data.filePath.replace(/\\/g, '/'), data.startLine, data.endLine);
+      } else if (data.kind === 'paste') {
+        // 粘贴文本:打开只读虚拟预览标签(内容走旁路存储,dataset 不持有全文)
+        const content = chipContentStore.get(chip) ?? data.selectedText;
+        if (content != null) usePreviewStore.getState().openPaste(content, data.text);
       }
+    } catch {
+      // 忽略损坏的 chip 数据
     }
   }, [updatePlaceholder, notifyDraftChange]);
 
@@ -625,44 +649,6 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
       });
     }
   }, [onPasteImage, updatePlaceholder, onChipAdd, notifyDraftChange]);
-
-  // 双击 paste 芯片 → 就地展开为纯文本
-  // 逃生口:需要直接编辑粘贴内容时使用(芯片本身是折叠态,不便修改)
-  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    // 点在关闭按钮上不展开(交给 click 处理为删除)
-    if (target.dataset.action === 'remove-chip') return;
-    const chipEl = target.closest('.inline-chip') as HTMLElement | null;
-    if (!chipEl) return;
-    try {
-      const data = JSON.parse(chipEl.dataset.chip || '{}') as RefChip;
-      if (data.kind !== 'paste') return;
-      const content = chipContentStore.get(chipEl);
-      if (content == null) return;
-
-      // 换行需还原为 <br>,与 serializeContent 的换行识别保持一致(裸 \n 在 DOM 中会塌陷)
-      const frag = document.createDocumentFragment();
-      content.split('\n').forEach((line, i) => {
-        if (i > 0) frag.appendChild(document.createElement('br'));
-        if (line) frag.appendChild(document.createTextNode(line));
-      });
-      const lastNode = frag.lastChild;
-      chipEl.replaceWith(frag);
-      updatePlaceholder();
-      notifyDraftChange();
-
-      if (lastNode) {
-        const range = document.createRange();
-        range.setStartAfter(lastNode);
-        range.collapse(true);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-      }
-    } catch {
-      // 忽略损坏的 chip 数据
-    }
-  }, [updatePlaceholder, notifyDraftChange]);
 
   // 拖拽
   const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -812,7 +798,6 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
         onPaste={handlePaste}
-        onDoubleClick={handleDoubleClick}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}

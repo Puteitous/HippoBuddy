@@ -728,6 +728,28 @@ export const dataDirApi = {
 };
 
 // ============================================================================
+// Paste API (对应 FileApiHandler POST /api/files/paste-temp)
+// ============================================================================
+
+/** 临时粘贴文件写入结果 */
+export interface PasteTempResult {
+  /** 绝对路径(消息里以 @path 发送给模型) */
+  path: string;
+  /** 文件名(展示用) */
+  name: string;
+  /** 字符数 */
+  chars: number;
+  /** 行数 */
+  lines: number;
+}
+
+export const pasteApi = {
+  /** POST /api/files/paste-temp - 长文本写入数据目录 tmp/paste,返回绝对路径 */
+  writeTemp: (content: string) =>
+    postJson<PasteTempResult>(`${API_BASE}/files/paste-temp`, { content }),
+};
+
+// ============================================================================
 // Metrics API (对应后端 MetricsApiHandler)
 // ============================================================================
 

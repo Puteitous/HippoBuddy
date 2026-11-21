@@ -47,6 +47,8 @@ interface PreviewState {
   openFile: (filePath: string, startLine?: number, endLine?: number) => void;
   /** 打开内嵌浏览器标签(已有同 URL tab 则仅激活;可选指定显示名) */
   openWeb: (url: string, displayName?: string) => void;
+  /** 打开粘贴文本的只读虚拟标签(不落盘;相同内容复用同一标签) */
+  openPaste: (content: string, label?: string) => void;
   /** 更新 web 标签当前地址(浏览器内导航后写回,切换回时按记忆地址重载) */
   updateWebUrl: (path: string, url: string) => void;
   /** 打开文件为 diff 模式(已有同路径 diff tab 则更新 toolCallId) */
@@ -85,6 +87,15 @@ function basename(path: string): string {
   const norm = path.replace(/\\/g, '/').replace(/\/$/, '');
   const idx = norm.lastIndexOf('/');
   return idx >= 0 ? norm.slice(idx + 1) : norm;
+}
+
+/** 粘贴文本标签的稳定 key:长度 + djb2 哈希,相同内容重复点击复用同一标签 */
+function pasteKey(content: string): string {
+  let hash = 5381;
+  for (let i = 0; i < content.length; i++) {
+    hash = ((hash << 5) + hash + content.charCodeAt(i)) | 0;
+  }
+  return `paste://${content.length}-${(hash >>> 0).toString(36)}`;
 }
 
 /** web 标签默认显示名:提取 URL 主机名,about:blank 等无主机时回退'浏览器'(对齐旧版 displayName 语义) */
@@ -148,6 +159,22 @@ export const usePreviewStore = create<PreviewState>((set) => ({
       }
       const tab: FileTab = { path: url, name: displayName ?? guessWebName(url), mode: 'web', url };
       return { tabs: [...state.tabs, tab], activePath: url, collapsed: false };
+    });
+  },
+
+  openPaste: (content, label) => {
+    const path = pasteKey(content);
+    const name = label ?? translate('chat.pastedTextChipLabel', {
+      count: String(content.length).replace(/\B(?=(\d{3})+(?!\d))/g, ','),
+    });
+    persistPreviewCollapsed(false);
+    set((state) => {
+      const existing = state.tabs.find((t) => t.path === path);
+      if (existing) {
+        return { activePath: path, collapsed: false };
+      }
+      const tab: FileTab = { path, name, mode: 'paste', pasteContent: content };
+      return { tabs: [...state.tabs, tab], activePath: path, collapsed: false };
     });
   },
 

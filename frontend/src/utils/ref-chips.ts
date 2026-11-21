@@ -81,6 +81,14 @@ export function messageToDraft(content: string): { text: string; chips: RefChip[
   for (const seg of parseUserContent(content)) {
     if (seg.kind === 'attachment') {
       chips.push(createPastedTextChip(seg.content));
+    } else if (seg.kind === 'paste-file') {
+      // 临时粘贴文件引用:回填为普通文件引用芯片(点击可打开真实文件)
+      chips.push({
+        id: `paste-file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        kind: 'file',
+        text: seg.path.split(/[/\\]/).pop() || seg.path,
+        filePath: seg.path,
+      });
     } else {
       textParts.push(seg.text);
     }

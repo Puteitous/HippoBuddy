@@ -11,7 +11,7 @@ import java.util.List;
 
 public class PathSecurityUtils {
 
-    /** 访问语义：READ=只读工具（balanced 模式下工作区外放行）；WRITE=写工具/命令工作目录（始终限工作区内） */
+    /** 访问语义：READ=只读工具（standard 模式下工作区外放行）；WRITE=写工具/命令工作目录（始终限工作区内） */
     public enum AccessKind {
         READ, WRITE
     }
@@ -19,7 +19,7 @@ public class PathSecurityUtils {
     private static final Path PROJECT_ROOT = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
 
     /**
-     * 前缀型黑名单（strict 模式，工作区内也不可访问的系统目录）。
+     * 前缀型黑名单（standard 模式，工作区内也不可访问的系统目录）。
      * <p>
      * 注意：不包含 /home、/Users、\AppData —— 桌面版数据目录与默认工作区天然落在用户主目录下
      * （Linux: ~/.local/share/HippoBuddy，macOS: ~/Library/Application Support/HippoBuddy，
@@ -51,7 +51,7 @@ public class PathSecurityUtils {
     );
 
     /**
-     * 前缀型高危护栏（balanced 读模式与 relaxed 全目录模式下，仍一律拦截的根级特权目录）。
+     * 前缀型高危护栏（standard 读模式与 relaxed 全目录模式下，仍一律拦截的根级特权目录）。
      */
     private static final List<String> HIGH_SENSITIVE_PREFIX_UNIX = List.of(
             "/root"
@@ -86,13 +86,8 @@ public class PathSecurityUtils {
         return com.example.agent.config.Config.getInstance().getTools().isModeRelaxed();
     }
 
-    /** 当前是否为折中权限模式（读放行 / 写受限，可从配置读取） */
-    private static boolean isBalancedMode() {
-        return com.example.agent.config.Config.getInstance().getTools().isModeBalanced();
-    }
-
     /**
-     * 写语义校验（默认）：strict 仅工作区内；balanced 同 strict；relaxed 全目录（保留高危护栏）。
+     * 写语义校验：standard 仅工作区内；relaxed 全目录（保留高危护栏）。
      * 用于 Write/Edit/Delete/Undo/Office 写工具以及 BashTool 的工作目录。
      */
     public static Path validateAndResolve(String filePath) throws ToolExecutionException {
@@ -100,7 +95,7 @@ public class PathSecurityUtils {
     }
 
     /**
-     * 读语义校验：strict 仅工作区内；balanced 工作区外只读放行（保留高危护栏）；relaxed 全目录。
+     * 读语义校验：standard 工作区外只读放行（保留高危护栏）；relaxed 全目录。
      * 用于 Read/List/Glob/Grep/Office 读工具。
      */
     public static Path validateAndResolveRead(String filePath) throws ToolExecutionException {
@@ -129,14 +124,14 @@ public class PathSecurityUtils {
         }
 
         if (isWithinAllowedPath(path)) {
-            // 工作区内：strict/balanced 一律受黑名单约束（如工作区被设为系统目录时兜底拦截）
+            // 工作区内：standard/relaxed 一律受黑名单约束（如工作区被设为系统目录时兜底拦截）
             checkSensitive(path, getRestrictedPathsForOS(), "安全限制: 不允许访问系统敏感目录: ");
             return path;
         }
 
         // 工作区外
-        if (kind == AccessKind.READ && isBalancedMode()) {
-            // balanced 读：只读放行，保留高危护栏
+        if (kind == AccessKind.READ) {
+            // standard 读：只读放行，保留高危护栏（凭据目录始终拦截）
             checkSensitive(path, getHighSensitivePrefixPathsForOS(), "安全限制: 不允许访问系统敏感目录: ");
             return path;
         }

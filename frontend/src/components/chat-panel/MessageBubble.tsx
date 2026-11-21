@@ -16,6 +16,7 @@ import type { ReactNode } from 'react';
 import type { ContentPart, Message, ToolCallRecord, WebSearchAction } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
 import { emit } from '@/utils/eventBus';
+import { usePreviewStore } from '@/stores/previewStore';
 import { parseUserContent, userContentToCopyText } from '@/utils/user-content';
 import { formatCharCount } from '@/utils/paste-attachment';
 import { useI18n, translate } from '@/i18n';
@@ -345,39 +346,67 @@ function buildWebUrlLink(url: string): ReactNode {
   );
 }
 
+/** 粘贴附件卡片的文档图标(内联卡片与临时文件卡片共用) */
+const PASTE_DOC_ICON = (
+  <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9.5 1.5H4.5A1.5 1.5 0 0 0 3 3v10a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 13 13V5z" />
+    <path d="M9.5 1.5V5H13" />
+    <path d="M5.5 8.5h5" />
+    <path d="M5.5 11h3.5" />
+  </svg>
+);
+
 /**
  * 用户消息内的附件卡片(超长粘贴文本 / 引用文本)。
  *
  * 数据来源:combineChipsToMessage 把芯片正文包裹成裸 ``` 围栏段落,
  * parseUserContent 解析出来后交给本组件渲染。
- * 折叠态只显示字数,展开后才展示原文——避免几千字直接铺满气泡。
- * 内容以文本节点渲染(React 自动转义),不解析 Markdown/HTML。
+ * 单行卡片,点击后在右侧预览面板打开只读虚拟标签(不落盘、不发请求),
+ * 避免几千字直接铺满气泡。
  */
 function UserAttachmentCard({ content }: { content: string }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
   const label = t('chat.pastedTextChipLabel', { count: formatCharCount(content.length) });
 
   return (
-    <div className={`msg-user-attach${open ? ' open' : ''}`}>
-      <button
-        type="button"
-        className="msg-user-attach-head"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-label={open ? t('chat.collapseContent') : t('chat.expandFullText')}
-        title={open ? t('chat.collapseContent') : t('chat.expandFullText')}
-      >
-        <span className="msg-user-attach-icon" aria-hidden>
-          📄
-        </span>
-        <span className="msg-user-attach-label">{label}</span>
-        <span className="msg-user-attach-caret" aria-hidden>
-          {open ? '▴' : '▾'}
-        </span>
-      </button>
-      {open && <div className="msg-user-attach-body">{content}</div>}
-    </div>
+    <button
+      type="button"
+      className="msg-user-attach"
+      title={t('chat.openPastedPreview')}
+      onClick={() => usePreviewStore.getState().openPaste(content, label)}
+    >
+      <span className="msg-user-attach-icon" aria-hidden>
+        {PASTE_DOC_ICON}
+      </span>
+      <span className="msg-user-attach-label">{label}</span>
+    </button>
+  );
+}
+
+/**
+ * 临时粘贴文件卡片:消息里只保存 `@绝对路径`,点击在预览面板直接打开真实文件。
+ * 文件由发送时落盘生成(见 ChatPanel.resolvePasteChipsToFiles)。
+ */
+function UserPasteFileCard({ filePath }: { filePath: string }) {
+  const { t } = useI18n();
+  const fileName = filePath.split(/[/\\]/).pop() || filePath;
+  const chars = /^paste-(\d+)-/.exec(fileName)?.[1];
+  const label = chars
+    ? t('chat.pastedTextChipLabel', { count: formatCharCount(Number(chars)) })
+    : fileName;
+
+  return (
+    <button
+      type="button"
+      className="msg-user-attach"
+      title={filePath}
+      onClick={() => usePreviewStore.getState().openFile(filePath)}
+    >
+      <span className="msg-user-attach-icon" aria-hidden>
+        {PASTE_DOC_ICON}
+      </span>
+      <span className="msg-user-attach-label">{label}</span>
+    </button>
   );
 }
 
@@ -428,15 +457,19 @@ function UserContent({ content }: { content: string | ContentPart[] }) {
       {/* 内容容器：折叠态 max-height + 渐隐遮罩，按钮保持在容器外确保始终可见可点 */}
       <div ref={contentRef} className={`msg-user-collapsible${collapsible ? ' collapsible' : ''}${expanded ? ' expanded' : ''}`}>
         {segments ? (
-          segments.map((seg, i) =>
-            seg.kind === 'attachment' ? (
-              <UserAttachmentCard key={i} content={seg.content} />
-            ) : (
+          segments.map((seg, i) => {
+            if (seg.kind === 'attachment') {
+              return <UserAttachmentCard key={i} content={seg.content} />;
+            }
+            if (seg.kind === 'paste-file') {
+              return <UserPasteFileCard key={i} filePath={seg.path} />;
+            }
+            return (
               <div key={i} className="msg-user-text">
                 {seg.text}
               </div>
-            ),
-          )
+            );
+          })
         ) : (
           <div className="msg-user-multimodal">
             {imageParts.length > 0 && (

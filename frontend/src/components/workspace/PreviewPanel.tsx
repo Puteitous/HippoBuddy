@@ -246,6 +246,8 @@ export function PreviewPanel() {
             displayName={activeTab.name}
             onNavigate={(url) => updateWebUrl(activePath, url)}
           />
+        ) : activeTab.mode === 'paste' ? (
+          <PastePreview key={activePath} content={activeTab.pasteContent ?? ''} />
         ) : (
           <FilePreview
             key={`preview-${activePath}-${previewReloadKey}`}
@@ -266,6 +268,20 @@ export function PreviewPanel() {
           onConfirm={confirmAction}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * 粘贴文本只读预览。
+ *
+ * 内容直接来自内存(previewStore 的 pasteContent),不落盘、不发请求;
+ * 排版与代码预览保持一致(等宽、保留换行),支持选中复制。
+ */
+function PastePreview({ content }: { content: string }) {
+  return (
+    <div className="paste-preview" role="document" tabIndex={0}>
+      {content}
     </div>
   );
 }

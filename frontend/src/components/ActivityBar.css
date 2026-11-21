@@ -8,7 +8,8 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  width: 44px;
+  /* 52px = 34px 按钮 + 左右各 9px 内边距,留给选中指示条(贴栏左缘) */
+  width: 52px;
   flex-shrink: 0;
   padding: 8px 0;
   background: var(--hb-bg-alt, #f7f7f8);
@@ -18,13 +19,15 @@
 }
 
 .activity-bar-btn {
+  position: relative; /* 选中指示条的定位基准 */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   background: transparent;
   border: none;
+  border-radius: var(--radius-md);
   color: var(--accent);
   cursor: pointer;
   padding: 0;
@@ -44,10 +47,25 @@
   background: var(--border, rgba(0, 0, 0, 0.08));
 }
 
-/* 选中态保持蓝色,用于区分当前激活面板;不改动以保留对比 */
+/* 选中态:灰阶(对齐会话列表 / 标签栏的"选中"语义),底色与文字跟随主题变量;
+   指示条用 --accent 中性色,只做位置标记,不引入彩色强调 */
 .activity-bar-btn.active {
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+/* 指示条贴在活动栏左缘(按钮左侧内边距区):
+   -9px = (52px 栏宽 - 34px 按钮) / -2,正好让 2px 竖条落在 x=0..2;
+   若取 -10px 会有 1px 溢到栏外,被 .app-shell 的 overflow:hidden 裁掉 */
+.activity-bar-btn.active::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
 .activity-bar-bottom-group {
@@ -80,9 +98,9 @@
 .activity-floating-panel {
   position: absolute;
   top: 0;
-  /* 定位基准为 .app-shell-body(padding-left:10px),活动栏宽 44px,
-     故贴活动栏右缘需左移 = 10 + 44 = 54px */
-  left: 47px;
+  /* 定位基准为 .app-shell-body(position:relative, 左侧 padding 0):
+     活动栏 52px + margin-right 2px = 54px,再留 1px 缝隙贴其右缘 */
+  left: 55px;
   z-index: 50;
   width: 350px;
   max-height: calc(100vh - 80px);
@@ -190,10 +208,8 @@
     background: var(--hb-hover-dark, rgba(255, 255, 255, 0.05));
   }
 
-  .activity-bar-btn.active {
-    background: rgba(96, 165, 250, 0.18);
-    color: #60a5fa;
-  }
+  /* 选中态不再单独覆盖:--bg-active / --text-primary / --accent 已按主题变化,
+     灰阶方案在三套暗色主题下自动对齐 */
 
   .activity-bar-show-btn {
     color: var(--accent);

@@ -7,8 +7,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ToolsConfig {
 
-    /** 权限范围：strict=仅操作当前工作区；balanced=写操作限工作区、读操作可到工作区外；relaxed=可操作全目录。默认 strict。确认卡片由各工具的 require_confirmation 独立控制 */
-    private String mode = "strict";
+    /**
+     * 权限范围：standard=写操作限工作区、读操作放行全盘（保留敏感目录护栏）；relaxed=读写全目录。
+     * 默认 standard。确认卡片由各工具的 require_confirmation 独立控制。
+     * 兼容旧值：strict / balanced 均按 standard 处理。
+     */
+    private String mode = "standard";
 
     private BashToolConfig bash = new BashToolConfig();
     private FileToolConfig file = new FileToolConfig();
@@ -23,11 +27,6 @@ public class ToolsConfig {
     /** 当前是否为全目录范围 */
     public boolean isModeRelaxed() {
         return "relaxed".equalsIgnoreCase(mode);
-    }
-
-    /** 当前是否为折中范围（读放行工作区外 / 写仍限工作区） */
-    public boolean isModeBalanced() {
-        return "balanced".equalsIgnoreCase(mode);
     }
 
     public String getMode() {

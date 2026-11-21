@@ -27,7 +27,7 @@ const WEB_PROVIDER_ITEMS = [
 
 function defaultTools(): ToolsConfigSection {
   return {
-    mode: 'strict',
+    mode: 'standard',
     bash: { enabled: true, require_confirmation: true },
     file: {},
     subagent: { enabled: false },
@@ -54,7 +54,12 @@ export function ToolsSettingsPage() {
         const config = await configApi.getFull();
         if (cancelled) return;
         if (config.tools) {
-          setTools({ ...defaultTools(), ...config.tools });
+          // 兼容旧值：strict / balanced 归一到 standard
+          setTools({
+            ...defaultTools(),
+            ...config.tools,
+            mode: config.tools.mode === 'relaxed' ? 'relaxed' : 'standard',
+          });
         }
       } catch (e) {
         if (cancelled) return;

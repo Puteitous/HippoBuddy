@@ -83,9 +83,16 @@
 }
 
 .inline-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 11px;
   line-height: 1;
   opacity: 0.8;
+  flex-shrink: 0;
+}
+.inline-chip-icon svg {
+  display: block;
 }
 /* 文件引用图标(<img>):与文件树一致按扩展名显彩色图标,固定尺寸居中对齐 */
 .inline-chip-icon[src] {
@@ -102,6 +109,11 @@
 }
 .inline-chip-navigable:hover {
   filter: brightness(1.15);
+}
+
+/* paste 芯片:可点击打开只读预览 */
+.inline-chip-paste {
+  cursor: pointer;
 }
 
 .inline-chip-text {
@@ -139,6 +151,10 @@
   opacity: 0.5;
   transition: opacity 0.15s, background 0.15s;
   flex-shrink: 0;
+}
+
+.inline-chip-close svg {
+  display: block;
 }
 
 .inline-chip-close:hover {

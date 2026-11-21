@@ -347,19 +347,14 @@
   height: 16px;
 }
 
-.permission-badge-icon.strict,
-.permission-badge-opt-icon.strict {
+.permission-badge-icon.standard,
+.permission-badge-opt-icon.standard {
   color: var(--success-color, #16a34a);
 }
 
 .permission-badge-icon.relaxed,
 .permission-badge-opt-icon.relaxed {
   color: var(--warning-color, #e6a817);
-}
-
-.permission-badge-icon.balanced,
-.permission-badge-opt-icon.balanced {
-  color: #3b82f6;
 }
 
 .permission-badge-text {
