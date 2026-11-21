@@ -99,14 +99,16 @@ export function FeedbackFormModal({ onClose }: Props): ReactNode {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
-  /* 点击选择与拖拽共用: 校验图片格式 + 压缩 + 追加到列表 */
+  /* 点击选择、拖拽与粘贴共用: 校验图片格式 + 压缩 + 追加到列表 */
   async function addImage(file: File) {
     if (!file.type.startsWith('image/')) return;
     if (imageFiles.length >= MAX_IMAGES) return;
     setImgBusy(true);
     try {
       const dataUrl = await compressImage(file);
-      setImageFiles((prev) => [...prev, { name: file.name, dataUrl }]);
+      setImageFiles((prev) =>
+        prev.length < MAX_IMAGES ? [...prev, { name: file.name, dataUrl }] : prev,
+      );
     } catch {
       // 压缩失败则忽略本次选择
     } finally {
@@ -126,6 +128,17 @@ export function FeedbackFormModal({ onClose }: Props): ReactNode {
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) void addImage(file);
+  }
+
+  function handlePasteImage(e: React.ClipboardEvent) {
+    const item = Array.from(e.clipboardData.items).find((item) => item.type.startsWith('image/'));
+    if (!item) return;
+    const file = item.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (submittingRef.current) return;
+    void addImage(file);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -234,7 +247,7 @@ export function FeedbackFormModal({ onClose }: Props): ReactNode {
               </button>
             </div>
           ) : (
-            <form className="feedback-form" onSubmit={handleSubmit}>
+            <form className="feedback-form" onSubmit={handleSubmit} onPaste={handlePasteImage}>
               {/* 类型 */}
               <div className="feedback-field">
                 <span className="feedback-label">{t('feedback.type')}</span>
@@ -313,6 +326,7 @@ export function FeedbackFormModal({ onClose }: Props): ReactNode {
                   {imageFiles.length < MAX_IMAGES && (
                     <label
                       className={`feedback-image-picker${dragging ? ' drag' : ''}`}
+                      tabIndex={0}
                       onDragOver={(e) => {
                         e.preventDefault();
                         if (!dragging) setDragging(true);
