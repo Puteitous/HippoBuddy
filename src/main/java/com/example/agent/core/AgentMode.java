@@ -24,7 +24,7 @@ public enum AgentMode {
             "todo_write",
             "skill",
             "web_search", "web_fetch",
-            "lint_diagnostics",
+            // "lint_diagnostics", // 语法检测工具已下线
             "fork_agent", "fork_agents", "list_subagents", "cancel_subagent"
         )
     ),
@@ -39,7 +39,7 @@ public enum AgentMode {
             "todo_write",
             "skill",
             "web_search", "web_fetch",
-            "lint_diagnostics",
+            // "lint_diagnostics", // 语法检测工具已下线
             "fork_agent", "fork_agents", "list_subagents", "cancel_subagent"
         )
     );

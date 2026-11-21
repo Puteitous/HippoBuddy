@@ -157,7 +157,8 @@ public final class CoreModule {
             logger.info("🔇 工具: web_search（已禁用）");
         }
         registry.register(new WebFetchTool());
-        registry.register(new LintDiagnosticsTool());
+        // 语法检测工具已下线，暂时注释注册
+        // registry.register(new LintDiagnosticsTool());
         registry.register(new SkillTool());
 
         registry.getBlockerChain().add(new com.example.agent.core.blocker.SchemaValidationBlocker(registry));
