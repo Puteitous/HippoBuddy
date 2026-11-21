@@ -25,6 +25,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useUpdateStore } from '@/stores/updateStore';
 import { useSessionMessages } from '@/hooks/useSessionMessages';
 import { useSessionBackgroundNotification } from '@/hooks/useSessionBackgroundNotification';
+import { useSessionWorkspaceSync } from '@/hooks/useSessionWorkspaceSync';
 import { Sidebar } from './Sidebar';
 import { SidebarResizer } from './SidebarResizer';
 import { TopBar } from './TopBar';
@@ -57,6 +58,9 @@ export function AppShell() {
 
   // 会话完成/等待确认时提醒:窗口隐藏→系统通知,可见→应用内 toast
   useSessionBackgroundNotification();
+
+  // 切换会话时工作区跟随该会话的归属项目(有条件:运行中/路径失效时不切换)
+  useSessionWorkspaceSync();
 
   // 启动时初始化主题(localStorage + 桌面端 Electron 校正)
   useEffect(() => {

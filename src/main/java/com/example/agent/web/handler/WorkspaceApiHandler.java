@@ -16,6 +16,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -93,6 +96,14 @@ public class WorkspaceApiHandler implements HttpHandler {
     private void handleSetCurrent(HttpExchange exchange) throws IOException {
         JsonNode body = MAPPER.readTree(exchange.getRequestBody());
         String folder = body.has("path") ? body.get("path").asText() : null;
+
+        // 路径必须存在且是目录：前端切会话自动跟随归属工作区时，项目目录可能已被
+        // 删除/移动，这里拒绝写入可避免把工具操作指向不存在的目录。
+        if (!isExistingDirectory(folder)) {
+            sendError(exchange, 400, "工作区路径不存在或不是目录: " + (folder != null ? folder : ""));
+            return;
+        }
+
         String oldFolder = WorkspaceContext.getCurrentFolder();
         int cachedSessions = WebSessionManager.getInstance().getSessions().size();
         logger.info("收到工作区切换请求: path={}, 当前缓存会话数={}（这些会话的 prompt 在创建时按当时工作区状态固化快照，切换后保持不变）",
@@ -220,6 +231,18 @@ public class WorkspaceApiHandler implements HttpHandler {
     }
 
     // ===== 工具方法 =====
+
+    /** 判断路径是否为空、非法或不存在/不是目录 */
+    private static boolean isExistingDirectory(String folder) {
+        if (folder == null || folder.isBlank()) {
+            return false;
+        }
+        try {
+            return Files.isDirectory(Path.of(folder));
+        } catch (InvalidPathException e) {
+            return false;
+        }
+    }
 
     private static void sendJson(HttpExchange exchange, int status, ObjectNode node) throws IOException {
         byte[] bytes = MAPPER.writeValueAsBytes(node);
