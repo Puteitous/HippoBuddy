@@ -1,9 +1,9 @@
 /**
- * ContextLimitModal - 上下文快满时弹窗，提供「总结并新开会话」。
+ * ContextLimitModal - 上下文快满时弹窗，引导模型压缩当前上下文。
  *
- * 触发：当前会话 token 使用率 >= 95%，每个会话仅提示一次（ref Set 去重）。
- * 动作：调用 POST /api/sessions/:id/summarize-new，后端一次性生成总结并新建会话，
- * 成功后切到新会话（新会话首条 = 总结），原会话不变。
+ * 触发：当前会话 token 使用率 >= 90%，每个会话仅提示一次（ref Set 去重）。
+ * 动作：向当前会话发送一条压缩指令，由模型调用 compact_context；
+ * 工具会弹出确认卡片，用户确认后才会真正替换上下文，原始对话仍保留在历史中。
  *
  * 数据来源与 TokenMonitor 一致：基础统计 GET /api/sessions/:id/tokens + SSE token_update。
  */
@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { SessionTokenStats } from '@/types';
-import { api, sessionApi } from '@/api/client';
+import { sessionApi } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import { useChatStore } from '@/stores/chatStore';
 import { showToast } from '@/utils/toastStore';
@@ -20,17 +20,19 @@ import { useChatStream } from '@/hooks/useChatStream';
 import { getTokenColor, mergeStats } from './tokenUtils';
 import './ContextLimitModal.css';
 
-/** 上下文使用率触发阈值：>= 时状态栏常驻胶囊入口，点击可弹「总结并新开会话」。 */
+/** 上下文使用率触发阈值：>= 时状态栏常驻胶囊入口，点击可弹「压缩上下文」。 */
 const LIMIT_PERCENT = 90;
 
 /** 强制阈值：流式输出期间若已达此值，直接中断当前流式并立即弹窗，避免无限等流式结束。 */
 const FORCE_PERCENT = 97.5;
 
+/** 用户点击「压缩上下文」后发给模型的指令。 */
+const COMPACT_INSTRUCTION =
+  '请压缩当前上下文：调用 compact_context，summary 保留当前目标、关键结论与文件路径、已完成操作、当前状态和下一步。';
+
 export function ContextLimitModal(): ReactNode {
   const { t } = useI18n();
   const currentSessionId = useAppStore((s) => s.currentSessionId);
-  const setCurrentSession = useAppStore((s) => s.setCurrentSession);
-  const setSessions = useAppStore((s) => s.setSessions);
   const lastTokenUpdate = useChatStore((s) =>
     currentSessionId ? (s.tokenUpdates[currentSessionId] ?? null) : null,
   );
@@ -41,7 +43,7 @@ export function ContextLimitModal(): ReactNode {
   // 每个会话仅提示一次（取消/切换后不再重复弹），避免打扰
   const hintedRef = useRef<Set<string>>(new Set());
   // 流式输出进行中，避免弹窗在 LLM 生成时弹出打断阅读
-  const { abort, isSending } = useChatStream();
+  const { abort, isSending, send } = useChatStream();
 
   const loadBase = useCallback(async (sessionId: string) => {
     try {
@@ -104,27 +106,22 @@ export function ContextLimitModal(): ReactNode {
     setOpen(true);
   }, [stats, currentSessionId, isSending, abort]);
 
-  const handleSummarize = useCallback(async () => {
+  const handleCompact = useCallback(async () => {
     if (!currentSessionId || loading) return;
     setLoading(true);
+    setOpen(false);
     try {
-      const res = await api.sessions.summarizeNew(currentSessionId);
-      setLoading(false);
-      setOpen(false);
-      if (res.newSessionId) {
-        setCurrentSession(res.newSessionId);
-        api.getSessions().then(setSessions).catch(() => {});
-        showToast(translate('chat.summarizeNewSuccess'), { type: 'success', duration: 4000 });
+      // 流式强制中断档：先停止当前生成，再发起压缩指令
+      if (isSending) abort();
+      const ok = await send(COMPACT_INSTRUCTION);
+      if (!ok) {
+        setOpen(true);
+        showToast(translate('chat.compactContextSendFail'), { type: 'error', duration: 4000 });
       }
-    } catch (e) {
+    } finally {
       setLoading(false);
-      const msg = e instanceof Error ? e.message : String(e);
-      showToast(translate('chat.summarizeNewFailMsg', { message: msg }), {
-        type: 'error',
-        duration: 4000,
-      });
     }
-  }, [currentSessionId, loading, setCurrentSession, setSessions]);
+  }, [currentSessionId, loading, isSending, abort, send]);
 
   if (!currentSessionId) return null;
 
@@ -140,8 +137,8 @@ export function ContextLimitModal(): ReactNode {
     <button
       type="button"
       className="cl-chip"
-      title={t('chat.summarizeNewTitle')}
-      aria-label={t('chat.summarizeNewTitle')}
+      title={t('chat.compactContextTitle')}
+      aria-label={t('chat.compactContextTitle')}
       onClick={() => setOpen(true)}
     >
       <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -160,18 +157,18 @@ export function ContextLimitModal(): ReactNode {
     <div className="cl-modal-overlay" role="dialog" aria-modal="true">
       <div className="cl-modal">
         <div className="cl-modal-head">
-          <span>{t('chat.summarizeNewTitle')}</span>
+          <span>{t('chat.compactContextTitle')}</span>
           <button
             type="button"
             className="cl-modal-close"
-            aria-label={t('chat.summarizeNewCancel')}
-            title={t('chat.summarizeNewCancel')}
+            aria-label={t('chat.compactContextCancel')}
+            title={t('chat.compactContextCancel')}
             onClick={() => setOpen(false)}
           >
             ×
           </button>
         </div>
-        <p className="cl-modal-desc">{t('chat.summarizeNewDesc')}</p>
+        <p className="cl-modal-desc">{t('chat.compactContextDesc')}</p>
         <div className="cl-modal-meter">
           <div className="cl-modal-meter-track">
             <div
@@ -185,16 +182,16 @@ export function ContextLimitModal(): ReactNode {
         </div>
         <div className="cl-modal-actions">
           <button type="button" className="cl-btn" onClick={() => setOpen(false)}>
-            {t('chat.summarizeNewCancel')}
+            {t('chat.compactContextCancel')}
           </button>
-          <button type="button" className="cl-btn cl-btn-primary" disabled={loading} onClick={handleSummarize}>
+          <button type="button" className="cl-btn cl-btn-primary" disabled={loading} onClick={handleCompact}>
             {loading ? (
               <>
                 <span className="cl-spinner" aria-hidden />
-                {t('chat.summarizeNewProcessing')}
+                {t('chat.compactContextProcessing')}
               </>
             ) : (
-              t('chat.summarizeNewAction')
+              t('chat.compactContextAction')
             )}
           </button>
         </div>
