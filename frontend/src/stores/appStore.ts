@@ -307,6 +307,8 @@ interface AppState {
   sidebarView: SidebarView;
   /** SkillMarket 面板是否打开 */
   pluginMarketOpen: boolean;
+  /** 手动压缩弹窗是否打开(状态栏 Token 浮层底部入口触发) */
+  compactModalOpen: boolean;
   /** 进入 Settings 视图时初始定位的设置页(由 ModelSelectorPanel 等外部触发,消费后重置为 'general') */
   settingsInitialPage: string;
   /** 面板布局偏好(聊天/预览左右排布,从 localStorage 恢复,默认 preview-left 对齐旧版) */
@@ -370,6 +372,10 @@ interface AppState {
   setSidebarView: (view: SidebarView) => void;
   /** 设置 SkillMarket 打开/关闭 */
   setPluginMarketOpen: (open: boolean) => void;
+  /** 打开手动压缩弹窗(不依赖上下文使用率阈值) */
+  openCompactModal: () => void;
+  /** 关闭手动压缩弹窗 */
+  closeCompactModal: () => void;
   /** 设置 Settings 视图初始页(消费后应重置为 'general') */
   setSettingsInitialPage: (page: string) => void;
   /** 设置面板布局(同时持久化到 localStorage,key 对齐旧版 hippo-layout) */
@@ -406,6 +412,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarCollapsed: readSidebarCollapsed(),
   sidebarView: readSidebarView(),
   pluginMarketOpen: false,
+  compactModalOpen: false,
   settingsInitialPage: 'general',
   panelLayout: readPanelLayout(),
 
@@ -672,6 +679,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setPluginMarketOpen: (open) => set({ pluginMarketOpen: open }),
+  openCompactModal: () => set({ compactModalOpen: true }),
+  closeCompactModal: () => set({ compactModalOpen: false }),
   setSettingsInitialPage: (page) => set({ settingsInitialPage: page }),
   setPanelLayout: (layout) => {
     persistPanelLayout(layout);

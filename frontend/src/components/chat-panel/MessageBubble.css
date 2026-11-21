@@ -199,9 +199,32 @@
 }
 
 .msg-compaction-details summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   width: fit-content;
   cursor: pointer;
   user-select: none;
+  list-style: none;
+}
+
+/* 隐藏原生三角箭头,改用自绘 chevron */
+.msg-compaction-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.msg-compaction-details summary::marker {
+  content: '';
+}
+
+.msg-compaction-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+/* 展开时箭头从右转为向下 */
+.msg-compaction-details[open] .msg-compaction-chevron {
+  transform: rotate(90deg);
 }
 
 .msg-compaction-note {

@@ -85,7 +85,23 @@ function MessageBubbleComponent({
             <span className="msg-compaction-line" />
           </div>
           <details className="msg-compaction-details">
-            <summary>{t('chat.compactedNoteSummary')}</summary>
+            <summary>
+              <svg
+                className="msg-compaction-chevron"
+                viewBox="0 0 12 12"
+                width="10"
+                height="10"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <polyline points="4.5 2.5 8 6 4.5 9.5" />
+              </svg>
+              <span>{t('chat.compactedNoteSummary')}</span>
+            </summary>
             <pre className="msg-compaction-note">{userText}</pre>
           </details>
         </div>

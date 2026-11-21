@@ -36,6 +36,9 @@ export function ContextLimitModal(): ReactNode {
   const lastTokenUpdate = useChatStore((s) =>
     currentSessionId ? (s.tokenUpdates[currentSessionId] ?? null) : null,
   );
+  /** 手动入口(状态栏 Token 浮层底部按钮)打开标记 */
+  const compactModalOpen = useAppStore((s) => s.compactModalOpen);
+  const closeCompactModal = useAppStore((s) => s.closeCompactModal);
 
   const [baseStats, setBaseStats] = useState<SessionTokenStats | null>(null);
   const [open, setOpen] = useState(false);
@@ -57,12 +60,13 @@ export function ContextLimitModal(): ReactNode {
   useEffect(() => {
     // 切换会话/进入时重置弹窗状态（达标 effect 会按需重新打开）
     setOpen(false);
+    closeCompactModal();
     if (!currentSessionId) {
       setBaseStats(null);
       return;
     }
     void loadBase(currentSessionId);
-  }, [currentSessionId, loadBase]);
+  }, [currentSessionId, loadBase, closeCompactModal]);
 
   // 每回合终态 token_update 到达时校准基准（对齐 TokenMonitor 的 refreshedRef 思路）
   const refreshedRef = useRef<{ sessionId: string; total: number }>({ sessionId: '', total: -1 });
@@ -110,6 +114,7 @@ export function ContextLimitModal(): ReactNode {
     if (!currentSessionId || loading) return;
     setLoading(true);
     setOpen(false);
+    closeCompactModal();
     try {
       // 流式强制中断档：先停止当前生成，再发起压缩指令
       if (isSending) abort();
@@ -121,36 +126,21 @@ export function ContextLimitModal(): ReactNode {
     } finally {
       setLoading(false);
     }
-  }, [currentSessionId, loading, isSending, abort, send]);
+  }, [currentSessionId, loading, isSending, abort, send, closeCompactModal]);
 
   if (!currentSessionId) return null;
 
   const hasStats = stats.hasKnownUsage;
-  const percent = hasStats ? stats.usagePercent : LIMIT_PERCENT;
+  const percent = hasStats ? stats.usagePercent : 0;
   const color = getTokenColor(percent);
-  // 达到阈值后，入口胶囊常驻状态栏；未达阈值什么都不显示
-  const overLimit = hasStats && stats.usagePercent >= LIMIT_PERCENT;
-  if (!overLimit) return null;
 
-  // 常驻胶囊：随时点击弹窗（去数字，纯入口，百分比由 TokenMonitor 展示）
-  const pill = (
-    <button
-      type="button"
-      className="cl-chip"
-      title={t('chat.compactContextTitle')}
-      aria-label={t('chat.compactContextTitle')}
-      onClick={() => setOpen(true)}
-    >
-      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M8 1.5 14.5 13h-13L8 1.5z" />
-        <line x1="8" y1="6.5" x2="8" y2="9.5" />
-        <circle cx="8" cy="11.5" r="0.5" fill="currentColor" stroke="none" />
-      </svg>
-    </button>
-  );
+  const handleClose = () => {
+    setOpen(false);
+    closeCompactModal();
+  };
 
-  // 未展开 → 显示常驻胶囊
-  if (!open) return pill;
+  // 未达阈值自动弹出、也未经手动入口触发时不渲染
+  if (!open && !compactModalOpen) return null;
 
   // 展开 → 显示弹窗
   return createPortal(
@@ -163,7 +153,7 @@ export function ContextLimitModal(): ReactNode {
             className="cl-modal-close"
             aria-label={t('chat.compactContextCancel')}
             title={t('chat.compactContextCancel')}
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
           >
             ×
           </button>
@@ -177,11 +167,11 @@ export function ContextLimitModal(): ReactNode {
             />
           </div>
           <span className="cl-modal-percent" style={{ color }}>
-            {percent.toFixed(0)}%
+            {percent.toFixed(1)}%
           </span>
         </div>
         <div className="cl-modal-actions">
-          <button type="button" className="cl-btn" onClick={() => setOpen(false)}>
+          <button type="button" className="cl-btn" onClick={handleClose}>
             {t('chat.compactContextCancel')}
           </button>
           <button type="button" className="cl-btn cl-btn-primary" disabled={loading} onClick={handleCompact}>

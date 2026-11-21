@@ -148,29 +148,6 @@
   }
 }
 
-/* 最小化后的状态栏胶囊（可再次点开） */
-.cl-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 20px;
-  padding: 0 9px;
-  margin: 0 2px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--warning, #d97706);
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--warning, #d97706) 45%, transparent);
-  border-radius: 999px;
-  cursor: pointer;
-  vertical-align: middle;
-  transition: background 0.15s, border-color 0.15s;
-}
-.cl-chip:hover {
-  background: color-mix(in srgb, var(--warning, #d97706) 12%, transparent);
-  border-color: var(--warning, #d97706);
-}
-
 /* 玻璃主题：--bg-app 为半透明，弹窗需要实色面板保证可读 */
 [data-theme="glass"] .cl-modal {
   background: #1a1e28;

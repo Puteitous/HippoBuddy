@@ -121,8 +121,17 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
   const [tooltipPos, setTooltipPos] = useState<{ left: number; bottom: number } | null>(null);
   const statusBarRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const hideTimerRef = useRef<number | null>(null);
+
+  const cancelHideTooltip = useCallback(() => {
+    if (hideTimerRef.current != null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
 
   const showTooltip = useCallback(() => {
+    cancelHideTooltip();
     const el = statusBarRef.current;
     if (!el || !baseStats || stats.maxTokens === 0) return;
     const rect = el.getBoundingClientRect();
@@ -132,14 +141,27 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
       bottom: window.innerHeight - rect.top + 8,
     });
     setTooltipOpen(true);
-  }, [baseStats, stats.maxTokens]);
+  }, [baseStats, stats.maxTokens, cancelHideTooltip]);
 
   const hideTooltip = useCallback(() => {
+    cancelHideTooltip();
     setTooltipOpen(false);
+  }, [cancelHideTooltip]);
+
+  /** 离开锚点/浮层后延迟关闭,留出鼠标跨过间隙移动到浮层内点击的时间 */
+  const scheduleHideTooltip = useCallback(() => {
+    if (hideTimerRef.current != null) return;
+    hideTimerRef.current = window.setTimeout(() => {
+      hideTimerRef.current = null;
+      setTooltipOpen(false);
+    }, 150);
   }, []);
+
+  useEffect(() => cancelHideTooltip, [cancelHideTooltip]);
 
   // 点击状态栏 → 打开公共 Token 统计面板(对齐旧版 statusBarToken 联动,复用左侧 ActivityBar 面板)
   const openActivityTokenPanel = useAppStore((s) => s.openActivityPanel);
+  const openCompactModal = useAppStore((s) => s.openCompactModal);
   const handleStatusBarClick = useCallback(() => {
     hideTooltip();
     openActivityTokenPanel('token');
@@ -192,7 +214,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
           role="status"
           aria-live="polite"
           onMouseEnter={showTooltip}
-          onMouseLeave={hideTooltip}
+          onMouseLeave={scheduleHideTooltip}
           onClick={handleStatusBarClick}
         >
           <svg
@@ -224,7 +246,7 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
           role="status"
           aria-live="polite"
           onMouseEnter={showTooltip}
-          onMouseLeave={hideTooltip}
+          onMouseLeave={scheduleHideTooltip}
           onClick={handleStatusBarClick}
         >
           <svg
@@ -253,6 +275,8 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
               className="status-bar-tooltip"
               style={{ left: tooltipPos.left, bottom: tooltipPos.bottom }}
               role="tooltip"
+              onMouseEnter={cancelHideTooltip}
+              onMouseLeave={scheduleHideTooltip}
             >
               <div className="sbt-header">
                 <span>{t('tokenMonitor.usage')}</span>
@@ -290,6 +314,35 @@ function TokenMonitorComponent({ statusBar = false }: TokenMonitorProps) {
                 <span>{t('tokenMonitor.sessionTotal')}</span>
                 <span>{stats.sessionTotalTokens.toLocaleString()} tokens</span>
               </div>
+              <div className="sbt-divider" />
+              {/* 手动压缩入口:不受使用率阈值限制,随时可压缩当前上下文 */}
+              <button
+                type="button"
+                className="sbt-compact-btn"
+                title={t('chat.compactContextAction')}
+                onClick={() => {
+                  hideTooltip();
+                  openCompactModal();
+                }}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="13"
+                  height="13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M6 2v4H2" />
+                  <path d="M10 14v-4h4" />
+                  <path d="M6 6 2 2" />
+                  <path d="M10 10 14 14" />
+                </svg>
+                <span>{t('chat.compactContextAction')}</span>
+              </button>
             </div>,
             document.body,
           )}

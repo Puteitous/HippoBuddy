@@ -95,7 +95,7 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   font-size: var(--font-size-xs);
   line-height: 1.5;
-  pointer-events: none; /* 对齐旧版:纯展示,不拦截事件 */
+  pointer-events: auto; /* 浮层底部含手动压缩按钮,需要可交互 */
   animation: sbt-fade-in 0.15s ease;
 }
 
@@ -180,6 +180,35 @@
   background: var(--border);
   opacity: 0.4;
   margin: 5px -14px;
+}
+
+/* 浮层底部手动压缩入口(一行按钮,居中,颜色略弱于统计行) */
+.sbt-compact-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* 按钮是表单控件,width:auto 会按内容收缩;显式加宽 左右内边距 铺满整行 */
+  width: calc(100% + 28px);
+  margin: 0 0 -12px -14px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sbt-compact-btn:hover {
+  background: rgba(127, 127, 127, 0.12);
+  color: var(--text-primary);
+}
+
+.sbt-compact-btn svg {
+  flex-shrink: 0;
 }
 
 /* ── 深色模式(跟随 app 主题 data-theme,而非系统偏好) ── */
