@@ -20,6 +20,7 @@ export type ChatSseEventName =
   | 'tool_progress'
   | 'tool_result'
   | 'tool_confirmation'
+  | 'compact_complete'
   | 'web_search_start'
   | 'web_search_done'
   | 'token_update'
@@ -114,6 +115,12 @@ export interface CompactContextToolConfirmationPayload {
   savedPercent: number;
 }
 
+/** compact_context 确认执行完成，前端插入"上下文已压缩"分隔标识 */
+export interface CompactCompletePayload {
+  messageId: string;
+  summary: string;
+}
+
 export type ToolConfirmationPayload =
   | BashToolConfirmationPayload
   | DeleteFileToolConfirmationPayload
@@ -203,6 +210,7 @@ export interface ChatSseEventMap {
   tool_progress: ToolProgressPayload;
   tool_result: ToolResultPayload;
   tool_confirmation: ToolConfirmationPayload;
+  compact_complete: CompactCompletePayload;
   web_search_start: WebSearchStartPayload;
   web_search_done: WebSearchDonePayload;
   token_update: TokenUpdatePayload;

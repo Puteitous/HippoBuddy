@@ -169,6 +169,57 @@
   color: var(--text-primary);
 }
 
+/* ── 上下文压缩分隔标识 ─────────────────────────────── */
+.msg-compaction-marker {
+  margin: 14px 0;
+}
+
+.msg-compaction-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.msg-compaction-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-color, rgba(128, 128, 128, 0.25));
+}
+
+.msg-compaction-label {
+  white-space: nowrap;
+}
+
+.msg-compaction-details {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.msg-compaction-details summary {
+  width: fit-content;
+  cursor: pointer;
+  user-select: none;
+}
+
+.msg-compaction-note {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .msg-user-multimodal {
   display: flex;
   flex-direction: column;

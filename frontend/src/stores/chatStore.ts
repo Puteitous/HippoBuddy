@@ -1088,6 +1088,23 @@ export const useChatStore = create<ChatState>((set, get) => {
           break;
         }
 
+        case 'compact_complete': {
+          const payload = data as ChatSseEventMap['compact_complete'];
+          updateSession(sid, (s) => {
+            // 重载后由历史消息内容识别同一标识，避免重复插入
+            if (s.messages.some((m) => m.id === payload.messageId)) return;
+            s.messages = [
+              ...s.messages,
+              {
+                id: payload.messageId,
+                role: 'user',
+                content: `## 上下文压缩交接笔记\n\n${payload.summary}`,
+              },
+            ];
+          });
+          break;
+        }
+
         // ── 联网搜索 ────────────────────────────────────────
         case 'web_search_start': {
           updateSession(sid, (s) => {

@@ -31,6 +31,19 @@ describe('MessageBubble - user', () => {
     expect(document.querySelector('.message-footer')).not.toBeNull();
   });
 
+  it('上下文压缩交接笔记渲染为分隔标识而非普通用户气泡', () => {
+    const m = msg({
+      role: 'user',
+      content: '## 上下文压缩交接笔记\n\n- 目标：测试压缩',
+    });
+    render(<MessageBubble message={m} />);
+
+    expect(document.querySelector('.msg-compaction-divider')).not.toBeNull();
+    expect(document.querySelector('.msg-compaction-label')?.textContent).toBeTruthy();
+    expect(document.querySelector('.msg-compaction-note')?.textContent).toContain('目标：测试压缩');
+    expect(document.querySelector('.msg-bubble-user')).toBeNull();
+  });
+
   it('多模态：文本与图片', () => {
     const m = msg({
       role: 'user',

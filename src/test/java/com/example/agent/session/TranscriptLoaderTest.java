@@ -97,6 +97,30 @@ class TranscriptLoaderTest {
 
         assertEquals("boundary-uuid-123", result.getLastCompactBoundary());
         assertEquals(2, result.getMessages().size());
+        // 旧消息保留给 UI，边界下标指向压缩后的第一条消息（交接笔记）
+        assertEquals(1, result.getBoundaryMessageIndex());
+        assertEquals("After compact", result.getMessages().get(1).getContent());
+    }
+
+    @Test
+    void testMultipleCompactBoundariesUseLastOne() {
+        transcript.appendUserMessage(Message.user("A"));
+        transcript.appendCompactBoundary("boundary-1");
+        transcript.appendUserMessage(Message.user("B"));
+        transcript.appendAssistantMessage(Message.assistant("C"), null);
+        transcript.appendCompactBoundary("boundary-2");
+        transcript.appendUserMessage(Message.user("D"));
+        transcript.close();
+
+        TranscriptLoader.LoadResult result = TranscriptLoader.load(transcriptFile);
+
+        assertEquals("boundary-2", result.getLastCompactBoundary());
+        assertEquals(4, result.getMessages().size());
+        // A/B/C 在边界前，D 是最后一条边界后的第一条消息
+        assertEquals(3, result.getBoundaryMessageIndex());
+        assertEquals("D", result.getMessages().get(result.getBoundaryMessageIndex()).getContent());
+        // 边界会重置 usage 恢复，避免用压缩前的 usage 统计新上下文
+        assertNull(result.getLastKnownUsage());
     }
 
     @Test

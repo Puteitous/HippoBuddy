@@ -5,6 +5,7 @@ import com.example.agent.core.di.ServiceLocator;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.truncation.TruncationService;
 import com.example.agent.llm.exception.LlmException;
+import com.example.agent.llm.model.Message;
 import com.example.agent.service.TokenEstimatorFactory;
 import com.example.agent.tools.BashTool;
 import com.example.agent.tools.DeleteFileTool;
@@ -339,8 +340,14 @@ public class ToolConfirmHandler implements HttpHandler {
             // 先补一条 tool 结果到旧 transcript，保证历史结构完整；随后写入压缩边界。
             conversationService.addToolResult(
                 conversation, pending.toolCallId, pending.toolName, "上下文已压缩", true);
-            conversationService.appendCompactionBoundary(
+            Message handoff = conversationService.appendCompactionBoundary(
                 conversation, buildHandoffContent(pending.summary));
+
+            // 通知前端插入「上下文已压缩」分隔标识（重载后由历史消息内容自行识别）
+            ObjectNode compactEvent = objectMapper.createObjectNode();
+            compactEvent.put("messageId", handoff.getId());
+            compactEvent.put("summary", pending.summary);
+            sseWriter.sendSseEvent("compact_complete", compactEvent.toString());
 
             sseWriter.sendSseEvent("tool_result",
                 buildToolResultJson(pending.toolCallId, pending.toolName, true,

@@ -74,6 +74,23 @@ function MessageBubbleComponent({
   }, [message.content]);
 
   if (message.role === 'user') {
+    const userText = extractText(message.content);
+    // 上下文压缩交接笔记：用分隔线标识，内容折叠可查看，不作为普通用户气泡展示
+    if (userText.startsWith('## 上下文压缩交接笔记')) {
+      return (
+        <div className="msg-compaction-marker" data-message-id={dataMessageId}>
+          <div className="msg-compaction-divider" role="separator">
+            <span className="msg-compaction-line" />
+            <span className="msg-compaction-label">{t('chat.compactedDivider')}</span>
+            <span className="msg-compaction-line" />
+          </div>
+          <details className="msg-compaction-details">
+            <summary>{t('chat.compactedNoteSummary')}</summary>
+            <pre className="msg-compaction-note">{userText}</pre>
+          </details>
+        </div>
+      );
+    }
     const hasImages = Array.isArray(message.content) && message.content.some(isImagePart);
     return (
       <div className="msg-user-wrap" data-message-id={dataMessageId}>
