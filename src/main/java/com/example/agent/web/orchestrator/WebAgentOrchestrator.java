@@ -3,6 +3,7 @@ package com.example.agent.web.orchestrator;
 import com.example.agent.core.AgentMode;
 import com.example.agent.application.ConversationService;
 import com.example.agent.config.Config;
+import com.example.agent.config.VisionModelRegistry;
 import com.example.agent.core.blocker.BashDangerousCommandBlocker;
 import com.example.agent.core.blocker.HookResult;
 import com.example.agent.core.blocker.RequestContext;
@@ -14,6 +15,7 @@ import com.example.agent.execute.StopHook;
 import com.example.agent.llm.client.AbstractLlmClient;
 import com.example.agent.llm.client.LlmClient;
 import com.example.agent.llm.client.LlmClientFactory;
+import com.example.agent.llm.exception.LlmApiException;
 import com.example.agent.llm.exception.LlmErrorClassifier;
 import com.example.agent.llm.exception.LlmException;
 import com.example.agent.llm.retry.RetryPolicy;
@@ -30,6 +32,7 @@ import com.example.agent.tools.BashResult;
 import com.example.agent.tools.BashTool;
 import com.example.agent.tools.DeleteFileTool;
 import com.example.agent.tools.FileChangeTracker;
+import com.example.agent.tools.ReadImageTool;
 import com.example.agent.tools.ToolExecutor;
 import com.example.agent.tools.ToolRegistry;
 import com.example.agent.web.session.PendingBashConfirmation;
@@ -117,6 +120,14 @@ public class WebAgentOrchestrator {
      * 覆盖语义：后续写入会覆盖前一次残留（execute() 入口也会主动清理防止幽灵队列）。
      */
     private final Map<String, List<ToolCall>> remainingToolCalls = new ConcurrentHashMap<>();
+
+    /**
+     * 待注入会话上下文的工具图片（read_image 产出）。
+     * key=sessionId。工具执行时收集，下一轮 LLM 调用前统一注入为多模态消息，
+     * 保证注入位置一定在所有 tool 消息之后（否则 OpenAI 系会拒绝请求）。
+     * 生命周期：executeToolCalls 收集 → execute() 每轮开头消费并清空。
+     */
+    private final Map<String, List<ReadImageTool.ReadImage>> pendingToolImages = new ConcurrentHashMap<>();
 
     /**
      * 会话级 Tools 快照（与 system prompt 固化同构）。
@@ -233,6 +244,7 @@ public class WebAgentOrchestrator {
 
         for (int turn = 0; unlimitedAgentTurns || turn < maxAgentTurns; turn++) {
             if (cancelManager.isCancelled(sessionId)) {
+                pendingToolImages.remove(sessionId);
                 logger.info("收到取消信号，提前结束 Agent 循环 (sessionId={}, turn={})", sessionId, turn + 1);
                 return;
             }
@@ -250,6 +262,9 @@ public class WebAgentOrchestrator {
                 }
                 return;
             }
+
+            // read_image 产出的图片必须在所有 tool 消息落盘之后再注入，否则工具消息序列不连续
+            flushPendingToolImages(sessionId, conversation);
 
             List<Message> messages = new ArrayList<>(getConversationService().getContextForInference(conversation));
 
@@ -678,6 +693,38 @@ public class WebAgentOrchestrator {
         }
     }
 
+    /**
+     * 收集 read_image 工具产出的图片，等本轮工具全部执行完再注入。
+     */
+    private void collectPendingToolImages(String sessionId) {
+        List<ReadImageTool.ReadImage> images = ReadImageTool.drainPendingImages();
+        if (images.isEmpty()) {
+            return;
+        }
+        pendingToolImages.computeIfAbsent(sessionId, k -> new ArrayList<>()).addAll(images);
+        logger.info("收集待注入图片: sessionId={}, 数量={}", sessionId, images.size());
+    }
+
+    /**
+     * 把上一批工具产出的图片注入会话（多模态 user 消息）。
+     * <p>
+     * 必须在所有 tool 消息落盘之后调用，否则 OpenAI 系会因工具消息序列不连续而报 400。
+     * </p>
+     */
+    private void flushPendingToolImages(String sessionId, Conversation conversation) {
+        // 新一轮开始：重置单轮图片计数
+        ReadImageTool.resetTurnImageCount();
+
+        // 上一批图片已完成使命（模型看过一次），降级为纯文本，控制上下文体积
+        getConversationService().downgradeToolImageContext(conversation);
+
+        List<ReadImageTool.ReadImage> images = pendingToolImages.remove(sessionId);
+        if (images == null || images.isEmpty()) {
+            return;
+        }
+        getConversationService().addToolImageContext(conversation, images);
+    }
+
     private boolean executeToolCalls(List<ToolCall> toolCalls, Conversation conversation, SseWriter sseWriter, String sessionId, AgentMode mode) {
         for (int i = 0; i < toolCalls.size(); i++) {
             ToolCall toolCall = toolCalls.get(i);
@@ -924,6 +971,9 @@ public class WebAgentOrchestrator {
                 // 设置 toolCallId 供 FileChangeTracker.recordChange 使用
                 try (var _tool = FileChangeTracker.withContext(null, toolCall.getId())) {
                     String rawResult = toolRegistry.execute(toolName, arguments);
+
+                    // read_image 的图片先收集起来，等本轮所有工具执行完再统一注入
+                    collectPendingToolImages(sessionId);
 
                     if ("ask_user".equals(toolName)) {
                         JsonNode resultNode = objectMapper.readTree(rawResult);
@@ -1308,11 +1358,27 @@ public class WebAgentOrchestrator {
                                                 boolean[] deliveredAny,
                                                 SseWriter sseWriter) throws LlmException {
         int attempt = 0;
+        boolean imageDowngraded = false;
         while (true) {
             deliveredAny[0] = false;
             try {
                 return llmClient.chatStream(messages, tools, onChunk);
             } catch (LlmException e) {
+                // 图片相关 400 兜底：模型被声明为支持视觉但上游实际拒绝图片时，
+                // 去掉图片按纯文本重试一次，并记住该模型不支持视觉，避免后续反复失败。
+                if (!imageDowngraded && !deliveredAny[0] && !cancelManager.isCancelled(sessionId)
+                        && isImageUnsupportedFailure(e)) {
+                    imageDowngraded = true;
+                    if (downgradeImagesForRetry(messages)) {
+                        markCurrentModelVisionUnsupported();
+                        logger.warn("图片被上游拒绝，已降级为纯文本重试 (sessionId={}): {}",
+                            sessionId, e.getMessage());
+                        sseWriter.sendSseEvent("warning", "{\"message\":\""
+                            + SseWriter.escapeJson("当前模型不支持图片输入，已自动改用纯文本继续") + "\"}");
+                        continue;
+                    }
+                }
+
                 if (deliveredAny[0] || cancelManager.isCancelled(sessionId)
                         || !isRetryableStreamFailure(e, attempt)) {
                     throw e;
@@ -1334,6 +1400,74 @@ public class WebAgentOrchestrator {
                     throw e;
                 }
             }
+        }
+    }
+
+    /**
+     * 是否为“上游拒绝图片输入”类错误：400/INVALID_REQUEST + 图片相关关键词。
+     * <p>
+     * 只在同时满足两个条件时判定，避免把其他参数错误误当成视觉能力问题。
+     * </p>
+     */
+    static boolean isImageUnsupportedFailure(LlmException e) {
+        if (e == null) {
+            return false;
+        }
+        StringBuilder haystack = new StringBuilder();
+        if (e.getMessage() != null) {
+            haystack.append(e.getMessage()).append(' ');
+        }
+        int statusCode = 0;
+        if (e instanceof LlmApiException api) {
+            statusCode = api.getStatusCode();
+            if (api.getErrorBody() != null) {
+                haystack.append(api.getErrorBody()).append(' ');
+            }
+            if (api.getDetail() != null) {
+                haystack.append(api.getDetail());
+            }
+        }
+        String text = haystack.toString().toLowerCase(java.util.Locale.ROOT);
+        boolean badRequest = statusCode == 400 || statusCode == 422
+                || LlmErrorClassifier.CODE_INVALID_REQUEST.equals(e.getErrorCode())
+                || text.contains("400")
+                || text.contains("invalid_request");
+        if (!badRequest) {
+            return false;
+        }
+        return text.contains("image")
+                || text.contains("vision")
+                || text.contains("content type")
+                || text.contains("content_type")
+                || text.contains("multimodal")
+                || text.contains("media");
+    }
+
+    /**
+     * 把多模态消息就地降级为纯文本（去掉图片片段），返回是否确实有图片被移除。
+     */
+    static boolean downgradeImagesForRetry(List<Message> messages) {
+        if (messages == null || messages.stream().noneMatch(Message::isMultimodal)) {
+            return false;
+        }
+        for (Message message : messages) {
+            if (message.isMultimodal()) {
+                message.setContent(message.getContent());
+            }
+        }
+        return true;
+    }
+
+    /** 记住当前模型实际不支持视觉，后续图片直接走文本降级。 */
+    private static void markCurrentModelVisionUnsupported() {
+        try {
+            Config config = Config.getInstance();
+            if (config != null && config.getLlm() != null) {
+                VisionModelRegistry.markRuntimeUnsupported(
+                        config.getLlm().getProvider(), config.getLlm().getModel());
+            }
+        } catch (Throwable t) {
+            logger.warn("记录模型视觉能力失败: {}", t.getMessage());
         }
     }
 

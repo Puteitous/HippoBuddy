@@ -87,6 +87,21 @@ class ConversationJsonlReaderTest {
         }
 
         @Test
+        @DisplayName("过滤 read_image 注入的 tool_image 消息")
+        void filtersToolImageMessages(@TempDir Path tempDir) throws Exception {
+            Path jsonl = tempDir.resolve("tool-image.jsonl");
+            Files.writeString(jsonl, """
+                {"type":"user","message":{"id":"img-1","role":"user","message_type":"tool_image","content":[{"type":"text","text":"工具注入"},{"type":"image_url","image_url":{"url":"file://images/a.png"}}]}}
+                {"type":"user","message":{"id":"msg-1","role":"user","content":"看看这张图"}}
+                """.stripIndent());
+
+            List<Map<String, Object>> messages = reader.readMessages(jsonl);
+
+            assertEquals(1, messages.size());
+            assertEquals("msg-1", messages.get(0).get("id"));
+        }
+
+        @Test
         @DisplayName("过滤未知角色的消息")
         void filtersUnknownRoles(@TempDir Path tempDir) throws Exception {
             Path jsonl = tempDir.resolve("unknown-role.jsonl");

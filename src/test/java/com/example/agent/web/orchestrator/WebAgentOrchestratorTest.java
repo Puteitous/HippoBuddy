@@ -1157,4 +1157,83 @@ class WebAgentOrchestratorTest {
             return count;
         }
     }
+
+    @Nested
+    @DisplayName("图片能力降级")
+    class ImageDowngradeTests {
+
+        @AfterEach
+        void clearRuntimeMarks() {
+            com.example.agent.config.VisionModelRegistry.clearRuntimeUnsupported();
+        }
+
+        @Test
+        @DisplayName("400 + 图片关键词判定为图片不支持")
+        void detectsImageUnsupportedFailure() {
+            LlmException imageError = new com.example.agent.llm.exception.LlmApiException(
+                "请求参数错误", 400,
+                "{\"error\":{\"message\":\"Invalid content type: image_url is not supported\"}}");
+
+            assertTrue(WebAgentOrchestrator.isImageUnsupportedFailure(imageError));
+        }
+
+        @Test
+        @DisplayName("非图片类 400 / 5xx 不判定为图片不支持")
+        void ignoresUnrelatedFailures() {
+            assertFalse(WebAgentOrchestrator.isImageUnsupportedFailure(
+                new com.example.agent.llm.exception.LlmApiException("请求参数错误", 400, "invalid api key")));
+            assertFalse(WebAgentOrchestrator.isImageUnsupportedFailure(
+                new com.example.agent.llm.exception.LlmApiException("服务器错误", 500, "image service down")));
+        }
+
+        @Test
+        @DisplayName("多模态消息降级后保留文本、移除图片")
+        void downgradeRemovesImagesOnly() {
+            Message multimodal = new Message("user", "看图",
+                List.of(new com.example.agent.llm.model.ImagePart("data:image/png;base64,xx")));
+            Message plain = Message.user("普通消息");
+
+            assertTrue(WebAgentOrchestrator.downgradeImagesForRetry(List.of(plain, multimodal)));
+            assertFalse(multimodal.isMultimodal());
+            assertEquals("看图", multimodal.getContent());
+            assertEquals("普通消息", plain.getContent());
+        }
+
+        @Test
+        @DisplayName("图片相关 400 应降级为纯文本并重试一次")
+        void imageRejectedDowngradesAndRetries() throws Exception {
+            LlmClient client = mock(LlmClient.class);
+            when(client.chatStream(anyList(), anyList(), any()))
+                .thenThrow(new com.example.agent.llm.exception.LlmApiException(
+                    "请求参数错误", 400,
+                    "{\"error\":{\"message\":\"Invalid content type: image_url is not supported\"}}"))
+                .thenAnswer(invocation -> {
+                    Consumer<StreamChunk> onChunk = invocation.getArgument(2);
+                    StreamChunk chunk = new StreamChunk();
+                    chunk.setContent("已改用文本回答");
+                    onChunk.accept(chunk);
+                    return LlmResponseBuilder.create().content("已改用文本回答").build();
+                });
+
+            Message imageMessage = new Message("user", "看图",
+                List.of(new com.example.agent.llm.model.ImagePart("data:image/png;base64,xx")));
+            List<Message> context = new ArrayList<>();
+            context.add(Message.system("You are helpful."));
+            context.add(imageMessage);
+            when(mockConversationService.getContextForInference(conversation))
+                .thenReturn(context);
+
+            ServiceLocator.registerSingleton(LlmClient.class, client);
+            WebAgentOrchestrator imageOrchestrator = new WebAgentOrchestrator(mockSessionManager);
+
+            imageOrchestrator.execute(TEST_SESSION_ID, conversation, sseWriter);
+
+            verify(client, times(2)).chatStream(anyList(), anyList(), any());
+            assertFalse(imageMessage.isMultimodal(), "图片消息应被降级为纯文本");
+            assertEquals("看图", imageMessage.getContent());
+            String output = sseOutput();
+            assertTrue(output.contains("event: warning"), "应提示已降级");
+            assertTrue(output.contains("已改用文本回答"), "降级后应继续输出");
+        }
+    }
 }

@@ -152,6 +152,15 @@ public class VisionModelRegistry {
     /** 外部配置文件路径（仅用于日志和 reload） */
     private static volatile String loadedConfigPath;
 
+    /**
+     * 运行时探测到“声明支持但实际拒绝图片”的模型（provider::model，小写）。
+     * <p>
+     * 由 LLM 返回图片相关 400 后写入，进程内生效：后续图片发送走纯文本降级，
+     * 避免反复撞同一错误。重启后清空。
+     * </p>
+     */
+    private static final Set<String> RUNTIME_UNSUPPORTED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     static {
         // 初始加载：合并内置列表 + 外部配置
         reload();
@@ -271,6 +280,12 @@ public class VisionModelRegistry {
      * @return true 表示支持视觉
      */
     public static boolean supportsVision(String provider, String model, String visionSupported) {
+        // 0. 运行时探测优先：即便用户声明支持，实际被上游拒绝过图片也按不支持处理
+        if (isRuntimeUnsupported(provider, model)) {
+            logger.debug("运行时标记为不支持视觉，跳过图片: provider={}, model={}", provider, model);
+            return false;
+        }
+
         // 1. 用户手动声明
         if (visionSupported != null) {
             String trimmed = visionSupported.trim().toLowerCase(Locale.ROOT);
@@ -318,6 +333,39 @@ public class VisionModelRegistry {
     public static boolean supportsVision(LlmConfig config) {
         if (config == null) return false;
         return supportsVision(config.getProvider(), config.getModel(), config.getVisionSupported());
+    }
+
+    // =========================================================
+    //  运行时能力探测（声明支持但上游拒绝图片）
+    // =========================================================
+
+    /**
+     * 标记某模型“实际不支持视觉”（进程内有效）。
+     * <p>
+     * 在上游返回图片相关 400 后调用，后续 {@link #supportsVision} 会直接返回 false，
+     * 图片在发送前被降级为纯文本，避免反复失败。
+     * </p>
+     */
+    public static void markRuntimeUnsupported(String provider, String model) {
+        RUNTIME_UNSUPPORTED.add(runtimeKey(provider, model));
+        logger.warn("已运行时标记模型不支持视觉: provider={}, model={}（后续图片将降级为文本）",
+            provider, model);
+    }
+
+    /** 判断某模型是否已被运行时标记为不支持视觉。 */
+    public static boolean isRuntimeUnsupported(String provider, String model) {
+        return RUNTIME_UNSUPPORTED.contains(runtimeKey(provider, model));
+    }
+
+    /** 清空运行时标记（配置切换/测试用）。 */
+    public static void clearRuntimeUnsupported() {
+        RUNTIME_UNSUPPORTED.clear();
+    }
+
+    private static String runtimeKey(String provider, String model) {
+        String p = provider == null ? "" : provider.trim().toLowerCase(Locale.ROOT);
+        String m = model == null ? "" : model.trim().toLowerCase(Locale.ROOT);
+        return p + "::" + m;
     }
 
     // =========================================================

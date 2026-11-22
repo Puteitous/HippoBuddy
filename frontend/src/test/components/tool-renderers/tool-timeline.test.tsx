@@ -58,6 +58,13 @@ const readItem: TimelineToolItem = {
   args: { path: '/ws/src/b.ts' },
   result: 'file content',
 };
+const readImageItem: TimelineToolItem = {
+  id: 'i1',
+  name: 'read_image',
+  status: 'success',
+  args: { path: '/ws/.hippo/images/a.png' },
+  result: '图片已读取: .hippo/images/a.png (153x92, 3.0 KB)',
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -144,5 +151,11 @@ describe('ToolTimeline - 交互', () => {
     render(<ToolTimeline items={[readItem]} />);
     fireEvent.click(screen.getByText('src/b.ts'));
     expect(previewState.openFile).toHaveBeenCalledWith('/ws/src/b.ts');
+  });
+
+  it('read_image 摘要精简为相对路径，点击触发 openFile', () => {
+    render(<ToolTimeline items={[readImageItem]} />);
+    fireEvent.click(screen.getByText('.hippo/images/a.png'));
+    expect(previewState.openFile).toHaveBeenCalledWith('/ws/.hippo/images/a.png');
   });
 });

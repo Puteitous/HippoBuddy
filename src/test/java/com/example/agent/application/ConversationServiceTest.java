@@ -4,6 +4,7 @@ import com.example.agent.context.config.ContextConfig;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.logging.WorkspaceManager;
 import com.example.agent.llm.client.LlmClient;
+import com.example.agent.llm.model.ImagePart;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.Usage;
 import com.example.agent.service.TokenEstimator;
@@ -66,6 +67,23 @@ class ConversationServiceTest {
 
         assertThat(conv).isNotNull();
         assertThat(conv.getSystemPrompt()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("✅ downgradeToolImageContext 把工具图片降级为纯文本")
+    void downgradeToolImageContext() {
+        Conversation conv = service.create("System prompt");
+        Message imageContext = new Message("user", "以下是工具 read_image 读取的图片",
+            List.of(new ImagePart("file://images/a.png")));
+        imageContext.setMessageType("tool_image");
+        conv.addMessage(imageContext);
+
+        assertThat(imageContext.isMultimodal()).isTrue();
+
+        service.downgradeToolImageContext(conv);
+
+        assertThat(imageContext.isMultimodal()).isFalse();
+        assertThat(imageContext.getContent()).contains("以下是工具");
     }
 
     @Test

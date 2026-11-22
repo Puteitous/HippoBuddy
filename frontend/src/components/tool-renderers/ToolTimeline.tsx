@@ -438,6 +438,7 @@ function ToolTimelineComponent({ items }: ToolTimelineProps) {
 /** 单行(摘要 + 可展开详情) */
 const PATH_SUMMARY_TOOLS = [
   'read_file',
+  'read_image',
   'edit_file',
   'write_file',
   'undo_file',

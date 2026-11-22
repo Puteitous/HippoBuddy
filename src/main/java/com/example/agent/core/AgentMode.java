@@ -6,7 +6,7 @@ public enum AgentMode {
 
     CHAT("💬", "聊天模式", "只读探索，提供建议，不修改文件",
         Set.of(
-            "read_file", "read_office_file",
+            "read_file", "read_office_file", "read_image",
             "list_directory", "glob", "grep",
             "ask_user",
             "skill",
@@ -16,7 +16,7 @@ public enum AgentMode {
 
     CODING("🛠️", "构建模式", "全权限执行，自动完成任务",
         Set.of(
-            "read_file", "read_office_file",
+            "read_file", "read_office_file", "read_image",
             "write_file", "edit_file", "undo_file", "delete_file",
             "list_directory", "glob", "grep",
             "ask_user",
@@ -32,7 +32,7 @@ public enum AgentMode {
 
     OFFICE("📊", "办公模式", "办公效率助手，擅长文档/表格/演示文稿处理",
         Set.of(
-            "read_file", "read_office_file",
+            "read_file", "read_office_file", "read_image",
             "write_file", "edit_file", "undo_file", "delete_file",
             "list_directory", "glob", "grep",
             "ask_user",

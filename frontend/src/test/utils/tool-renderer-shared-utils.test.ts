@@ -144,6 +144,10 @@ describe('timelineSummary', () => {
     expect(timelineSummary('read_file', { path: '/x/b.ts' })).toBe('/x/b.ts');
   });
 
+  it('read_image 取图片路径', () => {
+    expect(timelineSummary('read_image', { path: '.hippo/images/a.png' })).toBe('.hippo/images/a.png');
+  });
+
   it('grep/glob 取 pattern', () => {
     expect(timelineSummary('grep', { pattern: 'foo' })).toBe('foo');
   });
@@ -181,6 +185,7 @@ describe('timelineSummary', () => {
 describe('timelineFilePath', () => {
   it('文件类工具取 path', () => {
     expect(timelineFilePath('edit_file', { path: '/x/a.ts' })).toBe('/x/a.ts');
+    expect(timelineFilePath('read_image', { path: '/x/a.png' })).toBe('/x/a.png');
     expect(timelineFilePath('list_directory', { path: '/x/dir' })).toBe('/x/dir');
   });
 

@@ -87,6 +87,10 @@ public class ConversationJsonlReader {
                     String contentStr = content instanceof String ? (String) content : "";
 
                     if ("system".equals(role) || "system".equals(type)) return;
+
+                    // read_image 注入的图片消息只用于模型上下文，不在前端历史中渲染成用户气泡
+                    if ("tool_image".equals(msgNode.path("message_type").asText(""))) return;
+
                     if (!"user".equals(role) && !"assistant".equals(role) && !"tool".equals(role) && !"tool-result".equals(type)) return;
 
                     boolean hasToolCalls = "assistant".equals(role) && msgNode.has("tool_calls");

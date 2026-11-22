@@ -25,6 +25,38 @@ class VisionModelRegistryTest {
     //  已覆盖的内置模型（回归测试）
     // =========================================================
 
+    // =========================================================
+    //  运行时能力探测（声明支持但上游拒绝图片）
+    // =========================================================
+
+    @Nested
+    @DisplayName("运行时能力探测")
+    class RuntimeDetection {
+
+        @AfterEach
+        void clearRuntimeMarks() {
+            VisionModelRegistry.clearRuntimeUnsupported();
+        }
+
+        @Test
+        @DisplayName("运行时标记优先于用户手动声明")
+        void runtimeMarkOverridesUserDeclaration() {
+            VisionModelRegistry.markRuntimeUnsupported("deepseek", "deepseek-flash");
+
+            assertFalse(VisionModelRegistry.supportsVision("deepseek", "deepseek-flash", "true"));
+            assertTrue(VisionModelRegistry.isRuntimeUnsupported("DEEPSEEK", "DeepSeek-Flash"));
+        }
+
+        @Test
+        @DisplayName("运行时标记只影响对应模型")
+        void runtimeMarkIsPerModel() {
+            VisionModelRegistry.markRuntimeUnsupported("deepseek", "deepseek-flash");
+
+            assertTrue(VisionModelRegistry.supportsVision("openai", "gpt-4o", "true"));
+            assertTrue(VisionModelRegistry.supportsVision("deepseek", "deepseek-vl", null));
+        }
+    }
+
     @Nested
     @DisplayName("内置硬编码列表 - OpenAI")
     class BuiltinOpenAI {

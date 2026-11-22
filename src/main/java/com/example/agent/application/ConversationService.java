@@ -11,6 +11,7 @@ import com.example.agent.context.config.ContextConfig;
 import com.example.agent.domain.conversation.Conversation;
 import com.example.agent.domain.truncation.TruncationService;
 import com.example.agent.llm.client.LlmClient;
+import com.example.agent.llm.model.ImagePart;
 import com.example.agent.llm.model.Message;
 import com.example.agent.llm.model.ToolCall;
 import com.example.agent.llm.model.Usage;
@@ -26,6 +27,7 @@ import java.nio.file.Path;
 import com.example.agent.session.SessionData;
 import com.example.agent.session.SessionTranscript;
 import com.example.agent.tools.BashTool;
+import com.example.agent.tools.ReadImageTool;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -512,6 +514,58 @@ public class ConversationService {
             }
         }
         addMessage(conversation, message, success);
+    }
+
+    /**
+     * 注入 read_image 工具读取的图片。
+     * <p>
+     * 图片只能以多模态 user 消息的形式交给模型（tool 消息仅支持文本），
+     * 但这条消息不是用户发送的：通过 {@code messageType=tool_image} 标记，
+     * 前端历史渲染会跳过它，仅保留在模型上下文中。
+     * </p>
+     */
+    public Message addToolImageContext(Conversation conversation, List<ReadImageTool.ReadImage> images) {
+        if (images == null || images.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder text = new StringBuilder("以下是工具 read_image 读取的图片（工具注入，不是用户上传）：");
+        List<ImagePart> parts = new ArrayList<>();
+        for (ReadImageTool.ReadImage image : images) {
+            parts.add(new ImagePart(image.fileUri()));
+            text.append("\n- ").append(image.displayPath())
+                .append(" (").append(image.width()).append("x").append(image.height()).append(")");
+        }
+
+        Message message = new Message("user", text.toString(), parts);
+        message.setMessageType("tool_image");
+
+        ConversationComponents components = getComponents(conversation);
+        if (components != null) {
+            components.transcript.appendUserMessage(message);
+        }
+        // 直接写入会话，不走 addMessage：避免触发消息广播，前端不会实时多出一条用户气泡
+        conversation.addMessage(message);
+        logger.info("已注入工具图片消息: sessionId={}, 图片数={}",
+            conversation.getSessionId(), images.size());
+        return message;
+    }
+
+    /**
+     * 把已用过的工具图片消息降级为纯文本（去掉图片片段，保留路径文字）。
+     * <p>
+     * 图片只需在下一次请求里可见；之后降级可避免每轮重复携带 base64 导致上下文膨胀。
+     * </p>
+     */
+    public void downgradeToolImageContext(Conversation conversation) {
+        if (conversation == null) {
+            return;
+        }
+        for (Message message : conversation.getMessages()) {
+            if ("tool_image".equals(message.getMessageType()) && message.isMultimodal()) {
+                message.setContent(message.getContent());
+            }
+        }
     }
 
     public void addMessage(Conversation conversation, Message message) {

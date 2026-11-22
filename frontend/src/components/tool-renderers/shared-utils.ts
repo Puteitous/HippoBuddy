@@ -208,7 +208,7 @@ export function deepMergeTodoList(
  *
  * 对齐旧版 tool-renderers/index.js 的 summary 分支:
  *  - bash:命令文本
- *  - read_file / edit_file / write_file / undo_file / read_office_file /
+ *  - read_file / read_image / edit_file / write_file / undo_file / read_office_file /
  *    write_office_file:文件路径
  *  - grep / glob:pattern
  *  - SearchCodebase:information_request
@@ -229,6 +229,7 @@ export function timelineSummary(name: string, args: unknown): string {
     case 'bash':
       return typeof a.command === 'string' ? a.command : '';
     case 'read_file':
+    case 'read_image':
     case 'edit_file':
     case 'write_file':
     case 'undo_file':
@@ -266,6 +267,7 @@ export function timelineFilePath(name: string, args: unknown): string {
   const a = parseToolArgs<Record<string, unknown>>(args);
   switch (name) {
     case 'read_file':
+    case 'read_image':
     case 'edit_file':
     case 'write_file':
     case 'undo_file':

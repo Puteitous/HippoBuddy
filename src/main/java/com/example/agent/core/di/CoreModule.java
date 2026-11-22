@@ -136,6 +136,7 @@ public final class CoreModule {
         ToolRegistry registry = new ToolRegistry(objectMapper);
 
         registry.register(new ReadFileTool());
+        registry.register(new ReadImageTool());
         registry.register(new ReadOfficeFileTool());
         registry.register(new WriteOfficeFileTool());
         registry.register(new WriteFileTool());

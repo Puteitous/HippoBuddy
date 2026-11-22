@@ -207,13 +207,13 @@ class AgentModeTest {
         @Test
         @DisplayName("CHAT 模式允许的工具数量正确")
         void testChatAllowedToolsCount() {
-            assertEquals(9, AgentMode.CHAT.getAllowedTools().size());
+            assertEquals(10, AgentMode.CHAT.getAllowedTools().size());
         }
 
         @Test
         @DisplayName("CODING 模式允许的工具数量正确")
         void testCodingAllowedToolsCount() {
-            assertEquals(20, AgentMode.CODING.getAllowedTools().size());
+            assertEquals(21, AgentMode.CODING.getAllowedTools().size());
         }
 
         @Test
