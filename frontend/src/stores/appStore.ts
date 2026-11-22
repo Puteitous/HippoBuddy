@@ -25,7 +25,7 @@ export type PanelLayout = 'preview-left' | 'chat-left';
 const PANEL_LAYOUT_KEY = 'hippo-layout';
 
 /** ActivityBar 浮动面板 id */
-export type ActivityPanelId = 'token' | 'metrics' | 'git';
+export type ActivityPanelId = 'token' | 'metrics' | 'git' | 'process';
 
 /** 从 localStorage 读取面板布局(非法/缺失时回退默认 preview-left,对齐旧版默认) */
 function readPanelLayout(): PanelLayout {
@@ -314,6 +314,9 @@ interface AppState {
   /** 面板布局偏好(聊天/预览左右排布,从 localStorage 恢复,默认 preview-left 对齐旧版) */
   panelLayout: PanelLayout;
 
+  /** 待定位的工具调用(后台进程面板点击进程行时设置,tool-timeline 消费后清除) */
+  pendingToolCallFocus: { toolCallId: string; token: number } | null;
+
   /** 会话输入草稿(内存态,对齐旧版 appState._sessionInputDrafts;key = sessionId) */
   sessionInputDrafts: Record<string, string>;
   /** hero 待定草稿(内存态,对齐旧版 appState._heroPendingDraft;只在 hero 空态使用) */
@@ -380,6 +383,10 @@ interface AppState {
   setSettingsInitialPage: (page: string) => void;
   /** 设置面板布局(同时持久化到 localStorage,key 对齐旧版 hippo-layout) */
   setPanelLayout: (layout: PanelLayout) => void;
+  /** 请求定位到指定工具调用行(由 tool-timeline 消费后清除) */
+  focusToolCall: (toolCallId: string) => void;
+  /** 清除工具行定位请求 */
+  clearToolCallFocus: () => void;
 
   /** 保存会话输入草稿(空内容不入库,对齐旧版 saveSessionInputDraft) */
   saveSessionInputDraft: (sessionId: string, text: string) => void;
@@ -415,6 +422,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   compactModalOpen: false,
   settingsInitialPage: 'general',
   panelLayout: readPanelLayout(),
+  pendingToolCallFocus: null,
 
   sessionInputDrafts: {},
   heroPendingDraft: '',
@@ -653,6 +661,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setActivityPanel: (panel, pinned = false) => {
     set({ activityPanel: panel, activityPanelPinned: pinned });
+  },
+
+  focusToolCall: (toolCallId) => {
+    set({ pendingToolCallFocus: { toolCallId, token: Date.now() } });
+  },
+
+  clearToolCallFocus: () => {
+    set({ pendingToolCallFocus: null });
   },
 
   openActivityPanel: (panel) => {

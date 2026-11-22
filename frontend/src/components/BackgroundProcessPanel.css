@@ -1,0 +1,236 @@
+/* BackgroundProcessPanel - 后台进程总览
+   嵌在 ActivityBar 浮动面板内,变量沿用 --hb-* 主题别名 */
+
+.bg-proc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 面板高度固定为活动栏高度:工具条常驻,列表在内部滚动 */
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── 顶部工具条:计数 + 全部停止 ── */
+.bg-proc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bg-proc-count {
+  font-size: 11px;
+  color: var(--hb-text-soft, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+
+.bg-proc-stop-all {
+  border: 1px solid var(--hb-border, #e5e7eb);
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: #c94b4b;
+  cursor: pointer;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+
+.bg-proc-stop-all:hover:not(:disabled) {
+  background: rgba(201, 75, 75, 0.08);
+}
+
+.bg-proc-stop-all:disabled {
+  opacity: 0.45;
+  color: var(--hb-text-soft, #9ca3af);
+  cursor: default;
+}
+
+/* ── 列表 ── */
+.bg-proc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.bg-proc-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.bg-proc-list::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 4px;
+}
+
+.bg-proc-group {
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--hb-text-soft, #9ca3af);
+}
+
+.bg-proc-row {
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.bg-proc-row:hover {
+  background: var(--hb-hover, rgba(0, 0, 0, 0.05));
+}
+
+.bg-proc-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bg-proc-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bg-proc-dot.running {
+  background: #4caf50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.14);
+}
+
+.bg-proc-dot.ended {
+  background: #c3c7ce;
+}
+
+.bg-proc-dot.stopped {
+  background: #d9a441;
+}
+
+.bg-proc-cmd {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  color: var(--hb-text, #1f2937);
+}
+
+.bg-proc-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bg-proc-act {
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10.5px;
+  color: var(--hb-text-soft, #6b7280);
+  cursor: pointer;
+}
+
+.bg-proc-act:hover {
+  background: rgba(128, 128, 128, 0.12);
+  color: var(--hb-text, #111827);
+}
+
+/* 定位入口悬浮行时才出现;停止按钮常驻 */
+.bg-proc-act.jump {
+  display: none;
+}
+
+.bg-proc-row:hover .bg-proc-act.jump,
+.bg-proc-row:focus-within .bg-proc-act.jump,
+.bg-proc-act.jump:focus {
+  display: inline-flex;
+}
+
+/* 展开态指示箭头:整行点击负责展开/收起日志 */
+.bg-proc-chevron {
+  flex-shrink: 0;
+  color: var(--hb-text-soft, #9ca3af);
+  opacity: 0.55;
+  transition: transform 0.12s ease;
+}
+
+.bg-proc-chevron.open {
+  transform: rotate(90deg);
+  opacity: 0.9;
+}
+
+.bg-proc-act.stop {
+  color: #c94b4b;
+}
+
+.bg-proc-act.stop:hover {
+  background: rgba(201, 75, 75, 0.1);
+}
+
+.bg-proc-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0 0 13px;
+  font-size: 10.5px;
+  color: var(--hb-text-soft, #6b7280);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.bg-proc-sep {
+  opacity: 0.5;
+}
+
+/* 会话名可能较长:右对齐占剩余宽度并省略;默认隐藏,悬浮行时淡入 */
+.bg-proc-session {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.bg-proc-row:hover .bg-proc-session,
+.bg-proc-row:focus-within .bg-proc-session {
+  opacity: 1;
+}
+
+/* ── 日志快照 ── */
+.bg-proc-log-wrap {
+  margin: 6px 0 2px 13px;
+}
+
+.bg-proc-log-meta {
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: var(--hb-text-soft, #9ca3af);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bg-proc-log {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 180px;
+  overflow: auto;
+  background: var(--hb-bg-alt, #f8f9fa);
+  border: 1px solid var(--hb-border, #e5e7eb);
+  border-left: 2px solid #4caf50;
+  border-radius: 6px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--hb-text-soft, #4b5563);
+  white-space: pre-wrap;
+  word-break: break-all;
+  cursor: auto;
+}

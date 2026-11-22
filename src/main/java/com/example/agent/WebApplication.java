@@ -59,6 +59,9 @@ public final class WebApplication {
         Config config = Config.getInstance();
         MemoryModule.initialize(config, WorkspaceManager.getUserMemoryDir());
 
+        // 3. 恢复后台进程历史（仅已结束记录，运行中的进程无法跨进程恢复）
+        BashProcessManager.getInstance().initPersistence();
+
         // 3. 确定端口：CLI 参数优先，否则从配置读取
         final int port = portArg > 0 ? portArg : config.getWeb().getPort();
 
@@ -73,7 +76,8 @@ public final class WebApplication {
             long pid = Long.parseLong(osName.split("@")[0]);
             logger.info("Web 服务正在退出 (PID: {}), 清理资源...", pid);
 
-            // 先杀掉本应用登记的后台进程，避免退出后遗留孤儿进程占端口
+            // 先落盘仍在运行的后台进程记录，再杀掉进程（JVM 退出后读线程不会再补写）
+            BashProcessManager.getInstance().persistOnShutdown();
             BashProcessManager.getInstance().cancelAll();
 
             DashboardServer.stop();

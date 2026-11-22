@@ -14,7 +14,7 @@
  *    摘要、文件跳转、diff 与旧版一致;仅前端内存固化消息(实时结束未刷新)退化为工具名 + 内容首行
  *  - 「查看变更」按钮走 previewStore.openDiff 打开 diff 标签页(替代旧版 window.showFileDiff)
  */
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
 import { chatApi } from '@/api/client';
@@ -456,6 +456,28 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
   const [bgStopped, setBgStopped] = useState(false);
   const { t } = useI18n();
   const workspacePath = useAppStore((s) => s.workspacePath);
+  const pendingFocus = useAppStore((s) => s.pendingToolCallFocus);
+  const clearToolCallFocus = useAppStore((s) => s.clearToolCallFocus);
+  const itemRef = useRef<HTMLDivElement | null>(null);
+  const [focused, setFocused] = useState(false);
+
+  // 后台进程面板点击「定位」后:等消息区渲染完再滚动到本行
+  useEffect(() => {
+    if (!pendingFocus || pendingFocus.toolCallId !== item.id) return;
+    const timer = window.setTimeout(() => {
+      itemRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      setFocused(true);
+      clearToolCallFocus();
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [pendingFocus, item.id, clearToolCallFocus]);
+
+  // 高亮短暂保留后自动褪去
+  useEffect(() => {
+    if (!focused) return;
+    const timer = window.setTimeout(() => setFocused(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [focused]);
 
   const summary = useMemo(() => {
     let text = timelineSummary(item.name, item.args);
@@ -496,7 +518,6 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
   useEffect(() => {
     if (backgroundPid === null) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setInterval> | undefined;
     const check = () => {
       void chatApi
         .getBackgroundStatus(item.id)
@@ -504,15 +525,15 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
           if (cancelled) return;
           setBgRunning(res.running);
           // 进程已退出:停止轮询,无需继续查询
-          if (!res.running && timer !== undefined) clearInterval(timer);
+          if (!res.running) clearInterval(timer);
         })
         .catch(() => {});
     };
+    const timer = setInterval(check, 5000);
     check();
-    timer = setInterval(check, 5000);
     return () => {
       cancelled = true;
-      if (timer !== undefined) clearInterval(timer);
+      clearInterval(timer);
     };
   }, [backgroundPid, item.id]);
 
@@ -521,7 +542,6 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
   useEffect(() => {
     if (!expanded || backgroundPid === null) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setInterval> | undefined;
     const tail = (text: string) =>
       text.length > BG_LOG_MAX_CHARS ? `…\n${text.slice(-BG_LOG_MAX_CHARS)}` : text;
     const load = () => {
@@ -531,15 +551,15 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
           if (cancelled) return;
           setBgLog({ output: tail(res.output ?? ''), error: tail(res.error ?? '') });
           // 进程已结束:停止轮询,保留最终快照
-          if (!res.running && timer !== undefined) clearInterval(timer);
+          if (!res.running) clearInterval(timer);
         })
         .catch(() => {});
     };
+    const timer = setInterval(load, 2000);
     load();
-    timer = setInterval(load, 2000);
     return () => {
       cancelled = true;
-      if (timer !== undefined) clearInterval(timer);
+      clearInterval(timer);
     };
   }, [expanded, backgroundPid, item.id]);
 
@@ -569,7 +589,8 @@ function TimelineRow({ item }: { item: TimelineToolItem }) {
 
   return (
     <div
-      className={`tool-timeline-item${hasDetail ? '' : ' no-detail'}${expanded ? ' expanded' : ''}`}
+      ref={itemRef}
+      className={`tool-timeline-item${hasDetail ? '' : ' no-detail'}${expanded ? ' expanded' : ''}${focused ? ' focused' : ''}`}
       data-tool-name={item.name}
       data-tool-status={item.status}
     >

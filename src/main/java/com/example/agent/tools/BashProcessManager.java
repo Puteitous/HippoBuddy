@@ -4,6 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,6 +72,9 @@ public class BashProcessManager {
     private final Map<String, BackgroundRecord> completedBackgroundProcesses = new ConcurrentHashMap<>();
     private static final int MAX_COMPLETED_BACKGROUNDS = 20;
 
+    /** 已结束记录的历史持久化；为 null 表示未初始化（如单元测试场景），此时完全走内存 */
+    private volatile BackgroundProcessStore store;
+
     /** toolCallId -> 会话 ID：后台进程结束时据此把状态通知投递回对应会话上下文 */
     private final Map<String, String> toolCallSessions = new ConcurrentHashMap<>();
 
@@ -88,28 +94,84 @@ public class BashProcessManager {
         private final String toolCallId;
         private final String command;
         private final String workingDir;
+        /** 进程句柄；从磁盘恢复的历史记录为 null（进程早已消失） */
         private final Process process;
+        private final long pidValue;
         private final long startTime;
         private final StringBuilder output = new StringBuilder();
         private final StringBuilder errorOutput = new StringBuilder();
         private boolean truncated;
+        /** 所属会话 id（可为 null：老记录或未绑定会话） */
+        private volatile String sessionId;
+        /** 结束时间戳（0 = 仍在运行） */
+        private volatile long endedAt;
+        /** 是否被用户主动停止 */
+        private volatile boolean stoppedByUser;
 
         public BackgroundRecord(String toolCallId, String command, String workingDir, Process process) {
             this.toolCallId = toolCallId;
             this.command = command;
             this.workingDir = workingDir;
             this.process = process;
+            this.pidValue = process != null ? process.pid() : -1;
             this.startTime = System.currentTimeMillis();
+        }
+
+        private BackgroundRecord(String toolCallId, String command, String workingDir, String sessionId,
+                                 long pid, long startTime, long endedAt, boolean stoppedByUser,
+                                 String outputText, String errorText) {
+            this.toolCallId = toolCallId;
+            this.command = command;
+            this.workingDir = workingDir;
+            this.process = null;
+            this.pidValue = pid;
+            this.startTime = startTime;
+            this.sessionId = sessionId;
+            this.endedAt = endedAt;
+            this.stoppedByUser = stoppedByUser;
+            if (outputText != null && !outputText.isEmpty()) {
+                this.output.append(outputText);
+            }
+            if (errorText != null && !errorText.isEmpty()) {
+                this.errorOutput.append(errorText);
+            }
+        }
+
+        /**
+         * 从磁盘恢复一条已结束的后台进程记录（没有进程句柄，{@link #isAlive()} 恒为 false）。
+         */
+        public static BackgroundRecord restored(String toolCallId, String command, String workingDir, String sessionId,
+                                                long pid, long startTime, long endedAt, boolean stoppedByUser,
+                                                String outputText, String errorText) {
+            return new BackgroundRecord(toolCallId, command, workingDir, sessionId, pid, startTime, endedAt,
+                stoppedByUser, outputText, errorText);
         }
 
         public String getToolCallId() { return toolCallId; }
         public String getCommand() { return command; }
         public String getWorkingDir() { return workingDir; }
+        /** 运行中的进程句柄；历史记录返回 null。 */
         public Process getProcess() { return process; }
         public long getStartTime() { return startTime; }
-        public int pid() { return (int) process.pid(); }
-        public boolean isAlive() { return process.isAlive(); }
+        public int pid() { return (int) pidValue; }
+        public boolean isAlive() { return process != null && process.isAlive(); }
         public boolean isTruncated() { synchronized (this) { return truncated; } }
+
+        /** 所属会话 id：供进程总览展示「属于哪个会话」并跳转定位，可能为 null。 */
+        public String getSessionId() { return sessionId; }
+        public void setSessionId(String sessionId) { this.sessionId = sessionId; }
+
+        /** 结束时间戳（0 表示仍在运行）。 */
+        public long getEndedAt() { return endedAt; }
+
+        /** 是否被用户主动停止（区分「已停止」与自然「已结束」）。 */
+        public boolean isStoppedByUser() { return stoppedByUser; }
+
+        /** 标记进程已结束：记录结束时间与是否由用户停止。 */
+        public void markEnded(boolean byUser) {
+            this.endedAt = System.currentTimeMillis();
+            this.stoppedByUser = byUser;
+        }
 
         public synchronized void append(String line) {
             if (output.length() + line.length() + 1 > MAX_BACKGROUND_OUTPUT_CHARS) {
@@ -140,6 +202,7 @@ public class BashProcessManager {
             return null;
         }
         BackgroundRecord record = new BackgroundRecord(toolCallId, command, workingDir, process);
+        record.setSessionId(toolCallSessions.get(toolCallId));
         backgroundProcesses.put(toolCallId, record);
         return record;
     }
@@ -194,8 +257,9 @@ public class BashProcessManager {
         }
         BackgroundRecord finished = backgroundProcesses.remove(toolCallId);
         if (finished != null) {
-            retainCompleted(toolCallId, finished);
             boolean userStopped = userStoppedBackgrounds.remove(toolCallId);
+            finished.markEnded(userStopped);
+            retainCompleted(toolCallId, finished);
             enqueueNotice(toolCallId, "后台进程 PID " + finished.pid()
                 + "（命令: " + abbreviate(finished.getCommand(), 120) + "）"
                 + (userStopped ? "已被用户停止。" : "已结束。"));
@@ -206,6 +270,8 @@ public class BashProcessManager {
         detachRequestedToolCallIds.remove(toolCallId);
         // 后台进程被终止后不会再走 BashTool 的 consumeCancelled，这里顺手清理避免标志泄漏
         cancelledToolCallIds.remove(toolCallId);
+        // 记录推进到已结束表后落盘，供应用重启后回看
+        persistCompleted();
     }
 
     /**
@@ -214,7 +280,107 @@ public class BashProcessManager {
     public void bindSession(String toolCallId, String sessionId) {
         if (toolCallId != null && sessionId != null) {
             toolCallSessions.put(toolCallId, sessionId);
+            BackgroundRecord record = backgroundProcesses.get(toolCallId);
+            if (record != null) {
+                record.setSessionId(sessionId);
+            }
         }
+    }
+
+    /**
+     * 列出全部后台进程（运行中 + 最近已结束），按启动时间倒序。
+     * <p>供「后台进程总览」面板展示；返回的记录为只读快照引用，调用方不得修改其内容。
+     */
+    public List<BackgroundRecord> listBackgrounds() {
+        List<BackgroundRecord> all = new ArrayList<>(backgroundProcesses.values());
+        all.addAll(completedBackgroundProcesses.values());
+        all.sort((a, b) -> Long.compare(b.getStartTime(), a.getStartTime()));
+        return all;
+    }
+
+    /**
+     * 停止全部<b>后台</b>进程（不影响正在前台执行的 bash）。
+     *
+     * @return 实际发起终止的进程数量
+     */
+    public int cancelAllBackgrounds() {
+        int count = 0;
+        for (String toolCallId : new ArrayList<>(backgroundProcesses.keySet())) {
+            if (cancel(toolCallId, 0)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * 初始化历史持久化（幂等）：数据目录优先取系统属性 {@code hippo.data.dir}，
+     * 未设置时使用当前工作目录下的 {@code .hippo}。
+     */
+    public void initPersistence() {
+        String dataDir = System.getProperty("hippo.data.dir");
+        Path root = (dataDir != null && !dataDir.isBlank())
+            ? Paths.get(dataDir)
+            : Paths.get(".hippo").toAbsolutePath();
+        initPersistence(root);
+    }
+
+    /** 初始化历史持久化（幂等），并加载上次已结束的后台进程记录。 */
+    public synchronized void initPersistence(Path hippoRoot) {
+        if (store != null) {
+            return;
+        }
+        BackgroundProcessStore newStore = new BackgroundProcessStore(hippoRoot);
+        for (BackgroundRecord record : newStore.load()) {
+            completedBackgroundProcesses.put(record.getToolCallId(), record);
+        }
+        trimCompleted();
+        store = newStore;
+        logger.info("后台进程历史已恢复: count={}, root={}", completedBackgroundProcesses.size(), hippoRoot);
+    }
+
+    /** 按上限裁剪已结束记录（保留最近启动的）。 */
+    private void trimCompleted() {
+        while (completedBackgroundProcesses.size() > MAX_COMPLETED_BACKGROUNDS) {
+            String oldestId = null;
+            long oldestStart = Long.MAX_VALUE;
+            for (Map.Entry<String, BackgroundRecord> entry : completedBackgroundProcesses.entrySet()) {
+                long start = entry.getValue().getStartTime();
+                if (start < oldestStart) {
+                    oldestStart = start;
+                    oldestId = entry.getKey();
+                }
+            }
+            if (oldestId == null) {
+                return;
+            }
+            completedBackgroundProcesses.remove(oldestId);
+        }
+    }
+
+    /** 把已结束记录整体落盘（未初始化持久化时跳过）。 */
+    private void persistCompleted() {
+        BackgroundProcessStore current = store;
+        if (current == null) {
+            return;
+        }
+        current.save(new ArrayList<>(completedBackgroundProcesses.values()));
+    }
+
+    /**
+     * 应用退出前调用：把仍在运行的后台进程记为「已结束（应用退出）」并落盘。
+     * <p>JVM 退出后读线程不会再到 EOF，不在这里补写这些记录会直接丢失。
+     */
+    public void persistOnShutdown() {
+        for (String toolCallId : new ArrayList<>(backgroundProcesses.keySet())) {
+            BackgroundRecord record = backgroundProcesses.remove(toolCallId);
+            if (record == null) {
+                continue;
+            }
+            record.markEnded(false);
+            retainCompleted(toolCallId, record);
+        }
+        persistCompleted();
     }
 
     /**

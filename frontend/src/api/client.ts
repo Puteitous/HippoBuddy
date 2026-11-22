@@ -9,7 +9,9 @@ import { streamSse } from './sse';
 import type { SseEvent } from './sse';
 import type {
   BackgroundLogResponse,
+  BackgroundProcessListResponse,
   BackgroundStatusResponse,
+  BackgroundStopResponse,
   ChatRequest,
   DefaultWorkspaceUpdateResult,
   DiffLine,
@@ -178,6 +180,18 @@ export const chatApi = {
     getJson<BackgroundLogResponse>(
       `${API_BASE}/tool/background/log?toolCallId=${encodeURIComponent(toolCallId)}`,
     ),
+
+  /** GET /api/tool/background/list - 列出全部后台进程(运行中 + 最近已结束) */
+  listBackgroundProcesses: () =>
+    getJson<BackgroundProcessListResponse>(`${API_BASE}/tool/background/list`),
+
+  /** POST /api/tool/background/stop - 停止指定后台进程 */
+  stopBackgroundProcess: (toolCallId: string) =>
+    postJson<BackgroundStopResponse>(`${API_BASE}/tool/background/stop`, { toolCallId }),
+
+  /** POST /api/tool/background/stop-all - 停止全部运行中的后台进程 */
+  stopAllBackgroundProcesses: () =>
+    postJson<BackgroundStopResponse>(`${API_BASE}/tool/background/stop-all`, {}),
 
   /** POST /api/suggestions - 基于会话最近历史生成推荐问题(回合结束后异步调用) */
   getSuggestions: (sessionId: string) =>

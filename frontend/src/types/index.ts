@@ -282,6 +282,38 @@ export interface BackgroundLogResponse {
   error: string;
 }
 
+/** 单条后台进程记录 - GET /api/tool/background/list */
+export interface BackgroundProcessInfo {
+  toolCallId: string;
+  /** 触发该进程的 shell 命令 */
+  command: string;
+  pid: number;
+  /** 进程工作目录 */
+  workingDir: string;
+  /** 所属会话 id(可能为 null,老记录未绑定会话) */
+  sessionId: string | null;
+  /** 是否仍在运行 */
+  running: boolean;
+  /** 启动时间戳(ms) */
+  startedAt: number;
+  /** 结束时间戳(ms,0=仍在运行) */
+  endedAt: number;
+  /** 是否由用户主动停止 */
+  stopped: boolean;
+}
+
+/** 后台进程列表 - GET /api/tool/background/list */
+export interface BackgroundProcessListResponse {
+  processes: BackgroundProcessInfo[];
+}
+
+/** 后台进程停止响应 - POST /api/tool/background/stop | /stop-all */
+export interface BackgroundStopResponse {
+  success: boolean;
+  /** 实际发起终止的进程数量(stop-all 为批量数量,stop 为 0/1) */
+  stopped?: number;
+}
+
 // ============================================================================
 // 工具调用记录 (chatStore 内部状态,源自 SSE tool_* 事件)
 // ============================================================================

@@ -35,6 +35,26 @@ export const zh: Record<string, string> = {
   'activity.browser': '打开浏览器',
   'activity.pluginMarket': '技能市场',
   'activity.panel': '面板',
+  'activity.process': '后台进程',
+
+  /* ==================== 后台进程总览 ==================== */
+  'background.count': '{running} 运行中 · {done} 已结束',
+  'background.runningGroup': '运行中',
+  'background.doneGroup': '已结束',
+  'background.runningFor': '运行中 {time}',
+  'background.ended': '已结束',
+  'background.stopped': '已停止',
+  'background.justNow': '刚刚',
+  'background.minutesAgo': '{n} 分钟前',
+  'background.hoursAgo': '{n} 小时前',
+  'background.stop': '停止',
+  'background.stopAll': '全部停止',
+  'background.locate': '定位',
+  'background.expandLog': '点击展开日志',
+  'background.collapseLog': '点击收起日志',
+  'background.noOutput': '(暂无输出)',
+  'background.empty': '暂无后台进程',
+  'background.unknownSession': '未知会话',
 
   /* ==================== Git 源码管理面板 ==================== */
   'git.staged': '已暂存',
@@ -1845,6 +1865,26 @@ export const en: Record<string, string> = {
   'activity.browser': 'Open Browser',
   'activity.pluginMarket': 'Skill Market',
   'activity.panel': 'Panel',
+  'activity.process': 'Background Processes',
+
+  /* ==================== Background processes ==================== */
+  'background.count': '{running} running · {done} finished',
+  'background.runningGroup': 'Running',
+  'background.doneGroup': 'Finished',
+  'background.runningFor': 'Running {time}',
+  'background.ended': 'Finished',
+  'background.stopped': 'Stopped',
+  'background.justNow': 'just now',
+  'background.minutesAgo': '{n}m ago',
+  'background.hoursAgo': '{n}h ago',
+  'background.stop': 'Stop',
+  'background.stopAll': 'Stop all',
+  'background.locate': 'Locate',
+  'background.expandLog': 'Click to expand log',
+  'background.collapseLog': 'Click to collapse log',
+  'background.noOutput': '(no output)',
+  'background.empty': 'No background processes',
+  'background.unknownSession': 'Unknown session',
 
   /* ==================== Git source control panel ==================== */
   'git.staged': 'Staged',

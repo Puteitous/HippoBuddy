@@ -56,6 +56,9 @@ public final class DesktopApplication {
         MemoryModule.initialize(config, memoryRoot);
         logger.info("记忆模块初始化完成");
 
+        // 3.5 恢复后台进程历史（仅已结束记录，运行中的进程无法跨进程恢复）
+        BashProcessManager.getInstance().initPersistence();
+
         // 4. 启动 HTTP Server
         logger.info("正在启动 HTTP Server（端口 {}）...", port);
         DashboardServer.start(port)
@@ -76,7 +79,8 @@ public final class DesktopApplication {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("JVM 关闭中，正在优雅停止后端服务...");
             try {
-                // 先杀掉本应用登记的后台进程，避免退出后遗留孤儿进程占端口
+                // 先落盘仍在运行的后台进程记录，再杀掉进程（JVM 退出后读线程不会再补写）
+                BashProcessManager.getInstance().persistOnShutdown();
                 BashProcessManager.getInstance().cancelAll();
                 DashboardServer.stop();
                 GracefulShutdown.shutdownAll();

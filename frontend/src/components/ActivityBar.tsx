@@ -23,6 +23,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { chatApi } from '@/api/client';
 import { useAppStore } from '@/stores/appStore';
 import type { ActivityPanelId, SidebarView } from '@/stores/appStore';
 import { usePreviewStore } from '@/stores/previewStore';
@@ -32,6 +33,7 @@ import { useI18n, translate } from '@/i18n';
 import { TokenMonitor } from './chat-panel/TokenMonitor';
 import { MetricsPanel } from './MetricsPanel';
 import { GitPanel } from './git-panel/GitPanel';
+import { BackgroundProcessPanel } from './BackgroundProcessPanel';
 import { FeedbackFormModal } from './settings/FeedbackFormModal';
 import './ActivityBar.css';
 
@@ -133,6 +135,22 @@ const BUTTONS: ActivityButton[] = [
     ),
     action: 'openTerminal',
   },
+  {
+    id: 'abProcess',
+    titleKey: 'activity.process',
+    // 列表 + 状态点图标,与「打开终端」的终端图标区分,避免误点
+    icon: (
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="3" cy="4" r="1.2" fill="currentColor" stroke="none" />
+        <line x1="6" y1="4" x2="13" y2="4" />
+        <circle cx="3" cy="8" r="1.2" fill="currentColor" stroke="none" />
+        <line x1="6" y1="8" x2="13" y2="8" />
+        <circle cx="3" cy="12" r="1.2" fill="currentColor" stroke="none" />
+        <line x1="6" y1="12" x2="13" y2="12" />
+      </svg>
+    ),
+    panel: 'process',
+  },
 ];
 
 /** 视图切换按钮:控制左侧侧栏显示会话列表还是文件树(非浮动面板,仅点击生效) */
@@ -173,6 +191,8 @@ function panelTitleKey(id: ActivityPanelId): string {
       return 'activity.monitor';
     case 'git':
       return 'activity.git';
+    case 'process':
+      return 'activity.process';
   }
 }
 
@@ -203,6 +223,8 @@ export function ActivityBar() {
   const ignoreNextOutsideClickRef = useRef(false);
   /** 建议反馈弹窗开关 */
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  /** 后台进程运行中数量(活动栏角标,面板关闭时也能看到) */
+  const [runningProcessCount, setRunningProcessCount] = useState(0);
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current != null) {
@@ -343,6 +365,27 @@ export function ActivityBar() {
     };
   }, []);
 
+  // 轻量轮询:仅用于活动栏「后台进程」按钮的运行中数量角标(面板内另有自己的刷新)
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      if (document.hidden) return;
+      void chatApi
+        .listBackgroundProcesses()
+        .then((res) => {
+          if (cancelled) return;
+          setRunningProcessCount(res.processes.filter((p) => p.running).length);
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = window.setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   // 点击外部关闭面板:仅作用于"预览态"(未固定)。源码管理面板固定展开(点击打开)时点空白
   // 不关闭(需点头部 ✕ 或再次点按钮收起),因其需专注操作;其余轻量面板仍点空白关闭。
   useEffect(() => {
@@ -428,6 +471,9 @@ export function ActivityBar() {
               onMouseEnter={() => handleBtnHover(btn)}
             >
               {btn.icon}
+              {btn.panel === 'process' && runningProcessCount > 0 && (
+                <span className="activity-bar-badge">{runningProcessCount}</span>
+              )}
             </button>
           );
         })}
@@ -503,5 +549,7 @@ function renderPanel(id: ActivityPanelId) {
       return <MetricsPanel />;
     case 'git':
       return <GitPanel />;
+    case 'process':
+      return <BackgroundProcessPanel />;
   }
 }

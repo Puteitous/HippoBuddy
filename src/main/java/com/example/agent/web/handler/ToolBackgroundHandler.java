@@ -4,6 +4,7 @@ import com.example.agent.tools.BashProcessManager;
 import com.example.agent.web.util.SseWriter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * 把正在前台执行的 bash 进程转入后台托管。
@@ -28,9 +30,12 @@ public class ToolBackgroundHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         String method = exchange.getRequestMethod();
+        String path = exchange.getRequestURI().getPath();
         if ("GET".equals(method)) {
-            if (exchange.getRequestURI().getPath().endsWith("/log")) {
+            if (path.endsWith("/log")) {
                 handleLog(exchange);
+            } else if (path.endsWith("/list")) {
+                handleList(exchange);
             } else {
                 handleStatus(exchange);
             }
@@ -38,6 +43,14 @@ public class ToolBackgroundHandler implements HttpHandler {
         }
         if (!"POST".equals(method)) {
             sendJson(exchange, 405, "{\"error\":\"Method not allowed\"}");
+            return;
+        }
+        if (path.endsWith("/stop-all")) {
+            handleStopAll(exchange);
+            return;
+        }
+        if (path.endsWith("/stop")) {
+            handleStop(exchange);
             return;
         }
 
@@ -65,6 +78,65 @@ public class ToolBackgroundHandler implements HttpHandler {
             logger.error("处理转后台请求失败", e);
             sendJson(exchange, 500, "{\"error\":\"" + SseWriter.escapeJson(e.getMessage()) + "\"}");
         }
+    }
+
+    /**
+     * GET /api/tool/background/list
+     * <p>
+     * 返回全部后台进程（运行中 + 最近已结束），供「后台进程总览」面板展示。
+     */
+    private void handleList(HttpExchange exchange) throws IOException {
+        List<BashProcessManager.BackgroundRecord> records =
+            BashProcessManager.getInstance().listBackgrounds();
+        ObjectNode root = objectMapper.createObjectNode();
+        ArrayNode arr = root.putArray("processes");
+        for (BashProcessManager.BackgroundRecord r : records) {
+            ObjectNode node = arr.addObject();
+            node.put("toolCallId", r.getToolCallId());
+            node.put("command", r.getCommand());
+            node.put("pid", r.pid());
+            node.put("workingDir", r.getWorkingDir());
+            node.put("sessionId", r.getSessionId());
+            node.put("running", r.isAlive());
+            node.put("startedAt", r.getStartTime());
+            node.put("endedAt", r.getEndedAt());
+            node.put("stopped", r.isStoppedByUser());
+        }
+        sendJson(exchange, 200, root.toString());
+    }
+
+    /**
+     * POST /api/tool/background/stop
+     * <p>
+     * 请求体：{@code {"toolCallId":"..."}}。终止指定后台进程的整棵进程树（不等待优雅退出）。
+     */
+    private void handleStop(HttpExchange exchange) throws IOException {
+        try {
+            String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            JsonNode json = objectMapper.readTree(requestBody);
+            String toolCallId = json.has("toolCallId") ? json.get("toolCallId").asText() : null;
+            if (toolCallId == null || toolCallId.isEmpty()) {
+                sendJson(exchange, 400, "{\"error\":\"缺少参数: toolCallId\"}");
+                return;
+            }
+            boolean stopped = BashProcessManager.getInstance().cancel(toolCallId, 0);
+            logger.info("后台进程停止请求: toolCallId={}, stopped={}", toolCallId, stopped);
+            sendJson(exchange, 200, "{\"success\":" + stopped + ",\"stopped\":" + (stopped ? 1 : 0) + "}");
+        } catch (Exception e) {
+            logger.error("停止后台进程失败", e);
+            sendJson(exchange, 500, "{\"error\":\"" + SseWriter.escapeJson(e.getMessage()) + "\"}");
+        }
+    }
+
+    /**
+     * POST /api/tool/background/stop-all
+     * <p>
+     * 停止全部运行中的后台进程（不影响前台正在执行的 bash）。
+     */
+    private void handleStopAll(HttpExchange exchange) throws IOException {
+        int count = BashProcessManager.getInstance().cancelAllBackgrounds();
+        logger.info("已请求停止全部后台进程: count={}", count);
+        sendJson(exchange, 200, "{\"success\":true,\"stopped\":" + count + "}");
     }
 
     /**
