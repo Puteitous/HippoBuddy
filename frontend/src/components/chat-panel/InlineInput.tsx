@@ -507,8 +507,11 @@ const InlineInput = forwardRef<InlineInputHandle, InlineInputProps>((props, ref)
   // 点击：关闭按钮移除芯片;芯片本体打开预览/跳转文件
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.dataset.action === 'remove-chip') {
-      const chip = target.closest('.inline-chip') as HTMLElement | null;
+    // 关闭按钮内是 SVG,点击时 target 是 <svg>/<line> 等子元素,
+    // 必须向上找带 data-action 的按钮,否则删除无响应
+    const removeBtn = target.closest?.('[data-action="remove-chip"]') as HTMLElement | null;
+    if (removeBtn) {
+      const chip = removeBtn.closest('.inline-chip') as HTMLElement | null;
       if (chip) {
         chip.remove();
         updatePlaceholder();
