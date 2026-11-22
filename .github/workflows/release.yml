@@ -295,13 +295,60 @@ jobs:
           pkill -f "hippo-agent.jar" 2>/dev/null || true
           echo "SMOKE TEST COMPLETE"
 
-      - name: Upload macOS DMG to Release
-        uses: softprops/action-gh-release@v2
+      # 不直接上传到 Release：x64 / arm64 两个 job 会各自产出同名 latest-mac.yml，
+      # 直接上传会互相覆盖，导致只有一个架构的客户端能自动更新。
+      # 这里先作为 artifact 暂存，由 merge-mac-feed 合并后再统一上传。
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: mac-${{ matrix.name }}
+          path: |
             electron/release/HippoBuddy*.dmg
             electron/release/latest-mac.yml
             electron/release/*.blockmap
+          if-no-files-found: error
+
+  # ============================================================
+  # 第三阶段补充：合并 macOS 双架构的更新 feed
+  # ============================================================
+  merge-mac-feed:
+    needs: build-mac
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mac-*
+          path: mac-artifacts
+
+      - name: Merge latest-mac.yml feeds
+        run: |
+          mkdir -p merged
+          python3 .github/scripts/merge_update_feeds.py \
+            mac-artifacts/mac-x64/latest-mac.yml \
+            mac-artifacts/mac-arm64/latest-mac.yml > merged/latest-mac.yml
+          echo "=== merged latest-mac.yml ==="
+          cat merged/latest-mac.yml
+
+          # 自检：合并后必须同时含 arm64 与非 arm64 产物，否则说明合并丢了架构
+          if ! grep -q 'url: .*arm64' merged/latest-mac.yml; then
+            echo "ERROR: 合并后的 feed 缺少 arm64 产物"
+            exit 1
+          fi
+          if [ "$(grep 'url: ' merged/latest-mac.yml | grep -vc arm64)" -lt 1 ]; then
+            echo "ERROR: 合并后的 feed 缺少 x64 产物"
+            exit 1
+          fi
+
+      - name: Upload macOS artifacts to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mac-artifacts/mac-*/HippoBuddy*.dmg
+            mac-artifacts/mac-*/*.blockmap
+            merged/latest-mac.yml
           draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
