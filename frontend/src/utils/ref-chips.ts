@@ -89,6 +89,16 @@ export function messageToDraft(content: string): { text: string; chips: RefChip[
         text: seg.path.split(/[/\\]/).pop() || seg.path,
         filePath: seg.path,
       });
+    } else if (seg.kind === 'file-ref') {
+      // 普通文件/文件夹引用:回填为文件引用芯片(保留行号定位)
+      chips.push({
+        id: `file-ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        kind: 'file',
+        text: seg.path.split(/[/\\]/).pop() || seg.path,
+        filePath: seg.path,
+        startLine: seg.startLine,
+        endLine: seg.endLine,
+      });
     } else {
       textParts.push(seg.text);
     }

@@ -32,11 +32,35 @@ const FENCE = '```';
  */
 const PASTE_FILE_LINE = /^@(.+[\\/]tmp[\\/]paste[\\/].+\.txt)$/i;
 
+/**
+ * 普通文件/文件夹引用行:`@src/App.tsx` 或 `@src/App.tsx:12-20`。
+ * 仅识别「整行只有 @路径」的形态(combineChipsToMessage 对 file chip 的产出);
+ * 路径需含分隔符或扩展名,避免把 `@某人` 这类纯文本误判为文件引用
+ * (代价:工作区根下无扩展名的单层目录,如 `@src`,仍按文本展示)。
+ */
+const FILE_REF_LINE = /^@([^\s]+?)(?::(\d+)-(\d+))?$/;
+
+/** 解析文件引用行,不像路径时返回 null */
+function parseFileRefLine(
+  line: string,
+): { path: string; startLine?: number; endLine?: number } | null {
+  const m = FILE_REF_LINE.exec(line.trim());
+  if (!m) return null;
+  const path = m[1];
+  if (!/[/\\]/.test(path) && !/\.[A-Za-z0-9]+$/.test(path)) return null;
+  return {
+    path,
+    startLine: m[2] ? Number(m[2]) : undefined,
+    endLine: m[3] ? Number(m[3]) : undefined,
+  };
+}
+
 /** 用户消息正文的一个段落 */
 export type UserContentSegment =
   | { kind: 'text'; text: string }
   | { kind: 'attachment'; content: string }
-  | { kind: 'paste-file'; path: string };
+  | { kind: 'paste-file'; path: string }
+  | { kind: 'file-ref'; path: string; startLine?: number; endLine?: number };
 
 /** 是否为「裸 ``` 围栏」行(允许缩进;带语言标识的 ```js 不算) */
 function isBareFence(line: string): boolean {
@@ -92,6 +116,14 @@ export function parseUserContent(raw: string): UserContentSegment[] {
       continue;
     }
 
+    // 普通文件/文件夹引用行 → 独立卡片(不参与围栏配对)
+    const fileRef = attachBuffer === null ? parseFileRefLine(line) : null;
+    if (fileRef) {
+      flushText();
+      segments.push({ kind: 'file-ref', ...fileRef });
+      continue;
+    }
+
     if (isBareFence(line)) {
       if (attachBuffer === null) {
         // 仅当其后仍有裸围栏(即能配对)时才视为附件开始
@@ -126,6 +158,10 @@ export function userContentSegmentsToPlainText(segments: UserContentSegment[]): 
     .map((seg) => {
       if (seg.kind === 'attachment') return seg.content;
       if (seg.kind === 'paste-file') return `@${seg.path}`;
+      if (seg.kind === 'file-ref') {
+        const hasLines = seg.startLine != null && seg.endLine != null;
+        return `@${seg.path}${hasLines ? `:${seg.startLine}-${seg.endLine}` : ''}`;
+      }
       return seg.text;
     })
     .join('\n\n');

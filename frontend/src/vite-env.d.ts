@@ -39,7 +39,8 @@ interface Window {
     clipboardReadFiles?: () => Promise<{ paths: string[]; isCut: boolean } | null>;
     deleteFile?: (path: string) => Promise<boolean>;
     showItemInFolder?: (path: string) => Promise<void>;
-    isDirectory?: (path: string) => Promise<boolean>;
+    /** 检查路径是否为目录;主进程返回 { exists, isDirectory } 对象 */
+    isDirectory?: (path: string) => Promise<boolean | { exists?: boolean; isDirectory?: boolean }>;
     /** 从拖入的 File 对象获取真实磁盘路径(取不到返回 null) */
     getPathForFile?: (file: File) => string | null;
     /** 监听工作区目录文件变更(切换时会先 unwatch 旧的) */

@@ -18,6 +18,7 @@ import { renderMarkdown } from '@/utils/markdown';
 import { emit } from '@/utils/eventBus';
 import { usePreviewStore } from '@/stores/previewStore';
 import { parseUserContent, userContentToCopyText } from '@/utils/user-content';
+import { desktopBridge } from '@/utils/desktop-bridge';
 import { formatCharCount } from '@/utils/paste-attachment';
 import { useI18n, translate } from '@/i18n';
 import { FileTypeIcon } from '../FileTypeIcon';
@@ -417,6 +418,60 @@ function UserAttachmentCard({ content }: { content: string }) {
 }
 
 /**
+ * 文件/文件夹引用卡片:消息里以 `@路径` 形式保存(来自输入框文件芯片)。
+ * 点击文件 → 预览面板打开并定位行号;点击文件夹 → 左侧文件树展开定位。
+ */
+function UserFileRefCard({
+  filePath,
+  startLine,
+  endLine,
+}: {
+  filePath: string;
+  startLine?: number;
+  endLine?: number;
+}) {
+  const fileName = filePath.split(/[/\\]/).pop() || filePath;
+  const hasLines = startLine != null && endLine != null;
+
+  const handleClick = () => {
+    // isDirectory / 文件树定位 / 预览读文件都按绝对路径处理(相对路径先补工作区根)
+    const abs = toWorkspacePath(filePath);
+    void desktopBridge.isDirectory(abs).then((isDir) => {
+      if (isDir) {
+        emit('workspace:reveal-dir', abs);
+        return;
+      }
+      usePreviewStore.getState().openFile(abs, startLine, endLine);
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      className="msg-user-attach"
+      title={hasLines ? `${filePath}:${startLine}-${endLine}` : filePath}
+      onClick={handleClick}
+    >
+      <span className="msg-user-attach-icon" aria-hidden>
+        <FileTypeIcon fileName={fileName} size={12} />
+      </span>
+      <span className="msg-user-attach-label">{fileName}</span>
+      {hasLines && (
+        <span className="msg-user-attach-lines">{`${startLine}-${endLine}`}</span>
+      )}
+    </button>
+  );
+}
+
+/** 相对路径补上工作区根;已是绝对路径时原样返回(统一为正斜杠) */
+function toWorkspacePath(filePath: string): string {
+  const norm = filePath.replace(/\\/g, '/');
+  if (/^[a-zA-Z]:\//.test(norm) || norm.startsWith('/')) return norm;
+  const root = desktopBridge.getCurrentPath().replace(/\\/g, '/').replace(/\/$/, '');
+  return root ? `${root}/${norm}` : norm;
+}
+
+/**
  * 临时粘贴文件卡片:消息里只保存 `@绝对路径`,点击在预览面板直接打开真实文件。
  * 文件由发送时落盘生成(见 ChatPanel.resolvePasteChipsToFiles)。
  */
@@ -496,6 +551,16 @@ function UserContent({ content }: { content: string | ContentPart[] }) {
             }
             if (seg.kind === 'paste-file') {
               return <UserPasteFileCard key={i} filePath={seg.path} />;
+            }
+            if (seg.kind === 'file-ref') {
+              return (
+                <UserFileRefCard
+                  key={i}
+                  filePath={seg.path}
+                  startLine={seg.startLine}
+                  endLine={seg.endLine}
+                />
+              );
             }
             return (
               <div key={i} className="msg-user-text">

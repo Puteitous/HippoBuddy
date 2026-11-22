@@ -8,9 +8,10 @@
  *  4. 复制按钮取到的是去掉围栏的内容
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MessageBubble } from '@/components/chat-panel/MessageBubble';
 import { usePreviewStore } from '@/stores/previewStore';
+import { useAppStore } from '@/stores/appStore';
 import type { Message } from '@/types';
 
 const { emitMock } = vi.hoisted(() => ({ emitMock: vi.fn() }));
@@ -37,6 +38,7 @@ function pastedMessage(body: string, typed = ''): Message['content'] {
 beforeEach(() => {
   vi.clearAllMocks();
   usePreviewStore.getState().closeAll();
+  useAppStore.setState({ workspacePath: '' });
 });
 
 describe('用户消息 - 附件卡片', () => {
@@ -127,6 +129,45 @@ describe('用户消息 - 附件卡片', () => {
 
     expect(document.querySelector('.msg-user-attach')).toBeNull();
     expect(screen.getByText('普通消息')).toBeInTheDocument();
+  });
+
+  it('文件引用渲染为卡片,点击打开预览并定位行号', async () => {
+    // 主进程 fs:isDirectory 返回 { exists, isDirectory } 对象而非裸 boolean
+    const isDirectory = vi.fn().mockResolvedValue({ exists: true, isDirectory: false });
+    window.electronAPI = { isDirectory };
+    try {
+      render(<MessageBubble message={userMsg('@src/App.tsx:3-9\n\n解释下')} />);
+
+      const card = screen.getByTitle('src/App.tsx:3-9');
+      expect(card.textContent).toContain('App.tsx');
+      expect(card.textContent).toContain('3-9');
+
+      fireEvent.click(card);
+
+      await waitFor(() => expect(usePreviewStore.getState().activePath).toBe('src/App.tsx'));
+      const tab = usePreviewStore.getState().tabs[0];
+      expect(tab.startLine).toBe(3);
+      expect(tab.endLine).toBe(9);
+    } finally {
+      delete window.electronAPI;
+    }
+  });
+
+  it('文件夹引用点击后在文件树定位,不打开预览', async () => {
+    const isDirectory = vi.fn().mockResolvedValue({ exists: true, isDirectory: true });
+    window.electronAPI = { isDirectory };
+    try {
+      render(<MessageBubble message={userMsg('@src/components\n\n看看这个目录')} />);
+
+      fireEvent.click(screen.getByTitle('src/components'));
+
+      await waitFor(() =>
+        expect(emitMock).toHaveBeenCalledWith('workspace:reveal-dir', 'src/components'),
+      );
+      expect(usePreviewStore.getState().tabs).toHaveLength(0);
+    } finally {
+      delete window.electronAPI;
+    }
   });
 
   it('用户手写的带语言围栏代码块不被当作附件卡片', () => {

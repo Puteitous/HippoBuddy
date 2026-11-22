@@ -99,6 +99,18 @@
   margin-top: 6px;
 }
 
+/* 多个引用卡片(文件/文件夹/附件)连续排列时保持纵向间距 */
+.msg-user-attach + .msg-user-attach {
+  margin-top: 4px;
+}
+
+/* 文件引用卡片的行号徽标(弱化显示,不参与截断) */
+.msg-user-attach-lines {
+  flex-shrink: 0;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
 .msg-user-attach-icon {
   display: inline-flex;
   align-items: center;

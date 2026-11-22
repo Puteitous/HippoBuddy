@@ -105,6 +105,17 @@ describe('messageToDraft', () => {
     expect(combineChipsToMessage(draft.chips, draft.text)).toBe(`@${path}\n\n分析`);
   });
 
+  it('普通文件引用回填为文件芯片并保留行号', () => {
+    const draft = messageToDraft('@src/App.tsx:3-9\n\n解释下');
+    expect(draft.chips[0]).toMatchObject({
+      kind: 'file',
+      filePath: 'src/App.tsx',
+      startLine: 3,
+      endLine: 9,
+    });
+    expect(combineChipsToMessage(draft.chips, draft.text)).toBe('@src/App.tsx:3-9\n\n解释下');
+  });
+
   it('往返无损:草稿 → 消息 → 草稿 → 消息 得到同一字符串', () => {
     const original = combineChipsToMessage(
       [chip({ kind: 'paste', text: '粘贴文本 · 2,000 字', selectedText: 'log-1\nlog-2' })],

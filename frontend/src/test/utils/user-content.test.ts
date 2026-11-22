@@ -92,8 +92,33 @@ describe('parseUserContent', () => {
     ]);
   });
 
-  it('普通 @ 路径(非 tmp/paste)不被识别为附件', () => {
-    expect(parseUserContent('@src/App.tsx')).toEqual([{ kind: 'text', text: '@src/App.tsx' }]);
+  it('普通 @ 文件路径解析为 file-ref 段落', () => {
+    expect(parseUserContent('@src/App.tsx')).toEqual([
+      { kind: 'file-ref', path: 'src/App.tsx' },
+    ]);
+  });
+
+  it('带行号的文件引用保留行号', () => {
+    expect(parseUserContent('@src/App.tsx:12-20')).toEqual([
+      { kind: 'file-ref', path: 'src/App.tsx', startLine: 12, endLine: 20 },
+    ]);
+  });
+
+  it('文件夹路径同样解析为 file-ref', () => {
+    expect(parseUserContent('@src/components')).toEqual([
+      { kind: 'file-ref', path: 'src/components' },
+    ]);
+  });
+
+  it('@提及(不含分隔符/扩展名)不识别为文件引用', () => {
+    expect(parseUserContent('@张三')).toEqual([{ kind: 'text', text: '@张三' }]);
+  });
+
+  it('文件引用与正文混排时保持顺序', () => {
+    expect(parseUserContent('@src/App.tsx\n\n看下这个文件')).toEqual([
+      { kind: 'file-ref', path: 'src/App.tsx' },
+      { kind: 'text', text: '看下这个文件' },
+    ]);
   });
 });
 
@@ -112,6 +137,11 @@ describe('userContentSegmentsToPlainText', () => {
     const path = 'D:\\data\\.hippo\\tmp\\paste\\2026-11-21\\paste-12-abcd1234.txt';
     const segs = parseUserContent(`@${path}\n\n分析`);
     expect(userContentSegmentsToPlainText(segs)).toBe(`@${path}\n\n分析`);
+  });
+
+  it('文件引用还原为 @路径(含行号)', () => {
+    const segs = parseUserContent('@src/App.tsx:3-9\n\n解释下');
+    expect(userContentSegmentsToPlainText(segs)).toBe('@src/App.tsx:3-9\n\n解释下');
   });
 });
 

@@ -121,7 +121,13 @@ export const desktopBridge = {
   async isDirectory(path: string): Promise<boolean> {
     try {
       if (window.electronAPI?.isDirectory) {
-        return await window.electronAPI.isDirectory(path);
+        const result = await window.electronAPI.isDirectory(path);
+        // 主进程返回 { exists, isDirectory } 对象(不是裸 boolean),
+        // 必须取出 isDirectory 字段,否则对象恒为 truthy → 文件被误判为目录
+        if (result && typeof result === 'object') {
+          return result.isDirectory === true;
+        }
+        return result === true;
       }
       return false;
     } catch (e) {
